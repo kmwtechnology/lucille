@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Configuration>
+    <Appenders>
+        <Console name="console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n" />
+        </Console>
+        <RollingFile name="file" fileName="/var/log/pipeline.log" filePattern="/var/log/pipeline-%i.log">
+            <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="20" />
+        </RollingFile>
+    </Appenders>
+    <Loggers>
+        <Root level="INFO">
+            <AppenderRef ref="console" />
+            <AppenderRef ref="file" />
+        </Root>
+    </Loggers>
+</Configuration>
