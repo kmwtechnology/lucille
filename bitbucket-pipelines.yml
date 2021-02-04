@@ -15,7 +15,7 @@ pipelines:
           caches:
             - maven
           script:
-            - mvn verify
+            - mvn clean install
           after-script:
               # Collect checkstyle results, if any, and convert to Bitbucket Code Insights.
             - pipe: atlassian/checkstyle-report:0.2.0
