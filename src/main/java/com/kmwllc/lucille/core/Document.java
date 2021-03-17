@@ -125,4 +125,8 @@ public class Document {
     array.add(value);
   }
 
+  public void logError(String description) {
+    addToField(ERROR_FIELD, description);
+  }
+
 }

@@ -15,6 +15,9 @@ public abstract class Stage {
     this.config = config;
   }
 
+  protected void startStage() throws StageException {
+  }
+
   public abstract List<Document> processDocument(Document doc) throws StageException;
 
 }
