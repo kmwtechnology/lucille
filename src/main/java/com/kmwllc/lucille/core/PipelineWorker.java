@@ -175,7 +175,7 @@ public class PipelineWorker {
     return pollInstant;
   }
 
-  static void spawnWatcher(PipelineWorker worker, int maxProcessingSecs) {
+  private static void spawnWatcher(PipelineWorker worker, int maxProcessingSecs) {
     Executors.newSingleThreadExecutor().submit(new Runnable() {
       public void run() {
         while (true) {

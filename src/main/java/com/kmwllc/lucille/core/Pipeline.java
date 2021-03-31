@@ -38,7 +38,7 @@ public class Pipeline {
       Stage stage = (Stage) constructor.newInstance(c);
       pipeline.addStage(stage);
     }
-    return null;
+    return pipeline;
   }
 
   public List<Document> processDocument(Document document) throws StageException {

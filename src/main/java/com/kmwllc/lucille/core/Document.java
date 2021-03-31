@@ -129,4 +129,9 @@ public class Document {
     addToField(ERROR_FIELD, description);
   }
 
+  @Override
+  public String toString() {
+    return data.toString();
+  }
+
 }
