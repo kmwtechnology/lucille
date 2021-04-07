@@ -19,17 +19,22 @@ public class Pipeline {
 
   private ArrayList<Stage> stages = new ArrayList();
 
+  public List<Stage> getStages() {
+    return stages;
+  }
+
   public void addStage(Stage stage) {
     stages.add(stage);
   }
 
   public void startStages() throws StageException {
     for (Stage stage : stages) {
-      stage.startStage();
+      stage.start();
     }
   }
 
-  public static Pipeline fromConfig(Config config) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+  public static Pipeline fromConfig(Config config) throws ClassNotFoundException, NoSuchMethodException,
+    IllegalAccessException, InvocationTargetException, InstantiationException, StageException {
     List<? extends Config> stages = config.getConfigList("stages");
     Pipeline pipeline = new Pipeline();
     for (Config c : stages) {
@@ -38,6 +43,7 @@ public class Pipeline {
       Stage stage = (Stage) constructor.newInstance(c);
       pipeline.addStage(stage);
     }
+    pipeline.startStages();
     return pipeline;
   }
 
