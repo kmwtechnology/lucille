@@ -7,7 +7,6 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.MissingOptionException;
 import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionGroup;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.UnrecognizedOptionException;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -50,12 +49,6 @@ public class ConsoleFileConsumer implements AutoCloseable {
   }
 
   public static void main(String[] args) throws Exception {
-    OptionGroup group = new OptionGroup()
-        .addOption(Option.builder("e").longOpt("exclude-data")
-        .desc("Does not include file with Kafka message, only file information is provided and printed to the console (default)")
-            .build())
-        .addOption(Option.builder("p").argName("PATH").longOpt("path").numberOfArgs(1)
-            .desc("Path to the directory files should be output").build());
     Options cliOptions = new Options()
         // TODO: should kafka info be provided in a properties file?
         .addOption(Option.builder("t").required().argName("TOPIC").longOpt("topic-name").numberOfArgs(1)
@@ -64,7 +57,8 @@ public class ConsoleFileConsumer implements AutoCloseable {
             .numberOfArgs(1).desc("The location of the Kafka endpoint").build())
         .addOption(Option.builder("b").longOpt("from-beginning")
             .desc("Whether the consumer should read the topic from the beginning").build())
-        .addOptionGroup(group);
+        .addOption(Option.builder("p").argName("PATH").longOpt("path").numberOfArgs(1)
+            .desc("Path to the directory files should be output; if omitted, file contents are not saved").build());
 
     CommandLine cli = null;
     try {
@@ -82,7 +76,7 @@ public class ConsoleFileConsumer implements AutoCloseable {
       System.exit(1);
     }
 
-    try (ConsoleFileConsumer consoleFileConsumer = new ConsoleFileConsumer(cli.hasOption('p') ? null : cli.getOptionValue('p'),
+    try (ConsoleFileConsumer consoleFileConsumer = new ConsoleFileConsumer(cli.hasOption('p') ? cli.getOptionValue('p') : null,
         cli.getOptionValue('t'), cli.getOptionValue('l'), cli.hasOption('b'))) {
       consoleFileConsumer.readFiles();
     }
@@ -112,11 +106,12 @@ public class ConsoleFileConsumer implements AutoCloseable {
           if (path != null && record.value().hasFileContent()) {
             log.debug("Writing file to disk");
             // TODO: what happens with absolute path?
-            Path file = path.relativize(Path.of(record.value().getFilePath()));
+            Path file = Path.of(path.toString(), record.value().getFilePath()).normalize();
             Files.createDirectories(file.getParent());
             Files.write(file, record.value().getFileContent());
           }
         }
+        consumer.commitAsync();
       } else {
         log.info("No records received");
       }
