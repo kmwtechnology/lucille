@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.producer;
 
-import com.kmwllc.lucille.producer.datatype.FileInfo;
-import com.kmwllc.lucille.producer.datatype.FileInfoDeserializer;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.producer.data.kafkaserde.DocumentDeserializer;
+import com.kmwllc.lucille.producer.data.producer.DefaultDocumentProducer;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
@@ -27,21 +28,21 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
 
-public class ConsoleFileConsumer implements AutoCloseable {
-  private static final Logger log = LogManager.getLogger(ConsoleFileConsumer.class);
+public class ConsoleFileCopier implements AutoCloseable {
+  private static final Logger log = LogManager.getLogger(ConsoleFileCopier.class);
   private final Path path;
   private final boolean fromBeginning;
-  private final Consumer<String, FileInfo> consumer;
+  private final Consumer<String, Document> consumer;
   private final Duration pollTimeout = Duration.ofMillis(1000);
 
-  public ConsoleFileConsumer(String path, String topic, String location, boolean fromBegining) {
+  public ConsoleFileCopier(String path, String topic, String location, boolean fromBeginning) {
     this.path = path == null ? null : Path.of(path);
-    this.fromBeginning = fromBegining;
+    this.fromBeginning = fromBeginning;
     Properties props = new Properties();
     props.putIfAbsent(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, location);
     props.putIfAbsent(ConsumerConfig.GROUP_ID_CONFIG, "ConsoleFileConsumer");
     props.putIfAbsent(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-    props.putIfAbsent(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, FileInfoDeserializer.class.getName());
+    props.putIfAbsent(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, DocumentDeserializer.class.getName());
     props.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
     props.putIfAbsent(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 16000);
     consumer = new KafkaConsumer<>(props);
@@ -76,9 +77,9 @@ public class ConsoleFileConsumer implements AutoCloseable {
       System.exit(1);
     }
 
-    try (ConsoleFileConsumer consoleFileConsumer = new ConsoleFileConsumer(cli.hasOption('p') ? cli.getOptionValue('p') : null,
+    try (ConsoleFileCopier consoleFileCopier = new ConsoleFileCopier(cli.hasOption('p') ? cli.getOptionValue('p') : null,
         cli.getOptionValue('t'), cli.getOptionValue('l'), cli.hasOption('b'))) {
-      consoleFileConsumer.readFiles();
+      consoleFileCopier.readFiles();
     }
   }
 
@@ -87,6 +88,7 @@ public class ConsoleFileConsumer implements AutoCloseable {
     consumer.close();
   }
 
+  @SuppressWarnings("InfiniteLoopStatement")
   public void readFiles() throws IOException {
     if (path != null) {
       Files.createDirectories(path);
@@ -98,17 +100,17 @@ public class ConsoleFileConsumer implements AutoCloseable {
     }
 
     while (true) {
-      ConsumerRecords<String, FileInfo> records = consumer.poll(pollTimeout);
+      ConsumerRecords<String, Document> records = consumer.poll(pollTimeout);
       if (!records.isEmpty()) {
         log.info("{} records received", records.count());
-        for (ConsumerRecord<String, FileInfo> record : records) {
+        for (ConsumerRecord<String, Document> record : records) {
           log.info("Info received [{}]", record.value().toString());
-          if (path != null && record.value().hasFileContent()) {
+          if (path != null && record.value().has(DefaultDocumentProducer.CONTENT)) {
             log.debug("Writing file to disk");
             // TODO: what happens with absolute path?
-            Path file = Path.of(path.toString(), record.value().getFilePath()).normalize();
+            Path file = Path.of(path.toString(), record.value().getString(FileTraverser.FILE_PATH)).normalize();
             Files.createDirectories(file.getParent());
-            Files.write(file, record.value().getFileContent());
+            Files.write(file, DefaultDocumentProducer.decodeFileContents(record.value()));
           }
         }
         consumer.commitAsync();
