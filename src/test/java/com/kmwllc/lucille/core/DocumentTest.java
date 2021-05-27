@@ -13,7 +13,7 @@ import static org.junit.Assert.*;
 @RunWith(JUnit4.class)
 public class DocumentTest {
 
-  @Test(expected = DocumentException.class)
+  @Test(expected = NullPointerException.class)
   public void testCreateWithoutId1() throws Exception {
     new Document((String) null);
   }
