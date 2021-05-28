@@ -1,10 +1,6 @@
 package com.kmwllc.lucille.producer.data.producer;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.MappingIterator;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvParser;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
@@ -13,14 +9,9 @@ import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.producer.data.DocumentProducer;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,6 +22,12 @@ public class CSVDocumentProducer implements DocumentProducer {
   // TODO: use row number if nothing is provided, otherwise column number/column name
   // TODO: flag for skipping header row
   private String idFieldName = null;
+  private final boolean childCopyParentMetadata;
+
+
+  public CSVDocumentProducer(boolean childCopyParentMetadata) {
+    this.childCopyParentMetadata = childCopyParentMetadata;
+  }
 
   public CSVDocumentProducer setReadSchemaFromFirstLine(boolean readFromFirstLine) {
     this.firstLineSchema = readFromFirstLine;
@@ -44,7 +41,7 @@ public class CSVDocumentProducer implements DocumentProducer {
   // TODO: user can specify schema
 
   @Override
-  public List<Document> produceDocuments(Path file, final Document doc) throws IOException {
+  public List<Document> produceDocuments(Path file, final Document doc) throws IOException, DocumentException {
     final CsvSchema schema;
     if (firstLineSchema) {
       schema = CsvSchema.emptySchema().withHeader();
@@ -63,6 +60,9 @@ public class CSVDocumentProducer implements DocumentProducer {
     String localId = idFieldName;
 
     List<Document> docs = new ArrayList<>();
+    if (!childCopyParentMetadata) {
+      docs.add(doc);
+    }
     while (it.hasNext()) {
       Map<String, String> line = it.next();
       if (localId == null) {
@@ -73,16 +73,21 @@ public class CSVDocumentProducer implements DocumentProducer {
         localId = optionalKey.get();
       }
 
-      Document copy = doc.clone();
-      docs.add(copy);
+      Document child;
       String idField = line.getOrDefault(localId, "");
+      if (childCopyParentMetadata) {
+        child = doc.clone();
+        child.setField(Document.ID_FIELD, createId(file + ":" + idField));
+      } else {
+        child = new Document(createId(file + ":" + idField));
+      }
+      docs.add(child);
       // TODO: if they have a column with the same value as Document.ID_FIELD, throw an exception
       // TODO: allow user to overwrite id field if they want (but prefix id with user passed ID field)
-      copy.setField(Document.ID_FIELD, createId(file + ":" + idField));
 
       // user-specified header row -> pass header row through unless column names are provided
       // no header row -> user specifies comma delimited list of column names to be used as field names
-      line.forEach(copy::setField);
+      line.forEach(child::setField);
     }
 
     return docs;

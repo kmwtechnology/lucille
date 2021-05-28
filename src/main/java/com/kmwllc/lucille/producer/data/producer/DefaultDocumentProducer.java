@@ -20,6 +20,11 @@ public class DefaultDocumentProducer implements DocumentProducer {
   public static final String CONTENT = "file_content";
   private static final Base64.Decoder DECODER = Base64.getDecoder();
 
+  /**
+   * @param childCopyParentMetadata Not in use yet...
+   */
+  public DefaultDocumentProducer(boolean childCopyParentMetadata) {}
+
   @Override
   public List<Document> produceDocuments(Path file, Document doc) {
     try {
@@ -33,8 +38,16 @@ public class DefaultDocumentProducer implements DocumentProducer {
     return Collections.singletonList(doc);
   }
 
-  public static byte[] decodeFileContents(Document doc) {
-    if (!doc.has(CONTENT)) {
+  /**
+   * Decodes file contents sent by this {@link DocumentProducer} type from the provided {@link Document}.
+   *
+   * @param doc The document to extract binary data from
+   * @return The byte[] binary data contained within the doc
+   * @throws NullPointerException if the document doesn't contain the Content {@link this#CONTENT} field or the
+   *                              field is null
+   */
+  public static byte[] decodeFileContents(Document doc) throws NullPointerException {
+    if (!doc.hasNonNull(CONTENT)) {
       // TODO: what do we actually want to do here?
       throw new NullPointerException("Document does not contain CONTENT field \"" + CONTENT + "\"");
     }

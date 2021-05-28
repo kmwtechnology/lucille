@@ -24,7 +24,9 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
@@ -49,28 +51,40 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
   private final List<Pattern> excludes;
   private final Producer<String, Document> producer;
   private final Integer maxDepth;
-  private final List<String> topics;
+  private final String topic;
   private final DocumentProducer docProducer;
   private final boolean binaryData;
 
-  // TODO: remove multiple topic functionality
-  public FileTraverser(String[] paths, String[] topics, String brokerList, String[] includeRegex, String[] excludeRegex,
-                       boolean binaryData, String dataType) {
+  public FileTraverser(String[] paths, String topic, String brokerList, String[] includeRegex, String[] excludeRegex,
+                       boolean binaryData, String dataType, String childCopyParentMetadata) {
     this.binaryData = binaryData;
+
+    // Turn all provided paths into Path objects, replacing the "~" character with the user.home system property
+    // TODO: might need to convert relative paths to absolute path if it doesn't start with a slash?
     this.paths = Arrays.stream(paths).map(path -> path.replace("~", System.getProperty("user.home")))
         .map(Path::of).collect(Collectors.toList());
+
+    // Require that provided paths exist
     if (!this.paths.stream().allMatch(Files::exists)) {
       throw new IllegalArgumentException("Provided path does not exist");
     }
-    this.topics = Arrays.asList(topics);
+
+    this.topic = topic;
+
+    // Compile include and exclude regex paths or set an empty list if none were provided (allow all files)
     this.includes = includeRegex == null
         ? Collections.emptyList()
         : Arrays.stream(includeRegex).map(Pattern::compile).collect(Collectors.toList());
     this.excludes = excludeRegex == null
         ? Collections.emptyList()
         : Arrays.stream(excludeRegex).map(Pattern::compile).collect(Collectors.toList());
+
     this.maxDepth = null;
-    this.docProducer = DocumentProducer.getProducer(dataType);
+
+    // Instantiate the desired doc producer
+    this.docProducer = DocumentProducer.getProducer(dataType, Boolean.parseBoolean(childCopyParentMetadata));
+
+    // Set up the KafkaProducer
     Properties props = new Properties();
     props.putIfAbsent(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
     props.putIfAbsent(ProducerConfig.CLIENT_ID_CONFIG, "LucilleFileTraverser");
@@ -99,6 +113,8 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
             .desc("Includes file data in Kafka message").build())
         .addOption(Option.builder("d").longOpt("data-type").hasArg(true)
             .desc("The data type that the file should be parsed as (default is 'default')").build())
+        .addOption(Option.builder().longOpt("copy-parent-metadata").hasArg(true)
+            .desc("When child documents are being produced, should the child copy all of parent's metadata").build())
         .addOption(Option.builder("h").longOpt("help").hasArg(false)
             .desc("This help message").build());
 
@@ -119,12 +135,13 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
 
     try (final FileTraverser traverser = new FileTraverser(
         cli.getOptionValues("path"),
-        cli.getOptionValues("topic-name"),
+        cli.getOptionValue("topic-name"),
         cli.getOptionValue("broker-list"),
         cli.getOptionValues("include"),
         cli.getOptionValues("exclude"),
         cli.hasOption("binary-data"),
-        cli.getOptionValue("data-type", "DEFAULT"))) {
+        cli.getOptionValue("data-type", "DEFAULT"),
+        cli.getOptionValue("copy-parent-metadata", "true"))) {
       traverser.walkTree();
     }
   }
@@ -134,6 +151,10 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
     producer.close();
   }
 
+  /**
+   * Walks the file tree using {@link Files#walkFileTree(Path, FileVisitor)}, or
+   * {@link Files#walk(Path, int, FileVisitOption...)} if a max depth is set.
+   */
   public void walkTree() {
     log.info("Waking provided paths: {}", paths);
     for (Path path : paths) {
@@ -155,15 +176,11 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
   @Override
   public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
     String fileName = file.toString();
+
+    // Skip file if any exclude regex patterns match or if no include regex patterns match
     if (excludes.parallelStream().anyMatch(pattern -> pattern.matcher(fileName).matches())
     || (!includes.isEmpty() && includes.parallelStream().noneMatch(pattern -> pattern.matcher(fileName).matches()))) {
       log.debug("Skipping file because of include or exclude regex");
-      return FileVisitResult.CONTINUE;
-    }
-
-    // TODO: do docProducer size check
-    if (attrs.size() > MAX_FILE_SIZE_BYTES && binaryData) {
-      handleFailure(file, new IOException("File binary data larger than max configured size"));
       return FileVisitResult.CONTINUE;
     }
 
@@ -174,23 +191,29 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
     try {
       baseDoc = new Document(id);
     } catch (DocumentException e) {
-      handleFailure(file, e);
+      handleFailure(file, null, e);
       return FileVisitResult.CONTINUE;
     }
 
-    // TODO: ability to turn copying on and off for child documents (metadata flag) no clone in that case
+    // Set up basic file properties on the doc
     baseDoc.setField(FILE_PATH, fileName);
     baseDoc.setField(MODIFIED, attrs.lastModifiedTime().toInstant().toString());
     baseDoc.setField(CREATED, attrs.creationTime().toInstant().toString());
     baseDoc.setField(SIZE, attrs.size());
+
     if (binaryData) {
-      try {
-        sendDocumentsToTopics(docProducer.produceDocuments(file, baseDoc));
-      } catch (DocumentException | IOException e) {
-        handleFailure(file, e);
+      // Make sure the file passes the file size check if we're sending binary data and should do the file size check
+      if (attrs.size() > MAX_FILE_SIZE_BYTES && docProducer.shouldDoFileSizeCheck()) {
+        handleFailure(file, null, new IOException("File binary data larger than max configured size"));
+      } else {
+        try {
+          sendDocumentsToTopic(docProducer.produceDocuments(file, baseDoc));
+        } catch (DocumentException | IOException e) {
+          handleFailure(file, baseDoc, e);
+        }
       }
     } else {
-      sendDocumentToTopics(baseDoc);
+      sendDocumentToTopic(baseDoc);
     }
 
     return FileVisitResult.CONTINUE;
@@ -198,31 +221,38 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
 
   @Override
   public FileVisitResult visitFileFailed(Path file, IOException exc) {
-    handleFailure(file, exc);
+    handleFailure(file, null, exc);
 
     return FileVisitResult.CONTINUE;
   }
 
-  private void handleFailure(Path file, Throwable exception) {
+  /**
+   * Send a tombstone for the given file. Calls {@link DocumentProducer#createTombstone(Path, Document, Throwable)} to
+   * update the given {@link Document} with error info or create a new document if it's null. After the {@code Document}
+   * has been updated, {@link this#sendDocumentsToTopic(List)} sends the document.
+   *
+   * @param file The file the error occurred on
+   * @param doc A null document if no information has been extracted yet, or an existing doc to add error information to
+   * @param exception The exception that occurred
+   */
+  private void handleFailure(Path file, Document doc, Throwable exception) {
     log.error("Error occurred while visiting file {}", file, exception);
 
     try {
-      sendDocumentToTopics(docProducer.createTombstone(file, exception));
+      sendDocumentToTopic(docProducer.createTombstone(file, doc, exception));
     } catch (DocumentException e) {
       log.error("Error occurred while sending document tombstone", e);
     }
   }
 
-  private void sendDocumentToTopics(Document doc) {
-    for (String topic : topics) {
-      ProducerRecord<String, Document> record = new ProducerRecord<>(topic, doc.getId(), doc);
-      producer.send(record);
-    }
+  private void sendDocumentToTopic(Document doc) {
+    ProducerRecord<String, Document> record = new ProducerRecord<>(topic, doc.getId(), doc);
+    producer.send(record);
   }
 
-  private void sendDocumentsToTopics(List<Document> docs) {
+  private void sendDocumentsToTopic(List<Document> docs) {
     for (Document doc : docs) {
-      sendDocumentToTopics(doc);
+      sendDocumentToTopic(doc);
     }
   }
 }
