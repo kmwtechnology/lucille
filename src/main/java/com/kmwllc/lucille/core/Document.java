@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.typesafe.config.ConfigException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,9 +37,9 @@ public class Document implements Cloneable {
     this.data = data;
   }
 
-  public Document(String id) throws DocumentException {
+  public Document(String id) {
     if (id==null) {
-      throw new DocumentException("ID cannot be null");
+      throw new NullPointerException("ID cannot be null");
     }
     this.data = MAPPER.createObjectNode();
     this.data.put(ID_FIELD, id);
