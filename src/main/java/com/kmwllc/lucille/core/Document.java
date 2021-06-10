@@ -14,7 +14,7 @@ import java.util.List;
  * A record from a source system to be passed through a Pipeline, enriched,
  * and sent to a destination system.
  */
-public class Document {
+public class Document implements Cloneable {
 
   public static final String ID_FIELD = "id";
   public static final String ERROR_FIELD = "errors";
@@ -54,6 +54,10 @@ public class Document {
   }
 
   public void setField(String name, String value) {
+    data.put(name, value);
+  }
+
+  public void setField(String name, Long value) {
     data.put(name, value);
   }
 
@@ -135,4 +139,12 @@ public class Document {
     return data.toString();
   }
 
+  @Override
+  public Document clone() {
+    try {
+      return new Document(data.deepCopy());
+    } catch (DocumentException e) {
+      throw new IllegalStateException("Document not cloneable", e);
+    }
+  }
 }
