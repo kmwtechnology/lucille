@@ -60,9 +60,9 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
     this.binaryData = binaryData;
 
     // Turn all provided paths into Path objects, replacing the "~" character with the user.home system property
-    // TODO: might need to convert relative paths to absolute path if it doesn't start with a slash?
-    this.paths = Arrays.stream(paths).map(path -> path.replace("~", System.getProperty("user.home")))
-        .map(Path::of).collect(Collectors.toList());
+    this.paths = Arrays.stream(paths).map(path ->
+      Path.of(path.replace("~", System.getProperty("user.home"))).toAbsolutePath().normalize())
+      .collect(Collectors.toList());
 
     // Require that provided paths exist
     if (!this.paths.stream().allMatch(Files::exists)) {
@@ -188,7 +188,7 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
 
     final String id = docProducer.createId(file.toString());
     final Document baseDoc = new Document(id);
-    
+
     // Set up basic file properties on the doc
     baseDoc.setField(FILE_PATH, fileName);
     baseDoc.setField(MODIFIED, attrs.lastModifiedTime().toInstant().toString());
