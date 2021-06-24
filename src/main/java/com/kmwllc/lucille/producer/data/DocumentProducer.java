@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.producer.FileTraverser;
 import com.kmwllc.lucille.producer.data.producer.CSVDocumentProducer;
 import com.kmwllc.lucille.producer.data.producer.DefaultDocumentProducer;
+import com.kmwllc.lucille.producer.data.producer.FastCSVDocumentProducer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -111,7 +112,7 @@ public interface DocumentProducer {
   static DocumentProducer getProducer(String type, boolean childCopyParentMetadata) {
     switch (type.toUpperCase(Locale.ROOT)) {
       case "CSV":
-        return new CSVDocumentProducer(childCopyParentMetadata);
+        return new FastCSVDocumentProducer(childCopyParentMetadata);
       case "DEFAULT":
         return new DefaultDocumentProducer(childCopyParentMetadata);
       default:
