@@ -234,13 +234,6 @@
       <version>${jackson.version}</version>
     </dependency>
 
-    <!--TODO remove-->
-    <dependency>
-      <groupId>com.fasterxml.jackson.dataformat</groupId>
-      <artifactId>jackson-dataformat-csv</artifactId>
-      <version>${jackson.version}</version>
-    </dependency>
-
     <!-- TODO remove if not using fastcsv -->
     <dependency>
       <groupId>de.siegmar</groupId>
