@@ -23,6 +23,10 @@ Run traverser:
 
     lucille$ java -cp target/lucille-bundled-0.1.jar com.kmwllc.lucille.producer.FileTraverser -b -i ".*\\.txt" -p /tmp/traverser/ -l localhost:9092 -t traverser_test
 
+To test the CSV producer use this variation:
+
+    lucille$ java -cp target/lucille-bundled-0.1.jar com.kmwllc.lucille.producer.FileTraverser -b -p test.csv -l localhost:9092 -t traverser_test --data-type=csv
+
 Look for output from Kafka Console Consumer similar to this:
 
     {"id":"Yvy9Y8zwPPGCD1GxM36/1Q==","file_path":"/tmp/traverser/file2.txt","file_modification_date":"2021-06-10T20:00:01.143502Z","file_creation_date":"2021-06-10T20:00:01Z","file_size_bytes":21,"file_content":"VGVzdCBmaWxlIDIgY29udGVudHMK"}
