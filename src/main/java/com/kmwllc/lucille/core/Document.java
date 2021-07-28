@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -9,6 +10,7 @@ import com.typesafe.config.ConfigException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A record from a source system to be passed through a Pipeline, enriched,
@@ -20,6 +22,7 @@ public class Document implements Cloneable {
   public static final String ERROR_FIELD = "errors";
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
 
   private final ObjectNode data;
 
@@ -133,6 +136,12 @@ public class Document implements Cloneable {
   public void logError(String description) {
     addToField(ERROR_FIELD, description);
   }
+
+  public Map<String,Object> asMap() {
+    Map<String, Object> result = MAPPER.convertValue(data, TYPE);
+    return result;
+  }
+
 
   @Override
   public String toString() {
