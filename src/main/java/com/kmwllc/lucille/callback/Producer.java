@@ -69,15 +69,16 @@ class Producer implements Runnable {
         manager.submitForProcessing(doc);
         receipts.add(new Receipt(docId, runId, null));
 
-
+/*
         // for testing, simulate latency
         try {
           Thread.sleep(100);
         } catch (InterruptedException e) {
           return;
         }
-      }
+ */
 
+      }
     } catch (Exception e) {
       e.printStackTrace();
     }

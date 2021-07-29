@@ -35,6 +35,12 @@ class Indexer implements Runnable {
         Connector.log.info("INDEXER: received nothing");
         continue;
       }
+
+      // TODO
+      if (!doc.has("run_id")) {
+        continue;
+      }
+
       String runId = doc.getString("run_id");
       try {
         manager.sendToSolr(Collections.singletonList(doc));

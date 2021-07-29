@@ -44,7 +44,7 @@ public class Connector {
       }
 
       log.info("MAIN: waiting on " + receipts.size() + " open receipts");
-      Thread.sleep(500);
+      //Thread.sleep(500);
     }
 
     log.info("MAIN: all receipts closed");

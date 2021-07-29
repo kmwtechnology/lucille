@@ -29,14 +29,12 @@ public class WorkerDocumentManager {
   }
 
   public Document retrieveForProcessing() throws Exception {
-    for (int i=0; i<10; i++) {
-      ConsumerRecords<String, String> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
-      if (consumerRecords.count() > 0) {
-        System.out.println("FOUND RECORD");
-        sourceConsumer.commitSync();
-        ConsumerRecord<String, String> record = consumerRecords.iterator().next();
-        return Document.fromJsonString(record.value());
-      }
+    ConsumerRecords<String, String> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    if (consumerRecords.count() > 0) {
+      log.info("WORKER: FOUND RECORD");
+      sourceConsumer.commitSync();
+      ConsumerRecord<String, String> record = consumerRecords.iterator().next();
+      return Document.fromJsonString(record.value());
     }
     return null;
   }

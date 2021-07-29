@@ -40,14 +40,12 @@ public class ConnectorDocumentManager {
   }
 
   public Receipt retrieveReceipt() throws Exception {
-    for (int i=0; i<5; i++) {
-      ConsumerRecords<String, String> consumerRecords = receiptConsumer.poll(KafkaUtils.POLL_INTERVAL);
-      if (consumerRecords.count() > 0) {
-        receiptConsumer.commitSync();
-        System.out.println("FOUND RECORD");
-        ConsumerRecord<String, String> record = consumerRecords.iterator().next();
-        return Receipt.fromJsonString(record.value());
-      }
+    ConsumerRecords<String, String> consumerRecords = receiptConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    if (consumerRecords.count() > 0) {
+      receiptConsumer.commitSync();
+      log.info("CONNECTOR: FOUND RECEIPT");
+      ConsumerRecord<String, String> record = consumerRecords.iterator().next();
+      return Receipt.fromJsonString(record.value());
     }
     return null;
   }

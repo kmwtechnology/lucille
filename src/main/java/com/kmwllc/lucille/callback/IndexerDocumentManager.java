@@ -37,14 +37,12 @@ public class IndexerDocumentManager {
   }
 
   public Document retrieveCompleted() throws Exception {
-    for (int i=0; i<5; i++) {
-      ConsumerRecords<String, String> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
-      if (consumerRecords.count() > 0) {
-        destConsumer.commitSync();
-        System.out.println("INDEXER: FOUND RECORD");
-        ConsumerRecord<String, String> record = consumerRecords.iterator().next();
-        return Document.fromJsonString(record.value());
-      }
+    ConsumerRecords<String, String> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    if (consumerRecords.count() > 0) {
+      destConsumer.commitSync();
+      log.info("INDEXER: FOUND RECORD");
+      ConsumerRecord<String, String> record = consumerRecords.iterator().next();
+      return Document.fromJsonString(record.value());
     }
     return null;
   }
