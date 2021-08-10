@@ -18,11 +18,11 @@ public class WorkerDocumentManager {
   public static final Logger log = LoggerFactory.getLogger(WorkerDocumentManager.class);
   private final Config config = ConfigAccessor.loadConfig();
   private final Consumer<String, String> sourceConsumer;
-  private final KafkaProducer kafkaProducer;
+  private final KafkaProducer<String, String> kafkaProducer;
 
   public WorkerDocumentManager() throws Exception {
-    this.kafkaProducer = KafkaUtils.getProducer();
-    Properties consumerProps = KafkaUtils.getConsumerProps();
+    this.kafkaProducer = KafkaUtils.createProducer();
+    Properties consumerProps = KafkaUtils.createConsumerProps();
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-1");
     this.sourceConsumer = new KafkaConsumer(consumerProps);
     this.sourceConsumer.subscribe(Collections.singletonList(config.getString("kafka.sourceTopic")));
@@ -31,7 +31,7 @@ public class WorkerDocumentManager {
   public Document retrieveForProcessing() throws Exception {
     ConsumerRecords<String, String> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
     if (consumerRecords.count() > 0) {
-      log.info("WORKER: FOUND RECORD");
+      log.info("FOUND RECORD");
       sourceConsumer.commitSync();
       ConsumerRecord<String, String> record = consumerRecords.iterator().next();
       return Document.fromJsonString(record.value());
@@ -42,6 +42,14 @@ public class WorkerDocumentManager {
   public void submitCompleted(Document document) throws Exception {
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(new ProducerRecord(config.getString("kafka.destTopic"), document.getId(), document.toString())).get();
     log.info("SUBMIT COMPLETED: " + result);
+    kafkaProducer.flush();
+  }
+
+  public void submitReceipt(Receipt receipt) throws Exception {
+    String receiptTopicName = KafkaUtils.getReceiptTopicName(receipt.getRunId());
+    RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
+      new ProducerRecord(receiptTopicName, receipt.getDocumentId(), receipt.toString())).get();
+    log.info("SUBMIT RECEIPT: " + result);
     kafkaProducer.flush();
   }
 

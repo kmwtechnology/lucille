@@ -29,8 +29,8 @@ public class ConnectorDocumentManager {
 
   public ConnectorDocumentManager(String runId) {
     this.runId = runId;
-    this.kafkaProducer = KafkaUtils.getProducer();
-    Properties consumerProps = KafkaUtils.getConsumerProps();
+    this.kafkaProducer = KafkaUtils.createProducer();
+    Properties consumerProps = KafkaUtils.createConsumerProps();
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-3");
     this.receiptConsumer = new KafkaConsumer(consumerProps);
     this.receiptConsumer.subscribe(Collections.singletonList(getReceiptTopicName()));
@@ -43,7 +43,7 @@ public class ConnectorDocumentManager {
     ConsumerRecords<String, String> consumerRecords = receiptConsumer.poll(KafkaUtils.POLL_INTERVAL);
     if (consumerRecords.count() > 0) {
       receiptConsumer.commitSync();
-      log.info("CONNECTOR: FOUND RECEIPT");
+      log.info("FOUND RECEIPT");
       ConsumerRecord<String, String> record = consumerRecords.iterator().next();
       return Receipt.fromJsonString(record.value());
     }

@@ -28,12 +28,12 @@ public class IndexerDocumentManager {
 
   public IndexerDocumentManager() {
     this.solrClient = new HttpSolrClient.Builder(SOLR_URL).build();
-    Properties consumerProps = KafkaUtils.getConsumerProps();
+    Properties consumerProps = KafkaUtils.createConsumerProps();
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-2");
     this.destConsumer = new KafkaConsumer(consumerProps);
     this.destConsumer.subscribe(Collections.singletonList(config.getString("kafka.destTopic")));
 
-    this.kafkaProducer = KafkaUtils.getProducer();
+    this.kafkaProducer = KafkaUtils.createProducer();
   }
 
   public Document retrieveCompleted() throws Exception {
@@ -62,16 +62,14 @@ public class IndexerDocumentManager {
   }
 
   public void submitReceipt(Receipt receipt) throws Exception {
-    String receiptTopicName = getReceiptTopicName(receipt.getRunId());
+    String receiptTopicName = KafkaUtils.getReceiptTopicName(receipt.getRunId());
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
       new ProducerRecord(receiptTopicName, receipt.getDocumentId(), receipt.toString())).get();
     log.info("SUBMIT RECEIPT: " + result);
     kafkaProducer.flush();
   }
 
-  public String getReceiptTopicName(String runId) {
-    return config.getString("kafka.receiptTopic") + "_" + runId;
-  }
+
 
   public void close() throws Exception {
     destConsumer.close();

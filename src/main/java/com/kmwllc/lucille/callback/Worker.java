@@ -3,11 +3,15 @@ package com.kmwllc.lucille.callback;
 import com.kmwllc.lucille.core.ConfigAccessor;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Pipeline;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 class Worker implements Runnable {
 
+  private static final Logger log = LoggerFactory.getLogger(Worker.class);
+  
   private final WorkerDocumentManager manager;
 
   private final Pipeline pipeline;
@@ -15,7 +19,7 @@ class Worker implements Runnable {
   private volatile boolean running = true;
 
   public void terminate() {
-    Connector.log.info("WORKER: terminate");
+    log.info("terminate");
     running = false;
   }
 
@@ -29,17 +33,17 @@ class Worker implements Runnable {
     while (running) {
       Document doc;
       try {
-        Connector.log.info("WORKER: polling");
+        log.info("polling");
         doc = manager.retrieveForProcessing();
       } catch (Exception e) {
-        Connector.log.info("WORKER: interrupted " + e);
+        log.info("interrupted " + e);
         terminate();
 
         return;
       }
 
       if (doc == null) {
-        Connector.log.info("WORKER: received 0 docs");
+        log.info("WORKER: received 0 docs");
         continue;
       }
 
@@ -47,8 +51,15 @@ class Worker implements Runnable {
         List<Document> results = pipeline.processDocument(doc);
 
         for (Document result : results) {
-          Connector.log.info("WORKER: processed " + result);
+          log.info("processed " + result);
           manager.submitCompleted(result);
+
+          // create an open receipt for child documents
+          String runId = doc.getString("run_id");
+          if (!doc.getId().equals(result.getId())) {
+            manager.submitReceipt(new Receipt(result.getId(), runId, null, true));
+          }
+
         }
 
       } catch (Exception e) {
@@ -69,7 +80,7 @@ class Worker implements Runnable {
     } catch (Exception e) {
       e.printStackTrace();
     }
-    Connector.log.info("WORKER: exit");
+    log.info("exit");
   }
 
 }

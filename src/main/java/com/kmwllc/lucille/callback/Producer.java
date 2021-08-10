@@ -3,6 +3,8 @@ package com.kmwllc.lucille.callback;
 import com.kmwllc.lucille.core.Document;
 import com.opencsv.CSVReader;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Reader;
 import java.nio.file.Files;
@@ -10,6 +12,8 @@ import java.nio.file.Path;
 import java.util.List;
 
 class Producer implements Runnable {
+
+  private static final Logger log = LoggerFactory.getLogger(Producer.class);
 
   private final List<Receipt> receipts;
 
@@ -65,9 +69,9 @@ class Producer implements Runnable {
             doc.setField("csvLineNumber", lineNum);
           }
         }
-        Connector.log.info("PRODUCER: submitting " + doc);
+        log.info("submitting " + doc);
         manager.submitForProcessing(doc);
-        receipts.add(new Receipt(docId, runId, null));
+        receipts.add(new Receipt(docId, runId, null, true));
 
 /*
         // for testing, simulate latency
@@ -83,7 +87,7 @@ class Producer implements Runnable {
       e.printStackTrace();
     }
 
-    Connector.log.info("PRODUCER: produced " + receipts.size() + " docs; complete");
+    log.info("produced " + receipts.size() + " docs; complete");
     try {
       manager.close();
     } catch (Exception e) {

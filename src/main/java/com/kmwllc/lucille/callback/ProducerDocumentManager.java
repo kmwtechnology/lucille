@@ -18,7 +18,7 @@ public class ProducerDocumentManager {
   private final KafkaProducer<String, String> kafkaProducer;
 
   public ProducerDocumentManager() {
-    this.kafkaProducer = KafkaUtils.getProducer();
+    this.kafkaProducer = KafkaUtils.createProducer();
   }
 
   public void submitForProcessing(Document document) throws Exception {

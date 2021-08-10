@@ -18,7 +18,7 @@ public class KafkaUtils {
   private static final Config config = ConfigAccessor.loadConfig();
 
 
-  public static Properties getConsumerProps() {
+  public static Properties createConsumerProps() {
     Properties consumerProps = new Properties();
     consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.consumerGroupId"));
@@ -31,7 +31,7 @@ public class KafkaUtils {
     return consumerProps;
   }
 
-  public static KafkaProducer<String,String> getProducer() {
+  public static KafkaProducer<String,String> createProducer() {
     Properties producerProps = new Properties();
     producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     producerProps.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getInt("kafka.maxRequestSize"));
@@ -41,4 +41,7 @@ public class KafkaUtils {
     return new KafkaProducer(producerProps);
   }
 
+  public static String getReceiptTopicName(String runId) {
+    return config.getString("kafka.receiptTopic") + "_" + runId;
+  }
 }

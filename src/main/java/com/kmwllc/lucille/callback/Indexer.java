@@ -1,18 +1,22 @@
 package com.kmwllc.lucille.callback;
 
 import com.kmwllc.lucille.core.Document;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 
 class Indexer implements Runnable {
 
+  private static final Logger log = LoggerFactory.getLogger(Indexer.class);
+  
   private final IndexerDocumentManager manager;
 
   private volatile boolean running = true;
 
   public void terminate() {
     running = false;
-    Connector.log.info("INDEXER: terminate");
+    log.info("terminate");
   }
 
   public Indexer() {
@@ -24,15 +28,15 @@ class Indexer implements Runnable {
     while (running) {
       Document doc;
       try {
-        Connector.log.info("INDEXER: polling");
+        log.info("polling");
         doc = manager.retrieveCompleted();
       } catch (Exception e) {
-        Connector.log.info("Indexer interrupted ", e);
+        log.info("Indexer interrupted ", e);
         terminate();
         return;
       }
       if (doc == null) {
-        Connector.log.info("INDEXER: received nothing");
+        log.info("received nothing");
         continue;
       }
 
@@ -44,12 +48,12 @@ class Indexer implements Runnable {
       String runId = doc.getString("run_id");
       try {
         manager.sendToSolr(Collections.singletonList(doc));
-        Receipt receipt = new Receipt(doc.getId(), runId, "SUCCEEDED");
-        Connector.log.info("INDEXER: submitting receipt " + receipt);
+        Receipt receipt = new Receipt(doc.getId(), runId, "SUCCEEDED", false);
+        log.info("submitting receipt " + receipt);
         manager.submitReceipt(receipt);
       } catch (Exception e) {
         try {
-          manager.submitReceipt(new Receipt(doc.getId(), runId, "FAILED" + e.getMessage()));
+          manager.submitReceipt(new Receipt(doc.getId(), runId, "FAILED" + e.getMessage(), false));
         } catch (Exception e2) {
           e2.printStackTrace();
         }
@@ -60,7 +64,7 @@ class Indexer implements Runnable {
     } catch (Exception e) {
       e.printStackTrace();
     }
-    Connector.log.info("INDEXER: exit");
+    log.info("exit");
   }
 
 }
