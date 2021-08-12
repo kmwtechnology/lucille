@@ -15,7 +15,7 @@ class Producer implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(Producer.class);
 
-  private final List<Receipt> receipts;
+  private final List<Confirmation> confirmations;
 
   private final ProducerDocumentManager manager;
 
@@ -23,16 +23,16 @@ class Producer implements Runnable {
 
   private final String fileName;
 
-  public Producer(String runId, String fileName, List<Receipt> receipts) {
+  public Producer(String runId, String fileName, List<Confirmation> confirmations) {
     this.runId = runId;
     this.fileName = fileName;
     this.manager = new ProducerDocumentManager();
-    this.receipts = receipts;
+    this.confirmations = confirmations;
   }
 
 
-  public List<Receipt> getReceipts() {
-    return receipts;
+  public List<Confirmation> getReceipts() {
+    return confirmations;
   }
 
   @Override
@@ -71,7 +71,7 @@ class Producer implements Runnable {
         }
         log.info("submitting " + doc);
         manager.submitForProcessing(doc);
-        receipts.add(new Receipt(docId, runId, null, true));
+        confirmations.add(new Confirmation(docId, runId, null, true));
 
 /*
         // for testing, simulate latency
@@ -87,7 +87,7 @@ class Producer implements Runnable {
       e.printStackTrace();
     }
 
-    log.info("produced " + receipts.size() + " docs; complete");
+    log.info("produced " + confirmations.size() + " docs; complete");
     try {
       manager.close();
     } catch (Exception e) {

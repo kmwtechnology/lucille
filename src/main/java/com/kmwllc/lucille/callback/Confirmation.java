@@ -5,27 +5,33 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.Objects;
 
-public class Receipt {
+public class Confirmation {
 
   private String documentId;
   private String message;
   private String runId;
-  private boolean open;
+
+
+  // TODO: types of confirmations: COMPLETED; ERROR; ADDED
+  // confirmations can be expected or actual
+  private boolean expected;
+
+
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  public Receipt(String documentId, String runId, String message, boolean open) {
+  public Confirmation(String documentId, String runId, String message, boolean expected) {
     this.documentId = documentId;
     this.runId = runId;
     this.message = message;
-    this.open = open;
+    this.expected = expected;
   }
 
-  public Receipt(ObjectNode node) throws Exception {
+  public Confirmation(ObjectNode node) throws Exception {
     this.documentId = node.get("documentId").asText();
     this.message = node.get("message").asText();
     this.runId = node.get("runId").asText();
-    this.open = node.get("isOpen").asBoolean();
+    this.expected = node.get("isExpected").asBoolean();
   }
   public String getDocumentId() {
     return documentId;
@@ -39,12 +45,12 @@ public class Receipt {
     return message;
   }
 
-  public boolean isOpen() {
-    return open;
+  public boolean isExpected() {
+    return expected;
   }
 
   /**
-   * Note: message and isOpen are not included in equality
+   * message and isExpected are not included in equality
    *
    */
   public boolean equals(Object o) {
@@ -52,11 +58,11 @@ public class Receipt {
       return true;
     }
 
-    if (!(o instanceof Receipt)) {
+    if (!(o instanceof Confirmation)) {
       return false;
     }
 
-    Receipt r = (Receipt) o;
+    Confirmation r = (Confirmation) o;
     return r.getDocumentId().equals(getDocumentId()) && r.getRunId().equals(getRunId());
   }
 
@@ -65,17 +71,17 @@ public class Receipt {
   }
 
   public String toString() {
-    return "{\"documentId\": \"" + documentId + "\", \"runId\":\"" + runId + "\", \"message\": \"" + message + "\", \"isOpen\":" + open +"}";
+    return "{\"documentId\": \"" + documentId + "\", \"runId\":\"" + runId + "\", \"message\": \"" + message + "\", \"isExpected\":" + expected +"}";
   }
 
-  public static Receipt fromJsonString(String json) throws Exception {
-    return new Receipt((ObjectNode)MAPPER.readTree(json));
+  public static Confirmation fromJsonString(String json) throws Exception {
+    return new Confirmation((ObjectNode)MAPPER.readTree(json));
   }
 
   public static void main(String[] args) throws Exception {
-    Receipt r = new Receipt("docId1", "runId1", "message1", false);
+    Confirmation r = new Confirmation("docId1", "runId1", "message1", false);
     System.out.println(r);
-    System.out.println(Receipt.fromJsonString(r.toString()));
+    System.out.println(Confirmation.fromJsonString(r.toString()));
   }
 
 }

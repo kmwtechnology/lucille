@@ -17,41 +17,42 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
-public class ConnectorDocumentManager {
+public class RunnerDocumentManager {
 
-  public static final Logger log = LoggerFactory.getLogger(ConnectorDocumentManager.class);
+  public static final Logger log = LoggerFactory.getLogger(RunnerDocumentManager.class);
   private final Config config = ConfigAccessor.loadConfig();
 
   private final KafkaProducer<String, String> kafkaProducer;
-  private final Consumer<String, String> receiptConsumer;
+  private final Consumer<String, String> confirmationConsumer;
   private final String runId;
   private final Admin kafkaAdminClient;
 
-  public ConnectorDocumentManager(String runId) {
+  public RunnerDocumentManager(String runId) {
     this.runId = runId;
     this.kafkaProducer = KafkaUtils.createProducer();
     Properties consumerProps = KafkaUtils.createConsumerProps();
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-3");
-    this.receiptConsumer = new KafkaConsumer(consumerProps);
-    this.receiptConsumer.subscribe(Collections.singletonList(getReceiptTopicName()));
+    // TODO: create confirmation topic explicitly instead of relying on auto-create; delete topic when finished
+    this.confirmationConsumer = new KafkaConsumer(consumerProps);
+    this.confirmationConsumer.subscribe(Collections.singletonList(KafkaUtils.getConfirmationTopicName(runId)));
     Properties props = new Properties();
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     this.kafkaAdminClient = Admin.create(props);
   }
 
-  public Receipt retrieveReceipt() throws Exception {
-    ConsumerRecords<String, String> consumerRecords = receiptConsumer.poll(KafkaUtils.POLL_INTERVAL);
+  public Confirmation retrieveConfirmation() throws Exception {
+    ConsumerRecords<String, String> consumerRecords = confirmationConsumer.poll(KafkaUtils.POLL_INTERVAL);
     if (consumerRecords.count() > 0) {
-      receiptConsumer.commitSync();
+      confirmationConsumer.commitSync();
       log.info("FOUND RECEIPT");
       ConsumerRecord<String, String> record = consumerRecords.iterator().next();
-      return Receipt.fromJsonString(record.value());
+      return Confirmation.fromJsonString(record.value());
     }
     return null;
   }
 
-  public boolean isReceiptTopicEmpty(String runId) throws Exception {
-    return getLag(getReceiptTopicName())==0;
+  public boolean isConfirmationTopicEmpty(String runId) throws Exception {
+    return getLag(KafkaUtils.getConfirmationTopicName(runId))==0;
   }
 
   private int getLag(String topic) throws Exception {
@@ -82,12 +83,9 @@ public class ConnectorDocumentManager {
 
 
   public void close() throws Exception {
-    receiptConsumer.close();
+    confirmationConsumer.close();
     kafkaProducer.close();
   }
 
-  public String getReceiptTopicName() {
-    return config.getString("kafka.receiptTopic") + "_" + runId;
-  }
 
 }

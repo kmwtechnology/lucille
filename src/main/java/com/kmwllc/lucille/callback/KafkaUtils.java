@@ -41,7 +41,7 @@ public class KafkaUtils {
     return new KafkaProducer(producerProps);
   }
 
-  public static String getReceiptTopicName(String runId) {
-    return config.getString("kafka.receiptTopic") + "_" + runId;
+  public static String getConfirmationTopicName(String runId) {
+    return config.getString("kafka.confirmationTopic") + "_" + runId;
   }
 }

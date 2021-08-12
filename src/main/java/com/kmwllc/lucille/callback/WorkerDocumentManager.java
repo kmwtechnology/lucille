@@ -45,10 +45,10 @@ public class WorkerDocumentManager {
     kafkaProducer.flush();
   }
 
-  public void submitReceipt(Receipt receipt) throws Exception {
-    String receiptTopicName = KafkaUtils.getReceiptTopicName(receipt.getRunId());
+  public void submitConfirmation(Confirmation confirmation) throws Exception {
+    String confirmationTopicName = KafkaUtils.getConfirmationTopicName(confirmation.getRunId());
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
-      new ProducerRecord(receiptTopicName, receipt.getDocumentId(), receipt.toString())).get();
+      new ProducerRecord(confirmationTopicName, confirmation.getDocumentId(), confirmation.toString())).get();
     log.info("SUBMIT RECEIPT: " + result);
     kafkaProducer.flush();
   }
