@@ -34,25 +34,25 @@ public class RunnerDocumentManager {
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-3");
     // TODO: create confirmation topic explicitly instead of relying on auto-create; delete topic when finished
     this.confirmationConsumer = new KafkaConsumer(consumerProps);
-    this.confirmationConsumer.subscribe(Collections.singletonList(KafkaUtils.getConfirmationTopicName(runId)));
+    this.confirmationConsumer.subscribe(Collections.singletonList(KafkaUtils.getEventTopicName(runId)));
     Properties props = new Properties();
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     this.kafkaAdminClient = Admin.create(props);
   }
 
-  public Confirmation retrieveConfirmation() throws Exception {
+  public Event retrieveConfirmation() throws Exception {
     ConsumerRecords<String, String> consumerRecords = confirmationConsumer.poll(KafkaUtils.POLL_INTERVAL);
     if (consumerRecords.count() > 0) {
       confirmationConsumer.commitSync();
       log.info("FOUND RECEIPT");
       ConsumerRecord<String, String> record = consumerRecords.iterator().next();
-      return Confirmation.fromJsonString(record.value());
+      return Event.fromJsonString(record.value());
     }
     return null;
   }
 
-  public boolean isConfirmationTopicEmpty(String runId) throws Exception {
-    return getLag(KafkaUtils.getConfirmationTopicName(runId))==0;
+  public boolean isEventTopicEmpty(String runId) throws Exception {
+    return getLag(KafkaUtils.getEventTopicName(runId))==0;
   }
 
   private int getLag(String topic) throws Exception {

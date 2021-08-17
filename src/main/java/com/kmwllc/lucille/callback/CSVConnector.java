@@ -11,32 +11,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-class Producer implements Runnable {
+class CSVConnector implements Connector {
 
-  private static final Logger log = LoggerFactory.getLogger(Producer.class);
-
-  private final List<Confirmation> confirmations;
-
-  private final ProducerDocumentManager manager;
+  private static final Logger log = LoggerFactory.getLogger(CSVConnector.class);
 
   private final String runId;
 
   private final String fileName;
 
-  public Producer(String runId, String fileName, List<Confirmation> confirmations) {
+  public CSVConnector(String runId, String fileName) {
     this.runId = runId;
     this.fileName = fileName;
-    this.manager = new ProducerDocumentManager();
-    this.confirmations = confirmations;
-  }
-
-
-  public List<Confirmation> getReceipts() {
-    return confirmations;
   }
 
   @Override
-  public void run() {
+  public void connect(List<String> documentIds, ConnectorDocumentManager manager) {
 
     try (Reader fileReader = Files.newBufferedReader(Path.of(fileName));
          CSVReader csvReader = new CSVReader(fileReader)) {
@@ -59,6 +48,8 @@ class Producer implements Runnable {
 
         String docId = line[0];
         Document doc = new Document(docId);
+        // TODO: consider moving the setting of run_id to the ConnectorDocumentManager so individual
+        // connector implementations don't have to worry about it
         doc.setField("run_id", runId);
         doc.setField("source", fileName);
 
@@ -71,7 +62,8 @@ class Producer implements Runnable {
         }
         log.info("submitting " + doc);
         manager.submitForProcessing(doc);
-        confirmations.add(new Confirmation(docId, runId, null, true));
+        documentIds.add(docId);
+
 
 /*
         // for testing, simulate latency
@@ -87,7 +79,7 @@ class Producer implements Runnable {
       e.printStackTrace();
     }
 
-    log.info("produced " + confirmations.size() + " docs; complete");
+    log.info("produced " + documentIds.size() + " docs; complete");
     try {
       manager.close();
     } catch (Exception e) {

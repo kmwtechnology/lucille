@@ -5,33 +5,29 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.Objects;
 
-public class Confirmation {
+public class Event {
 
+  public enum Type {CREATE, INDEX}
+
+  private Type type;
   private String documentId;
   private String message;
   private String runId;
 
-
-  // TODO: types of confirmations: COMPLETED; ERROR; ADDED
-  // confirmations can be expected or actual
-  private boolean expected;
-
-
-
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  public Confirmation(String documentId, String runId, String message, boolean expected) {
+  public Event(String documentId, String runId, String message, Type type) {
     this.documentId = documentId;
     this.runId = runId;
     this.message = message;
-    this.expected = expected;
+    this.type = type;
   }
 
-  public Confirmation(ObjectNode node) throws Exception {
+  public Event(ObjectNode node) throws Exception {
     this.documentId = node.get("documentId").asText();
     this.message = node.get("message").asText();
     this.runId = node.get("runId").asText();
-    this.expected = node.get("isExpected").asBoolean();
+    this.type = Type.valueOf(node.get("type").asText());
   }
   public String getDocumentId() {
     return documentId;
@@ -45,12 +41,14 @@ public class Confirmation {
     return message;
   }
 
-  public boolean isExpected() {
-    return expected;
+  public Type getType() { return type; }
+
+  public boolean isCreate() {
+    return Type.CREATE.equals(type);
   }
 
   /**
-   * message and isExpected are not included in equality
+   * message and type are not included in equality
    *
    */
   public boolean equals(Object o) {
@@ -58,11 +56,11 @@ public class Confirmation {
       return true;
     }
 
-    if (!(o instanceof Confirmation)) {
+    if (!(o instanceof Event)) {
       return false;
     }
 
-    Confirmation r = (Confirmation) o;
+    Event r = (Event) o;
     return r.getDocumentId().equals(getDocumentId()) && r.getRunId().equals(getRunId());
   }
 
@@ -71,17 +69,18 @@ public class Confirmation {
   }
 
   public String toString() {
-    return "{\"documentId\": \"" + documentId + "\", \"runId\":\"" + runId + "\", \"message\": \"" + message + "\", \"isExpected\":" + expected +"}";
+    return "{\"documentId\": \"" + documentId + "\", \"runId\":\"" + runId + "\", \"message\": \"" +
+      message + "\", \"type\": \"" + type +"\"}";
   }
 
-  public static Confirmation fromJsonString(String json) throws Exception {
-    return new Confirmation((ObjectNode)MAPPER.readTree(json));
+  public static Event fromJsonString(String json) throws Exception {
+    return new Event((ObjectNode)MAPPER.readTree(json));
   }
 
   public static void main(String[] args) throws Exception {
-    Confirmation r = new Confirmation("docId1", "runId1", "message1", false);
+    Event r = new Event("docId1", "runId1", "message1", Type.CREATE);
     System.out.println(r);
-    System.out.println(Confirmation.fromJsonString(r.toString()));
+    System.out.println(Event.fromJsonString(r.toString()));
   }
 
 }

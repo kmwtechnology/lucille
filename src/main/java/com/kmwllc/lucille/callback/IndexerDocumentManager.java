@@ -61,15 +61,13 @@ public class IndexerDocumentManager {
     solrClient.add(solrDocs);
   }
 
-  public void submitConfirmation(Confirmation confirmation) throws Exception {
-    String confirmationTopicName = KafkaUtils.getConfirmationTopicName(confirmation.getRunId());
+  public void submitConfirmation(Event event) throws Exception {
+    String confirmationTopicName = KafkaUtils.getEventTopicName(event.getRunId());
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
-      new ProducerRecord(confirmationTopicName, confirmation.getDocumentId(), confirmation.toString())).get();
+      new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
     log.info("SUBMIT RECEIPT: " + result);
     kafkaProducer.flush();
   }
-
-
 
   public void close() throws Exception {
     destConsumer.close();

@@ -9,15 +9,15 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ProducerDocumentManager {
+public class ConnectorDocumentManager {
 
-  public static final Logger log = LoggerFactory.getLogger(ProducerDocumentManager.class);
+  public static final Logger log = LoggerFactory.getLogger(ConnectorDocumentManager.class);
 
   private final Config config = ConfigAccessor.loadConfig();
 
   private final KafkaProducer<String, String> kafkaProducer;
 
-  public ProducerDocumentManager() {
+  public ConnectorDocumentManager() {
     this.kafkaProducer = KafkaUtils.createProducer();
   }
 
@@ -31,6 +31,4 @@ public class ProducerDocumentManager {
   public void close() throws Exception {
     kafkaProducer.close();
   }
-
-
 }

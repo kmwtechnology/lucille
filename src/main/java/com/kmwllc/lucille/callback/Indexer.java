@@ -48,12 +48,12 @@ class Indexer implements Runnable {
       String runId = doc.getString("run_id");
       try {
         manager.sendToSolr(Collections.singletonList(doc));
-        Confirmation confirmation = new Confirmation(doc.getId(), runId, "SUCCEEDED", false);
-        log.info("submitting receipt " + confirmation);
-        manager.submitConfirmation(confirmation);
+        Event event = new Event(doc.getId(), runId, "SUCCEEDED", Event.Type.INDEX);
+        log.info("submitting receipt " + event);
+        manager.submitConfirmation(event);
       } catch (Exception e) {
         try {
-          manager.submitConfirmation(new Confirmation(doc.getId(), runId, "FAILED" + e.getMessage(), false));
+          manager.submitConfirmation(new Event(doc.getId(), runId, "FAILED" + e.getMessage(), Event.Type.INDEX));
         } catch (Exception e2) {
           e2.printStackTrace();
         }
