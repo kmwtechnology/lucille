@@ -22,7 +22,10 @@ public interface Connector {
    *
    * @param publisher provides a publish() method accepting a document to be published
    */
-  public void connect(Publisher publisher);
+  public void start(Publisher publisher);
+
+
+  // TODO: getStatus, stop, getConfiguration, getName
 
   /**
    * Instantiates a list of Connectors from the designated Config.

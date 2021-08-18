@@ -26,7 +26,7 @@ class CSVConnector implements Connector {
   }
 
   @Override
-  public void connect(Publisher publisher) {
+  public void start(Publisher publisher) {
 
     try (Reader fileReader = Files.newBufferedReader(Path.of(path));
          CSVReader csvReader = new CSVReader(fileReader)) {

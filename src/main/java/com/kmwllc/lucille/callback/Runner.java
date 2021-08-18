@@ -69,45 +69,32 @@ public class Runner {
 
     log.info("Running connector: " + connector.toString());
 
-    // TODO: consider changing these to ConcurrentHashSets, but also consider how we should handle duplicate doc IDs
-    List<String> expectedIds = Collections.synchronizedList(new ArrayList<String>());
-    List<String> earlyIds = Collections.synchronizedList(new ArrayList<String>());
-    Publisher publisher = new Publisher(runId, expectedIds);
+
+    Publisher publisher = new Publisher(runId);
 
     Thread connectorThread = new Thread(new Runnable() {
       @Override
       public void run() {
-        connector.connect(publisher);
+        connector.start(publisher);
       }
     });
     connectorThread.start();
 
     while (true) {
-      Event event = runnerDocumentManager.retrieveConfirmation();
+      Event event = runnerDocumentManager.retrieveEvent();
 
       if (event !=null) {
         log.info("RETRIEVED EVENT: " + event);
-
-        String docId = event.getDocumentId();
-
-        if (event.isCreate()) {
-          if (!earlyIds.remove(docId)) {
-            expectedIds.add(docId);
-          }
-        } else {
-          if (!expectedIds.remove(docId)) {
-            earlyIds.add(docId);
-          }
-        }
+        publisher.handleEvent(event);
       }
 
-      if (expectedIds.isEmpty() && earlyIds.isEmpty() && runnerDocumentManager.isEventTopicEmpty(runId) &&
+      if (publisher.hasReceivedAllExepectedEvents() && runnerDocumentManager.isEventTopicEmpty(runId) &&
         !connectorThread.isAlive()) {
         break;
       }
 
-      log.info("waiting on " + expectedIds.size() + " expected index events; " +
-        earlyIds.size() + " early confirmations");
+      log.info("waiting on " + publisher.countExpectedIndexEvents() + " expected index events; " +
+        publisher.countExpectedCreateEvents() + " expected create events");
     }
 
     log.info("Work complete");

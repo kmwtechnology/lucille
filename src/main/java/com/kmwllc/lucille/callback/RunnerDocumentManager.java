@@ -40,11 +40,10 @@ public class RunnerDocumentManager {
     this.kafkaAdminClient = Admin.create(props);
   }
 
-  public Event retrieveConfirmation() throws Exception {
+  public Event retrieveEvent() throws Exception {
     ConsumerRecords<String, String> consumerRecords = confirmationConsumer.poll(KafkaUtils.POLL_INTERVAL);
     if (consumerRecords.count() > 0) {
       confirmationConsumer.commitSync();
-      log.info("FOUND RECEIPT");
       ConsumerRecord<String, String> record = consumerRecords.iterator().next();
       return Event.fromJsonString(record.value());
     }
