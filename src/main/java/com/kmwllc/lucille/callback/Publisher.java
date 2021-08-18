@@ -9,23 +9,38 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ConnectorDocumentManager {
+import java.util.List;
 
-  public static final Logger log = LoggerFactory.getLogger(ConnectorDocumentManager.class);
+public class Publisher {
+
+  public static final Logger log = LoggerFactory.getLogger(Publisher.class);
 
   private final Config config = ConfigAccessor.loadConfig();
 
   private final KafkaProducer<String, String> kafkaProducer;
 
-  public ConnectorDocumentManager() {
+  private final String runId;
+
+  private final List<String> documentIds;
+
+
+  public Publisher(String runId, List<String> documentIds) {
+    this.runId = runId;
+    this.documentIds = documentIds;
     this.kafkaProducer = KafkaUtils.createProducer();
   }
 
-  public void submitForProcessing(Document document) throws Exception {
+  public void publish(Document document) throws Exception {
+    document.setField("run_id", runId);
     RecordMetadata result = (RecordMetadata) kafkaProducer.send(
       new ProducerRecord(config.getString("kafka.sourceTopic"), document.getId(), document.toString())).get();
-    log.info("SUBMIT FOR PROCESSING: " + result);
+    log.info("Published: " + result);
     kafkaProducer.flush();
+    documentIds.add(document.getId());
+  }
+
+  public int numPublished() {
+    return documentIds.size();
   }
 
   public void close() throws Exception {

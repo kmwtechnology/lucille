@@ -55,16 +55,16 @@ public class Runner {
   }
 
   public void runConnector(Connector connector) throws Exception {
-    ConnectorDocumentManager connectorDocumentManager = new ConnectorDocumentManager();
 
     // TODO: consider changing these to ConcurrentHashSets, but also consider how we should handle duplicate doc IDs
     List<String> expectedIds = Collections.synchronizedList(new ArrayList<String>());
     List<String> earlyIds = Collections.synchronizedList(new ArrayList<String>());
+    Publisher publisher = new Publisher(runId, expectedIds);
 
     Thread connectorThread = new Thread(new Runnable() {
       @Override
       public void run() {
-        connector.connect(expectedIds, connectorDocumentManager);
+        connector.connect(publisher);
       }
     });
     connectorThread.start();
@@ -73,7 +73,7 @@ public class Runner {
       Event event = runnerDocumentManager.retrieveConfirmation();
 
       if (event !=null) {
-        log.info("RETRIEVED CONFIRMATION: " + event);
+        log.info("RETRIEVED EVENT: " + event);
 
         String docId = event.getDocumentId();
 
