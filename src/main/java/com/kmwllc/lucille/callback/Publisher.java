@@ -23,6 +23,7 @@ public class Publisher {
 
   private final List<String> documentIds;
 
+  private int numPublished = 0;
 
   public Publisher(String runId, List<String> documentIds) {
     this.runId = runId;
@@ -37,10 +38,11 @@ public class Publisher {
     log.info("Published: " + result);
     kafkaProducer.flush();
     documentIds.add(document.getId());
+    numPublished++;
   }
 
   public int numPublished() {
-    return documentIds.size();
+    return numPublished;
   }
 
   public void close() throws Exception {

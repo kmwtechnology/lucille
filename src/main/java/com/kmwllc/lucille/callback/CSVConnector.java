@@ -2,6 +2,7 @@ package com.kmwllc.lucille.callback;
 
 import com.kmwllc.lucille.core.Document;
 import com.opencsv.CSVReader;
+import com.typesafe.config.Config;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,19 +15,20 @@ class CSVConnector implements Connector {
 
   private static final Logger log = LoggerFactory.getLogger(CSVConnector.class);
 
-  private final String runId;
+  private final String path;
 
-  private final String fileName;
+  public CSVConnector(String path) {
+    this.path = path;
+  }
 
-  public CSVConnector(String runId, String fileName) {
-    this.runId = runId;
-    this.fileName = fileName;
+  public CSVConnector(Config config) {
+    this.path = config.getString("path");
   }
 
   @Override
   public void connect(Publisher publisher) {
 
-    try (Reader fileReader = Files.newBufferedReader(Path.of(fileName));
+    try (Reader fileReader = Files.newBufferedReader(Path.of(path));
          CSVReader csvReader = new CSVReader(fileReader)) {
 
       // Assume first line is header
@@ -47,7 +49,7 @@ class CSVConnector implements Connector {
 
         String docId = line[0];
         Document doc = new Document(docId);
-        doc.setField("source", fileName);
+        doc.setField("source", path);
 
         int maxIndex = Math.min(header.length, line.length);
         for (int i = 0; i < maxIndex; i++) {
@@ -79,5 +81,9 @@ class CSVConnector implements Connector {
     } catch (Exception e) {
       e.printStackTrace();
     }
+  }
+
+  public String toString() {
+    return "CSVConnector: " + path;
   }
 }
