@@ -45,7 +45,7 @@ public class WorkerDocumentManager {
     kafkaProducer.flush();
   }
 
-  public void submitConfirmation(Event event) throws Exception {
+  public void submitEvent(Event event) throws Exception {
     String confirmationTopicName = KafkaUtils.getEventTopicName(event.getRunId());
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
       new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();

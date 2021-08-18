@@ -14,18 +14,22 @@ public class Event {
 
   public enum Type {CREATE, INDEX}
 
+  public enum Status {SUCCESS, FAILURE}
+
   private Type type;
+  private Status status;
   private String documentId;
   private String message;
   private String runId;
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  public Event(String documentId, String runId, String message, Type type) {
+  public Event(String documentId, String runId, String message, Type type, Status status) {
     this.documentId = documentId;
     this.runId = runId;
     this.message = message;
     this.type = type;
+    this.status = status;
   }
 
   public Event(ObjectNode node) throws Exception {
@@ -33,6 +37,7 @@ public class Event {
     this.message = node.get("message").asText();
     this.runId = node.get("runId").asText();
     this.type = Type.valueOf(node.get("type").asText());
+    this.status = Status.valueOf(node.get("status").asText());
   }
   public String getDocumentId() {
     return documentId;
@@ -48,14 +53,21 @@ public class Event {
 
   public Type getType() { return type; }
 
+  public Status getStatus() { return status; }
+
   public boolean isCreate() {
     return Type.CREATE.equals(type);
   }
 
-  /**
-   * message and type are not included in equality
-   *
-   */
+  public String toString() {
+    return "{\"documentId\": \"" + documentId + "\", \"runId\":\"" + runId + "\", \"message\": \"" +
+      message + "\", \"type\": \"" + type +"\", \"status\":\"" + status +  "\"}";
+  }
+
+  public static Event fromJsonString(String json) throws Exception {
+    return new Event((ObjectNode)MAPPER.readTree(json));
+  }
+
   public boolean equals(Object o) {
     if (o == this) {
       return true;
@@ -65,27 +77,16 @@ public class Event {
       return false;
     }
 
-    Event r = (Event) o;
-    return r.getDocumentId().equals(getDocumentId()) && r.getRunId().equals(getRunId());
+    Event e = (Event) o;
+    return Objects.equals(documentId, e.documentId) &&
+      Objects.equals(runId, e.runId) &&
+      Objects.equals(message, e.message) &&
+      Objects.equals(type, e.type) &&
+      Objects.equals(status, e.status);
   }
 
   public int hashCode() {
-    return Objects.hash(documentId, runId);
-  }
-
-  public String toString() {
-    return "{\"documentId\": \"" + documentId + "\", \"runId\":\"" + runId + "\", \"message\": \"" +
-      message + "\", \"type\": \"" + type +"\"}";
-  }
-
-  public static Event fromJsonString(String json) throws Exception {
-    return new Event((ObjectNode)MAPPER.readTree(json));
-  }
-
-  public static void main(String[] args) throws Exception {
-    Event r = new Event("docId1", "runId1", "message1", Type.CREATE);
-    System.out.println(r);
-    System.out.println(Event.fromJsonString(r.toString()));
+    return Objects.hash(documentId, runId, message, type, status);
   }
 
 }

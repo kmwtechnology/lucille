@@ -57,7 +57,8 @@ class Worker implements Runnable {
           // create an open receipt for child documents
           String runId = doc.getString("run_id");
           if (!doc.getId().equals(result.getId())) {
-            manager.submitConfirmation(new Event(result.getId(), runId, null, Event.Type.CREATE));
+            manager.submitEvent(new Event(result.getId(),
+              runId, null, Event.Type.CREATE, Event.Status.SUCCESS));
           }
 
         }
