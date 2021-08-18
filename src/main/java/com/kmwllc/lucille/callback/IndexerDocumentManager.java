@@ -23,11 +23,8 @@ public class IndexerDocumentManager {
   private final Consumer<String, String> destConsumer;
   private final KafkaProducer<String, String> kafkaProducer;
 
-  //TODO
-  private static final String SOLR_URL = "http://localhost:8983/solr/callbacktest";
-
   public IndexerDocumentManager() {
-    this.solrClient = new HttpSolrClient.Builder(SOLR_URL).build();
+    this.solrClient = new HttpSolrClient.Builder(config.getString("solr.url")).build();
     Properties consumerProps = KafkaUtils.createConsumerProps();
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-2");
     this.destConsumer = new KafkaConsumer(consumerProps);
@@ -61,11 +58,11 @@ public class IndexerDocumentManager {
     solrClient.add(solrDocs);
   }
 
-  public void submitConfirmation(Event event) throws Exception {
+  public void submitEvent(Event event) throws Exception {
     String confirmationTopicName = KafkaUtils.getEventTopicName(event.getRunId());
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
       new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    log.info("SUBMIT RECEIPT: " + result);
+    log.info("SUBMIT EVENT: " + result);
     kafkaProducer.flush();
   }
 

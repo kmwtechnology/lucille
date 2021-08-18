@@ -5,6 +5,11 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.Objects;
 
+/**
+ * Represents something that happened relating to a particular document in the context of a particular "run."
+ * For example, a document may have been created during pipeline execution, or a document may have been indexed
+ * in a search engine.
+ */
 public class Event {
 
   public enum Type {CREATE, INDEX}

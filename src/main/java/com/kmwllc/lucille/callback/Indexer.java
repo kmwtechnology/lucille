@@ -50,10 +50,10 @@ class Indexer implements Runnable {
         manager.sendToSolr(Collections.singletonList(doc));
         Event event = new Event(doc.getId(), runId, "SUCCEEDED", Event.Type.INDEX);
         log.info("submitting receipt " + event);
-        manager.submitConfirmation(event);
+        manager.submitEvent(event);
       } catch (Exception e) {
         try {
-          manager.submitConfirmation(new Event(doc.getId(), runId, "FAILED" + e.getMessage(), Event.Type.INDEX));
+          manager.submitEvent(new Event(doc.getId(), runId, "FAILED" + e.getMessage(), Event.Type.INDEX));
         } catch (Exception e2) {
           e2.printStackTrace();
         }

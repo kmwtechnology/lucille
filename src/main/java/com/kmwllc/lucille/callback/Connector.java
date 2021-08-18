@@ -1,8 +1,5 @@
 package com.kmwllc.lucille.callback;
 
-import com.kmwllc.lucille.core.Pipeline;
-import com.kmwllc.lucille.core.Stage;
-import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
 import java.lang.reflect.Constructor;
@@ -11,7 +8,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Connects to a data source, reads data, and generates Documents to be submitted for processing.
+ * Connects to a data source, reads data, and generates Documents to be processed.
+ *
+ * Documents should be passed to a designated Publisher to make them available for downstream processing.
+ *
  */
 public interface Connector {
 
@@ -23,7 +23,6 @@ public interface Connector {
    * @param publisher provides a publish() method accepting a document to be published
    */
   public void start(Publisher publisher);
-
 
   // TODO: getStatus, stop, getConfiguration, getName
 

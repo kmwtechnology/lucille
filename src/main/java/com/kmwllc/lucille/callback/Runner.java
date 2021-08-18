@@ -69,7 +69,6 @@ public class Runner {
 
     log.info("Running connector: " + connector.toString());
 
-
     Publisher publisher = new Publisher(runId);
 
     Thread connectorThread = new Thread(new Runnable() {

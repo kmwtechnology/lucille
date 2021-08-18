@@ -11,12 +11,14 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import java.time.Duration;
 import java.util.Properties;
 
+/**
+ * Utilities for interacting with Kafka: creating Kafka clients, determining Kafka topic names, etc.
+ */
 public class KafkaUtils {
 
   public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
 
   private static final Config config = ConfigAccessor.loadConfig();
-
 
   public static Properties createConsumerProps() {
     Properties consumerProps = new Properties();
