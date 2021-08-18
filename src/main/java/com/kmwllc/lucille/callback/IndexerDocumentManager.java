@@ -33,17 +33,25 @@ public class IndexerDocumentManager {
     this.kafkaProducer = KafkaUtils.createProducer();
   }
 
-  public Document retrieveCompleted() throws Exception {
+  /**
+   * Polls for a document that has been processed by the pipeine and is waiting to be indexed.
+   */
+  public Document pollCompleted() throws Exception {
     ConsumerRecords<String, String> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
     if (consumerRecords.count() > 0) {
       destConsumer.commitSync();
-      log.info("INDEXER: FOUND RECORD");
       ConsumerRecord<String, String> record = consumerRecords.iterator().next();
       return Document.fromJsonString(record.value());
     }
     return null;
   }
 
+  /**
+   * TODO: batching
+   * TODO: consider moving this to a separate class
+   * @param documents
+   * @throws Exception
+   */
   public void sendToSolr(List<Document> documents) throws Exception {
     List<SolrInputDocument> solrDocs = new ArrayList();
     for (Document doc : documents) {
@@ -58,11 +66,14 @@ public class IndexerDocumentManager {
     solrClient.add(solrDocs);
   }
 
-  public void submitEvent(Event event) throws Exception {
+  /**
+   * Sends an Event relating to a Document to the appropriate location for Events.
+   *
+   */
+  public void sendEvent(Event event) throws Exception {
     String confirmationTopicName = KafkaUtils.getEventTopicName(event.getRunId());
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
       new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    log.info("SUBMIT EVENT: " + result);
     kafkaProducer.flush();
   }
 

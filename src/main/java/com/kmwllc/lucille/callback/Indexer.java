@@ -29,7 +29,7 @@ class Indexer implements Runnable {
       Document doc;
       try {
         log.info("polling");
-        doc = manager.retrieveCompleted();
+        doc = manager.pollCompleted();
       } catch (Exception e) {
         log.info("Indexer interrupted ", e);
         terminate();
@@ -50,10 +50,10 @@ class Indexer implements Runnable {
         manager.sendToSolr(Collections.singletonList(doc));
         Event event = new Event(doc.getId(), runId, "SUCCEEDED", Event.Type.INDEX, Event.Status.SUCCESS);
         log.info("submitting receipt " + event);
-        manager.submitEvent(event);
+        manager.sendEvent(event);
       } catch (Exception e) {
         try {
-          manager.submitEvent(new Event(doc.getId(), runId,
+          manager.sendEvent(new Event(doc.getId(), runId,
             "FAILED" + e.getMessage(), Event.Type.INDEX, Event.Status.FAILURE));
         } catch (Exception e2) {
           e2.printStackTrace();

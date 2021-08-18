@@ -4,8 +4,6 @@ import com.kmwllc.lucille.core.ConfigAccessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -80,7 +78,7 @@ public class Runner {
     connectorThread.start();
 
     while (true) {
-      Event event = runnerDocumentManager.retrieveEvent();
+      Event event = runnerDocumentManager.pollEvent();
 
       if (event !=null) {
         log.info("RETRIEVED EVENT: " + event);

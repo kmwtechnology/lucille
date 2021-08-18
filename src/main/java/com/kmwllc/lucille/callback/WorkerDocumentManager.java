@@ -20,7 +20,7 @@ public class WorkerDocumentManager {
   private final Consumer<String, String> sourceConsumer;
   private final KafkaProducer<String, String> kafkaProducer;
 
-  public WorkerDocumentManager() throws Exception {
+  public WorkerDocumentManager() {
     this.kafkaProducer = KafkaUtils.createProducer();
     Properties consumerProps = KafkaUtils.createConsumerProps();
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-1");
@@ -28,10 +28,13 @@ public class WorkerDocumentManager {
     this.sourceConsumer.subscribe(Collections.singletonList(config.getString("kafka.sourceTopic")));
   }
 
-  public Document retrieveForProcessing() throws Exception {
+  /**
+   * Polls for a document that is waiting to be processed by the pipeline.
+   *
+   */
+  public Document pollDocToProcess() throws Exception {
     ConsumerRecords<String, String> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
     if (consumerRecords.count() > 0) {
-      log.info("FOUND RECORD");
       sourceConsumer.commitSync();
       ConsumerRecord<String, String> record = consumerRecords.iterator().next();
       return Document.fromJsonString(record.value());
@@ -39,17 +42,24 @@ public class WorkerDocumentManager {
     return null;
   }
 
-  public void submitCompleted(Document document) throws Exception {
-    RecordMetadata result = (RecordMetadata)  kafkaProducer.send(new ProducerRecord(config.getString("kafka.destTopic"), document.getId(), document.toString())).get();
-    log.info("SUBMIT COMPLETED: " + result);
+  /**
+   * Sends a processed document to the appropriate destination for documents waiting to be indexed.
+   *
+   */
+  public void sendCompleted(Document document) throws Exception {
+    RecordMetadata result = (RecordMetadata) kafkaProducer.send(
+      new ProducerRecord(config.getString("kafka.destTopic"), document.getId(), document.toString())).get();
     kafkaProducer.flush();
   }
 
-  public void submitEvent(Event event) throws Exception {
+  /**
+   * Sends an Event relating to a Document to the appropriate location for Events.
+   *
+   */
+  public void sendEvent(Event event) throws Exception {
     String confirmationTopicName = KafkaUtils.getEventTopicName(event.getRunId());
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
       new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    log.info("SUBMIT RECEIPT: " + result);
     kafkaProducer.flush();
   }
 

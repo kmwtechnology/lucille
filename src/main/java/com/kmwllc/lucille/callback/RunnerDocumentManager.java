@@ -40,7 +40,10 @@ public class RunnerDocumentManager {
     this.kafkaAdminClient = Admin.create(props);
   }
 
-  public Event retrieveEvent() throws Exception {
+  /**
+   * Polls for an Event that is waiting to be consumed.
+   */
+  public Event pollEvent() throws Exception {
     ConsumerRecords<String, String> consumerRecords = confirmationConsumer.poll(KafkaUtils.POLL_INTERVAL);
     if (consumerRecords.count() > 0) {
       confirmationConsumer.commitSync();
@@ -50,6 +53,9 @@ public class RunnerDocumentManager {
     return null;
   }
 
+  /**
+   * Returns true if there are no events waiting to be consumed.
+   */
   public boolean isEventTopicEmpty(String runId) throws Exception {
     return getLag(KafkaUtils.getEventTopicName(runId))==0;
   }

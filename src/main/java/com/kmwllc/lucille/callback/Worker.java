@@ -8,6 +8,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
+/**
+ * TODO: reconcile with com.kmwllc.lucille.core.PipelineWorker
+ */
 class Worker implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
@@ -34,7 +37,7 @@ class Worker implements Runnable {
       Document doc;
       try {
         log.info("polling");
-        doc = manager.retrieveForProcessing();
+        doc = manager.pollDocToProcess();
       } catch (Exception e) {
         log.info("interrupted " + e);
         terminate();
@@ -52,12 +55,12 @@ class Worker implements Runnable {
 
         for (Document result : results) {
           log.info("processed " + result);
-          manager.submitCompleted(result);
+          manager.sendCompleted(result);
 
           // create an open receipt for child documents
           String runId = doc.getString("run_id");
           if (!doc.getId().equals(result.getId())) {
-            manager.submitEvent(new Event(result.getId(),
+            manager.sendEvent(new Event(result.getId(),
               runId, null, Event.Type.CREATE, Event.Status.SUCCESS));
           }
 

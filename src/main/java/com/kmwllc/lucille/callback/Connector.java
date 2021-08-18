@@ -12,6 +12,10 @@ import java.util.List;
  *
  * Documents should be passed to a designated Publisher to make them available for downstream processing.
  *
+ * Implementations of Connector should provide a constructor that takes a Config as the only argument;
+ * this allows for Connectors to be instantiated reflectively based on a configuration.
+ *
+ * TODO: getStatus, stop, getConfiguration, getName
  */
 public interface Connector {
 
@@ -22,14 +26,12 @@ public interface Connector {
    *
    * @param publisher provides a publish() method accepting a document to be published
    */
-  public void start(Publisher publisher);
-
-  // TODO: getStatus, stop, getConfiguration, getName
+  void start(Publisher publisher);
 
   /**
    * Instantiates a list of Connectors from the designated Config.
    */
-  public static List<Connector> fromConfig(Config config) throws ClassNotFoundException, NoSuchMethodException,
+  static List<Connector> fromConfig(Config config) throws ClassNotFoundException, NoSuchMethodException,
     IllegalAccessException, InvocationTargetException, InstantiationException {
     List<? extends Config> connectorConfigs = config.getConfigList("connectors");
     List<Connector> connectors = new ArrayList();
