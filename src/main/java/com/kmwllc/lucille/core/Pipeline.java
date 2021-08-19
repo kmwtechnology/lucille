@@ -47,6 +47,12 @@ public class Pipeline {
     return pipeline;
   }
 
+  /**
+   * TODO: Refactor to support large numbers of children documents, too many to fit in memory
+   * @param document
+   * @return
+   * @throws StageException
+   */
   public List<Document> processDocument(Document document) throws StageException {
     ArrayList<Document> documents = new ArrayList();
     documents.add(document);

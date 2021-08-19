@@ -15,7 +15,7 @@ class Worker implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
   
-  private final WorkerDocumentManager manager;
+  private final WorkerMessageManager manager;
 
   private final Pipeline pipeline;
 
@@ -26,8 +26,8 @@ class Worker implements Runnable {
     running = false;
   }
 
-  public Worker() throws Exception {
-    this.manager = new WorkerDocumentManager();
+  public Worker(boolean localMode) throws Exception {
+    this.manager = localMode ? LocalMessageManager.getInstance() : new KafkaWorkerMessageManager();
     this.pipeline = Pipeline.fromConfig(ConfigAccessor.loadConfig());
   }
 
@@ -51,6 +51,7 @@ class Worker implements Runnable {
       }
 
       try {
+        // TODO: update child document handling to support huge numbers of child documents, too many to fit in memory
         List<Document> results = pipeline.processDocument(doc);
 
         for (Document result : results) {

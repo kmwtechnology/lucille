@@ -10,7 +10,7 @@ class Indexer implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   
-  private final IndexerDocumentManager manager;
+  private final IndexerMessageManager manager;
 
   private volatile boolean running = true;
 
@@ -19,8 +19,8 @@ class Indexer implements Runnable {
     log.info("terminate");
   }
 
-  public Indexer() {
-    this.manager = new IndexerDocumentManager();
+  public Indexer(boolean localMode) {
+    this.manager = localMode ? LocalMessageManager.getInstance() : new KafkaIndexerMessageManager();
   }
 
   @Override

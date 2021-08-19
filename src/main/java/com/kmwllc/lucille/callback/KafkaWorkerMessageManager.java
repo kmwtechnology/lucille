@@ -13,14 +13,14 @@ import org.slf4j.LoggerFactory;
 import java.util.Collections;
 import java.util.Properties;
 
-public class WorkerDocumentManager {
+public class KafkaWorkerMessageManager implements WorkerMessageManager {
 
-  public static final Logger log = LoggerFactory.getLogger(WorkerDocumentManager.class);
+  public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessageManager.class);
   private final Config config = ConfigAccessor.loadConfig();
   private final Consumer<String, String> sourceConsumer;
   private final KafkaProducer<String, String> kafkaProducer;
 
-  public WorkerDocumentManager() {
+  public KafkaWorkerMessageManager() {
     this.kafkaProducer = KafkaUtils.createProducer();
     Properties consumerProps = KafkaUtils.createConsumerProps();
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-1");
@@ -32,6 +32,7 @@ public class WorkerDocumentManager {
    * Polls for a document that is waiting to be processed by the pipeline.
    *
    */
+  @Override
   public Document pollDocToProcess() throws Exception {
     ConsumerRecords<String, String> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
     if (consumerRecords.count() > 0) {
@@ -46,6 +47,7 @@ public class WorkerDocumentManager {
    * Sends a processed document to the appropriate destination for documents waiting to be indexed.
    *
    */
+  @Override
   public void sendCompleted(Document document) throws Exception {
     RecordMetadata result = (RecordMetadata) kafkaProducer.send(
       new ProducerRecord(config.getString("kafka.destTopic"), document.getId(), document.toString())).get();
@@ -56,6 +58,7 @@ public class WorkerDocumentManager {
    * Sends an Event relating to a Document to the appropriate location for Events.
    *
    */
+  @Override
   public void sendEvent(Event event) throws Exception {
     String confirmationTopicName = KafkaUtils.getEventTopicName(event.getRunId());
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
@@ -63,6 +66,7 @@ public class WorkerDocumentManager {
     kafkaProducer.flush();
   }
 
+  @Override
   public void close() throws Exception {
     sourceConsumer.close();
     kafkaProducer.close();

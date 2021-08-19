@@ -20,14 +20,14 @@ import java.util.List;
  *
  * A new Publisher should be created for each "run" of a sequence of Connectors. The Publisher is responsible
  * for stamping a designated run_id on each published Document and maintaining accounting details specific to that run.
+ *
+ * TODO: numDocsOutstanding, docsPublishedPerSecond, docsCompletedPerSecond
  */
 public class Publisher {
 
   public static final Logger log = LoggerFactory.getLogger(Publisher.class);
 
-  private final Config config = ConfigAccessor.loadConfig();
-
-  private final KafkaProducer<String, String> kafkaProducer;
+  private final PublisherMessageManager manager;
 
   private final String runId;
 
@@ -47,9 +47,9 @@ public class Publisher {
   // List of child documents for which an INDEX event has been received early, before the corresponding CREATE event
   private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
 
-  public Publisher(String runId) {
+  public Publisher(String runId, boolean localMode) {
     this.runId = runId;
-    this.kafkaProducer = KafkaUtils.createProducer();
+    this.manager = localMode ? LocalMessageManager.getInstance() : new KafkaPublisherMessageManager();
   }
 
   /**
@@ -59,10 +59,7 @@ public class Publisher {
    */
   public void publish(Document document) throws Exception {
     document.setField("run_id", runId);
-    RecordMetadata result = (RecordMetadata) kafkaProducer.send(
-      new ProducerRecord(config.getString("kafka.sourceTopic"), document.getId(), document.toString())).get();
-    log.info("Published: " + result);
-    kafkaProducer.flush();
+    manager.sendForProcessing(document);
     docIdsToTrack.add(document.getId());
     numPublished++;
   }
@@ -76,11 +73,11 @@ public class Publisher {
   }
 
   /**
-   * Closes the any connections opened by the publisher (e.g. a KafkaProducer).
+   * Closes any connections opened by the publisher (e.g. a KafkaProducer).
    *
    */
   public void close() throws Exception {
-    kafkaProducer.close();
+    manager.close();
   }
 
   /**
@@ -123,7 +120,7 @@ public class Publisher {
   }
 
   /**
-   * Returns the number of documents for which we are still awating an INDEX event.
+   * Returns the number of documents for which we are still awaiting an INDEX event.
    */
   public int countExpectedIndexEvents() {
     return docIdsToTrack.size();

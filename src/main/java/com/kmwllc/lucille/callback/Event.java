@@ -12,6 +12,7 @@ import java.util.Objects;
  */
 public class Event {
 
+  // TODO: Add ERROR events; INDEX->COMPLETED; CREATE->CREATED
   public enum Type {CREATE, INDEX}
 
   public enum Status {SUCCESS, FAILURE}

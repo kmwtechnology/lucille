@@ -17,9 +17,9 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
-public class RunnerDocumentManager {
+public class KafkaRunnerMessageManager implements RunnerMessageManager {
 
-  public static final Logger log = LoggerFactory.getLogger(RunnerDocumentManager.class);
+  public static final Logger log = LoggerFactory.getLogger(KafkaRunnerMessageManager.class);
   private final Config config = ConfigAccessor.loadConfig();
 
   private final KafkaProducer<String, String> kafkaProducer;
@@ -27,7 +27,7 @@ public class RunnerDocumentManager {
   private final String runId;
   private final Admin kafkaAdminClient;
 
-  public RunnerDocumentManager(String runId) {
+  public KafkaRunnerMessageManager(String runId) {
     this.runId = runId;
     this.kafkaProducer = KafkaUtils.createProducer();
     Properties consumerProps = KafkaUtils.createConsumerProps();
@@ -43,6 +43,7 @@ public class RunnerDocumentManager {
   /**
    * Polls for an Event that is waiting to be consumed.
    */
+  @Override
   public Event pollEvent() throws Exception {
     ConsumerRecords<String, String> consumerRecords = confirmationConsumer.poll(KafkaUtils.POLL_INTERVAL);
     if (consumerRecords.count() > 0) {
@@ -56,7 +57,8 @@ public class RunnerDocumentManager {
   /**
    * Returns true if there are no events waiting to be consumed.
    */
-  public boolean isEventTopicEmpty(String runId) throws Exception {
+  @Override
+  public boolean allEventsConsumed(String runId) throws Exception {
     return getLag(KafkaUtils.getEventTopicName(runId))==0;
   }
 
@@ -87,6 +89,7 @@ public class RunnerDocumentManager {
   }
 
 
+  @Override
   public void close() throws Exception {
     confirmationConsumer.close();
     kafkaProducer.close();
