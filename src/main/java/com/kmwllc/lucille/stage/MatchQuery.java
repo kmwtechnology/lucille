@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Field;
@@ -47,6 +48,9 @@ public class MatchQuery extends Stage {
     }
     if (queryList.size() == 0) {
       throw new StageException(String.format("MatchQuery requires at least one %s property.", QUERIES_PARAM));
+    }
+    if (StringUtils.isBlank(matchedQueriesField)) {
+      throw new StageException(String.format("MatchQuery requires a %s property.", MATCHEDQUERIES_PARAM));
     }
 
     try {
