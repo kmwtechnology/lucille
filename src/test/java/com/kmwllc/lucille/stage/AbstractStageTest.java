@@ -3,15 +3,12 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Pipeline;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-@RunWith(JUnit4.class)
 public class AbstractStageTest {
   private Config config;
   

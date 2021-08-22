@@ -4,13 +4,15 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Pipeline;
 import com.kmwllc.lucille.core.Stage;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.List;
 
-import static junit.framework.TestCase.assertFalse;
-import static junit.framework.TestCase.assertTrue;
-import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.*;
 
+
+@RunWith(JUnit4.class)
 public class MatchQueryTest extends AbstractStageTest {
 
   @Test
