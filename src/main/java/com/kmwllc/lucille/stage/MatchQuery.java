@@ -42,7 +42,7 @@ public class MatchQuery extends Stage {
   }
 
   @Override
-  protected void start() throws StageException {
+  public void start() throws StageException {
     if (fieldsList.size() == 0) {
       throw new StageException(String.format("MatchQuery requires at least one %s property.", FIELDS_PARAM));
     }

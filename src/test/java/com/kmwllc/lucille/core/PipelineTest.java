@@ -125,7 +125,7 @@ public class PipelineTest {
     }
 
     @Override
-    protected void start() throws StageException {
+    public void start() throws StageException {
       started = true;
     }
 
