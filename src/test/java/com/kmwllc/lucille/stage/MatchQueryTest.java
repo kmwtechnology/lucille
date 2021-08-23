@@ -17,10 +17,11 @@ public class MatchQueryTest {
   @Test
   public void testMatchQueryStage() throws Exception {
     Config config = ConfigFactory.load("MatchQueryTest/config.conf");
-    String matchedQueriesField = config.getString(MatchQuery.MATCHEDQUERIES_PARAM);
     
     Stage matchQueryStage = new MatchQuery(config);
     matchQueryStage.start();
+    
+    String matchedQueriesField = config.getString(MatchQuery.MATCHEDQUERIES_PARAM);
 
     Document d1 = new Document("d1");
     d1.setField("content", "giraffe");
