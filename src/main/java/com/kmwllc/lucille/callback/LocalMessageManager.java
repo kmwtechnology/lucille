@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.callback;
 
 import com.kmwllc.lucille.core.Document;
-import org.apache.sis.internal.jaxb.gco.NameValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

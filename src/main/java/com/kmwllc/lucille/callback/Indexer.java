@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.callback;
 
 import com.kmwllc.lucille.core.Document;
+import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,13 +15,16 @@ class Indexer implements Runnable {
 
   private volatile boolean running = true;
 
+  private Config config;
+
   public void terminate() {
     running = false;
     log.info("terminate");
   }
 
-  public Indexer(boolean localMode) {
-    this.manager = localMode ? LocalMessageManager.getInstance() : new KafkaIndexerMessageManager();
+  public Indexer(Config config) {
+    this.config = config;
+    this.manager = MessageManagerFactory.getInstance().getIndexerMessageManager();
   }
 
   @Override

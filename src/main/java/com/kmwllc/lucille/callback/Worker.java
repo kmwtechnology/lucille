@@ -3,6 +3,7 @@ package com.kmwllc.lucille.callback;
 import com.kmwllc.lucille.core.ConfigAccessor;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Pipeline;
+import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,9 +27,9 @@ class Worker implements Runnable {
     running = false;
   }
 
-  public Worker(boolean localMode) throws Exception {
-    this.manager = localMode ? LocalMessageManager.getInstance() : new KafkaWorkerMessageManager();
-    this.pipeline = Pipeline.fromConfig(ConfigAccessor.loadConfig());
+  public Worker(Config config) throws Exception {
+    this.manager = MessageManagerFactory.getInstance().getWorkerMessageManager();
+    this.pipeline = Pipeline.fromConfig(config);
   }
 
   @Override

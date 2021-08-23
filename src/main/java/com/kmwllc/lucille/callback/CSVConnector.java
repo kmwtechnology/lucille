@@ -7,7 +7,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Reader;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -28,8 +28,17 @@ class CSVConnector implements Connector {
   @Override
   public void start(Publisher publisher) {
 
-    try (Reader fileReader = Files.newBufferedReader(Path.of(path));
-         CSVReader csvReader = new CSVReader(fileReader)) {
+    CSVReader csvReader = null;
+    try {
+      Reader reader;
+      if (path.startsWith("classpath:")) {
+        InputStream is = getClass().getClassLoader().getResourceAsStream(path.substring(path.indexOf(":")+1));
+        InputStreamReader isReader = new InputStreamReader(is);
+        reader = new BufferedReader(isReader);
+      } else {
+        reader = Files.newBufferedReader(Path.of(path));
+      }
+      csvReader = new CSVReader(reader);
 
       // Assume first line is header
       String[] header = csvReader.readNext();
@@ -61,18 +70,17 @@ class CSVConnector implements Connector {
         log.info("submitting " + doc);
         publisher.publish(doc);
 
-/*
-        // for testing, simulate latency
-        try {
-          Thread.sleep(100);
-        } catch (InterruptedException e) {
-          return;
-        }
- */
-
       }
     } catch (Exception e) {
       e.printStackTrace();
+    } finally {
+      try {
+        if (csvReader!=null) {
+          csvReader.close();
+        }
+      } catch (IOException ioe) {
+        log.error("Error when closing CSV Reader.", ioe);
+      }
     }
 
     log.info("produced " + publisher.numPublished() + " docs; complete");

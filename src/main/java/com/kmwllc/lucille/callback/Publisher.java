@@ -1,14 +1,8 @@
 package com.kmwllc.lucille.callback;
 
-import com.kmwllc.lucille.core.ConfigAccessor;
 import com.kmwllc.lucille.core.Document;
-import com.typesafe.config.Config;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -47,9 +41,9 @@ public class Publisher {
   // List of child documents for which an INDEX event has been received early, before the corresponding CREATE event
   private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
 
-  public Publisher(String runId, boolean localMode) {
+  public Publisher(String runId) {
     this.runId = runId;
-    this.manager = localMode ? LocalMessageManager.getInstance() : new KafkaPublisherMessageManager();
+    this.manager = MessageManagerFactory.getInstance().getPublisherMessageManager();
   }
 
   /**
