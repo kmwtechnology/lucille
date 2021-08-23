@@ -2,6 +2,8 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -10,14 +12,15 @@ import static junit.framework.TestCase.*;
 
 
 @RunWith(JUnit4.class)
-public class MatchQueryTest extends BaseStageTest {
+public class MatchQueryTest {
 
   @Test
   public void testMatchQueryStage() throws Exception {
-    Stage matchQueryStage = loadConfig("MatchQueryTest/config.conf");
+    Config config = ConfigFactory.load("MatchQueryTest/config.conf");
+    String matchedQueriesField = config.getString(MatchQuery.MATCHEDQUERIES_PARAM);
     
-    assertEquals("MatchQuery stage should be part of the configuration.", matchQueryStage.getClass(), MatchQuery.class);
-    String matchedQueriesField = getConfig().getConfigList("stages").get(0).getString("matchedQueriesField");
+    Stage matchQueryStage = new MatchQuery(config);
+    matchQueryStage.start();
 
     Document d1 = new Document("d1");
     d1.setField("content", "giraffe");
