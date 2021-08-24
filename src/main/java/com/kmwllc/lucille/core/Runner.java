@@ -109,8 +109,7 @@ public class Runner {
         break;
       }
 
-      log.info("waiting on " + publisher.countExpectedIndexEvents() + " expected index events; " +
-        publisher.countExpectedCreateEvents() + " expected create events");
+      log.info("waiting on " + publisher.countPendingDocuments() + " documents");
     }
 
     log.info("Work complete");

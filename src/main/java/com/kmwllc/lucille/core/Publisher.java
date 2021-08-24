@@ -9,11 +9,11 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Provides a way to "publish" documents for processing by the pipeline. Maintains an internal accounting of document
+ * Provides a way to publish documents for processing by the pipeline. Maintains an internal accounting of document
  * status so that it is possible tell when all published documents and their children have been indexed. Provides
  * a way to update this accounting based on received Events.
  *
- * A new Publisher should be created for each "run" of a sequence of Connectors. The Publisher is responsible
+ * A new Publisher should be created for each run of a sequence of Connectors. The Publisher is responsible
  * for stamping a designated run_id on each published Document and maintaining accounting details specific to that run.
  *
  * TODO: numDocsOutstanding, docsPublishedPerSecond, docsCompletedPerSecond
@@ -106,26 +106,28 @@ public class Publisher {
    * 1) an INDEX event has been received for all Documents published via Publisher.publish(),
    * 2) an INDEX event has been received for all children Documents that the Publisher was made aware of
    * via a CREATE event
-   * 3) a CREATE event has been received for any "early" INDEX events that were received before the publisher
-   * began tracking the given child document
+   *
+   * Note that a might move from a reconciled state back to an unreconciled state. This can happen if the
+   * publisher receives an Event informing it about a child document that it did not know about previously.
+   * After receiving such an Event, the publisher needs to track that child document and will not
+   * return to a reconciled state until the document has been indexed.
+   *
+   * Also note that the publisher may receive INDEX events for child documents before receiving the
+   * corresponding CREATE events. In this case the INDEX events are considered "early" and the CREATE events
+   * are considered "late." The publisher can enter a reconciled state before receiving all the late
+   * CREATE events that it might be expecting.
    *
    */
   public boolean isReconciled() {
-    return docIdsToTrack.isEmpty() && docIdsIndexedBeforeTracking.isEmpty();
+    return docIdsToTrack.isEmpty();
   }
 
   /**
    * Returns the number of documents for which we are still awaiting an INDEX event.
    */
-  public int countExpectedIndexEvents() {
+  public int countPendingDocuments() {
     return docIdsToTrack.size();
   }
 
-  /**
-   * Returns the number of documents for which an INDEX event was received prior to the corresponding CREATE event.
-   */
-  public int countExpectedCreateEvents() {
-    return docIdsIndexedBeforeTracking.size();
-  }
 
 }
