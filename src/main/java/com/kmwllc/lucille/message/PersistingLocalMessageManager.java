@@ -6,8 +6,8 @@ import com.kmwllc.lucille.core.Document;
 import java.util.ArrayList;
 import java.util.List;
 
-public class PersistingLocalMessageManager implements IndexerMessageManager, PublisherMessageManager, WorkerMessageManager,
-  RunnerMessageManager {
+public class PersistingLocalMessageManager implements IndexerMessageManager, PublisherMessageManager,
+  WorkerMessageManager {
 
   private final LocalMessageManager manager;
 

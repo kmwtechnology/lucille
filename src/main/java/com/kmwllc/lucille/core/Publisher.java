@@ -72,6 +72,15 @@ public interface Publisher {
   void handleEvent(Event event);
 
   /**
+   * Waits until all published Documents and their children are complete and no more Documents are being published.
+   *
+   * @param thread a reference to the Connector thread that is generating new Documents;
+   *               this thread will be tested for its status via isAlive() to determine when the Connector
+   *               has finished and no more Documents will be published
+   */
+  void waitForCompletion(Thread thread) throws Exception;
+
+  /**
    * Closes any connections opened by the publisher.
    *
    */

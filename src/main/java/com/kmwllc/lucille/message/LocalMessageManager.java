@@ -7,8 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-public class LocalMessageManager implements IndexerMessageManager, PublisherMessageManager, WorkerMessageManager,
-  RunnerMessageManager {
+public class LocalMessageManager implements IndexerMessageManager, PublisherMessageManager, WorkerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(LocalMessageManager.class);
 

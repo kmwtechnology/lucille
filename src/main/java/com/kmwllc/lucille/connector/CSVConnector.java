@@ -86,11 +86,6 @@ public class CSVConnector implements Connector {
     }
 
     log.info("produced " + publisher.numPublished() + " docs; complete");
-    try {
-      publisher.close();
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
   }
 
   public String toString() {

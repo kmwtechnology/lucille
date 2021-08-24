@@ -37,7 +37,7 @@ public class PublisherImpl implements Publisher {
 
   public PublisherImpl(String runId) {
     this.runId = runId;
-    this.manager = MessageManagerFactory.getInstance().getPublisherMessageManager();
+    this.manager = MessageManagerFactory.getInstance().getPublisherMessageManager(runId);
   }
 
   @Override
@@ -76,6 +76,28 @@ public class PublisherImpl implements Publisher {
       if (!docIdsToTrack.remove(docId)) {
         docIdsIndexedBeforeTracking.add(docId);
       }
+    }
+  }
+
+  @Override
+  public void waitForCompletion(Thread thread) throws Exception {
+    // poll for Events relating the current run; loop until all work is complete
+    while (true) {
+      Event event = manager.pollEvent();
+
+      if (event !=null) {
+        handleEvent(event);
+      }
+
+      // We are done if 1) the Connector thread has terminated and therefore no more Documents will be generated,
+      // 2) all published Documents and their children are accounted for (none are pending),
+      // 3) there are no more Events relating to the current run to consume
+      // TODO: timeouts
+      if (!thread.isAlive() && !hasPending() && !manager.hasEvents(runId)) {
+        break;
+      }
+
+      log.info("waiting on " + numPending() + " documents");
     }
   }
 

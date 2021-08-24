@@ -1,7 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.message.MessageManagerFactory;
-import com.kmwllc.lucille.message.RunnerMessageManager;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +17,6 @@ public class RunnerImpl implements Runner {
   private static final Logger log = LoggerFactory.getLogger(RunnerImpl.class);
 
   private final String runId;
-  private final RunnerMessageManager runnerMessageManager;
   private final Config config;
 
   public static void main(String[] args) throws Exception {
@@ -36,7 +33,6 @@ public class RunnerImpl implements Runner {
     // generate a unique ID for this run
     this.runId = UUID.randomUUID().toString();
     log.info("runId=" + runId);
-    this.runnerMessageManager = MessageManagerFactory.getInstance().getRunnerMessageManager(runId);
   }
 
   @Override
@@ -75,7 +71,6 @@ public class RunnerImpl implements Runner {
       worker.terminate();
     }
 
-    runnerMessageManager.close();
   }
 
   @Override
@@ -92,24 +87,9 @@ public class RunnerImpl implements Runner {
     });
     connectorThread.start(); // TODO: what if it didn't start properly?
 
-    // poll for Events relating the current run and pass them to the publisher; loop until all work is complete
-    while (true) {
-      Event event = runnerMessageManager.pollEvent();
+    publisher.waitForCompletion(connectorThread);
 
-      if (event !=null) {
-        publisher.handleEvent(event);
-      }
-
-      // We are done if 1) the Connector has terminated and therefore no more Documents will be generated,
-      // 2) the Publisher has accounted for all published Documents and their children (none are pending),
-      // 3) there are no more Events relating to this run to consume
-      // TODO: timeouts
-      if (!connectorThread.isAlive() && !publisher.hasPending() && !runnerMessageManager.hasEvents(runId)) {
-        break;
-      }
-
-      log.info("waiting on " + publisher.numPending() + " documents");
-    }
+    publisher.close();
 
     log.info("Work complete");
   }

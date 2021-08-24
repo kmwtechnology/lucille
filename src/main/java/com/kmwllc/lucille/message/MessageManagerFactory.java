@@ -21,16 +21,12 @@ public class MessageManagerFactory {
     return localMode;
   }
 
-  public PublisherMessageManager getPublisherMessageManager() {
-    return localMode ? PersistingLocalMessageManager.getInstance() : new KafkaPublisherMessageManager();
+  public PublisherMessageManager getPublisherMessageManager(String runId) {
+    return localMode ? PersistingLocalMessageManager.getInstance() : new KafkaPublisherMessageManager(runId);
   }
 
   public IndexerMessageManager getIndexerMessageManager() {
     return localMode ? PersistingLocalMessageManager.getInstance() : new KafkaIndexerMessageManager();
-  }
-
-  public RunnerMessageManager getRunnerMessageManager(String runId) {
-    return localMode ? PersistingLocalMessageManager.getInstance() : new KafkaRunnerMessageManager(runId);
   }
 
   public WorkerMessageManager getWorkerMessageManager() {
