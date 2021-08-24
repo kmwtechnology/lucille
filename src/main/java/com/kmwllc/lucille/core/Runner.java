@@ -80,7 +80,7 @@ public class Runner {
 
     log.info("Running connector: " + connector.toString());
 
-    Publisher publisher = new Publisher(runId);
+    Publisher publisher = new PublisherImpl(runId);
 
     Thread connectorThread = new Thread(new Runnable() {
       @Override
@@ -103,13 +103,13 @@ public class Runner {
       // TODO: timeouts
 
       // We are done if 1) the Connector has terminated and therefore no more Documents will be generated,
-      // 2) the Publisher has accounted for all published Documents and their children,
+      // 2) the Publisher has accounted for all published Documents and their children (none are pending),
       // 3) there are no more Events relating to this run to consume
-      if (!connectorThread.isAlive() && publisher.isReconciled() && !runnerMessageManager.hasEvents(runId)) {
+      if (!connectorThread.isAlive() && !publisher.hasPending() && !runnerMessageManager.hasEvents(runId)) {
         break;
       }
 
-      log.info("waiting on " + publisher.countPendingDocuments() + " documents");
+      log.info("waiting on " + publisher.numPending() + " documents");
     }
 
     log.info("Work complete");

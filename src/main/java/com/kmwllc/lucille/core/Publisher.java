@@ -1,79 +1,64 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.message.MessageManagerFactory;
-import com.kmwllc.lucille.message.PublisherMessageManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 /**
- * Provides a way to publish documents for processing by the pipeline. Maintains an internal accounting of document
- * status so that it is possible tell when all published documents and their children have been indexed. Provides
- * a way to update this accounting based on received Events.
+ * Provides a way to publish documents for processing by the pipeline. Accepts Events relating to
+ * published documents and their children. Provides a way to check how many documents are still in a pending
+ * state. (A document would be in a pending state if it has published via the Publisher, or if it is a child document
+ * that was create during pipeline execution, but it has not yet reached an end-state of the workflow, e.g.
+ * it has not been indexed and has not errored-out.)
  *
  * A new Publisher should be created for each run of a sequence of Connectors. The Publisher is responsible
  * for stamping a designated run_id on each published Document and maintaining accounting details specific to that run.
+ * Publisher implementations are expected to accept a run ID at construction time.
  *
- * TODO: numDocsOutstanding, docsPublishedPerSecond, docsCompletedPerSecond
  */
-public class Publisher {
-
-  public static final Logger log = LoggerFactory.getLogger(Publisher.class);
-
-  private final PublisherMessageManager manager;
-
-  private final String runId;
-
-  private int numPublished = 0;
-
-  // List of published documents that are not yet indexed. Also includes children of published documents.
-  // Note that this is a List, not a Set, because if two documents with the same ID are published, we would
-  // expect to receive two separate INDEX events relating to those documents, and we will therefore make
-  // two attempts to remove the ID. Upon each removal attempt, we would like there to be something present
-  // to remove; otherwise we would classify the event as an "early" INDEX event and treat it specially.
-  // Also note that a Publisher may be shared by a Runner and a Connector: the connector may be publishing
-  // new Documents while the Connector is receiving Events and calling handleEvent().
-  // publish() and handleEvent() both update docIdsToTrack so the list should be synchronized.
-  // TODO: review whether publish() and handleEvent() should themselves be synchronized.
-  private List<String> docIdsToTrack = Collections.synchronizedList(new ArrayList<String>());
-
-  // List of child documents for which an INDEX event has been received early, before the corresponding CREATE event
-  private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
-
-  public Publisher(String runId) {
-    this.runId = runId;
-    this.manager = MessageManagerFactory.getInstance().getPublisherMessageManager();
-  }
+public interface Publisher {
 
   /**
    * Submits the given document for processing by any available pipeline worker.
    *
    * Stamps the current Run ID on the document and begins "tracking" events relating the document.
    */
-  public void publish(Document document) throws Exception {
-    document.setField("run_id", runId);
-    manager.sendForProcessing(document);
-    docIdsToTrack.add(document.getId());
-    numPublished++;
-  }
+  void publish(Document document) throws Exception;
 
   /**
    * Returns the number of documents published so far.
    *
    */
-  public int numPublished() {
-    return numPublished;
-  }
+  int numPublished();
 
   /**
-   * Closes any connections opened by the publisher (e.g. a KafkaProducer).
+   * Returns the number of documents for which we are still awaiting an INDEX event.
+   *
+   * This number includes documents published via publish() as well as child documents generated
+   * during pipeline execution.
+   */
+  int numPending();
+
+  /**
+   * Returns true if there are published documents or generated children than have not yet reached an
+   * end state of the workflow (i.e. have not been indexed and have not errored-out). Specifically,
+   * this will be true if:
+   *
+   * 1) a Document was published via publish() but a terminal event (INDEX or ERROR) has not been received
+   * for that document via handleEvent()
+   * 2) a CREATE event was received for a child document via handleEvent() but a terminal event for that
+   * child document has not been received via handleEvent()
+   *
+   * Note that a publisher might move from a reconciled state with hasPending()==false
+   * back to an unreconciled state with hasPending()==true. This can happen if the
+   * publisher receives an Event informing it about a child document that it did not know about previously.
+   * After receiving such an Event, the publisher needs to start tracking that child document and will not
+   * return to a reconciled state until the document has been indexed.
+   *
+   * Also note that the publisher may receive INDEX events for child documents before receiving the
+   * corresponding CREATE events. In this case the INDEX events are considered "early" and the CREATE events
+   * are considered "late." The publisher can enter a reconciled state before receiving all the late
+   * CREATE events that it might be expecting. However, the publisher should still be prepared to receive
+   * these late CREATE events and ignore them rather than beginning to track the documents that are already indexed.
    *
    */
-  public void close() throws Exception {
-    manager.close();
-  }
+  boolean hasPending();
 
   /**
    * Updates internal accounting based on a received Event: if we learn that a document has
@@ -83,51 +68,12 @@ public class Publisher {
    * to store its ID separately so that when the CREATE event is eventually received,
    * we'll know NOT to begin tracking it.
    *
-   * @param event the Event to handle
    */
-  public void handleEvent(Event event) {
-    String docId = event.getDocumentId();
-
-    if (event.isCreate()) {
-      if (!docIdsIndexedBeforeTracking.remove(docId)) {
-        docIdsToTrack.add(docId);
-      }
-    } else {
-      if (!docIdsToTrack.remove(docId)) {
-        docIdsIndexedBeforeTracking.add(docId);
-      }
-    }
-  }
+  void handleEvent(Event event);
 
   /**
-   * Returns true if the publisher is not expecting any Events relating to the
-   * documents it has published. This will be the case if:
-   *
-   * 1) an INDEX event has been received for all Documents published via Publisher.publish(),
-   * 2) an INDEX event has been received for all children Documents that the Publisher was made aware of
-   * via a CREATE event
-   *
-   * Note that a might move from a reconciled state back to an unreconciled state. This can happen if the
-   * publisher receives an Event informing it about a child document that it did not know about previously.
-   * After receiving such an Event, the publisher needs to track that child document and will not
-   * return to a reconciled state until the document has been indexed.
-   *
-   * Also note that the publisher may receive INDEX events for child documents before receiving the
-   * corresponding CREATE events. In this case the INDEX events are considered "early" and the CREATE events
-   * are considered "late." The publisher can enter a reconciled state before receiving all the late
-   * CREATE events that it might be expecting.
+   * Closes any connections opened by the publisher.
    *
    */
-  public boolean isReconciled() {
-    return docIdsToTrack.isEmpty();
-  }
-
-  /**
-   * Returns the number of documents for which we are still awaiting an INDEX event.
-   */
-  public int countPendingDocuments() {
-    return docIdsToTrack.size();
-  }
-
-
+  void close() throws Exception;
 }

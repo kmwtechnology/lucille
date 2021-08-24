@@ -1,8 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.message.MessageManagerFactory;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
