@@ -109,7 +109,7 @@ public class Publisher {
    * began tracking the given child document
    *
    */
-  public boolean hasReceivedAllExepectedEvents() {
+  public boolean isReconciled() {
     return docIdsToTrack.isEmpty() && docIdsIndexedBeforeTracking.isEmpty();
   }
 

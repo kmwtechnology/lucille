@@ -67,8 +67,8 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   }
 
   @Override
-  public synchronized boolean allEventsConsumed(String runId) throws Exception {
-    return manager.allEventsConsumed(runId);
+  public synchronized boolean hasEvents(String runId) throws Exception {
+    return manager.hasEvents(runId);
   }
 
   @Override

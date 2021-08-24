@@ -58,13 +58,11 @@ public class KafkaRunnerMessageManager implements RunnerMessageManager {
    * Returns true if there are no events waiting to be consumed.
    */
   @Override
-  public boolean allEventsConsumed(String runId) throws Exception {
-    return getLag(KafkaUtils.getEventTopicName(runId))==0;
+  public boolean hasEvents(String runId) throws Exception {
+    return getLag(KafkaUtils.getEventTopicName(runId))>0;
   }
 
   private int getLag(String topic) throws Exception {
-
-    Map<String, Long> map = new HashMap<>();
 
     Map<TopicPartition, OffsetAndMetadata> offsets =
       kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))

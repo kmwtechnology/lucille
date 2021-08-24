@@ -54,7 +54,7 @@ public class RunnerTest {
     assertEquals(Event.Type.INDEX, events.get(0).getType());
 
     // confirm that topics are empty
-    assertTrue(manager.allEventsConsumed(runner.getRunId()));
+    assertFalse(manager.hasEvents(runner.getRunId()));
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());

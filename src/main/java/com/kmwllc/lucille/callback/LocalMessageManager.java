@@ -60,8 +60,8 @@ RunnerMessageManager {
   }
 
   @Override
-  public synchronized boolean allEventsConsumed(String runId) throws Exception {
-    return pipelineEvents.isEmpty();
+  public synchronized boolean hasEvents(String runId) throws Exception {
+    return !pipelineEvents.isEmpty();
   }
 
   @Override
