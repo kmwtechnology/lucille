@@ -24,7 +24,7 @@ public class RunnerTest {
 
     // instantiate a Runner using a dedicated Config for this test; run it
     Config config = ConfigFactory.load("runner-application.conf");
-    Runner runner = new Runner(config);
+    Runner runner = new RunnerImpl(config);
     runner.runConnectors(true);
 
     // obtain the singleton instance of the message manager that the factory returns when in local mode

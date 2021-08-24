@@ -1,11 +1,11 @@
 package com.kmwllc.lucille.core;
 
 /**
- * Provides a way to publish documents for processing by the pipeline. Accepts Events relating to
+ * Provides a way to publish documents for processing by the pipeline. Accepts incoming Events relating to
  * published documents and their children. Provides a way to check how many documents are still in a pending
- * state. (A document would be in a pending state if it has published via the Publisher, or if it is a child document
- * that was create during pipeline execution, but it has not yet reached an end-state of the workflow, e.g.
- * it has not been indexed and has not errored-out.)
+ * state. (A document would be in a pending state if it has been published via the Publisher,
+ * or if it is a child document that was created during pipeline execution, but it has not yet
+ * reached an end-state of the workflow, e.g. it has not been indexed and has not errored-out.)
  *
  * A new Publisher should be created for each run of a sequence of Connectors. The Publisher is responsible
  * for stamping a designated run_id on each published Document and maintaining accounting details specific to that run.

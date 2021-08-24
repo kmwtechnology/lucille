@@ -24,8 +24,6 @@ public interface Connector {
    * acquiring data, and generating documents from it. All generated documents should be published
    * via the supplied Publisher
    *
-   * TODO: how to handle exceptions from the start method
-   *
    * @param publisher provides a publish() method accepting a document to be published
    */
   void start(Publisher publisher);
