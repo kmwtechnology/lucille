@@ -4,11 +4,13 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
 
+import java.util.List;
+
 /**
  * Util class for the Stage API. Contains static methods to facilitate validation and other operations common across
  * Stages.
  */
-public class StageUtil {
+public class StageUtils {
 
   /**
    * Get the value of the given setting from the config file, or a default value if the setting does not exist in the
@@ -31,14 +33,12 @@ public class StageUtil {
   /**
    * Validate that the given field list contains at least 1 field name.
    *
-   * @param fieldStr  the field list
+   * @param fields  the field list
    * @param stageName the name of the calling stage
    * @throws StageException
    */
-  public static void validateFieldNumNotZero(String fieldStr, String stageName) throws StageException {
-    String[] fields = fieldStr.split(",");
-
-    if (fields.length == 0) {
+  public static void validateFieldNumNotZero(List<String> fields, String stageName) throws StageException {
+    if (fields.isEmpty()) {
       throw new StageException("An empty field list was supplied to " + stageName);
     }
   }
@@ -46,16 +46,13 @@ public class StageUtil {
   /**
    * Validate that the two given field lists contain the same number of field names.
    *
-   * @param fieldStr1 the first field list
-   * @param fieldStr2 the second field list
+   * @param fields1 the first field list
+   * @param fields2 the second field list
    * @param stageName the name of the calling stage
    * @throws StageException
    */
-  public static void validateFieldNumsEqual(String fieldStr1, String fieldStr2, String stageName) throws StageException{
-    String[] fields1 = fieldStr1.split(",");
-    String[] fields2 = fieldStr2.split(",");
-
-    if (fields1.length != fields2.length) {
+  public static void validateFieldNumsEqual(List<String> fields1, List<String> fields2, String stageName) throws StageException{
+    if (fields1.size() != fields2.size()) {
       throw new StageException("Unequal length field lists supplied to " + stageName);
     }
   }
@@ -64,16 +61,13 @@ public class StageUtil {
    * Validate that if the field lists have unequal numbers of field names, one of the field lists contains 1 and
    * only one field name.
    *
-   * @param fieldStr1 the first field list
-   * @param fieldStr2 the second field list
+   * @param fields1 the first field list
+   * @param fields2 the second field list
    * @param stageName the name of the calling stage
    * @throws StageException
    */
-  public static void validateFieldNumsOneToSeveral(String fieldStr1, String fieldStr2, String stageName) throws StageException {
-    String[] fields1 = fieldStr1.split(",");
-    String[] fields2 = fieldStr2.split(",");
-
-    if ((fields1.length != fields2.length) && (fields1.length != 1) && (fields2.length != 1)) {
+  public static void validateFieldNumsOneToSeveral(List<String> fields1, List<String> fields2, String stageName) throws StageException {
+    if ((fields1.size() != fields2.size()) && (fields2.size() != 1)) {
       throw new StageException(stageName + " was supplied with an invalid number of fields in the inputted field lists");
     }
   }

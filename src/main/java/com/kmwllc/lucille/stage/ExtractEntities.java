@@ -8,6 +8,7 @@ import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,31 +23,45 @@ import org.slf4j.LoggerFactory;
  * file should have a term on each line, and can support providing payloads with the syntax "term, payload". If any
  * occurrences are found, the original value of the field will be deleted and replaced by the term values.
  */
-public class EntityExtractionStage extends Stage {
+public class ExtractEntities extends Stage {
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  private final PayloadTrie<String> dictTrie;
-  private final String SOURCE_FIELDS_STR;
-  private final String DEST_FIELDS_STR;
-  private final Boolean IGNORE_CASE;
-  private final Boolean ONLY_WHITESPACE_SEPARATED;
-  private final Boolean STOP_ON_HIT;
-  private final Boolean ONLY_WHOLE_WORDS;
-  private final Boolean IGNORE_OVERLAPS;
+  private PayloadTrie<String> dictTrie;
+  private final List<String> sourceFields;
+  private final List<String> destFields;
+  private final boolean ignoreCase;
+  private final boolean onlyWhitespaceSeparated;
+  private final boolean stopOnHit;
+  private final boolean onlyWholeWords;
+  private final boolean ignoreOverlaps;
+  private final boolean usePayloads;
 
-  public EntityExtractionStage(Config config) {
+  private int numFields;
+
+  public ExtractEntities(Config config) {
     super(config);
-    this.dictTrie = buildTrie(config.getString("dict_path"));
-    this.SOURCE_FIELDS_STR = config.getString("source");
-    this.DEST_FIELDS_STR = config.getString("dest");
 
     // For the optional settings, we check if the config has this setting and then what the value is.
-    this.IGNORE_CASE = StageUtil.<Boolean>configGetOrDefault(config, "ignore_case", false);
-    this.ONLY_WHITESPACE_SEPARATED = StageUtil.<Boolean>configGetOrDefault(config, "only_whitespace_separated", false);
-    this.STOP_ON_HIT = StageUtil.<Boolean>configGetOrDefault(config, "stop_on_hit", false);
-    this.ONLY_WHOLE_WORDS = StageUtil.<Boolean>configGetOrDefault(config, "only_whole_words", false);
-    this.IGNORE_OVERLAPS = StageUtil.<Boolean>configGetOrDefault(config, "ignore_overlaps", false);
+    this.ignoreCase = StageUtils.<Boolean>configGetOrDefault(config, "ignore_case", false);
+    this.onlyWhitespaceSeparated = StageUtils.<Boolean>configGetOrDefault(config, "only_whitespace_separated", false);
+    this.stopOnHit = StageUtils.<Boolean>configGetOrDefault(config, "stop_on_hit", false);
+    this.onlyWholeWords = StageUtils.<Boolean>configGetOrDefault(config, "only_whole_words", false);
+    this.ignoreOverlaps = StageUtils.<Boolean>configGetOrDefault(config, "ignore_overlaps", false);
+    this.usePayloads = StageUtils.<Boolean>configGetOrDefault(config, "use_payloads", true);
+
+    this.sourceFields = config.getStringList("source");
+    this.destFields = config.getStringList("dest");
+  }
+
+  @Override
+  public void start() throws StageException {
+    StageUtils.validateFieldNumNotZero(sourceFields, "Entity Extraction Stage");
+    StageUtils.validateFieldNumNotZero(destFields, "Entity Extraction Stage");
+    StageUtils.validateFieldNumsOneToSeveral(sourceFields, destFields, "Entity Extraction Stage");
+
+    numFields = Integer.max(destFields.size(), sourceFields.size());
+    dictTrie = buildTrie(config.getString("dict_path"));
   }
 
   /**
@@ -55,27 +70,28 @@ public class EntityExtractionStage extends Stage {
    * @param dictFile  the path of the dictionary file to read from
    * @return  a PayloadTrie capable of finding matches for its dictionary values
    */
+  // TODO : Consider changing file paths to classpath
   private PayloadTrie<String> buildTrie(String dictFile) {
     PayloadTrie.PayloadTrieBuilder<String> trieBuilder = PayloadTrie.builder();
 
     // For each of the possible Trie settings, check what value the user set and apply it.
-    if (IGNORE_CASE) {
+    if (ignoreCase) {
       trieBuilder = trieBuilder.ignoreCase();
     }
 
-    if (ONLY_WHITESPACE_SEPARATED) {
+    if (onlyWhitespaceSeparated) {
       trieBuilder = trieBuilder.onlyWholeWordsWhiteSpaceSeparated();
     }
 
-    if (STOP_ON_HIT) {
+    if (stopOnHit) {
       trieBuilder = trieBuilder.stopOnHit();
     }
 
-    if (ONLY_WHOLE_WORDS) {
+    if (onlyWholeWords) {
       trieBuilder = trieBuilder.onlyWholeWords();
     }
 
-    if (IGNORE_OVERLAPS) {
+    if (ignoreOverlaps) {
       trieBuilder = trieBuilder.ignoreOverlaps();
     }
 
@@ -83,12 +99,16 @@ public class EntityExtractionStage extends Stage {
       // For each line of the dictionary file, add a keyword/payload pair to the Trie
       String line;
       while((line = reader.readLine()) != null) {
+        if (line.isBlank())
+          continue;
+
         String[] keyword = line.split(",");
 
         if (keyword.length == 1) {
-          trieBuilder = trieBuilder.addKeyword(keyword[0], keyword[0]);
+          String word = keyword[0].trim();
+          trieBuilder = trieBuilder.addKeyword(word, word);
         } else {
-          trieBuilder = trieBuilder.addKeyword(keyword[0], keyword[1]);
+          trieBuilder = trieBuilder.addKeyword(keyword[0].trim(), keyword[1].trim());
         }
       }
     } catch (Exception e) {
@@ -98,31 +118,30 @@ public class EntityExtractionStage extends Stage {
     return trieBuilder.build();
   }
 
-
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    String[] srcFields = SOURCE_FIELDS_STR.split(",");
-    String[] destFields = DEST_FIELDS_STR.split(",");
-
-    StageUtil.validateFieldNumNotZero(SOURCE_FIELDS_STR, "Entity Extraction Stage");
-    StageUtil.validateFieldNumNotZero(DEST_FIELDS_STR, "Entity Extraction Stage");
-    StageUtil.validateFieldNumsOneToSeveral(SOURCE_FIELDS_STR, DEST_FIELDS_STR, "Entity Extraction Stage");
-
-    int numFields = Integer.max(destFields.length, srcFields.length);
-
     // For each of the field names, extract dictionary values from it.
     for (int i = 0; i < numFields; i++) {
       // If there is only one source or dest, use it. Otherwise, use the current source/dest.
-      String sourceField = srcFields.length == 1 ? srcFields[0] : srcFields[i];
-      String destField = destFields.length == 1 ? destFields[0] : destFields[i];
+      String sourceField = sourceFields.size() == 1 ? sourceFields.get(0) : sourceFields.get(i);
+      String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
       if (!doc.has(sourceField))
         continue;
 
       // Parse the matches and then convert the PayloadEmits into a List of Strings, representing the payloads for
       // each match which occurred in the input string.
-      Collection<PayloadEmit<String>> results = dictTrie.parseText(doc.getString(sourceField));
-      List<String> payloads = results.stream().map(PayloadEmit::getPayload).collect(Collectors.toList());
+      Collection<PayloadEmit<String>> results = new ArrayList<>();
+      for (String value : doc.getStringList(sourceField)) {
+        results.addAll(dictTrie.parseText(value));
+      }
+
+      List<String> payloads;
+      if (usePayloads) {
+        payloads = results.stream().map(PayloadEmit::getPayload).collect(Collectors.toList());
+      } else {
+        payloads = results.stream().map(PayloadEmit::getKeyword).collect(Collectors.toList());
+      }
 
       if (payloads.isEmpty())
         continue;

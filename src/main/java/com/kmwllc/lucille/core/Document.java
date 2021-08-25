@@ -5,10 +5,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.ConfigException;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -77,6 +79,10 @@ public class Document implements Cloneable {
   }
 
   public List<String> getStringList(String name) {
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getString(name));
+    }
+
     ArrayNode array = data.withArray(name);
     List<String> result = new ArrayList<>();
     for (JsonNode node : array) {
@@ -95,6 +101,10 @@ public class Document implements Cloneable {
 
   public boolean hasNonNull(String name) {
     return data.hasNonNull(name);
+  }
+
+  public boolean isMultiValued(String name) {
+     return data.has(name) && data.get(name).getNodeType() == JsonNodeType.ARRAY;
   }
 
   public boolean equals(Object other) {
