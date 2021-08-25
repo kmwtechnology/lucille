@@ -15,7 +15,7 @@ public abstract class Stage {
     this.config = config;
   }
 
-  protected void start() throws StageException {
+  public void start() throws StageException {
   }
 
   /**
