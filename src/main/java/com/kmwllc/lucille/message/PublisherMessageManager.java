@@ -8,6 +8,9 @@ import com.kmwllc.lucille.core.Event;
  *
  * A Publisher needs to 1) submit Documents for processing and 2) receive Events
  * relating to Documents it has published and their children.
+ *
+ * Implementations of Publisher are expected to accept a run ID at construction time and use the run ID
+ * to determine where to send and receive events relating to that particular run.
  */
 public interface PublisherMessageManager {
 
@@ -15,7 +18,7 @@ public interface PublisherMessageManager {
 
   Event pollEvent() throws Exception;
 
-  boolean hasEvents(String runId) throws Exception;
+  boolean hasEvents() throws Exception;
 
   void close();
 }

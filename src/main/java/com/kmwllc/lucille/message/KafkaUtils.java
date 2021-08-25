@@ -18,9 +18,7 @@ public class KafkaUtils {
 
   public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
 
-  private static final Config config = ConfigAccessor.loadConfig();
-
-  public static Properties createConsumerProps() {
+  public static Properties createConsumerProps(Config config) {
     Properties consumerProps = new Properties();
     consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.consumerGroupId"));
@@ -33,7 +31,7 @@ public class KafkaUtils {
     return consumerProps;
   }
 
-  public static KafkaProducer<String,String> createProducer() {
+  public static KafkaProducer<String,String> createProducer(Config config) {
     Properties producerProps = new Properties();
     producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     producerProps.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getInt("kafka.maxRequestSize"));
@@ -43,7 +41,7 @@ public class KafkaUtils {
     return new KafkaProducer(producerProps);
   }
 
-  public static String getEventTopicName(String runId) {
+  public static String getEventTopicName(Config config, String runId) {
     return config.getString("kafka.eventTopic") + "_" + runId;
   }
 }

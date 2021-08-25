@@ -16,21 +16,11 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   private List<Document> savedDestMessages = new ArrayList<Document>();
   private List<Document> savedDocsSentToSolr = new ArrayList<Document>();
 
-  private static volatile PersistingLocalMessageManager INSTANCE = null;
-
-  public static PersistingLocalMessageManager getInstance() {
-    if (INSTANCE!=null) {
-      return INSTANCE;
-    }
-    synchronized (PersistingLocalMessageManager.class) {
-      if (INSTANCE == null) {
-        INSTANCE = new PersistingLocalMessageManager(LocalMessageManager.getInstance());
-      }
-      return INSTANCE;
-    }
+  public PersistingLocalMessageManager() {
+    this.manager = new LocalMessageManager();
   }
 
-  private PersistingLocalMessageManager(LocalMessageManager manager) {
+  public PersistingLocalMessageManager(LocalMessageManager manager) {
     this.manager = manager;
   }
 
@@ -68,8 +58,8 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   }
 
   @Override
-  public synchronized boolean hasEvents(String runId) throws Exception {
-    return manager.hasEvents(runId);
+  public synchronized boolean hasEvents() throws Exception {
+    return manager.hasEvents();
   }
 
   @Override
