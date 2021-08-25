@@ -39,6 +39,8 @@ public class RunnerImpl implements Runner {
   @Override
   public void runConnectors(Publisher publisher) throws Exception {
 
+    publisher.initialize(runId);
+
     List<Connector> connectors = Connector.fromConfig(config);
 
     // run all the connectors in sequence, only starting the next connector once all the work

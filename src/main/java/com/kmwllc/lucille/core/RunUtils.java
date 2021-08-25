@@ -40,7 +40,7 @@ public class RunUtils {
 
     // create a Runner and run the connectors
     Runner runner = new RunnerImpl(config);
-    Publisher publisher = new PublisherImpl(runner.getRunId(), manager);
+    Publisher publisher = new PublisherImpl(manager);
     runner.runConnectors(publisher);
 
     // stop the Worker and Indexer threads
@@ -62,8 +62,8 @@ public class RunUtils {
 
     // create a Runner and run the connectors
     Runner runner = new RunnerImpl(config);
-    PublisherMessageManager publisherMessageManager = new KafkaPublisherMessageManager(config, runner.getRunId());
-    Publisher publisher = new PublisherImpl(runner.getRunId(), publisherMessageManager);
+    PublisherMessageManager publisherMessageManager = new KafkaPublisherMessageManager(config);
+    Publisher publisher = new PublisherImpl(publisherMessageManager);
     runner.runConnectors(publisher);
 
     // stop the Worker and Indexer threads

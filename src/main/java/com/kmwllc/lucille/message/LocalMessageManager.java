@@ -14,6 +14,7 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   private Queue<Event> pipelineEvents = new LinkedList<Event>();
   private Queue<Document> pipelineSource = new LinkedList<Document>();
   private Queue<Document> pipelineDest = new LinkedList<Document>();
+  private String runId = null;
 
   @Override
   public synchronized Document pollCompleted() throws Exception {
@@ -48,6 +49,19 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   @Override
   public synchronized boolean hasEvents() throws Exception {
     return !pipelineEvents.isEmpty();
+  }
+
+  @Override
+  public void initialize(String runId) throws Exception {
+    if (this.runId!=null) {
+      throw new Exception("Already initialized.");
+    }
+    this.runId = runId;
+  }
+
+  @Override
+  public String getRunId() {
+    return runId;
   }
 
   @Override

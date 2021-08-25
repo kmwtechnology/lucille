@@ -14,6 +14,10 @@ import com.kmwllc.lucille.core.Event;
  */
 public interface PublisherMessageManager {
 
+  void initialize(String runId) throws Exception;
+
+  String getRunId();
+
   void sendForProcessing(Document document) throws Exception;
 
   Event pollEvent() throws Exception;

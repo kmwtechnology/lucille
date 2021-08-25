@@ -17,7 +17,7 @@ public class PublisherImpl implements Publisher {
 
   private final PublisherMessageManager manager;
 
-  private final String runId;
+  private String runId;
 
   private int numPublished = 0;
 
@@ -34,9 +34,14 @@ public class PublisherImpl implements Publisher {
   // List of child documents for which an INDEX event has been received early, before the corresponding CREATE event
   private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
 
-  public PublisherImpl(String runId, PublisherMessageManager manager) {
-    this.runId = runId;
+  public PublisherImpl(PublisherMessageManager manager) {
     this.manager = manager;
+  }
+
+  @Override
+  public void initialize(String runId) throws Exception {
+    this.runId = runId;
+    manager.initialize(runId);
   }
 
   @Override
