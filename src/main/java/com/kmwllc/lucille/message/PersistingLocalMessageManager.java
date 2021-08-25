@@ -63,6 +63,17 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   }
 
   @Override
+  public void initialize(String runId) throws Exception {
+    manager.initialize(runId);
+  }
+
+  @Override
+  public String getRunId() {
+    return manager.getRunId();
+  }
+
+
+  @Override
   public synchronized void sendForProcessing(Document document) {
     savedSourceMessages.add(document);
     manager.sendForProcessing(document);

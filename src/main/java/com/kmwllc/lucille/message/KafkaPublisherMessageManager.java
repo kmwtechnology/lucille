@@ -21,13 +21,19 @@ import java.util.stream.Collectors;
 public class KafkaPublisherMessageManager implements PublisherMessageManager {
 
   private final Config config;
-  private final KafkaProducer<String, String> kafkaProducer;
-  private final Consumer<String, String> eventConsumer;
-  private final String runId;
-  private final Admin kafkaAdminClient;
+  private KafkaProducer<String, String> kafkaProducer;
+  private Consumer<String, String> eventConsumer;
+  private String runId;
+  private Admin kafkaAdminClient;
 
-  public KafkaPublisherMessageManager(Config config, String runId) {
+  public KafkaPublisherMessageManager(Config config) {
     this.config = config;
+  }
+
+  public void initialize(String runId) throws Exception {
+    if (this.runId!=null) {
+      throw new Exception("Already initialized.");
+    }
     this.runId = runId;
     Properties consumerProps = KafkaUtils.createConsumerProps(config);
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-3");
@@ -38,6 +44,11 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     this.kafkaAdminClient = Admin.create(props);
     this.kafkaProducer = KafkaUtils.createProducer(config);
+  }
+
+  @Override
+  public String getRunId() {
+    return runId;
   }
 
   public void sendForProcessing(Document document) throws Exception {

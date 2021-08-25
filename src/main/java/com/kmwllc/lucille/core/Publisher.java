@@ -14,6 +14,8 @@ package com.kmwllc.lucille.core;
  */
 public interface Publisher {
 
+  void initialize(String runId) throws Exception;
+
   /**
    * Submits the given document for processing by any available pipeline worker.
    *

@@ -38,7 +38,8 @@ public class RunnerTest {
     List<Event> events = manager.getSavedEvents();
     assertEquals(1, events.size());
     assertEquals("1", events.get(0).getDocumentId());
-    // assertEquals(runner.getRunId(), events.get(0).getRunId());
+    assertNotNull(manager.getRunId());
+    assertEquals(manager.getRunId(), events.get(0).getRunId());
     assertEquals(Event.Type.INDEX, events.get(0).getType());
 
     // confirm that topics are empty
