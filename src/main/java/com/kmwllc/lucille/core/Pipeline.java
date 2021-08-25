@@ -53,7 +53,7 @@ public class Pipeline {
 
   /**
    * Passes a Document through the designated sequence of stages and returns a list containing
-   * the input Document along with any child documents generated.
+   * the input Document as the first element, along with any child documents generated.
    *
    * Child documents are passed through downstream stages only. For example, if we have a sequence of stages
    * S1, S2, S3, and if S2 generates a child document, the child document will be passed through S3 only.

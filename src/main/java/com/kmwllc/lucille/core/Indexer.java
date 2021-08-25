@@ -33,7 +33,6 @@ class Indexer implements Runnable {
     while (running) {
       Document doc;
       try {
-        log.info("polling");
         doc = manager.pollCompleted();
       } catch (Exception e) {
         log.info("Indexer interrupted ", e);
@@ -41,7 +40,6 @@ class Indexer implements Runnable {
         return;
       }
       if (doc == null) {
-        log.info("received nothing");
         continue;
       }
 
@@ -54,7 +52,7 @@ class Indexer implements Runnable {
       try {
         manager.sendToSolr(Collections.singletonList(doc));
         Event event = new Event(doc.getId(), runId, "SUCCEEDED", Event.Type.INDEX, Event.Status.SUCCESS);
-        log.info("submitting receipt " + event);
+        log.info("submitting completion event " + event);
         manager.sendEvent(event);
       } catch (Exception e) {
         try {
