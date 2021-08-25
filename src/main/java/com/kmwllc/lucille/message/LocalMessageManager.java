@@ -15,20 +15,6 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   private Queue<Document> pipelineSource = new LinkedList<Document>();
   private Queue<Document> pipelineDest = new LinkedList<Document>();
 
-  private static volatile LocalMessageManager INSTANCE = null;
-
-  public static LocalMessageManager getInstance() {
-    if (INSTANCE!=null) {
-      return INSTANCE;
-    }
-    synchronized (LocalMessageManager.class) {
-      if (INSTANCE == null) {
-        INSTANCE = new LocalMessageManager();
-      }
-      return INSTANCE;
-    }
-  }
-
   @Override
   public synchronized Document pollCompleted() throws Exception {
     return pipelineDest.poll();
@@ -60,7 +46,7 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   @Override
-  public synchronized boolean hasEvents(String runId) throws Exception {
+  public synchronized boolean hasEvents() throws Exception {
     return !pipelineEvents.isEmpty();
   }
 

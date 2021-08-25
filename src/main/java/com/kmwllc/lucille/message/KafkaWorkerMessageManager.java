@@ -17,13 +17,14 @@ import java.util.Properties;
 public class KafkaWorkerMessageManager implements WorkerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessageManager.class);
-  private final Config config = ConfigAccessor.loadConfig();
   private final Consumer<String, String> sourceConsumer;
   private final KafkaProducer<String, String> kafkaProducer;
+  private final Config config;
 
-  public KafkaWorkerMessageManager() {
-    this.kafkaProducer = KafkaUtils.createProducer();
-    Properties consumerProps = KafkaUtils.createConsumerProps();
+  public KafkaWorkerMessageManager(Config config) {
+    this.config = config;
+    this.kafkaProducer = KafkaUtils.createProducer(config);
+    Properties consumerProps = KafkaUtils.createConsumerProps(config);
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-1");
     this.sourceConsumer = new KafkaConsumer(consumerProps);
     this.sourceConsumer.subscribe(Collections.singletonList(config.getString("kafka.sourceTopic")));
@@ -61,7 +62,7 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
    */
   @Override
   public void sendEvent(Event event) throws Exception {
-    String confirmationTopicName = KafkaUtils.getEventTopicName(event.getRunId());
+    String confirmationTopicName = KafkaUtils.getEventTopicName(config, event.getRunId());
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
       new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
     kafkaProducer.flush();

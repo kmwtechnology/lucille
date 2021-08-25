@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.ConfigAccessor;
 import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.*;
@@ -19,19 +18,20 @@ import java.util.*;
 public class KafkaIndexerMessageManager implements IndexerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(KafkaIndexerMessageManager.class);
-  private final Config config = ConfigAccessor.loadConfig();
   private final SolrClient solrClient;
   private final Consumer<String, String> destConsumer;
   private final KafkaProducer<String, String> kafkaProducer;
+  private final Config config;
 
-  public KafkaIndexerMessageManager() {
+  public KafkaIndexerMessageManager(Config config) {
+    this.config = config;
     this.solrClient = new HttpSolrClient.Builder(config.getString("solr.url")).build();
-    Properties consumerProps = KafkaUtils.createConsumerProps();
+    Properties consumerProps = KafkaUtils.createConsumerProps(config);
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-2");
     this.destConsumer = new KafkaConsumer(consumerProps);
     this.destConsumer.subscribe(Collections.singletonList(config.getString("kafka.destTopic")));
 
-    this.kafkaProducer = KafkaUtils.createProducer();
+    this.kafkaProducer = KafkaUtils.createProducer(config);
   }
 
   /**
@@ -75,7 +75,7 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
    */
   @Override
   public void sendEvent(Event event) throws Exception {
-    String confirmationTopicName = KafkaUtils.getEventTopicName(event.getRunId());
+    String confirmationTopicName = KafkaUtils.getEventTopicName(config, event.getRunId());
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
       new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
     kafkaProducer.flush();

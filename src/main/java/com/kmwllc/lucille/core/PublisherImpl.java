@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.message.MessageManagerFactory;
 import com.kmwllc.lucille.message.PublisherMessageManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,9 +34,9 @@ public class PublisherImpl implements Publisher {
   // List of child documents for which an INDEX event has been received early, before the corresponding CREATE event
   private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
 
-  public PublisherImpl(String runId) {
+  public PublisherImpl(String runId, PublisherMessageManager manager) {
     this.runId = runId;
-    this.manager = MessageManagerFactory.getInstance().getPublisherMessageManager(runId);
+    this.manager = manager;
   }
 
   @Override
@@ -93,7 +92,7 @@ public class PublisherImpl implements Publisher {
       // 2) all published Documents and their children are accounted for (none are pending),
       // 3) there are no more Events relating to the current run to consume
       // TODO: timeouts
-      if (!thread.isAlive() && !hasPending() && !manager.hasEvents(runId)) {
+      if (!thread.isAlive() && !hasPending() && !manager.hasEvents()) {
         break;
       }
 
