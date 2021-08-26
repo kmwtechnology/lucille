@@ -9,8 +9,9 @@ import com.typesafe.config.ConfigFactory;
  *
  * In a distributed deployment, there would be one or more Worker processes and one or more Indexer processes
  * that stay alive indefinitely and constantly poll for work. A Runner could then be launched to execute
- * a sequence of connectors which pump work into the system. The work would then be handled by the
- * existing Worker and Indexer and the Runner would terminate when all the work was complete.
+ * a sequence of connectors which pump work into the system. The work from this particular "run" would
+ * then be handled by the existing Worker and Indexer. The Runner would terminate when all the work
+ * it generated was complete, while the Worker and Indexer would stay alive.
  *
  * For development and testing purposes it is useful to have a way to execute an end-to-end run of a system
  * without requiring that the Worker and Indexer have been started as separate processes.
@@ -24,8 +25,9 @@ import com.typesafe.config.ConfigFactory;
  * 1) a Worker thread polls for documents to process and runs them through the pipeline
  * 2) an Indexer thread polls for processed documents and indexes them
  * 3) a Connector thread reads data from a source, generates documents, and publishes them;
- *    Connectors are run sequentially so there will be at most any Connector thread at any time
- * 4) the main thread uses the Publisher to poll for Events and wait for completion of the run
+ *    Connectors are run sequentially so there will be at most one Connector thread at any time
+ * 4) the main thread launches the other threads, and then uses the Publisher to poll for Events
+ *    and wait for completion of the run
  */
 public class RunUtils {
 
@@ -33,13 +35,20 @@ public class RunUtils {
     runWithKafka("application.conf");
   }
 
+  /**
+   * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
+   * config file. Run in a local mode where message traffic is kept in memory and there is no
+   * communication with external systems like Kafka. Return a PersistingLocalMessageManager that
+   * can be used to review the messages that were sent between various components during the run.
+   */
   public static PersistingLocalMessageManager runLocal(String configName) throws Exception {
     Config config = ConfigFactory.load(configName);
 
-    // create persisting message manager that saves all message traffic so we can review it
+    // create a persisting message manager that saves all message traffic so we can review it
     // even after various simulated topics have been fully consumed/cleared;
-    // this implements Worker/Indexer/PublisherMessageManager so it can be passed
-    // to all three components
+    // this implements the Worker/Indexer/PublisherMessageManager interfaces so it can be passed
+    // to all three components; indeed, the same instance must be passed to the various components
+    // so those components will see each other's messages
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     run(config, manager, manager, manager);
@@ -47,6 +56,11 @@ public class RunUtils {
     return manager;
   }
 
+  /**
+   * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
+   * config file. Run in Kafka mode where message traffic flows through the Kafka deployment defined
+   * in the config.
+   */
   public static void runWithKafka(String configName) throws Exception {
     Config config = ConfigFactory.load(configName);
     WorkerMessageManager workerMessageManager = new KafkaWorkerMessageManager(config);
@@ -61,8 +75,8 @@ public class RunUtils {
 
     Worker worker = Worker.startThread(config, workerMessageManager);
     Indexer indexer = Indexer.startThread(config, indexerMessageManager);
-    Runner runner = new RunnerImpl(config);
     Publisher publisher = new PublisherImpl(publisherMessageManager);
+    Runner runner = new RunnerImpl(config);
     runner.runConnectors(publisher);
     worker.terminate();
     indexer.terminate();
