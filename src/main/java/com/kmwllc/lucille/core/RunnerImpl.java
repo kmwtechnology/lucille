@@ -49,7 +49,7 @@ public class RunnerImpl implements Runner {
 
   @Override
   public void runConnector(Connector connector, Publisher publisher) throws Exception {
-    log.info("Running connector: " + connector.toString());
+    log.info("Running connector: " + connector.getName());
 
     Thread connectorThread = new Thread(new Runnable() {
       @Override

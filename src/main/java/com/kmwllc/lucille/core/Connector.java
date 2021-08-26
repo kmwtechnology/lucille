@@ -28,6 +28,8 @@ public interface Connector {
    */
   void start(Publisher publisher);
 
+  String getName();
+
   /**
    * Instantiates a list of Connectors from the designated Config.
    */
