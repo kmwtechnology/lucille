@@ -25,9 +25,9 @@ public class RenameFields extends Stage {
   @Override
   public void start() throws StageException {
     // Split the comma separated list of fields into a list of field names
-    StageUtils.validateFieldNumNotZero(sourceFields, "Renaming Stage");
-    StageUtils.validateFieldNumNotZero(destFields, "Renaming Stage");
-    StageUtils.validateFieldNumsEqual(sourceFields, destFields, "Renaming Stage");
+    StageUtils.validateFieldNumNotZero(sourceFields, "Rename Fields");
+    StageUtils.validateFieldNumNotZero(destFields, "Rename Fields");
+    StageUtils.validateFieldNumsEqual(sourceFields, destFields, "Rename Fields");
   }
 
   @Override
