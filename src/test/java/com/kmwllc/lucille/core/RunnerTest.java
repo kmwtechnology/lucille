@@ -34,7 +34,7 @@ public class RunnerTest {
     assertEquals(1, docsSentToSolr.size());
     assertEquals("1", docsSentToSolr.get(0).getId());
 
-    // confirm that an INDEX event was sent for doc 1
+    // confirm that an INDEX event was sent for doc 1 and is stamped with the proper run ID
     List<Event> events = manager.getSavedEvents();
     assertEquals(1, events.size());
     assertEquals("1", events.get(0).getDocumentId());
