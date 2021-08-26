@@ -26,6 +26,8 @@ public class Document implements Cloneable {
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
 
+  // TODO: put this on the json mapped object somewhere.
+  private ArrayList<Document> children = new ArrayList<Document>();
   private final ObjectNode data;
 
   public Document(ObjectNode data) throws DocumentException {
@@ -157,5 +159,9 @@ public class Document implements Cloneable {
     } catch (DocumentException e) {
       throw new IllegalStateException("Document not cloneable", e);
     }
+  }
+  
+  public void addChildDocument(Document child) {
+    children.add(child);
   }
 }
