@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.StringUtils;
@@ -39,17 +40,7 @@ public class CSVConnector implements Connector {
   @Override
   public void start(Publisher publisher) {
 
-    CSVReader csvReader = null;
-    try {
-      Reader reader;
-      if (path.startsWith("classpath:")) {
-        InputStream is = getClass().getClassLoader().getResourceAsStream(path.substring(path.indexOf(":")+1));
-        InputStreamReader isReader = new InputStreamReader(is);
-        reader = new BufferedReader(isReader);
-      } else {
-        reader = Files.newBufferedReader(Path.of(path));
-      }
-      csvReader = new CSVReader(reader);
+    try (CSVReader csvReader = new CSVReader(FileUtils.getReader(path))) {
 
       // Assume first line is header
       String[] header = csvReader.readNext();
@@ -83,15 +74,7 @@ public class CSVConnector implements Connector {
 
       }
     } catch (Exception e) {
-      e.printStackTrace();
-    } finally {
-      try {
-        if (csvReader!=null) {
-          csvReader.close();
-        }
-      } catch (IOException ioe) {
-        log.error("Error when closing CSV Reader.", ioe);
-      }
+      log.error("Error during CSV processing", e);
     }
 
     log.info("produced " + publisher.numPublished() + " docs; complete");
