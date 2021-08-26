@@ -19,11 +19,6 @@ public class RunnerImpl implements Runner {
   private final String runId;
   private final Config config;
 
-  public static void main(String[] args) throws Exception {
-    //MessageManagerFactory.getInstance().setLocalMode();
-//    new RunnerImpl().runConnectors();
-  }
-
   public RunnerImpl(Config config) throws Exception {
     this.config = config;
     // generate a unique ID for this run

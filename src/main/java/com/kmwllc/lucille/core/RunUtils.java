@@ -18,6 +18,14 @@ import com.typesafe.config.ConfigFactory;
  * stop the Worker and Indexer threads. This can be done in a fully local mode, where all message traffic
  * is stored in in-memory queues, or in Kafka mode, where message traffic flows through an external
  * deployment of Kafka.
+ *
+ * A local end-to-end run involves a total of 4 threads:
+ *
+ * 1) a Worker thread polls for documents to process and runs them through the pipeline
+ * 2) an Indexer thread polls for processed documents and indexes them
+ * 3) a Connector thread reads data from a source, generates documents, and publishes them;
+ *    Connectors are run sequentially so there will be at most any Connector thread at any time
+ * 4) the main thread uses the Publisher to poll for Events and wait for completion of the run
  */
 public class RunUtils {
 
@@ -26,47 +34,36 @@ public class RunUtils {
   }
 
   public static PersistingLocalMessageManager runLocal(String configName) throws Exception {
-
-    // create persisting message manager that saves all message traffic so we can review it
-    // even after various simulated topics have been fully consumed/cleared
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-
-    // acquire the config from the classpath
     Config config = ConfigFactory.load(configName);
 
-    // spawn a Worker thread and an Indexer thread that use the local message manager
-    Worker worker = Worker.startThread(config, manager);
-    Indexer indexer = Indexer.startThread(config, manager);
+    // create persisting message manager that saves all message traffic so we can review it
+    // even after various simulated topics have been fully consumed/cleared;
+    // this implements Worker/Indexer/PublisherMessageManager so it can be passed
+    // to all three components
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
-    // create a Runner and run the connectors
-    Runner runner = new RunnerImpl(config);
-    Publisher publisher = new PublisherImpl(manager);
-    runner.runConnectors(publisher);
-
-    // stop the Worker and Indexer threads
-    worker.terminate();
-    indexer.terminate();
+    run(config, manager, manager, manager);
 
     return manager;
   }
 
   public static void runWithKafka(String configName) throws Exception {
-    // acquire the config from the classpath
     Config config = ConfigFactory.load(configName);
-
-    // spawn a Worker thread and an Indexer thread that use Kafka-based message managers
     WorkerMessageManager workerMessageManager = new KafkaWorkerMessageManager(config);
-    Worker worker = Worker.startThread(config, workerMessageManager);
     IndexerMessageManager indexerMessageManager = new KafkaIndexerMessageManager(config);
-    Indexer indexer = Indexer.startThread(config, indexerMessageManager);
-
-    // create a Runner and run the connectors
-    Runner runner = new RunnerImpl(config);
     PublisherMessageManager publisherMessageManager = new KafkaPublisherMessageManager(config);
+    run(config, workerMessageManager, indexerMessageManager, publisherMessageManager);
+  }
+
+  private static void run(Config config, WorkerMessageManager workerMessageManager,
+                          IndexerMessageManager indexerMessageManager,
+                          PublisherMessageManager publisherMessageManager) throws Exception {
+
+    Worker worker = Worker.startThread(config, workerMessageManager);
+    Indexer indexer = Indexer.startThread(config, indexerMessageManager);
+    Runner runner = new RunnerImpl(config);
     Publisher publisher = new PublisherImpl(publisherMessageManager);
     runner.runConnectors(publisher);
-
-    // stop the Worker and Indexer threads
     worker.terminate();
     indexer.terminate();
   }
