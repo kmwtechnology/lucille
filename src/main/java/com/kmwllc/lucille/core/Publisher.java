@@ -9,11 +9,16 @@ package com.kmwllc.lucille.core;
  *
  * A new Publisher should be created for each run of a sequence of Connectors. The Publisher is responsible
  * for stamping a designated run_id on each published Document and maintaining accounting details specific to that run.
- * Publisher implementations are expected to accept a run ID at construction time.
  *
  */
 public interface Publisher {
 
+  /**
+   * Initialize the publisher with the given run ID.
+   *
+   * This is where, for example, an implementation might establish a connection to a Kafka topic
+   * that is named according to the run ID.
+   */
   void initialize(String runId) throws Exception;
 
   /**
