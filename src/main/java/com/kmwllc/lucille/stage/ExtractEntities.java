@@ -56,11 +56,10 @@ public class ExtractEntities extends Stage {
 
   @Override
   public void start() throws StageException {
-    StageUtils.validateFieldNumNotZero(sourceFields, "Entity Extraction Stage");
-    StageUtils.validateFieldNumNotZero(destFields, "Entity Extraction Stage");
-    StageUtils.validateFieldNumsOneToSeveral(sourceFields, destFields, "Entity Extraction Stage");
+    StageUtils.validateFieldNumNotZero(sourceFields, "Extract Entities");
+    StageUtils.validateFieldNumNotZero(destFields, "Extract Entities");
+    StageUtils.validateFieldNumsOneToSeveral(sourceFields, destFields, "Extract Entities");
 
-    numFields = Integer.max(destFields.size(), sourceFields.size());
     dictTrie = buildTrie(config.getString("dict_path"));
   }
 
@@ -121,9 +120,9 @@ public class ExtractEntities extends Stage {
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     // For each of the field names, extract dictionary values from it.
-    for (int i = 0; i < numFields; i++) {
+    for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one source or dest, use it. Otherwise, use the current source/dest.
-      String sourceField = sourceFields.size() == 1 ? sourceFields.get(0) : sourceFields.get(i);
+      String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
       if (!doc.has(sourceField))

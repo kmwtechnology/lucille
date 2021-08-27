@@ -79,17 +79,15 @@ public class ApplyRegex extends Stage {
         break;
     }
 
-    StageUtils.validateFieldNumNotZero(sourceFields, "Regex Stage");
-    StageUtils.validateFieldNumNotZero(destFields, "Regex Stage");
-    StageUtils.validateFieldNumsOneToSeveral(sourceFields, destFields, "Regex Stage");
-
-    numFields = Integer.max(destFields.size(), sourceFields.size());
+    StageUtils.validateFieldNumNotZero(sourceFields, "Apply Regex");
+    StageUtils.validateFieldNumNotZero(destFields, "Apply Regex");
+    StageUtils.validateFieldNumsOneToSeveral(sourceFields, destFields, "Apply Regex");
   }
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    for (int i = 0; i < numFields; i++) {
-      String sourceField = sourceFields.size() == 1 ? sourceFields.get(0) : sourceFields.get(i);
+    for (int i = 0; i < sourceFields.size(); i++) {
+      String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
       if (!doc.has(sourceField))

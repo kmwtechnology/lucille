@@ -17,7 +17,6 @@ public class CopyFields extends Stage {
 
   private final List<String> sourceFields;
   private final List<String> destFields;
-  private int numFields;
 
   public CopyFields(Config config) {
     super(config);
@@ -27,18 +26,16 @@ public class CopyFields extends Stage {
 
   @Override
   public void start() throws StageException {
-    StageUtils.validateFieldNumNotZero(sourceFields, "Copying Stage");
-    StageUtils.validateFieldNumNotZero(destFields, "Copying Stage");
-    StageUtils.validateFieldNumsOneToSeveral(sourceFields, destFields, "Copying Stage");
-
-    numFields = Integer.max(destFields.size(), sourceFields.size());
+    StageUtils.validateFieldNumNotZero(sourceFields, "Copy Fields");
+    StageUtils.validateFieldNumNotZero(destFields, "Copy Fields");
+    StageUtils.validateFieldNumsOneToSeveral(sourceFields, destFields, "Copy Fields");
   }
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    for (int i = 0; i < numFields; i++) {
+    for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one source or dest, use it. Otherwise, use the current source/dest.
-      String sourceField = sourceFields.size() == 1 ? sourceFields.get(0) : sourceFields.get(i);
+      String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
       if (!doc.has(sourceField))
