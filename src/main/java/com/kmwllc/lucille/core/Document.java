@@ -17,6 +17,8 @@ import java.util.Map;
 /**
  * A record from a source system to be passed through a Pipeline, enriched,
  * and sent to a destination system.
+ *
+ * TODO: addChild(Document doc)
  */
 public class Document implements Cloneable {
 

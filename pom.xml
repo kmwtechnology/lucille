@@ -18,6 +18,8 @@
     <maven-shade-plugin.version>3.1.0</maven-shade-plugin.version>
     <maven-surefire-plugin.version>2.22.0</maven-surefire-plugin.version>
     <jackson.version>2.12.2</jackson.version>
+    <lucene-solr.version>8.9.0</lucene-solr.version>
+    <log4j.version>2.13.3</log4j.version>
   </properties>
 
   <repositories>
@@ -167,7 +169,13 @@
     <dependency>
       <groupId>org.apache.lucene</groupId>
       <artifactId>lucene-analyzers-common</artifactId>
-      <version>8.6.0</version>
+      <version>${lucene-solr.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-monitor</artifactId>
+      <version>${lucene-solr.version}</version>
     </dependency>
 
     <!-- Add slf4j API frontend -->
@@ -182,17 +190,17 @@
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-slf4j-impl</artifactId>
-      <version>2.13.3</version>
+      <version>${log4j.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-api</artifactId>
-      <version>2.13.3</version>
+      <version>${log4j.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-core</artifactId>
-      <version>2.13.3</version>
+      <version>${log4j.version}</version>
     </dependency>
 
     <!-- testing -->
@@ -246,10 +254,11 @@
       <artifactId>opencsv</artifactId>
       <version>5.4</version>
     </dependency>
+    
     <dependency>
       <groupId>org.apache.solr</groupId>
       <artifactId>solr-solrj</artifactId>
-      <version>9.0.0-SNAPSHOT</version>
+      <version>${lucene-solr.version}</version>
     </dependency>
     <dependency>
       <groupId>org.ahocorasick</groupId>

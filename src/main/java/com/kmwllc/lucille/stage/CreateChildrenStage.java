@@ -11,12 +11,17 @@ import java.util.List;
 public class CreateChildrenStage extends Stage {
   public CreateChildrenStage(Config config) {
     super(config);
+    if (config.hasPath("numChildren")) {
+      numChildren = config.getInt("numChildren");
+    }
   }
+
+  private int numChildren = 3;
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     ArrayList<Document> children = new ArrayList();
-    for (int i=0; i<3; i++) {
+    for (int i=0; i<numChildren; i++) {
       Document child = doc.clone();
       child.setField(Document.ID_FIELD, doc.getId()+ "_child" +i);
       children.add(child);

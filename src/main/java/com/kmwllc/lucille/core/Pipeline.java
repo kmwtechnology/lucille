@@ -33,6 +33,10 @@ public class Pipeline {
     }
   }
 
+  /**
+   * Instantiates a Pipeline from the designated Config. The Config is expected to have a "stages" element
+   * containing a List of stages and their settings. The list element for each Stage must specify the stage's class.
+   */
   public static Pipeline fromConfig(Config config) throws ClassNotFoundException, NoSuchMethodException,
     IllegalAccessException, InvocationTargetException, InstantiationException, StageException {
     List<? extends Config> stages = config.getConfigList("stages");
@@ -47,6 +51,14 @@ public class Pipeline {
     return pipeline;
   }
 
+  /**
+   * Passes a Document through the designated sequence of stages and returns a list containing
+   * the input Document as the first element, along with any child documents generated.
+   *
+   * Child documents are passed through downstream stages only. For example, if we have a sequence of stages
+   * S1, S2, S3, and if S2 generates a child document, the child document will be passed through S3 only.
+   *
+   */
   public List<Document> processDocument(Document document) throws StageException {
     ArrayList<Document> documents = new ArrayList();
     documents.add(document);
@@ -67,6 +79,9 @@ public class Pipeline {
     return documents;
   }
 
+  /**
+   * Creates a Document from a given Kafka ConsumerRecord and delegates to processDocument.
+   */
   public List<Document> processKafkaJsonMessage(ConsumerRecord<String,String> record) throws Exception {
     Document document = null;
 
