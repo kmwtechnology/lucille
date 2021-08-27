@@ -16,7 +16,6 @@ import java.util.Map;
  * A record from a source system to be passed through a Pipeline, enriched,
  * and sent to a destination system.
  *
- * TODO: addChild(Document doc)
  */
 public class Document implements Cloneable {
 
@@ -26,8 +25,6 @@ public class Document implements Cloneable {
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
 
-  // TODO: put this on the json mapped object somewhere.
-  private ArrayList<Document> children = new ArrayList<Document>();
   private final ObjectNode data;
 
   public Document(ObjectNode data) throws DocumentException {
@@ -125,6 +122,12 @@ public class Document implements Cloneable {
     array.add(value);
   }
 
+  public void addChildDocument(Document child) {
+    ArrayNode array = data.withArray(".children");
+    array.addPOJO(child.data);
+    
+  }
+  
   public void addToField(String name, Integer value) {
     convertToList(name);
     ArrayNode array = data.withArray(name);
@@ -160,8 +163,17 @@ public class Document implements Cloneable {
       throw new IllegalStateException("Document not cloneable", e);
     }
   }
-  
-  public void addChildDocument(Document child) {
-    children.add(child);
+
+  public List<JsonNode> getChildren() {
+    // TODO Auto-generated method stub
+    ArrayNode array = data.withArray(".children");
+    List<JsonNode> result = new ArrayList<>();
+    // TODO: return a native "document" instead.
+    for (int i = 0 ; i < array.size(); i++) {
+      result.add(array.get(0));
+    }
+    return result;
+    
   }
+  
 }

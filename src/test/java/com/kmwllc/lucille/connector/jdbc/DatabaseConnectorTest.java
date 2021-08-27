@@ -37,11 +37,11 @@ public class DatabaseConnectorTest {
   
   @Before
   public void initTestMode() {
-    // set lucile into loopback mode for local / standalone testing.
+    // set lucille into loopback mode for local / standalone testing.
     manager = new PersistingLocalMessageManager();
     publisher = new PublisherImpl(manager);
   }
-
+  
   @Test
   public void testDatabaseConnector() throws Exception {
     
@@ -83,8 +83,7 @@ public class DatabaseConnectorTest {
     
   }
   
-  // TODO: work through the rest of these examples and validate them
-  // @Test
+  @Test
   public void testJoiningDatabaseConnector() throws Exception {
     
     HashMap<String,Object> configValues = new HashMap<String,Object>();
@@ -92,44 +91,33 @@ public class DatabaseConnectorTest {
     configValues.put("connectionString", "jdbc:h2:mem:test");
     configValues.put("jdbcUser", "");
     configValues.put("jdbcPassword", "");
-    configValues.put("sql", "select * from animal");
-    
+    configValues.put("sql", "select id,name from animal");
+    configValues.put("idField", "id");
     // a list of other sql statements
     ArrayList<String> otherSql = new ArrayList<String>();
-    otherSql.add("select * from meal order by animal_id");
+    otherSql.add("select id as meal_id, animal_id,name from meal order by animal_id");
+    // The join fields. id goes to animal_id
     ArrayList<String> otherJoinFields = new ArrayList<String>();
     otherJoinFields.add("animal_id");
-    configValues.put("otherSql", otherSql);
-    configValues.put("idField", "id");
+    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherJoinFields",otherJoinFields); 
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
     // create the connector with the config
     DatabaseConnector connector = new DatabaseConnector(config);
-    String runId = UUID.randomUUID().toString();
-    // create a publisher to record all the docs sent to it.  
     // run the connector
     connector.start(publisher);
     
-    
     List<Document> docs = manager.getSavedDocumentsSentForProcessing();
     assertEquals(3, docs.size());
-    
-    
-    for (Document d : docs ) {
-      System.err.println(d.toString());
-    }
-    // Ok.. need to validate. 
-    
-    //    for (Document doc : publisher.getPublishedDocs()) {
-    //      System.out.println(doc);
-    //    }
-    //    // TODO?
-    //    assertEquals(3, publisher.getPublishedDocs().size());
-    //    // TODO: more validations.
+
+    // TODO: better verification / edge cases.. also formalize the "children" docs.
+    String expected ="{\"id\":\"1\",\"name\":[\"Matt\"],\".children\":[{\"id\":\"0\",\"meal_id\":[\"1\"],\"animal_id\":[\"1\"],\"name\":[\"breakfast\"]},{\"id\":\"1\",\"meal_id\":[\"2\"],\"animal_id\":[\"1\"],\"name\":[\"lunch\"]},{\"id\":\"2\",\"meal_id\":[\"3\"],\"animal_id\":[\"1\"],\"name\":[\"dinner\"]}],\"run_id\":null}";
+    assertEquals(expected, docs.get(0).toString());
 
   }
   
-  
+  // TODO: not implemented yet.
   // @Test
   public void testCollapsingDatabaseConnector() throws Exception {
     // TODO: implement me
@@ -139,17 +127,25 @@ public class DatabaseConnectorTest {
     configValues.put("connectionString", "jdbc:h2:mem:test");
     configValues.put("jdbcUser", "");
     configValues.put("jdbcPassword", "");
-    configValues.put("sql", "select * from animal , meal where animal.id = meal.animal_id order by animal.id asc");
-    configValues.put("idField", "id");
+    configValues.put("sql", "select animal_id,id,name from meal order by animal_id asc");
+    configValues.put("idField", "animal_id");
     configValues.put("collapse", true);
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
     // create the connector with the config
     DatabaseConnector connector = new DatabaseConnector(config);
-    String runId = UUID.randomUUID().toString();
     // create a publisher to record all the docs sent to it.  
     // run the connector
+    
     connector.start(publisher);
+    
+    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(3, docs.size());
+
+    for (Document d: docs) {
+      System.err.println(d);
+    }
+    
     // TODO: 
     //    for (Document doc : publisher.getPublishedDocs()) {
     //      System.out.println(doc);

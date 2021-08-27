@@ -42,7 +42,7 @@ public class DatabaseConnector implements Connector {
   private List<String> otherJoinFields;
   private Connection connection = null;
   // TODO: move to base class.
-  private boolean collapse = false;
+  
   private String topic;
 
   // The constructor that takes the config.
@@ -69,10 +69,7 @@ public class DatabaseConnector implements Connector {
       // TODO: base class or something!
       topic = config.getString("topic");
     }
-    // Support collapsing mode for the connector.
-    if (config.hasPath("collapse")) {
-      collapse = config.getBoolean("collapse");
-    }
+
   }
 
   // create a jdbc connection
@@ -97,7 +94,7 @@ public class DatabaseConnector implements Connector {
 
   private void setState(ConnectorState error) {
     // TODO: update the State here.
-    System.err.println("Implement Me: ");
+    // System.err.println("Implement Me: ");
   }
 
   @Override
@@ -144,19 +141,12 @@ public class DatabaseConnector implements Connector {
     }
 
     log.info("Processing rows...");
-    String previousId =  "";
-    Document doc = null;
     
     while (rs.next()) {
       // Need the ID column from the RS.
       String id = rs.getString(idColumn);
       
-      if (previousId.equals(id) && collapse) {
-        // reuse the same doc. and track the previous id for the next pass 
-        previousId = id;
-      } else {
-        doc = new Document(id);
-      }
+      Document doc = new Document(id);
       
       // Add each column / field name to the doc
       for (int i = 1; i <= columns.length; i++) {
@@ -202,7 +192,9 @@ public class DatabaseConnector implements Connector {
 
   private void flush() {
     // TODO: possibly move to base class / interface
-    System.err.println("No Op flush for now.");
+    // lifecycle to be called after the last doc is processed..
+    // in case the connector is doing some batching to make sure it flushes the last batch.
+    // System.err.println("No Op flush for now.");
   }
 
   private void iterateOtherSQL(ResultSet rs2, String[] columns2, Document doc, Integer joinId, int childId, String joinField) throws SQLException {
