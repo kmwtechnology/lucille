@@ -70,6 +70,14 @@ public class DocumentTest {
   }
 
   @Test
+  public void testGetUnsetField() {
+    Document document = new Document("id");
+    assertFalse(document.has("test_field"));
+    assertNull(document.getString("test_field"));
+    assertNull(document.getStringList("test_field"));
+  }
+
+  @Test
   public void testAddToField() throws Exception {
     Document document = new Document("123");
     assertFalse(document.has("field1"));

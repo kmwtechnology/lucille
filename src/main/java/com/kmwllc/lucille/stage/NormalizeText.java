@@ -3,20 +3,26 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.text.WordUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.function.Function;
-import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class NormalizeText extends Stage {
 
+  // This enum is not used, I have left it here as a reference for what modes are offered for this Stage
   private enum NormalizationMode {
     LOWERCASE, UPPERCASE, TITLE_CASE, SENTENCE_CASE, NONE
   }
+
+  private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   private final List<String> sourceFields;
   private final List<String> destFields;
@@ -57,6 +63,16 @@ public class NormalizeText extends Stage {
     }
   }
 
+  protected void setMode(String mode) {
+    this.mode = mode;
+    try {
+      start();
+    } catch (Exception e) {
+      log.error("Failed to start the stage", e);
+    }
+
+  }
+
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     for (int i = 0; i < sourceFields.size(); i++) {
@@ -92,7 +108,7 @@ public class NormalizeText extends Stage {
    * @return  uppercased String
    */
   private String uppercaseNormalize(String value) {
-    return value.toLowerCase();
+    return value.toUpperCase();
   }
 
   /**

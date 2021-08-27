@@ -3,6 +3,7 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
 import java.util.ArrayList;

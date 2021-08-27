@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.typesafe.config.ConfigException;
 
 import java.util.ArrayList;
@@ -76,11 +78,25 @@ public class Document implements Cloneable {
     data.put(name, value);
   }
 
+  // TODO : Write tests for new getString functionality
   public String getString(String name) {
-    return data.get(name).isNull() ? null : data.get(name).asText();
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node = data.get(name);
+    if (JsonNull.INSTANCE.equals(node)) {
+      return null;
+    }
+
+    return node.asText();
   }
 
   public List<String> getStringList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
     if (!isMultiValued(name)) {
       return Collections.singletonList(getString(name));
     }

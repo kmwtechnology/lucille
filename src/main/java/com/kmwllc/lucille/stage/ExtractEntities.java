@@ -3,6 +3,8 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
 import java.io.BufferedReader;
@@ -69,7 +71,6 @@ public class ExtractEntities extends Stage {
    * @param dictFile  the path of the dictionary file to read from
    * @return  a PayloadTrie capable of finding matches for its dictionary values
    */
-  // TODO : Consider changing file paths to classpath
   private PayloadTrie<String> buildTrie(String dictFile) {
     PayloadTrie.PayloadTrieBuilder<String> trieBuilder = PayloadTrie.builder();
 
@@ -94,7 +95,7 @@ public class ExtractEntities extends Stage {
       trieBuilder = trieBuilder.ignoreOverlaps();
     }
 
-    try (BufferedReader reader = new BufferedReader(new FileReader(dictFile))) {
+    try (BufferedReader reader = new BufferedReader(FileUtils.getReader(dictFile))) {
       // For each line of the dictionary file, add a keyword/payload pair to the Trie
       String line;
       while((line = reader.readLine()) != null) {

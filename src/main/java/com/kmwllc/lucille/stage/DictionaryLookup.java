@@ -3,6 +3,8 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +41,7 @@ public class DictionaryLookup extends Stage {
    */
   private HashMap<String, String> buildHashMap(String dictPath) {
     HashMap<String, String> dict = new HashMap<>();
-    try (BufferedReader reader = new BufferedReader(new FileReader(dictPath))) {
+    try (BufferedReader reader = new BufferedReader(FileUtils.getReader(dictPath))) {
       // For each line of the dictionary file, add a keyword/payload pair to the Trie
       String line;
       while((line = reader.readLine()) != null) {

@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.stage;
+package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
