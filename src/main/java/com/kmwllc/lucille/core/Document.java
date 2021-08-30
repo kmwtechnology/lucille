@@ -78,11 +78,14 @@ public class Document implements Cloneable {
     data.put(name, value);
   }
 
-  // TODO : Write tests for new getString functionality
+  // This will return null in two cases : 1) If the field is absent 2) IF the field is present but contains a null.
+  // To distinguish between these, you can call has().
+  // Calling getString for a field which is multivalued will return the empty String, "".
   public String getString(String name) {
     if (!data.has(name)) {
       return null;
     }
+
 
     JsonNode node = data.get(name);
     if (JsonNull.INSTANCE.equals(node)) {

@@ -5,8 +5,12 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigObject;
+import com.typesafe.config.ConfigValue;
 
-import java.util.List;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 /**
  * This field renames a given set of source fields to a given set of destination fields. You must specify the same
@@ -19,16 +23,22 @@ public class RenameFields extends Stage {
 
   public RenameFields(Config config) {
     super(config);
-    sourceFields = config.getStringList("source");
-    destFields = config.getStringList("dest");
+
+    sourceFields = new ArrayList<>();
+    destFields = new ArrayList<>();
+    Set<Entry<String, ConfigValue>> values = config.getConfig("fieldMapping").entrySet();
+    for (Entry<String, ConfigValue> entry : values) {
+      sourceFields.add(entry.getKey());
+      destFields.add((String) entry.getValue().unwrapped());
+    }
   }
 
   @Override
   public void start() throws StageException {
     // Split the comma separated list of fields into a list of field names
-    StageUtils.validateFieldNumNotZero(sourceFields, "Rename Fields");
-    StageUtils.validateFieldNumNotZero(destFields, "Rename Fields");
-    StageUtils.validateFieldNumsEqual(sourceFields, destFields, "Rename Fields");
+    StageUtils.validateFieldNumNotZero(sourceFields, "RenameFields");
+    StageUtils.validateFieldNumNotZero(destFields, "RenameFields");
+    StageUtils.validateFieldNumsEqual(sourceFields, destFields, "RenameFields");
   }
 
   @Override

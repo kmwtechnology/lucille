@@ -11,7 +11,7 @@ public class RenameFieldsTest {
   @Test
   public void testRenameFields() throws Exception {
     Config config = ConfigFactory.load("RenameFieldsTest/config.conf");
-    CopyFields stage = new CopyFields(config);
+    RenameFields stage = new RenameFields(config);
     stage.start();
 
     Document doc = new Document("doc");

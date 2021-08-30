@@ -8,7 +8,6 @@ import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -38,8 +37,6 @@ public class ExtractEntities extends Stage {
   private final boolean onlyWholeWords;
   private final boolean ignoreOverlaps;
   private final boolean usePayloads;
-
-  private int numFields;
 
   public ExtractEntities(Config config) {
     super(config);

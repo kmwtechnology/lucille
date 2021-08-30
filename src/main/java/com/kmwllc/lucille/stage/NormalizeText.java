@@ -44,6 +44,18 @@ public class NormalizeText extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Normalize Text");
     StageUtils.validateFieldNumsOneToSeveral(sourceFields, destFields, "Normalize Text");
 
+    setMode(mode);
+  }
+
+  /**
+   * Set the mode of this Stage. This method is used to facilitate testing, it should likely not be used in the normal
+   * operation of the Stage.
+   *
+   * @param mode  The mode to switch to
+   */
+  protected void setMode(String mode) throws StageException {
+    this.mode = mode;
+
     switch (mode.toLowerCase()) {
       case ("lowercase"):
         func = this::lowercaseNormalize;
@@ -58,19 +70,8 @@ public class NormalizeText extends Stage {
         func = this::sentenceCaseNormalize;
         break;
       default:
-        // TODO : Should we throw an exception if an invalid mode is supplied or do nothing to the Strings?
-        func = this::noOp;
+        throw new StageException("Invalid Mode supplied to NormalizeText.");
     }
-  }
-
-  protected void setMode(String mode) {
-    this.mode = mode;
-    try {
-      start();
-    } catch (Exception e) {
-      log.error("Failed to start the stage", e);
-    }
-
   }
 
   @Override
@@ -113,6 +114,8 @@ public class NormalizeText extends Stage {
 
   /**
    * Transform the given String into title case ex: "This Is A Title Cased String"
+   * This normalization will put ALL of the text in title case and will not preserve the case of things such as
+   * abbreviations or fully capitalized words.
    *
    * @param value the input String
    * @return  the title cased String
@@ -123,11 +126,12 @@ public class NormalizeText extends Stage {
 
   /**
    * Transform the given String into sentence case ex: "This string is a sentence. Is this a new sentence? One more!"
+   * This normalization will put ALL of the text in title case and will not preserve the case of things such a
+   * abbreviations, fully capitalized words or proper nouns.
    *
    * @param value the input String
    * @return  the sentence cased String
    */
-  // TODO : Discuss limitations of this/any design
   private String sentenceCaseNormalize(String value) {
     Pattern pattern = Pattern.compile("[.?!] \\w");
     Matcher matcher = pattern.matcher(value.toLowerCase());
@@ -144,15 +148,4 @@ public class NormalizeText extends Stage {
     char upper = Character.toUpperCase(out.charAt(0));
     return upper + out.substring(1);
   }
-
-  /**
-   * Do nothing to the String. This noOp allows us to continue running if the user supplies an invalid mode.
-   *
-   * @param value the input String
-   * @return  the unchanged String
-   */
-  private String noOp(String value) {
-    return value;
-  }
-
 }
