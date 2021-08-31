@@ -57,7 +57,7 @@ public class ExtractEntities extends Stage {
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Extract Entities");
     StageUtils.validateFieldNumNotZero(destFields, "Extract Entities");
-    StageUtils.validateFieldNumsOneToSeveral(sourceFields, destFields, "Extract Entities");
+    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Extract Entities");
 
     dictTrie = buildTrie(config.getString("dict_path"));
   }

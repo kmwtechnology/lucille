@@ -82,7 +82,7 @@ public class ApplyRegex extends Stage {
 
     StageUtils.validateFieldNumNotZero(sourceFields, "Apply Regex");
     StageUtils.validateFieldNumNotZero(destFields, "Apply Regex");
-    StageUtils.validateFieldNumsOneToSeveral(sourceFields, destFields, "Apply Regex");
+    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Apply Regex");
   }
 
   @Override

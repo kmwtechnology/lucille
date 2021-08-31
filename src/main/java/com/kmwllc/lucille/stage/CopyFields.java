@@ -29,7 +29,7 @@ public class CopyFields extends Stage {
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Copy Fields");
     StageUtils.validateFieldNumNotZero(destFields, "Copy Fields");
-    StageUtils.validateFieldNumsOneToSeveral(sourceFields, destFields, "Copy Fields");
+    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Copy Fields");
   }
 
   @Override

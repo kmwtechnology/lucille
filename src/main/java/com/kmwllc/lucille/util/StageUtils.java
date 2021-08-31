@@ -68,7 +68,7 @@ public class StageUtils {
    * @param stageName the name of the calling stage
    * @throws StageException
    */
-  public static void validateFieldNumsOneToSeveral(List<String> fields1, List<String> fields2, String stageName) throws StageException {
+  public static void validateFieldNumsSeveralToOne(List<String> fields1, List<String> fields2, String stageName) throws StageException {
     if ((fields1.size() != fields2.size()) && (fields2.size() != 1)) {
       throw new StageException(stageName + " was supplied with an invalid number of fields in the inputted field lists");
     }

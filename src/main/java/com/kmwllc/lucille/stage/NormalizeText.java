@@ -42,7 +42,7 @@ public class NormalizeText extends Stage {
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Normalize Text");
     StageUtils.validateFieldNumNotZero(destFields, "Normalize Text");
-    StageUtils.validateFieldNumsOneToSeveral(sourceFields, destFields, "Normalize Text");
+    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Normalize Text");
 
     setMode(mode);
   }
