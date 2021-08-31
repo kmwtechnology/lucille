@@ -6,6 +6,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -70,6 +71,14 @@ public class DocumentTest {
   }
 
   @Test
+  public void testGetUnsetField() {
+    Document document = new Document("id");
+    assertFalse(document.has("test_field"));
+    assertNull(document.getString("test_field"));
+    assertNull(document.getStringList("test_field"));
+  }
+
+  @Test
   public void testAddToField() throws Exception {
     Document document = new Document("123");
     assertFalse(document.has("field1"));
@@ -78,5 +87,34 @@ public class DocumentTest {
     document.addToField("field1", "val3");
     List<String> expected = Arrays.asList("val1", "val2", "val3");
     assertEquals(expected, document.getStringList("field1"));
+  }
+
+  @Test
+  public void testGetStringsSingleValued() {
+    Document document = new Document("doc");
+    document.setField("pets", "dog");
+    assertFalse(document.isMultiValued("pets"));
+    assertEquals("dog", document.getString("pets"));
+    assertEquals(Collections.singletonList("dog"), document.getStringList("pets"));
+  }
+
+  @Test
+  public void testGetStringsMultiValued() {
+    Document document = new Document("doc");
+    document.setField("pets", "dog");
+    assertFalse(document.isMultiValued("pets"));
+    document.addToField("pets", "cat");
+    assertTrue(document.isMultiValued("pets"));
+    document.addToField("pets", "fish");
+    assertEquals(Arrays.asList("dog", "cat", "fish"), document.getStringList("pets"));
+  }
+
+
+  @Test
+  public void testGetStringMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", "val1");
+    document.addToField("field1", "val2");
+    assertEquals("", document.getString("field1"));
   }
 }
