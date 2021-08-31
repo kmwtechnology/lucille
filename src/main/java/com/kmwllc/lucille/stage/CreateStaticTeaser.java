@@ -31,6 +31,7 @@ public class CreateStaticTeaser extends Stage {
     }
   }
 
+  // NOTE : If a given field is multivalued, this Stage will only operate on the first value
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     for (int i = 0; i < sourceFields.size(); i++) {
@@ -53,7 +54,7 @@ public class CreateStaticTeaser extends Stage {
         pointer++;
       }
 
-      doc.addToField(dest, fullText.substring(0, ++pointer));
+      doc.addToField(dest, fullText.substring(0, ++pointer).trim());
     }
 
     return null;

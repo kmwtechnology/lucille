@@ -29,6 +29,7 @@ public class Concatenate extends Stage {
     StageUtils.validateFieldNumNotZero(sourceFields, "Concatenate");
   }
 
+  // NOTE : If a given field is multivalued, this Stage will only operate on the first value
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     HashMap<String, String> replacements = new HashMap<>();

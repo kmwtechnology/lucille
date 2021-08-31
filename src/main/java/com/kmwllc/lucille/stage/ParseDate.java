@@ -43,8 +43,8 @@ public class ParseDate extends Stage {
     for (Config c : formatterClasses) {
       try {
         Class<?> clazz = Class.forName(c.getString("class"));
-        Constructor<?> constructor = clazz.getConstructor(Config.class);
-        Function<String, LocalDate> formatter = (Function<String, LocalDate>) constructor.newInstance(c);
+        Constructor<?> constructor = clazz.getConstructor();
+        Function<String, LocalDate> formatter = (Function<String, LocalDate>) constructor.newInstance();
         formatters.add(formatter);
       } catch (Exception e) {
         throw new StageException(e.getMessage());

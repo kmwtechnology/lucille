@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
@@ -14,7 +15,7 @@ public class ExtractEntitiesTest {
   @Test
   public void testExtractEntities() throws Exception {
     Config config = ConfigFactory.load("ExtractEntitiesTest/config.conf");
-    ExtractEntities stage = new ExtractEntities(config);
+    Stage stage = new ExtractEntities(config);
     stage.start();
 
     Document doc = new Document("doc");

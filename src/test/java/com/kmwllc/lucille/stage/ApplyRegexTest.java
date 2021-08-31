@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
@@ -14,7 +15,7 @@ public class ApplyRegexTest {
   @Test
   public void testApplyRegex() throws Exception {
     Config config = ConfigFactory.load("ApplyRegexTest/config.conf");
-    ApplyRegex stage = new ApplyRegex(config);
+    Stage stage = new ApplyRegex(config);
     stage.start();
 
     Document doc = new Document("doc");

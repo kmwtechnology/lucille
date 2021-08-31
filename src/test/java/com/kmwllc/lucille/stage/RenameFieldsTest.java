@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
@@ -11,7 +12,7 @@ public class RenameFieldsTest {
   @Test
   public void testRenameFields() throws Exception {
     Config config = ConfigFactory.load("RenameFieldsTest/config.conf");
-    RenameFields stage = new RenameFields(config);
+    Stage stage = new RenameFields(config);
     stage.start();
 
     Document doc = new Document("doc");

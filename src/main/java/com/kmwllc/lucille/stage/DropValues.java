@@ -31,11 +31,12 @@ public class DropValues extends Stage {
       if (!doc.has(source))
         continue;
 
-      // TODO : Move dropping array values to Document
       List<String> fieldVals = doc.getStringList(source);
+      int deleted = 0;
       for (int i = 0; i < fieldVals.size(); i++) {
         if (values.contains(fieldVals.get(i))) {
-          doc.removeFromArray(source, i);
+          doc.removeFromArray(source, i - deleted);
+          deleted++;
         }
       }
     }
