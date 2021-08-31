@@ -5,10 +5,14 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.typesafe.config.ConfigException;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -74,11 +78,32 @@ public class Document implements Cloneable {
     data.put(name, value);
   }
 
+  // This will return null in two cases : 1) If the field is absent 2) IF the field is present but contains a null.
+  // To distinguish between these, you can call has().
+  // Calling getString for a field which is multivalued will return the empty String, "".
   public String getString(String name) {
-    return data.get(name).isNull() ? null : data.get(name).asText();
+    if (!data.has(name)) {
+      return null;
+    }
+
+
+    JsonNode node = data.get(name);
+    if (JsonNull.INSTANCE.equals(node)) {
+      return null;
+    }
+
+    return node.asText();
   }
 
   public List<String> getStringList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getString(name));
+    }
+
     ArrayNode array = data.withArray(name);
     List<String> result = new ArrayList<>();
     for (JsonNode node : array) {
@@ -97,6 +122,10 @@ public class Document implements Cloneable {
 
   public boolean hasNonNull(String name) {
     return data.hasNonNull(name);
+  }
+
+  public boolean isMultiValued(String name) {
+     return data.has(name) && data.get(name).getNodeType() == JsonNodeType.ARRAY;
   }
 
   public boolean equals(Object other) {
