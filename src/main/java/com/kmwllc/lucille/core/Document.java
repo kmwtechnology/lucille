@@ -62,6 +62,10 @@ public class Document implements Cloneable {
     data.remove(name);
   }
 
+  public void removeFromArray(String name, int index) {
+    data.withArray(name).remove(index);
+  }
+
   public void setField(String name, String value) {
     data.put(name, value);
   }
