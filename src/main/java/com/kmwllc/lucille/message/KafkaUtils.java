@@ -41,7 +41,21 @@ public class KafkaUtils {
     return new KafkaProducer(producerProps);
   }
 
-  public static String getEventTopicName(Config config, String runId) {
-    return config.getString("kafka.eventTopic") + "_" + runId;
+  public static String getEventTopicName(String pipelineName, String runId) {
+    return pipelineName + "_event_" + runId;
   }
+
+  public static String getSourceTopicName(String pipelineName) {
+   return pipelineName + "_source";
+  }
+
+  public static String getDestTopicName(String pipelineName) {
+    return pipelineName + "_dest";
+  }
+
+  public static String getFailTopicName(String pipelineName) {
+    return pipelineName + "_fail";
+  }
+
+
 }

@@ -30,6 +30,8 @@ public interface Connector {
 
   String getName();
 
+  String getPipelineName();
+
   /**
    * Instantiates a list of Connectors from the designated Config.
    */

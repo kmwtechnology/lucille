@@ -50,9 +50,9 @@ public class PublisherImpl implements Publisher {
   }
 
   @Override
-  public void initialize(String runId) throws Exception {
+  public void initialize(String runId, String pipelineName) throws Exception {
     this.runId = runId;
-    manager.initialize(runId);
+    manager.initialize(runId, pipelineName);
   }
 
   @Override

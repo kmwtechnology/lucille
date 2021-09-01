@@ -17,9 +17,9 @@ public class PipelineTest {
 
   @Test
   public void testFromConfig() throws Exception {
-    String s = "stages = [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}, {class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\"}]";
+    String s = "pipelines.pipeline1.stages = [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}, {class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\"}]";
     Config config = ConfigFactory.parseString(s);
-    Pipeline pipeline = Pipeline.fromConfig(config);
+    Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1");
     List<Stage> stages = pipeline.getStages();
     assertEquals(stages.get(0).getClass(), Stage1.class);
     assertEquals(stages.get(1).getClass(), Stage4.class);

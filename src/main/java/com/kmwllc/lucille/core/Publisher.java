@@ -19,7 +19,7 @@ public interface Publisher {
    * This is where, for example, an implementation might establish a connection to a Kafka topic
    * that is named according to the run ID.
    */
-  void initialize(String runId) throws Exception;
+  void initialize(String runId, String pipelineName) throws Exception;
 
   /**
    * Submits the given document for processing by any available pipeline worker.

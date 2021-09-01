@@ -12,7 +12,7 @@ import com.kmwllc.lucille.core.Event;
  */
 public interface PublisherMessageManager {
 
-  void initialize(String runId) throws Exception;
+  void initialize(String runId, String pipelineName) throws Exception;
 
   String getRunId();
 
