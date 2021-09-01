@@ -4,10 +4,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Pipeline;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.stage.dateformatters.DateMonthStrFormatter;
-import com.kmwllc.lucille.stage.dateformatters.DatePipeFormatter;
-import com.kmwllc.lucille.stage.dateformatters.DateTwoYearsFormatter;
-import com.kmwllc.lucille.stage.dateformatters.DateYearOnlyFormatter;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
@@ -19,6 +15,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
+/**
+ * This Stage will parse dates into ISO_INSTANT format to be ingested by Solr. If a given date cannot be parsed, it
+ * will not be passed through to the destination field.
+ * Config Parameters:
+ *
+ *   - source (List<String>) : List of source field names.
+ *   - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
+ *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
+ *   - formatters (List<Function>) : List of formatter classes to be used for parsing dates. Formatters must implement
+ *       the Function<String, LocalDate> Interface.
+ */
 public class ParseDate extends Stage {
 
   private final List<Function<String, LocalDate>> formatters;
@@ -39,6 +46,7 @@ public class ParseDate extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Parse Date");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Parse Date");
 
+    // Instantiate all of the formatters supplied in the Config
     List<? extends Config> formatterClasses = config.getConfigList("formatters");
     for (Config c : formatterClasses) {
       try {
@@ -73,13 +81,12 @@ public class ParseDate extends Stage {
           }
         }
 
-        // TODO : Dates which cannot be reformatted are lost
         if (date == null) {
           continue;
         }
 
         // Convert the returned LocalDate into a String in the ISO_INSTANT format for Solr
-        // TODO : Maybe make date output configurable
+        // TODO : Potentially add Date object to Document
         String dateStr = DateTimeFormatter.ISO_INSTANT.format(date.atStartOfDay().toInstant(ZoneOffset.UTC));
         doc.addToField(destField, dateStr);
       }

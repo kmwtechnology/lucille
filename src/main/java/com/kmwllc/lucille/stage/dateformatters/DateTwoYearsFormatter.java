@@ -11,7 +11,6 @@ import java.util.regex.Pattern;
  *  Since no month or date are specified, they will default to January 1 of the given year.
  *  Will return null of the there are no dates formatted in it's style within the String.
  */
-// TODO : Think about extracting both dates.
 public class DateTwoYearsFormatter implements Function<String, LocalDate> {
 
   private static final Pattern datePattern = Pattern.compile("\\d{1,4}\\W\\d{1,4}");

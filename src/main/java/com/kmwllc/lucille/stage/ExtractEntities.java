@@ -20,9 +20,27 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stage for performing entity extraction on a given field, using terms from a given dictionary file. The dictionary
- * file should have a term on each line, and can support providing payloads with the syntax "term, payload". If any
- * occurrences are found, the original value of the field will be deleted and replaced by the term values.
+ * Stage for performing dictionary based entity extraction on a given field, using terms from a given dictionary file.
+ * The dictionary file should have a term on each line, and can support providing payloads with the syntax "term, payload".
+ * If any occurrences are found, they will be extracted and their associated payloads will be appended to the destination
+ * field.
+ *
+ * Config Parameters:
+ *
+ *   - source (List<String>) : list of source field names
+ *   - dest (List<String>) : list of destination field names. You can either supply the same number of source and destination fields
+ *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
+ *   - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
+ *       will be searched for the file. Otherwise, the local file system will be searched.
+ *   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.
+ *   - ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches.
+ *   - only_whitespace_separated (Boolean, Optional) : Denotes whether terms must be whitespace separated to be
+ *       candidates for matching
+ *   - stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit.
+ *   - only_whole_words (Boolean, Optional) : Determines whether this matcher will trigger for matches contained within
+ *       other text. ie "OMAN" in "rOMAN"
+ *   - ignore_overlaps (Boolean, Optional) : Decides whether overlapping matches should both be extracted or if only the
+ *       longer, left most match should be kept.
  */
 public class ExtractEntities extends Stage {
 

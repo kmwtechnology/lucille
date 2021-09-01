@@ -15,6 +15,10 @@ import java.util.stream.Collectors;
 /**
  * This field renames a given set of source fields to a given set of destination fields. You must specify the same
  * number of source and destination fields.
+ *
+ * Config Parameters:
+ *
+ *   - field_mapping (Map<String, String>) : A 1-1 mapping of original field names to new field names.
  */
 public class RenameFields extends Stage {
 
@@ -26,7 +30,7 @@ public class RenameFields extends Stage {
 
     sourceFields = new ArrayList<>();
     destFields = new ArrayList<>();
-    Set<Entry<String, ConfigValue>> values = config.getConfig("fieldMapping").entrySet();
+    Set<Entry<String, ConfigValue>> values = config.getConfig("field_mapping").entrySet();
     for (Entry<String, ConfigValue> entry : values) {
       sourceFields.add(entry.getKey());
       destFields.add((String) entry.getValue().unwrapped());

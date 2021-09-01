@@ -13,6 +13,12 @@ import java.util.List;
  * of fields are supplied for both sources and destinations, the fields will be copied from source_1 to dest_1 and
  * source_2 to dest_2. If either source or dest has only one field value, and the other has several, all of the
  * fields will be copied to/from the same field.
+ *
+ * Config Parameters:
+ *
+ *   - source (List<String>) : list of source field names
+ *   - dest (List<String>) : list of destination field names. You can either supply the same number of source and destination fields
+ *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  */
 public class CopyFields extends Stage {
 

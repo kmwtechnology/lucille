@@ -8,6 +8,14 @@ import com.typesafe.config.Config;
 
 import java.util.List;
 
+/**
+ * This Stage will remove all occurrences of a given value from the source fields. Field values are not removed if
+ * they contain a blacklisted value, only if it is an exact match between the two Strings.
+ * Config Parameters:
+ *
+ *   - source (List<String>) : List of source field names.
+ *   - values (List<String>) : The values to be blacklisted and removed from the source fields.
+ */
 public class DropValues extends Stage {
 
   private final List<String> sourceFields;
@@ -32,11 +40,10 @@ public class DropValues extends Stage {
         continue;
 
       List<String> fieldVals = doc.getStringList(source);
-      int deleted = 0;
-      for (int i = 0; i < fieldVals.size(); i++) {
-        if (values.contains(fieldVals.get(i))) {
-          doc.removeFromArray(source, i - deleted);
-          deleted++;
+      doc.removeField(source);
+      for (String value : fieldVals) {
+        if (!values.contains(value)) {
+          doc.addToField(source, value);
         }
       }
     }
