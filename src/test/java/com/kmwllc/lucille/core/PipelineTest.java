@@ -17,7 +17,7 @@ public class PipelineTest {
 
   @Test
   public void testFromConfig() throws Exception {
-    String s = "pipelines.pipeline1.stages = [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}, {class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\"}]";
+    String s = "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}, {class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\"}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1");
     List<Stage> stages = pipeline.getStages();
@@ -30,6 +30,26 @@ public class PipelineTest {
     assertEquals("v4", doc.getString("s4"));
   }
 
+  @Test(expected = PipelineException.class)
+  public void testFromConfigWithoutPipelinesElement() throws Exception {
+    Config config = ConfigFactory.empty();
+    Pipeline.fromConfig(config, "pipeline1");
+  }
+
+  @Test(expected = PipelineException.class)
+  public void testFromConfigWithUnnamedPipeline() throws Exception {
+    String s = "pipelines = [{stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, " +
+      "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
+    Config config = ConfigFactory.parseString(s);
+    Pipeline.fromConfig(config, "pipeline1");
+  }
+
+  @Test(expected = PipelineException.class)
+  public void testFromConfigWithoutDesignatedPipeline() throws Exception {
+    String s = "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
+    Config config = ConfigFactory.parseString(s);
+    Pipeline.fromConfig(config, "pipeline2");
+  }
 
   @Test
   public void testProcessDocumentWithChildren() throws Exception {
