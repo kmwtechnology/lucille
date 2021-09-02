@@ -40,7 +40,7 @@ public class PipelineWorker {
   private final AtomicReference<Instant> pollInstant = new AtomicReference();
   private final String retryCounterPrefix;
 
-  public PipelineWorker(Config config) throws Exception {
+  public PipelineWorker(Config config, String pipelineName) throws Exception {
     log.info("Initializing Lucille Pipeline Worker");
     this.config = config;
     pollInstant.set(Instant.now());
@@ -75,13 +75,13 @@ public class PipelineWorker {
     producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
     kafkaProducer = new KafkaProducer(producerProps);
-    pipeline = Pipeline.fromConfig(config);
+    pipeline = Pipeline.fromConfig(config, pipelineName);
   }
 
   public static void main(String[] args) throws Exception {
 
     Config config = ConfigAccessor.loadConfig();
-    PipelineWorker worker = new PipelineWorker(config);
+    PipelineWorker worker = new PipelineWorker(config, args.length > 0 ? args[0] : "pipeline1");
 
     int maxProcessingSecs = config.getInt("worker.maxProcessingSecs");
     spawnWatcher(worker, maxProcessingSecs);

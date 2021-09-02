@@ -25,21 +25,23 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
   private Consumer<String, String> eventConsumer;
   private String runId;
   private Admin kafkaAdminClient;
+  private String pipelineName;
 
   public KafkaPublisherMessageManager(Config config) {
     this.config = config;
   }
 
-  public void initialize(String runId) throws Exception {
+  public void initialize(String runId, String pipelineName) throws Exception {
     if (this.runId!=null) {
       throw new Exception("Already initialized.");
     }
     this.runId = runId;
+    this.pipelineName = pipelineName;
     Properties consumerProps = KafkaUtils.createConsumerProps(config);
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-3");
     // TODO: create event topic explicitly instead of relying on auto-create; delete topic when finished
     this.eventConsumer = new KafkaConsumer(consumerProps);
-    this.eventConsumer.subscribe(Collections.singletonList(KafkaUtils.getEventTopicName(config, runId)));
+    this.eventConsumer.subscribe(Collections.singletonList(KafkaUtils.getEventTopicName(pipelineName, runId)));
     Properties props = new Properties();
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     this.kafkaAdminClient = Admin.create(props);
@@ -53,7 +55,7 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
 
   public void sendForProcessing(Document document) throws Exception {
     RecordMetadata result = (RecordMetadata) kafkaProducer.send(
-      new ProducerRecord(config.getString("kafka.sourceTopic"), document.getId(), document.toString())).get();
+      new ProducerRecord(KafkaUtils.getSourceTopicName(pipelineName), document.getId(), document.toString())).get();
     kafkaProducer.flush();
   }
 
@@ -76,7 +78,7 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
    */
   @Override
   public boolean hasEvents() throws Exception {
-    return getLag(KafkaUtils.getEventTopicName(config, runId))>0;
+    return getLag(KafkaUtils.getEventTopicName(pipelineName, runId))>0;
   }
 
   private int getLag(String topic) throws Exception {

@@ -5,6 +5,7 @@ import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -25,9 +26,9 @@ class Worker implements Runnable {
     running = false;
   }
 
-  public Worker(Config config, WorkerMessageManager manager) throws Exception {
+  public Worker(Config config, WorkerMessageManager manager, String pipelineName) throws Exception {
     this.manager = manager;
-    this.pipeline = Pipeline.fromConfig(config);
+    this.pipeline = Pipeline.fromConfig(config, pipelineName);
   }
 
   @Override
@@ -84,10 +85,11 @@ class Worker implements Runnable {
     log.info("Exiting");
   }
 
-  public static Worker startThread(Config config, WorkerMessageManager manager) throws Exception {
-    Worker worker = new Worker(config, manager);
+  public static Worker startThread(Config config, WorkerMessageManager manager, String pipelineName) throws Exception {
+    Worker worker = new Worker(config, manager, pipelineName);
     Thread workerThread = new Thread(worker);
     workerThread.start();
     return worker;
   }
+
 }

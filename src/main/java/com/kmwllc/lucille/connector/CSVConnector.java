@@ -15,26 +15,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 
-public class CSVConnector implements Connector {
+public class CSVConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(CSVConnector.class);
 
   private final String path;
-  private final String name;
 
-  public CSVConnector(String name, String path) {
+  public CSVConnector(String name, String path, String pipelineName) {
+    super((name!=null) ? name : "CSVConnector-" + path, pipelineName);
     this.path = path;
-    this.name = (name!=null) ? name : "CSVConnector-" + path;
-
   }
 
   public CSVConnector(Config config) {
+    super(config.hasPath("name") ? config.getString("name") : "CSVConnector-" + config.getString("path"),
+      config.getString("pipeline"));
     this.path = config.getString("path");
-    this.name = config.hasPath("name") ? config.getString("name") : "CSVConnector-" + path;
-  }
-
-  public String getName() {
-    return name;
   }
 
   @Override

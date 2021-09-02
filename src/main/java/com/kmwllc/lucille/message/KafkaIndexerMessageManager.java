@@ -21,15 +21,15 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
   private final SolrClient solrClient;
   private final Consumer<String, String> destConsumer;
   private final KafkaProducer<String, String> kafkaProducer;
-  private final Config config;
+  private final String pipelineName;
 
-  public KafkaIndexerMessageManager(Config config) {
-    this.config = config;
+  public KafkaIndexerMessageManager(Config config, String pipelineName) {
+    this.pipelineName = pipelineName;
     this.solrClient = new HttpSolrClient.Builder(config.getString("solr.url")).build();
     Properties consumerProps = KafkaUtils.createConsumerProps(config);
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-2");
     this.destConsumer = new KafkaConsumer(consumerProps);
-    this.destConsumer.subscribe(Collections.singletonList(config.getString("kafka.destTopic")));
+    this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
 
     this.kafkaProducer = KafkaUtils.createProducer(config);
   }
@@ -75,7 +75,7 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
    */
   @Override
   public void sendEvent(Event event) throws Exception {
-    String confirmationTopicName = KafkaUtils.getEventTopicName(config, event.getRunId());
+    String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
       new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
     kafkaProducer.flush();

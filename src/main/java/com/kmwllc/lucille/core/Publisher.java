@@ -14,14 +14,6 @@ package com.kmwllc.lucille.core;
 public interface Publisher {
 
   /**
-   * Initialize the publisher with the given run ID.
-   *
-   * This is where, for example, an implementation might establish a connection to a Kafka topic
-   * that is named according to the run ID.
-   */
-  void initialize(String runId) throws Exception;
-
-  /**
    * Submits the given document for processing by any available pipeline worker.
    *
    * Stamps the current Run ID on the document and begins "tracking" events relating the document.

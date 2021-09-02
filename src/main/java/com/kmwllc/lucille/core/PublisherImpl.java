@@ -10,6 +10,17 @@ import java.util.List;
 /**
  * Publisher implementation that maintains an in-memory list of pending documents.
  *
+ * Note that this implementation includes an explicit design decision that the the publisher should
+ * not remember all of the documents it has published because there could be an unbounded number of such docs
+ * and they could take up significant space in memory. We don't even want the publisher to remember
+ * all of the ids of those documents. As soon as the publisher learns that a document has reached
+ * an end-state in the workflow, it can "forget" about that document aside from including it
+ * a count of how many documents were published. The intention is that the publisher will be receiving
+ * events in a separate thread from the one that is publishing documents (e.g. handleEvent() and publish() will
+ * be called by separate threads) so that the publisher can stop tracking some documents even as it starts
+ * tracking new ones. To achieve a memory of all the documents that were published,
+ * a persisting implementation of PublisherMessageManager could be given to the Publisher at construction time,
+ * and the history could be accessed from the message manager.
  */
 public class PublisherImpl implements Publisher {
 
@@ -17,7 +28,9 @@ public class PublisherImpl implements Publisher {
 
   private final PublisherMessageManager manager;
 
-  private String runId;
+  private final String runId;
+
+  private final String pipelineName;
 
   private int numPublished = 0;
 
@@ -34,14 +47,11 @@ public class PublisherImpl implements Publisher {
   // List of child documents for which an INDEX event has been received early, before the corresponding CREATE event
   private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
 
-  public PublisherImpl(PublisherMessageManager manager) {
+  public PublisherImpl(PublisherMessageManager manager, String runId, String pipelineName) throws Exception {
     this.manager = manager;
-  }
-
-  @Override
-  public void initialize(String runId) throws Exception {
     this.runId = runId;
-    manager.initialize(runId);
+    this.pipelineName = pipelineName;
+    manager.initialize(runId, pipelineName);
   }
 
   @Override
