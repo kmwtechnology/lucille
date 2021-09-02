@@ -71,8 +71,6 @@ public class Runner {
   public void runConnector(Connector connector, Publisher publisher) throws Exception {
     log.info("Running connector: " + connector.getName());
 
-    publisher.initialize(runId, connector.getPipelineName());
-
     Thread connectorThread = new Thread(new Runnable() {
       @Override
       public void run() {
@@ -145,7 +143,7 @@ public class Runner {
     String pipelineName = connector.getPipelineName();
     Worker worker = startWorkerAndIndexer ? Worker.startThread(config, workerMessageManager, pipelineName) : null;
     Indexer indexer = startWorkerAndIndexer ? Indexer.startThread(config, indexerMessageManager) : null;
-    Publisher publisher = new PublisherImpl(publisherMessageManager);
+    Publisher publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(), connector.getPipelineName());
     runner.runConnector(connector, publisher);
     if (worker!=null) {
       worker.terminate();
