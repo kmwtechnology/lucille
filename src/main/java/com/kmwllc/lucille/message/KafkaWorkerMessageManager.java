@@ -19,14 +19,16 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
   private final Consumer<String, String> sourceConsumer;
   private final KafkaProducer<String, String> kafkaProducer;
   private final Config config;
+  private final String pipelineName;
 
-  public KafkaWorkerMessageManager(Config config) {
+  public KafkaWorkerMessageManager(Config config, String pipelineName) {
     this.config = config;
+    this.pipelineName = pipelineName;
     this.kafkaProducer = KafkaUtils.createProducer(config);
     Properties consumerProps = KafkaUtils.createConsumerProps(config);
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-1");
     this.sourceConsumer = new KafkaConsumer(consumerProps);
-    this.sourceConsumer.subscribe(Collections.singletonList(config.getString("kafka.sourceTopic")));
+    this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName)));
   }
 
   /**
@@ -51,7 +53,7 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
   @Override
   public void sendCompleted(Document document) throws Exception {
     RecordMetadata result = (RecordMetadata) kafkaProducer.send(
-      new ProducerRecord(config.getString("kafka.destTopic"), document.getId(), document.toString())).get();
+      new ProducerRecord(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document.toString())).get();
     kafkaProducer.flush();
   }
 
@@ -61,7 +63,7 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
    */
   @Override
   public void sendEvent(Event event) throws Exception {
-    String confirmationTopicName = KafkaUtils.getEventTopicName(config, event.getRunId());
+    String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
       new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
     kafkaProducer.flush();
