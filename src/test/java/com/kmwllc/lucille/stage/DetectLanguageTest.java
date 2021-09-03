@@ -4,7 +4,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import org.apache.commons.lang3.builder.ToStringExclude;
 import org.junit.Test;
 import static org.junit.Assert.*;
 

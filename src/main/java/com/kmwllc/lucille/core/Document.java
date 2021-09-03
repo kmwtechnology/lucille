@@ -25,6 +25,7 @@ import java.util.Map;
 public class Document implements Cloneable {
 
   public static final String ID_FIELD = "id";
+  private static final String RUNID_FIELD = "run_id";
   public static final String ERROR_FIELD = "errors";
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -52,6 +53,11 @@ public class Document implements Cloneable {
     }
     this.data = MAPPER.createObjectNode();
     this.data.put(ID_FIELD, id);
+  }
+
+  public Document(String id, String runId) {
+    this(id);
+    this.data.put(RUNID_FIELD, runId);
   }
 
   public static Document fromJsonString(String json) throws DocumentException, JsonProcessingException {
@@ -119,6 +125,9 @@ public class Document implements Cloneable {
   public String getId() {
     return getString(ID_FIELD);
   }
+
+  // TODO : Should this be included
+  public String getRunID() {return getString(RUNID_FIELD);}
 
   public boolean has(String name) {
     return data.has(name);

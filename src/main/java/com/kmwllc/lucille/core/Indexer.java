@@ -5,15 +5,14 @@ import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 class Indexer implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
-  
+
   private final IndexerMessageManager manager;
+  private final Batch batch;
 
   private volatile boolean running = true;
 
@@ -27,49 +26,83 @@ class Indexer implements Runnable {
   public Indexer(Config config, IndexerMessageManager manager) {
     this.config = config;
     this.manager = manager;
+    this.batch = new Batch(config.getInt("indexer.batchSize"), config.getInt("indexer.batchTimeout"));
   }
 
   @Override
   public void run() {
     while (running) {
-      Document doc;
-      try {
-        doc = manager.pollCompleted();
-      } catch (Exception e) {
-        log.info("Indexer interrupted ", e);
-        terminate();
-        return;
-      }
-      if (doc == null) {
-        continue;
-      }
-
-      // TODO
-      if (!doc.has("run_id")) {
-        continue;
-      }
-
-      String runId = doc.getString("run_id");
-      try {
-        manager.sendToSolr(Collections.singletonList(doc));
-        Event event = new Event(doc.getId(), runId, "SUCCEEDED", Event.Type.INDEX, Event.Status.SUCCESS);
-        log.info("submitting completion event " + event);
-        manager.sendEvent(event);
-      } catch (Exception e) {
-        try {
-          manager.sendEvent(new Event(doc.getId(), runId,
-            "FAILED" + e.getMessage(), Event.Type.INDEX, Event.Status.FAILURE));
-        } catch (Exception e2) {
-          e2.printStackTrace();
-        }
-      }
+      checkForDoc();
     }
+
+    sendToSolr(batch.flush());
+
     try {
       manager.close();
     } catch (Exception e) {
       e.printStackTrace();
     }
     log.info("exit");
+  }
+
+  protected void run(int iterations) {
+    for (int i = 0; i < iterations; i++) {
+      checkForDoc();
+    }
+
+    sendToSolr(batch.flush());
+
+    try {
+      manager.close();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    log.info("exit");
+  }
+
+  private void checkForDoc() {
+    Document doc;
+    try {
+      doc = manager.pollCompleted();
+    } catch (Exception e) {
+      log.info("Indexer interrupted ", e);
+      terminate();
+      return;
+    }
+    if (doc == null) {
+       sendToSolr(batch.add(null));
+      return;
+    }
+
+    // TODO
+    if (!doc.has("run_id")) {
+      return;
+    }
+
+    sendToSolr(batch.add(doc));
+  }
+
+  private void sendToSolr(List<Document> batchedDocs) {
+    if (!batchedDocs.isEmpty()) {
+      try {
+        manager.sendToSolr(batchedDocs);
+
+        for (Document d : batchedDocs) {
+          Event event = new Event(d.getId(), d.getRunID(), "SUCCEEDED", Event.Type.INDEX, Event.Status.SUCCESS);
+          log.info("submitting completion event " + event);
+          manager.sendEvent(event);
+        }
+      } catch (Exception e) {
+        for (Document d : batchedDocs) {
+          try {
+            manager.sendEvent(new Event(d.getId(), d.getRunID(),
+                "FAILED" + e.getMessage(), Event.Type.INDEX, Event.Status.FAILURE));
+          } catch (Exception e2) {
+            e2.printStackTrace();
+          }
+        }
+      }
+    }
   }
 
   public static Indexer startThread(Config config, IndexerMessageManager manager) throws Exception {

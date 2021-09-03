@@ -6,14 +6,27 @@ import com.cybozu.labs.langdetect.Language;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * This Stage will detect the langauge of the text in each supplied source field, for each document and output the
+ * language abbreviation associated with the text to the destination fields.
+ *
+ * Config Parameters:
+ *
+ *   - source (List<String>) : List of source field names.
+ *   - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
+ *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
+ *   - profiles_dir : The path to the directory containing language profiles for language extraction.
+ *   - min_length : The min length of Strings to be considered for language detection. Shorter Strings will be ignored.
+ *   - max_length : The max length of Strings to be considered for language detection. Longer Strings will be truncated.
+ *   - min_probability : The min probability for a language result to be considered valid. Results below this threshold
+ *       will be ignored.
+ */
 public class DetectLanguage extends Stage {
 
   private final List<String> sourceFields;
@@ -30,7 +43,7 @@ public class DetectLanguage extends Stage {
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.profilesDirStr = config.getString("profile_dir");
+    this.profilesDirStr = config.getString("profiles_dir");
     this.minLength = config.getInt("min_length");
     this.maxLength = config.getInt("max_length");
     this.minProbability = config.getDouble("min_probability");
