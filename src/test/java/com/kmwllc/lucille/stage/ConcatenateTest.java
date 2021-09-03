@@ -15,11 +15,13 @@ public class ConcatenateTest {
     Stage stage = new Concatenate(config);
     stage.start();
 
+    // Test placing one field value into the format String
     Document doc = new Document("doc");
     doc.setField("country", "US");
     stage.processDocument(doc);
     assertEquals("{city}, {state}, US", doc.getString("dest"));
 
+    // Test placing several distinct fields into the format String
     Document doc2 = new Document("doc2");
     doc.setField("country", "Canada");
     doc.setField("city", "Worsley");
@@ -27,6 +29,7 @@ public class ConcatenateTest {
     stage.processDocument(doc);
     assertEquals("Worsley, Alberta, Canada", doc.getString("dest"));
 
+    // Ensure that only the first value of a multivalued field is used placed into the format String
     Document doc3 = new Document("doc3");
     doc.setField("country", "US");
     doc.addToField("country", "China");

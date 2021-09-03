@@ -15,6 +15,7 @@ public class DropValuesTest {
     Stage stage = new DropValues(config);
     stage.start();
 
+    // Ensure that only exact matches are dropped
     Document doc = new Document("doc");
     doc.addToField("input", "don't drop this");
     doc.addToField("input", "drop");
@@ -22,6 +23,7 @@ public class DropValuesTest {
     assertEquals(1, doc.getStringList("input").size());
     assertEquals("don't drop this", doc.getStringList("input").get(0));
 
+    // Ensure that the correct values are dropped from a complex multivalued field
     Document doc2 = new Document("doc2");
     doc2.addToField("input", "keep this");
     doc2.addToField("input", "drop");

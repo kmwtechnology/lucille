@@ -36,7 +36,6 @@ class Indexer implements Runnable {
     }
 
     sendToSolr(batch.flush());
-
     try {
       manager.close();
     } catch (Exception e) {
@@ -51,7 +50,6 @@ class Indexer implements Runnable {
     }
 
     sendToSolr(batch.flush());
-
     try {
       manager.close();
     } catch (Exception e) {

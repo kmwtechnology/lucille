@@ -16,16 +16,19 @@ public class DetectLanguageTest {
     Stage stage = new DetectLanguage(config);
     stage.start();
 
+    // Ensure that the correct language is detected for field pair 1.
     Document doc = new Document("doc");
     doc.setField("input1", "This is a sentence in English!");
     stage.processDocument(doc);
     assertEquals("en", doc.getStringList("output1").get(0));
 
+    // Ensure that the correct language is detected for field pair 3.
     Document doc2 = new Document("doc2");
     doc2.setField("input3", "Eso oracion esta en espanol. Ojala que podimos verla.");
     stage.processDocument(doc2);
     assertEquals("es", doc2.getStringList("output3").get(0));
 
+    // Ensure multiple languages can be extracted in one pass
     Document doc3 = new Document("doc3");
     doc3.setField("input1", "Это стандартное предложение на моем языке.");
     doc3.setField("input2", "यह मेरी पसंद की भाषा में एक मानक वाक्य है।");

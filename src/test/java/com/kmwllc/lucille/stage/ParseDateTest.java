@@ -15,11 +15,13 @@ public class ParseDateTest {
     Stage stage = new ParseDate(config);
     stage.start();
 
+    // Ensure that dates are correctly extracted
     Document doc = new Document("doc");
     doc.setField("date1", "February 2, 2021");
     stage.processDocument(doc);
     assertEquals("2021-02-02T00:00:00Z", doc.getStringList("output1").get(0));
 
+    // Ensure that several dates can be extracted in one pass, in different formats.
     Document doc2 = new Document("doc2");
     doc2.setField("date1", "2003|10|25");
     doc2.setField("date2", "2020-2050");

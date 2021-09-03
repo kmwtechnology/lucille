@@ -21,18 +21,21 @@ public class CopyFieldsTest {
     Stage stage = new CopyFields(config);
     stage.start();
 
+    // Ensure that one field is correctly copied over
     Document doc = new Document("doc");
     String inputVal = "This will be copied to output1";
     doc.setField("input1", inputVal);
     stage.processDocument(doc);
     assertEquals("Value from input1 should be copied to output1", inputVal, doc.getStringList("output1").get(0));
 
+    // Ensure that field 2 in the source list is copied to output2
     Document doc2 = new Document("doc2");
     inputVal = "This will be copied to output2";
     doc2.setField("input2", inputVal);
     stage.processDocument(doc2);
     assertEquals("Value from input2 should be copied to output2", inputVal, doc2.getStringList("output2").get(0));
 
+    // Ensure that several fields can be copied at the same time.
     Document doc3 = new Document("doc3");
     String inputVal1 = "This will be copied to output1";
     String inputVal2 = "This will be copied to output2";

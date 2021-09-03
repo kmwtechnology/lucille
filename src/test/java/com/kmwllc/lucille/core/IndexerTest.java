@@ -8,6 +8,11 @@ import static org.junit.Assert.*;
 
 public class IndexerTest {
 
+  /**
+   * Tests that the indexer correctly polls completed documents from the destination topic and sends them to Solr.
+   *
+   * @throws Exception
+   */
   @Test
   public void testIndexer() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
@@ -23,5 +28,6 @@ public class IndexerTest {
     assertEquals(2, manager.getSavedDocsSentToSolr().size());
     assertEquals(doc, manager.getSavedDocsSentToSolr().get(0));
     assertEquals(doc2, manager.getSavedDocsSentToSolr().get(1));
+    assertTrue(manager.hasEvents());
   }
 }
