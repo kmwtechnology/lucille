@@ -89,9 +89,11 @@ class Indexer implements Runnable {
           try {
             manager.sendEvent(new Event(d.getId(), d.getRunID(),
                 "FAILED" + e.getMessage(), Event.Type.INDEX, Event.Status.FAILURE));
+            return;
           } catch (Exception e2) {
             // TODO : Do something special if we get an error when sending Failure events
             e2.printStackTrace();
+            return;
           }
         }
       }
