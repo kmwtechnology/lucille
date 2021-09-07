@@ -10,11 +10,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.typesafe.config.ConfigException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * A record from a source system to be passed through a Pipeline, enriched,
@@ -26,9 +25,11 @@ public class Document implements Cloneable {
 
   public static final String ID_FIELD = "id";
   public static final String ERROR_FIELD = "errors";
+  public static final String CHILDREN_FIELD = ".children";
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
+  private static final Logger log = LoggerFactory.getLogger(Document.class);
 
   private final ObjectNode data;
 
@@ -173,6 +174,24 @@ public class Document implements Cloneable {
     return result;
   }
 
+  public void addChild(Document document) {
+    ArrayNode node = data.withArray(CHILDREN_FIELD);
+    node.add(document.data);
+  }
+
+  public List<Document> getChildren() {
+    ArrayNode node = data.withArray(CHILDREN_FIELD);
+    ArrayList<Document> children = new ArrayList();
+    for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
+      JsonNode element = it.next();
+      try {
+        children.add(new Document(element.deepCopy()));
+      } catch (DocumentException e) {
+        log.error("Unable to instantiate child Document", e);
+      }
+    }
+    return children;
+  }
 
   @Override
   public String toString() {

@@ -5,6 +5,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -109,12 +110,40 @@ public class DocumentTest {
     assertEquals(Arrays.asList("dog", "cat", "fish"), document.getStringList("pets"));
   }
 
-
   @Test
   public void testGetStringMultivalued() {
     Document document = new Document("doc");
     document.addToField("field1", "val1");
     document.addToField("field1", "val2");
     assertEquals("", document.getString("field1"));
+  }
+
+  @Test
+  public void testChildren() throws Exception {
+    Document parent = new Document("parent");
+    Document child1 = new Document("child1");
+    child1.setField("field1", "val1");
+    Document child2 = new Document("child2");
+    child2.setField("field1", "val1b");
+    child1.setField("field2", "val2");
+    parent.addChild(child1);
+    parent.addChild(child2);
+    List<Document> children = parent.getChildren();
+    assertEquals(2, children.size());
+    assertEquals(child1, children.get(0));
+    assertEquals(child2, children.get(1));
+    Document deserializedParent = Document.fromJsonString(parent.toString());
+    assertEquals(parent, Document.fromJsonString(parent.toString()));
+    List<Document> deserializedChildren = deserializedParent.getChildren();
+    assertEquals(child1, deserializedChildren.get(0));
+    assertEquals(child2, deserializedChildren.get(1));
+  }
+
+  @Test
+  public void testEmptyChildren() throws Exception {
+    Document parent = new Document("parent");
+    List<Document> children = parent.getChildren();
+    assertEquals(0, children.size());
+    assertEquals(parent, Document.fromJsonString(parent.toString()));
   }
 }
