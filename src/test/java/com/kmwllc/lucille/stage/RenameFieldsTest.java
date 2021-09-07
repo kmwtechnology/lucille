@@ -35,5 +35,4 @@ public class RenameFieldsTest {
     assertEquals("Field was not correctly renamed", doc.getStringList("input3").get(0),
         "this will be output3");
   }
-
 }
