@@ -109,12 +109,25 @@ public class DocumentTest {
     assertEquals(Arrays.asList("dog", "cat", "fish"), document.getStringList("pets"));
   }
 
-
   @Test
   public void testGetStringMultivalued() {
     Document document = new Document("doc");
     document.addToField("field1", "val1");
     document.addToField("field1", "val2");
     assertEquals("", document.getString("field1"));
+  }
+
+  @Test
+  public void testRenameField() {
+    Document document = new Document("doc");
+    document.addToField("initial", "first");
+    document.addToField("initial", "second");
+    document.renameField("initial", "final");
+    List<String> values = document.getStringList("final");
+    assertFalse(document.has("initial"));
+    assertEquals(2, values.size());
+    assertEquals("first", values.get(0));
+    assertEquals("second", values.get(1));
+    assertFalse(document.has("initial"));
   }
 }

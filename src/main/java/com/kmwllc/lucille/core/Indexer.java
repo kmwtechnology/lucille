@@ -68,7 +68,7 @@ class Indexer implements Runnable {
       return;
     }
     if (doc == null) {
-       sendToSolr(batch.add(null));
+      sendToSolr(batch.add(null));
       return;
     }
 
@@ -84,21 +84,27 @@ class Indexer implements Runnable {
     if (!batchedDocs.isEmpty()) {
       try {
         manager.sendToSolr(batchedDocs);
-
-        for (Document d : batchedDocs) {
-          Event event = new Event(d.getId(), d.getRunID(), "SUCCEEDED", Event.Type.INDEX, Event.Status.SUCCESS);
-          log.info("submitting completion event " + event);
-          manager.sendEvent(event);
-        }
       } catch (Exception e) {
         for (Document d : batchedDocs) {
           try {
             manager.sendEvent(new Event(d.getId(), d.getRunID(),
                 "FAILED" + e.getMessage(), Event.Type.INDEX, Event.Status.FAILURE));
           } catch (Exception e2) {
+            // TODO : Do something special if we get an error when sending Failure events
             e2.printStackTrace();
           }
         }
+      }
+
+      try {
+        for (Document d : batchedDocs) {
+          Event event = new Event(d.getId(), d.getRunID(), "SUCCEEDED", Event.Type.INDEX, Event.Status.SUCCESS);
+          log.info("submitting completion event " + event);
+          manager.sendEvent(event);
+        }
+      } catch (Exception e) {
+        // TODO : Do something special if we get an error when sending Success events
+        e.printStackTrace();
       }
     }
   }

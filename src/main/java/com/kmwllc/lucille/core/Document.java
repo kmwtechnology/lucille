@@ -88,6 +88,15 @@ public class Document implements Cloneable {
     data.put(name, value);
   }
 
+  public void renameField(String oldName, String newName) {
+    List<String> fieldVals = getStringList(oldName);
+    removeField(oldName);
+
+    for (String value : fieldVals) {
+      addToField(newName, value);
+    }
+  }
+
   // This will return null in two cases : 1) If the field is absent 2) IF the field is present but contains a null.
   // To distinguish between these, you can call has().
   // Calling getString for a field which is multivalued will return the empty String, "".
