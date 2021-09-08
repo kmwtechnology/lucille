@@ -151,5 +151,15 @@ public class RunnerTest {
     assertNull(manager2.pollEvent());
   }
 
+  /**
+   * Attempt to run three connectors, where the second connector throws an exception.
+   * Confirm that the third connector is not run.
+   */
+  @Test
+  public void testThreeConnectorsWithFailure() throws Exception {
+    Map<String, PersistingLocalMessageManager> map =
+      Runner.runLocal("RunnerTest/threeConnectorsWithFailure.conf");
+    assertEquals(2, map.size());
+  }
 
 }
