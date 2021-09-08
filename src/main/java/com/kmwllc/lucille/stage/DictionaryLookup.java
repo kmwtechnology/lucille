@@ -15,6 +15,21 @@ import java.lang.invoke.MethodHandles;
 import java.util.HashMap;
 import java.util.List;
 
+/**
+ * This stage supports finding exact matches for given input values, and extracting the payloads for each match to a
+ * given destination field. The dictionary file should have a term on each line, and can support providing payloads with
+ * the syntax "term, payload". If any occurrences are found, they will be extracted and their associated payloads will
+ * be appended to the destination field.
+ *
+ * Config Parameters:
+ *
+ *   - source (List<String>) : list of source field names
+ *   - dest (List<String>) : list of destination field names. You can either supply the same number of source and destination fields
+ *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
+ *   - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
+ *       will be searched for the file. Otherwise, the local file system will be searched.
+ *   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.
+ */
 public class DictionaryLookup extends Stage {
 
   private final List<String> sourceFields;
@@ -50,6 +65,7 @@ public class DictionaryLookup extends Stage {
 
         String[] keyword = line.split(",");
 
+        // TODO : Multiple payloads (eventually)
         if (keyword.length == 1) {
           String word = keyword[0].trim();
           dict.put(word, word);

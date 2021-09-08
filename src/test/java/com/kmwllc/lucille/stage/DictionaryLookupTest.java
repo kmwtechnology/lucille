@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -15,14 +16,16 @@ public class DictionaryLookupTest {
   @Test
   public void testDictionaryLookup() throws StageException {
     Config config = ConfigFactory.load("DictionaryLookupTest/config.conf");
-    DictionaryLookup stage = new DictionaryLookup(config);
+    Stage stage = new DictionaryLookup(config);
     stage.start();
 
+    // Ensure that exact matches are correctly extracted
     Document doc = new Document("doc");
     doc.setField("input1", "China");
     stage.processDocument(doc);
     assertEquals("China", doc.getStringList("output1").get(0));
 
+    // Ensure that multiple matches can be extracted, even in multivalued fields
     Document doc2 = new Document("doc2");
     doc2.setField("input1", "Canada");
     doc2.addToField("input1", "United States");
@@ -32,6 +35,7 @@ public class DictionaryLookupTest {
     assertEquals("United States", doc2.getStringList("output1").get(1));
     assertEquals("Taiwan", doc2.getStringList("output3").get(0));
 
+    // ensure that partial matches do not get extracted
     Document doc3 = new Document("doc2");
     doc3.setField("input2", "United States of America");
     stage.processDocument(doc3);

@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
@@ -14,15 +15,17 @@ public class ExtractEntitiesTest {
   @Test
   public void testExtractEntities() throws Exception {
     Config config = ConfigFactory.load("ExtractEntitiesTest/config.conf");
-    ExtractEntities stage = new ExtractEntities(config);
+    Stage stage = new ExtractEntities(config);
     stage.start();
 
+    // Ensure that keywords from the dictionary are correctly extracted
     Document doc = new Document("doc");
     doc.setField("input1", "I live in the United States.");
     stage.processDocument(doc);
     assertEquals("Country name should be extracted from input1", "United States",
         doc.getStringList("output").get(0));
 
+    // Ensure that several fields can be extracted and that payloads work as expected
     Document doc2 = new Document("doc2");
     doc2.setField("input1", "I live in China but am from taiwan");
     doc2.setField("input2", "I live in Canada");

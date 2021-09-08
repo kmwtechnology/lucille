@@ -24,6 +24,7 @@ import java.util.*;
 public class Document implements Cloneable {
 
   public static final String ID_FIELD = "id";
+  private static final String RUNID_FIELD = "run_id";
   public static final String ERROR_FIELD = "errors";
   public static final String CHILDREN_FIELD = ".children";
 
@@ -55,12 +56,21 @@ public class Document implements Cloneable {
     this.data.put(ID_FIELD, id);
   }
 
+  public Document(String id, String runId) {
+    this(id);
+    this.data.put(RUNID_FIELD, runId);
+  }
+
   public static Document fromJsonString(String json) throws DocumentException, JsonProcessingException {
     return new Document((ObjectNode)MAPPER.readTree(json));
   }
 
   public void removeField(String name) {
     data.remove(name);
+  }
+
+  public void removeFromArray(String name, int index) {
+    data.withArray(name).remove(index);
   }
 
   public void setField(String name, String value) {
@@ -77,6 +87,15 @@ public class Document implements Cloneable {
 
   public void setField(String name, Boolean value) {
     data.put(name, value);
+  }
+
+  public void renameField(String oldName, String newName) {
+    List<String> fieldVals = getStringList(oldName);
+    removeField(oldName);
+
+    for (String value : fieldVals) {
+      addToField(newName, value);
+    }
   }
 
   // This will return null in two cases : 1) If the field is absent 2) IF the field is present but contains a null.
@@ -116,6 +135,9 @@ public class Document implements Cloneable {
   public String getId() {
     return getString(ID_FIELD);
   }
+
+  // TODO : Should this be included
+  public String getRunID() {return getString(RUNID_FIELD);}
 
   public boolean has(String name) {
     return data.has(name);

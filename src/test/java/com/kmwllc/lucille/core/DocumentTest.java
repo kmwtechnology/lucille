@@ -5,7 +5,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -110,6 +109,7 @@ public class DocumentTest {
     assertEquals(Arrays.asList("dog", "cat", "fish"), document.getStringList("pets"));
   }
 
+
   @Test
   public void testGetStringMultivalued() {
     Document document = new Document("doc");
@@ -145,5 +145,19 @@ public class DocumentTest {
     List<Document> children = parent.getChildren();
     assertEquals(0, children.size());
     assertEquals(parent, Document.fromJsonString(parent.toString()));
+  }
+
+  @Test
+  public void testRenameField() {
+    Document document = new Document("doc");
+    document.addToField("initial", "first");
+    document.addToField("initial", "second");
+    document.renameField("initial", "final");
+    List<String> values = document.getStringList("final");
+    assertFalse(document.has("initial"));
+    assertEquals(2, values.size());
+    assertEquals("first", values.get(0));
+    assertEquals("second", values.get(1));
+    assertFalse(document.has("initial"));
   }
 }
