@@ -39,13 +39,13 @@ public class RunnerTest {
     assertEquals(1, docsSentToSolr.size());
     assertEquals("1", docsSentToSolr.get(0).getId());
 
-    // confirm that an INDEX event was sent for doc 1 and is stamped with the proper run ID
+    // confirm that a terminal event was sent for doc 1 and is stamped with the proper run ID
     List<Event> events = manager.getSavedEvents();
     assertEquals(1, events.size());
     assertEquals("1", events.get(0).getDocumentId());
     assertNotNull(manager.getRunId());
     assertEquals(manager.getRunId(), events.get(0).getRunId());
-    assertEquals(Event.Type.INDEX, events.get(0).getType());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
 
     // confirm that topics are empty
     assertFalse(manager.hasEvents());
@@ -53,6 +53,42 @@ public class RunnerTest {
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
   }
+
+  /**
+   * Test an end-to-end run with a single connector that generates 1 document, and a pipeline
+   * that throws an exception
+   */
+  @Test
+  public void testRunnerWithSingleFailingDoc() throws Exception {
+
+    // run connectors and pipeline; acquire a persisting message manager that allows
+    // for reviewing saved message traffic
+    PersistingLocalMessageManager manager =
+      Runner.runLocal("RunnerTest/singleDocFailure.conf").get("connector1");
+
+    // confirm doc 1 sent for processing but no docs completed or sent to solr
+    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(1, docsSentForProcessing.size());
+    assertEquals("1", docsSentForProcessing.get(0).getId());
+    assertEquals(0, manager.getSavedCompletedDocuments().size());
+    assertEquals(0, manager.getSavedDocsSentToSolr().size());
+
+    // confirm that an ERROR event was sent for doc 1 and is stamped with the proper run ID
+    List<Event> events = manager.getSavedEvents();
+    assertEquals(1, events.size());
+    assertEquals("1", events.get(0).getDocumentId());
+    assertNotNull(manager.getRunId());
+    assertEquals(manager.getRunId(), events.get(0).getRunId());
+    assertEquals(Event.Type.FAIL, events.get(0).getType());
+
+    // confirm that topics are empty
+    assertFalse(manager.hasEvents());
+    assertNull(manager.pollCompleted());
+    assertNull(manager.pollDocToProcess());
+    assertNull(manager.pollEvent());
+  }
+
+
 
   /**
    * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that
@@ -77,12 +113,12 @@ public class RunnerTest {
     List<Document> docsSentToSolr = manager.getSavedDocsSentToSolr();
     assertEquals(2, docsSentToSolr.size());
 
-    // confirm that a CREATE event was sent for doc 1's child; followed by INDEX events for both docs
+    // confirm that a CREATE event was sent for doc 1's child; followed by terminal events for both docs
     List<Event> events = manager.getSavedEvents();
     assertEquals(3, events.size());
     assertEquals(Event.Type.CREATE, events.get(0).getType());
-    assertEquals(Event.Type.INDEX, events.get(1).getType());
-    assertEquals(Event.Type.INDEX, events.get(2).getType());
+    assertEquals(Event.Type.FINISH, events.get(1).getType());
+    assertEquals(Event.Type.FINISH, events.get(2).getType());
 
     assertNotNull(manager.getRunId());
     assertEquals(manager.getRunId(), events.get(1).getRunId());
@@ -126,11 +162,11 @@ public class RunnerTest {
     assertEquals("1", manager1.getSavedDocsSentToSolr().get(0).getId());
     assertEquals("2", manager2.getSavedDocsSentToSolr().get(0).getId());
 
-    // confirm that INDEX events were sent for both docs
+    // confirm that terminal events were sent for both docs
     assertEquals(1, manager1.getSavedEvents().size());
     assertEquals(1, manager2.getSavedEvents().size());
-    assertEquals(Event.Type.INDEX, manager1.getSavedEvents().get(0).getType());
-    assertEquals(Event.Type.INDEX, manager2.getSavedEvents().get(0).getType());
+    assertEquals(Event.Type.FINISH, manager1.getSavedEvents().get(0).getType());
+    assertEquals(Event.Type.FINISH, manager2.getSavedEvents().get(0).getType());
     assertEquals("1", manager1.getSavedEvents().get(0).getDocumentId());
     assertEquals("2", manager2.getSavedEvents().get(0).getDocumentId());
 

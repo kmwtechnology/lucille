@@ -36,15 +36,15 @@ public class PublisherImpl implements Publisher {
 
   // List of published documents that are not yet indexed. Also includes children of published documents.
   // Note that this is a List, not a Set, because if two documents with the same ID are published, we would
-  // expect to receive two separate INDEX events relating to those documents, and we will therefore make
+  // expect to receive two separate terminal events relating to those documents, and we will therefore make
   // two attempts to remove the ID. Upon each removal attempt, we would like there to be something present
-  // to remove; otherwise we would classify the event as an "early" INDEX event and treat it specially.
+  // to remove; otherwise we would classify the event as an "early" terminal event and treat it specially.
   // Also note that a Publisher may be shared by a Runner and a Connector: the connector may be publishing
   // new Documents while the Connector is receiving Events and calling handleEvent().
   // publish() and handleEvent() both update docIdsToTrack so the list should be synchronized.
   private List<String> docIdsToTrack = Collections.synchronizedList(new ArrayList<String>());
 
-  // List of child documents for which an INDEX event has been received early, before the corresponding CREATE event
+  // List of child documents for which a terminal event has been received early, before the corresponding CREATE event
   private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
 
   public PublisherImpl(PublisherMessageManager manager, String runId, String pipelineName) throws Exception {
@@ -83,7 +83,7 @@ public class PublisherImpl implements Publisher {
         docIdsToTrack.add(docId);
       }
     } else {
-      // if we're learning that a document has been indexed, we can stop tracking it;
+      // if we're learning that a document has finished processing, or failed, we can stop tracking it;
       // but if we weren't previously tracking it, we need to remember that we've seen it so that
       // if we receive an out-of-order or late create event for this document in the future,
       // we won't start tracking it then
