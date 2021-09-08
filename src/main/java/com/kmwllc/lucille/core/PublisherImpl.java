@@ -3,6 +3,9 @@ package com.kmwllc.lucille.core;
 import com.kmwllc.lucille.message.PublisherMessageManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -33,6 +36,8 @@ public class PublisherImpl implements Publisher {
   private final String pipelineName;
 
   private int numPublished = 0;
+
+  private Instant start;
 
   // List of published documents that are not yet indexed. Also includes children of published documents.
   // Note that this is a List, not a Set, because if two documents with the same ID are published, we would
@@ -94,13 +99,21 @@ public class PublisherImpl implements Publisher {
   }
 
   @Override
-  public boolean waitForCompletion(ConnectorThread thread) throws Exception {
+  public boolean waitForCompletion(ConnectorThread thread, int timeout) throws Exception {
+
+    start = Instant.now();
+
     // poll for Events relating the current run; loop until all work is complete
     while (true) {
       Event event = manager.pollEvent();
 
       if (event !=null) {
         handleEvent(event);
+      }
+
+      if (ChronoUnit.MILLIS.between(start, Instant.now()) > timeout) {
+        log.error("Exiting run with " + numPending() + " pending documents; publisher timed out (" + timeout + "ms)");
+        return false;
       }
 
       // stop waiting if the connector threw an exception
@@ -113,7 +126,6 @@ public class PublisherImpl implements Publisher {
       // We are done if 1) the Connector thread has terminated and therefore no more Documents will be generated,
       // 2) all published Documents and their children are accounted for (none are pending),
       // 3) there are no more Events relating to the current run to consume
-      // TODO: timeouts
       if (!thread.isAlive() && !hasPending() && !manager.hasEvents()) {
         return true;
       }

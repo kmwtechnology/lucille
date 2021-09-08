@@ -77,8 +77,9 @@ public interface Publisher {
    * @param thread a reference to the Connector thread that is generating new Documents;
    *               this thread will be tested for its status via isAlive() to determine when the Connector
    *               has finished and no more Documents will be published
+   * @param timeout number of milliseconds to wait, after which the method will return false
    */
-  boolean waitForCompletion(ConnectorThread thread) throws Exception;
+  boolean waitForCompletion(ConnectorThread thread, int timeout) throws Exception;
 
   /**
    * Closes any connections opened by the publisher.
