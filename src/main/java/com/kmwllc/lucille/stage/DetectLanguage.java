@@ -36,10 +36,15 @@ import java.util.List;
 public class DetectLanguage extends Stage {
 
   private final static String profileResourcesLoc = "profiles";
-  private final static String profileFiles = "profileFiles.txt";
+
+  private final static String[] profiles = {"af", "ar", "bg", "bn", "cs", "da", "de", "el", "en", "es", "et", "fa",
+      "fi", "fr", "gu", "he", "hi", "hr", "hu", "id", "it", "ja", "kn", "ko", "lt", "lv", "mk", "ml", "mr", "ne", "nl",
+      "no", "pa", "pl", "pt", "ro", "ru", "sk", "sl", "so", "sq", "sv", "sw", "ta", "te", "th", "tl", "tr", "uk", "ur",
+      "vi", "zh-cn", "zh-tw"};
 
   private final List<String> sourceFields;
-  private final List<String> destFields;
+  private final String languageField;
+  private final String languageConfidenceField;
   private final int minLength;
   private final int maxLength;
   private final double minProbability;
@@ -50,7 +55,8 @@ public class DetectLanguage extends Stage {
     super(config);
 
     this.sourceFields = config.getStringList("source");
-    this.destFields = config.getStringList("dest");
+    this.languageField = config.getString("language_field");
+    this.languageConfidenceField = config.getString("language_confidence_field");
     this.minLength = config.getInt("min_length");
     this.maxLength = config.getInt("max_length");
     this.minProbability = config.getDouble("min_probability");
@@ -59,25 +65,30 @@ public class DetectLanguage extends Stage {
   @Override
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Detect Language");
-    StageUtils.validateFieldNumNotZero(destFields, "Detect Language");
-    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Detect Language");
+
+    String profilesPath = "LUCILLE_HOME/DetectLanguage/profiles";
+    File profileDir = new File(profilesPath);
+
+    if (!profileDir.exists()) {
+      if (!profileDir.mkdirs()) {
+        throw new StageException("Unable to create profiles directory for storing Language Detection profiles.");
+      }
 
       try {
-        String tempProfiles = Files.createTempDirectory("tmpDirPrefix").toFile().getAbsolutePath();
-
-        InputStream stream = getClass().getClassLoader().getResourceAsStream(profileFiles);
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream))) {
-          String line;
-          while ((line = reader.readLine()) != null) {
-            InputStream profile = getClass().getClassLoader().getResourceAsStream(profileResourcesLoc + "/" + line);
-            FileUtils.copyInputStreamToFile(profile, new File(tempProfiles + "/" + line));
-          }
+        for (String profile : profiles) {
+          InputStream profileStream = getClass().getClassLoader().getResourceAsStream(profileResourcesLoc + "/" + profile);
+          FileUtils.copyInputStreamToFile(profileStream, new File(profilesPath + "/" + profile));
         }
-
-        DetectorFactory.loadProfile(new File(tempProfiles));
       } catch (Exception e) {
         throw new StageException(e.getMessage());
       }
+    }
+
+    try {
+      DetectorFactory.loadProfile(profileDir);
+    } catch (Exception e) {
+      throw new StageException(e.getMessage());
+    }
   }
 
 
@@ -93,7 +104,6 @@ public class DetectLanguage extends Stage {
       }
 
       String source = sourceFields.get(i);
-      String dest = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
       if (!doc.has(source))
         continue;
@@ -110,7 +120,8 @@ public class DetectLanguage extends Stage {
         Language result = detector.getProbabilities().get(0);
 
         if (result.prob >= minProbability) {
-          doc.addToField(dest, result.lang);
+          doc.setField(languageField, result.lang);
+          doc.setField(languageConfidenceField, (int) result.prob * 100);
         }
 
       } catch (Exception e) {
