@@ -24,6 +24,4 @@ public class FileUtils {
       return new BufferedReader(new InputStreamReader(is));
     }
   }
-
-
 }
