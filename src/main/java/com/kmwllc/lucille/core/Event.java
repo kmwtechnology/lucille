@@ -12,25 +12,20 @@ import java.util.Objects;
  */
 public class Event {
 
-  // TODO: Add ERROR events; INDEX->COMPLETED; CREATE->CREATED
-  public enum Type {CREATE, INDEX}
-
-  public enum Status {SUCCESS, FAILURE}
+  public enum Type {CREATE, FINISH, FAIL}
 
   private Type type;
-  private Status status;
   private String documentId;
   private String message;
   private String runId;
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  public Event(String documentId, String runId, String message, Type type, Status status) {
+  public Event(String documentId, String runId, String message, Type type) {
     this.documentId = documentId;
     this.runId = runId;
     this.message = message;
     this.type = type;
-    this.status = status;
   }
 
   public Event(ObjectNode node) throws Exception {
@@ -38,7 +33,6 @@ public class Event {
     this.message = node.get("message").asText();
     this.runId = node.get("runId").asText();
     this.type = Type.valueOf(node.get("type").asText());
-    this.status = Status.valueOf(node.get("status").asText());
   }
   public String getDocumentId() {
     return documentId;
@@ -54,15 +48,13 @@ public class Event {
 
   public Type getType() { return type; }
 
-  public Status getStatus() { return status; }
-
   public boolean isCreate() {
     return Type.CREATE.equals(type);
   }
 
   public String toString() {
     return "{\"documentId\": \"" + documentId + "\", \"runId\":\"" + runId + "\", \"message\": \"" +
-      message + "\", \"type\": \"" + type +"\", \"status\":\"" + status +  "\"}";
+      message + "\", \"type\": \"" + type +"\"}";
   }
 
   public static Event fromJsonString(String json) throws Exception {
@@ -82,12 +74,11 @@ public class Event {
     return Objects.equals(documentId, e.documentId) &&
       Objects.equals(runId, e.runId) &&
       Objects.equals(message, e.message) &&
-      Objects.equals(type, e.type) &&
-      Objects.equals(status, e.status);
+      Objects.equals(type, e.type);
   }
 
   public int hashCode() {
-    return Objects.hash(documentId, runId, message, type, status);
+    return Objects.hash(documentId, runId, message, type);
   }
 
 }

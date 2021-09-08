@@ -9,6 +9,9 @@ import java.util.List;
 
 class Indexer implements Runnable {
 
+  public static final int DEFAULT_BATCH_SIZE = 100;
+  public static final int DEFAULT_BATCH_TIMEOUT = 100;
+
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
 
   private final IndexerMessageManager manager;
@@ -26,7 +29,9 @@ class Indexer implements Runnable {
   public Indexer(Config config, IndexerMessageManager manager) {
     this.config = config;
     this.manager = manager;
-    this.batch = new Batch(config.getInt("indexer.batchSize"), config.getInt("indexer.batchTimeout"));
+    int batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : DEFAULT_BATCH_SIZE;
+    int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
+    this.batch = new Batch(batchSize, batchTimeout);
   }
 
   @Override
@@ -88,7 +93,7 @@ class Indexer implements Runnable {
         for (Document d : batchedDocs) {
           try {
             manager.sendEvent(new Event(d.getId(), d.getRunID(),
-                "FAILED" + e.getMessage(), Event.Type.INDEX, Event.Status.FAILURE));
+                "FAILED" + e.getMessage(), Event.Type.FAIL));
           } catch (Exception e2) {
             // TODO : Do something special if we get an error when sending Failure events
             e2.printStackTrace();
@@ -99,7 +104,7 @@ class Indexer implements Runnable {
 
       try {
         for (Document d : batchedDocs) {
-          Event event = new Event(d.getId(), d.getRunID(), "SUCCEEDED", Event.Type.INDEX, Event.Status.SUCCESS);
+          Event event = new Event(d.getId(), d.getRunID(), "SUCCEEDED", Event.Type.FINISH);
           log.info("submitting completion event " + event);
           manager.sendEvent(event);
         }
