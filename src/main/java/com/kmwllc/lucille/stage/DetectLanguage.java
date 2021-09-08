@@ -66,7 +66,7 @@ public class DetectLanguage extends Stage {
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Detect Language");
 
-    String profilesPath = "LUCILLE_HOME/DetectLanguage/profiles";
+    String profilesPath = com.kmwllc.lucille.util.FileUtils.getHomeDirectory() + "/DetectLanguage/profiles";
     File profileDir = new File(profilesPath);
 
     if (!profileDir.exists()) {
@@ -91,18 +91,17 @@ public class DetectLanguage extends Stage {
     }
   }
 
-
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    for (int i = 0; i < sourceFields.size(); i++) {
-      StringBuilder builder = new StringBuilder();
-      try {
-        detector = DetectorFactory.create();
-        detector.setMaxTextLength(maxLength);
-      } catch (Exception e) {
-        throw new StageException(e.getMessage());
-      }
+    try {
+      detector = DetectorFactory.create();
+      detector.setMaxTextLength(maxLength);
+    } catch (Exception e) {
+      throw new StageException(e.getMessage());
+    }
 
+    StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < sourceFields.size(); i++) {
       String source = sourceFields.get(i);
 
       if (!doc.has(source))
@@ -112,21 +111,23 @@ public class DetectLanguage extends Stage {
         builder.append(value);
       }
 
-      if (builder.length() < minLength)
-        continue;
+      if (builder.length() > maxLength)
+        break;
+    }
 
-      try {
-        detector.append(builder.toString());
-        Language result = detector.getProbabilities().get(0);
+    if (builder.length() < minLength)
+      return null;
 
-        if (result.prob >= minProbability) {
-          doc.setField(languageField, result.lang);
-          doc.setField(languageConfidenceField, (int) result.prob * 100);
-        }
+    try {
+      detector.append(builder.toString());
+      Language result = detector.getProbabilities().get(0);
 
-      } catch (Exception e) {
-        throw new StageException(e.getMessage());
+      if (result.prob >= minProbability) {
+        doc.setField(languageField, result.lang);
+        doc.setField(languageConfidenceField, Math.round(result.prob * 100) + "%");
       }
+    } catch (Exception e) {
+      throw new StageException(e.getMessage());
     }
 
     return null;

@@ -24,4 +24,14 @@ public class FileUtils {
       return new BufferedReader(new InputStreamReader(is));
     }
   }
+
+  public static String getHomeDirectory() {
+    String homeDir = System.getProperty("LUCILLE_HOME");
+
+    if (homeDir != null) {
+      return Path.of(homeDir).toAbsolutePath().toString();
+    }
+
+    return System.getProperty("user.dir");
+  }
 }
