@@ -22,7 +22,6 @@ import java.util.List;
  * - source (List<String>) : List of source field names.
  * - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
  * for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- * - profiles_dir : The path to the directory containing language profiles for language extraction.
  * - min_length : The min length of Strings to be considered for language detection. Shorter Strings will be ignored.
  * - max_length : The max length of Strings to be considered for language detection. Longer Strings will be truncated.
  * - min_probability : The min probability for a language result to be considered valid. Results below this threshold
@@ -34,7 +33,6 @@ public class DetectLanguage extends Stage {
 
   private final List<String> sourceFields;
   private final List<String> destFields;
-  private final String profilesDirStr;
   private final int minLength;
   private final int maxLength;
   private final double minProbability;
@@ -46,7 +44,6 @@ public class DetectLanguage extends Stage {
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.profilesDirStr = config.getString("profiles_dir");
     this.minLength = config.getInt("min_length");
     this.maxLength = config.getInt("max_length");
     this.minProbability = config.getDouble("min_probability");
@@ -58,7 +55,6 @@ public class DetectLanguage extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Detect Language");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Detect Language");
 
-    // TODO : Find a solution for handling the profiles
     File profDirectory;
     try {
       URL url = getClass().getClassLoader().getResource(profileResourcesLoc);
@@ -115,35 +111,3 @@ public class DetectLanguage extends Stage {
     return null;
   }
 }
-
-/*profDirectory.mkdir();
-    Path target = Paths.get(profilesDirStr);
-
-    try {
-    URI resource = getClass().getClassLoader().getResource(profileResourcesLoc).toURI();
-    FileSystem fileSystem = FileSystems.newFileSystem(
-    resource,
-    Collections.EMPTY_MAP
-    );
-
-final Path jarPath = fileSystem.getPath(profileResourcesLoc);
-
-    Files.walkFileTree(Path.of(profilesDirStr), new SimpleFileVisitor<Path>() {
-private Path currentTarget;
-
-@Override
-public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-    currentTarget = target.resolve(jarPath.relativize(dir).toString());
-    Files.createDirectories(currentTarget);
-    return FileVisitResult.CONTINUE;
-    }
-
-@Override
-public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-    Files.copy(file, target.resolve(jarPath.relativize(file).toString()), StandardCopyOption.REPLACE_EXISTING);
-    return FileVisitResult.CONTINUE;
-    }
-    });
-    } catch (Exception e) {
-    throw new StageException(e.getMessage());
-    }*/
