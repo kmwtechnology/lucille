@@ -37,7 +37,7 @@ public class IndexerTest {
     List<Event> events = manager.getSavedEvents();
     for (int i = 1; i <= events.size(); i++) {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
-      assertEquals(Event.Status.SUCCESS, events.get(i - 1).getStatus());
+      assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
     }
   }
 
@@ -64,7 +64,7 @@ public class IndexerTest {
     assertEquals(5, events.size());
     for (int i = 1; i <= events.size(); i++) {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
-      assertEquals(Event.Status.FAILURE, events.get(i - 1).getStatus());
+      assertEquals(Event.Type.FAIL, events.get(i - 1).getType());
     }
   }
 
