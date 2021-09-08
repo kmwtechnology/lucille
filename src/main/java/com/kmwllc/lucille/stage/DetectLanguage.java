@@ -8,9 +8,15 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
+import org.apache.commons.io.FileUtils;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.List;
 
 /**
@@ -29,7 +35,8 @@ import java.util.List;
  */
 public class DetectLanguage extends Stage {
 
-  private final static String profileResourcesLoc = "LanguageDetection/profiles";
+  private final static String profileResourcesLoc = "profiles";
+  private final static String profileFiles = "profileFiles.txt";
 
   private final List<String> sourceFields;
   private final List<String> destFields;
@@ -55,19 +62,22 @@ public class DetectLanguage extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Detect Language");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Detect Language");
 
-    File profDirectory;
-    try {
-      URL url = getClass().getClassLoader().getResource(profileResourcesLoc);
-      profDirectory = new File(url.toURI());
-    } catch (Exception e) {
-      throw new StageException(e.getMessage());
-    }
+      try {
+        String tempProfiles = Files.createTempDirectory("tmpDirPrefix").toFile().getAbsolutePath();
 
-    try {
-      DetectorFactory.loadProfile(profDirectory);
-    } catch (Exception e) {
-      throw new StageException(e.getMessage());
-    }
+        InputStream stream = getClass().getClassLoader().getResourceAsStream(profileFiles);
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream))) {
+          String line;
+          while ((line = reader.readLine()) != null) {
+            InputStream profile = getClass().getClassLoader().getResourceAsStream(profileResourcesLoc + "/" + line);
+            FileUtils.copyInputStreamToFile(profile, new File(tempProfiles + "/" + line));
+          }
+        }
+
+        DetectorFactory.loadProfile(new File(tempProfiles));
+      } catch (Exception e) {
+        throw new StageException(e.getMessage());
+      }
   }
 
 
