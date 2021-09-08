@@ -38,7 +38,7 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
     this.runId = runId;
     this.pipelineName = pipelineName;
     Properties consumerProps = KafkaUtils.createConsumerProps(config);
-    consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-3");
+    consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-publisher-" + pipelineName);
     // TODO: create event topic explicitly instead of relying on auto-create; delete topic when finished
     this.eventConsumer = new KafkaConsumer(consumerProps);
     this.eventConsumer.subscribe(Collections.singletonList(KafkaUtils.getEventTopicName(pipelineName, runId)));
