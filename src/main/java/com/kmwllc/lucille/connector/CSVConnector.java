@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.Connector;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.util.FileUtils;
@@ -33,7 +34,7 @@ public class CSVConnector extends AbstractConnector {
   }
 
   @Override
-  public void start(Publisher publisher) {
+  public void start(Publisher publisher) throws ConnectorException {
 
     try (CSVReader csvReader = new CSVReader(FileUtils.getReader(path))) {
 

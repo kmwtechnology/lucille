@@ -94,7 +94,7 @@ public class PublisherImpl implements Publisher {
   }
 
   @Override
-  public void waitForCompletion(Thread thread) throws Exception {
+  public boolean waitForCompletion(ConnectorThread thread) throws Exception {
     // poll for Events relating the current run; loop until all work is complete
     while (true) {
       Event event = manager.pollEvent();
@@ -103,12 +103,19 @@ public class PublisherImpl implements Publisher {
         handleEvent(event);
       }
 
+      // stop waiting if the connector threw an exception
+      // TODO: consider whether we still want to wait for completion of any work the connector may have generated before it threw the exception
+      if (thread.hasException()) {
+        log.error("Exiting run with " + numPending() + " pending documents; connector threw exception", thread.getException());
+        return false;
+      }
+
       // We are done if 1) the Connector thread has terminated and therefore no more Documents will be generated,
       // 2) all published Documents and their children are accounted for (none are pending),
       // 3) there are no more Events relating to the current run to consume
       // TODO: timeouts
       if (!thread.isAlive() && !hasPending() && !manager.hasEvents()) {
-        break;
+        return true;
       }
 
       log.info("waiting on " + numPending() + " documents");

@@ -64,31 +64,31 @@ public class Runner {
   }
 
   /**
-   * Runs the designated Connector, only returning when 1) the Connector has finished generating documents, and
+   * Runs the designated Connector. Returns true only when 1) the Connector has finished generating documents, and
    * 2) all of the documents (and any generated children) have reached an end state in the workflow:
-   * either being indexed or erroring-out.
+   * either being indexed or erroring-out. Returns false if the connector execution fails (i.e. if the connector
+   * throws an exception).
    */
-  public void runConnector(Connector connector, Publisher publisher) throws Exception {
+  public boolean runConnector(Connector connector, Publisher publisher) throws Exception {
     log.info("Running connector: " + connector.getName());
 
-    Thread connectorThread = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        connector.start(publisher);
-      }
-    });
-    connectorThread.start(); // TODO: what if it didn't start properly?
+    ConnectorThread connectorThread = new ConnectorThread(connector, publisher);
+    connectorThread.start();
 
-    publisher.waitForCompletion(connectorThread);
+    boolean result = publisher.waitForCompletion(connectorThread);
 
     publisher.close();
 
     log.info("Connector complete: " + connector.getName());
+
+    return result;
   }
 
   /**
    * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
-   * config file. Run in a local mode where message traffic is kept in memory and there is no
+   * config file. Stop the run if any of the connectors fails.
+   *
+   * Run in a local mode where message traffic is kept in memory and there is no
    * communication with external systems like Kafka. Return a PersistingLocalMessageManager that
    * can be used to review the messages that were sent between various components during the run.
    */
@@ -106,7 +106,10 @@ public class Runner {
       // so those components will see each other's messages
       PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
       map.put(connector.getName(), manager);
-      run(config, runner, connector, manager, manager, manager, true);
+      boolean result = run(config, runner, connector, manager, manager, manager, true);
+      if (!result) {
+        break;
+      }
     }
 
     return map;
@@ -114,7 +117,9 @@ public class Runner {
 
   /**
    * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
-   * config file. Run in Kafka mode where message traffic flows through the Kafka deployment defined
+   * config file. Stop the run if any of the connectors fails.
+   *
+   * Run in Kafka mode where message traffic flows through the Kafka deployment defined
    * in the config.
    */
   public static void runWithKafka(String configName, boolean startWorkerAndIndexer) throws Exception {
@@ -128,11 +133,15 @@ public class Runner {
       IndexerMessageManager indexerMessageManager =
         startWorkerAndIndexer ? new KafkaIndexerMessageManager(config, pipelineName) : null;
       PublisherMessageManager publisherMessageManager = new KafkaPublisherMessageManager(config);
-      run(config, runner, connector, workerMessageManager, indexerMessageManager, publisherMessageManager, startWorkerAndIndexer);
+      boolean result = run(config, runner, connector, workerMessageManager,
+        indexerMessageManager, publisherMessageManager, startWorkerAndIndexer);
+      if (!result) {
+        break;
+      }
     }
   }
 
-  private static void run(Config config,
+  private static boolean run(Config config,
                           Runner runner,
                           Connector connector,
                           WorkerMessageManager workerMessageManager,
@@ -144,14 +153,14 @@ public class Runner {
     Worker worker = startWorkerAndIndexer ? Worker.startThread(config, workerMessageManager, pipelineName) : null;
     Indexer indexer = startWorkerAndIndexer ? Indexer.startThread(config, indexerMessageManager) : null;
     Publisher publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(), connector.getPipelineName());
-    runner.runConnector(connector, publisher);
+    boolean result = runner.runConnector(connector, publisher);
     if (worker!=null) {
       worker.terminate();
     }
     if (indexer!=null) {
       indexer.terminate();
     }
+    return result;
   }
-
 
 }
