@@ -42,9 +42,12 @@ import java.util.UUID;
  */
 public class Runner {
 
+  public static final int DEFAULT_CONNECTOR_TIMEOUT = 1000 * 60 * 60 * 24;
+
   private static final Logger log = LoggerFactory.getLogger(Runner.class);
 
   private final String runId;
+  private final int connectorTimeout;
 
   public static void main(String[] args) throws Exception {
     runWithKafka("application.conf", true);
@@ -54,6 +57,8 @@ public class Runner {
     // generate a unique ID for this run
     this.runId = UUID.randomUUID().toString();
     log.info("runId=" + runId);
+    this.connectorTimeout =
+      config.hasPath("runner.connectorTimeout") ? config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
   }
 
   /**
@@ -75,7 +80,7 @@ public class Runner {
     ConnectorThread connectorThread = new ConnectorThread(connector, publisher);
     connectorThread.start();
 
-    boolean result = publisher.waitForCompletion(connectorThread);
+    boolean result = publisher.waitForCompletion(connectorThread, connectorTimeout);
 
     publisher.close();
 

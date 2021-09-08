@@ -1,10 +1,14 @@
 package com.kmwllc.lucille.core;
 
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
@@ -88,7 +92,25 @@ public class RunnerTest {
     assertNull(manager.pollEvent());
   }
 
+  /**
+   * Test an end-to-end run with a single connector that generates 1 document, an indexer
+   * with a batch timeout of 10 seconds, and a runner with timeout of .1 second
+   */
+  @Test
+  public void testRunnerTimeout() throws Exception {
 
+    Config config = ConfigFactory.load("RunnerTest/singleDocTimeout.conf");
+    Runner runner = new Runner(config);
+    Connector connector = Connector.fromConfig(config).get(0);
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Publisher publisher = new PublisherImpl(manager, runner.getRunId(), connector.getPipelineName());
+    Instant start = Instant.now();
+    boolean result = runner.runConnector(connector, publisher);
+    Instant end = Instant.now();
+
+    assertFalse(result);
+    assertTrue(ChronoUnit.SECONDS.between(start, end) < 10);
+  }
 
   /**
    * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that
