@@ -27,7 +27,9 @@ import java.util.List;
  */
 public class PublisherImpl implements Publisher {
 
-  public static final Logger log = LoggerFactory.getLogger(PublisherImpl.class);
+  public static final int LOG_SECONDS = 5;
+
+  private static final Logger log = LoggerFactory.getLogger(PublisherImpl.class);
 
   private final PublisherMessageManager manager;
 
@@ -103,6 +105,8 @@ public class PublisherImpl implements Publisher {
 
     start = Instant.now();
 
+    Instant lastLog = Instant.now();
+
     // poll for Events relating the current run; loop until all work is complete
     while (true) {
       Event event = manager.pollEvent();
@@ -130,7 +134,10 @@ public class PublisherImpl implements Publisher {
         return true;
       }
 
-      log.info("waiting on " + numPending() + " documents");
+      if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>LOG_SECONDS) {
+        log.info("waiting on " + numPending() + " documents");
+        lastLog = Instant.now();
+      }
     }
   }
 
