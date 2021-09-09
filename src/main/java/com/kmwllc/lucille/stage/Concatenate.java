@@ -20,12 +20,14 @@ import java.util.List;
  *   - source (List<String>) : list of source field names
  *   - dest (String) : Destination field. This Stage only supports supplying a single destination field.
  *   - format_string (String) : The format String, which will have field values substituted into its placeholders
+ *   - overwrite (Boolean, Optional) : Determines if destination field should be overwritten or preserved. Defaults to false.
  */
 public class Concatenate extends Stage {
 
   private final List<String> sourceFields;
   private final String destField;
   private final String formatStr;
+  private final boolean overwrite;
 
   public Concatenate(Config config) {
     super(config);
@@ -33,6 +35,7 @@ public class Concatenate extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");
+    this.overwrite = StageUtils.configGetOrDefault(config, "overwrite", false);
   }
 
   @Override
@@ -55,7 +58,7 @@ public class Concatenate extends Stage {
     // TODO : Consider making Document a Map
     // Substitute all of the {field} formatters in the string with the field value.
     StrSubstitutor sub = new StrSubstitutor(replacements, "{", "}");
-    doc.setField(destField, sub.replace(formatStr));
+    doc.writeToField(destField, overwrite, sub.replace(formatStr));
 
     return null;
   }

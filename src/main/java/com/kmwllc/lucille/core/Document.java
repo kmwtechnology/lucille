@@ -7,9 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
-import com.typesafe.config.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,6 +71,62 @@ public class Document implements Cloneable {
     data.withArray(name).remove(index);
   }
 
+  // TODO : Write tests for writeToField, go through all Stages and look at Documentation, error handling and add overwriting
+  public void writeToField(String name, Boolean overwrite, String... values) {
+    int i = 0;
+    if (overwrite) {
+      setField(name, values[0]);
+      i = 1;
+    }
+    for (; i < values.length; i++) {
+      addToField(name, values[i]);
+    }
+  }
+
+  public void writeToField(String name, Boolean overwrite, Long... values) {
+    int i = 0;
+    if (overwrite) {
+      setField(name, values[0]);
+      i = 1;
+    }
+    for (; i < values.length; i++) {
+      addToField(name, values[i]);
+    }
+  }
+
+  public void writeToField(String name, Boolean overwrite, Integer... values) {
+    int i = 0;
+    if (overwrite) {
+      setField(name, values[0]);
+      i = 1;
+    }
+    for (; i < values.length; i++) {
+      addToField(name, values[i]);
+    }
+  }
+
+  public void writeToField(String name, Boolean overwrite, Boolean... values) {
+    int i = 0;
+    if (overwrite) {
+      setField(name, values[0]);
+      i = 1;
+    }
+    for (; i < values.length; i++) {
+      addToField(name, values[i]);
+    }
+  }
+
+  public void writeToField(String name, Boolean overwrite, Double... values) {
+    int i = 0;
+    if (overwrite) {
+      setField(name, values[0]);
+      i = 1;
+    }
+    for (; i < values.length; i++) {
+      addToField(name, values[i]);
+    }
+  }
+
   public void setField(String name, String value) {
     data.put(name, value);
   }
@@ -89,6 +143,8 @@ public class Document implements Cloneable {
     data.put(name, value);
   }
 
+  public void setField(String name, Double value) { data.put(name, value);}
+
   public void renameField(String oldName, String newName) {
     List<String> fieldVals = getStringList(oldName);
     removeField(oldName);
@@ -101,6 +157,7 @@ public class Document implements Cloneable {
   // This will return null in two cases : 1) If the field is absent 2) IF the field is present but contains a null.
   // To distinguish between these, you can call has().
   // Calling getString for a field which is multivalued will return the empty String, "".
+  // TODO : Should we even expose this?
   public String getString(String name) {
     if (!data.has(name)) {
       return null;
@@ -175,6 +232,12 @@ public class Document implements Cloneable {
     array.add(value);
   }
 
+  public void addToField(String name, Long value) {
+    convertToList(name);
+    ArrayNode array = data.withArray(name);
+    array.add(value);
+  }
+
   public void addToField(String name, Integer value) {
     convertToList(name);
     ArrayNode array = data.withArray(name);
@@ -182,6 +245,12 @@ public class Document implements Cloneable {
   }
 
   public void addToField(String name, Boolean value) {
+    convertToList(name);
+    ArrayNode array = data.withArray(name);
+    array.add(value);
+  }
+
+  public void addToField(String name, Double value) {
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);

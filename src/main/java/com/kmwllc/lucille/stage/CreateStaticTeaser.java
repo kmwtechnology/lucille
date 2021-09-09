@@ -19,12 +19,14 @@ import java.util.List;
  *   - dest (List<String>) : list of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  *   - max_length (Integer) : The maximum number of characters to include in the extracted teaser.
+ *   - overwrite (Boolean, Optional) : Determines if destination field should be overwritten or preserved. Defaults to false.
  */
 public class CreateStaticTeaser extends Stage {
 
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final int maxLength;
+  private final boolean overwrite;
 
   public CreateStaticTeaser(Config config) {
     super(config);
@@ -32,6 +34,7 @@ public class CreateStaticTeaser extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.maxLength = config.getInt("max_length");
+    this.overwrite = StageUtils.configGetOrDefault(config, "overwrite", false);
   }
 
   @Override
@@ -57,7 +60,7 @@ public class CreateStaticTeaser extends Stage {
 
       // If this field value is shorter than the max length, put the whole String in the destination field
       if (maxLength > fullText.length()) {
-        doc.addToField(dest, fullText.trim());
+        doc.writeToField(dest, overwrite, fullText.trim());
         continue;
       }
 
@@ -68,11 +71,12 @@ public class CreateStaticTeaser extends Stage {
         pointer--;
       }
 
+      // If this is a continuous String of word characters, truncate it to the maxLength
       if (pointer == 0) {
-        doc.addToField(dest, fullText.substring(0, maxLength));
+        doc.writeToField(dest, overwrite, fullText.substring(0, maxLength));
+      } else {
+        doc.writeToField(dest, overwrite, fullText.substring(0, pointer).trim());
       }
-
-      doc.addToField(dest, fullText.substring(0, pointer).trim());
     }
 
     return null;

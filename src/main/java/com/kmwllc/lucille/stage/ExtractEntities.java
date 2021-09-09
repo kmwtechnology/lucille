@@ -33,14 +33,15 @@ import org.slf4j.LoggerFactory;
  *   - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
  *       will be searched for the file. Otherwise, the local file system will be searched.
  *   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.
- *   - ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches.
+ *   - overwrite (Boolean, Optional) : Determines if destination field should be overwritten or preserved. Defaults to false.
+ *   - ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.
  *   - only_whitespace_separated (Boolean, Optional) : Denotes whether terms must be whitespace separated to be
- *       candidates for matching
- *   - stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit.
+ *       candidates for matching.  Defaults to false.
+ *   - stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit.  Defaults to false.
  *   - only_whole_words (Boolean, Optional) : Determines whether this matcher will trigger for matches contained within
- *       other text. ie "OMAN" in "rOMAN"
+ *       other text. ie "OMAN" in "rOMAN".  Defaults to false.
  *   - ignore_overlaps (Boolean, Optional) : Decides whether overlapping matches should both be extracted or if only the
- *       longer, left most match should be kept.
+ *       longer, left most match should be kept.  Defaults to true.
  */
 public class ExtractEntities extends Stage {
 
@@ -49,6 +50,8 @@ public class ExtractEntities extends Stage {
   private PayloadTrie<String> dictTrie;
   private final List<String> sourceFields;
   private final List<String> destFields;
+  private final boolean overwrite;
+
   private final boolean ignoreCase;
   private final boolean onlyWhitespaceSeparated;
   private final boolean stopOnHit;
@@ -69,6 +72,7 @@ public class ExtractEntities extends Stage {
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
+    this.overwrite = StageUtils.configGetOrDefault(config, "overwrite", false);
   }
 
   @Override
@@ -86,7 +90,7 @@ public class ExtractEntities extends Stage {
    * @param dictFile  the path of the dictionary file to read from
    * @return  a PayloadTrie capable of finding matches for its dictionary values
    */
-  private PayloadTrie<String> buildTrie(String dictFile) {
+  private PayloadTrie<String> buildTrie(String dictFile) throws StageException {
     PayloadTrie.PayloadTrieBuilder<String> trieBuilder = PayloadTrie.builder();
 
     // For each of the possible Trie settings, check what value the user set and apply it.
@@ -127,7 +131,7 @@ public class ExtractEntities extends Stage {
         }
       }
     } catch (Exception e) {
-      log.error("Failed to read from the given file.", e);
+      throw new StageException("Failed to read from the given file.", e);
     }
 
     return trieBuilder.build();
@@ -161,9 +165,7 @@ public class ExtractEntities extends Stage {
       if (payloads.isEmpty())
         continue;
 
-      for (String payload : payloads) {
-        doc.addToField(destField, payload);
-      }
+      doc.writeToField(destField, overwrite, payloads.toArray(new String[0]));
     }
 
     return null;

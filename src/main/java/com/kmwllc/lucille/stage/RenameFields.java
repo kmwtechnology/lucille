@@ -41,9 +41,10 @@ public class RenameFields extends Stage {
     for (Entry<String, ConfigValue> fieldPair : fieldMap) {
       if (!doc.has(fieldPair.getKey()))
         continue;
-
-      // TODO : Consider throwing an exception if destField exists already
-      doc.renameField(fieldPair.getKey(), (String) fieldPair.getValue().unwrapped());
+      
+      // TODO : Determine what to do if the destination field already exists
+      String dest = (String) fieldPair.getValue().unwrapped();
+      doc.renameField(fieldPair.getKey(), dest);
     }
 
     return null;

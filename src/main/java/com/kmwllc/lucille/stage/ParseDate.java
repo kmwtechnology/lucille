@@ -32,7 +32,8 @@ import java.util.function.Function;
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  *   - formatters (List<Function>) : List of formatter classes to be used for parsing dates. Formatters must implement
  *       the Function<String, LocalDate> Interface.
- *   - format_strs (List<String>, Optional) : A List of format Strings to try and apply to the dates
+ *   - format_strs (List<String>, Optional) : A List of format Strings to try and apply to the dates. Defaults to an empty list.
+ *   - overwrite (Boolean, Optional) : Determines if destination field should be overwritten or preserved. Defaults to false.
  */
 public class ParseDate extends Stage {
 
@@ -40,6 +41,7 @@ public class ParseDate extends Stage {
   private final List<String> formatStrings;
   private final List<String> sourceFields;
   private final List<String> destFields;
+  private final boolean overwrite;
 
   public ParseDate(Config config) {
     super(config);
@@ -48,6 +50,7 @@ public class ParseDate extends Stage {
     this.formatStrings = StageUtils.<List<String>>configGetOrDefault(config, "format_strs", new ArrayList<>());
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
+    this.overwrite = StageUtils.configGetOrDefault(config, "overwrite", false);
   }
 
   @Override
@@ -65,7 +68,7 @@ public class ParseDate extends Stage {
         Function<String, LocalDate> formatter = (Function<String, LocalDate>) constructor.newInstance();
         formatters.add(formatter);
       } catch (Exception e) {
-        throw new StageException(e.getMessage());
+        throw new StageException("Unable to instantiate date formatters.", e);
       }
     }
   }
@@ -81,6 +84,7 @@ public class ParseDate extends Stage {
         continue;
 
       // For each String value in this field...
+      List<String> outputValues = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {
         for (String formatStr : formatStrings) {
           DateFormat format = new SimpleDateFormat(formatStr);
@@ -111,8 +115,9 @@ public class ParseDate extends Stage {
         // Convert the returned LocalDate into a String in the ISO_INSTANT format for Solr
         // TODO : Potentially add Date object to Document
         String dateStr = DateTimeFormatter.ISO_INSTANT.format(date.atStartOfDay().toInstant(ZoneOffset.UTC));
-        doc.addToField(destField, dateStr);
+        outputValues.add(dateStr);
       }
+      doc.writeToField(destField, overwrite, outputValues.toArray(new String[0]));
     }
     return null;
   }

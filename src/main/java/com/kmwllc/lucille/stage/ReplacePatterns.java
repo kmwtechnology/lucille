@@ -19,16 +19,18 @@ import java.util.regex.Pattern;
  * for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  * - regex (List<String>) : A list regex expression to find matches for. Matches will be extracted and placed in the destination fields.
  * - replacement (String) : The String to replace regex matches with.
- * - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case.
- * - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines.
- * - dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher.
- * - literal (Boolean, Optional) : Toggles treating the regex expression as a literal String.
+ *  * - overwrite (Boolean, Optional) : Determines if destination field should be overwritten or preserved. Defaults to false.
+ * - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.
+ * - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.
+ * - dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.
+ * - literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.
  */
 public class ReplacePatterns extends Stage {
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final List<String> regexExprs;
   private final String replacement;
+  private final boolean overwrite;
 
   private final boolean ignoreCase;
   private final boolean multiline;
@@ -46,6 +48,7 @@ public class ReplacePatterns extends Stage {
     this.destFields = config.getStringList("dest");
     this.regexExprs = config.getStringList("regex");
     this.replacement = config.getString("replacement");
+    this.overwrite = StageUtils.configGetOrDefault(config, "overwrite", false);
 
     this.ignoreCase = StageUtils.configGetOrDefault(config, "ignore_case", false);
     this.multiline = StageUtils.configGetOrDefault(config, "multiline", false);
@@ -112,14 +115,16 @@ public class ReplacePatterns extends Stage {
       if (!doc.has(sourceField))
         continue;
 
+      List<String> outputValues = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {
         for (Pattern pattern : patterns) {
           Matcher matcher = pattern.matcher(value);
           value = matcher.replaceAll(replacement);
         }
 
-        doc.addToField(destField, value);
+        outputValues.add(value);
       }
+      doc.writeToField(destField, overwrite, outputValues.toArray(new String[0]));
     }
 
     return null;

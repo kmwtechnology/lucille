@@ -48,33 +48,28 @@ public class CopyFields extends Stage {
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    List<String> validDests = new ArrayList<>(destFields);
-    List<String> validSources = new ArrayList<>(sourceFields);
-
+    // If we are in replace mode, empty all of the destination fields first
     if (mode.equals("replace")) {
       for (String dest : destFields) {
         if (doc.has(dest)) {
           doc.removeField(dest);
         }
       }
-    } else if (mode.equals("skip")) {
-      for (int i = 0; i < destFields.size(); i++) {
-        if (doc.has(destFields.get(i))) {
-          validDests.remove(destFields.get(i));
-          if (destFields.size() == sourceFields.size()) {
-            validSources.remove(sourceFields.get(i));
-          }
-        }
-      }
     }
 
-    for (int i = 0; i < validSources.size(); i++) {
+    for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one source or dest, use it. Otherwise, use the current source/dest.
-      String sourceField = validSources.get(i);
-      String destField = validDests.size() == 1 ? validDests.get(0) : validDests.get(i);
+      String sourceField = sourceFields.get(i);
+      String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
       if (!doc.has(sourceField))
         continue;
+
+      // If we are in skip mode, skip this destination field if it already exists
+      if (mode.equals("skip")) {
+        if (doc.has(destField))
+          continue;
+      }
 
       for (String value : doc.getStringList(sourceField)) {
         doc.addToField(destField, value);

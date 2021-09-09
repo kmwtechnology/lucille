@@ -90,6 +90,23 @@ public class DocumentTest {
   }
 
   @Test
+  public void testWriteToField() throws Exception {
+    Document document = new Document("doc");
+    assertFalse(document.has("field"));
+    document.writeToField("field", false, "hello there");
+    assertEquals("hello there", document.getStringList("field").get(0));
+    document.writeToField("field", false, "some more text", "and some more");
+    assertEquals(3, document.getStringList("field").size());
+    assertEquals("hello there", document.getStringList("field").get(0));
+    assertEquals("some more text", document.getStringList("field").get(1));
+    assertEquals("and some more", document.getStringList("field").get(2));
+    document.writeToField("field", true, "this is it now");
+    assertEquals(1, document.getStringList("field").size());
+    assertEquals("this is it now", document.getString("field"));
+
+  }
+
+  @Test
   public void testGetStringsSingleValued() {
     Document document = new Document("doc");
     document.setField("pets", "dog");

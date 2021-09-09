@@ -23,9 +23,9 @@ import java.util.List;
  * - source (List<String>) : List of source field names.
  * - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
  * for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- * - min_length : The min length of Strings to be considered for language detection. Shorter Strings will be ignored.
- * - max_length : The max length of Strings to be considered for language detection. Longer Strings will be truncated.
- * - min_probability : The min probability for a language result to be considered valid. Results below this threshold
+ * - min_length (Integer) : The min length of Strings to be considered for language detection. Shorter Strings will be ignored.
+ * - max_length (Integer) : The max length of Strings to be considered for language detection. Longer Strings will be truncated.
+ * - min_probability (Double) : The min probability for a language result to be considered valid. Results below this threshold
  * will be ignored.
  */
 public class DetectLanguage extends Stage {
@@ -64,25 +64,28 @@ public class DetectLanguage extends Stage {
     String profilesPath = FileUtils.getHomeDirectory() + "/DetectLanguage/profiles";
     File profileDir = new File(profilesPath);
 
+    // If the profiles directory does not exist, try to create it.
     if (!profileDir.exists()) {
       if (!profileDir.mkdirs()) {
         throw new StageException("Unable to create profiles directory for storing Language Detection profiles.");
       }
 
+      // Copy the profiles from the classpath resources to the local file system.
       try {
         for (String profile : profiles) {
           InputStream profileStream = getClass().getClassLoader().getResourceAsStream(profileResourcesLoc + "/" + profile);
           org.apache.commons.io.FileUtils.copyInputStreamToFile(profileStream, new File(profilesPath + "/" + profile));
         }
       } catch (Exception e) {
-        throw new StageException(e.getMessage());
+        throw new StageException("Unable to copy profiles from resources to local file system." ,e);
       }
     }
 
+    // Load the profiles
     try {
       DetectorFactory.loadProfile(profileDir);
     } catch (Exception e) {
-      throw new StageException(e.getMessage());
+      throw new StageException("Unable to load language profiles" ,e);
     }
   }
 
@@ -92,7 +95,7 @@ public class DetectLanguage extends Stage {
       detector = DetectorFactory.create();
       detector.setMaxTextLength(maxLength);
     } catch (Exception e) {
-      throw new StageException(e.getMessage());
+      throw new StageException("Unable to create new Language Detector" ,e);
     }
 
     StringBuilder builder = new StringBuilder();
@@ -118,7 +121,8 @@ public class DetectLanguage extends Stage {
 
       if (result.prob >= minProbability) {
         doc.setField(languageField, result.lang);
-        doc.setField(languageConfidenceField, Math.round(result.prob * 100));
+        doc.setField(languageConfidenceField, Math.floor(result.prob * 100) / 100);
+
       }
     } catch (Exception e) {
       throw new StageException("Unable to detect language", e);
