@@ -9,7 +9,6 @@ import static org.junit.Assert.*;
 
 public class DetectLanguageTest {
 
-  // TODO : Should we keep the output as the lang abbreviations
   @Test
   public void testDetectLanguage() throws Exception {
     Config config = ConfigFactory.load("DetectLanguageTest/config.conf");

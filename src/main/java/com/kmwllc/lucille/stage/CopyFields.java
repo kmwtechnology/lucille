@@ -48,23 +48,6 @@ public class CopyFields extends Stage {
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    /*List<String> skippedDests = new ArrayList<>();
-    List<String> skippedSources = new ArrayList<>();
-
-    for (int i = 0; i < destFields.size(); i++) {
-      if (doc.has(destFields.get(i))) {
-        if (mode.equals("replace")) {
-          doc.removeField(destFields.get(i));
-        } else if (mode.equals("skip")) {
-          skippedDests.add(destFields.get(i));
-          if (destFields.size() == 1) {
-            skippedSources.addAll(sourceFields);
-          } else {
-            skippedSources.add(sourceFields.get(i));
-          }
-        }
-      }
-    }*/
     List<String> validDests = new ArrayList<>(destFields);
     List<String> validSources = new ArrayList<>(sourceFields);
 

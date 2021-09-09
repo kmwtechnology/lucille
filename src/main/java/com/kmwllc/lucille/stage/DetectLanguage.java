@@ -8,15 +8,10 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
-import org.apache.commons.io.FileUtils;
+import com.kmwllc.lucille.util.FileUtils;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.List;
 
 /**
@@ -66,7 +61,7 @@ public class DetectLanguage extends Stage {
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Detect Language");
 
-    String profilesPath = com.kmwllc.lucille.util.FileUtils.getHomeDirectory() + "/DetectLanguage/profiles";
+    String profilesPath = FileUtils.getHomeDirectory() + "/DetectLanguage/profiles";
     File profileDir = new File(profilesPath);
 
     if (!profileDir.exists()) {
@@ -77,7 +72,7 @@ public class DetectLanguage extends Stage {
       try {
         for (String profile : profiles) {
           InputStream profileStream = getClass().getClassLoader().getResourceAsStream(profileResourcesLoc + "/" + profile);
-          FileUtils.copyInputStreamToFile(profileStream, new File(profilesPath + "/" + profile));
+          org.apache.commons.io.FileUtils.copyInputStreamToFile(profileStream, new File(profilesPath + "/" + profile));
         }
       } catch (Exception e) {
         throw new StageException(e.getMessage());
@@ -101,33 +96,32 @@ public class DetectLanguage extends Stage {
     }
 
     StringBuilder builder = new StringBuilder();
-    for (int i = 0; i < sourceFields.size(); i++) {
-      String source = sourceFields.get(i);
+    for (String source : sourceFields) {
 
       if (!doc.has(source))
         continue;
 
       for (String value : doc.getStringList(source)) {
         builder.append(value);
-      }
 
-      if (builder.length() > maxLength)
-        break;
+        if (builder.length() > maxLength)
+          break;
+      }
     }
 
     if (builder.length() < minLength)
       return null;
 
     try {
-      detector.append(builder.toString());
+      detector.append(builder.substring(0, Math.min(builder.length(), maxLength)));
       Language result = detector.getProbabilities().get(0);
 
       if (result.prob >= minProbability) {
         doc.setField(languageField, result.lang);
-        doc.setField(languageConfidenceField, Math.round(result.prob * 100) + "%");
+        doc.setField(languageConfidenceField, Math.round(result.prob * 100));
       }
     } catch (Exception e) {
-      throw new StageException(e.getMessage());
+      throw new StageException("Unable to detect language", e);
     }
 
     return null;
