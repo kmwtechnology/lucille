@@ -81,7 +81,6 @@ public class ParseDate extends Stage {
         continue;
 
       // For each String value in this field...
-      // TODO : Write tests for String format parsing
       for (String value : doc.getStringList(sourceField)) {
         for (String formatStr : formatStrings) {
           DateFormat format = new SimpleDateFormat(formatStr);
