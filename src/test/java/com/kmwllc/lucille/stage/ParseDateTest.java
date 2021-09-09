@@ -28,6 +28,14 @@ public class ParseDateTest {
     stage.processDocument(doc2);
     assertEquals("2003-10-25T00:00:00Z", doc2.getStringList("output1").get(0));
     assertEquals("2020-01-01T00:00:00Z", doc2.getStringList("output2").get(0));
+
+    // Test parsing dates from a format String
+    Document doc3 = new Document("doc3");
+    doc3.setField("date1", "90/Jul/17");
+    doc3.setField("date2", "2023-06-21");
+    stage.processDocument(doc3);
+    assertEquals("1990-07-17T00:00:00Z", doc3.getStringList("output1").get(0));
+    assertEquals("2023-06-21T00:00:00Z", doc3.getStringList("output2").get(0));
   }
 
 }
