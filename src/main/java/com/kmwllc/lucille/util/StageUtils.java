@@ -14,6 +14,10 @@ import java.util.List;
  */
 public class StageUtils {
 
+  public enum WriteMode {
+    APPEND, SKIP, OVERWRITE
+  }
+
   /**
    * Get the value of the given setting from the config file, or a default value if the setting does not exist in the
    * config.
@@ -30,6 +34,15 @@ public class StageUtils {
     }
 
     return fallback;
+  }
+
+  public static WriteMode getWriteMode(String mode) {
+    switch (mode.toLowerCase()) {
+      case "append" : return WriteMode.APPEND;
+      case "skip" : return WriteMode.SKIP;
+      case "overwrite" : return WriteMode.OVERWRITE;
+      default : return null;
+    }
   }
 
   /**

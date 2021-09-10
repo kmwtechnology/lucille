@@ -1,16 +1,14 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Pipeline;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
+import com.kmwllc.lucille.util.StageUtils.WriteMode;
 import com.typesafe.config.Config;
 
-import javax.swing.text.DateFormatter;
 import java.lang.reflect.Constructor;
 import java.text.DateFormat;
-import java.text.Format;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -33,7 +31,8 @@ import java.util.function.Function;
  *   - formatters (List<Function>) : List of formatter classes to be used for parsing dates. Formatters must implement
  *       the Function<String, LocalDate> Interface.
  *   - format_strs (List<String>, Optional) : A List of format Strings to try and apply to the dates. Defaults to an empty list.
- *   - overwrite (Boolean, Optional) : Determines if destination field should be overwritten or preserved. Defaults to false.
+ *   - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class ParseDate extends Stage {
 
@@ -41,7 +40,7 @@ public class ParseDate extends Stage {
   private final List<String> formatStrings;
   private final List<String> sourceFields;
   private final List<String> destFields;
-  private final boolean overwrite;
+  private final WriteMode writeMode;
 
   public ParseDate(Config config) {
     super(config);
@@ -50,7 +49,7 @@ public class ParseDate extends Stage {
     this.formatStrings = StageUtils.<List<String>>configGetOrDefault(config, "format_strs", new ArrayList<>());
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.overwrite = StageUtils.configGetOrDefault(config, "overwrite", false);
+    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
   }
 
   @Override
@@ -117,7 +116,7 @@ public class ParseDate extends Stage {
         String dateStr = DateTimeFormatter.ISO_INSTANT.format(date.atStartOfDay().toInstant(ZoneOffset.UTC));
         outputValues.add(dateStr);
       }
-      doc.writeToField(destField, overwrite, outputValues.toArray(new String[0]));
+      doc.writeToField(destField, writeMode, outputValues.toArray(new String[0]));
     }
     return null;
   }

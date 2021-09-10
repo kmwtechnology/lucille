@@ -5,12 +5,12 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.StageUtils;
+import com.kmwllc.lucille.util.StageUtils.WriteMode;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,7 +30,8 @@ import java.util.List;
  *   - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
  *       will be searched for the file. Otherwise, the local file system will be searched.
  *   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not. Defaults to true.
- *   - overwrite (Boolean, Optional) : Determines if destination field should be overwritten or preserved. Defaults to false.
+ *   - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class DictionaryLookup extends Stage {
 
@@ -38,7 +39,7 @@ public class DictionaryLookup extends Stage {
   private final List<String> destFields;
   private final HashMap<String, String> dict;
   private final boolean usePayloads;
-  private final boolean overwrite;
+  private final WriteMode writeMode;
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -49,7 +50,7 @@ public class DictionaryLookup extends Stage {
     this.destFields = config.getStringList("dest");
     this.dict = buildHashMap(config.getString("dict_path"));
     this.usePayloads = StageUtils.configGetOrDefault(config, "use_payloads" ,true);
-    this.overwrite = StageUtils.configGetOrDefault(config, "overwrite", false);
+    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
   }
 
   /**
@@ -105,7 +106,7 @@ public class DictionaryLookup extends Stage {
         }
       }
 
-      doc.writeToField(destField, overwrite, outputValues.toArray(new String[0]));
+      doc.writeToField(destField, writeMode, outputValues.toArray(new String[0]));
     }
 
     return null;

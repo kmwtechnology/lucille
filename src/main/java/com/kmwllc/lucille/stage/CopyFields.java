@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
+import com.kmwllc.lucille.util.StageUtils.WriteMode;
 import com.typesafe.config.Config;
 
 import java.util.ArrayList;
@@ -20,19 +21,20 @@ import java.util.List;
  *   - source (List<String>) : list of source field names
  *   - dest (List<String>) : list of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- *   - mode (String) : Determines how the Copy Stage should behave if the destination field already exists: replace, skip
+ *   - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class CopyFields extends Stage {
 
   private final List<String> sourceFields;
   private final List<String> destFields;
-  private final String mode;
+  private final WriteMode writeMode;
 
   public CopyFields(Config config) {
     super(config);
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.mode  = config.getString("mode").toLowerCase();
+    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
   }
 
   @Override
@@ -40,23 +42,10 @@ public class CopyFields extends Stage {
     StageUtils.validateFieldNumNotZero(sourceFields, "Copy Fields");
     StageUtils.validateFieldNumNotZero(destFields, "Copy Fields");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Copy Fields");
-
-    if (!mode.equals("replace") && !mode.equals("skip")) {
-      throw new StageException("Invalid mode supplied to Copy Fields Stage. Must be 'replace' or 'skip'.");
-    }
   }
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    // If we are in replace mode, empty all of the destination fields first
-    if (mode.equals("replace")) {
-      for (String dest : destFields) {
-        if (doc.has(dest)) {
-          doc.removeField(dest);
-        }
-      }
-    }
-
     for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one source or dest, use it. Otherwise, use the current source/dest.
       String sourceField = sourceFields.get(i);
@@ -65,15 +54,7 @@ public class CopyFields extends Stage {
       if (!doc.has(sourceField))
         continue;
 
-      // If we are in skip mode, skip this destination field if it already exists
-      if (mode.equals("skip")) {
-        if (doc.has(destField))
-          continue;
-      }
-
-      for (String value : doc.getStringList(sourceField)) {
-        doc.addToField(destField, value);
-      }
+      doc.writeToField(destField, writeMode, doc.getStringList(sourceField).toArray(new String[0]));
     }
 
     return null;

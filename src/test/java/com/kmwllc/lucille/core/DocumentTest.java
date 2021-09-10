@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kmwllc.lucille.util.StageUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -93,17 +94,19 @@ public class DocumentTest {
   public void testWriteToField() throws Exception {
     Document document = new Document("doc");
     assertFalse(document.has("field"));
-    document.writeToField("field", false, "hello there");
+    document.writeToField("field", StageUtils.WriteMode.APPEND, "hello there");
     assertEquals("hello there", document.getStringList("field").get(0));
-    document.writeToField("field", false, "some more text", "and some more");
+    document.writeToField("field", StageUtils.WriteMode.APPEND, "some more text", "and some more");
     assertEquals(3, document.getStringList("field").size());
     assertEquals("hello there", document.getStringList("field").get(0));
     assertEquals("some more text", document.getStringList("field").get(1));
     assertEquals("and some more", document.getStringList("field").get(2));
-    document.writeToField("field", true, "this is it now");
+    document.writeToField("field", StageUtils.WriteMode.OVERWRITE, "this is it now");
     assertEquals(1, document.getStringList("field").size());
     assertEquals("this is it now", document.getString("field"));
-
+    document.writeToField("field", StageUtils.WriteMode.SKIP, "this won't be written");
+    assertEquals(1, document.getStringList("field").size());
+    assertEquals("this is it now", document.getString("field"));
   }
 
   @Test
@@ -169,7 +172,7 @@ public class DocumentTest {
     Document document = new Document("doc");
     document.addToField("initial", "first");
     document.addToField("initial", "second");
-    document.renameField("initial", "final");
+    document.renameField("initial", "final", StageUtils.WriteMode.OVERWRITE);
     List<String> values = document.getStringList("final");
     assertFalse(document.has("initial"));
     assertEquals(2, values.size());

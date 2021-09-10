@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.StageUtils;
+import com.kmwllc.lucille.util.StageUtils.WriteMode;
 import com.typesafe.config.Config;
 
 import java.io.BufferedReader;
@@ -33,7 +34,8 @@ import org.slf4j.LoggerFactory;
  *   - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
  *       will be searched for the file. Otherwise, the local file system will be searched.
  *   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.
- *   - overwrite (Boolean, Optional) : Determines if destination field should be overwritten or preserved. Defaults to false.
+ *   - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  *   - ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.
  *   - only_whitespace_separated (Boolean, Optional) : Denotes whether terms must be whitespace separated to be
  *       candidates for matching.  Defaults to false.
@@ -50,7 +52,7 @@ public class ExtractEntities extends Stage {
   private PayloadTrie<String> dictTrie;
   private final List<String> sourceFields;
   private final List<String> destFields;
-  private final boolean overwrite;
+  private final WriteMode writeMode;
 
   private final boolean ignoreCase;
   private final boolean onlyWhitespaceSeparated;
@@ -72,7 +74,7 @@ public class ExtractEntities extends Stage {
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.overwrite = StageUtils.configGetOrDefault(config, "overwrite", false);
+    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
   }
 
   @Override
@@ -165,7 +167,7 @@ public class ExtractEntities extends Stage {
       if (payloads.isEmpty())
         continue;
 
-      doc.writeToField(destField, overwrite, payloads.toArray(new String[0]));
+      doc.writeToField(destField, writeMode, payloads.toArray(new String[0]));
     }
 
     return null;

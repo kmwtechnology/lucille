@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
+import com.kmwllc.lucille.util.StageUtils.WriteMode;
 import com.typesafe.config.Config;
 import org.apache.commons.lang.text.StrSubstitutor;
 
@@ -20,14 +21,15 @@ import java.util.List;
  *   - source (List<String>) : list of source field names
  *   - dest (String) : Destination field. This Stage only supports supplying a single destination field.
  *   - format_string (String) : The format String, which will have field values substituted into its placeholders
- *   - overwrite (Boolean, Optional) : Determines if destination field should be overwritten or preserved. Defaults to false.
+ *   - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *       Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class Concatenate extends Stage {
 
   private final List<String> sourceFields;
   private final String destField;
   private final String formatStr;
-  private final boolean overwrite;
+  private final WriteMode writeMode;
 
   public Concatenate(Config config) {
     super(config);
@@ -35,7 +37,7 @@ public class Concatenate extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");
-    this.overwrite = StageUtils.configGetOrDefault(config, "overwrite", false);
+    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
   }
 
   @Override
@@ -58,7 +60,7 @@ public class Concatenate extends Stage {
     // TODO : Consider making Document a Map
     // Substitute all of the {field} formatters in the string with the field value.
     StrSubstitutor sub = new StrSubstitutor(replacements, "{", "}");
-    doc.writeToField(destField, overwrite, sub.replace(formatStr));
+    doc.writeToField(destField, writeMode, sub.replace(formatStr));
 
     return null;
   }

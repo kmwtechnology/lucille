@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
+import com.kmwllc.lucille.util.StageUtils.WriteMode;
 import com.typesafe.config.Config;
 
 import java.util.ArrayList;
@@ -22,7 +23,8 @@ import java.util.regex.Pattern;
  *   - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  *   - regex (String) : A regex expression to find matches for. Matches will be extracted and placed in the destination fields.
- *   - overwrite (Boolean, Optional) : Determines if destination field should be overwritten or preserved. Defaults to false.
+ *   - write_mode (String. Optional) : Determines how writing will be handling if the destination field is already populated.
+ *     Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  *   - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.
  *   - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.
  *   - dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.
@@ -32,7 +34,7 @@ public class ApplyRegex extends Stage {
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final String regexExpr;
-  private final boolean overwrite;
+  private final WriteMode writeMode;
 
   private final boolean ignoreCase;
   private final boolean multiline;
@@ -46,7 +48,7 @@ public class ApplyRegex extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.regexExpr = config.getString("regex");
-    this.overwrite = StageUtils.configGetOrDefault(config, "overwrite", false);
+    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
 
     this.ignoreCase = StageUtils.configGetOrDefault(config, "ignore_case", false);
     this.multiline = StageUtils.configGetOrDefault(config, "multiline", false);
@@ -118,7 +120,7 @@ public class ApplyRegex extends Stage {
         }
       }
 
-      doc.writeToField(destField, overwrite, outputValues.toArray(new String[0]));
+      doc.writeToField(destField, writeMode, outputValues.toArray(new String[0]));
     }
 
     return null;

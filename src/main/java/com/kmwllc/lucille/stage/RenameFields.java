@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
+import com.kmwllc.lucille.util.StageUtils.WriteMode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
 
@@ -17,16 +18,19 @@ import java.util.Map.Entry;
  * Config Parameters:
  *
  *   - field_mapping (Map<String, String>) : A 1-1 mapping of original field names to new field names.
+ *   - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *       Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class RenameFields extends Stage {
 
   private final Set<Entry<String, ConfigValue>> fieldMap;
+  private final WriteMode writeMode;
 
   public RenameFields (Config config) {
     super(config);
 
-
     this.fieldMap = config.getConfig("field_mapping").entrySet();
+    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
   }
 
   @Override
@@ -44,7 +48,7 @@ public class RenameFields extends Stage {
       
       // TODO : Determine what to do if the destination field already exists
       String dest = (String) fieldPair.getValue().unwrapped();
-      doc.renameField(fieldPair.getKey(), dest);
+      doc.renameField(fieldPair.getKey(), dest, writeMode);
     }
 
     return null;

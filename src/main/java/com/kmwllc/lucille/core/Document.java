@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.gson.JsonNull;
+import com.kmwllc.lucille.util.StageUtils;
+import com.kmwllc.lucille.util.StageUtils.WriteMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,10 +73,17 @@ public class Document implements Cloneable {
     data.withArray(name).remove(index);
   }
 
-  // TODO : Write tests for writeToField, go through all Stages and look at Documentation, error handling and add overwriting
-  public void writeToField(String name, Boolean overwrite, String... values) {
+  // TODO : Handle case where overwrite is on and you're placing multiple sources into a dest. Add a third mode.
+  public void writeToField(String name, WriteMode mode, String... values) {
+    if (values.length == 0)
+      return;
+
+    if (has(name) && mode.equals(WriteMode.SKIP)) {
+      return;
+    }
+
     int i = 0;
-    if (overwrite) {
+    if (mode.equals(WriteMode.OVERWRITE)) {
       setField(name, values[0]);
       i = 1;
     }
@@ -83,9 +92,16 @@ public class Document implements Cloneable {
     }
   }
 
-  public void writeToField(String name, Boolean overwrite, Long... values) {
+  public void writeToField(String name, WriteMode mode, Long... values) {
+    if (values.length == 0)
+      return;
+
+    if (has(name) && mode.equals(WriteMode.SKIP)) {
+      return;
+    }
+
     int i = 0;
-    if (overwrite) {
+    if (mode.equals(WriteMode.OVERWRITE)) {
       setField(name, values[0]);
       i = 1;
     }
@@ -94,9 +110,16 @@ public class Document implements Cloneable {
     }
   }
 
-  public void writeToField(String name, Boolean overwrite, Integer... values) {
+  public void writeToField(String name, WriteMode mode, Integer... values) {
+    if (values.length == 0)
+      return;
+
+    if (has(name) && mode.equals(WriteMode.SKIP)) {
+      return;
+    }
+
     int i = 0;
-    if (overwrite) {
+    if (mode.equals(WriteMode.OVERWRITE)) {
       setField(name, values[0]);
       i = 1;
     }
@@ -105,9 +128,16 @@ public class Document implements Cloneable {
     }
   }
 
-  public void writeToField(String name, Boolean overwrite, Boolean... values) {
+  public void writeToField(String name, WriteMode mode, Boolean... values) {
+    if (values.length == 0)
+      return;
+
+    if (has(name) && mode.equals(WriteMode.SKIP)) {
+      return;
+    }
+
     int i = 0;
-    if (overwrite) {
+    if (mode.equals(WriteMode.OVERWRITE)) {
       setField(name, values[0]);
       i = 1;
     }
@@ -116,9 +146,16 @@ public class Document implements Cloneable {
     }
   }
 
-  public void writeToField(String name, Boolean overwrite, Double... values) {
+  public void writeToField(String name, WriteMode mode, Double... values) {
+    if (values.length == 0)
+      return;
+
+    if (has(name) && mode.equals(WriteMode.SKIP)) {
+      return;
+    }
+
     int i = 0;
-    if (overwrite) {
+    if (mode.equals(WriteMode.OVERWRITE)) {
       setField(name, values[0]);
       i = 1;
     }
@@ -145,13 +182,11 @@ public class Document implements Cloneable {
 
   public void setField(String name, Double value) { data.put(name, value);}
 
-  public void renameField(String oldName, String newName) {
+  public void renameField(String oldName, String newName, WriteMode mode) {
     List<String> fieldVals = getStringList(oldName);
     removeField(oldName);
 
-    for (String value : fieldVals) {
-      addToField(newName, value);
-    }
+    writeToField(newName, mode, fieldVals.toArray(new String[0]));
   }
 
   // This will return null in two cases : 1) If the field is absent 2) IF the field is present but contains a null.

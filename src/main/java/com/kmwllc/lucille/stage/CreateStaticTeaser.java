@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
+import com.kmwllc.lucille.util.StageUtils.WriteMode;
 import com.typesafe.config.Config;
 
 import java.util.List;
@@ -19,14 +20,15 @@ import java.util.List;
  *   - dest (List<String>) : list of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  *   - max_length (Integer) : The maximum number of characters to include in the extracted teaser.
- *   - overwrite (Boolean, Optional) : Determines if destination field should be overwritten or preserved. Defaults to false.
+ *   - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class CreateStaticTeaser extends Stage {
 
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final int maxLength;
-  private final boolean overwrite;
+  private final WriteMode writeMode;
 
   public CreateStaticTeaser(Config config) {
     super(config);
@@ -34,7 +36,7 @@ public class CreateStaticTeaser extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.maxLength = config.getInt("max_length");
-    this.overwrite = StageUtils.configGetOrDefault(config, "overwrite", false);
+    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
   }
 
   @Override
@@ -60,7 +62,7 @@ public class CreateStaticTeaser extends Stage {
 
       // If this field value is shorter than the max length, put the whole String in the destination field
       if (maxLength > fullText.length()) {
-        doc.writeToField(dest, overwrite, fullText.trim());
+        doc.writeToField(dest, writeMode, fullText.trim());
         continue;
       }
 
@@ -73,9 +75,9 @@ public class CreateStaticTeaser extends Stage {
 
       // If this is a continuous String of word characters, truncate it to the maxLength
       if (pointer == 0) {
-        doc.writeToField(dest, overwrite, fullText.substring(0, maxLength));
+        doc.writeToField(dest, writeMode, fullText.substring(0, maxLength));
       } else {
-        doc.writeToField(dest, overwrite, fullText.substring(0, pointer).trim());
+        doc.writeToField(dest, writeMode, fullText.substring(0, pointer).trim());
       }
     }
 
