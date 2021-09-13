@@ -9,6 +9,7 @@ import org.junit.runners.JUnit4;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.*;
 
@@ -135,7 +136,7 @@ public class DocumentTest {
     Document document = new Document("doc");
     document.addToField("field1", "val1");
     document.addToField("field1", "val2");
-    assertEquals("", document.getString("field1"));
+    assertEquals("val1", document.getString("field1"));
   }
 
   @Test
@@ -172,12 +173,42 @@ public class DocumentTest {
     Document document = new Document("doc");
     document.addToField("initial", "first");
     document.addToField("initial", "second");
-    document.renameField("initial", "final", StageUtils.WriteMode.OVERWRITE);
+    document.renameField("initial", "final", StageUtils.WriteMode.SKIP);
     List<String> values = document.getStringList("final");
     assertFalse(document.has("initial"));
     assertEquals(2, values.size());
     assertEquals("first", values.get(0));
     assertEquals("second", values.get(1));
     assertFalse(document.has("initial"));
+
+    Document doc2 = new Document("doc2");
+    doc2.setField("initial", "first");
+    doc2.setField("final", "will be repalced");
+    assertTrue(doc2.has("final"));
+    doc2.renameField("initial", "final", StageUtils.WriteMode.OVERWRITE);
+    assertEquals("first", doc2.getString("final"));
+
+    Document doc3 = new Document("doc3");
+    doc3.addToField("final", "first");
+    doc3.addToField("final", "second");
+    doc3.addToField("initial", "third");
+    doc3.addToField("initial", "fourth");
+    doc3.renameField("initial", "final", StageUtils.WriteMode.APPEND);
+    assertEquals(4, doc3.getStringList("final").size());
+    assertEquals("first", doc3.getStringList("final").get(0));
+    assertEquals("second", doc3.getStringList("final").get(1));
+    assertEquals("third", doc3.getStringList("final").get(2));
+    assertEquals("fourth", doc3.getStringList("final").get(3));
+
+    Document doc4 = new Document("doc4");
+    doc4.setField("initial", 5);
+    doc4.addToField("initial", 22);
+    doc4.renameField("initial", "final", StageUtils.WriteMode.OVERWRITE);
+    Map<String, Object> map = doc4.asMap();
+    List<Object> finalVals = (List<Object>) map.get("final");
+    assertEquals(5, finalVals.get(0));
+    assertNotEquals(5.0, finalVals.get(0));
+    assertNotEquals("5", finalVals.get(0));
+    assertEquals(22, finalVals.get(1));
   }
 }

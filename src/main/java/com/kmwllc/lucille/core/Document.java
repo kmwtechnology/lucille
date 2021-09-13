@@ -183,24 +183,43 @@ public class Document implements Cloneable {
   public void setField(String name, Double value) { data.put(name, value);}
 
   public void renameField(String oldName, String newName, WriteMode mode) {
-    List<String> fieldVals = getStringList(oldName);
-    removeField(oldName);
+    JsonNode oldValues = data.get(oldName);
+    data.remove(oldName);
 
-    writeToField(newName, mode, fieldVals.toArray(new String[0]));
+    if (has(newName)) {
+      if (mode.equals(WriteMode.SKIP)) {
+        return;
+      } else if (mode.equals(WriteMode.APPEND)) {
+        convertToList(newName);
+
+        if (oldValues.getNodeType() == JsonNodeType.ARRAY) {
+          data.withArray(newName).addAll((ArrayNode) oldValues);
+        } else {
+          data.withArray(newName).add(oldValues);
+        }
+        return;
+      }
+    }
+
+    data.set(newName,oldValues);
   }
 
   // This will return null in two cases : 1) If the field is absent 2) IF the field is present but contains a null.
   // To distinguish between these, you can call has().
-  // Calling getString for a field which is multivalued will return the empty String, "".
-  // TODO : Should we even expose this?
+  // Calling getString for a field which is multivalued will return the first value in the list of Strings.
   public String getString(String name) {
     if (!data.has(name)) {
       return null;
     }
 
+    JsonNode node;
+    if (isMultiValued(name)) {
+      node = data.withArray(name).get(0);
+    } else {
+      node = data.get(name);
+    }
 
-    JsonNode node = data.get(name);
-    if (JsonNull.INSTANCE.equals(node)) {
+    if (node.isNull()) {
       return null;
     }
 
