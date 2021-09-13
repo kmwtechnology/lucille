@@ -4,8 +4,9 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.util.StageUtils.WriteMode;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
+import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 
 import java.util.List;
 
@@ -28,7 +29,7 @@ public class CreateStaticTeaser extends Stage {
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final int maxLength;
-  private final WriteMode writeMode;
+  private final UpdateMode updateMode;
 
   public CreateStaticTeaser(Config config) {
     super(config);
@@ -36,7 +37,7 @@ public class CreateStaticTeaser extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.maxLength = config.getInt("max_length");
-    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
   }
 
   @Override
@@ -62,7 +63,7 @@ public class CreateStaticTeaser extends Stage {
 
       // If this field value is shorter than the max length, put the whole String in the destination field
       if (maxLength > fullText.length()) {
-        doc.writeToField(dest, writeMode, fullText.trim());
+        doc.update(dest, updateMode, fullText.trim());
         continue;
       }
 
@@ -75,9 +76,9 @@ public class CreateStaticTeaser extends Stage {
 
       // If this is a continuous String of word characters, truncate it to the maxLength
       if (pointer == 0) {
-        doc.writeToField(dest, writeMode, fullText.substring(0, maxLength));
+        doc.update(dest, updateMode, fullText.substring(0, maxLength));
       } else {
-        doc.writeToField(dest, writeMode, fullText.substring(0, pointer).trim());
+        doc.update(dest, updateMode, fullText.substring(0, pointer).trim());
       }
     }
 

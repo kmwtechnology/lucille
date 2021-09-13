@@ -7,9 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.gson.JsonNull;
-import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.util.StageUtils.WriteMode;
+import com.kmwllc.lucille.core.UpdateMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,17 +71,16 @@ public class Document implements Cloneable {
     data.withArray(name).remove(index);
   }
 
-  // TODO : Handle case where overwrite is on and you're placing multiple sources into a dest. Add a third mode.
-  public void writeToField(String name, WriteMode mode, String... values) {
+  public void update(String name, UpdateMode mode, String... values) {
     if (values.length == 0)
       return;
 
-    if (has(name) && mode.equals(WriteMode.SKIP)) {
+    if (has(name) && mode.equals(UpdateMode.SKIP)) {
       return;
     }
 
     int i = 0;
-    if (mode.equals(WriteMode.OVERWRITE)) {
+    if (mode.equals(UpdateMode.OVERWRITE)) {
       setField(name, values[0]);
       i = 1;
     }
@@ -92,16 +89,16 @@ public class Document implements Cloneable {
     }
   }
 
-  public void writeToField(String name, WriteMode mode, Long... values) {
+  public void update(String name, UpdateMode mode, Long... values) {
     if (values.length == 0)
       return;
 
-    if (has(name) && mode.equals(WriteMode.SKIP)) {
+    if (has(name) && mode.equals(UpdateMode.SKIP)) {
       return;
     }
 
     int i = 0;
-    if (mode.equals(WriteMode.OVERWRITE)) {
+    if (mode.equals(UpdateMode.OVERWRITE)) {
       setField(name, values[0]);
       i = 1;
     }
@@ -110,16 +107,16 @@ public class Document implements Cloneable {
     }
   }
 
-  public void writeToField(String name, WriteMode mode, Integer... values) {
+  public void update(String name, UpdateMode mode, Integer... values) {
     if (values.length == 0)
       return;
 
-    if (has(name) && mode.equals(WriteMode.SKIP)) {
+    if (has(name) && mode.equals(UpdateMode.SKIP)) {
       return;
     }
 
     int i = 0;
-    if (mode.equals(WriteMode.OVERWRITE)) {
+    if (mode.equals(UpdateMode.OVERWRITE)) {
       setField(name, values[0]);
       i = 1;
     }
@@ -128,16 +125,16 @@ public class Document implements Cloneable {
     }
   }
 
-  public void writeToField(String name, WriteMode mode, Boolean... values) {
+  public void update(String name, UpdateMode mode, Boolean... values) {
     if (values.length == 0)
       return;
 
-    if (has(name) && mode.equals(WriteMode.SKIP)) {
+    if (has(name) && mode.equals(UpdateMode.SKIP)) {
       return;
     }
 
     int i = 0;
-    if (mode.equals(WriteMode.OVERWRITE)) {
+    if (mode.equals(UpdateMode.OVERWRITE)) {
       setField(name, values[0]);
       i = 1;
     }
@@ -146,16 +143,16 @@ public class Document implements Cloneable {
     }
   }
 
-  public void writeToField(String name, WriteMode mode, Double... values) {
+  public void update(String name, UpdateMode mode, Double... values) {
     if (values.length == 0)
       return;
 
-    if (has(name) && mode.equals(WriteMode.SKIP)) {
+    if (has(name) && mode.equals(UpdateMode.SKIP)) {
       return;
     }
 
     int i = 0;
-    if (mode.equals(WriteMode.OVERWRITE)) {
+    if (mode.equals(UpdateMode.OVERWRITE)) {
       setField(name, values[0]);
       i = 1;
     }
@@ -182,14 +179,14 @@ public class Document implements Cloneable {
 
   public void setField(String name, Double value) { data.put(name, value);}
 
-  public void renameField(String oldName, String newName, WriteMode mode) {
+  public void renameField(String oldName, String newName, UpdateMode mode) {
     JsonNode oldValues = data.get(oldName);
     data.remove(oldName);
 
     if (has(newName)) {
-      if (mode.equals(WriteMode.SKIP)) {
+      if (mode.equals(UpdateMode.SKIP)) {
         return;
-      } else if (mode.equals(WriteMode.APPEND)) {
+      } else if (mode.equals(UpdateMode.APPEND)) {
         convertToList(newName);
 
         if (oldValues.getNodeType() == JsonNodeType.ARRAY) {

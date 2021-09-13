@@ -4,7 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.util.StageUtils.WriteMode;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
 
@@ -24,13 +24,13 @@ import java.util.Map.Entry;
 public class RenameFields extends Stage {
 
   private final Set<Entry<String, ConfigValue>> fieldMap;
-  private final WriteMode writeMode;
+  private final UpdateMode updateMode;
 
   public RenameFields (Config config) {
     super(config);
 
     this.fieldMap = config.getConfig("field_mapping").entrySet();
-    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
   }
 
   @Override
@@ -47,7 +47,7 @@ public class RenameFields extends Stage {
         continue;
 
       String dest = (String) fieldPair.getValue().unwrapped();
-      doc.renameField(fieldPair.getKey(), dest, writeMode);
+      doc.renameField(fieldPair.getKey(), dest, updateMode);
     }
 
     return null;

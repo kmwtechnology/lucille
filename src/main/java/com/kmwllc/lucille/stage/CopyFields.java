@@ -4,10 +4,9 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.util.StageUtils.WriteMode;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -28,13 +27,13 @@ public class CopyFields extends Stage {
 
   private final List<String> sourceFields;
   private final List<String> destFields;
-  private final WriteMode writeMode;
+  private final UpdateMode updateMode;
 
   public CopyFields(Config config) {
     super(config);
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
   }
 
   @Override
@@ -54,7 +53,7 @@ public class CopyFields extends Stage {
       if (!doc.has(sourceField))
         continue;
 
-      doc.writeToField(destField, writeMode, doc.getStringList(sourceField).toArray(new String[0]));
+      doc.update(destField, updateMode, doc.getStringList(sourceField).toArray(new String[0]));
     }
 
     return null;

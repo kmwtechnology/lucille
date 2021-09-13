@@ -9,6 +9,7 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.core.UpdateMode;
 
 import java.io.File;
 import java.io.InputStream;
@@ -43,6 +44,7 @@ public class DetectLanguage extends Stage {
   private final int minLength;
   private final int maxLength;
   private final double minProbability;
+  private final UpdateMode updateMode;
 
   private Detector detector;
 
@@ -55,6 +57,7 @@ public class DetectLanguage extends Stage {
     this.minLength = config.getInt("min_length");
     this.maxLength = config.getInt("max_length");
     this.minProbability = config.getDouble("min_probability");
+    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
   }
 
   @Override
@@ -120,8 +123,8 @@ public class DetectLanguage extends Stage {
       Language result = detector.getProbabilities().get(0);
 
       if (result.prob >= minProbability) {
-        doc.setField(languageField, result.lang);
-        doc.setField(languageConfidenceField, Math.floor(result.prob * 100) / 100);
+        doc.update(languageField, updateMode, result.lang);
+        doc.update(languageConfidenceField, updateMode, Math.floor(result.prob * 100) / 100);
 
       }
     } catch (Exception e) {

@@ -4,7 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.util.StageUtils.WriteMode;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import org.apache.commons.lang.text.StrSubstitutor;
 
@@ -29,7 +29,7 @@ public class Concatenate extends Stage {
   private final List<String> sourceFields;
   private final String destField;
   private final String formatStr;
-  private final WriteMode writeMode;
+  private final UpdateMode updateMode;
 
   public Concatenate(Config config) {
     super(config);
@@ -37,7 +37,7 @@ public class Concatenate extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");
-    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
   }
 
   @Override
@@ -60,7 +60,7 @@ public class Concatenate extends Stage {
     // TODO : Consider making Document a Map
     // Substitute all of the {field} formatters in the string with the field value.
     StrSubstitutor sub = new StrSubstitutor(replacements, "{", "}");
-    doc.writeToField(destField, writeMode, sub.replace(formatStr));
+    doc.update(destField, updateMode, sub.replace(formatStr));
 
     return null;
   }

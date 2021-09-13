@@ -4,7 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.util.StageUtils.WriteMode;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
 import java.lang.reflect.Constructor;
@@ -40,7 +40,7 @@ public class ParseDate extends Stage {
   private final List<String> formatStrings;
   private final List<String> sourceFields;
   private final List<String> destFields;
-  private final WriteMode writeMode;
+  private final UpdateMode updateMode;
 
   public ParseDate(Config config) {
     super(config);
@@ -49,7 +49,7 @@ public class ParseDate extends Stage {
     this.formatStrings = StageUtils.<List<String>>configGetOrDefault(config, "format_strs", new ArrayList<>());
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
   }
 
   @Override
@@ -116,7 +116,7 @@ public class ParseDate extends Stage {
         String dateStr = DateTimeFormatter.ISO_INSTANT.format(date.atStartOfDay().toInstant(ZoneOffset.UTC));
         outputValues.add(dateStr);
       }
-      doc.writeToField(destField, writeMode, outputValues.toArray(new String[0]));
+      doc.update(destField, updateMode, outputValues.toArray(new String[0]));
     }
     return null;
   }

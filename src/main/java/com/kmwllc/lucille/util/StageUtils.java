@@ -1,10 +1,7 @@
 package com.kmwllc.lucille.util;
 
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigValue;
 
 import java.util.List;
 
@@ -13,10 +10,6 @@ import java.util.List;
  * Stages.
  */
 public class StageUtils {
-
-  public enum WriteMode {
-    APPEND, SKIP, OVERWRITE
-  }
 
   /**
    * Get the value of the given setting from the config file, or a default value if the setting does not exist in the
@@ -34,15 +27,6 @@ public class StageUtils {
     }
 
     return fallback;
-  }
-
-  public static WriteMode getWriteMode(String mode) {
-    switch (mode.toLowerCase()) {
-      case "append" : return WriteMode.APPEND;
-      case "skip" : return WriteMode.SKIP;
-      case "overwrite" : return WriteMode.OVERWRITE;
-      default : return null;
-    }
   }
 
   /**

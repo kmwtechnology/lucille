@@ -5,7 +5,7 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.util.StageUtils.WriteMode;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
 import java.io.BufferedReader;
@@ -52,7 +52,7 @@ public class ExtractEntities extends Stage {
   private PayloadTrie<String> dictTrie;
   private final List<String> sourceFields;
   private final List<String> destFields;
-  private final WriteMode writeMode;
+  private final UpdateMode updateMode;
 
   private final boolean ignoreCase;
   private final boolean onlyWhitespaceSeparated;
@@ -74,7 +74,7 @@ public class ExtractEntities extends Stage {
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
   }
 
   @Override
@@ -167,7 +167,7 @@ public class ExtractEntities extends Stage {
       if (payloads.isEmpty())
         continue;
 
-      doc.writeToField(destField, writeMode, payloads.toArray(new String[0]));
+      doc.update(destField, updateMode, payloads.toArray(new String[0]));
     }
 
     return null;

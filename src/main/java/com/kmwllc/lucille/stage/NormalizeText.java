@@ -4,7 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.util.StageUtils.WriteMode;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import org.apache.commons.text.WordUtils;
 import org.slf4j.Logger;
@@ -44,7 +44,7 @@ public class NormalizeText extends Stage {
   private final List<String> sourceFields;
   private final List<String> destFields;
   private String mode;
-  private final WriteMode writeMode;
+  private final UpdateMode updateMode;
 
   private Function<String, String> func;
 
@@ -58,7 +58,7 @@ public class NormalizeText extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.mode = config.getString("mode");
-    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
   }
 
   @Override
@@ -112,7 +112,7 @@ public class NormalizeText extends Stage {
         outputValues.add(func.apply(value));
       }
 
-      doc.writeToField(destField, writeMode, outputValues.toArray(new String[0]));
+      doc.update(destField, updateMode, outputValues.toArray(new String[0]));
     }
 
     return null;

@@ -5,7 +5,7 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.util.StageUtils.WriteMode;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +39,7 @@ public class DictionaryLookup extends Stage {
   private final List<String> destFields;
   private final HashMap<String, String> dict;
   private final boolean usePayloads;
-  private final WriteMode writeMode;
+  private final UpdateMode updateMode;
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -50,7 +50,7 @@ public class DictionaryLookup extends Stage {
     this.destFields = config.getStringList("dest");
     this.dict = buildHashMap(config.getString("dict_path"));
     this.usePayloads = StageUtils.configGetOrDefault(config, "use_payloads" ,true);
-    this.writeMode = StageUtils.getWriteMode(StageUtils.configGetOrDefault(config, "write_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
   }
 
   /**
@@ -106,7 +106,7 @@ public class DictionaryLookup extends Stage {
         }
       }
 
-      doc.writeToField(destField, writeMode, outputValues.toArray(new String[0]));
+      doc.update(destField, updateMode, outputValues.toArray(new String[0]));
     }
 
     return null;
