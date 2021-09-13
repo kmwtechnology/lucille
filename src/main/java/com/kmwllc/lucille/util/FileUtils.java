@@ -26,7 +26,7 @@ public class FileUtils {
   }
 
   // TODO : Potentially support setting home dir in config
-  public static String getHomeDirectory() {
+  public static String getLucilleHomeDirectory() {
     String homeDir = System.getProperty("LUCILLE_HOME");
 
     if (homeDir != null) {
