@@ -160,4 +160,27 @@ public class DocumentTest {
     assertEquals("second", values.get(1));
     assertFalse(document.has("initial"));
   }
+
+  @Test
+  public void testNullHandling() throws Exception {
+    // set a field to null and confirm that we get back a null when we call getString(), not the string "null"
+    Document document = new Document("doc");
+    document.setField("field1", (String)null);
+    assertEquals(null, document.getString("field1"));
+
+    // convert the field to a list, add another null, and confirm that getStringList returns an array with two nulls
+    document.addToField("field1", (String) null);
+    List<String> field1 = document.getStringList("field1");
+    assertEquals(null, field1.get(0));
+    assertEquals(null, field1.get(1));
+    assertEquals(2, field1.size());
+
+    // stringify the document and recreate it from the string; confirm getStringList still returns array with two nulls
+    assertEquals("{\"id\":\"doc\",\"field1\":[null,null]}", document.toString());
+    document = Document.fromJsonString(document.toString());
+    field1 = document.getStringList("field1");
+    assertEquals(null, field1.get(0));
+    assertEquals(null, field1.get(1));
+    assertEquals(2, field1.size());
+  }
 }

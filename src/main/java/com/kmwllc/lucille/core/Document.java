@@ -7,9 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonNull;
-import com.typesafe.config.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -106,13 +103,8 @@ public class Document implements Cloneable {
       return null;
     }
 
-
     JsonNode node = data.get(name);
-    if (JsonNull.INSTANCE.equals(node)) {
-      return null;
-    }
-
-    return node.asText();
+    return node.isNull() ? null : node.asText();
   }
 
   public List<String> getStringList(String name) {
@@ -127,7 +119,7 @@ public class Document implements Cloneable {
     ArrayNode array = data.withArray(name);
     List<String> result = new ArrayList<>();
     for (JsonNode node : array) {
-      result.add(node.asText());
+      result.add(node.isNull() ? null : node.asText());
     }
     return result;
   }
