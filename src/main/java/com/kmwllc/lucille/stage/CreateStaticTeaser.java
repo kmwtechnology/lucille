@@ -4,7 +4,9 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
+import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 
 import java.util.List;
 
@@ -19,12 +21,15 @@ import java.util.List;
  *   - dest (List<String>) : list of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  *   - max_length (Integer) : The maximum number of characters to include in the extracted teaser.
+ *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class CreateStaticTeaser extends Stage {
 
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final int maxLength;
+  private final UpdateMode updateMode;
 
   public CreateStaticTeaser(Config config) {
     super(config);
@@ -32,6 +37,7 @@ public class CreateStaticTeaser extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.maxLength = config.getInt("max_length");
+    this.updateMode = UpdateMode.fromConfig(config);
   }
 
   @Override
@@ -57,7 +63,7 @@ public class CreateStaticTeaser extends Stage {
 
       // If this field value is shorter than the max length, put the whole String in the destination field
       if (maxLength > fullText.length()) {
-        doc.addToField(dest, fullText.trim());
+        doc.update(dest, updateMode, fullText.trim());
         continue;
       }
 
@@ -68,11 +74,12 @@ public class CreateStaticTeaser extends Stage {
         pointer--;
       }
 
+      // If this is a continuous String of word characters, truncate it to the maxLength
       if (pointer == 0) {
-        doc.addToField(dest, fullText.substring(0, maxLength));
+        doc.update(dest, updateMode, fullText.substring(0, maxLength));
+      } else {
+        doc.update(dest, updateMode, fullText.substring(0, pointer).trim());
       }
-
-      doc.addToField(dest, fullText.substring(0, pointer).trim());
     }
 
     return null;

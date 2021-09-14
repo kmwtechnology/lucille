@@ -13,27 +13,25 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * This stage supports performing text extraction based on a given Java regex expression. You can supply a comma
- * separated list of fields to apply the text extraction to multiple fields. Extracted values are added to the field on
- * top of the existing field value.
- *
  * Config Parameters:
- *
- *   - source (List<String>) : List of source field names.
- *   - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
- *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- *   - regex (String) : A regex expression to find matches for. Matches will be extracted and placed in the destination fields.
- *   - update_mode (String. Optional) : Determines how writing will be handling if the destination field is already populated.
- *     Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
- *   - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.
- *   - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.
- *   - dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.
- *   - literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.
+ * <p>
+ * - source (List<String>) : List of source field names.
+ * - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
+ * for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
+ * - regex (List<String>) : A list regex expression to find matches for. Matches will be extracted and placed in the destination fields.
+ * - replacement (String) : The String to replace regex matches with.
+ * - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ * Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
+ * - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.
+ * - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.
+ * - dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.
+ * - literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.
  */
-public class ApplyRegex extends Stage {
+public class ReplacePatterns extends Stage {
   private final List<String> sourceFields;
   private final List<String> destFields;
-  private final String regexExpr;
+  private final List<String> regexExprs;
+  private final String replacement;
   private final UpdateMode updateMode;
 
   private final boolean ignoreCase;
@@ -41,13 +39,17 @@ public class ApplyRegex extends Stage {
   private final boolean dotall;
   private final boolean literal;
 
-  private Pattern pattern;
+  private List<Pattern> patterns;
 
-  public ApplyRegex(Config config) {
+  public ReplacePatterns(Config config) {
     super(config);
+
+    this.patterns = new ArrayList<>();
+
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.regexExpr = config.getString("regex");
+    this.regexExprs = config.getStringList("regex");
+    this.replacement = config.getString("replacement");
     this.updateMode = UpdateMode.fromConfig(config);
 
     this.ignoreCase = StageUtils.configGetOrDefault(config, "ignore_case", false);
@@ -79,20 +81,25 @@ public class ApplyRegex extends Stage {
 
     // Add the selected flags to the Pattern
     switch (flags.size()) {
-      case (1) :
-        pattern = Pattern.compile(regexExpr, flags.get(0));
+      case (1):
+        for (String regexExpr : regexExprs)
+          patterns.add(Pattern.compile(regexExpr, flags.get(0)));
         break;
-      case (2) :
-        pattern = Pattern.compile(regexExpr, flags.get(0) | flags.get(1));
+      case (2):
+        for (String regexExpr : regexExprs)
+          patterns.add(Pattern.compile(regexExpr, flags.get(0) | flags.get(1)));
         break;
-      case (3) :
-        pattern = Pattern.compile(regexExpr, flags.get(0) | flags.get(1) | flags.get(2));
+      case (3):
+        for (String regexExpr : regexExprs)
+          patterns.add(Pattern.compile(regexExpr, flags.get(0) | flags.get(1) | flags.get(2)));
         break;
-      case (4) :
-        pattern = Pattern.compile(regexExpr, flags.get(0) | flags.get(1) | flags.get(2) | flags.get(3));
+      case (4):
+        for (String regexExpr : regexExprs)
+          patterns.add(Pattern.compile(regexExpr, flags.get(0) | flags.get(1) | flags.get(2) | flags.get(3)));
         break;
-      default :
-        pattern = Pattern.compile(regexExpr);
+      default:
+        for (String regexExpr : regexExprs)
+          patterns.add(Pattern.compile(regexExpr));
         break;
     }
 
@@ -112,14 +119,13 @@ public class ApplyRegex extends Stage {
 
       List<String> outputValues = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {
-        Matcher matcher = pattern.matcher(value);
-
-        // If we find regex matches in the text, add them to the output field
-        while (matcher.find()) {
-          outputValues.add(matcher.group());
+        for (Pattern pattern : patterns) {
+          Matcher matcher = pattern.matcher(value);
+          value = matcher.replaceAll(replacement);
         }
-      }
 
+        outputValues.add(value);
+      }
       doc.update(destField, updateMode, outputValues.toArray(new String[0]));
     }
 

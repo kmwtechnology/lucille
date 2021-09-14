@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kmwllc.lucille.util.StageUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -8,6 +9,7 @@ import org.junit.runners.JUnit4;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.*;
 
@@ -90,6 +92,25 @@ public class DocumentTest {
   }
 
   @Test
+  public void testWriteToField() throws Exception {
+    Document document = new Document("doc");
+    assertFalse(document.has("field"));
+    document.update("field", UpdateMode.APPEND, "hello there");
+    assertEquals("hello there", document.getStringList("field").get(0));
+    document.update("field", UpdateMode.APPEND, "some more text", "and some more");
+    assertEquals(3, document.getStringList("field").size());
+    assertEquals("hello there", document.getStringList("field").get(0));
+    assertEquals("some more text", document.getStringList("field").get(1));
+    assertEquals("and some more", document.getStringList("field").get(2));
+    document.update("field", UpdateMode.OVERWRITE, "this is it now");
+    assertEquals(1, document.getStringList("field").size());
+    assertEquals("this is it now", document.getString("field"));
+    document.update("field", UpdateMode.SKIP, "this won't be written");
+    assertEquals(1, document.getStringList("field").size());
+    assertEquals("this is it now", document.getString("field"));
+  }
+
+  @Test
   public void testGetStringsSingleValued() {
     Document document = new Document("doc");
     document.setField("pets", "dog");
@@ -115,7 +136,7 @@ public class DocumentTest {
     Document document = new Document("doc");
     document.addToField("field1", "val1");
     document.addToField("field1", "val2");
-    assertEquals("", document.getString("field1"));
+    assertEquals("val1", document.getString("field1"));
   }
 
   @Test
@@ -148,20 +169,6 @@ public class DocumentTest {
   }
 
   @Test
-  public void testRenameField() {
-    Document document = new Document("doc");
-    document.addToField("initial", "first");
-    document.addToField("initial", "second");
-    document.renameField("initial", "final");
-    List<String> values = document.getStringList("final");
-    assertFalse(document.has("initial"));
-    assertEquals(2, values.size());
-    assertEquals("first", values.get(0));
-    assertEquals("second", values.get(1));
-    assertFalse(document.has("initial"));
-  }
-
-  @Test
   public void testNullHandling() throws Exception {
     // set a field to null and confirm that we get back a null when we call getString(), not the string "null"
     Document document = new Document("doc");
@@ -183,4 +190,123 @@ public class DocumentTest {
     assertEquals(null, field1.get(1));
     assertEquals(2, field1.size());
   }
+
+  @Test
+  public void testRenameField() {
+    Document document = new Document("doc");
+    document.addToField("initial", "first");
+    document.addToField("initial", "second");
+    document.renameField("initial", "final", UpdateMode.SKIP);
+    List<String> values = document.getStringList("final");
+    assertFalse(document.has("initial"));
+    assertEquals(2, values.size());
+    assertEquals("first", values.get(0));
+    assertEquals("second", values.get(1));
+    assertFalse(document.has("initial"));
+  }
+
+  @Test
+  public void testRenameOverwrite() {
+    Document document = new Document("document");
+    document.setField("initial", "first");
+    document.setField("final", "will be repalced");
+    assertTrue(document.has("final"));
+    document.renameField("initial", "final", UpdateMode.OVERWRITE);
+    assertEquals("first", document.getString("final"));
+  }
+
+  @Test
+  public void testRenameAppend() {
+    Document document = new Document("document");
+    document.addToField("final", "first");
+    document.addToField("final", "second");
+    document.addToField("initial", "third");
+    document.addToField("initial", "fourth");
+    document.renameField("initial", "final", UpdateMode.APPEND);
+    assertEquals(4, document.getStringList("final").size());
+    assertEquals("first", document.getStringList("final").get(0));
+    assertEquals("second", document.getStringList("final").get(1));
+    assertEquals("third", document.getStringList("final").get(2));
+    assertEquals("fourth", document.getStringList("final").get(3));
+  }
+
+  @Test
+  public void testRenamePreservesTypes() {
+    Document document = new Document("document");
+    document.setField("initial", 5);
+    document.addToField("initial", 22);
+    document.renameField("initial", "final", UpdateMode.OVERWRITE);
+    Map<String, Object> map = document.asMap();
+    List<Object> finalVals = (List<Object>) map.get("final");
+    assertEquals(5, finalVals.get(0));
+    assertNotEquals(5.0, finalVals.get(0));
+    assertNotEquals("5", finalVals.get(0));
+    assertEquals(22, finalVals.get(1));
+  }
+
+  @Test
+  public void testUpdateString() {
+    Document document = new Document("id1");
+    document.update("myStringField", UpdateMode.OVERWRITE, "val1");
+    document.update("myStringField", UpdateMode.OVERWRITE, "val2");
+    document.update("myStringField", UpdateMode.APPEND, "val3");
+    document.update("myStringField", UpdateMode.SKIP, "val4");
+    Map map = document.asMap();
+    assertEquals("val2", ((List<Object>) map.get("myStringField")).get(0));
+    assertEquals("val3", ((List<Object>) map.get("myStringField")).get(1));
+    assertEquals(2, ((List<Object>) map.get("myStringField")).size());
+  }
+
+  @Test
+  public void testUpdateInt() {
+    Document document = new Document("id1");
+    document.update("myIntField", UpdateMode.OVERWRITE, 1);
+    document.update("myIntField", UpdateMode.OVERWRITE, 2);
+    document.update("myIntField", UpdateMode.APPEND, 3);
+    document.update("myIntField", UpdateMode.SKIP, 4);
+    Map map = document.asMap();
+    assertEquals(2, ((List<Object>) map.get("myIntField")).get(0));
+    assertEquals(3, ((List<Object>) map.get("myIntField")).get(1));
+    assertEquals(2, ((List<Object>) map.get("myIntField")).size());
+  }
+
+  @Test
+  public void testUpdateLong() {
+    Document document = new Document("id1");
+    document.update("myLongField", UpdateMode.OVERWRITE, 1L);
+    document.update("myLongField", UpdateMode.OVERWRITE, 2L);
+    document.update("myLongField", UpdateMode.APPEND, 3L);
+    document.update("myLongField", UpdateMode.SKIP, 4L);
+    Map map = document.asMap();
+    assertEquals(2L, ((List<Object>) map.get("myLongField")).get(0));
+    assertEquals(3L, ((List<Object>) map.get("myLongField")).get(1));
+    assertEquals(2, ((List<Object>) map.get("myLongField")).size());
+  }
+
+  @Test
+  public void testUpdateDouble() {
+    Document document = new Document("id1");
+    document.update("myDoubleField", UpdateMode.OVERWRITE, 1D);
+    document.update("myDoubleField", UpdateMode.OVERWRITE, 2D);
+    document.update("myDoubleField", UpdateMode.APPEND, 3D);
+    document.update("myDoubleField", UpdateMode.SKIP, 4D);
+    Map map = document.asMap();
+    assertEquals(2D, ((List<Object>) map.get("myDoubleField")).get(0));
+    assertEquals(3D, ((List<Object>) map.get("myDoubleField")).get(1));
+    assertEquals(2, ((List<Object>) map.get("myDoubleField")).size());
+  }
+
+  @Test
+  public void testUpdateBoolean() {
+    Document document = new Document("id1");
+    document.update("myBooleanField", UpdateMode.OVERWRITE, true);
+    document.update("myBooleanField", UpdateMode.OVERWRITE, false);
+    document.update("myBooleanField", UpdateMode.APPEND, true);
+    document.update("myBooleanField", UpdateMode.SKIP, false);
+    Map map = document.asMap();
+    assertEquals(false, ((List<Object>)map.get("myBooleanField")).get(0));
+    assertEquals(true, ((List<Object>)map.get("myBooleanField")).get(1));
+    assertEquals(2, ((List<Object>)map.get("myBooleanField")).size());
+  }
+
 }

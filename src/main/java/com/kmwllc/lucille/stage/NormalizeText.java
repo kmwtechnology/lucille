@@ -4,12 +4,14 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import org.apache.commons.text.WordUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -26,6 +28,8 @@ import java.util.regex.Pattern;
  *   - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  *   - mode (String) : The mode for normalization: uppercase, lowercase, sentence_case, title_case.
+ *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class NormalizeText extends Stage {
 
@@ -40,6 +44,7 @@ public class NormalizeText extends Stage {
   private final List<String> sourceFields;
   private final List<String> destFields;
   private String mode;
+  private final UpdateMode updateMode;
 
   private Function<String, String> func;
 
@@ -53,6 +58,7 @@ public class NormalizeText extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.mode = config.getString("mode");
+    this.updateMode = UpdateMode.fromConfig(config);
   }
 
   @Override
@@ -101,9 +107,12 @@ public class NormalizeText extends Stage {
       if (!doc.has(sourceField))
         continue;
 
+      List<String> outputValues = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {
-        doc.addToField(destField, func.apply(value));
+        outputValues.add(func.apply(value));
       }
+
+      doc.update(destField, updateMode, outputValues.toArray(new String[0]));
     }
 
     return null;

@@ -8,15 +8,12 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
-import org.apache.commons.io.FileUtils;
+import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.core.UpdateMode;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 /**
@@ -28,9 +25,9 @@ import java.util.List;
  * - source (List<String>) : List of source field names.
  * - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
  * for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- * - min_length : The min length of Strings to be considered for language detection. Shorter Strings will be ignored.
- * - max_length : The max length of Strings to be considered for language detection. Longer Strings will be truncated.
- * - min_probability : The min probability for a language result to be considered valid. Results below this threshold
+ * - min_length (Integer) : The min length of Strings to be considered for language detection. Shorter Strings will be ignored.
+ * - max_length (Integer) : The max length of Strings to be considered for language detection. Longer Strings will be truncated.
+ * - min_probability (Double) : The min probability for a language result to be considered valid. Results below this threshold
  * will be ignored.
  */
 public class DetectLanguage extends Stage {
@@ -48,6 +45,7 @@ public class DetectLanguage extends Stage {
   private final int minLength;
   private final int maxLength;
   private final double minProbability;
+  private final UpdateMode updateMode;
 
   private Detector detector;
 
@@ -60,73 +58,83 @@ public class DetectLanguage extends Stage {
     this.minLength = config.getInt("min_length");
     this.maxLength = config.getInt("max_length");
     this.minProbability = config.getDouble("min_probability");
+    this.updateMode = UpdateMode.fromConfig(config);
   }
 
   @Override
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Detect Language");
 
-    String profilesPath = "LUCILLE_HOME/DetectLanguage/profiles";
+    String profilesPath = FileUtils.getLucilleHomeDirectory() + "/DetectLanguage/profiles";
     File profileDir = new File(profilesPath);
 
+    // If the profiles directory does not exist, try to create it.
     if (!profileDir.exists()) {
       if (!profileDir.mkdirs()) {
         throw new StageException("Unable to create profiles directory for storing Language Detection profiles.");
       }
 
+      // Copy the profiles from the classpath resources to the local file system.
       try {
         for (String profile : profiles) {
           InputStream profileStream = getClass().getClassLoader().getResourceAsStream(profileResourcesLoc + "/" + profile);
-          FileUtils.copyInputStreamToFile(profileStream, new File(profilesPath + "/" + profile));
+          File profFile = new File(profilesPath + "/" + profile);
+          java.nio.file.Files.copy(
+              profileStream,
+              profFile.toPath(),
+              StandardCopyOption.REPLACE_EXISTING);
+          profileStream.close();
         }
       } catch (Exception e) {
-        throw new StageException(e.getMessage());
+        throw new StageException("Unable to copy profiles from resources to local file system." ,e);
       }
     }
 
+    // Load the profiles
     try {
       DetectorFactory.loadProfile(profileDir);
     } catch (Exception e) {
-      throw new StageException(e.getMessage());
+      throw new StageException("Unable to load language profiles" ,e);
     }
   }
 
-
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    for (int i = 0; i < sourceFields.size(); i++) {
-      StringBuilder builder = new StringBuilder();
-      try {
-        detector = DetectorFactory.create();
-        detector.setMaxTextLength(maxLength);
-      } catch (Exception e) {
-        throw new StageException(e.getMessage());
-      }
+    try {
+      detector = DetectorFactory.create();
+      detector.setMaxTextLength(maxLength);
+    } catch (Exception e) {
+      throw new StageException("Unable to create new Language Detector" ,e);
+    }
 
-      String source = sourceFields.get(i);
+    StringBuilder builder = new StringBuilder();
+    for (String source : sourceFields) {
 
       if (!doc.has(source))
         continue;
 
       for (String value : doc.getStringList(source)) {
         builder.append(value);
+
+        if (builder.length() > maxLength)
+          break;
       }
+    }
 
-      if (builder.length() < minLength)
-        continue;
+    if (builder.length() < minLength)
+      return null;
 
-      try {
-        detector.append(builder.toString());
-        Language result = detector.getProbabilities().get(0);
+    try {
+      detector.append(builder.substring(0, Math.min(builder.length(), maxLength)));
+      Language result = detector.getProbabilities().get(0);
 
-        if (result.prob >= minProbability) {
-          doc.setField(languageField, result.lang);
-          doc.setField(languageConfidenceField, (int) result.prob * 100);
-        }
+      if (result.prob >= minProbability) {
+        doc.update(languageField, updateMode, result.lang);
+        doc.update(languageConfidenceField, updateMode, Math.floor(result.prob * 100) / 100);
 
-      } catch (Exception e) {
-        throw new StageException(e.getMessage());
       }
+    } catch (Exception e) {
+      throw new StageException("Unable to detect language", e);
     }
 
     return null;

@@ -24,4 +24,15 @@ public class FileUtils {
       return new BufferedReader(new InputStreamReader(is));
     }
   }
+
+  // TODO : Potentially support setting home dir in config
+  public static String getLucilleHomeDirectory() {
+    String homeDir = System.getProperty("LUCILLE_HOME");
+
+    if (homeDir != null) {
+      return Path.of(homeDir).toAbsolutePath().toString();
+    }
+
+    return System.getProperty("user.dir");
+  }
 }
