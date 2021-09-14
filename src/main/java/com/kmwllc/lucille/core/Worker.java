@@ -1,9 +1,13 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.message.IndexerMessageManager;
+import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
+import com.kmwllc.lucille.message.KafkaWorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManager;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sun.misc.Signal;
 
 import java.util.List;
 
@@ -99,6 +103,27 @@ class Worker implements Runnable {
     Thread workerThread = new Thread(worker);
     workerThread.start();
     return worker;
+  }
+
+  public static void main(String[] args) throws Exception {
+    Config config = ConfigAccessor.loadConfig();
+    String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
+    log.info("Starting Worker for pipeline: " + pipelineName);
+    WorkerMessageManager manager = new KafkaWorkerMessageManager(config, pipelineName);
+    Worker worker = new Worker(config, manager, pipelineName);
+    Thread workerThread = new Thread(worker);
+    workerThread.start();
+
+    Signal.handle(new Signal("INT"), signal -> {
+      worker.terminate();
+      log.info("Worker shutting down");
+      try {
+        workerThread.join();
+      } catch (InterruptedException e) {
+        log.error("Interrupted", e);
+      }
+      System.exit(0);
+    });
   }
 
 }

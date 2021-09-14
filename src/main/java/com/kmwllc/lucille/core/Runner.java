@@ -50,7 +50,8 @@ public class Runner {
   private final int connectorTimeout;
 
   public static void main(String[] args) throws Exception {
-    runWithKafka("application.conf", true);
+    boolean startWorkerAndIndexer = args.length>0 && "local".equalsIgnoreCase(args[0]);
+    runWithKafka("application.conf", startWorkerAndIndexer);
   }
 
   public Runner(Config config) throws Exception {

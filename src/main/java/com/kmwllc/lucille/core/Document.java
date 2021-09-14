@@ -18,7 +18,6 @@ import java.util.function.Consumer;
  * A record from a source system to be passed through a Pipeline, enriched,
  * and sent to a destination system.
  *
- * TODO: addChild(Document doc)
  */
 public class Document implements Cloneable {
 
@@ -211,8 +210,9 @@ public class Document implements Cloneable {
     return getString(ID_FIELD);
   }
 
-  // TODO : Should this be included
-  public String getRunID() {return getString(RUNID_FIELD);}
+  public String getRunId() {
+    return getString(RUNID_FIELD);
+  }
 
   public boolean has(String name) {
     return data.has(name);
