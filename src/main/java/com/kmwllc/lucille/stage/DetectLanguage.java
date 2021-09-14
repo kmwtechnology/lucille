@@ -13,6 +13,7 @@ import com.kmwllc.lucille.core.UpdateMode;
 
 import java.io.File;
 import java.io.InputStream;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 /**
@@ -77,7 +78,12 @@ public class DetectLanguage extends Stage {
       try {
         for (String profile : profiles) {
           InputStream profileStream = getClass().getClassLoader().getResourceAsStream(profileResourcesLoc + "/" + profile);
-          org.apache.commons.io.FileUtils.copyInputStreamToFile(profileStream, new File(profilesPath + "/" + profile));
+          File profFile = new File(profilesPath + "/" + profile);
+          java.nio.file.Files.copy(
+              profileStream,
+              profFile.toPath(),
+              StandardCopyOption.REPLACE_EXISTING);
+          profileStream.close();
         }
       } catch (Exception e) {
         throw new StageException("Unable to copy profiles from resources to local file system." ,e);
