@@ -26,7 +26,7 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
     this.pipelineName = pipelineName;
     this.kafkaProducer = KafkaUtils.createProducer(config);
     Properties consumerProps = KafkaUtils.createConsumerProps(config);
-    consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-1");
+    consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-worker-" + pipelineName);
     this.sourceConsumer = new KafkaConsumer(consumerProps);
     this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName)));
   }

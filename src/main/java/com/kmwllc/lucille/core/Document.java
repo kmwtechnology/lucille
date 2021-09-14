@@ -216,11 +216,7 @@ public class Document implements Cloneable {
       node = data.get(name);
     }
 
-    if (node.isNull()) {
-      return null;
-    }
-
-    return node.asText();
+    return node.isNull() ? null : node.asText();
   }
 
   public List<String> getStringList(String name) {
@@ -235,7 +231,7 @@ public class Document implements Cloneable {
     ArrayNode array = data.withArray(name);
     List<String> result = new ArrayList<>();
     for (JsonNode node : array) {
-      result.add(node.asText());
+      result.add(node.isNull() ? null : node.asText());
     }
     return result;
   }

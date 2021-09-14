@@ -27,7 +27,7 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
     this.pipelineName = pipelineName;
     this.solrClient = new HttpSolrClient.Builder(config.getString("solr.url")).build();
     Properties consumerProps = KafkaUtils.createConsumerProps(config);
-    consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-2");
+    consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-indexer-" + pipelineName);
     this.destConsumer = new KafkaConsumer(consumerProps);
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
 
