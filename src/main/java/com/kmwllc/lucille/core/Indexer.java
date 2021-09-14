@@ -3,11 +3,16 @@ package com.kmwllc.lucille.core;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.typesafe.config.Config;
+import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.impl.HttpSolrClient;
+import org.apache.solr.common.SolrInputDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 class Indexer implements Runnable {
 
@@ -18,6 +23,7 @@ class Indexer implements Runnable {
 
   private final IndexerMessageManager manager;
   private final Batch batch;
+  private final SolrClient solrClient;
 
   private volatile boolean running = true;
 
@@ -28,12 +34,17 @@ class Indexer implements Runnable {
     log.info("terminate");
   }
 
-  public Indexer(Config config, IndexerMessageManager manager) {
+  public Indexer(Config config, IndexerMessageManager manager, boolean bypass) {
     this.config = config;
     this.manager = manager;
     int batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : DEFAULT_BATCH_SIZE;
     int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
     this.batch = new Batch(batchSize, batchTimeout);
+    if (bypass) {
+      this.solrClient = null;
+    } else {
+      this.solrClient = new HttpSolrClient.Builder(config.getString("solr.url")).build();
+    }
   }
 
   @Override
@@ -42,7 +53,7 @@ class Indexer implements Runnable {
       checkForDoc();
     }
 
-    sendToSolr(batch.flush());
+    sendToSolrWithAccounting(batch.flush());
     try {
       manager.close();
     } catch (Exception e) {
@@ -56,7 +67,7 @@ class Indexer implements Runnable {
       checkForDoc();
     }
 
-    sendToSolr(batch.flush());
+    sendToSolrWithAccounting(batch.flush());
     try {
       manager.close();
     } catch (Exception e) {
@@ -75,7 +86,7 @@ class Indexer implements Runnable {
       return;
     }
     if (doc == null) {
-      sendToSolr(batch.add(null));
+      sendToSolrWithAccounting(batch.add(null));
       return;
     }
 
@@ -84,13 +95,13 @@ class Indexer implements Runnable {
       return;
     }
 
-    sendToSolr(batch.add(doc));
+    sendToSolrWithAccounting(batch.add(doc));
   }
 
-  private void sendToSolr(List<Document> batchedDocs) {
+  private void sendToSolrWithAccounting(List<Document> batchedDocs) {
     if (!batchedDocs.isEmpty()) {
       try {
-        manager.sendToSolr(batchedDocs);
+        sendToSolr(batchedDocs);
       } catch (Exception e) {
         for (Document d : batchedDocs) {
           try {
@@ -117,8 +128,29 @@ class Indexer implements Runnable {
     }
   }
 
-  public static Indexer startThread(Config config, IndexerMessageManager manager) throws Exception {
-    Indexer indexer = new Indexer(config, manager);
+  protected void sendToSolr(List<Document> documents) throws Exception {
+
+    if (solrClient==null) {
+      log.info("sendToSolr bypassed for documents: " + documents);
+      return;
+    }
+
+    List<SolrInputDocument> solrDocs = new ArrayList();
+    for (Document doc : documents) {
+      Map<String,Object> map = doc.asMap();
+      SolrInputDocument solrDoc = new SolrInputDocument();
+      for (String key : map.keySet()) {
+        Object value = map.get(key);
+        solrDoc.setField(key,value);
+      }
+      solrDocs.add(solrDoc);
+    }
+    solrClient.add(solrDocs);
+  }
+
+
+  public static Indexer startThread(Config config, IndexerMessageManager manager, boolean bypass) throws Exception {
+    Indexer indexer = new Indexer(config, manager, bypass);
     Thread indexerThread = new Thread(indexer);
     indexerThread.start();
     return indexer;
@@ -129,7 +161,7 @@ class Indexer implements Runnable {
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
     log.info("Starting Indexer for pipeline: " + pipelineName);
     IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);
-    Indexer indexer = new Indexer(config, manager);
+    Indexer indexer = new Indexer(config, manager, false);
     Thread indexerThread = new Thread(indexer);
     indexerThread.start();
 

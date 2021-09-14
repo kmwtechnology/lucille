@@ -14,7 +14,6 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   private List<Event> savedEventMessages= new ArrayList<Event>();
   private List<Document> savedSourceMessages = new ArrayList<Document>();
   private List<Document> savedDestMessages = new ArrayList<Document>();
-  private List<Document> savedDocsSentToSolr = new ArrayList<Document>();
 
   public PersistingLocalMessageManager() {
     this.manager = new LocalMessageManager();
@@ -27,12 +26,6 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   @Override
   public synchronized Document pollCompleted() throws Exception {
     return manager.pollCompleted();
-  }
-
-  @Override
-  public void sendToSolr(List<Document> documents) throws Exception {
-    savedDocsSentToSolr.addAll(documents);
-    manager.sendToSolr(documents);
   }
 
   @Override
@@ -94,10 +87,6 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
 
   public List<Document> getSavedCompletedDocuments() {
     return savedDestMessages;
-  }
-
-  public List<Document> getSavedDocsSentToSolr() {
-    return savedDocsSentToSolr;
   }
 
 }
