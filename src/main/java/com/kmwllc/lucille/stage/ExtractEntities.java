@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  *   - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
  *       will be searched for the file. Otherwise, the local file system will be searched.
  *   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.
- *   - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  *   - ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.
  *   - only_whitespace_separated (Boolean, Optional) : Denotes whether terms must be whitespace separated to be
@@ -74,7 +74,7 @@ public class ExtractEntities extends Stage {
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromConfig(config);
   }
 
   @Override

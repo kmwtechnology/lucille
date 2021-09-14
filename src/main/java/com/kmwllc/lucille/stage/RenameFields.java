@@ -18,7 +18,7 @@ import java.util.Map.Entry;
  * Config Parameters:
  *
  *   - field_mapping (Map<String, String>) : A 1-1 mapping of original field names to new field names.
- *   - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *       Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class RenameFields extends Stage {
@@ -30,7 +30,7 @@ public class RenameFields extends Stage {
     super(config);
 
     this.fieldMap = config.getConfig("field_mapping").entrySet();
-    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromConfig(config);
   }
 
   @Override

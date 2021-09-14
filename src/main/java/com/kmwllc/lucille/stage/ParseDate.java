@@ -31,7 +31,7 @@ import java.util.function.Function;
  *   - formatters (List<Function>) : List of formatter classes to be used for parsing dates. Formatters must implement
  *       the Function<String, LocalDate> Interface.
  *   - format_strs (List<String>, Optional) : A List of format Strings to try and apply to the dates. Defaults to an empty list.
- *   - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class ParseDate extends Stage {
@@ -49,7 +49,7 @@ public class ParseDate extends Stage {
     this.formatStrings = StageUtils.<List<String>>configGetOrDefault(config, "format_strs", new ArrayList<>());
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromConfig(config);
   }
 
   @Override

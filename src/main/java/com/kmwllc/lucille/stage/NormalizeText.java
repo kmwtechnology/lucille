@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
  *   - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  *   - mode (String) : The mode for normalization: uppercase, lowercase, sentence_case, title_case.
- *   - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class NormalizeText extends Stage {
@@ -58,7 +58,7 @@ public class NormalizeText extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.mode = config.getString("mode");
-    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromConfig(config);
   }
 
   @Override

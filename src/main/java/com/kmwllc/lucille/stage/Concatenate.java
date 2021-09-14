@@ -21,7 +21,7 @@ import java.util.List;
  *   - source (List<String>) : list of source field names
  *   - dest (String) : Destination field. This Stage only supports supplying a single destination field.
  *   - format_string (String) : The format String, which will have field values substituted into its placeholders
- *   - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *       Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class Concatenate extends Stage {
@@ -37,7 +37,7 @@ public class Concatenate extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");
-    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromConfig(config);
   }
 
   @Override

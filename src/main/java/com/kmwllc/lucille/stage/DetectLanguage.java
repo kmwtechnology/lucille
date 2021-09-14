@@ -57,7 +57,7 @@ public class DetectLanguage extends Stage {
     this.minLength = config.getInt("min_length");
     this.maxLength = config.getInt("max_length");
     this.minProbability = config.getDouble("min_probability");
-    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromConfig(config);
   }
 
   @Override

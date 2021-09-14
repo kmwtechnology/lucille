@@ -1,7 +1,12 @@
 package com.kmwllc.lucille.core;
 
+import com.typesafe.config.Config;
+
 public enum UpdateMode {
   APPEND("append"), OVERWRITE("overwrite"), SKIP("skip");
+
+  public static final String CONFIG_PATH = "update_mode";
+  public static final UpdateMode DEFAULT = OVERWRITE;
 
   private String text;
 
@@ -17,6 +22,13 @@ public enum UpdateMode {
     }
 
     return null;
+  }
+
+  public static UpdateMode fromConfig(Config config) {
+    if (config.hasPath(CONFIG_PATH)) {
+      return UpdateMode.fromString(config.getString(CONFIG_PATH));
+    }
+    return DEFAULT;
   }
 
 }

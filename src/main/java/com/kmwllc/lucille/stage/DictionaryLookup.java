@@ -30,7 +30,7 @@ import java.util.List;
  *   - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
  *       will be searched for the file. Otherwise, the local file system will be searched.
  *   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not. Defaults to true.
- *   - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class DictionaryLookup extends Stage {
@@ -50,7 +50,7 @@ public class DictionaryLookup extends Stage {
     this.destFields = config.getStringList("dest");
     this.dict = buildHashMap(config.getString("dict_path"));
     this.usePayloads = StageUtils.configGetOrDefault(config, "use_payloads" ,true);
-    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromConfig(config);
   }
 
   /**

@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
  * for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  * - regex (List<String>) : A list regex expression to find matches for. Matches will be extracted and placed in the destination fields.
  * - replacement (String) : The String to replace regex matches with.
- * - write_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ * - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  * Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  * - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.
  * - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.
@@ -50,7 +50,7 @@ public class ReplacePatterns extends Stage {
     this.destFields = config.getStringList("dest");
     this.regexExprs = config.getStringList("regex");
     this.replacement = config.getString("replacement");
-    this.updateMode = UpdateMode.fromString(StageUtils.configGetOrDefault(config, "update_mode", "overwrite"));
+    this.updateMode = UpdateMode.fromConfig(config);
 
     this.ignoreCase = StageUtils.configGetOrDefault(config, "ignore_case", false);
     this.multiline = StageUtils.configGetOrDefault(config, "multiline", false);
