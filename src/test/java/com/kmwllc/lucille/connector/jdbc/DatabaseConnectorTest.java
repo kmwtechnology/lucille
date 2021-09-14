@@ -34,12 +34,14 @@ public class DatabaseConnectorTest {
   private PersistingLocalMessageManager manager;
   
   private String testRunId = "testRunId";
+  private String connectorName = "testConnector";
+  private String pipelineName = "testPipeline";
   
   @Before
-  public void initTestMode() {
+  public void initTestMode() throws Exception {
     // set lucille into loopback mode for local / standalone testing.
     manager = new PersistingLocalMessageManager();
-    publisher = new PublisherImpl(manager);
+    publisher = new PublisherImpl(manager, testRunId, pipelineName);
   }
   
   @Test
@@ -47,12 +49,15 @@ public class DatabaseConnectorTest {
     
     // Create the test config
     HashMap<String,Object> configValues = new HashMap<String,Object>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
     configValues.put("connectionString", "jdbc:h2:mem:test");
     configValues.put("jdbcUser", "");
     configValues.put("jdbcPassword", "");
     configValues.put("sql", "select id,name,type from animal order by id");
     configValues.put("idField", "id");
+    
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
 
@@ -87,6 +92,9 @@ public class DatabaseConnectorTest {
   public void testJoiningDatabaseConnector() throws Exception {
     
     HashMap<String,Object> configValues = new HashMap<String,Object>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+
     configValues.put("driver", "org.h2.Driver");
     configValues.put("connectionString", "jdbc:h2:mem:test");
     configValues.put("jdbcUser", "");
@@ -112,7 +120,7 @@ public class DatabaseConnectorTest {
     assertEquals(3, docs.size());
 
     // TODO: better verification / edge cases.. also formalize the "children" docs.
-    String expected ="{\"id\":\"1\",\"name\":[\"Matt\"],\".children\":[{\"id\":\"0\",\"meal_id\":[\"1\"],\"animal_id\":[\"1\"],\"name\":[\"breakfast\"]},{\"id\":\"1\",\"meal_id\":[\"2\"],\"animal_id\":[\"1\"],\"name\":[\"lunch\"]},{\"id\":\"2\",\"meal_id\":[\"3\"],\"animal_id\":[\"1\"],\"name\":[\"dinner\"]}],\"run_id\":null}";
+    String expected ="{\"id\":\"1\",\"name\":[\"Matt\"],\".children\":[{\"id\":\"0\",\"meal_id\":[\"1\"],\"animal_id\":[\"1\"],\"name\":[\"breakfast\"]},{\"id\":\"1\",\"meal_id\":[\"2\"],\"animal_id\":[\"1\"],\"name\":[\"lunch\"]},{\"id\":\"2\",\"meal_id\":[\"3\"],\"animal_id\":[\"1\"],\"name\":[\"dinner\"]}],\"run_id\":\"testRunId\"}";
     assertEquals(expected, docs.get(0).toString());
 
   }
@@ -123,6 +131,8 @@ public class DatabaseConnectorTest {
     // TODO: implement me
     
     HashMap<String,Object> configValues = new HashMap<String,Object>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
     configValues.put("connectionString", "jdbc:h2:mem:test");
     configValues.put("jdbcUser", "");

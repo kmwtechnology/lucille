@@ -63,8 +63,8 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   }
 
   @Override
-  public void initialize(String runId) throws Exception {
-    manager.initialize(runId);
+  public void initialize(String runId, String pipelineName) throws Exception {
+    manager.initialize(runId, pipelineName);
   }
 
   @Override

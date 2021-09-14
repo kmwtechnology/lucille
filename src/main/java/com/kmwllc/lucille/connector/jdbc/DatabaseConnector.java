@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector.jdbc;
 
 import com.google.common.base.Strings;
+import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Document;
@@ -21,12 +22,10 @@ import java.util.List;
  * this connector will run the otherSQL statements in parallel and flatten the rows from
  * the otherSQL statements onto the Document as a child document
  * 
- * 
- * 
  * @author kwatters
  *
  */
-public class DatabaseConnector implements Connector {
+public class DatabaseConnector extends AbstractConnector {
 
   private static final Logger log = LogManager.getLogger(DatabaseConnector.class);
 
@@ -41,14 +40,16 @@ public class DatabaseConnector implements Connector {
   private List<String> otherSQLs = new ArrayList<String>();
   private List<String> otherJoinFields;
   private Connection connection = null;
-  // TODO: move to base class.
-  
-  private String topic;
 
   // The constructor that takes the config.
   public DatabaseConnector(Config config) {
-    // TODO: need a way to make sure the base class gets it's chance to get the config.
-    // workflowName = config.getString("workflowName");
+    // the config needs to be passed down here. let the base class handle parsing the 
+    // default stuff.
+    super(config.getString("name"), config.getString("pipeline"));
+    // TODO Prefer to just pass this:  (much cleaner)
+    // super(config);
+    // TODO: move to base class functionality
+    // docIdPrefix = config.getString("docIdPrefix");
     driver = config.getString("driver");
     connectionString = config.getString("connectionString");
     jdbcUser = config.getString("jdbcUser");
@@ -62,14 +63,7 @@ public class DatabaseConnector implements Connector {
     if (config.hasPath("otherSQLs")) {
       otherSQLs = config.getStringList("otherSQLs");
       otherJoinFields = config.getStringList("otherJoinFields");
-    }
-    // TODO: move to base class functionality
-    // docIdPrefix = config.getString("docIdPrefix");
-    if (config.hasPath("topic")) {
-      // TODO: base class or something!
-      topic = config.getString("topic");
-    }
-
+    }  
   }
 
   // create a jdbc connection
@@ -221,7 +215,7 @@ public class DatabaseConnector implements Connector {
       // add the accumulated child doc.
 
       // add the accumulated rows to the document.
-      doc.addChildDocument(child);
+      doc.addChild(child);
     }
 
     // TODO: can we remove this?

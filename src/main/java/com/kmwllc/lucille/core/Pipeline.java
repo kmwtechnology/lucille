@@ -34,12 +34,11 @@ public class Pipeline {
   }
 
   /**
-   * Instantiates a Pipeline from the designated Config. The Config is expected to have a "stages" element
-   * containing a List of stages and their settings. The list element for each Stage must specify the stage's class.
+   * Instantiates a Pipeline from the designated list of Stage Configs.
+   * The Config for each Stage must specify the stage's class.
    */
-  public static Pipeline fromConfig(Config config) throws ClassNotFoundException, NoSuchMethodException,
+  public static Pipeline fromConfig(List<? extends Config> stages) throws ClassNotFoundException, NoSuchMethodException,
     IllegalAccessException, InvocationTargetException, InstantiationException, StageException {
-    List<? extends Config> stages = config.getConfigList("stages");
     Pipeline pipeline = new Pipeline();
     for (Config c : stages) {
       Class<?> clazz = Class.forName(c.getString("class"));
@@ -49,6 +48,28 @@ public class Pipeline {
     }
     pipeline.startStages();
     return pipeline;
+  }
+
+  /**
+   *
+   * The Config is expected to have a "pipeline.<name>.stages" element
+   * containing a List of stages and their settings. The list element for each Stage must specify the stage's class.
+   */
+  public static Pipeline fromConfig(Config config, String name) throws ClassNotFoundException, NoSuchMethodException,
+    IllegalAccessException, InvocationTargetException, InstantiationException, StageException, PipelineException {
+    if (!config.hasPath("pipelines")) {
+      throw new PipelineException("No pipelines element present in config");
+    }
+    List<? extends Config> pipelines = config.getConfigList("pipelines");
+    for (Config pipeline : pipelines) {
+      if (!pipeline.hasPath("name")) {
+        throw new PipelineException("Pipeline without name found in config");
+      }
+      if (name.equals(pipeline.getString("name"))) {
+        return fromConfig(pipeline.getConfigList("stages"));
+      }
+    }
+    throw new PipelineException("No pipeline found with name: " + name);
   }
 
   /**

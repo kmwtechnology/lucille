@@ -14,14 +14,6 @@ package com.kmwllc.lucille.core;
 public interface Publisher {
 
   /**
-   * Initialize the publisher with the given run ID.
-   *
-   * This is where, for example, an implementation might establish a connection to a Kafka topic
-   * that is named according to the run ID.
-   */
-  void initialize(String runId) throws Exception;
-
-  /**
    * Submits the given document for processing by any available pipeline worker.
    *
    * Stamps the current Run ID on the document and begins "tracking" events relating the document.
@@ -35,7 +27,7 @@ public interface Publisher {
   int numPublished();
 
   /**
-   * Returns the number of documents for which we are still awaiting an INDEX event.
+   * Returns the number of documents for which we are still awaiting a terminal event.
    *
    * This number includes documents published via publish() as well as child documents generated
    * during pipeline execution.
@@ -47,7 +39,7 @@ public interface Publisher {
    * end state of the workflow (i.e. have not been indexed and have not errored-out). Specifically,
    * this will be true if:
    *
-   * 1) a Document was published via publish() but a terminal event (INDEX or ERROR) has not been received
+   * 1) a Document was published via publish() but a terminal event has not been received
    * for that document via handleEvent()
    * 2) a CREATE event was received for a child document via handleEvent() but a terminal event for that
    * child document has not been received via handleEvent()
@@ -58,8 +50,8 @@ public interface Publisher {
    * After receiving such an Event, the publisher needs to start tracking that child document and will not
    * return to a reconciled state until the document has been indexed.
    *
-   * Also note that the publisher may receive INDEX events for child documents before receiving the
-   * corresponding CREATE events. In this case the INDEX events are considered "early" and the CREATE events
+   * Also note that the publisher may receive terminal events for child documents before receiving the
+   * corresponding CREATE events. In this case the terminal events are considered "early" and the CREATE events
    * are considered "late." The publisher can enter a reconciled state before receiving all the late
    * CREATE events that it might be expecting. However, the publisher should still be prepared to receive
    * these late CREATE events and ignore them rather than beginning to track the documents that are already indexed.
@@ -81,11 +73,13 @@ public interface Publisher {
   /**
    * Waits until all published Documents and their children are complete and no more Documents are being published.
    *
+   *
    * @param thread a reference to the Connector thread that is generating new Documents;
    *               this thread will be tested for its status via isAlive() to determine when the Connector
    *               has finished and no more Documents will be published
+   * @param timeout number of milliseconds to wait, after which the method will return false
    */
-  void waitForCompletion(Thread thread) throws Exception;
+  boolean waitForCompletion(ConnectorThread thread, int timeout) throws Exception;
 
   /**
    * Closes any connections opened by the publisher.
