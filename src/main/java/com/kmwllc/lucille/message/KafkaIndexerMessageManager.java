@@ -49,10 +49,7 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
   }
 
   /**
-   * TODO: batching
    * TODO: consider moving this to a separate class
-   * @param documents
-   * @throws Exception
    */
   @Override
   public void sendToSolr(List<Document> documents) throws Exception {
