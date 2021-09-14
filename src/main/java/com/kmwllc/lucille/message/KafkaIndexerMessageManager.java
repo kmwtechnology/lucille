@@ -9,7 +9,6 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
-import org.apache.solr.common.SolrInputDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,14 +17,12 @@ import java.util.*;
 public class KafkaIndexerMessageManager implements IndexerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(KafkaIndexerMessageManager.class);
-  private final SolrClient solrClient;
   private final Consumer<String, String> destConsumer;
   private final KafkaProducer<String, String> kafkaProducer;
   private final String pipelineName;
 
   public KafkaIndexerMessageManager(Config config, String pipelineName) {
     this.pipelineName = pipelineName;
-    this.solrClient = new HttpSolrClient.Builder(config.getString("solr.url")).build();
     Properties consumerProps = KafkaUtils.createConsumerProps(config);
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-indexer-" + pipelineName);
     this.destConsumer = new KafkaConsumer(consumerProps);
@@ -46,24 +43,6 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
       return Document.fromJsonString(record.value());
     }
     return null;
-  }
-
-  /**
-   * TODO: consider moving this to a separate class
-   */
-  @Override
-  public void sendToSolr(List<Document> documents) throws Exception {
-    List<SolrInputDocument> solrDocs = new ArrayList();
-    for (Document doc : documents) {
-      Map<String,Object> map = doc.asMap();
-      SolrInputDocument solrDoc = new SolrInputDocument();
-      for (String key : map.keySet()) {
-        Object value = map.get(key);
-        solrDoc.setField(key,value);
-      }
-      solrDocs.add(solrDoc);
-    }
-    solrClient.add(solrDocs);
   }
 
   /**

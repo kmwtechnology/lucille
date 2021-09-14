@@ -6,49 +6,47 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class LocalMessageManager implements IndexerMessageManager, PublisherMessageManager, WorkerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(LocalMessageManager.class);
 
-  private Queue<Event> pipelineEvents = new LinkedList<Event>();
-  private Queue<Document> pipelineSource = new LinkedList<Document>();
-  private Queue<Document> pipelineDest = new LinkedList<Document>();
+  private final Queue<Event> pipelineEvents = new ConcurrentLinkedQueue<>();
+  private final Queue<Document> pipelineSource = new ConcurrentLinkedQueue<>();
+  private final Queue<Document> pipelineDest = new ConcurrentLinkedQueue<>();
+
   private String runId = null;
   private String pipelineName;
 
   @Override
-  public synchronized Document pollCompleted() throws Exception {
+  public Document pollCompleted() throws Exception {
     return pipelineDest.poll();
   }
 
   @Override
-  public void sendToSolr(List<Document> documents) throws Exception {
-    log.info("sendToSolr called (not actually sending): " + documents);
-  }
-
-  @Override
-  public synchronized Document pollDocToProcess() throws Exception {
+  public Document pollDocToProcess() throws Exception {
     return pipelineSource.poll();
   }
 
   @Override
-  public synchronized void sendCompleted(Document document) throws Exception {
+  public void sendCompleted(Document document) throws Exception {
     pipelineDest.add(document);
   }
 
   @Override
-  public synchronized void sendEvent(Event event) throws Exception {
+  public void sendEvent(Event event) throws Exception {
     pipelineEvents.add(event);
   }
 
   @Override
-  public synchronized Event pollEvent() throws Exception {
+  public Event pollEvent() throws Exception {
     return pipelineEvents.poll();
   }
 
   @Override
-  public synchronized boolean hasEvents() throws Exception {
+  public boolean hasEvents() throws Exception {
     return !pipelineEvents.isEmpty();
   }
 
@@ -67,7 +65,7 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   @Override
-  public synchronized void sendForProcessing(Document document) {
+  public void sendForProcessing(Document document) {
     pipelineSource.add(document);
   }
 
