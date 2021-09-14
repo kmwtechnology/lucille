@@ -243,4 +243,70 @@ public class DocumentTest {
     assertNotEquals("5", finalVals.get(0));
     assertEquals(22, finalVals.get(1));
   }
+
+  @Test
+  public void testUpdateString() {
+    Document document = new Document("id1");
+    document.update("myStringField", UpdateMode.OVERWRITE, "val1");
+    document.update("myStringField", UpdateMode.OVERWRITE, "val2");
+    document.update("myStringField", UpdateMode.APPEND, "val3");
+    document.update("myStringField", UpdateMode.SKIP, "val4");
+    Map map = document.asMap();
+    assertEquals("val2", ((List<Object>) map.get("myStringField")).get(0));
+    assertEquals("val3", ((List<Object>) map.get("myStringField")).get(1));
+    assertEquals(2, ((List<Object>) map.get("myStringField")).size());
+  }
+
+  @Test
+  public void testUpdateInt() {
+    Document document = new Document("id1");
+    document.update("myIntField", UpdateMode.OVERWRITE, 1);
+    document.update("myIntField", UpdateMode.OVERWRITE, 2);
+    document.update("myIntField", UpdateMode.APPEND, 3);
+    document.update("myIntField", UpdateMode.SKIP, 4);
+    Map map = document.asMap();
+    assertEquals(2, ((List<Object>) map.get("myIntField")).get(0));
+    assertEquals(3, ((List<Object>) map.get("myIntField")).get(1));
+    assertEquals(2, ((List<Object>) map.get("myIntField")).size());
+  }
+
+  @Test
+  public void testUpdateLong() {
+    Document document = new Document("id1");
+    document.update("myLongField", UpdateMode.OVERWRITE, 1L);
+    document.update("myLongField", UpdateMode.OVERWRITE, 2L);
+    document.update("myLongField", UpdateMode.APPEND, 3L);
+    document.update("myLongField", UpdateMode.SKIP, 4L);
+    Map map = document.asMap();
+    assertEquals(2L, ((List<Object>) map.get("myLongField")).get(0));
+    assertEquals(3L, ((List<Object>) map.get("myLongField")).get(1));
+    assertEquals(2, ((List<Object>) map.get("myLongField")).size());
+  }
+
+  @Test
+  public void testUpdateDouble() {
+    Document document = new Document("id1");
+    document.update("myDoubleField", UpdateMode.OVERWRITE, 1D);
+    document.update("myDoubleField", UpdateMode.OVERWRITE, 2D);
+    document.update("myDoubleField", UpdateMode.APPEND, 3D);
+    document.update("myDoubleField", UpdateMode.SKIP, 4D);
+    Map map = document.asMap();
+    assertEquals(2D, ((List<Object>) map.get("myDoubleField")).get(0));
+    assertEquals(3D, ((List<Object>) map.get("myDoubleField")).get(1));
+    assertEquals(2, ((List<Object>) map.get("myDoubleField")).size());
+  }
+
+  @Test
+  public void testUpdateBoolean() {
+    Document document = new Document("id1");
+    document.update("myBooleanField", UpdateMode.OVERWRITE, true);
+    document.update("myBooleanField", UpdateMode.OVERWRITE, false);
+    document.update("myBooleanField", UpdateMode.APPEND, true);
+    document.update("myBooleanField", UpdateMode.SKIP, false);
+    Map map = document.asMap();
+    assertEquals(false, ((List<Object>)map.get("myBooleanField")).get(0));
+    assertEquals(true, ((List<Object>)map.get("myBooleanField")).get(1));
+    assertEquals(2, ((List<Object>)map.get("myBooleanField")).size());
+  }
+
 }

@@ -7,11 +7,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.core.UpdateMode;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * A record from a source system to be passed through a Pipeline, enriched,
@@ -71,79 +72,49 @@ public class Document implements Cloneable {
     data.withArray(name).remove(index);
   }
 
+  /**
+   * Updates the designated field according to the provided UpdateMode.
+
+   * APPEND: the provided values will be appended to the field.
+   * OVERWRITE: the provided values will overwrite any current field values
+   * SKIP: the provided values will populate the field if the field didn't previously exist; otherwise no change will be made.
+   *
+   * In all cases the field will be created if it doesn't already exist.
+   *
+   */
   public void update(String name, UpdateMode mode, String... values) {
-    if (values.length == 0)
-      return;
-
-    if (has(name) && mode.equals(UpdateMode.SKIP)) {
-      return;
-    }
-
-    int i = 0;
-    if (mode.equals(UpdateMode.OVERWRITE)) {
-      setField(name, values[0]);
-      i = 1;
-    }
-    for (; i < values.length; i++) {
-      addToField(name, values[i]);
-    }
+    update(name, mode, (v)->{setField(name,(String)v);}, (v)->{addToField(name,(String)v);}, values);
   }
 
   public void update(String name, UpdateMode mode, Long... values) {
-    if (values.length == 0)
-      return;
-
-    if (has(name) && mode.equals(UpdateMode.SKIP)) {
-      return;
-    }
-
-    int i = 0;
-    if (mode.equals(UpdateMode.OVERWRITE)) {
-      setField(name, values[0]);
-      i = 1;
-    }
-    for (; i < values.length; i++) {
-      addToField(name, values[i]);
-    }
+    update(name, mode, (v)->{setField(name,(Long)v);}, (v)->{addToField(name,(Long)v);}, values);
   }
 
   public void update(String name, UpdateMode mode, Integer... values) {
-    if (values.length == 0)
-      return;
-
-    if (has(name) && mode.equals(UpdateMode.SKIP)) {
-      return;
-    }
-
-    int i = 0;
-    if (mode.equals(UpdateMode.OVERWRITE)) {
-      setField(name, values[0]);
-      i = 1;
-    }
-    for (; i < values.length; i++) {
-      addToField(name, values[i]);
-    }
+    update(name, mode, (v)->{setField(name,(Integer)v);}, (v)->{addToField(name,(Integer)v);}, values);
   }
 
   public void update(String name, UpdateMode mode, Boolean... values) {
-    if (values.length == 0)
-      return;
-
-    if (has(name) && mode.equals(UpdateMode.SKIP)) {
-      return;
-    }
-
-    int i = 0;
-    if (mode.equals(UpdateMode.OVERWRITE)) {
-      setField(name, values[0]);
-      i = 1;
-    }
-    for (; i < values.length; i++) {
-      addToField(name, values[i]);
-    }
+    update(name, mode, (v)->{setField(name,(Boolean)v);}, (v)->{addToField(name,(Boolean)v);}, values);
   }
 
   public void update(String name, UpdateMode mode, Double... values) {
+    update(name, mode, (v)->{setField(name,(Double)v);}, (v)->{addToField(name,(Double)v);}, values);
+  }
+
+  /**
+   * Private helper method used by different public versions of the overloaded update method.
+   *
+   * Expects two Consumers that invoke setField and addToField respectively on the named field, passing in
+   * a provided value.
+   *
+   * The Consumer / Lambda Expression approach is used here to avoid code duplication between the various
+   * update methods. It is not possible to make update() a generic method because ultimately it would need to call
+   * one of the specific setField or addToField methods which in turn call data.put(String, String),
+   * data.put(String, Long), data.put(String Boolean)
+   */
+  private void update(String name, UpdateMode mode, Consumer setter, Consumer adder, Object... values) {
+
     if (values.length == 0)
       return;
 
@@ -153,11 +124,11 @@ public class Document implements Cloneable {
 
     int i = 0;
     if (mode.equals(UpdateMode.OVERWRITE)) {
-      setField(name, values[0]);
+      setter.accept(values[0]);
       i = 1;
     }
     for (; i < values.length; i++) {
-      addToField(name, values[i]);
+      adder.accept(values[i]);
     }
   }
 
