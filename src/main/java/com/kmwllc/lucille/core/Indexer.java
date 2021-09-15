@@ -72,6 +72,7 @@ class Indexer implements Runnable {
       terminate();
       return;
     }
+
     if (doc == null) {
       sendToSolr(batch.add(null));
       return;

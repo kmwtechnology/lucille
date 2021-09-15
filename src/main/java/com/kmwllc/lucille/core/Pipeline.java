@@ -88,7 +88,7 @@ public class Pipeline {
       List<Document> childrenFromCurrentStage = new ArrayList();
 
       for (Document doc : documents) {
-        List<Document> childrenOfCurrentDoc = stage.processDocument(doc);
+        List<Document> childrenOfCurrentDoc = stage.processConditional(doc);
         if (childrenOfCurrentDoc != null) {
           childrenFromCurrentStage.addAll(childrenOfCurrentDoc);
         }

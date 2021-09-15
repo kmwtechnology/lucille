@@ -13,6 +13,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
+ * This Stage will replace any of the given Patterns found in the source fields with a given replacement String.
+ *
  * Config Parameters:
  * <p>
  * - source (List<String>) : List of source field names.
