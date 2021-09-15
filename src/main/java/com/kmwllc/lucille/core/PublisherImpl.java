@@ -38,10 +38,14 @@ public class PublisherImpl implements Publisher {
   private final String pipelineName;
 
   private int numPublished = 0;
+  private int numCreated = 0;
+  private int numFailed = 0;
+  private int numSucceeded = 0;
+
 
   private Instant start;
 
-  // List of published documents that are not yet indexed. Also includes children of published documents.
+  // List of published documents that have not reached a terminal state. Also includes children of published documents.
   // Note that this is a List, not a Set, because if two documents with the same ID are published, we would
   // expect to receive two separate terminal events relating to those documents, and we will therefore make
   // two attempts to remove the ID. Upon each removal attempt, we would like there to be something present
@@ -70,11 +74,6 @@ public class PublisherImpl implements Publisher {
   }
 
   @Override
-  public int numPublished() {
-    return numPublished;
-  }
-
-  @Override
   public void close() throws Exception {
     manager.close();
   }
@@ -83,13 +82,25 @@ public class PublisherImpl implements Publisher {
   public void handleEvent(Event event) {
     String docId = event.getDocumentId();
 
-    // if we're learning that a child document has been created, we need to begin tracking it unless
-    // we have already received an early confirmation that it was indexed
     if (event.isCreate()) {
+
+      numCreated++;
+
+      // if we're learning that a child document has been created, we need to begin tracking it unless
+      // we have already received an early confirmation that it was indexed
+      // TODO: this does not handle redundant create events
       if (!docIdsIndexedBeforeTracking.remove(docId)) {
         docIdsToTrack.add(docId);
       }
+
     } else {
+
+      if (Event.Type.FINISH.equals(event.getType())) {
+        numSucceeded++;
+      } else if (Event.Type.FAIL.equals(event.getType())) {
+        numFailed++;
+      }
+
       // if we're learning that a document has finished processing, or failed, we can stop tracking it;
       // but if we weren't previously tracking it, we need to remember that we've seen it so that
       // if we receive an out-of-order or late create event for this document in the future,
@@ -149,6 +160,26 @@ public class PublisherImpl implements Publisher {
   @Override
   public int numPending() {
     return docIdsToTrack.size();
+  }
+
+  @Override
+  public int numPublished() {
+    return numPublished;
+  }
+
+  @Override
+  public int numCreated() {
+    return numCreated;
+  }
+
+  @Override
+  public int numSucceeded() {
+    return numSucceeded;
+  }
+
+  @Override
+  public int numFailed() {
+    return numFailed;
   }
 
 }

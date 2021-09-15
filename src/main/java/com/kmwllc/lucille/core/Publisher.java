@@ -35,6 +35,25 @@ public interface Publisher {
   int numPending();
 
   /**
+   * Returns the number of child documents that the publisher did not publish but was notified about via
+   * a CREATE event passed to handleEvent().
+   */
+  int numCreated();
+
+  /**
+   * Returns the number of documents for which the publisher has been notified of successful completion.
+   *
+   */
+  int numSucceeded();
+
+  /**
+   * Returns the number of documents for which the publisher has been notified of a failure.
+   *
+   */
+  int numFailed();
+
+
+  /**
    * Returns true if there are published documents or generated children than have not yet reached an
    * end state of the workflow (i.e. have not been indexed and have not errored-out). Specifically,
    * this will be true if:
