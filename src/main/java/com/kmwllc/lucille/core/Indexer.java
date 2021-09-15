@@ -99,33 +99,36 @@ class Indexer implements Runnable {
   }
 
   private void sendToSolrWithAccounting(List<Document> batchedDocs) {
-    if (!batchedDocs.isEmpty()) {
-      try {
-        sendToSolr(batchedDocs);
-      } catch (Exception e) {
-        for (Document d : batchedDocs) {
-          try {
-            manager.sendEvent(new Event(d.getId(), d.getRunId(),
-                "FAILED" + e.getMessage(), Event.Type.FAIL));
-          } catch (Exception e2) {
-            // TODO : Do something special if we get an error when sending Failure events
-            e2.printStackTrace();
-          }
-        }
-        return;
-      }
-
-      try {
-        for (Document d : batchedDocs) {
-          Event event = new Event(d.getId(), d.getRunId(), "SUCCEEDED", Event.Type.FINISH);
-          log.info("submitting completion event " + event);
-          manager.sendEvent(event);
-        }
-      } catch (Exception e) {
-        // TODO : Do something special if we get an error when sending Success events
-        e.printStackTrace();
-      }
+    if (batchedDocs.isEmpty()) {
+      return;
     }
+
+    try {
+      sendToSolr(batchedDocs);
+    } catch (Exception e) {
+      for (Document d : batchedDocs) {
+        try {
+          manager.sendEvent(new Event(d.getId(), d.getRunId(),
+              "FAILED: " + e.getMessage(), Event.Type.FAIL));
+        } catch (Exception e2) {
+          // TODO : Do something special if we get an error when sending Failure events
+          e2.printStackTrace();
+        }
+      }
+      return;
+    }
+
+    try {
+      for (Document d : batchedDocs) {
+        Event event = new Event(d.getId(), d.getRunId(), "SUCCEEDED", Event.Type.FINISH);
+        log.info("submitting completion event " + event);
+        manager.sendEvent(event);
+      }
+    } catch (Exception e) {
+      // TODO : Do something special if we get an error when sending Success events
+      e.printStackTrace();
+    }
+
   }
 
   protected void sendToSolr(List<Document> documents) throws Exception {

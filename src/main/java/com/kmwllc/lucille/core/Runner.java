@@ -52,13 +52,26 @@ public class Runner {
   private final String runId;
   private final int connectorTimeout;
 
+  /**
+   * Runs the configured connectors.
+   *
+   * no args: pipelines and indexers will be executed in separate threads within the same JVM; communication
+   * between components will take place in memory and Kafka will not be used
+   *
+   * -usekafka: connectors will be run, sending documents and receiving events via Kafka. Pipeline workers
+   * and indexers will not be run. The assumption is that these have been deployed as separate processes.
+   *
+   * -local: modifies -usekafka so that workers and indexers are started as separate threads within the same JVM;
+   * kafka is still used for communication between them.
+   *
+   */
   public static void main(String[] args) throws Exception {
 
     Options cliOptions = new Options()
       .addOption(Option.builder("usekafka").hasArg(false)
-        .desc("Use Kafka for inter-component communication").build())
+        .desc("Use Kafka for inter-component communication and don't execute pipelines locally").build())
       .addOption(Option.builder("local").hasArg(false)
-        .desc("Execute pipelines and indexing locally").build());
+        .desc("Modifies usekafka mode to execute pipelines locally").build());
 
     CommandLine cli = null;
     try {
