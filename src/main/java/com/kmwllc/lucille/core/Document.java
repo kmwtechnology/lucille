@@ -290,7 +290,7 @@ public class Document implements Cloneable {
 
   public List<Document> getChildren() {
     ArrayNode node = data.withArray(CHILDREN_FIELD);
-    ArrayList<Document> children = new ArrayList();
+    ArrayList<Document> children = new ArrayList<Document>();
     for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
       JsonNode element = it.next();
       try {
@@ -315,4 +315,5 @@ public class Document implements Cloneable {
       throw new IllegalStateException("Document not cloneable", e);
     }
   }
+  
 }
