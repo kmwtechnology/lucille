@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Document;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class PersistingLocalMessageManager implements IndexerMessageManager, PublisherMessageManager,
@@ -11,9 +12,9 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
 
   private final LocalMessageManager manager;
 
-  private List<Event> savedEventMessages= new ArrayList<Event>();
-  private List<Document> savedSourceMessages = new ArrayList<Document>();
-  private List<Document> savedDestMessages = new ArrayList<Document>();
+  private List<Event> savedEventMessages = Collections.synchronizedList(new ArrayList<Event>());
+  private List<Document> savedSourceMessages = Collections.synchronizedList(new ArrayList<Document>());
+  private List<Document> savedDestMessages = Collections.synchronizedList(new ArrayList<Document>());
 
   public PersistingLocalMessageManager() {
     this.manager = new LocalMessageManager();
@@ -24,34 +25,34 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   }
 
   @Override
-  public synchronized Document pollCompleted() throws Exception {
+  public Document pollCompleted() throws Exception {
     return manager.pollCompleted();
   }
 
   @Override
-  public synchronized Document pollDocToProcess() throws Exception {
+  public Document pollDocToProcess() throws Exception {
     return manager.pollDocToProcess();
   }
 
   @Override
-  public synchronized void sendCompleted(Document document) throws Exception {
+  public void sendCompleted(Document document) throws Exception {
     savedDestMessages.add(document);
     manager.sendCompleted(document);
   }
 
   @Override
-  public synchronized void sendEvent(Event event) throws Exception {
+  public void sendEvent(Event event) throws Exception {
     savedEventMessages.add(event);
     manager.sendEvent(event);
   }
 
   @Override
-  public synchronized Event pollEvent() throws Exception {
+  public Event pollEvent() throws Exception {
     return manager.pollEvent();
   }
 
   @Override
-  public synchronized boolean hasEvents() throws Exception {
+  public boolean hasEvents() throws Exception {
     return manager.hasEvents();
   }
 
@@ -67,7 +68,7 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
 
 
   @Override
-  public synchronized void sendForProcessing(Document document) {
+  public void sendForProcessing(Document document) {
     savedSourceMessages.add(document);
     manager.sendForProcessing(document);
   }

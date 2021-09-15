@@ -5,29 +5,31 @@ import com.kmwllc.lucille.core.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 public class LocalMessageManager implements IndexerMessageManager, PublisherMessageManager, WorkerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(LocalMessageManager.class);
 
-  private final Queue<Event> pipelineEvents = new ConcurrentLinkedQueue<>();
-  private final Queue<Document> pipelineSource = new ConcurrentLinkedQueue<>();
-  private final Queue<Document> pipelineDest = new ConcurrentLinkedQueue<>();
+  public static final int POLL_TIMEOUT_MS = 50;
+
+  private final BlockingQueue<Event> pipelineEvents = new LinkedBlockingQueue<>();
+  private final BlockingQueue<Document> pipelineSource = new LinkedBlockingQueue<>();
+  private final BlockingQueue<Document> pipelineDest = new LinkedBlockingQueue<>();
 
   private String runId = null;
   private String pipelineName;
 
   @Override
   public Document pollCompleted() throws Exception {
-    return pipelineDest.poll();
+    return pipelineDest.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public Document pollDocToProcess() throws Exception {
-    return pipelineSource.poll();
+    return pipelineSource.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
   @Override
@@ -42,7 +44,7 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
 
   @Override
   public Event pollEvent() throws Exception {
-    return pipelineEvents.poll();
+    return pipelineEvents.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
   @Override
