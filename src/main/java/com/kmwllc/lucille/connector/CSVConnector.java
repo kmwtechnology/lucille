@@ -22,14 +22,8 @@ public class CSVConnector extends AbstractConnector {
 
   private final String path;
 
-  public CSVConnector(String name, String path, String pipelineName) {
-    super((name!=null) ? name : "CSVConnector-" + path, pipelineName);
-    this.path = path;
-  }
-
   public CSVConnector(Config config) {
-    super(config.hasPath("name") ? config.getString("name") : "CSVConnector-" + config.getString("path"),
-      config.getString("pipeline"));
+    super(config);
     this.path = config.getString("path");
   }
 
