@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
+import org.mockito.Mock;
 
 import java.util.List;
 
@@ -61,6 +62,38 @@ public class StageTest {
     stage.processConditional(doc2);
     assertTrue(doc2.has("processed"));
     assertEquals(3, doc1.getStringList("customer_id").size());
+  }
+
+  @Test
+  public void testMultiCondField() throws Exception {
+    Config config = ConfigFactory.load("StageTest/multiCondField.conf");
+    Stage stage = new MockStage(config);
+
+    Document doc = new Document("doc");
+    doc.setField("state", "MA");
+    doc.setField("country", "China");
+    doc.setField("user_id", "987");
+    stage.processConditional(doc);
+    assertTrue(doc.has("processed"));
+
+    Document doc2 = new Document("doc2");
+    doc2.setField("state", "NJ");
+    doc2.setField("country", "England");
+    doc2.setField("user_id", "123467543453");
+    stage.processConditional(doc2);
+    assertFalse(doc2.has("processed"));
+  }
+
+  @Test
+  public void testProcessNoCondField() throws Exception {
+    Config config = ConfigFactory.load("StageTest/multiCondField.conf");
+    Stage stage = new MockStage(config);
+
+    Document doc = new Document("doc");
+    doc.setField("test", "some field");
+    doc.setField("another", "some other field");
+    stage.processConditional(doc);
+    assertTrue(doc.has("processed"));
   }
 
 }

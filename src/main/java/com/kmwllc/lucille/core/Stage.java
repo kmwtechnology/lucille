@@ -5,17 +5,25 @@ import com.typesafe.config.Config;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * An operation that can be performed on a Document.
+ *
+ * This abstract class provides some base functionality which should be applicable to all Stages.
+ *
+ * Config Parameters:
+ *
+ * - conditional_fields (List<String>, Optional) : The fields which will be used to determine if this stage should be applied.
+ * Turns off conditional execution by default.
+ * - conditional_values (List<String>, Optional) : The values which we will search the conditional fields for.
+ * Should be set iff conditional_fields is set.
+ * - conditional_operator (String, Optional) : The operator to determine conditional execution.
+ * Can be 'must' or 'must_not'. Defaults to must.
  */
 public abstract class Stage {
 
   protected Config config;
-  private final String conditionalField;
+  private final List<String> conditionalFields;
   private final List<String> conditionalValues;
   private final String operator;
 
@@ -23,7 +31,7 @@ public abstract class Stage {
   public Stage(Config config) {
     this.config = config;
 
-    this.conditionalField = StageUtils.configGetOrDefault(config, "conditional_field", null);
+    this.conditionalFields = StageUtils.configGetOrDefault(config, "conditional_field", new ArrayList<>());
     this.conditionalValues = StageUtils.configGetOrDefault(config, "conditional_values", new ArrayList<>());
     this.operator = StageUtils.configGetOrDefault(config, "conditional_operator", "must");
   }
@@ -31,22 +39,38 @@ public abstract class Stage {
   public void start() throws StageException {
   }
 
+  /**
+   * Determines if this Stage should process this Document based on the conditional execution parameters.
+   *
+   * @param doc the doc to determine processing for
+   * @return  boolean representing - should we process?
+   */
+  // TODO : Should this default to true always?
   public boolean shouldProcess(Document doc) {
-    if (conditionalField == null) {
-      return true;
+    boolean ifFound = operator.equalsIgnoreCase("must");
+
+    if (conditionalFields.isEmpty() || conditionalFields.stream().noneMatch(doc::has)) {
+      return !ifFound;
     }
 
-    boolean defaultOutput = !operator.equalsIgnoreCase("must_not");
-
-    for (String value : doc.getStringList(conditionalField)) {
-      if (conditionalValues.contains(value)) {
-        return defaultOutput;
+    for (String field : conditionalFields) {
+      for (String value : doc.getStringList(field)) {
+        if (conditionalValues.contains(value)) {
+          return ifFound;
+        }
       }
     }
 
-    return !defaultOutput;
+    return !ifFound;
   }
 
+  /**
+   * Process this Document iff it adheres to our conditional requirements.
+   *
+   * @param doc the Document
+   * @return  a list of child documents resulting from this Stages processing
+   * @throws StageException
+   */
   public List<Document> processConditional(Document doc) throws StageException {
     if (shouldProcess(doc)) {
       return processDocument(doc);
