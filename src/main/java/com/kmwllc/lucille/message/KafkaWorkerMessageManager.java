@@ -3,6 +3,7 @@ package com.kmwllc.lucille.message;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -12,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.Properties;
+import java.util.UUID;
 
 public class KafkaWorkerMessageManager implements WorkerMessageManager {
 
@@ -26,7 +28,11 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
     this.pipelineName = pipelineName;
     this.kafkaProducer = KafkaUtils.createProducer(config);
     Properties consumerProps = KafkaUtils.createConsumerProps(config);
-    consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-worker-" + pipelineName);
+
+    // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
+    // with the same client ID are started in separate worker threads
+    String kafkaClientId = "lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
+    consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, kafkaClientId);
     this.sourceConsumer = new KafkaConsumer(consumerProps);
     this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName)));
   }

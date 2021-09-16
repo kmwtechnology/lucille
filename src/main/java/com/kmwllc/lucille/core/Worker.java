@@ -1,9 +1,7 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.message.IndexerMessageManager;
-import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
-import com.kmwllc.lucille.message.KafkaWorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManager;
+import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -98,27 +96,29 @@ class Worker implements Runnable {
     log.info("Exiting");
   }
 
-  public static Worker startThread(Config config, WorkerMessageManager manager, String pipelineName) throws Exception {
+  public static WorkerThread startThread(Config config, WorkerMessageManager manager, String pipelineName) throws Exception {
     Worker worker = new Worker(config, manager, pipelineName);
-    Thread workerThread = new Thread(worker);
+    WorkerThread workerThread = new WorkerThread(worker);
     workerThread.start();
-    return worker;
+    return workerThread;
   }
 
   public static void main(String[] args) throws Exception {
     Config config = ConfigAccessor.loadConfig();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
-    log.info("Starting Worker for pipeline: " + pipelineName);
-    WorkerMessageManager manager = new KafkaWorkerMessageManager(config, pipelineName);
-    Worker worker = new Worker(config, manager, pipelineName);
-    Thread workerThread = new Thread(worker);
-    workerThread.start();
+    log.info("Starting Workers for pipeline: " + pipelineName);
+
+    WorkerMessageManagerFactory workerMessageManagerFactory =
+      WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName);
+
+    WorkerPool workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory);
+    workerPool.start();
 
     Signal.handle(new Signal("INT"), signal -> {
-      worker.terminate();
-      log.info("Worker shutting down");
+      workerPool.stop();
+      log.info("Workers shutting down");
       try {
-        workerThread.join();
+        workerPool.join();
       } catch (InterruptedException e) {
         log.error("Interrupted", e);
       }

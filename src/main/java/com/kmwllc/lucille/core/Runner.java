@@ -146,9 +146,11 @@ public class Runner {
     List<Connector> connectors = Connector.fromConfig(config);
 
     for (Connector connector : connectors) {
-      LocalMessageManager manager = new LocalMessageManager();
+      LocalMessageManager manager = new LocalMessageManager(config);
+      WorkerMessageManagerFactory workerMessageManagerFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
 
-      boolean result = run(config, runner, connector, manager, manager, manager, true, false);
+      boolean result = run(config, runner, connector,
+        workerMessageManagerFactory, manager, manager, true, false);
       if (!result) {
         break;
       }
@@ -179,8 +181,10 @@ public class Runner {
       // to all three components; indeed, the same instance must be passed to the various components
       // so those components will see each other's messages
       PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+      WorkerMessageManagerFactory workerMessageManagerFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
       map.put(connector.getName(), manager);
-      boolean result = run(config, runner, connector, manager, manager, manager, true, true);
+      boolean result = run(config, runner, connector,
+        workerMessageManagerFactory, manager, manager, true, true);
       if (!result) {
         break;
       }
@@ -202,12 +206,12 @@ public class Runner {
     List<Connector> connectors = Connector.fromConfig(config);
     for (Connector connector : connectors) {
       String pipelineName = connector.getPipelineName();
-      WorkerMessageManager workerMessageManager =
-        startWorkerAndIndexer ? new KafkaWorkerMessageManager(config, pipelineName) : null;
+      WorkerMessageManagerFactory workerMessageManagerFactory =
+        startWorkerAndIndexer ? WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName) : null;
       IndexerMessageManager indexerMessageManager =
         startWorkerAndIndexer ? new KafkaIndexerMessageManager(config, pipelineName) : null;
       PublisherMessageManager publisherMessageManager = new KafkaPublisherMessageManager(config);
-      boolean result = run(config, runner, connector, workerMessageManager,
+      boolean result = run(config, runner, connector, workerMessageManagerFactory,
         indexerMessageManager, publisherMessageManager, startWorkerAndIndexer, false);
       if (!result) {
         break;
@@ -218,19 +222,23 @@ public class Runner {
   private static boolean run(Config config,
                              Runner runner,
                              Connector connector,
-                             WorkerMessageManager workerMessageManager,
+                             WorkerMessageManagerFactory workerMessageManagerFactory,
                              IndexerMessageManager indexerMessageManager,
                              PublisherMessageManager publisherMessageManager,
                              boolean startWorkerAndIndexer,
                              boolean bypassSolr) throws Exception {
 
     String pipelineName = connector.getPipelineName();
-    Worker worker = startWorkerAndIndexer ? Worker.startThread(config, workerMessageManager, pipelineName) : null;
+    WorkerPool workerPool = null;
+    if (startWorkerAndIndexer) {
+      workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory);
+      workerPool.start();
+    }
     Indexer indexer = startWorkerAndIndexer ? Indexer.startThread(config, indexerMessageManager, bypassSolr) : null;
     Publisher publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(), connector.getPipelineName());
     boolean result = runner.runConnector(connector, publisher);
-    if (worker != null) {
-      worker.terminate();
+    if (workerPool != null) {
+      workerPool.stop();
     }
     if (indexer != null) {
       indexer.terminate();

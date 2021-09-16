@@ -1,6 +1,9 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.message.LocalMessageManager;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -179,4 +182,35 @@ public class PublisherImplTest {
     assertEquals(3, publisher.numSucceeded());
   }
 
+  @Test
+  public void testBlockOnQueueCapacity() throws Exception {
+    Config config = ConfigFactory.parseString("publisher {queueCapacity: 5}");
+    LocalMessageManager manager = new LocalMessageManager(config);
+    PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1");
+
+    Thread publisherThread = new Thread() {
+      public void run() {
+        for (int i=0; i<100; i++) {
+          try {
+            publisher.publish(new Document("doc" + i));
+          } catch (Exception e) {
+            return;
+          }
+        }
+      }
+    };
+
+    // make sure that after running for a second, the publisher is able to
+    // publish up to the queue capacity but not further
+    publisherThread.start();
+    Thread.sleep(1000);
+    publisherThread.interrupt();
+    publisherThread.join();
+    assertEquals(5, publisher.numPublished());
+
+    // create space in the queue and make sure the publisher is able to publish another document
+    manager.pollDocToProcess();
+    publisher.publish(new Document("doc6"));
+    assertEquals(6, publisher.numPublished());
+  }
 }
