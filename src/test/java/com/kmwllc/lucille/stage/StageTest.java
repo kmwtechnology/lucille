@@ -93,7 +93,7 @@ public class StageTest {
     doc.setField("test", "some field");
     doc.setField("another", "some other field");
     stage.processConditional(doc);
-    assertTrue(doc.has("processed"));
+    assertFalse(doc.has("processed"));
   }
 
 }

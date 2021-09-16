@@ -5,6 +5,8 @@ import com.typesafe.config.Config;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * An operation that can be performed on a Document.
@@ -40,7 +42,10 @@ public abstract class Stage {
   }
 
   /**
-   * Determines if this Stage should process this Document based on the conditional execution parameters.
+   * Determines if this Stage should process this Document based on the conditional execution parameters. If no no
+   * conditionalFields are supplied in the config, the Stage will always execute. If none of the provided conditionalFields
+   * are present on the given document, this should behave the same as if the fields were present but none of the supplied
+   * values were found in the fields.
    *
    * @param doc the doc to determine processing for
    * @return  boolean representing - should we process?
@@ -48,12 +53,17 @@ public abstract class Stage {
   // TODO : Should this default to true always?
   public boolean shouldProcess(Document doc) {
     boolean ifFound = operator.equalsIgnoreCase("must");
+    List<String> validFields = conditionalFields.stream().filter(doc::has).collect(Collectors.toList());
 
-    if (conditionalFields.isEmpty() || conditionalFields.stream().noneMatch(doc::has)) {
+    if (conditionalFields.isEmpty()) {
+      return true;
+    }
+
+    if (validFields.isEmpty()) {
       return !ifFound;
     }
 
-    for (String field : conditionalFields) {
+    for (String field : validFields) {
       for (String value : doc.getStringList(field)) {
         if (conditionalValues.contains(value)) {
           return ifFound;
