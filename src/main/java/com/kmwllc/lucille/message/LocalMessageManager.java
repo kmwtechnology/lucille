@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Document;
+import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,8 +17,22 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   public static final int POLL_TIMEOUT_MS = 50;
 
   private final BlockingQueue<Event> pipelineEvents = new LinkedBlockingQueue<>();
-  private final BlockingQueue<Document> pipelineSource = new LinkedBlockingQueue<>();
+  private final BlockingQueue<Document> pipelineSource;
   private final BlockingQueue<Document> pipelineDest = new LinkedBlockingQueue<>();
+
+  public LocalMessageManager() {
+    this.pipelineSource = new LinkedBlockingQueue<>();
+  }
+
+  public LocalMessageManager(int capacity) {
+    this.pipelineSource = new LinkedBlockingQueue<>(capacity);
+  }
+
+  public LocalMessageManager(Config config) {
+    this.pipelineSource = config.hasPath("worker.queueCapacity") ?
+      new LinkedBlockingQueue<>(config.getInt("worker.queueCapacity")) :
+      new LinkedBlockingQueue<>();
+  }
 
   private String runId = null;
   private String pipelineName;
@@ -67,8 +82,8 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   @Override
-  public void sendForProcessing(Document document) {
-    pipelineSource.add(document);
+  public void sendForProcessing(Document document) throws Exception {
+    pipelineSource.put(document);
   }
 
   @Override

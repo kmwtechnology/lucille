@@ -68,7 +68,7 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
 
 
   @Override
-  public void sendForProcessing(Document document) {
+  public void sendForProcessing(Document document) throws Exception {
     savedSourceMessages.add(document);
     manager.sendForProcessing(document);
   }

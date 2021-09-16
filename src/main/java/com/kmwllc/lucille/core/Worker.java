@@ -1,7 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.message.IndexerMessageManager;
-import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaWorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManager;
 import com.typesafe.config.Config;
@@ -98,11 +96,11 @@ class Worker implements Runnable {
     log.info("Exiting");
   }
 
-  public static Worker startThread(Config config, WorkerMessageManager manager, String pipelineName) throws Exception {
+  public static WorkerThread startThread(Config config, WorkerMessageManager manager, String pipelineName) throws Exception {
     Worker worker = new Worker(config, manager, pipelineName);
-    Thread workerThread = new Thread(worker);
+    WorkerThread workerThread = new WorkerThread(worker);
     workerThread.start();
-    return worker;
+    return workerThread;
   }
 
   public static void main(String[] args) throws Exception {
