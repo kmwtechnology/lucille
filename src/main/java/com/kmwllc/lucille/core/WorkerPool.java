@@ -19,7 +19,7 @@ public class WorkerPool {
 
   private final Config config;
   private final String pipelineName;
-  private final int numWorkers;
+  private Integer numWorkers = null;
   private WorkerMessageManagerFactory workerMessageManagerFactory;
   private boolean started = false;
 
@@ -27,7 +27,14 @@ public class WorkerPool {
     this.config = config;
     this.pipelineName = pipelineName;
     this.workerMessageManagerFactory = factory;
-    this.numWorkers = config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
+    try {
+       this.numWorkers = Pipeline.getIntProperty(config, pipelineName, "threads");
+    } catch (PipelineException e) {
+      log.error("Error reading pipeline config", e);
+    }
+    if (this.numWorkers==null) {
+      this.numWorkers = config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
+    }
   }
 
   public void start() throws Exception {
@@ -47,6 +54,10 @@ public class WorkerPool {
     for (WorkerThread workerThread : threads) {
       workerThread.terminate();
     }
+  }
+
+  public int getNumWorkers() {
+    return numWorkers;
   }
 
 }
