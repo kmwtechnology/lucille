@@ -43,11 +43,7 @@ public class DatabaseConnector extends AbstractConnector {
 
   // The constructor that takes the config.
   public DatabaseConnector(Config config) {
-    // the config needs to be passed down here. let the base class handle parsing the 
-    // default stuff.
-    super(config.getString("name"), config.getString("pipeline"));
-    // TODO Prefer to just pass this:  (much cleaner)
-    // super(config);
+    super(config);
     // TODO: move to base class functionality
     // docIdPrefix = config.getString("docIdPrefix");
     driver = config.getString("driver");
