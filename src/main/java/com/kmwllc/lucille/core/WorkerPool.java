@@ -49,10 +49,16 @@ public class WorkerPool {
     }
   }
 
-  public void stop()  throws Exception {
+  public void stop() {
     log.info("Stopping " + threads.size() + " worker threads");
     for (WorkerThread workerThread : threads) {
       workerThread.terminate();
+    }
+  }
+
+  public void join() throws InterruptedException {
+    for (WorkerThread workerThread : threads) {
+      workerThread.join();
     }
   }
 
