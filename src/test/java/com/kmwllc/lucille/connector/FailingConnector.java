@@ -8,8 +8,7 @@ import com.typesafe.config.Config;
 public class FailingConnector extends AbstractConnector {
 
   public FailingConnector(Config config) {
-    super(config.hasPath("name") ? config.getString("name") : "FailingConnector",
-      config.getString("pipeline"));
+    super(config);
   }
 
   @Override

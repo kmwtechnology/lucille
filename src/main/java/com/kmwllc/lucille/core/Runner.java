@@ -3,9 +3,12 @@ package com.kmwllc.lucille.core;
 import com.kmwllc.lucille.message.*;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,8 +52,48 @@ public class Runner {
   private final String runId;
   private final int connectorTimeout;
 
+  /**
+   * Runs the configured connectors.
+   *
+   * no args: pipelines and indexers will be executed in separate threads within the same JVM; communication
+   * between components will take place in memory and Kafka will not be used
+   *
+   * -usekafka: connectors will be run, sending documents and receiving events via Kafka. Pipeline workers
+   * and indexers will not be run. The assumption is that these have been deployed as separate processes.
+   *
+   * -local: modifies -usekafka so that workers and indexers are started as separate threads within the same JVM;
+   * kafka is still used for communication between them.
+   *
+   */
   public static void main(String[] args) throws Exception {
-    runWithKafka("application.conf", true);
+
+    Options cliOptions = new Options()
+      .addOption(Option.builder("usekafka").hasArg(false)
+        .desc("Use Kafka for inter-component communication and don't execute pipelines locally").build())
+      .addOption(Option.builder("local").hasArg(false)
+        .desc("Modifies usekafka mode to execute pipelines locally").build());
+
+    CommandLine cli = null;
+    try {
+      cli = new DefaultParser().parse(cliOptions, args);
+    } catch (UnrecognizedOptionException | MissingOptionException e) {
+      try (StringWriter writer = new StringWriter();
+           PrintWriter printer = new PrintWriter(writer)) {
+
+        String header = "Run a sequence of connectors";
+        new HelpFormatter().printHelp(printer, 256, "Runner", header, cliOptions,
+          2, 10, "", true);
+        log.info(writer.toString());
+      }
+      System.exit(1);
+    }
+
+    if (cli.hasOption("usekafka")) {
+      runWithKafka(cli.hasOption("local"));
+    } else {
+      runLocal();
+    }
+
   }
 
   public Runner(Config config) throws Exception {
@@ -94,10 +137,36 @@ public class Runner {
    * config file. Stop the run if any of the connectors fails.
    *
    * Run in a local mode where message traffic is kept in memory and there is no
-   * communication with external systems like Kafka. Return a PersistingLocalMessageManager that
+   * communication with Kafka. Documents are sent to Solr as expected; sending to Solr is NOT bypassed.
+   */
+  public static void runLocal() throws Exception {
+
+    Config config = ConfigFactory.load();
+    Runner runner = new Runner(config);
+    List<Connector> connectors = Connector.fromConfig(config);
+
+    for (Connector connector : connectors) {
+      LocalMessageManager manager = new LocalMessageManager();
+
+      boolean result = run(config, runner, connector, manager, manager, manager, true, false);
+      if (!result) {
+        break;
+      }
+    }
+
+  }
+
+  /**
+   * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
+   * config file. Stop the run if any of the connectors fails.
+   *
+   * Run in a local mode where message traffic is kept in memory and there is no
+   * communication with external systems like Kafka. Sending to solr is bypassed.
+   *
+   * Return a PersistingLocalMessageManager that
    * can be used to review the messages that were sent between various components during the run.
    */
-  public static Map<String, PersistingLocalMessageManager> runLocal(String configName) throws Exception {
+  public static Map<String, PersistingLocalMessageManager> runInTestMode(String configName) throws Exception {
 
     Config config = ConfigFactory.load(configName);
     Runner runner = new Runner(config);
@@ -111,7 +180,7 @@ public class Runner {
       // so those components will see each other's messages
       PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
       map.put(connector.getName(), manager);
-      boolean result = run(config, runner, connector, manager, manager, manager, true);
+      boolean result = run(config, runner, connector, manager, manager, manager, true, true);
       if (!result) {
         break;
       }
@@ -127,8 +196,8 @@ public class Runner {
    * Run in Kafka mode where message traffic flows through the Kafka deployment defined
    * in the config.
    */
-  public static void runWithKafka(String configName, boolean startWorkerAndIndexer) throws Exception {
-    Config config = ConfigFactory.load(configName);
+  public static void runWithKafka(boolean startWorkerAndIndexer) throws Exception {
+    Config config = ConfigFactory.load();
     Runner runner = new Runner(config);
     List<Connector> connectors = Connector.fromConfig(config);
     for (Connector connector : connectors) {
@@ -139,7 +208,7 @@ public class Runner {
         startWorkerAndIndexer ? new KafkaIndexerMessageManager(config, pipelineName) : null;
       PublisherMessageManager publisherMessageManager = new KafkaPublisherMessageManager(config);
       boolean result = run(config, runner, connector, workerMessageManager,
-        indexerMessageManager, publisherMessageManager, startWorkerAndIndexer);
+        indexerMessageManager, publisherMessageManager, startWorkerAndIndexer, false);
       if (!result) {
         break;
       }
@@ -147,22 +216,23 @@ public class Runner {
   }
 
   private static boolean run(Config config,
-                          Runner runner,
-                          Connector connector,
-                          WorkerMessageManager workerMessageManager,
-                          IndexerMessageManager indexerMessageManager,
-                          PublisherMessageManager publisherMessageManager,
-                          boolean startWorkerAndIndexer) throws Exception {
+                             Runner runner,
+                             Connector connector,
+                             WorkerMessageManager workerMessageManager,
+                             IndexerMessageManager indexerMessageManager,
+                             PublisherMessageManager publisherMessageManager,
+                             boolean startWorkerAndIndexer,
+                             boolean bypassSolr) throws Exception {
 
     String pipelineName = connector.getPipelineName();
     Worker worker = startWorkerAndIndexer ? Worker.startThread(config, workerMessageManager, pipelineName) : null;
-    Indexer indexer = startWorkerAndIndexer ? Indexer.startThread(config, indexerMessageManager) : null;
+    Indexer indexer = startWorkerAndIndexer ? Indexer.startThread(config, indexerMessageManager, bypassSolr) : null;
     Publisher publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(), connector.getPipelineName());
     boolean result = runner.runConnector(connector, publisher);
-    if (worker!=null) {
+    if (worker != null) {
       worker.terminate();
     }
-    if (indexer!=null) {
+    if (indexer != null) {
       indexer.terminate();
     }
     return result;
