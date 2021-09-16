@@ -194,6 +194,7 @@ public class PublisherImplTest {
           try {
             publisher.publish(new Document("doc" + i));
           } catch (Exception e) {
+            return;
           }
         }
       }
@@ -204,6 +205,7 @@ public class PublisherImplTest {
     publisherThread.start();
     Thread.sleep(1000);
     publisherThread.interrupt();
+    publisherThread.join();
     assertEquals(5, publisher.numPublished());
 
     // create space in the queue and make sure the publisher is able to publish another document
