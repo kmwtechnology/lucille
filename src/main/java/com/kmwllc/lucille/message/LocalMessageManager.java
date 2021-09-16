@@ -29,8 +29,8 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   public LocalMessageManager(Config config) {
-    this.pipelineSource = config.hasPath("worker.queueCapacity") ?
-      new LinkedBlockingQueue<>(config.getInt("worker.queueCapacity")) :
+    this.pipelineSource = config.hasPath("publisher.queueCapacity") ?
+      new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity")) :
       new LinkedBlockingQueue<>();
   }
 
