@@ -39,4 +39,21 @@ public class ConcatenateTest {
     assertEquals("San Francisco, California, US", doc3.getStringList("dest").get(0));
   }
 
+  @Test
+  public void testConcatenateWDefaults() throws Exception {
+    Config config = ConfigFactory.load("ConcatenateTest/defaults.conf");
+    Stage stage = new Concatenate(config);
+    stage.start();
+
+    Document doc1 = new Document("doc1");
+    stage.processDocument(doc1);
+    assertEquals("{city}, MA, U.S.", doc1.getStringList("dest").get(0));
+
+    Document doc2 = new Document("doc2");
+    doc2.setField("country", "Canada");
+    doc2.setField("city", "Toronto");
+    stage.processDocument(doc2);
+    assertEquals("Toronto, MA, Canada", doc2.getString("dest"));
+  }
+
 }
