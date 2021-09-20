@@ -51,26 +51,25 @@ public abstract class Stage {
    * @return  boolean representing - should we process?
    */
   public boolean shouldProcess(Document doc) {
-    boolean ifFound = operator.equalsIgnoreCase("must");
-    List<String> validFields = conditionalFields.stream().filter(doc::has).collect(Collectors.toList());
+    boolean resultWhenValueFound = operator.equalsIgnoreCase("must");
 
     if (conditionalFields.isEmpty()) {
       return true;
     }
 
-    if (validFields.isEmpty()) {
-      return !ifFound;
-    }
+    for (String field : conditionalFields) {
+      if (!doc.has(field)) {
+        continue;
+      }
 
-    for (String field : validFields) {
       for (String value : doc.getStringList(field)) {
         if (conditionalValues.contains(value)) {
-          return ifFound;
+          return resultWhenValueFound;
         }
       }
     }
 
-    return !ifFound;
+    return !resultWhenValueFound;
   }
 
   /**

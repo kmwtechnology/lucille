@@ -96,4 +96,16 @@ public class StageTest {
     assertFalse(doc.has("processed"));
   }
 
+  @Test
+  public void testProcessNoCondFieldMustNot() throws Exception {
+    Config config = ConfigFactory.load("StageTest/multiCondFieldMustNot.conf");
+    Stage stage = new MockStage(config);
+
+    Document doc = new Document("doc");
+    doc.setField("test", "some field");
+    doc.setField("another", "some other field");
+    stage.processConditional(doc);
+    assertTrue(doc.has("processed"));
+  }
+
 }
