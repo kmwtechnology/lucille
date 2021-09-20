@@ -140,11 +140,6 @@
             </configuration>
           </execution>
         </executions>
-        <configuration>
-          <systemPropertyVariables>
-            <jacoco-agent.destfile>target/jacoco.exec</jacoco-agent.destfile>
-          </systemPropertyVariables>
-        </configuration>
       </plugin> 
     </plugins>
 
@@ -179,7 +174,6 @@
 
 
   <dependencies>
-
     <dependency>
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka-clients</artifactId>
@@ -212,8 +206,6 @@
       <artifactId>batik-all</artifactId>
       <version>1.13</version>
     </dependency>
-
-
 
     <!-- configuration management library -->
     <dependency>

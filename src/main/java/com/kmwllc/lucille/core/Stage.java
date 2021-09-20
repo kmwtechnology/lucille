@@ -50,7 +50,6 @@ public abstract class Stage {
    * @param doc the doc to determine processing for
    * @return  boolean representing - should we process?
    */
-  // TODO : Should this default to true always?
   public boolean shouldProcess(Document doc) {
     boolean ifFound = operator.equalsIgnoreCase("must");
     List<String> validFields = conditionalFields.stream().filter(doc::has).collect(Collectors.toList());
