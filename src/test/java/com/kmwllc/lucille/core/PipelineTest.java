@@ -84,7 +84,24 @@ public class PipelineTest {
 
     assertEquals(expected.size(), results.size());
     assertTrue(results.containsAll(expected));
+  }
 
+  @Test
+  public void testConditional() throws Exception {
+    String s = "pipelines = [{name:\"pipeline1\", " +
+        "stages: " +
+        "[{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\", conditional_field:[\"cond\"], conditional_values:[\"abc\", \"123\"], conditional_operator:\"must\"}," +
+        "{class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\", conditional_field:[\"cond\"], conditional_values:[\"have\", \"test\"], conditional_operator:\"must\"}]}]";
+    Config config = ConfigFactory.parseString(s);
+    Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1");
+
+    Document doc = new Document("doc");
+    doc.setField("cond", "123");
+    pipeline.processDocument(doc);
+
+    assertTrue(doc.has("s1"));
+    assertEquals("v1", doc.getString("s1"));
+    assertFalse(doc.has("s4"));
   }
 
   private static class Stage1 extends Stage {

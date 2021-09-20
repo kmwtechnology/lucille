@@ -13,6 +13,7 @@ import com.kmwllc.lucille.core.UpdateMode;
 
 import java.io.File;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 
@@ -61,25 +62,19 @@ public class DetectLanguage extends Stage {
     this.updateMode = UpdateMode.fromConfig(config);
   }
 
-  @Override
-  public void start() throws StageException {
-    StageUtils.validateFieldNumNotZero(sourceFields, "Detect Language");
-
-    String profilesPath = FileUtils.getLucilleHomeDirectory() + "/DetectLanguage/profiles";
-    File profileDir = new File(profilesPath);
-
+  private static synchronized void copyResources(File profDir, String profilesPath) throws StageException {
     // If the profiles directory does not exist, try to create it.
-    if (!profileDir.exists()) {
-      if (!profileDir.mkdirs()) {
+    if (!profDir.exists()) {
+      if (!profDir.mkdirs()) {
         throw new StageException("Unable to create profiles directory for storing Language Detection profiles.");
       }
 
       // Copy the profiles from the classpath resources to the local file system.
       try {
         for (String profile : profiles) {
-          InputStream profileStream = getClass().getClassLoader().getResourceAsStream(profileResourcesLoc + "/" + profile);
+          InputStream profileStream = DetectLanguage.class.getClassLoader().getResourceAsStream(profileResourcesLoc + "/" + profile);
           File profFile = new File(profilesPath + "/" + profile);
-          java.nio.file.Files.copy(
+          Files.copy(
               profileStream,
               profFile.toPath(),
               StandardCopyOption.REPLACE_EXISTING);
@@ -89,6 +84,16 @@ public class DetectLanguage extends Stage {
         throw new StageException("Unable to copy profiles from resources to local file system." ,e);
       }
     }
+  }
+
+  @Override
+  public void start() throws StageException {
+    StageUtils.validateFieldNumNotZero(sourceFields, "Detect Language");
+
+    String profilesPath = FileUtils.getLucilleHomeDirectory() + "/DetectLanguage/profiles";
+    File profileDir = new File(profilesPath);
+
+    copyResources(profileDir, profilesPath);
 
     // Load the profiles
     try {

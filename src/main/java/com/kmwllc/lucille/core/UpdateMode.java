@@ -21,7 +21,7 @@ public enum UpdateMode {
       }
     }
 
-    return null;
+    return DEFAULT;
   }
 
   public static UpdateMode fromConfig(Config config) {
