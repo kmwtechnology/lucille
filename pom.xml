@@ -140,6 +140,8 @@
             </configuration>
           </execution>
         </executions>
+        <configuration>
+        </configuration>
       </plugin> 
     </plugins>
 
@@ -174,6 +176,7 @@
 
 
   <dependencies>
+
     <dependency>
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka-clients</artifactId>

@@ -72,6 +72,25 @@ public class Pipeline {
     throw new PipelineException("No pipeline found with name: " + name);
   }
 
+  public static Integer getIntProperty(Config config, String pipelineName, String propertyName) throws PipelineException {
+    if (!config.hasPath("pipelines")) {
+      throw new PipelineException("No pipelines element present in config");
+    }
+    List<? extends Config> pipelines = config.getConfigList("pipelines");
+    for (Config pipeline : pipelines) {
+      if (!pipeline.hasPath("name")) {
+        continue;
+      }
+      if (pipelineName.equals(pipeline.getString("name"))) {
+        if (pipeline.hasPath(propertyName)) {
+          return pipeline.getInt(propertyName);
+        }
+        return null;
+      }
+    }
+    return null;
+  }
+
   /**
    * Passes a Document through the designated sequence of stages and returns a list containing
    * the input Document as the first element, along with any child documents generated.
