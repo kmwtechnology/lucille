@@ -4,7 +4,7 @@
         <Console name="console" target="SYSTEM_OUT">
             <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n" />
         </Console>
-        <RollingFile name="file" fileName="/var/log/pipeline.log" filePattern="/var/log/pipeline-%i.log">
+        <RollingFile name="file" fileName="./log/lucille.log" filePattern="./log/lucille-%i.log">
             <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n" />
             <Policies>
                 <SizeBasedTriggeringPolicy size="10 MB" />

@@ -134,7 +134,7 @@ public class DatabaseConnector extends AbstractConnector {
     
     while (rs.next()) {
       // Need the ID column from the RS.
-      String id = rs.getString(idColumn);
+      String id = createDocId(rs.getString(idColumn));
       
       Document doc = new Document(id);
       

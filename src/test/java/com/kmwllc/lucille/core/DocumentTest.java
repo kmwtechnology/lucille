@@ -309,4 +309,37 @@ public class DocumentTest {
     assertEquals(2, ((List<Object>)map.get("myBooleanField")).size());
   }
 
+  @Test(expected = Exception.class)
+  public void testSetDocIdFails() {
+    Document document = new Document("id1");
+    document.setField(Document.ID_FIELD, "id2");
+  }
+
+  @Test(expected = Exception.class)
+  public void testAddToDocIdFails() {
+    Document document = new Document("id1");
+    document.addToField(Document.ID_FIELD, "id2");
+  }
+
+  @Test(expected = Exception.class)
+  public void testUpdateDocIdFails() {
+    Document document = new Document("id1");
+    document.update(Document.ID_FIELD, UpdateMode.OVERWRITE,"id2");
+  }
+
+  @Test(expected = Exception.class)
+  public void testSetRunIdFails() {
+    Document document = new Document("id1");
+    document.initializeRunId("run_id1");
+    document.setField(Document.RUNID_FIELD, "id2");
+  }
+
+  @Test(expected = Exception.class)
+  public void testReInitializeRunIdFails() {
+    Document document = new Document("id1");
+    document.initializeRunId("run_id1");
+    document.initializeRunId("run_id2");
+  }
+
+
 }

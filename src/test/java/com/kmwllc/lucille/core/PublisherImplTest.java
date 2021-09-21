@@ -120,7 +120,7 @@ public class PublisherImplTest {
     assertEquals(1, publisher.numPublished());
     assertEquals(1, publisher.numPending());
 
-    publisher.publish(doc);
+    publisher.publish(new Document("doc1"));
     assertEquals(2, publisher.numPublished());
     assertEquals(2, publisher.numPending());
 

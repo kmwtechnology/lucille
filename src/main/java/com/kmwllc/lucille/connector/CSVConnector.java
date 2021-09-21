@@ -48,12 +48,11 @@ public class CSVConnector extends AbstractConnector {
           continue;
         }
 
-        String docId = line[0];
-        Document doc = new Document(docId);
+        Document doc = new Document(createDocId(line[0]));
         doc.setField("source", path);
 
         int maxIndex = Math.min(header.length, line.length);
-        for (int i = 0; i < maxIndex; i++) {
+        for (int i = 1; i < maxIndex; i++) {
           if (line[i] != null) {
             doc.setField(header[i], line[i]);
             doc.setField("csvLineNumber", lineNum);
