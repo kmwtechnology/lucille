@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.Connector;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.typesafe.config.Config;
 
 public abstract class AbstractConnector implements Connector {
@@ -19,6 +20,10 @@ public abstract class AbstractConnector implements Connector {
 
   public String getPipelineName() {
     return pipelineName;
+  }
+
+  public void performPostCompletionActions() throws ConnectorException {
+    // by default this method is a no-op
   }
 
 }

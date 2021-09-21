@@ -127,6 +127,13 @@ public class Runner {
 
     publisher.close();
 
+    try {
+      connector.performPostCompletionActions();
+    } catch (ConnectorException e) {
+      log.error("Connector failed to perform post completion actions.", e);
+      return false;
+    }
+
     log.info("Connector complete: " + connector.getName());
 
     return result;

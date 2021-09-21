@@ -7,7 +7,6 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
-import org.mockito.Mock;
 
 import java.util.List;
 
@@ -107,5 +106,4 @@ public class StageTest {
     stage.processConditional(doc);
     assertTrue(doc.has("processed"));
   }
-
 }
