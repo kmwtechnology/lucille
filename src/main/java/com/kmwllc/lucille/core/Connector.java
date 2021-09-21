@@ -32,6 +32,8 @@ public interface Connector {
 
   String getPipelineName();
 
+  void performPostCompletionActions() throws ConnectorException;
+
   /**
    * Instantiates a list of Connectors from the designated Config.
    */
