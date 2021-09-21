@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.connector.FailingPostCompletionCSVConnector;
+import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -217,6 +219,28 @@ public class RunnerTest {
   public void testThreeConnectorsWithFailure() throws Exception {
     Map<String, PersistingLocalMessageManager> map =
       Runner.runInTestMode("RunnerTest/threeConnectorsWithFailure.conf");
+    assertEquals(2, map.size());
+  }
+
+  /**
+   * Test that the post completion events occur after all of the documents have been fully processed.
+   */
+  @Test
+  public void testPostCompletionActions() throws Exception {
+    PersistingLocalMessageManager manager = Runner.runInTestMode("RunnerTest/postCompletionActions.conf").get("connector1");
+    assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
+    List<Document> docs = manager.getSavedCompletedDocuments();
+    Instant stageInstant = Instant.parse(docs.get(0).getString("timestamp"));
+    Instant postCompletionInstant = PostCompletionCSVConnector.getPostCompletionInstant();
+    assertTrue(postCompletionInstant.isAfter(stageInstant));
+  }
+
+  /**
+   * Ensure that if post completion events fail, further connectors in the pipeline will not run.
+   */
+  @Test
+  public void testFailingPostCompletionActions() throws Exception {
+    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/failingPostCompletionActions.conf");
     assertEquals(2, map.size());
   }
 
