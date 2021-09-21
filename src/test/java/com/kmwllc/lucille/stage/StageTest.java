@@ -108,4 +108,16 @@ public class StageTest {
     assertTrue(doc.has("processed"));
   }
 
+  public void testGetName() throws Exception {
+    Config config = ConfigFactory.load("StageTest/name.conf");
+    Stage stage = new MockStage(config);
+    assertEquals("name1", stage.getName());
+  }
+
+  public void testGetNameDefault() throws Exception {
+    Config config = ConfigFactory.empty();
+    Stage stage = new MockStage(config);
+    assertEquals(Stage.DEFAULT_NAME, stage.getName());
+  }
+
 }

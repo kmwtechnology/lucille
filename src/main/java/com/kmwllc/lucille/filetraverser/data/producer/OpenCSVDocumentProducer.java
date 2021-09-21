@@ -46,13 +46,11 @@ public class OpenCSVDocumentProducer implements DocumentProducer {
           continue;
         }
 
-        Document doc = parent.clone();
-
         // assume first column holds the ID
-        doc.setField(Document.ID_FIELD, line[0]);
+        Document doc = parent.cloneWithNewId(line[0]);
 
         int maxIndex = Math.min(header.length,line.length);
-        for (int i=0;i<maxIndex;i++) {
+        for (int i=1;i<maxIndex;i++) {
           if (line[i]!=null) {
             doc.setField(header[i], line[i]);
             doc.setField("csvLineNumber", lineNum);
