@@ -227,7 +227,7 @@ public class RunnerTest {
    */
   @Test
   public void testPostCompletionActions() throws Exception {
-    PersistingLocalMessageManager manager = Runner.runInTestMode("RunnerTest/PostCompletionActions.conf").get("connector1");
+    PersistingLocalMessageManager manager = Runner.runInTestMode("RunnerTest/postCompletionActions.conf").get("connector1");
     assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
     List<Document> docs = manager.getSavedCompletedDocuments();
     Instant stageInstant = Instant.parse(docs.get(0).getString("timestamp"));
