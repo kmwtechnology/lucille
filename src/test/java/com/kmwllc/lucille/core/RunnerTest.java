@@ -242,7 +242,6 @@ public class RunnerTest {
   public void testFailingPostCompletionActions() throws Exception {
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/failingPostCompletionActions.conf");
     assertEquals(2, map.size());
-    assertFalse(FailingPostCompletionCSVConnector.didPostCompletionActionsOccur());
   }
 
 }

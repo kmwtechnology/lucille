@@ -10,8 +10,6 @@ import com.typesafe.config.Config;
  */
 public class FailingPostCompletionCSVConnector extends CSVConnector {
 
-  // Static variable to determine if the completion actions occurred.
-  private static boolean completionActionsOccurred = false;
 
   public FailingPostCompletionCSVConnector(Config config) {
     super(config);
@@ -22,9 +20,5 @@ public class FailingPostCompletionCSVConnector extends CSVConnector {
   @Override
   public void performPostCompletionActions() throws ConnectorException {
     throw new ConnectorException("Expected");
-  }
-
-  public static boolean didPostCompletionActionsOccur() {
-    return completionActionsOccurred;
   }
 }
