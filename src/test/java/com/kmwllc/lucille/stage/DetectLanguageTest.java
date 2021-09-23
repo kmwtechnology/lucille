@@ -9,11 +9,11 @@ import static org.junit.Assert.*;
 
 public class DetectLanguageTest {
 
+  private StageFactory factory = StageFactory.of(DetectLanguage.class);
+
   @Test
   public void testDetectLanguage() throws Exception {
-    Config config = ConfigFactory.load("DetectLanguageTest/config.conf");
-    Stage stage = new DetectLanguage(config);
-    stage.start();
+    Stage stage = factory.get("DetectLanguageTest/config.conf");
 
     // Ensure that the correct language is detected for field pair 1.
     Document doc = new Document("doc");

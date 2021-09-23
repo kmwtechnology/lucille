@@ -24,15 +24,18 @@ import java.util.stream.Stream;
  */
 public abstract class Stage {
 
+  public static final String DEFAULT_NAME = "nameNotSet";
+
   protected Config config;
   private final List<String> conditionalFields;
   private final List<String> conditionalValues;
   private final String operator;
+  private String name;
 
   // TODO : Debug mode
   public Stage(Config config) {
     this.config = config;
-
+    this.name = StageUtils.configGetOrDefault(config, "name", DEFAULT_NAME);
     this.conditionalFields = StageUtils.configGetOrDefault(config, "conditional_field", new ArrayList<>());
     this.conditionalValues = StageUtils.configGetOrDefault(config, "conditional_values", new ArrayList<>());
     this.operator = StageUtils.configGetOrDefault(config, "conditional_operator", "must");
@@ -97,5 +100,13 @@ public abstract class Stage {
    * instead of a List.
    */
   public abstract List<Document> processDocument(Document doc) throws StageException;
+
+  public String getName() {
+    return name;
+  }
+
+  public Config getConfig() {
+    return config;
+  }
 
 }

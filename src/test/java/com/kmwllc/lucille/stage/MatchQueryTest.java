@@ -14,14 +14,12 @@ import static junit.framework.TestCase.*;
 @RunWith(JUnit4.class)
 public class MatchQueryTest {
 
+  private StageFactory factory = StageFactory.of(MatchQuery.class);
+
   @Test
   public void testMatchQueryStage() throws Exception {
-    Config config = ConfigFactory.load("MatchQueryTest/config.conf");
-    
-    Stage matchQueryStage = new MatchQuery(config);
-    matchQueryStage.start();
-    
-    String matchedQueriesField = config.getString(MatchQuery.MATCHEDQUERIES_PARAM);
+    Stage matchQueryStage = factory.get("MatchQueryTest/config.conf");
+    String matchedQueriesField = matchQueryStage.getConfig().getString(MatchQuery.MATCHEDQUERIES_PARAM);
 
     Document d1 = new Document("d1");
     d1.setField("content", "giraffe");

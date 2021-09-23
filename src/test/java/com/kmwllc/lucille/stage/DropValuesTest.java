@@ -9,11 +9,11 @@ import static org.junit.Assert.*;
 
 public class DropValuesTest {
 
+  private StageFactory factory = StageFactory.of(DropValues.class);
+
   @Test
   public void testDropValues() throws Exception {
-    Config config = ConfigFactory.load("DropValuesTest/config.conf");
-    Stage stage = new DropValues(config);
-    stage.start();
+    Stage stage = factory.get("DropValuesTest/config.conf");
 
     // Ensure that only exact matches are dropped
     Document doc = new Document("doc");

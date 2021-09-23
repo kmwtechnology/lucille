@@ -74,7 +74,7 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public void publish(Document document) throws Exception {
-    document.setField("run_id", runId);
+    document.initializeRunId(runId);
     manager.sendForProcessing(document);
     docIdsToTrack.add(document.getId());
     meter.mark();

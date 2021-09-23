@@ -22,7 +22,7 @@ import java.util.function.Consumer;
 public class Document implements Cloneable {
 
   public static final String ID_FIELD = "id";
-  private static final String RUNID_FIELD = "run_id";
+  public static final String RUNID_FIELD = "run_id";
   public static final String ERROR_FIELD = "errors";
   public static final String CHILDREN_FIELD = ".children";
 
@@ -64,10 +64,12 @@ public class Document implements Cloneable {
   }
 
   public void removeField(String name) {
+    validateNotReservedField(name);
     data.remove(name);
   }
 
   public void removeFromArray(String name, int index) {
+    validateNotReservedField(name);
     data.withArray(name).remove(index);
   }
 
@@ -114,6 +116,8 @@ public class Document implements Cloneable {
    */
   private void update(String name, UpdateMode mode, Consumer setter, Consumer adder, Object... values) {
 
+    validateNotReservedField(name);
+
     if (values.length == 0)
       return;
 
@@ -131,25 +135,42 @@ public class Document implements Cloneable {
     }
   }
 
+  public void initializeRunId(String value) {
+    if (data.has(RUNID_FIELD)) {
+      throw new IllegalStateException();
+    }
+    data.put(RUNID_FIELD, value);
+  }
+
+
   public void setField(String name, String value) {
+    validateNotReservedField(name);
     data.put(name, value);
   }
 
   public void setField(String name, Long value) {
+    validateNotReservedField(name);
     data.put(name, value);
   }
 
   public void setField(String name, Integer value) {
+    validateNotReservedField(name);
     data.put(name, value);
   }
 
   public void setField(String name, Boolean value) {
+    validateNotReservedField(name);
     data.put(name, value);
   }
 
-  public void setField(String name, Double value) { data.put(name, value);}
+  public void setField(String name, Double value) {
+    validateNotReservedField(name);
+    data.put(name, value);
+  }
 
   public void renameField(String oldName, String newName, UpdateMode mode) {
+    validateNotReservedField(oldName);
+    validateNotReservedField(newName);
     JsonNode oldValues = data.get(oldName);
     data.remove(oldName);
 
@@ -245,30 +266,35 @@ public class Document implements Cloneable {
   }
 
   public void addToField(String name, String value) {
+    validateNotReservedField(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
   }
 
   public void addToField(String name, Long value) {
+    validateNotReservedField(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
   }
 
   public void addToField(String name, Integer value) {
+    validateNotReservedField(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
   }
 
   public void addToField(String name, Boolean value) {
+    validateNotReservedField(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
   }
 
   public void addToField(String name, Double value) {
+    validateNotReservedField(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
@@ -315,5 +341,16 @@ public class Document implements Cloneable {
       throw new IllegalStateException("Document not cloneable", e);
     }
   }
-  
+
+  public Document cloneWithNewId(String newId) {
+    Document doc = clone();
+    doc.data.put(Document.ID_FIELD, newId);
+    return doc;
+  }
+
+  private void validateNotReservedField(String name) {
+    if (ID_FIELD.equals(name) || RUNID_FIELD.equals(name) || CHILDREN_FIELD.equals(name)) {
+      throw new IllegalArgumentException();
+    }
+  }
 }

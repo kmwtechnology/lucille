@@ -9,11 +9,11 @@ import static org.junit.Assert.*;
 
 public class CreateStaticTeaserTest {
 
+  private StageFactory factory = StageFactory.of(CreateStaticTeaser.class);
+
   @Test
   public void testCreateStaticTeaser() throws Exception {
-    Config config = ConfigFactory.load("CreateStaticTeaserTest/config.conf");
-    Stage stage = new CreateStaticTeaser(config);
-    stage.start();
+    Stage stage = factory.get("CreateStaticTeaserTest/config.conf");
 
     // Ensure that if the field value is shorter than max length, the entire value is piped into the destination field
     Document doc = new Document("doc");
