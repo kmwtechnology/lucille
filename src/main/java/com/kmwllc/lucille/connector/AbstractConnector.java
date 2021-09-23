@@ -12,7 +12,7 @@ public abstract class AbstractConnector implements Connector {
 
   public AbstractConnector(Config config) {
     this.name = config.getString("name");
-    this.pipelineName = config.getString("pipeline");
+    this.pipelineName = config.hasPath("pipeline") ? config.getString("pipeline") : null;
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
   }
 

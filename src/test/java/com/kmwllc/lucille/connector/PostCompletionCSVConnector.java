@@ -12,7 +12,7 @@ public class PostCompletionCSVConnector extends CSVConnector {
 
   // Create static fields on the class that we can access from within our tests.
   private static boolean completionActionsOccurred = false;
-  private static Instant postCompletionInstant;
+  private static Instant postCompletionInstant = null;
 
   public PostCompletionCSVConnector(Config config) {
     super(config);
@@ -31,4 +31,9 @@ public class PostCompletionCSVConnector extends CSVConnector {
     return completionActionsOccurred;
   }
   public static Instant getPostCompletionInstant() {return postCompletionInstant;}
+
+  public static void reset() {
+    completionActionsOccurred = false;
+    postCompletionInstant = null;
+  }
 }
