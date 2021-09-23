@@ -1,12 +1,9 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * An operation that can be performed on a Document.
@@ -35,10 +32,10 @@ public abstract class Stage {
   // TODO : Debug mode
   public Stage(Config config) {
     this.config = config;
-    this.name = StageUtils.configGetOrDefault(config, "name", DEFAULT_NAME);
-    this.conditionalFields = StageUtils.configGetOrDefault(config, "conditional_field", new ArrayList<>());
-    this.conditionalValues = StageUtils.configGetOrDefault(config, "conditional_values", new ArrayList<>());
-    this.operator = StageUtils.configGetOrDefault(config, "conditional_operator", "must");
+    this.name = ConfigUtils.getOrDefault(config, "name", DEFAULT_NAME);
+    this.conditionalFields = ConfigUtils.getOrDefault(config, "conditional_field", new ArrayList<>());
+    this.conditionalValues = ConfigUtils.getOrDefault(config, "conditional_values", new ArrayList<>());
+    this.operator = ConfigUtils.getOrDefault(config, "conditional_operator", "must");
   }
 
   public void start() throws StageException {

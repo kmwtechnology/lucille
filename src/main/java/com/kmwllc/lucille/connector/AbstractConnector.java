@@ -12,7 +12,7 @@ public abstract class AbstractConnector implements Connector {
 
   public AbstractConnector(Config config) {
     this.name = config.getString("name");
-    this.pipelineName = config.getString("pipeline");
+    this.pipelineName = config.hasPath("pipeline") ? config.getString("pipeline") : null;
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
   }
 
@@ -36,8 +36,12 @@ public abstract class AbstractConnector implements Connector {
     return docIdPrefix + id;
   }
 
-  public void performPostCompletionActions() throws ConnectorException {
-    // by default this method is a no-op
+  public void postExecute(String runId) throws ConnectorException {
+    // no-op
+  }
+
+  public void preExecute(String runId) throws ConnectorException {
+    // no-op
   }
 
 }

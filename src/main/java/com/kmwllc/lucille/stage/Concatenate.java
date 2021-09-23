@@ -1,10 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
-import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import org.apache.commons.lang.text.StrSubstitutor;
 
@@ -42,7 +39,7 @@ public class Concatenate extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");
-    defaultInputs = StageUtils.configGetOrDefault(config, "default_inputs", new HashMap<>());
+    defaultInputs = ConfigUtils.getOrDefault(config, "default_inputs", new HashMap<>());
     // defaultInputs = set.stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue));
     this.updateMode = UpdateMode.fromConfig(config);
   }

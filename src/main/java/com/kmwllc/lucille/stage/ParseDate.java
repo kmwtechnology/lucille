@@ -1,10 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
-import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
 import java.lang.reflect.Constructor;
@@ -46,7 +43,7 @@ public class ParseDate extends Stage {
     super(config);
 
     this.formatters = new ArrayList<>();
-    this.formatStrings = StageUtils.<List<String>>configGetOrDefault(config, "format_strs", new ArrayList<>());
+    this.formatStrings = ConfigUtils.getOrDefault(config, "format_strs", new ArrayList<>());
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.updateMode = UpdateMode.fromConfig(config);
