@@ -150,7 +150,7 @@ public class PublisherImpl implements Publisher {
       // 2) all published Documents and their children are accounted for (none are pending),
       // 3) there are no more Events relating to the current run to consume
       if (!thread.isAlive() && !hasPending() && !manager.hasEvents()) {
-        log.info(String.format("Pipeline %s finished publishing its documents. In total, it published %d documents and " +
+        log.info(String.format("Pipeline %s finished processing its documents. In total, it processed %d documents and " +
             "created %d child documents. The publisher received success events for %d documents and failure events for %d documents",
             pipelineName, numPublished, numCreated, numSucceeded, numFailed));
         log.info("Documents were published at a rate of " + meter.getMeanRate() + " documents/second.");

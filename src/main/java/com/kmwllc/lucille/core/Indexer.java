@@ -5,7 +5,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
-import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
@@ -33,8 +32,10 @@ class Indexer implements Runnable {
 
   private Config config;
 
-  private int numIndexed;
-  private final int docSetSize;
+  private long numIndexed;
+
+  // Determines the number of documents which must be indexed in between each metric info log.
+  private final int logRate;
 
   private final MetricRegistry metrics;
   private final Meter meter;
@@ -55,7 +56,7 @@ class Indexer implements Runnable {
     } else {
       this.solrClient = new HttpSolrClient.Builder(config.getString("solr.url")).build();
     }
-    this.docSetSize = ConfigAccessor.getOrDefault(config, "indexer.docSetSize", 1000);
+    this.logRate = ConfigAccessor.getOrDefault(config, "indexer.logRate", 1000);
     this.metrics = SharedMetricRegistries.getOrCreate("default");
     this.meter = metrics.meter("indexer.meter");
   }
@@ -125,7 +126,7 @@ class Indexer implements Runnable {
       sendToSolr(batchedDocs);
       meter.mark(batchedDocs.size());
 
-      if (numIndexed % docSetSize == 0) {
+      if (numIndexed % logRate == 0) {
         log.info(String.format("%d documents have been indexed so far. Documents are currently being indexed at a rate of %.2f documents/second",
             meter.getCount(), meter.getFiveMinuteRate()));
       }
