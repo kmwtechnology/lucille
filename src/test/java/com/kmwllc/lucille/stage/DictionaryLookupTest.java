@@ -41,15 +41,4 @@ public class DictionaryLookupTest {
     stage.processDocument(doc3);
     assertNull(doc3.getStringList("output2"));
   }
-
-  @Test
-  public void testCorpRecDict() throws Exception {
-    Config config = ConfigFactory.load("DictionaryLookupTest/corpRecDict.conf");
-    Stage stage = new DictionaryLookup(config);
-
-    Document doc1 = new Document("doc1");
-    doc1.setField("input1", "CX");
-    stage.processDocument(doc1);
-    assertEquals("Christmas Island", doc1.getString("output1"));
-  }
 }

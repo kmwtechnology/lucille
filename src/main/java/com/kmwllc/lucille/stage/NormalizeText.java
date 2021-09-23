@@ -67,16 +67,6 @@ public class NormalizeText extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Normalize Text");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Normalize Text");
 
-    setMode(mode);
-  }
-
-  /**
-   * Set the mode of this Stage. This method is used to facilitate testing, it should likely not be used in the normal
-   * operation of the Stage.
-   *
-   * @param mode  The mode to switch to
-   */
-  protected void setMode(String mode) throws StageException {
     this.mode = mode;
 
     switch (mode.toLowerCase()) {
