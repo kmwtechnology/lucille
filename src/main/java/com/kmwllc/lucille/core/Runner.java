@@ -282,6 +282,9 @@ public class Runner {
       workerPool.start();
       IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
       indexer = Indexer.startThread(config, indexerMessageManager, bypassSolr);
+    }
+
+    if (connector.getPipelineName() != null) {
       PublisherMessageManager publisherMessageManager = publisherMessageManagerFactory.create();
       publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(), connector.getPipelineName());
     }
