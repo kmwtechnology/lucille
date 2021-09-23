@@ -51,10 +51,10 @@ public class ReplacePatterns extends Stage {
     this.replacement = config.getString("replacement");
     this.updateMode = UpdateMode.fromConfig(config);
 
-    this.ignoreCase = ConfigAccessor.getOrDefault(config, "ignore_case", false);
-    this.multiline = ConfigAccessor.getOrDefault(config, "multiline", false);
-    this.dotall = ConfigAccessor.getOrDefault(config, "dotall", false);
-    this.literal = ConfigAccessor.getOrDefault(config, "literal", false);
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
+    this.multiline = ConfigUtils.getOrDefault(config, "multiline", false);
+    this.dotall = ConfigUtils.getOrDefault(config, "dotall", false);
+    this.literal = ConfigUtils.getOrDefault(config, "literal", false);
   }
 
   @Override

@@ -56,7 +56,7 @@ class Indexer implements Runnable {
     } else {
       this.solrClient = new HttpSolrClient.Builder(config.getString("solr.url")).build();
     }
-    this.logRate = ConfigAccessor.getOrDefault(config, "indexer.logRate", 1000);
+    this.logRate = ConfigUtils.getOrDefault(config, "indexer.logRate", 1000);
     this.metrics = SharedMetricRegistries.getOrCreate("default");
     this.meter = metrics.meter("indexer.meter");
   }
@@ -185,7 +185,7 @@ class Indexer implements Runnable {
   }
 
   public static void main(String[] args) throws Exception {
-    Config config = ConfigAccessor.loadConfig();
+    Config config = ConfigUtils.loadConfig();
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
     log.info("Starting Indexer for pipeline: " + pipelineName);
     IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);

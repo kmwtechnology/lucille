@@ -6,11 +6,11 @@ import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ConfigAccessor {
+public class ConfigUtils {
 
   public static final String ENV_PROP = "pipeline.env";
 
-  private static final Logger log = LoggerFactory.getLogger(ConfigAccessor.class);
+  private static final Logger log = LoggerFactory.getLogger(ConfigUtils.class);
 
   public static Config loadConfig() throws ConfigException {
 
