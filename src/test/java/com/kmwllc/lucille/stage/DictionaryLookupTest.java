@@ -13,11 +13,11 @@ import static org.junit.Assert.*;
 
 public class DictionaryLookupTest {
 
+  private StageFactory factory = StageFactory.of(DictionaryLookup.class);
+
   @Test
   public void testDictionaryLookup() throws StageException {
-    Config config = ConfigFactory.load("DictionaryLookupTest/config.conf");
-    Stage stage = new DictionaryLookup(config);
-    stage.start();
+    Stage stage = factory.get("DictionaryLookupTest/config.conf");
 
     // Ensure that exact matches are correctly extracted
     Document doc = new Document("doc");

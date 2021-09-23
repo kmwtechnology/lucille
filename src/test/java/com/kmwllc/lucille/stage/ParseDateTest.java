@@ -9,11 +9,11 @@ import static org.junit.Assert.*;
 
 public class ParseDateTest {
 
+  private StageFactory factory = StageFactory.of(ParseDate.class);
+
   @Test
   public void testParseDate() throws Exception {
-    Config config = ConfigFactory.load("ParseDateTest/config.conf");
-    Stage stage = new ParseDate(config);
-    stage.start();
+    Stage stage = factory.get("ParseDateTest/config.conf");
 
     // Ensure that dates are correctly extracted
     Document doc = new Document("doc");

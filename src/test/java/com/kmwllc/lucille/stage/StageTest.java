@@ -5,7 +5,6 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 import java.util.List;
@@ -14,7 +13,9 @@ import static org.junit.Assert.*;
 
 public class StageTest {
 
-  private class MockStage extends Stage {
+  private StageFactory factory = StageFactory.of(MockStage.class);
+
+  private static class MockStage extends Stage {
 
     public MockStage(Config config) {
       super(config);
@@ -30,8 +31,7 @@ public class StageTest {
 
   @Test
   public void testProcessMust() throws StageException {
-    Config config = ConfigFactory.load("StageTest/processMust.conf");
-    Stage stage = new MockStage(config);
+    Stage stage = factory.get("StageTest/processMust.conf");
 
     Document doc1 = new Document("doc1");
     doc1.update("customer_id", UpdateMode.APPEND, "45345", "123", "653");
@@ -47,8 +47,7 @@ public class StageTest {
 
   @Test
   public void testProcessMustNot() throws StageException {
-    Config config = ConfigFactory.load("StageTest/processMustNot.conf");
-    Stage stage = new MockStage(config);
+    Stage stage = factory.get("StageTest/processMustNot.conf");
 
     Document doc1 = new Document("doc1");
     doc1.update("customer_id", UpdateMode.APPEND, "3124124", "123312", "123");
@@ -65,8 +64,7 @@ public class StageTest {
 
   @Test
   public void testMultiCondField() throws Exception {
-    Config config = ConfigFactory.load("StageTest/multiCondField.conf");
-    Stage stage = new MockStage(config);
+    Stage stage = factory.get("StageTest/multiCondField.conf");
 
     Document doc = new Document("doc");
     doc.setField("state", "MA");
@@ -85,8 +83,7 @@ public class StageTest {
 
   @Test
   public void testProcessNoCondField() throws Exception {
-    Config config = ConfigFactory.load("StageTest/multiCondField.conf");
-    Stage stage = new MockStage(config);
+    Stage stage = factory.get("StageTest/multiCondField.conf");
 
     Document doc = new Document("doc");
     doc.setField("test", "some field");
@@ -97,8 +94,7 @@ public class StageTest {
 
   @Test
   public void testProcessNoCondFieldMustNot() throws Exception {
-    Config config = ConfigFactory.load("StageTest/multiCondFieldMustNot.conf");
-    Stage stage = new MockStage(config);
+    Stage stage = factory.get("StageTest/multiCondFieldMustNot.conf");
 
     Document doc = new Document("doc");
     doc.setField("test", "some field");
@@ -107,15 +103,15 @@ public class StageTest {
     assertTrue(doc.has("processed"));
   }
 
+  @Test
   public void testGetName() throws Exception {
-    Config config = ConfigFactory.load("StageTest/name.conf");
-    Stage stage = new MockStage(config);
+    Stage stage = factory.get("StageTest/name.conf");
     assertEquals("name1", stage.getName());
   }
 
+  @Test
   public void testGetNameDefault() throws Exception {
-    Config config = ConfigFactory.empty();
-    Stage stage = new MockStage(config);
+    Stage stage = factory.get();
     assertEquals(Stage.DEFAULT_NAME, stage.getName());
   }
 

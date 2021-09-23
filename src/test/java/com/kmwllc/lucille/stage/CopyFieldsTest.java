@@ -10,11 +10,11 @@ import static org.junit.Assert.*;
 
 public class CopyFieldsTest {
 
+  private StageFactory factory = StageFactory.of(CopyFields.class);
+
   @Test
   public void testCopyFieldsReplace() throws Exception {
-    Config config = ConfigFactory.load("CopyFieldsTest/replace.conf");
-    Stage stage = new CopyFields(config);
-    stage.start();
+    Stage stage = factory.get("CopyFieldsTest/replace.conf");
 
     // Ensure that one field is correctly copied over
     Document doc = new Document("doc");
@@ -47,9 +47,7 @@ public class CopyFieldsTest {
 
   @Test
   public void testCopyFieldsSkip() throws Exception {
-    Config config = ConfigFactory.load("CopyFieldsTest/skip.conf");
-    Stage stage = new CopyFields(config);
-    stage.start();
+    Stage stage = factory.get("CopyFieldsTest/skip.conf");
 
     Document doc = new Document("doc");
     doc.setField("input1", "Here is some input.");

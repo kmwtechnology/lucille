@@ -12,11 +12,11 @@ import static org.junit.Assert.*;
 
 public class ExtractEntitiesTest {
 
+  private StageFactory factory = StageFactory.of(ExtractEntities.class);
+
   @Test
   public void testExtractEntities() throws Exception {
-    Config config = ConfigFactory.load("ExtractEntitiesTest/config.conf");
-    Stage stage = new ExtractEntities(config);
-    stage.start();
+    Stage stage = factory.get("ExtractEntitiesTest/config.conf");
 
     // Ensure that keywords from the dictionary are correctly extracted
     Document doc = new Document("doc");
