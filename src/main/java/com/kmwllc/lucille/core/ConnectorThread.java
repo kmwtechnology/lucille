@@ -15,7 +15,7 @@ public class ConnectorThread extends Thread {
   @Override
   public void run() {
     try {
-      connector.start(publisher);
+      connector.execute(publisher);
     } catch (ConnectorException e) {
       exception = e;
     }

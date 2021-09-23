@@ -18,7 +18,7 @@ public class FailingPostCompletionCSVConnector extends CSVConnector {
   // This method should only be called after all of the documents are fully processed by the pipeline. This
   // implementation simulates an Exception being thrown during the execution of the post completion actions.
   @Override
-  public void performPostCompletionActions() throws ConnectorException {
+  public void postExecute(String runId) throws ConnectorException {
     throw new ConnectorException("Expected");
   }
 }

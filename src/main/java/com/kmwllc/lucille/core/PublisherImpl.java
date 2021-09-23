@@ -1,9 +1,13 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.PublisherMessageManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -42,8 +46,9 @@ public class PublisherImpl implements Publisher {
   private int numFailed = 0;
   private int numSucceeded = 0;
 
-
   private Instant start;
+  private final MetricRegistry metrics;
+  private final Meter meter;
 
   // List of published documents that have not reached a terminal state. Also includes children of published documents.
   // Note that this is a List, not a Set, because if two documents with the same ID are published, we would
@@ -62,6 +67,8 @@ public class PublisherImpl implements Publisher {
     this.manager = manager;
     this.runId = runId;
     this.pipelineName = pipelineName;
+    this.metrics = SharedMetricRegistries.getOrCreate("default");
+    this.meter = metrics.meter("publisher.meter");
     manager.initialize(runId, pipelineName);
   }
 
@@ -70,6 +77,7 @@ public class PublisherImpl implements Publisher {
     document.setField("run_id", runId);
     manager.sendForProcessing(document);
     docIdsToTrack.add(document.getId());
+    meter.mark();
     numPublished++;
   }
 
@@ -142,6 +150,10 @@ public class PublisherImpl implements Publisher {
       // 2) all published Documents and their children are accounted for (none are pending),
       // 3) there are no more Events relating to the current run to consume
       if (!thread.isAlive() && !hasPending() && !manager.hasEvents()) {
+        log.info(String.format("Pipeline %s finished publishing its documents. In total, it published %d documents and " +
+            "created %d child documents. The publisher received success events for %d documents and failure events for %d documents",
+            pipelineName, numPublished, numCreated, numSucceeded, numFailed));
+        log.info("Documents were published at a rate of " + meter.getMeanRate() + " documents/second.");
         return true;
       }
 

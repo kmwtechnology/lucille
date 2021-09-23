@@ -88,7 +88,7 @@ public class DatabaseConnector extends AbstractConnector {
   }
 
   @Override
-  public void start(Publisher publisher) {
+  public void execute(Publisher publisher) {
     
     try {
     setState(ConnectorState.RUNNING);

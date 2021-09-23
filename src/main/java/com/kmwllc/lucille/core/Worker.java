@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.WorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.typesafe.config.Config;
@@ -7,6 +10,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalField;
 import java.util.List;
 
 /**
@@ -15,12 +23,15 @@ import java.util.List;
 class Worker implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
-  
+
   private final WorkerMessageManager manager;
 
   private final Pipeline pipeline;
 
   private volatile boolean running = true;
+
+  private final MetricRegistry metrics;
+  private final Meter meter;
 
   public void terminate() {
     log.info("terminate called");
@@ -30,10 +41,13 @@ class Worker implements Runnable {
   public Worker(Config config, WorkerMessageManager manager, String pipelineName) throws Exception {
     this.manager = manager;
     this.pipeline = Pipeline.fromConfig(config, pipelineName);
+    this.metrics = SharedMetricRegistries.getOrCreate("default");
+    this.meter = metrics.meter("worker.meter");
   }
 
   @Override
   public void run() {
+    meter.mark(0);
     while (running) {
       Document doc;
       try {
@@ -51,11 +65,12 @@ class Worker implements Runnable {
       List<Document> results = null;
       try {
         results = pipeline.processDocument(doc);
+        meter.mark();
       } catch (StageException e) {
         log.error("Error processing document: " + doc.getId(), e);
         try {
           manager.sendEvent(new Event(doc.getId(),
-            doc.getString("run_id"), null, Event.Type.FAIL));
+              doc.getString("run_id"), null, Event.Type.FAIL));
         } catch (Exception e2) {
           log.error("Error sending failure event for document: " + doc.getId(), e2);
         }
@@ -73,7 +88,7 @@ class Worker implements Runnable {
           // a document is a child if it has a different ID from the initial document
           if (!doc.getId().equals(result.getId())) {
             manager.sendEvent(new Event(result.getId(),
-              doc.getString("run_id"), null, Event.Type.CREATE));
+                doc.getString("run_id"), null, Event.Type.CREATE));
           }
         }
 
@@ -85,6 +100,10 @@ class Worker implements Runnable {
         log.error("Messaging error after processing document: " + doc.getId(), e);
       }
 
+      if (Instant.now().atZone(ZoneOffset.UTC).getMinute() == 5) {
+        log.info(String.format("Workers are currently processing documents at a rate of %f documents/second. " +
+            "%d documents have been processed so far.", meter.getFiveMinuteRate(), meter.getCount()));
+      }
     }
 
     try {
@@ -109,7 +128,7 @@ class Worker implements Runnable {
     log.info("Starting Workers for pipeline: " + pipelineName);
 
     WorkerMessageManagerFactory workerMessageManagerFactory =
-      WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName);
+        WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName);
 
     WorkerPool workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory);
     workerPool.start();

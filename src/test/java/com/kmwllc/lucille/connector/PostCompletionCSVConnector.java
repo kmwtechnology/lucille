@@ -20,7 +20,7 @@ public class PostCompletionCSVConnector extends CSVConnector {
 
   // This method should only be called after the pipeline has completed processing all of its documents.
   @Override
-  public void performPostCompletionActions() throws ConnectorException {
+  public void postExecute(String runId) throws ConnectorException {
     completionActionsOccurred = true;
     postCompletionInstant = Instant.now();
   }

@@ -22,8 +22,12 @@ public abstract class AbstractConnector implements Connector {
     return pipelineName;
   }
 
-  public void performPostCompletionActions() throws ConnectorException {
-    // by default this method is a no-op
+  public void postExecute(String runId) throws ConnectorException {
+    // no-op
+  }
+
+  public void preExecute(String runId) throws ConnectorException {
+    // no-op
   }
 
 }

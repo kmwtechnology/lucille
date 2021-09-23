@@ -10,6 +10,7 @@ import static org.junit.Assert.*;
 
 public class NormalizeTextTest {
 
+  // TODO : Change this to use multiple configs
   @Test
   public void testNormalizeText() throws StageException {
     Config config = ConfigFactory.load("NormalizeTextTest/config.conf");

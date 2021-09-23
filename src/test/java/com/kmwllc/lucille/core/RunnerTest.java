@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.connector.FailingPostCompletionCSVConnector;
 import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
@@ -160,7 +162,6 @@ public class RunnerTest {
    */
   @Test
   public void testTwoConnectors() throws Exception {
-
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/twoConnectors.conf");
 
     assertEquals(2, map.size());

@@ -6,6 +6,8 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.StageUtils;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.opencsv.CSVReader;
+import com.opencsv.CSVReaderHeaderAware;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,21 +63,35 @@ public class DictionaryLookup extends Stage {
    */
   private HashMap<String, String> buildHashMap(String dictPath) {
     HashMap<String, String> dict = new HashMap<>();
-    try (BufferedReader reader = new BufferedReader(FileUtils.getReader(dictPath))) {
+    try (CSVReader reader = new CSVReader(FileUtils.getReader(dictPath))) {
       // For each line of the dictionary file, add a keyword/payload pair to the Trie
-      String line;
-      while((line = reader.readLine()) != null) {
-        if (line.isBlank())
+      String[] line;
+      boolean ignore = false;
+      while((line = reader.readNext()) != null) {
+        if (line.length == 0)
           continue;
 
-        String[] keyword = line.split(",");
+        for (String term : line) {
+          if (term.contains("\uFFFD")) {
+            log.warn(String.format("Entry \"%s\" on line %d contained malformed characters which were removed. " +
+                "This dictionary entry will be ignored.", term, reader.getLinesRead()));
+            ignore = true;
+            break;
+          }
+        }
 
+        if (ignore) {
+          ignore = false;
+          continue;
+        }
+
+        // TODO : Add log messages for when encoding errors occur so that they can be fixed
         // TODO : Multiple payloads (eventually)
-        if (keyword.length == 1) {
-          String word = keyword[0].trim();
+        if (line.length == 1) {
+          String word = line[0].trim();
           dict.put(word, word);
         } else {
-          dict.put(keyword[0].trim(), keyword[1].trim());
+          dict.put(line[0].trim(), line[1].trim());
         }
       }
     } catch (Exception e) {
