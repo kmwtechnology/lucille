@@ -1,15 +1,11 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
-import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.core.UpdateMode;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
 
-import java.io.BufferedReader;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -66,12 +62,12 @@ public class ExtractEntities extends Stage {
     super(config);
 
     // For the optional settings, we check if the config has this setting and then what the value is.
-    this.ignoreCase = StageUtils.<Boolean>configGetOrDefault(config, "ignore_case", false);
-    this.onlyWhitespaceSeparated = StageUtils.<Boolean>configGetOrDefault(config, "only_whitespace_separated", false);
-    this.stopOnHit = StageUtils.<Boolean>configGetOrDefault(config, "stop_on_hit", false);
-    this.onlyWholeWords = StageUtils.<Boolean>configGetOrDefault(config, "only_whole_words", false);
-    this.ignoreOverlaps = StageUtils.<Boolean>configGetOrDefault(config, "ignore_overlaps", false);
-    this.usePayloads = StageUtils.<Boolean>configGetOrDefault(config, "use_payloads", true);
+    this.ignoreCase = ConfigAccessor.getOrDefault(config, "ignore_case", false);
+    this.onlyWhitespaceSeparated = ConfigAccessor.getOrDefault(config, "only_whitespace_separated", false);
+    this.stopOnHit = ConfigAccessor.getOrDefault(config, "stop_on_hit", false);
+    this.onlyWholeWords = ConfigAccessor.getOrDefault(config, "only_whole_words", false);
+    this.ignoreOverlaps = ConfigAccessor.getOrDefault(config, "ignore_overlaps", false);
+    this.usePayloads = ConfigAccessor.getOrDefault(config, "use_payloads", true);
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");

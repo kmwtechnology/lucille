@@ -12,24 +12,6 @@ import java.util.List;
 public class StageUtils {
 
   /**
-   * Get the value of the given setting from the config file, or a default value if the setting does not exist in the
-   * config.
-   *
-   * @param config  the config to search for the setting
-   * @param setting the setting to get the value of
-   * @param fallback  default value
-   * @param <T> the Type of this setting's value
-   * @return  the value
-   */
-  public static <T> T configGetOrDefault(Config config, String setting, T fallback) {
-    if (config.hasPath(setting)) {
-      return (T) config.getValue(setting).unwrapped();
-    }
-
-    return fallback;
-  }
-
-  /**
    * Validate that the given field list contains at least 1 field name.
    *
    * @param fields  the field list

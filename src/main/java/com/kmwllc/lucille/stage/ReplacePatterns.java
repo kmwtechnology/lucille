@@ -1,10 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
-import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
 import java.util.ArrayList;
@@ -54,10 +51,10 @@ public class ReplacePatterns extends Stage {
     this.replacement = config.getString("replacement");
     this.updateMode = UpdateMode.fromConfig(config);
 
-    this.ignoreCase = StageUtils.configGetOrDefault(config, "ignore_case", false);
-    this.multiline = StageUtils.configGetOrDefault(config, "multiline", false);
-    this.dotall = StageUtils.configGetOrDefault(config, "dotall", false);
-    this.literal = StageUtils.configGetOrDefault(config, "literal", false);
+    this.ignoreCase = ConfigAccessor.getOrDefault(config, "ignore_case", false);
+    this.multiline = ConfigAccessor.getOrDefault(config, "multiline", false);
+    this.dotall = ConfigAccessor.getOrDefault(config, "dotall", false);
+    this.literal = ConfigAccessor.getOrDefault(config, "literal", false);
   }
 
   @Override

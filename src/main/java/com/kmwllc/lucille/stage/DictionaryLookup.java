@@ -1,18 +1,12 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
-import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.util.FileUtils;
-import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.core.UpdateMode;
 import com.opencsv.CSVReader;
-import com.opencsv.CSVReaderHeaderAware;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -51,7 +45,7 @@ public class DictionaryLookup extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.dict = buildHashMap(config.getString("dict_path"));
-    this.usePayloads = StageUtils.configGetOrDefault(config, "use_payloads" ,true);
+    this.usePayloads = ConfigAccessor.getOrDefault(config, "use_payloads" ,true);
     this.updateMode = UpdateMode.fromConfig(config);
   }
 
