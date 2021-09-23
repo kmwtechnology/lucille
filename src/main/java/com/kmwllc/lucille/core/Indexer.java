@@ -55,7 +55,7 @@ class Indexer implements Runnable {
     } else {
       this.solrClient = new HttpSolrClient.Builder(config.getString("solr.url")).build();
     }
-    this.docSetSize = StageUtils.configGetOrDefault(config, "indexer.docSetSize", 1000);
+    this.docSetSize = ConfigAccessor.getOrDefault(config, "indexer.docSetSize", 1000);
     this.metrics = SharedMetricRegistries.getOrCreate("default");
     this.meter = metrics.meter("indexer.meter");
   }

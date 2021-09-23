@@ -35,10 +35,10 @@ public abstract class Stage {
   // TODO : Debug mode
   public Stage(Config config) {
     this.config = config;
-    this.name = StageUtils.configGetOrDefault(config, "name", DEFAULT_NAME);
-    this.conditionalFields = StageUtils.configGetOrDefault(config, "conditional_field", new ArrayList<>());
-    this.conditionalValues = StageUtils.configGetOrDefault(config, "conditional_values", new ArrayList<>());
-    this.operator = StageUtils.configGetOrDefault(config, "conditional_operator", "must");
+    this.name = ConfigAccessor.getOrDefault(config, "name", DEFAULT_NAME);
+    this.conditionalFields = ConfigAccessor.getOrDefault(config, "conditional_field", new ArrayList<>());
+    this.conditionalValues = ConfigAccessor.getOrDefault(config, "conditional_values", new ArrayList<>());
+    this.operator = ConfigAccessor.getOrDefault(config, "conditional_operator", "must");
   }
 
   public void start() throws StageException {
