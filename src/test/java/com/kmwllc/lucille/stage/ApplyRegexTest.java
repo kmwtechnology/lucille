@@ -12,11 +12,11 @@ import static org.junit.Assert.*;
 
 public class ApplyRegexTest {
 
+  private StageFactory factory = StageFactory.of(ApplyRegex.class);
+
   @Test
   public void testApplyRegex() throws Exception {
-    Config config = ConfigFactory.load("ApplyRegexTest/config.conf");
-    Stage stage = new ApplyRegex(config);
-    stage.start();
+    Stage stage = factory.get("ApplyRegexTest/config.conf");
 
     // Test extracting a single pattern match
     Document doc = new Document("doc");

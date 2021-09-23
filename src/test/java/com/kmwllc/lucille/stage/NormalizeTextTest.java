@@ -10,11 +10,11 @@ import static org.junit.Assert.*;
 
 public class NormalizeTextTest {
 
+  private StageFactory factory = StageFactory.of(NormalizeText.class);
+
   @Test
   public void testNormalizeText() throws StageException {
-    Config config = ConfigFactory.load("NormalizeTextTest/config.conf");
-    NormalizeText stage = new NormalizeText(config);
-    stage.start();
+    NormalizeText stage = (NormalizeText) factory.get("NormalizeTextTest/config.conf");
 
     // Ensure that the lowercase mode works as expected
     Document doc = new Document("doc");

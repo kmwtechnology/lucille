@@ -9,11 +9,11 @@ import static org.junit.Assert.*;
 
 public class RenameFieldsTest {
 
+  private StageFactory factory = StageFactory.of(RenameFields.class);
+
   @Test
   public void testRenameFields() throws Exception {
-    Config config = ConfigFactory.load("RenameFieldsTest/config.conf");
-    Stage stage = new RenameFields(config);
-    stage.start();
+    Stage stage = factory.get("RenameFieldsTest/config.conf");
 
     // Ensure one field is correctly renamed
     Document doc = new Document("doc");

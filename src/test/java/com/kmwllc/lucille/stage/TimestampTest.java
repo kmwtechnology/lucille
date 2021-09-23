@@ -14,10 +14,11 @@ import static org.junit.Assert.*;
 
 public class TimestampTest {
 
+  private StageFactory factory = StageFactory.of(Timestamp.class);
+
   @Test
   public void testTimestamp() throws Exception {
-    Config config = ConfigFactory.load("TimestampTest/config.conf");
-    Stage stage = new Timestamp(config);
+    Stage stage = factory.get("TimestampTest/config.conf");
 
     Document doc = new Document("doc1");
     stage.processDocument(doc);

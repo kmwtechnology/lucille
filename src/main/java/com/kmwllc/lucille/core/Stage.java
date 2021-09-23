@@ -105,4 +105,8 @@ public abstract class Stage {
     return name;
   }
 
+  public Config getConfig() {
+    return config;
+  }
+
 }

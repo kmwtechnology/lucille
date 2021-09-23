@@ -2,18 +2,17 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-public class ConcatenateTest {
+public class ConcatenateTest  {
+
+  private StageFactory factory = StageFactory.of(Concatenate.class);
 
   @Test
   public void testConcatenate() throws Exception {
-    Config config = ConfigFactory.load("ConcatenateTest/config.conf");
-    Stage stage = new Concatenate(config);
-    stage.start();
+
+    Stage stage = factory.get("ConcatenateTest/config.conf");
 
     // Test placing one field value into the format String
     Document doc = new Document("doc");
@@ -41,9 +40,7 @@ public class ConcatenateTest {
 
   @Test
   public void testConcatenateWDefaults() throws Exception {
-    Config config = ConfigFactory.load("ConcatenateTest/defaults.conf");
-    Stage stage = new Concatenate(config);
-    stage.start();
+    Stage stage = factory.get("ConcatenateTest/defaults.conf");
 
     Document doc1 = new Document("doc1");
     stage.processDocument(doc1);

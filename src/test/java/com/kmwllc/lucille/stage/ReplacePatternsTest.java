@@ -9,11 +9,11 @@ import static org.junit.Assert.*;
 
 public class ReplacePatternsTest {
 
+  private StageFactory factory = StageFactory.of(ReplacePatterns.class);
+
   @Test
   public void testReplacePatterns() throws Exception {
-    Config config = ConfigFactory.load("ReplacePatternsTest/config.conf");
-    Stage stage = new ReplacePatterns(config);
-    stage.start();
+    Stage stage = factory.get("ReplacePatternsTest/config.conf");
 
     Document doc = new Document("doc");
     doc.setField("input1", "The term false should be replaced.");
