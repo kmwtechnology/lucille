@@ -140,22 +140,29 @@ public class DatabaseConnector extends AbstractConnector {
       
       // Add each column / field name to the doc
       for (int i = 1; i <= columns.length; i++) {
-        if (i == idColumn) {
+        // TODO: how do we normalize our column names?  (lowercase is probably ok and likely desirable as 
+        // sometimes databases return columns in upper/lower case depending on which db you talk to.)
+        String fieldName = columns[i-1].toLowerCase();
+        if (i == idColumn && "id".equals(fieldName)) {
           // we already have this column because it's the id column.
           continue;
         }
-        // TODO: how do we normalize our column names?  (lowercase is probably ok and likely desirable as 
-        // sometimes databases return columns in upper/lower case depending on which db you talk to.)
         // log.info("Add Field {} Value {} -- Doc {}", columns[i-1].toLowerCase(), rs.getString(i), doc);
-        doc.addToField(columns[i-1].toLowerCase(), rs.getString(i));
+        String fieldValue = rs.getString(i);
+        if (fieldValue != null) {
+          doc.addToField(fieldName, fieldValue);
+        }
       }
-      // this is the primary key that the result set is ordered by.
-      Integer joinId = rs.getInt(idField);
-      int childId = -1;
-      int j = 0;
-      for (ResultSet otherResult : otherResults) {
-        iterateOtherSQL(otherResult, otherColumns.get(j), doc, joinId, childId, otherJoinFields.get(j));
-        j++;
+
+      if (!otherResults.isEmpty()) {
+        // this is the primary key that the result set is ordered by.
+        Integer joinId = rs.getInt(idField);
+        int childId = -1;
+        int j = 0;
+        for (ResultSet otherResult : otherResults) {
+          iterateOtherSQL(otherResult, otherColumns.get(j), doc, joinId, childId, otherJoinFields.get(j));
+          j++;
+        }
       }
       
       // Fix the duplicate id field value that occurs
@@ -206,7 +213,9 @@ public class DatabaseConnector extends AbstractConnector {
       for (String c : columns2) {
         String fieldName = c.trim().toLowerCase();
         String fieldValue = rs2.getString(c);
-        child.addToField(fieldName, fieldValue);
+        if (fieldValue != null) {
+          child.addToField(fieldName, fieldValue);
+        }
       }
       // add the accumulated child doc.
 

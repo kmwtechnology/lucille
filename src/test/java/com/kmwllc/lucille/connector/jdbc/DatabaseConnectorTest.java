@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector.jdbc;
 
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -87,7 +88,41 @@ public class DatabaseConnectorTest {
     assertEquals("Cat", docsSentForProcessing.get(2).getStringList("type").get(0));
     
   }
-  
+
+  @Test
+  public void testCompaniesQuery() {
+    HashMap<String,Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select company_id, name from companies order by company_id");
+    configValues.put("idField", "company_id");
+    configValues.put("docIdPrefix", "company-");
+
+    Config config = ConfigFactory.parseMap(configValues);
+
+    DatabaseConnector connector = new DatabaseConnector(config);
+
+    connector.start(publisher);
+
+    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(2, docsSentForProcessing.size());
+
+    // The doc ID should have the 'company-' prefix
+    assertEquals("company-1-1", docsSentForProcessing.get(0).getId());
+    // There should also be a company_id field containing the company ID
+    assertEquals("1-1", docsSentForProcessing.get(0).getStringList("company_id").get(0));
+    assertEquals("Acme", docsSentForProcessing.get(0).getStringList("name").get(0));
+
+    assertEquals("company-1-2", docsSentForProcessing.get(1).getId());
+    assertEquals("1-2", docsSentForProcessing.get(1).getStringList("company_id").get(0));
+    // The name field shouldn't be set because the value was null in the database
+    assertFalse(docsSentForProcessing.get(1).has("name"));
+  }
+
   @Test
   public void testJoiningDatabaseConnector() throws Exception {
     
