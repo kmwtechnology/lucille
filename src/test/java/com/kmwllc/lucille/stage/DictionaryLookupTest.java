@@ -41,5 +41,4 @@ public class DictionaryLookupTest {
     stage.processDocument(doc3);
     assertNull(doc3.getStringList("output2"));
   }
-
 }

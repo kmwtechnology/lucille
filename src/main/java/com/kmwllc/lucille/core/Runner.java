@@ -1,5 +1,9 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.message.*;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -9,10 +13,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+
+import java.util.*;
 
 /**
  * Responsible for managing a "run." A run is a sequential execution of one or more Connectors.
@@ -52,6 +54,8 @@ public class Runner {
   private final String runId;
   private final int connectorTimeout;
 
+  private static MetricRegistry metrics = new MetricRegistry();
+
   /**
    * Runs the configured connectors.
    *
@@ -66,6 +70,9 @@ public class Runner {
    *
    */
   public static void main(String[] args) throws Exception {
+    SharedMetricRegistries.setDefault("default", metrics);
+    Timer timer = metrics.timer("runner.timer");
+    Timer.Context context = timer.time();
 
     Options cliOptions = new Options()
       .addOption(Option.builder("usekafka").hasArg(false)
@@ -94,6 +101,8 @@ public class Runner {
       runLocal();
     }
 
+    context.stop();
+    log.info("Entire run took " + timer.getSnapshot().getMax() +  " seconds to run");
   }
 
   public Runner(Config config) throws Exception {
@@ -119,22 +128,37 @@ public class Runner {
    */
   public boolean runConnector(Connector connector, Publisher publisher) throws Exception {
     log.info("Running connector: " + connector.getName());
+    Timer timer = metrics.timer("runner.connector.timer");
+    Timer.Context context = timer.time();
+
+    try {
+      connector.preExecute(runId);
+    } catch (ConnectorException e) {
+      log.error("Connector failed to perform pre execution actions.", e);
+      return false;
+    }
 
     ConnectorThread connectorThread = new ConnectorThread(connector, publisher);
     connectorThread.start();
 
-    boolean result = publisher.waitForCompletion(connectorThread, connectorTimeout);
+    boolean result = false;
 
-    publisher.close();
+    // the publisher could be null if we are running a connector that has no associated pipeline and therefore
+    // there's nothing to publish to
+    if (publisher!=null) {
+      result = publisher.waitForCompletion(connectorThread, connectorTimeout);
+      publisher.close();
+    }
 
     try {
-      connector.performPostCompletionActions();
+      connector.postExecute(runId);
     } catch (ConnectorException e) {
-      log.error("Connector failed to perform post completion actions.", e);
+      log.error("Connector failed to perform post execution actions.", e);
       return false;
     }
 
-    log.info("Connector complete: " + connector.getName());
+    context.stop();
+    log.info("Connector complete: " + connector.getName() + ". Took " + timer.getSnapshot().getValues()[0] / Math.pow(10, 9) + " seconds to run.");
 
     return result;
   }
@@ -155,9 +179,12 @@ public class Runner {
     for (Connector connector : connectors) {
       LocalMessageManager manager = new LocalMessageManager(config);
       WorkerMessageManagerFactory workerMessageManagerFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
+      IndexerMessageManagerFactory indexerMessageManagerFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
+      PublisherMessageManagerFactory publisherMessageManagerFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
 
       boolean result = run(config, runner, connector,
-        workerMessageManagerFactory, manager, manager, true, false);
+        workerMessageManagerFactory, indexerMessageManagerFactory, publisherMessageManagerFactory,
+        true, false);
       if (!result) {
         break;
       }
@@ -189,9 +216,12 @@ public class Runner {
       // so those components will see each other's messages
       PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
       WorkerMessageManagerFactory workerMessageManagerFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
+      IndexerMessageManagerFactory indexerMessageManagerFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
+      PublisherMessageManagerFactory publisherMessageManagerFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
       map.put(connector.getName(), manager);
       boolean result = run(config, runner, connector,
-        workerMessageManagerFactory, manager, manager, true, true);
+        workerMessageManagerFactory, indexerMessageManagerFactory, publisherMessageManagerFactory,
+        true, true);
       if (!result) {
         break;
       }
@@ -214,12 +244,14 @@ public class Runner {
     for (Connector connector : connectors) {
       String pipelineName = connector.getPipelineName();
       WorkerMessageManagerFactory workerMessageManagerFactory =
-        startWorkerAndIndexer ? WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName) : null;
-      IndexerMessageManager indexerMessageManager =
-        startWorkerAndIndexer ? new KafkaIndexerMessageManager(config, pipelineName) : null;
-      PublisherMessageManager publisherMessageManager = new KafkaPublisherMessageManager(config);
+        WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName);
+      IndexerMessageManagerFactory indexerMessageManagerFactory =
+        IndexerMessageManagerFactory.getKafkaFactory(config, pipelineName);
+      PublisherMessageManagerFactory publisherMessageManagerFactory =
+        PublisherMessageManagerFactory.getKafkaFactory(config);
+
       boolean result = run(config, runner, connector, workerMessageManagerFactory,
-        indexerMessageManager, publisherMessageManager, startWorkerAndIndexer, false);
+        indexerMessageManagerFactory, publisherMessageManagerFactory, startWorkerAndIndexer, false);
       if (!result) {
         break;
       }
@@ -230,19 +262,33 @@ public class Runner {
                              Runner runner,
                              Connector connector,
                              WorkerMessageManagerFactory workerMessageManagerFactory,
-                             IndexerMessageManager indexerMessageManager,
-                             PublisherMessageManager publisherMessageManager,
+                             IndexerMessageManagerFactory indexerMessageManagerFactory,
+                             PublisherMessageManagerFactory publisherMessageManagerFactory,
                              boolean startWorkerAndIndexer,
                              boolean bypassSolr) throws Exception {
 
     String pipelineName = connector.getPipelineName();
+    Meter indexerMeter = metrics.meter("indexer.meter");
+    Meter publisherMeter = metrics.meter("publisher.meter");
+    indexerMeter.mark(0);
+    publisherMeter.mark(0);
+
     WorkerPool workerPool = null;
-    if (startWorkerAndIndexer) {
+    Indexer indexer = null;
+    Publisher publisher = null;
+
+    if (startWorkerAndIndexer && connector.getPipelineName() != null) {
       workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory);
       workerPool.start();
+      IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
+      indexer = Indexer.startThread(config, indexerMessageManager, bypassSolr);
     }
-    Indexer indexer = startWorkerAndIndexer ? Indexer.startThread(config, indexerMessageManager, bypassSolr) : null;
-    Publisher publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(), connector.getPipelineName());
+
+    if (connector.getPipelineName() != null) {
+      PublisherMessageManager publisherMessageManager = publisherMessageManagerFactory.create();
+      publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(), connector.getPipelineName());
+    }
+
     boolean result = runner.runConnector(connector, publisher);
     if (workerPool != null) {
       workerPool.stop();
@@ -250,6 +296,7 @@ public class Runner {
     if (indexer != null) {
       indexer.terminate();
     }
+
     return result;
   }
 

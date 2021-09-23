@@ -12,35 +12,40 @@ public class NormalizeTextTest {
 
   private StageFactory factory = StageFactory.of(NormalizeText.class);
 
+  // TODO : Change this to use multiple configs
   @Test
-  public void testNormalizeText() throws StageException {
-    NormalizeText stage = (NormalizeText) factory.get("NormalizeTextTest/config.conf");
-
-    // Ensure that the lowercase mode works as expected
+  public void testLowercase() throws StageException {
+    Stage stage = factory.get("NormalizeTextTest/lowercase.conf");
     Document doc = new Document("doc");
     doc.setField("input1", "ALL tHiS Is lowerCASED");
     stage.processDocument(doc);
     assertEquals("all this is lowercased", doc.getStringList("output1").get(0));
+  }
 
-    // Ensure that the uppercase mode works as expected
-    stage.setMode("uppercase");
+  @Test
+  public void testUppercase() throws Exception {
+    Stage stage = factory.get("NormalizeTextTest/uppercase.conf");
     Document doc2 = new Document("doc2");
     doc2.setField("input1", "this WILL Be UppERCased");
     stage.processDocument(doc2);
     assertEquals("THIS WILL BE UPPERCASED", doc2.getStringList("output1").get(0));
+  }
 
-    // Ensure that the title case mode works as expected
-    stage.setMode("title_case");
-    Document doc3 = new Document("doc3");
-    doc3.setField("input3", "this will be in title case");
-    stage.processDocument(doc3);
-    assertEquals("This Will Be In Title Case", doc3.getStringList("output3").get(0));
-
-    // Ensure that the sentence case mode works as expected
-    stage.setMode("sentence_case");
+  @Test
+  public void testSentenceCase() throws Exception {
+    Stage stage = factory.get("NormalizeTextTest/sentencecase.conf");
     Document doc4 = new Document("doc4");
     doc4.setField("input2", "this is a sentence. and this! this too? test");
     stage.processDocument(doc4);
     assertEquals("This is a sentence. And this! This too? Test", doc4.getStringList("output2").get(0));
+  }
+
+  @Test
+  public void testTitleCase() throws Exception {
+    Stage stage = factory.get("NormalizeTextTest/titlecase.conf");
+    Document doc3 = new Document("doc3");
+    doc3.setField("input3", "this will be in title case");
+    stage.processDocument(doc3);
+    assertEquals("This Will Be In Title Case", doc3.getStringList("output3").get(0));
   }
 }

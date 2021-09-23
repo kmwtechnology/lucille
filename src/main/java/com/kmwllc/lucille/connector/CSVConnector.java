@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 
 public class CSVConnector extends AbstractConnector {
@@ -28,8 +30,8 @@ public class CSVConnector extends AbstractConnector {
   }
 
   @Override
-  public void start(Publisher publisher) throws ConnectorException {
-
+  public void execute(Publisher publisher) throws ConnectorException {
+    Instant startDocSet = Instant.now();
     try (CSVReader csvReader = new CSVReader(FileUtils.getReader(path))) {
 
       // Assume first line is header
@@ -60,7 +62,6 @@ public class CSVConnector extends AbstractConnector {
         }
         log.info("submitting " + doc);
         publisher.publish(doc);
-
       }
     } catch (Exception e) {
       log.error("Error during CSV processing", e);

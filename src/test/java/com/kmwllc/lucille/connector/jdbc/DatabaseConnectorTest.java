@@ -7,7 +7,6 @@ import static org.junit.Assert.assertFalse;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.UUID;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -18,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
-import com.kmwllc.lucille.connector.jdbc.DatabaseConnector;
 import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -66,7 +64,7 @@ public class DatabaseConnectorTest {
     DatabaseConnector connector = new DatabaseConnector(config);
     
     // start the connector 
-    connector.start(publisher);
+    connector.execute(publisher);
 
     // Confirm there were 3 results.
     List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
@@ -106,7 +104,7 @@ public class DatabaseConnectorTest {
 
     DatabaseConnector connector = new DatabaseConnector(config);
 
-    connector.start(publisher);
+    connector.execute(publisher);
 
     List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
     assertEquals(2, docsSentForProcessing.size());
@@ -149,7 +147,7 @@ public class DatabaseConnectorTest {
     // create the connector with the config
     DatabaseConnector connector = new DatabaseConnector(config);
     // run the connector
-    connector.start(publisher);
+    connector.execute(publisher);
     
     List<Document> docs = manager.getSavedDocumentsSentForProcessing();
     assertEquals(3, docs.size());
@@ -182,7 +180,7 @@ public class DatabaseConnectorTest {
     // create a publisher to record all the docs sent to it.  
     // run the connector
     
-    connector.start(publisher);
+    connector.execute(publisher);
     
     List<Document> docs = manager.getSavedDocumentsSentForProcessing();
     assertEquals(3, docs.size());

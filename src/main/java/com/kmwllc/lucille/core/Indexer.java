@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.typesafe.config.Config;
@@ -29,6 +32,14 @@ class Indexer implements Runnable {
 
   private Config config;
 
+  private long numIndexed;
+
+  // Determines the number of documents which must be indexed in between each metric info log.
+  private final int logRate;
+
+  private final MetricRegistry metrics;
+  private final Meter meter;
+
   public void terminate() {
     running = false;
     log.info("terminate");
@@ -45,10 +56,14 @@ class Indexer implements Runnable {
     } else {
       this.solrClient = new HttpSolrClient.Builder(config.getString("solr.url")).build();
     }
+    this.logRate = ConfigUtils.getOrDefault(config, "indexer.logRate", 1000);
+    this.metrics = SharedMetricRegistries.getOrCreate("default");
+    this.meter = metrics.meter("indexer.meter");
   }
 
   @Override
   public void run() {
+
     while (running) {
       checkForDoc();
     }
@@ -63,6 +78,7 @@ class Indexer implements Runnable {
   }
 
   protected void run(int iterations) {
+
     for (int i = 0; i < iterations; i++) {
       checkForDoc();
     }
@@ -97,6 +113,8 @@ class Indexer implements Runnable {
     }
 
     sendToSolrWithAccounting(batch.add(doc));
+    // meter.mark();
+    numIndexed++;
   }
 
   private void sendToSolrWithAccounting(List<Document> batchedDocs) {
@@ -106,6 +124,12 @@ class Indexer implements Runnable {
 
     try {
       sendToSolr(batchedDocs);
+      meter.mark(batchedDocs.size());
+
+      if (numIndexed % logRate == 0) {
+        log.info(String.format("%d documents have been indexed so far. Documents are currently being indexed at a rate of %.2f documents/second",
+            meter.getCount(), meter.getFiveMinuteRate()));
+      }
     } catch (Exception e) {
       for (Document d : batchedDocs) {
         try {
@@ -122,7 +146,7 @@ class Indexer implements Runnable {
     try {
       for (Document d : batchedDocs) {
         Event event = new Event(d.getId(), d.getRunId(), "SUCCEEDED", Event.Type.FINISH);
-        log.info("submitting completion event " + event);
+        // log.info("submitting completion event " + event);
         manager.sendEvent(event);
       }
     } catch (Exception e) {
@@ -135,7 +159,7 @@ class Indexer implements Runnable {
   protected void sendToSolr(List<Document> documents) throws Exception {
 
     if (solrClient==null) {
-      log.info("sendToSolr bypassed for documents: " + documents);
+      // log.info("sendToSolr bypassed for documents: " + documents);
       return;
     }
 
@@ -161,7 +185,7 @@ class Indexer implements Runnable {
   }
 
   public static void main(String[] args) throws Exception {
-    Config config = ConfigAccessor.loadConfig();
+    Config config = ConfigUtils.loadConfig();
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
     log.info("Starting Indexer for pipeline: " + pipelineName);
     IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);

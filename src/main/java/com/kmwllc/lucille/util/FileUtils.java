@@ -1,8 +1,10 @@
 package com.kmwllc.lucille.util;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class FileUtils {
 
@@ -18,7 +20,11 @@ public class FileUtils {
   public static Reader getReader(String path) throws IOException {
 
     if (!path.startsWith("classpath:")) {
-      return Files.newBufferedReader(Path.of(path));
+      // This method of creating the Reader is used because it handles none UTF-8 characters by replacing them with UTF
+      // chars, rather than throwing an Exception.
+      // https://stackoverflow.com/questions/26268132/all-inclusive-charset-to-avoid-java-nio-charset-malformedinputexception-input
+      // return Files.newBufferedReader(Paths.get(path), StandardCharsets.UTF_8);
+      return new BufferedReader(new InputStreamReader(new FileInputStream(path),"utf-8"));
     } else {
       InputStream is = FileUtils.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":")+1));
       return new BufferedReader(new InputStreamReader(is));

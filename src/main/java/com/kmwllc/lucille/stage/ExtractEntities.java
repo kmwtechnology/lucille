@@ -1,14 +1,11 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
-import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.StageUtils;
-import com.kmwllc.lucille.core.UpdateMode;
+import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
 
-import java.io.BufferedReader;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -65,12 +62,12 @@ public class ExtractEntities extends Stage {
     super(config);
 
     // For the optional settings, we check if the config has this setting and then what the value is.
-    this.ignoreCase = StageUtils.<Boolean>configGetOrDefault(config, "ignore_case", false);
-    this.onlyWhitespaceSeparated = StageUtils.<Boolean>configGetOrDefault(config, "only_whitespace_separated", false);
-    this.stopOnHit = StageUtils.<Boolean>configGetOrDefault(config, "stop_on_hit", false);
-    this.onlyWholeWords = StageUtils.<Boolean>configGetOrDefault(config, "only_whole_words", false);
-    this.ignoreOverlaps = StageUtils.<Boolean>configGetOrDefault(config, "ignore_overlaps", false);
-    this.usePayloads = StageUtils.<Boolean>configGetOrDefault(config, "use_payloads", true);
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
+    this.onlyWhitespaceSeparated = ConfigUtils.getOrDefault(config, "only_whitespace_separated", false);
+    this.stopOnHit = ConfigUtils.getOrDefault(config, "stop_on_hit", false);
+    this.onlyWholeWords = ConfigUtils.getOrDefault(config, "only_whole_words", false);
+    this.ignoreOverlaps = ConfigUtils.getOrDefault(config, "ignore_overlaps", false);
+    this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
@@ -116,20 +113,33 @@ public class ExtractEntities extends Stage {
       trieBuilder = trieBuilder.ignoreOverlaps();
     }
 
-    try (BufferedReader reader = new BufferedReader(FileUtils.getReader(dictFile))) {
+    try (CSVReader reader = new CSVReader(FileUtils.getReader(dictFile))) {
       // For each line of the dictionary file, add a keyword/payload pair to the Trie
-      String line;
-      while((line = reader.readLine()) != null) {
-        if (line.isBlank())
+      String[] line;
+      boolean ignore = false;
+      while((line = reader.readNext()) != null) {
+        if (line.length == 0)
           continue;
 
-        String[] keyword = line.split(",");
+        for (String term : line) {
+          if (term.contains("\uFFFD")) {
+            log.warn(String.format("Entry \"%s\" on line %d contained malformed characters which were removed. " +
+                "This dictionary entry will be ignored.", term, reader.getLinesRead()));
+            ignore = true;
+            break;
+          }
+        }
 
-        if (keyword.length == 1) {
-          String word = keyword[0].trim();
+        if (ignore) {
+          ignore = false;
+          continue;
+        }
+
+        if (line.length == 1) {
+          String word = line[0].trim();
           trieBuilder = trieBuilder.addKeyword(word, word);
         } else {
-          trieBuilder = trieBuilder.addKeyword(keyword[0].trim(), keyword[1].trim());
+          trieBuilder = trieBuilder.addKeyword(line[0].trim(), line[1].trim());
         }
       }
     } catch (Exception e) {

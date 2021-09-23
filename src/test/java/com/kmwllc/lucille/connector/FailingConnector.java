@@ -12,7 +12,7 @@ public class FailingConnector extends AbstractConnector {
   }
 
   @Override
-  public void start(Publisher publisher) throws ConnectorException {
+  public void execute(Publisher publisher) throws ConnectorException {
     throw new ConnectorException("Expected.");
   }
 }

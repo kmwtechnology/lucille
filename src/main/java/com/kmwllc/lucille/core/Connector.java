@@ -26,13 +26,15 @@ public interface Connector {
    *
    * @param publisher provides a publish() method accepting a document to be published
    */
-  void start(Publisher publisher) throws ConnectorException;
+  void execute(Publisher publisher) throws ConnectorException;
 
   String getName();
 
   String getPipelineName();
 
-  void performPostCompletionActions() throws ConnectorException;
+  void preExecute(String runId) throws ConnectorException;
+
+  void postExecute(String runId) throws ConnectorException;
 
   /**
    * Instantiates a list of Connectors from the designated Config.
