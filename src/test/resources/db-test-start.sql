@@ -25,3 +25,7 @@ INSERT INTO data VALUES (3, 2, 1, '12');
 INSERT INTO data VALUES (4, 2, 2, 'tiger');
 INSERT INTO data VALUES (5, 3, 1, '12');
 INSERT INTO data VALUES (6, 3, 2, 'white');
+
+CREATE TABLE companies(company_id VARCHAR, name VARCHAR);
+INSERT INTO companies VALUES ('1-1', 'Acme');
+INSERT INTO companies VALUES ('1-2', NULL);
