@@ -13,6 +13,7 @@ public class SolrConnectorTest {
     Config config = ConfigFactory.load("SolrConnectorTest/config.conf");
     Connector connector = new SolrConnector(config);
 
+    connector.preExecute("run");
     connector.postExecute("run");
   }
 

@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.core.ConfigAccessor;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
@@ -10,6 +10,7 @@ import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.RequestWriter;
+import org.apache.solr.client.solrj.response.SimpleSolrResponse;
 import org.apache.solr.common.util.NamedList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,8 +39,8 @@ public class SolrConnector extends AbstractConnector {
 
   public SolrConnector(Config config) {
     super(config);
-    this.preActions = ConfigAccessor.getOrDefault(config, "preActions", new ArrayList<>());
-    this.postActions = ConfigAccessor.getOrDefault(config, "postActions", new ArrayList<>());
+    this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
+    this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
     this.client = new HttpSolrClient.Builder(config.getString("solr.url")).build();
   }
 
@@ -68,13 +69,14 @@ public class SolrConnector extends AbstractConnector {
   }
 
   private void executeActions(List<String> actions) {
+    GenericSolrRequest request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
     for (String action : actions) {
       RequestWriter.ContentWriter contentWriter = new RequestWriter.StringPayloadContentWriter(action, "text/xml");
-      GenericSolrRequest request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
       request.setContentWriter(contentWriter);
 
       try {
-        NamedList<Object> list = client.request(request);
+        SimpleSolrResponse resp = request.process(client);
+        log.info(resp.getResponse().toString());
       } catch (Exception e) {
         log.error("Failed to perform action: " + action, e);
       }
