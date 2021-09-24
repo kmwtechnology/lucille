@@ -33,11 +33,6 @@ import java.util.regex.Pattern;
  */
 public class NormalizeText extends Stage {
 
-  // This enum is not used, I have left it here as a reference for what modes are offered for this Stage
-  private enum NormalizationMode {
-    LOWERCASE, UPPERCASE, TITLE_CASE, SENTENCE_CASE
-  }
-
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final Pattern pattern = Pattern.compile("[.?!] \\w");
 
