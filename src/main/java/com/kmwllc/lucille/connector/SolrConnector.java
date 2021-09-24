@@ -4,30 +4,19 @@ import com.kmwllc.lucille.core.ConfigAccessor;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import org.apache.commons.lang.text.StrSubstitutor;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
-import org.apache.commons.io.IOUtils;
-import org.apache.solr.client.solrj.SolrResponse;
-import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
-import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.RequestWriter;
-import org.apache.solr.client.solrj.request.UpdateRequest;
-import org.apache.solr.client.solrj.response.SimpleSolrResponse;
-import org.apache.solr.client.solrj.response.UpdateResponse;
-import org.apache.solr.client.solrj.util.ClientUtils;
-import org.apache.solr.common.params.CommonParams;
-import org.apache.solr.common.params.ModifiableSolrParams;
-import org.apache.solr.common.util.ContentStream;
 import org.apache.solr.common.util.NamedList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class SolrConnector extends AbstractConnector {
 
@@ -35,8 +24,8 @@ public class SolrConnector extends AbstractConnector {
 
   private final SolrClient client;
 
-  private final List<String> postActions;
-  private final List<String> preActions;
+  private List<String> postActions;
+  private List<String> preActions;
 
   // There's 2 approaches to this I can think of right now...
   // 1. Have  lists of post/pre Strings, which are directly the requests to send to Solr. So if you wanted to commit,
@@ -52,12 +41,16 @@ public class SolrConnector extends AbstractConnector {
     this.preActions = ConfigAccessor.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigAccessor.getOrDefault(config, "postActions", new ArrayList<>());
     this.client = new HttpSolrClient.Builder(config.getString("solr.url")).build();
-    // this.client = new HttpSolrClient.Builder(config.getString("solr.url")).build();
   }
 
   @Override
   public void preExecute(String runId) {
-    executeActions(runId, postActions);
+    Map<String, String> replacement = new HashMap<>();
+    replacement.put("runId", runId);
+    StrSubstitutor sub = new StrSubstitutor(replacement, "{", "}");
+    preActions  = preActions.stream().map(sub::replace).collect(Collectors.toList());
+
+    executeActions(runId, preActions);
   }
 
   @Override
@@ -66,15 +59,20 @@ public class SolrConnector extends AbstractConnector {
 
   @Override
   public void postExecute(String runId) {
+    Map<String, String> replacement = new HashMap<>();
+    replacement.put("runId", runId);
+    StrSubstitutor sub = new StrSubstitutor(replacement, "{", "}");
+    postActions = postActions.stream().map(sub::replace).collect(Collectors.toList());
+
     executeActions(runId, postActions);
   }
 
   private void executeActions(String runId, List<String> actions) {
     for (String action : actions) {
       // Collection<ContentStream> content = ClientUtils.toContentStreams(action, "application/json; charset=UTF-8");
-      RequestWriter.ContentWriter content = new RequestWriter.StringPayloadContentWriter(action, "text/xml");
+      RequestWriter.ContentWriter contentWriter = new RequestWriter.StringPayloadContentWriter(action, "text/xml");
       GenericSolrRequest request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
-      request.setContentWriter(content);
+      request.setContentWriter(contentWriter);
 
       try {
         NamedList<Object> list = client.request(request);
