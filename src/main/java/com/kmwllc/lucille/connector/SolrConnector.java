@@ -50,7 +50,7 @@ public class SolrConnector extends AbstractConnector {
     StrSubstitutor sub = new StrSubstitutor(replacement, "{", "}");
     preActions  = preActions.stream().map(sub::replace).collect(Collectors.toList());
 
-    executeActions(runId, preActions);
+    executeActions(preActions);
   }
 
   @Override
@@ -64,12 +64,11 @@ public class SolrConnector extends AbstractConnector {
     StrSubstitutor sub = new StrSubstitutor(replacement, "{", "}");
     postActions = postActions.stream().map(sub::replace).collect(Collectors.toList());
 
-    executeActions(runId, postActions);
+    executeActions(postActions);
   }
 
-  private void executeActions(String runId, List<String> actions) {
+  private void executeActions(List<String> actions) {
     for (String action : actions) {
-      // Collection<ContentStream> content = ClientUtils.toContentStreams(action, "application/json; charset=UTF-8");
       RequestWriter.ContentWriter contentWriter = new RequestWriter.StringPayloadContentWriter(action, "text/xml");
       GenericSolrRequest request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
       request.setContentWriter(contentWriter);
