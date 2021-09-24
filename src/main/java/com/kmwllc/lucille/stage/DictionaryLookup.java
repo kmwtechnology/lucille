@@ -45,7 +45,7 @@ public class DictionaryLookup extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.dict = buildHashMap(config.getString("dict_path"));
-    this.usePayloads = ConfigAccessor.getOrDefault(config, "use_payloads" ,true);
+    this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads" ,true);
     this.updateMode = UpdateMode.fromConfig(config);
   }
 

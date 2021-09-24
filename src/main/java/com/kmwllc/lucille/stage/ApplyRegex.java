@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.core.ConfigAccessor;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
@@ -48,10 +48,10 @@ public class ApplyRegex extends Stage {
     this.regexExpr = config.getString("regex");
     this.updateMode = UpdateMode.fromConfig(config);
 
-    this.ignoreCase = ConfigAccessor.getOrDefault(config, "ignore_case", false);
-    this.multiline = ConfigAccessor.getOrDefault(config, "multiline", false);
-    this.dotall = ConfigAccessor.getOrDefault(config, "dotall", false);
-    this.literal = ConfigAccessor.getOrDefault(config, "literal", false);
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
+    this.multiline = ConfigUtils.getOrDefault(config, "multiline", false);
+    this.dotall = ConfigUtils.getOrDefault(config, "dotall", false);
+    this.literal = ConfigUtils.getOrDefault(config, "literal", false);
   }
 
   @Override

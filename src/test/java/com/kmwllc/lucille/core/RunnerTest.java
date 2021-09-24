@@ -1,8 +1,6 @@
 package com.kmwllc.lucille.core;
 
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
-import com.kmwllc.lucille.connector.FailingPostCompletionCSVConnector;
+import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
@@ -20,6 +18,24 @@ import static org.junit.Assert.*;
 
 @RunWith(JUnit4.class)
 public class RunnerTest {
+
+  @Test
+  public void testRunnerWithNoDocs() throws Exception {
+    // we should be able to run a connector that generates no documents
+    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/noDocs.conf");
+    assertEquals(1, map.size());
+
+    PersistingLocalMessageManager manager = map.get("connector1");
+
+    assertEquals(0, manager.getSavedDocumentsSentForProcessing().size());
+    assertEquals(0, manager.getSavedCompletedDocuments().size());
+    assertEquals(0, manager.getSavedCompletedDocuments().size());
+    assertEquals(0, manager.getSavedEvents().size());
+    assertFalse(manager.hasEvents());
+    assertNull(manager.pollCompleted());
+    assertNull(manager.pollDocToProcess());
+    assertNull(manager.pollEvent());
+  }
 
   /**
    * Test an end-to-end run with a single connector that generates 1 document, and a no-op pipeline
@@ -228,6 +244,7 @@ public class RunnerTest {
    */
   @Test
   public void testPostCompletionActions() throws Exception {
+    PostCompletionCSVConnector.reset();
     PersistingLocalMessageManager manager = Runner.runInTestMode("RunnerTest/postCompletionActions.conf").get("connector1");
     assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
     List<Document> docs = manager.getSavedCompletedDocuments();
@@ -244,5 +261,24 @@ public class RunnerTest {
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/failingPostCompletionActions.conf");
     assertEquals(2, map.size());
   }
+
+  @Test
+  public void testConnectorWithoutPipeline() throws Exception {
+    // we should be able to run a connector that has no associated pipeline
+    // in this case, the runner should not start Worker or Indexer threads
+    // currently we're not testing that these threads aren't started, but we're making sure this configuration
+    // doesn't error out
+    NoOpConnector.reset();
+    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/connectorWithoutPipeline.conf");
+    assertEquals(1, map.size());
+    assertNull(NoOpConnector.getSuppliedPublisher());
+  }
+
+  @Test(expected = PipelineException.class)
+  public void testConnectorWithUnrecognizedPipeline() throws Exception {
+    // we should get a PipelineException if a connector specifies a pipeline that isn't defined
+    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/pipelineNotFound.conf");
+  }
+
 
 }

@@ -62,12 +62,12 @@ public class ExtractEntities extends Stage {
     super(config);
 
     // For the optional settings, we check if the config has this setting and then what the value is.
-    this.ignoreCase = ConfigAccessor.getOrDefault(config, "ignore_case", false);
-    this.onlyWhitespaceSeparated = ConfigAccessor.getOrDefault(config, "only_whitespace_separated", false);
-    this.stopOnHit = ConfigAccessor.getOrDefault(config, "stop_on_hit", false);
-    this.onlyWholeWords = ConfigAccessor.getOrDefault(config, "only_whole_words", false);
-    this.ignoreOverlaps = ConfigAccessor.getOrDefault(config, "ignore_overlaps", false);
-    this.usePayloads = ConfigAccessor.getOrDefault(config, "use_payloads", true);
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
+    this.onlyWhitespaceSeparated = ConfigUtils.getOrDefault(config, "only_whitespace_separated", false);
+    this.stopOnHit = ConfigUtils.getOrDefault(config, "stop_on_hit", false);
+    this.onlyWholeWords = ConfigUtils.getOrDefault(config, "only_whole_words", false);
+    this.ignoreOverlaps = ConfigUtils.getOrDefault(config, "ignore_overlaps", false);
+    this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");

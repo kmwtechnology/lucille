@@ -80,7 +80,7 @@ public class PipelineWorker {
 
   public static void main(String[] args) throws Exception {
 
-    Config config = ConfigAccessor.loadConfig();
+    Config config = ConfigUtils.loadConfig();
     PipelineWorker worker = new PipelineWorker(config, args.length > 0 ? args[0] : "pipeline1");
 
     int maxProcessingSecs = config.getInt("worker.maxProcessingSecs");

@@ -10,11 +10,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoField;
-import java.time.temporal.TemporalField;
 import java.util.List;
 
 /**
@@ -123,7 +120,7 @@ class Worker implements Runnable {
   }
 
   public static void main(String[] args) throws Exception {
-    Config config = ConfigAccessor.loadConfig();
+    Config config = ConfigUtils.loadConfig();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
     log.info("Starting Workers for pipeline: " + pipelineName);
 

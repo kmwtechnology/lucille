@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.message;
 
-import com.kmwllc.lucille.core.ConfigAccessor;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;

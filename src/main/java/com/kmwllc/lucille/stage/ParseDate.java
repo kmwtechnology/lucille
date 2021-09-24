@@ -43,7 +43,7 @@ public class ParseDate extends Stage {
     super(config);
 
     this.formatters = new ArrayList<>();
-    this.formatStrings = ConfigAccessor.getOrDefault(config, "format_strs", new ArrayList<>());
+    this.formatStrings = ConfigUtils.getOrDefault(config, "format_strs", new ArrayList<>());
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.updateMode = UpdateMode.fromConfig(config);

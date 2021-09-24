@@ -13,8 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.time.Duration;
-import java.time.Instant;
+
 import java.util.*;
 
 /**
@@ -142,9 +141,14 @@ public class Runner {
     ConnectorThread connectorThread = new ConnectorThread(connector, publisher);
     connectorThread.start();
 
-    boolean result = publisher.waitForCompletion(connectorThread, connectorTimeout);
+    boolean result = false;
 
-    publisher.close();
+    // the publisher could be null if we are running a connector that has no associated pipeline and therefore
+    // there's nothing to publish to
+    if (publisher!=null) {
+      result = publisher.waitForCompletion(connectorThread, connectorTimeout);
+      publisher.close();
+    }
 
     try {
       connector.postExecute(runId);
@@ -175,9 +179,12 @@ public class Runner {
     for (Connector connector : connectors) {
       LocalMessageManager manager = new LocalMessageManager(config);
       WorkerMessageManagerFactory workerMessageManagerFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
+      IndexerMessageManagerFactory indexerMessageManagerFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
+      PublisherMessageManagerFactory publisherMessageManagerFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
 
       boolean result = run(config, runner, connector,
-        workerMessageManagerFactory, manager, manager, true, false);
+        workerMessageManagerFactory, indexerMessageManagerFactory, publisherMessageManagerFactory,
+        true, false);
       if (!result) {
         break;
       }
@@ -209,9 +216,12 @@ public class Runner {
       // so those components will see each other's messages
       PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
       WorkerMessageManagerFactory workerMessageManagerFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
+      IndexerMessageManagerFactory indexerMessageManagerFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
+      PublisherMessageManagerFactory publisherMessageManagerFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
       map.put(connector.getName(), manager);
       boolean result = run(config, runner, connector,
-        workerMessageManagerFactory, manager, manager, true, true);
+        workerMessageManagerFactory, indexerMessageManagerFactory, publisherMessageManagerFactory,
+        true, true);
       if (!result) {
         break;
       }
@@ -234,12 +244,14 @@ public class Runner {
     for (Connector connector : connectors) {
       String pipelineName = connector.getPipelineName();
       WorkerMessageManagerFactory workerMessageManagerFactory =
-        startWorkerAndIndexer ? WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName) : null;
-      IndexerMessageManager indexerMessageManager =
-        startWorkerAndIndexer ? new KafkaIndexerMessageManager(config, pipelineName) : null;
-      PublisherMessageManager publisherMessageManager = new KafkaPublisherMessageManager(config);
+        WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName);
+      IndexerMessageManagerFactory indexerMessageManagerFactory =
+        IndexerMessageManagerFactory.getKafkaFactory(config, pipelineName);
+      PublisherMessageManagerFactory publisherMessageManagerFactory =
+        PublisherMessageManagerFactory.getKafkaFactory(config);
+
       boolean result = run(config, runner, connector, workerMessageManagerFactory,
-        indexerMessageManager, publisherMessageManager, startWorkerAndIndexer, false);
+        indexerMessageManagerFactory, publisherMessageManagerFactory, startWorkerAndIndexer, false);
       if (!result) {
         break;
       }
@@ -250,8 +262,8 @@ public class Runner {
                              Runner runner,
                              Connector connector,
                              WorkerMessageManagerFactory workerMessageManagerFactory,
-                             IndexerMessageManager indexerMessageManager,
-                             PublisherMessageManager publisherMessageManager,
+                             IndexerMessageManagerFactory indexerMessageManagerFactory,
+                             PublisherMessageManagerFactory publisherMessageManagerFactory,
                              boolean startWorkerAndIndexer,
                              boolean bypassSolr) throws Exception {
 
@@ -263,14 +275,20 @@ public class Runner {
 
     WorkerPool workerPool = null;
     Indexer indexer = null;
-    // TODO : Unit test for Connector's without pipelines
+    Publisher publisher = null;
+
     if (startWorkerAndIndexer && connector.getPipelineName() != null) {
       workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory);
       workerPool.start();
+      IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
       indexer = Indexer.startThread(config, indexerMessageManager, bypassSolr);
     }
 
-    Publisher publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(), connector.getPipelineName());
+    if (connector.getPipelineName() != null) {
+      PublisherMessageManager publisherMessageManager = publisherMessageManagerFactory.create();
+      publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(), connector.getPipelineName());
+    }
+
     boolean result = runner.runConnector(connector, publisher);
     if (workerPool != null) {
       workerPool.stop();
