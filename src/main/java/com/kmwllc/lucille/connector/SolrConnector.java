@@ -23,7 +23,8 @@ public class SolrConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  private final SolrClient client;
+  private SolrClient client;
+  private final GenericSolrRequest request;
 
   private List<String> postActions;
   private List<String> preActions;
@@ -42,6 +43,12 @@ public class SolrConnector extends AbstractConnector {
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
     this.client = new HttpSolrClient.Builder(config.getString("solr.url")).build();
+    this.request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
+  }
+
+  public SolrConnector(Config config, SolrClient client) {
+    this(config);
+    this.client = client;
   }
 
   @Override
@@ -69,14 +76,13 @@ public class SolrConnector extends AbstractConnector {
   }
 
   private void executeActions(List<String> actions) {
-    GenericSolrRequest request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
     for (String action : actions) {
       RequestWriter.ContentWriter contentWriter = new RequestWriter.StringPayloadContentWriter(action, "text/xml");
       request.setContentWriter(contentWriter);
 
       try {
-        SimpleSolrResponse resp = request.process(client);
-        log.info(resp.getResponse().toString());
+        NamedList<Object> resp = client.request(request);
+        log.info(String.format("Action \"%s\" complete, response: %s", action, resp.asShallowMap().get("responseHeader")));
       } catch (Exception e) {
         log.error("Failed to perform action: " + action, e);
       }
