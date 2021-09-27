@@ -51,5 +51,12 @@ public class SolrConnectorTest {
 
     connector.preExecute("run1");
     assertEquals("<delete><query>runId:run1</query></delete>", connector.getLastExecutedPreActions().get(0));
+    connector.preExecute("run2");
+    assertEquals("<delete><query>runId:run2</query></delete>", connector.getLastExecutedPreActions().get(0));
+
+    connector.postExecute("run1");
+    assertEquals("<query>runId:run1</query>", connector.getLastExecutedPostActions().get(0));
+    connector.postExecute("run2");
+    assertEquals("<query>runId:run2</query>", connector.getLastExecutedPostActions().get(0));
   }
 }
