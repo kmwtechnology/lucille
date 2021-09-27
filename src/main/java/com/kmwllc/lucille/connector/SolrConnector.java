@@ -34,8 +34,8 @@ public class SolrConnector extends AbstractConnector {
 
   private SolrClient client;
   private final GenericSolrRequest request;
-  private List<String> postReplacedActions;
-  private List<String> preReplacedActions;
+  private List<String> replacedPreActions;
+  private List<String> replacedPostActions;
 
   private List<String> postActions;
   private List<String> preActions;
@@ -46,8 +46,8 @@ public class SolrConnector extends AbstractConnector {
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
     this.client = new HttpSolrClient.Builder(config.getString("solr.url")).build();
     this.request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
-    this.preReplacedActions = new ArrayList<>();
-    this.postReplacedActions = new ArrayList<>();
+    this.replacedPreActions = new ArrayList<>();
+    this.replacedPostActions = new ArrayList<>();
   }
 
   public SolrConnector(Config config, SolrClient client) {
@@ -60,8 +60,8 @@ public class SolrConnector extends AbstractConnector {
     Map<String, String> replacement = new HashMap<>();
     replacement.put("runId", runId);
     StrSubstitutor sub = new StrSubstitutor(replacement, "{", "}");
-    preReplacedActions = preActions.stream().map(sub::replace).collect(Collectors.toList());
-    executeActions(preReplacedActions);
+    replacedPreActions = preActions.stream().map(sub::replace).collect(Collectors.toList());
+    executeActions(replacedPreActions);
   }
 
   @Override
@@ -73,16 +73,16 @@ public class SolrConnector extends AbstractConnector {
     Map<String, String> replacement = new HashMap<>();
     replacement.put("runId", runId);
     StrSubstitutor sub = new StrSubstitutor(replacement, "{", "}");
-    postReplacedActions = postActions.stream().map(sub::replace).collect(Collectors.toList());
-    executeActions(postReplacedActions);
+    replacedPostActions = postActions.stream().map(sub::replace).collect(Collectors.toList());
+    executeActions(replacedPostActions);
   }
 
   public List<String> getLastExecutedPreActions() {
-    return preReplacedActions;
+    return replacedPreActions;
   }
 
   public List<String> getLastExecutedPostActions() {
-    return postReplacedActions;
+    return replacedPostActions;
   }
 
   private void executeActions(List<String> actions) throws ConnectorException {
