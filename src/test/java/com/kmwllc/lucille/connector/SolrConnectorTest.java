@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector;
 
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.typesafe.config.Config;
@@ -12,8 +11,6 @@ import org.apache.solr.common.util.NamedList;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 import static org.mockito.Mockito.*;
 import static org.junit.Assert.*;
@@ -25,7 +22,7 @@ public class SolrConnectorTest {
     Config config = ConfigFactory.load("SolrConnectorTest/config.conf");
     SolrClient mockClient = mock(SolrClient.class);
     when(mockClient.request(any(GenericSolrRequest.class))).thenReturn(new NamedList<>());
-    Connector connector = new SolrConnector(config, mockClient, new ArrayList<>());
+    Connector connector = new SolrConnector(config, mockClient);
 
     connector.preExecute("run");
     connector.postExecute("run");
@@ -39,7 +36,7 @@ public class SolrConnectorTest {
     Config config = ConfigFactory.load("SolrConnectorTest/config.conf");
     SolrClient mockClient = mock(SolrClient.class);
     when(mockClient.request(any(GenericSolrRequest.class))).thenThrow();
-    Connector connector = new SolrConnector(config, mockClient, new ArrayList<>());
+    Connector connector = new SolrConnector(config, mockClient);
 
     connector.preExecute("run");
     connector.postExecute("run");
@@ -50,10 +47,9 @@ public class SolrConnectorTest {
     Config config = ConfigFactory.load("SolrConnectorTest/runId.conf");
     SolrClient mockClient = mock(SolrClient.class);
     when(mockClient.request(any(GenericSolrRequest.class))).thenReturn(new NamedList<>());
-    List<String> replacedActions = new ArrayList<>();
-    Connector connector = new SolrConnector(config, mockClient, replacedActions);
+    SolrConnector connector = new SolrConnector(config, mockClient);
 
     connector.preExecute("run1");
-    assertEquals("<delete><query>runId:run1</query></delete>", replacedActions.get(0));
+    assertEquals("<delete><query>runId:run1</query></delete>", connector.getLastExecutedPreActions().get(0));
   }
 }

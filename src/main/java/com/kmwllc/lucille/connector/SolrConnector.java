@@ -19,7 +19,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Connector for issuing requests to Solr.
+ * Connector for issuing requests to Solr. Requests should be formatted as xml Strings and can contain the {runId} wildcard,
+ * which will be substituted for the current runId before the requests are issued. This is the only wildcard supported.
  *
  * Connector Parameters:
  *
@@ -33,7 +34,8 @@ public class SolrConnector extends AbstractConnector {
 
   private SolrClient client;
   private final GenericSolrRequest request;
-  private List<String> replacedActions;
+  private List<String> postReplacedActions;
+  private List<String> preReplacedActions;
 
   private List<String> postActions;
   private List<String> preActions;
@@ -44,24 +46,22 @@ public class SolrConnector extends AbstractConnector {
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
     this.client = new HttpSolrClient.Builder(config.getString("solr.url")).build();
     this.request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
-    this.replacedActions = new ArrayList<>();
+    this.preReplacedActions = new ArrayList<>();
+    this.postReplacedActions = new ArrayList<>();
   }
 
-  public SolrConnector(Config config, SolrClient client, List<String> replacedActions) {
+  public SolrConnector(Config config, SolrClient client) {
     this(config);
     this.client = client;
-    this.replacedActions = replacedActions;
   }
 
   @Override
   public void preExecute(String runId) throws ConnectorException {
-    replacedActions.clear();
     Map<String, String> replacement = new HashMap<>();
     replacement.put("runId", runId);
     StrSubstitutor sub = new StrSubstitutor(replacement, "{", "}");
-    replacedActions.addAll(preActions.stream().map(sub::replace).collect(Collectors.toList()));
-
-    executeActions(replacedActions);
+    preReplacedActions = preActions.stream().map(sub::replace).collect(Collectors.toList());
+    executeActions(preReplacedActions);
   }
 
   @Override
@@ -70,21 +70,19 @@ public class SolrConnector extends AbstractConnector {
 
   @Override
   public void postExecute(String runId) throws ConnectorException {
-    replacedActions.clear();
     Map<String, String> replacement = new HashMap<>();
     replacement.put("runId", runId);
     StrSubstitutor sub = new StrSubstitutor(replacement, "{", "}");
-    replacedActions.addAll(postActions.stream().map(sub::replace).collect(Collectors.toList()));
-
-    executeActions(replacedActions);
+    postReplacedActions = postActions.stream().map(sub::replace).collect(Collectors.toList());
+    executeActions(postReplacedActions);
   }
 
-  public List<String> getPreActions() {
-    return preActions;
+  public List<String> getLastExecutedPreActions() {
+    return preReplacedActions;
   }
 
-  public List<String> getPostActions() {
-    return postActions;
+  public List<String> getLastExecutedPostActions() {
+    return postReplacedActions;
   }
 
   private void executeActions(List<String> actions) throws ConnectorException {
