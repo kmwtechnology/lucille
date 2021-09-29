@@ -1,15 +1,18 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.core.ConfigUtils;
-import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.*;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigValue;
 import org.apache.commons.lang.text.StrSubstitutor;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
+import org.apache.solr.client.solrj.SolrResponse;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.RequestWriter;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.util.NamedList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,14 +43,34 @@ public class SolrConnector extends AbstractConnector {
   private List<String> postActions;
   private List<String> preActions;
 
+  private final Map<String, List<String>> solrParams;
+  private final int rows;
+  private final String idField;
+
   public SolrConnector(Config config) {
     super(config);
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
+    // TODO : Should configurable to be cloudClient
     this.client = new HttpSolrClient.Builder(config.getString("solr.url")).build();
     this.request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
+    Set<Map.Entry<String, ConfigValue>> paramSet = config.hasPath("solrParams") ? config.getConfig("solrParams").entrySet() : new HashSet<>();
+    this.solrParams = new HashMap<>();
+    this.rows = config.hasPath("rows") ? config.getInt("rows") : 10;
+    this.idField = config.getString("idField");
     this.replacedPreActions = new ArrayList<>();
     this.replacedPostActions = new ArrayList<>();
+
+    for (Map.Entry<String, ConfigValue> e : paramSet) {
+      List<String> values;
+      try {
+        values = (List<String>) e.getValue().unwrapped();
+      } catch (ClassCastException cce) {
+        values = Collections.singletonList((String) e.getValue().unwrapped());
+      }
+
+      this.solrParams.put(e.getKey(), values);
+    }
   }
 
   public SolrConnector(Config config, SolrClient client) {
@@ -66,6 +89,57 @@ public class SolrConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
+    // Specify field list, sort order, query, (arbitrary params map)
+    // FUTURE : Query output mode: Feeding documents or iterating facet buckets and send those
+
+    SolrQuery q = new SolrQuery();
+    for (Map.Entry<String, List<String>> e : solrParams.entrySet()) {
+      q.add(e.getKey(), (String[]) e.getValue().toArray());
+    }
+    q.add("sort", "asc id");
+    q.set("cursorMark", "*");
+    q.set("rows", rows);
+
+    QueryResponse resp;
+    try {
+      resp = client.query(q);
+    } catch (Exception e) {
+      throw new ConnectorException("Unable to query Solr.", e);
+    }
+
+    long totalDocs = resp.getResults().getNumFound();
+    long docsSoFar = 0;
+
+    while (docsSoFar < totalDocs) {
+      for (SolrDocument solrDoc : resp.getResults()) {
+        String id = createDocId((String) solrDoc.get(idField));
+        Document doc = new Document(id);
+
+        for (String fieldName : solrDoc.getFieldNames()) {
+          fieldName = fieldName.toLowerCase();
+          if (fieldName.equals(idField) || fieldName.equals(Document.ID_FIELD)) {
+            continue;
+          }
+
+          doc.update(fieldName, UpdateMode.DEFAULT, (String[]) solrDoc.getFieldValues(fieldName).toArray());
+        }
+
+        try {
+          publisher.publish(doc);
+        } catch (Exception e) {
+          throw new ConnectorException("Unable to publish document", e);
+        }
+      }
+      docsSoFar += resp.getResults().size();
+
+      q.set("cursorMark", resp.getNextCursorMark());
+      try {
+        resp = client.query(q);
+      } catch (Exception e) {
+        throw new ConnectorException("Unable to query Solr", e);
+      }
+    }
+
   }
 
   @Override
