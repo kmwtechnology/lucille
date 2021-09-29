@@ -270,7 +270,7 @@ public class RunnerTest {
     // doesn't error out
     NoOpConnector.reset();
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/connectorWithoutPipeline.conf");
-    assertEquals(1, map.size());
+    assertEquals(2, map.size());
     assertNull(NoOpConnector.getSuppliedPublisher());
   }
 
@@ -279,6 +279,5 @@ public class RunnerTest {
     // we should get a PipelineException if a connector specifies a pipeline that isn't defined
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/pipelineNotFound.conf");
   }
-
 
 }

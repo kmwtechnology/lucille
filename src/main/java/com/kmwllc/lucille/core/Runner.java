@@ -141,7 +141,7 @@ public class Runner {
     ConnectorThread connectorThread = new ConnectorThread(connector, publisher);
     connectorThread.start();
 
-    boolean result = false;
+    boolean result = true;
 
     // the publisher could be null if we are running a connector that has no associated pipeline and therefore
     // there's nothing to publish to
