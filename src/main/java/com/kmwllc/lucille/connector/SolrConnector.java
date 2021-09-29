@@ -98,7 +98,7 @@ public class SolrConnector extends AbstractConnector {
       q.add(e.getKey(), vals);
     }
     q.add("sort", "id asc");
-    q.set("cursorMark", "*");
+    q.set("cursorMark", "\\*");
     q.set("rows", rows);
 
     QueryResponse resp;
@@ -108,10 +108,7 @@ public class SolrConnector extends AbstractConnector {
       throw new ConnectorException("Unable to query Solr.", e);
     }
 
-    long totalDocs = resp.getResults().getNumFound();
-    long docsSoFar = 0;
-
-    while (docsSoFar < totalDocs) {
+    while (true) {
       for (SolrDocument solrDoc : resp.getResults()) {
         String id = createDocId((String) solrDoc.get(idField));
         Document doc = new Document(id);
@@ -131,7 +128,10 @@ public class SolrConnector extends AbstractConnector {
           throw new ConnectorException("Unable to publish document", e);
         }
       }
-      docsSoFar += resp.getResults().size();
+
+      if (q.get("cursorMark").equals(resp.getNextCursorMark())) {
+        break;
+      }
 
       q.set("cursorMark", resp.getNextCursorMark());
       try {
