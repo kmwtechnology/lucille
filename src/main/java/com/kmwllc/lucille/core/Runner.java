@@ -102,7 +102,7 @@ public class Runner {
     }
 
     context.stop();
-    log.info("Entire run took " + timer.getSnapshot().getMax() +  " seconds to run");
+    log.info(String.format("Entire run took %.2f seconds to run.", timer.getSnapshot().getValues()[0] / Math.pow(10, 9)));
   }
 
   public Runner(Config config) throws Exception {
@@ -158,7 +158,7 @@ public class Runner {
     }
 
     context.stop();
-    log.info("Connector complete: " + connector.getName() + ". Took " + timer.getSnapshot().getValues()[0] / Math.pow(10, 9) + " seconds to run.");
+    log.info(String.format("Connector %s is complete. It took %.2f seconds to run.", connector.getName(), timer.getSnapshot().getValues()[0] / Math.pow(10, 9)));
 
     return result;
   }
@@ -267,6 +267,7 @@ public class Runner {
                              boolean startWorkerAndIndexer,
                              boolean bypassSolr) throws Exception {
 
+    // Does not take into account connector creation time
     String pipelineName = connector.getPipelineName();
     Meter indexerMeter = metrics.meter("indexer.meter");
     Meter publisherMeter = metrics.meter("publisher.meter");
