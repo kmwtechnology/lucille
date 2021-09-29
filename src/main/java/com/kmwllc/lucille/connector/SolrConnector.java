@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.core.*;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
+import com.typesafe.config.ConfigValueType;
 import org.apache.commons.lang.text.StrSubstitutor;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
@@ -45,14 +46,13 @@ public class SolrConnector extends AbstractConnector {
   private List<String> preActions;
 
   private final Map<String, List<String>> solrParams;
-  private final int rows;
   private final String idField;
 
   public SolrConnector(Config config) {
     super(config);
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
-    // TODO : Should configurable to be cloudClient
+
     if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
       this.client = new CloudSolrClient.Builder(config.getStringList("solr.url")).build();
     } else {
@@ -64,20 +64,19 @@ public class SolrConnector extends AbstractConnector {
 
     // These parameters should only be set when a pipeline is also supplied
     Set<Map.Entry<String, ConfigValue>> paramSet = config.hasPath("pipeline") ? config.getConfig("solrParams").entrySet() : new HashSet<>();
-    this.rows = config.hasPath("pipeline") ? config.getInt("rows") : 10;
     this.idField = config.hasPath("pipeline") ? config.getString("idField") : Document.ID_FIELD;
     this.replacedPreActions = new ArrayList<>();
     this.replacedPostActions = new ArrayList<>();
 
     for (Map.Entry<String, ConfigValue> e : paramSet) {
-      List<String> values;
-      try {
-        values = (List<String>) e.getValue().unwrapped();
-      } catch (ClassCastException cce) {
-        values = Collections.singletonList((String) e.getValue().unwrapped());
+      Object rawValues = e.getValue().unwrapped();
+      if (e.getValue().valueType().equals(ConfigValueType.LIST)) {
+        this.solrParams.put(e.getKey(), (List<String>) rawValues);
+      } else if (e.getValue().valueType().equals(ConfigValueType.STRING)) {
+        this.solrParams.put(e.getKey(), Collections.singletonList((String) rawValues));
+      } else if (e.getValue().valueType().equals(ConfigValueType.NUMBER)) {
+        this.solrParams.put(e.getKey(), Collections.singletonList(String.valueOf(rawValues)));
       }
-
-      this.solrParams.put(e.getKey(), values);
     }
   }
 
@@ -103,9 +102,8 @@ public class SolrConnector extends AbstractConnector {
       String[] vals = e.getValue().toArray(new String[0]);
       q.add(e.getKey(), vals);
     }
-    q.add("sort", "id asc");
+    q.add("sort",  idField + " asc");
     q.set("cursorMark", "\\*");
-    q.set("rows", rows);
 
     QueryResponse resp;
     try {
@@ -155,14 +153,16 @@ public class SolrConnector extends AbstractConnector {
     replacement.put("runId", runId);
     StrSubstitutor sub = new StrSubstitutor(replacement, "{", "}");
     replacedPostActions = postActions.stream().map(sub::replace).collect(Collectors.toList());
-    executeActions(replacedPostActions);
 
     try {
-      client.close();
-    } catch (Exception e) {
-      throw new ConnectorException("Unable to close the Solr Client", e);
+      executeActions(replacedPostActions);
+    } finally {
+      try {
+        client.close();
+      } catch (Exception e) {
+        throw new ConnectorException("Unable to close the Solr Client", e);
+      }
     }
-
   }
 
   public List<String> getLastExecutedPreActions() {
