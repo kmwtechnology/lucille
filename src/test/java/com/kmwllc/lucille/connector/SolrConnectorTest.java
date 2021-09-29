@@ -60,6 +60,17 @@ public class SolrConnectorTest {
     verify(mockPublisher, times(3)).publish(testDoc);
   }
 
+  @Test(expected = ConnectorException.class)
+  public void testFailingExecute() throws SolrServerException, IOException, ConnectorException {
+    Config config = ConfigFactory.load("SolrConnectorTest/execute.conf");
+    SolrClient mockClient = mock(SolrClient.class);
+    Publisher mockPublisher = mock(Publisher.class);
+    when(mockClient.request(any(GenericSolrRequest.class))).thenThrow();
+    Connector connector = new SolrConnector(config, mockClient);
+
+    connector.execute(mockPublisher);
+  }
+
   @Test
   public void testActions() throws ConnectorException, SolrServerException, IOException {
     Config config = ConfigFactory.load("SolrConnectorTest/config.conf");
