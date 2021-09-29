@@ -36,6 +36,8 @@ public class SolrConnectorTest {
         SolrDocument doc = new SolrDocument();
         doc.setField("id", "doc");
         for (String param : q.getParameterNames()) {
+          if (param.equals("cursorMark"))
+            continue;
           doc.setField(param.toLowerCase(), q.getParams(param));
         }
 
@@ -54,10 +56,9 @@ public class SolrConnectorTest {
     testDoc.update("fq", UpdateMode.DEFAULT, "devId:[5 TO 20]", "date:today");
     testDoc.update("fl", UpdateMode.DEFAULT, "date", "devId", "id", "name", "category");
     testDoc.update("sort", UpdateMode.DEFAULT, "devId desc", "id asc");
-    testDoc.update("cursormark", UpdateMode.DEFAULT, "*");
     testDoc.update("rows", UpdateMode.DEFAULT, "1");
 
-    verify(mockPublisher, times(3)).publish(testDoc);
+    verify(mockPublisher, times(2)).publish(testDoc);
   }
 
   @Test(expected = ConnectorException.class)

@@ -24,7 +24,7 @@ public class MockQueryResponse extends QueryResponse {
 
   @Override
   public String getNextCursorMark() {
-    return "*";
+    return "**";
   }
 
   @Override

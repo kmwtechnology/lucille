@@ -8,6 +8,7 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrResponse;
+import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.RequestWriter;
@@ -52,7 +53,12 @@ public class SolrConnector extends AbstractConnector {
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
     // TODO : Should configurable to be cloudClient
-    this.client = new HttpSolrClient.Builder(config.getString("solr.url")).build();
+    if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
+      this.client = new CloudSolrClient.Builder(config.getStringList("solr.url")).build();
+    } else {
+      this.client = new HttpSolrClient.Builder(config.getString("solr.url")).build();
+    }
+
     this.request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
     this.solrParams = new HashMap<>();
 
