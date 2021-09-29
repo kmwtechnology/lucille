@@ -1,14 +1,19 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.core.Connector;
-import com.kmwllc.lucille.core.ConnectorException;
+import com.kmwllc.lucille.core.*;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.util.NamedList;
 import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import java.io.IOException;
 
@@ -16,6 +21,44 @@ import static org.mockito.Mockito.*;
 import static org.junit.Assert.*;
 
 public class SolrConnectorTest {
+
+  @Test
+  public void testExecute() throws Exception {
+    Config config = ConfigFactory.load("SolrConnectorTest/execute.conf");
+    SolrClient mockClient = mock(SolrClient.class);
+    Publisher mockPublisher = mock(Publisher.class);
+
+    when(mockClient.query(any(SolrQuery.class))).then(new Answer<>() {
+      @Override
+      public QueryResponse answer(InvocationOnMock invocationOnMock) throws Throwable {
+        SolrQuery q = invocationOnMock.getArgument(0);
+
+        SolrDocument doc = new SolrDocument();
+        doc.setField("id", "doc");
+        for (String param : q.getParameterNames()) {
+          doc.setField(param.toLowerCase(), q.getParams(param));
+        }
+
+        MockQueryResponse resp = new MockQueryResponse();
+        resp.addToResults(doc);
+        resp.getResults().setNumFound(3);
+        return resp;
+      }
+    });
+
+    Connector connector = new SolrConnector(config, mockClient);
+    connector.execute(mockPublisher);
+
+    Document testDoc = new Document("doc");
+    testDoc.update("q", UpdateMode.DEFAULT, "type:product");
+    testDoc.update("fq", UpdateMode.DEFAULT, "devId:[5 TO 20]", "date:today");
+    testDoc.update("fl", UpdateMode.DEFAULT, "date", "devId", "id", "name", "category");
+    testDoc.update("sort", UpdateMode.DEFAULT, "devId desc", "id asc");
+    testDoc.update("cursormark", UpdateMode.DEFAULT, "*");
+    testDoc.update("rows", UpdateMode.DEFAULT, "1");
+
+    verify(mockPublisher, times(3)).publish(testDoc);
+  }
 
   @Test
   public void testActions() throws ConnectorException, SolrServerException, IOException {

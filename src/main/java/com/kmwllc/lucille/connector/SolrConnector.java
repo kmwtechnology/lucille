@@ -54,10 +54,12 @@ public class SolrConnector extends AbstractConnector {
     // TODO : Should configurable to be cloudClient
     this.client = new HttpSolrClient.Builder(config.getString("solr.url")).build();
     this.request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
-    Set<Map.Entry<String, ConfigValue>> paramSet = config.hasPath("solrParams") ? config.getConfig("solrParams").entrySet() : new HashSet<>();
     this.solrParams = new HashMap<>();
-    this.rows = config.hasPath("rows") ? config.getInt("rows") : 10;
-    this.idField = config.getString("idField");
+
+    // These parameters should only be set when a pipeline is also supplied
+    Set<Map.Entry<String, ConfigValue>> paramSet = config.hasPath("pipeline") ? config.getConfig("solrParams").entrySet() : new HashSet<>();
+    this.rows = config.hasPath("pipeline") ? config.getInt("rows") : 10;
+    this.idField = config.hasPath("pipeline") ? config.getString("idField") : Document.ID_FIELD;
     this.replacedPreActions = new ArrayList<>();
     this.replacedPostActions = new ArrayList<>();
 
@@ -89,14 +91,13 @@ public class SolrConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    // Specify field list, sort order, query, (arbitrary params map)
     // FUTURE : Query output mode: Feeding documents or iterating facet buckets and send those
-
     SolrQuery q = new SolrQuery();
     for (Map.Entry<String, List<String>> e : solrParams.entrySet()) {
-      q.add(e.getKey(), (String[]) e.getValue().toArray());
+      String[] vals = e.getValue().toArray(new String[0]);
+      q.add(e.getKey(), vals);
     }
-    q.add("sort", "asc id");
+    q.add("sort", "id asc");
     q.set("cursorMark", "*");
     q.set("rows", rows);
 
@@ -121,7 +122,7 @@ public class SolrConnector extends AbstractConnector {
             continue;
           }
 
-          doc.update(fieldName, UpdateMode.DEFAULT, (String[]) solrDoc.getFieldValues(fieldName).toArray());
+          doc.update(fieldName, UpdateMode.DEFAULT, solrDoc.getFieldValues(fieldName).toArray(new String[0]));
         }
 
         try {
@@ -149,6 +150,13 @@ public class SolrConnector extends AbstractConnector {
     StrSubstitutor sub = new StrSubstitutor(replacement, "{", "}");
     replacedPostActions = postActions.stream().map(sub::replace).collect(Collectors.toList());
     executeActions(replacedPostActions);
+
+    try {
+      client.close();
+    } catch (Exception e) {
+      throw new ConnectorException("Unable to close the Solr Client", e);
+    }
+
   }
 
   public List<String> getLastExecutedPreActions() {
