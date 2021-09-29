@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.apache.solr.client.solrj.SolrClient;
@@ -27,6 +28,8 @@ public class SolrConnectorTest {
     Config config = ConfigFactory.load("SolrConnectorTest/execute.conf");
     SolrClient mockClient = mock(SolrClient.class);
     Publisher mockPublisher = mock(Publisher.class);
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Publisher publisher = new PublisherImpl(manager, "run", "pipeline1");
 
     when(mockClient.query(any(SolrQuery.class))).then(new Answer<>() {
       @Override
@@ -34,7 +37,7 @@ public class SolrConnectorTest {
         SolrQuery q = invocationOnMock.getArgument(0);
 
         SolrDocument doc = new SolrDocument();
-        doc.setField("id", "doc");
+        doc.setField(Document.ID_FIELD, "doc");
         for (String param : q.getParameterNames()) {
           if (param.equals("cursorMark"))
             continue;
@@ -49,16 +52,21 @@ public class SolrConnectorTest {
     });
 
     Connector connector = new SolrConnector(config, mockClient);
-    connector.execute(mockPublisher);
+    connector.execute(publisher);
 
-    Document testDoc = new Document("doc");
+    Document testDoc = new Document("doc", "run");
     testDoc.update("q", UpdateMode.DEFAULT, "type:product");
     testDoc.update("fq", UpdateMode.DEFAULT, "devId:[5 TO 20]", "date:today");
     testDoc.update("fl", UpdateMode.DEFAULT, "date", "devId", "id", "name", "category");
     testDoc.update("sort", UpdateMode.DEFAULT, "devId desc", "id asc");
     testDoc.update("rows", UpdateMode.DEFAULT, "1");
 
-    verify(mockPublisher, times(2)).publish(testDoc);
+    //verify(mockPublisher, times(2)).publish(testDoc);
+
+    assertEquals(2, manager.getSavedDocumentsSentForProcessing().size());
+    for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
+      assertEquals(testDoc, doc);
+    }
   }
 
   @Test(expected = ConnectorException.class)
