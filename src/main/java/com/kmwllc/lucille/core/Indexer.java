@@ -128,7 +128,7 @@ class Indexer implements Runnable {
 
       if (numIndexed % logRate == 0) {
         log.info(String.format("%d documents have been indexed so far. Documents are currently being indexed at a rate of %.2f documents/second",
-            meter.getCount(), meter.getFiveMinuteRate()));
+            meter.getCount(), meter.getMeanRate()));
       }
     } catch (Exception e) {
       for (Document d : batchedDocs) {

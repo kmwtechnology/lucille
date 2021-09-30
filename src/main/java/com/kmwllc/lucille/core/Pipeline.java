@@ -103,6 +103,7 @@ public class Pipeline {
     ArrayList<Document> documents = new ArrayList();
     documents.add(document);
 
+    // TODO : Add Stage metric timing
     for (Stage stage : stages) {
       List<Document> childrenFromCurrentStage = new ArrayList();
 

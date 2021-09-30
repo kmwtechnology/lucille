@@ -153,7 +153,7 @@ public class PublisherImpl implements Publisher {
         log.info(String.format("Pipeline %s finished processing its documents. In total, it processed %d documents and " +
             "created %d child documents. The publisher received success events for %d documents and failure events for %d documents",
             pipelineName, numPublished, numCreated, numSucceeded, numFailed));
-        log.info("Documents were published at a rate of " + meter.getMeanRate() + " documents/second.");
+        log.info(String.format("Documents were published at a rate of %.2f documents/second.", meter.getMeanRate()));
         return true;
       }
 
