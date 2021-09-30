@@ -1,12 +1,11 @@
 package com.kmwllc.lucille.connector.jdbc;
 
-import com.google.common.base.Strings;
 import com.kmwllc.lucille.connector.AbstractConnector;
-import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -259,7 +258,7 @@ public class DatabaseConnector extends AbstractConnector {
   }
 
   private void runSql(String sql) {
-    if (!Strings.isNullOrEmpty(sql)) {
+    if (!StringUtils.isEmpty(sql)) {
       try {
         Statement state = connection.createStatement();
         state.executeUpdate(sql);
