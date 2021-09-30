@@ -21,8 +21,6 @@ import java.util.List;
  */
 public abstract class Stage {
 
-  public static final String DEFAULT_NAME = "nameNotSet";
-
   protected Config config;
   private final List<String> conditionalFields;
   private final List<String> conditionalValues;
@@ -32,7 +30,7 @@ public abstract class Stage {
   // TODO : Debug mode
   public Stage(Config config) {
     this.config = config;
-    this.name = ConfigUtils.getOrDefault(config, "name", DEFAULT_NAME);
+    this.name = ConfigUtils.getOrDefault(config, "name", null);
     this.conditionalFields = ConfigUtils.getOrDefault(config, "conditional_field", new ArrayList<>());
     this.conditionalValues = ConfigUtils.getOrDefault(config, "conditional_values", new ArrayList<>());
     this.operator = ConfigUtils.getOrDefault(config, "conditional_operator", "must");
@@ -100,6 +98,13 @@ public abstract class Stage {
 
   public String getName() {
     return name;
+  }
+
+  public void initializeName(String name) throws StageException {
+    if (this.name!=null) {
+      throw new StageException("Stage name cannot be changed after it has been initialized.");
+    }
+    this.name = name;
   }
 
   public Config getConfig() {

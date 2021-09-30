@@ -112,7 +112,7 @@ public class StageTest {
   @Test
   public void testGetNameDefault() throws Exception {
     Stage stage = factory.get();
-    assertEquals(Stage.DEFAULT_NAME, stage.getName());
+    assertEquals(null, stage.getName());
   }
 
 }
