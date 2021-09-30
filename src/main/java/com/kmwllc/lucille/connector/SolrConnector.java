@@ -118,6 +118,7 @@ public class SolrConnector extends AbstractConnector {
         Document doc = new Document(id);
 
         for (String fieldName : solrDoc.getFieldNames()) {
+          // TODO : we might want an option to preserve the id under its original field name
           fieldName = fieldName.toLowerCase();
           if (fieldName.equals(idField) || fieldName.equals(Document.ID_FIELD)) {
             continue;

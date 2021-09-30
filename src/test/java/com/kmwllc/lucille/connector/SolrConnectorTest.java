@@ -27,7 +27,6 @@ public class SolrConnectorTest {
   public void testExecute() throws Exception {
     Config config = ConfigFactory.load("SolrConnectorTest/execute.conf");
     SolrClient mockClient = mock(SolrClient.class);
-    Publisher mockPublisher = mock(Publisher.class);
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(manager, "run", "pipeline1");
 
