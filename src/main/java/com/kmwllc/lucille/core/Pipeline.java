@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -8,7 +11,9 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A sequence of processing Stages to be applied to incoming Documents.
@@ -18,6 +23,12 @@ public class Pipeline {
   private static final Logger log = LoggerFactory.getLogger(Pipeline.class);
 
   private ArrayList<Stage> stages = new ArrayList();
+
+  private static final MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
+  private Map<String, Counter> stageErrorCounters = new HashMap<>();
+  private Map<String, Counter> stageProcessedCounters = new HashMap<>();
+  private Map<String, Counter> stageProcessedTimers = new HashMap<>();
+  private Map<String, Counter> stageSkippedCounters = new HashMap<>();
 
   public List<Stage> getStages() {
     return stages;
@@ -30,6 +41,10 @@ public class Pipeline {
   public void startStages() throws StageException {
     for (Stage stage : stages) {
       stage.start();
+      stageErrorCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".errors"));
+      stageProcessedCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".processed"));
+      stageProcessedTimers.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".timer"));
+      stageSkippedCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".skipped"));
     }
   }
 

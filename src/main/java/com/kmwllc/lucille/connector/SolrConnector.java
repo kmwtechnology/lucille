@@ -119,6 +119,7 @@ public class SolrConnector extends AbstractConnector {
 
         for (String fieldName : solrDoc.getFieldNames()) {
           // TODO : we might want an option to preserve the id under its original field name
+          // TODO : Add configurable field blacklist (not necessarily here)
           fieldName = fieldName.toLowerCase();
           if (fieldName.equals(idField) || fieldName.equals(Document.ID_FIELD)) {
             continue;
@@ -145,7 +146,6 @@ public class SolrConnector extends AbstractConnector {
         throw new ConnectorException("Unable to query Solr", e);
       }
     }
-
   }
 
   @Override
