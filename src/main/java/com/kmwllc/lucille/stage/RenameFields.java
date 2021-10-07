@@ -12,7 +12,7 @@ import java.util.*;
 import java.util.Map.Entry;
 
 /**
- * This field renames a given set of source fields to a given set of destination fields. You must specify the same
+ * This Stage renames a given set of source fields to a given set of destination fields. You must specify the same
  * number of source and destination fields.
  *
  * Config Parameters:
