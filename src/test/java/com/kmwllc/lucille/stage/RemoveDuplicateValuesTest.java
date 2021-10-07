@@ -49,4 +49,12 @@ public class RemoveDuplicateValuesTest {
     assertEquals(Arrays.asList("duplicates", "allowed", "allowed"), doc2.getStringList("field3"));
   }
 
+  @Test(expected = StageException.class)
+  public void testNoFields() throws StageException {
+    Stage stage = factory.get("RemoveDuplicateValuesTest/nofields.conf");
+
+    Document doc = new Document("doc");
+    stage.processDocument(doc);
+  }
+
 }
