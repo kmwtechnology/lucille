@@ -121,9 +121,7 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public boolean waitForCompletion(ConnectorThread thread, int timeout) throws Exception {
-
     start = Instant.now();
-
     Instant lastLog = Instant.now();
 
     // poll for Events relating the current run; loop until all work is complete

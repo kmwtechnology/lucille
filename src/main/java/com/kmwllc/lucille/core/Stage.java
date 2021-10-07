@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.typesafe.config.Config;
 
 import java.util.ArrayList;
@@ -28,6 +30,8 @@ public abstract class Stage {
   private final List<String> conditionalValues;
   private final String operator;
   private String name;
+
+  private static final MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
 
   // TODO : Debug mode
   public Stage(Config config) {
@@ -81,9 +85,17 @@ public abstract class Stage {
    */
   public List<Document> processConditional(Document doc) throws StageException {
     if (shouldProcess(doc)) {
-      return processDocument(doc);
+      metrics.counter("stage." + getName() + ".processed").inc();
+
+      try {
+        return processDocument(doc);
+      } catch (StageException e) {
+        metrics.counter("stage." + getName() + ".errors").inc();
+        throw e;
+      }
     }
 
+    metrics.counter("stage." + getName() + ".skipped").inc();
     return null;
   }
 

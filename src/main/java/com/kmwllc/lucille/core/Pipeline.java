@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +31,7 @@ public class Pipeline {
   private Map<String, Counter> stageProcessedCounters = new HashMap<>();
   private Map<String, Counter> stageProcessedTimers = new HashMap<>();
   private Map<String, Counter> stageSkippedCounters = new HashMap<>();
+  private Map<String, Counter> stageChildrenCounters = new HashMap<>();
 
   public List<Stage> getStages() {
     return stages;
@@ -45,6 +48,7 @@ public class Pipeline {
       stageProcessedCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".processed"));
       stageProcessedTimers.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".timer"));
       stageSkippedCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".skipped"));
+      stageChildrenCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".children"));
     }
   }
 
@@ -123,13 +127,17 @@ public class Pipeline {
       List<Document> childrenFromCurrentStage = new ArrayList();
 
       for (Document doc : documents) {
+        Instant stageStart = Instant.now();
         List<Document> childrenOfCurrentDoc = stage.processConditional(doc);
+        stageProcessedTimers.get(stage.getName()).inc(Duration.between(stageStart, Instant.now()).toMillis());
+
         if (childrenOfCurrentDoc != null) {
           childrenFromCurrentStage.addAll(childrenOfCurrentDoc);
         }
       }
 
       documents.addAll(childrenFromCurrentStage);
+      stageChildrenCounters.get(stage.getName()).inc(childrenFromCurrentStage.size());
     }
 
     return documents;
