@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
+import org.apache.commons.lang.StringUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -24,7 +25,6 @@ import java.util.regex.Pattern;
 public class ExtractFirstCharacter extends Stage {
 
   private final Set<Map.Entry<String, ConfigValue>> fieldMapping;
-  private static final Pattern alphaPattern = Pattern.compile("^[A-z]+$");
 
   public ExtractFirstCharacter(Config config) {
     super(config);
@@ -45,10 +45,9 @@ public class ExtractFirstCharacter extends Stage {
         continue;
 
       String firstChar = doc.getString(entry.getKey()).substring(0, 1);
-      Matcher matcher = alphaPattern.matcher(firstChar);
-
       String dest = (String) entry.getValue().unwrapped();
-      if (matcher.matches()) {
+
+      if (StringUtils.isAlpha(firstChar)) {
         doc.update(dest, UpdateMode.DEFAULT, firstChar);
       } else {
         doc.update(dest, UpdateMode.DEFAULT, "nonalpha");
