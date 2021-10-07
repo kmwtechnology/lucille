@@ -3,12 +3,14 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * This Stage removes duplicate values from the given list of fields.
@@ -39,17 +41,9 @@ public class RemoveDuplicateValues extends Stage {
         continue;
       }
 
-      Set<String> seenValues = new HashSet<>();
-      List<String> values = doc.getStringList(field);
-      for (int i = 0; i < values.size(); i++) {
-        String value = values.get(i);
-
-        if (!seenValues.add(value)) {
-          doc.removeFromArray(field, i);
-          i--;
-          values = doc.getStringList(field);
-        }
-      }
+      List<String> uniqueValues = doc.getStringList(field).stream().distinct().collect(Collectors.toList());
+      doc.removeField(field);
+      doc.update(field, UpdateMode.DEFAULT, uniqueValues.toArray(new String[0]));
     }
 
     return null;

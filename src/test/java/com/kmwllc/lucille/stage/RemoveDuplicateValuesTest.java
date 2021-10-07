@@ -47,6 +47,21 @@ public class RemoveDuplicateValuesTest {
     assertEquals(Arrays.asList("same", "different"), doc2.getStringList("field1"));
     assertEquals(Arrays.asList("1", "2", "3"), doc2.getStringList("field2"));
     assertEquals(Arrays.asList("duplicates", "allowed", "allowed"), doc2.getStringList("field3"));
+
+    Document doc3 = new Document("doc3");
+    doc3.setField("field1", "single");
+    stage.processDocument(doc3);
+    assertEquals("single", doc3.getString("field1"));
+    assertFalse(doc3.has("field2"));
+    assertFalse(doc3.has("field3"));
+  }
+
+  @Test(expected = StageException.class)
+  public void testNoFields() throws StageException {
+    Stage stage = factory.get("RemoveDuplicateValuesTest/nofields.conf");
+
+    Document doc = new Document("doc");
+    stage.processDocument(doc);
   }
 
 }
