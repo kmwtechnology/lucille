@@ -69,6 +69,7 @@ public class PipelineTest {
 
     Document doc = new Document("d1");
 
+    pipeline.startStages();
     List<Document> results = pipeline.processDocument(doc);
 
     ArrayList<Document> expected = new ArrayList<>();
