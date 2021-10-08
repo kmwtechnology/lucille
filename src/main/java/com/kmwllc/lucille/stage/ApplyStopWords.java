@@ -8,14 +8,18 @@ import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
 
-import java.io.FileReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
+/**
+ * This Stage removes stop words supplied in the dictionaries from a given list of fields.
+ *
+ * Config Parameters -
+ *
+ *   - dictionaries (List<String>) : A list of dictionaries to pull stop words from
+ *   - fields (List<String>, Optional) : A list of fields to remove stop words from. If no fields are supplied, this
+ *     stage will be applied to every non-reserved field on every document.
+ */
 public class ApplyStopWords extends Stage {
 
   private final List<String> dictionaries;
