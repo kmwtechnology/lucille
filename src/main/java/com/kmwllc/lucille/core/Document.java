@@ -348,7 +348,7 @@ public class Document implements Cloneable {
     return doc;
   }
 
-  private void validateNotReservedField(String name) {
+  public void validateNotReservedField(String name) {
     if (ID_FIELD.equals(name) || RUNID_FIELD.equals(name) || CHILDREN_FIELD.equals(name)) {
       throw new IllegalArgumentException();
     }
