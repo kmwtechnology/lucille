@@ -34,7 +34,6 @@ public class TrimWhitespaceTest {
     assertEquals("trim this", doc2.getStringList("input1").get(1));
     assertEquals("test", doc2.getStringList("input1").get(2));
     assertEquals("test", doc2.getStringList("input1").get(3));
-
   }
 
 }
