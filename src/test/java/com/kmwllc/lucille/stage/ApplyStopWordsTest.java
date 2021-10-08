@@ -29,8 +29,22 @@ public class ApplyStopWordsTest {
     doc2.addToField("multivalued", "the is of and librarian");
     stage.processDocument(doc2);
     assertEquals("stopwords are here", doc2.getStringList("multivalued").get(0));
-    assertEquals("hates stopwords!", doc2.getStringList("multivalued").get(1));
+    assertEquals(", hates stopwords!", doc2.getStringList("multivalued").get(1));
     assertEquals("", doc2.getStringList("multivalued").get(2));
+  }
+
+  @Test
+  public void fieldsTest() throws StageException {
+    Stage stage = factory.get("ApplyStopWordsTest/fields.conf");
+
+    Document doc1 = new Document("doc1");
+    doc1.setField("input1", "is there a stopword about turn off");
+    doc1.setField("input2", "is historian a librarian?");
+    doc1.setField("reserved", "and these stopwords is reserved");
+    stage.processDocument(doc1);
+    assertEquals("there a stopword", doc1.getString("input1"));
+    assertEquals("a ?", doc1.getString("input2"));
+    assertEquals("and these stopwords is reserved", doc1.getString("reserved"));
   }
 
 }

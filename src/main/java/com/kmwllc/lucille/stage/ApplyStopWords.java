@@ -12,6 +12,7 @@ import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -62,12 +63,14 @@ public class ApplyStopWords extends Stage {
         continue;
       }
 
-      // TODO : Decided how we want to handle punctuation
+      // TODO : Decide how we want to handle punctuation (currently it is left in, see tests for examples)
       List<String> newValues = new ArrayList<>();
       for (String val : doc.getStringList(field)) {
-        List<String> tokens = Stream.of(val.split(" ")).collect(Collectors.toList());
-        tokens.removeAll(stopWords);
-        newValues.add(String.join(" ", tokens));
+        for (String stopWord : stopWords) {
+          val = val.replaceAll("(?i) *\\b" + stopWord + "\\b *", " ");
+        }
+
+        newValues.add(val.trim());
       }
 
       doc.removeField(field);
