@@ -26,6 +26,8 @@ public class Document implements Cloneable {
   public static final String ERROR_FIELD = "errors";
   public static final String CHILDREN_FIELD = ".children";
 
+  public static final List<String> RESERVED_FIELDS = List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD);
+
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
   private static final Logger log = LoggerFactory.getLogger(Document.class);
@@ -348,8 +350,8 @@ public class Document implements Cloneable {
     return doc;
   }
 
-  public void validateNotReservedField(String name) {
-    if (ID_FIELD.equals(name) || RUNID_FIELD.equals(name) || CHILDREN_FIELD.equals(name)) {
+  private void validateNotReservedField(String name) {
+    if (RESERVED_FIELDS.contains(name)) {
       throw new IllegalArgumentException();
     }
   }

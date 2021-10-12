@@ -31,6 +31,12 @@ public class ApplyStopWordsTest {
     assertEquals("stopwords are here", doc2.getStringList("multivalued").get(0));
     assertEquals(", hates stopwords!", doc2.getStringList("multivalued").get(1));
     assertEquals("", doc2.getStringList("multivalued").get(2));
+
+    Document doc3 = new Document("is a stopword");
+    doc3.setField("only", "is the librarian ready?");
+    stage.processDocument(doc3);
+    assertEquals("is a stopword", doc3.getId());
+    assertEquals("ready?", doc3.getString("only"));
   }
 
   @Test
