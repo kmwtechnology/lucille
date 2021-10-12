@@ -42,8 +42,7 @@ public class TrimWhitespace extends Stage {
         values.add(value.trim());
       }
 
-      doc.removeField(field);
-      doc.update(field, UpdateMode.DEFAULT, values.toArray(new String[0]));
+      doc.update(field, UpdateMode.OVERWRITE, values.toArray(new String[0]));
     }
 
 

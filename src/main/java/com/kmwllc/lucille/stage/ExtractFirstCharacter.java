@@ -20,15 +20,19 @@ import java.util.regex.Pattern;
  *
  * Config Parameters -
  *
- *   fieldMapping (Map<String, String>) : A mapping of source->destination fields
+ *   - fieldMapping (Map<String, String>) : A mapping of source->destination fields
+ *   - replacement (String, Optional) : The String to place in the output field if the first character is not a letter.
+ *     If "" is supplied, the output field will not be set to anything. Replacements defaults to "nonalpha".
  */
 public class ExtractFirstCharacter extends Stage {
 
   private final Set<Map.Entry<String, ConfigValue>> fieldMapping;
+  private final String replacement;
 
   public ExtractFirstCharacter(Config config) {
     super(config);
     this.fieldMapping = config.getConfig("fieldMapping").entrySet();
+    this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";
   }
 
   public void start() throws StageException {
@@ -44,13 +48,20 @@ public class ExtractFirstCharacter extends Stage {
       if (!doc.has(entry.getKey()))
         continue;
 
-      String firstChar = doc.getString(entry.getKey()).substring(0, 1);
+      String value = doc.getString(entry.getKey());
+
+      if (value == null || value.isBlank())
+        continue;
+
+      String firstChar = value.substring(0, 1);
       String dest = (String) entry.getValue().unwrapped();
 
       if (StringUtils.isAlpha(firstChar)) {
         doc.update(dest, UpdateMode.DEFAULT, firstChar);
       } else {
-        doc.update(dest, UpdateMode.DEFAULT, "nonalpha");
+        if (!replacement.equals(" ")) {
+          doc.update(dest, UpdateMode.DEFAULT, replacement);
+        }
       }
     }
 
