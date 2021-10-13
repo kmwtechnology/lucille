@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -56,5 +57,9 @@ public class KafkaUtils {
     return pipelineName + "_fail";
   }
 
-
+  public static void validateAtMostOneRecord(ConsumerRecords<String, String> consumerRecords) throws Exception {
+    if (consumerRecords.count() > 1) {
+      throw new Exception("Kafka poll returned more than 1 message but this shouldn't happen");
+    }
+  }
 }

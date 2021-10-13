@@ -35,6 +35,7 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
   @Override
   public Document pollCompleted() throws Exception {
     ConsumerRecords<String, String> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       destConsumer.commitSync();
       ConsumerRecord<String, String> record = consumerRecords.iterator().next();
