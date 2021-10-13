@@ -7,20 +7,20 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
-import org.ahocorasick.trie.Emit;
 import org.ahocorasick.trie.PayloadToken;
 import org.ahocorasick.trie.PayloadTrie;
-import org.ahocorasick.trie.handler.AbstractStatefulEmitHandler;
-import org.ahocorasick.trie.handler.StatefulEmitHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
- * This Stage removes stop words supplied in the dictionaries from a given list of fields.
+ * This Stage removes stop words supplied in the dictionaries from a given list of fields. Multi term stop "phrases"
+ * are allowed and will be completely removed from the output String. NOTE : This Stage will only remove whole words and
+ * will make case insensitive matches.
  *
  * Config Parameters -
  *
@@ -113,12 +113,11 @@ public class ApplyStopWords extends Stage {
       List<String> newValues = new ArrayList<>();
       for (String val : doc.getStringList(field)) {
         if (dictTrie.containsMatch(val)) {
-          Collection<PayloadToken<String>> rawTokens = dictTrie.tokenize(val);
-          rawTokens = rawTokens.stream().filter(
-              (PayloadToken<String> token) -> token.getEmit() == null && !token.getFragment().isBlank()).collect(Collectors.toList());
-          newValues.add(rawTokens.stream().map((PayloadToken<String> token) -> token.getFragment().trim()).collect(Collectors.joining(" ")));
+          Stream<PayloadToken<String>> tokenStream = dictTrie.tokenize(val).stream();
+          tokenStream = tokenStream.filter((PayloadToken<String> token) -> token.getEmit() == null && !token.getFragment().isBlank());
+          newValues.add(tokenStream.map((PayloadToken<String> token) -> token.getFragment().trim()).collect(Collectors.joining(" ")));
         } else {
-          newValues.add(val.trim());
+          newValues.add(val);
         }
       }
 
