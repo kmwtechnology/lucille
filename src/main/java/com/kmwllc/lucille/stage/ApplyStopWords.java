@@ -7,8 +7,11 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
+import org.ahocorasick.trie.Emit;
 import org.ahocorasick.trie.PayloadToken;
 import org.ahocorasick.trie.PayloadTrie;
+import org.ahocorasick.trie.handler.AbstractStatefulEmitHandler;
+import org.ahocorasick.trie.handler.StatefulEmitHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -109,15 +112,11 @@ public class ApplyStopWords extends Stage {
       // TODO : Decide how we want to handle punctuation (currently it is left in, see tests for examples)
       List<String> newValues = new ArrayList<>();
       for (String val : doc.getStringList(field)) {
-        /*for (String stopWord : stopWords) {
-          val = val.replaceAll("(?i) *\\b" + stopWord + "\\b *", " ");
-        }*/
-
         if (dictTrie.containsMatch(val)) {
           Collection<PayloadToken<String>> rawTokens = dictTrie.tokenize(val);
-          List<String> tokens = rawTokens.stream().map(PayloadToken::getFragment).collect(Collectors.toList());
-          tokens.removeAll(stopWords);
-          newValues.add(tokens.stream().map(String::trim).collect(Collectors.joining(" ")));
+          rawTokens = rawTokens.stream().filter(
+              (PayloadToken<String> token) -> token.getEmit() == null && !token.getFragment().isBlank()).collect(Collectors.toList());
+          newValues.add(rawTokens.stream().map((PayloadToken<String> token) -> token.getFragment().trim()).collect(Collectors.joining(" ")));
         } else {
           newValues.add(val.trim());
         }
