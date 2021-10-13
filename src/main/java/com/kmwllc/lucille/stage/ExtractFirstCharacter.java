@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
  *
  *   - fieldMapping (Map<String, String>) : A mapping of source->destination fields
  *   - replacement (String, Optional) : The String to place in the output field if the first character is not a letter.
- *     If "" is supplied, the output field will not be set to anything. Defaults to "nonalpha".
+ *     If "SKIP" is supplied, the output field will not be set to anything. Defaults to "nonalpha".
  */
 public class ExtractFirstCharacter extends Stage {
 
@@ -59,7 +59,7 @@ public class ExtractFirstCharacter extends Stage {
       if (StringUtils.isAlpha(firstChar)) {
         doc.update(dest, UpdateMode.DEFAULT, firstChar);
       } else {
-        if (!replacement.equals(" ")) {
+        if (!replacement.equals("SKIP")) {
           doc.update(dest, UpdateMode.DEFAULT, replacement);
         }
       }

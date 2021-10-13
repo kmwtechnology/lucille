@@ -28,4 +28,28 @@ public class ExtractFirstCharacterTest {
     assertFalse(doc2.has("output3"));
   }
 
+  @Test
+  public void testReplacement() throws StageException {
+   Stage stage = factory.get("ExtractFirstCharacterTest/replacement.conf");
+
+   Document doc = new Document("doc");
+   doc.setField("input1", "12345");
+   doc.setField("input2", "valid");
+   stage.processDocument(doc);
+   assertEquals("not a letter", doc.getString("output1"));
+   assertEquals("v", doc.getString("output2"));
+  }
+
+  @Test
+  public void testSkip() throws StageException {
+    Stage stage = factory.get("ExtractFirstCharacterTest/skip.conf");
+
+    Document doc = new Document("doc");
+    doc.setField("input1", "testing");
+    doc.setField("input2", "500 bottles of beer on the wall");
+    stage.processDocument(doc);
+    assertFalse(doc.has("output2"));
+    assertEquals("t", doc.getString("output1"));
+  }
+
 }

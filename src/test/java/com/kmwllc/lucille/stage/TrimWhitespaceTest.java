@@ -18,10 +18,12 @@ public class TrimWhitespaceTest {
     doc1.setField("input1", "   trim this   ");
     doc1.setField("input2", "   test");
     doc1.addToField("input2", "test   ");
+    doc1.setField("test_field", "   this should not be trimmed  ");
     stage.processDocument(doc1);
     assertEquals("trim this", doc1.getString("input1"));
     assertEquals("test", doc1.getStringList("input2").get(0));
     assertEquals("test", doc1.getStringList("input2").get(1));
+    assertEquals("   this should not be trimmed  ", doc1.getString("test_field"));
     assertFalse(doc1.has("input3"));
 
     Document doc2 = new Document("doc2");
