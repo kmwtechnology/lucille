@@ -117,7 +117,7 @@ public class ApplyStopWords extends Stage {
           tokenStream = tokenStream.filter((PayloadToken<String> token) -> token.getEmit() == null && !token.getFragment().isBlank());
           newValues.add(tokenStream.map((PayloadToken<String> token) -> token.getFragment().trim()).collect(Collectors.joining(" ")));
         } else {
-          newValues.add(val);
+          newValues.add(val.trim());
         }
       }
 
