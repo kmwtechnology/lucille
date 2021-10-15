@@ -38,7 +38,7 @@ public class Contains extends Stage {
     trie = buildTrie();
   }
 
-  private PayloadTrie<String> buildTrie() throws StageException {
+  private PayloadTrie<String> buildTrie() {
     PayloadTrie.PayloadTrieBuilder<String> trieBuilder = PayloadTrie.builder();
 
     // For each of the possible Trie settings
@@ -48,9 +48,6 @@ public class Contains extends Stage {
       trieBuilder = trieBuilder.ignoreCase();
     }
 
-    // For each line of the dictionary file, add a keyword/payload pair to the Trie
-    String[] line;
-    boolean ignore = false;
     for (String val : contains) {
       trieBuilder = trieBuilder.addKeyword(val, val);
     }
@@ -62,14 +59,13 @@ public class Contains extends Stage {
   public List<Document> processDocument(Document doc) throws StageException {
     foundMatch:
     for (String field : fields) {
-
       if (!doc.has(field))
         continue;
 
       List<String> values = doc.getStringList(field);
       for (String value : values) {
         if (trie.containsMatch(value)) {
-          doc.update(output, UpdateMode.DEFAULT, value);
+          doc.update(output, UpdateMode.DEFAULT, this.value);
           break foundMatch;
         }
       }
