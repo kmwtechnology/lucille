@@ -11,6 +11,18 @@ import org.ahocorasick.trie.PayloadTrie;
 
 import java.util.List;
 
+/**
+ * This Stage will check if any of the given fields contain any of the given values. If they do, they will tag the given
+ * output field with the given value.
+ *
+ * Config Parameters:
+ *
+ *   - contains (List<String>) : A list of values to search for
+ *   - output (String) : The field to tag if a match is found
+ *   - value (String) : The value to tag the output field with
+ *   - ignoreCase (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true.
+ *   - field (List<String>) : The fields to be searched
+ */
 public class Contains extends Stage {
 
   private final List<String> contains;
@@ -26,7 +38,7 @@ public class Contains extends Stage {
     this.contains = config.getStringList("contains");
     this.output = config.getString("output");
     this.value = config.getString("value");
-    this.ignoreCase = config.getBoolean("ignoreCase");
+    this.ignoreCase = config.hasPath("ignoreCase") ? config.getBoolean("ignoreCase") : true;
     this.fields = config.getStringList("fields");
   }
 
