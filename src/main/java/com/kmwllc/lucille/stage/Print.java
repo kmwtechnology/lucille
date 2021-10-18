@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,6 +14,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * This Stage will Print all documents in the pipeline to the Logger.
@@ -72,7 +74,7 @@ public class Print extends Stage {
       }
       builder.delete(builder.length() - 2, builder.length() - 1);
 
-      printCsv(doc, builder);
+      printCsv(doc, builder.append("\n"));
     } else {
       printJson(doc);
     }
@@ -84,8 +86,8 @@ public class Print extends Stage {
     List<String> currentFields = fields.size() != 0 ? fields : new ArrayList<>(doc.asMap().keySet());
     for (String field : currentFields) {
       List<String> values = doc.getStringList(field);
-      values = values.stream().map((String value) -> value.substring(0, maxFieldSize)).collect(Collectors.toList());
-      builder.append(values).append(", ");
+      Stream<String> valStream = values.stream().map((String value) -> StringUtils.abbreviate(value, maxFieldSize));
+      builder.append(valStream.collect(Collectors.joining())).append(", ");
     }
     builder.delete(builder.length() - 2, builder.length() - 1);
 
@@ -105,8 +107,8 @@ public class Print extends Stage {
     StringBuilder builder = new StringBuilder("{");
     for (String field : currentFields) {
       List<String> values = doc.getStringList(field);
-      values = values.stream().map((String value) -> value.substring(0, maxFieldSize)).collect(Collectors.toList());
-      builder.append(field).append(":").append(values).append(",");
+      Stream<String> valStream = values.stream().map((String value) -> StringUtils.abbreviate(value, maxFieldSize));
+      builder.append(field).append(":").append(valStream.collect(Collectors.joining())).append(",");
     }
 
 
@@ -114,7 +116,7 @@ public class Print extends Stage {
 
     if (writer != null) {
       try {
-        writer.append(doc.toString() + "\n");
+        writer.append(builder + "\n");
       } catch (IOException e) {
         throw new StageException("Could not write to the given file", e);
       }
