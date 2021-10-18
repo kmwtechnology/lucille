@@ -67,7 +67,7 @@ public abstract class Stage {
       boolean resultWhenValueFound = currentOperator.equalsIgnoreCase("must");
 
       if (currentFields.isEmpty()) {
-        result = result && true;
+        continue;
       }
 
       for (String field : currentFields) {
