@@ -176,14 +176,6 @@ class Indexer implements Runnable {
     solrClient.add(solrDocs);
   }
 
-
-  public static Indexer startThread(Config config, IndexerMessageManager manager, boolean bypass) throws Exception {
-    Indexer indexer = new Indexer(config, manager, bypass);
-    Thread indexerThread = new Thread(indexer);
-    indexerThread.start();
-    return indexer;
-  }
-
   public static void main(String[] args) throws Exception {
     Config config = ConfigUtils.loadConfig();
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");

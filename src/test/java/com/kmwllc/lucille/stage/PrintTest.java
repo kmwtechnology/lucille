@@ -11,11 +11,12 @@ public class PrintTest {
   private static final StageFactory factory = StageFactory.of(Print.class);
 
   @Test
-  public void testNoFieldsCSV() throws StageException {
-    Stage stage = factory.get("PrintTest/noFieldsCSV.conf");
+  public void testBasic() throws StageException {
+    Stage stage = factory.get("PrintTest/config.conf");
 
     Document doc1 = new Document("doc1");
     doc1.setField("test", "this is a test");
     stage.processDocument(doc1);
+    stage.stop();
   }
 }
