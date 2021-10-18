@@ -3,6 +3,8 @@ package com.kmwllc.lucille.core;
 import com.typesafe.config.Config;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -22,21 +24,26 @@ import java.util.List;
 public abstract class Stage {
 
   protected Config config;
-  private final List<String> conditionalFields;
-  private final List<String> conditionalValues;
-  private final String operator;
+  private final List<List<String>> conditionalFields;
+  private final List<List<String>> conditionalValues;
+  private final List<String> operators;
   private String name;
 
   // TODO : Debug mode
   public Stage(Config config) {
     this.config = config;
     this.name = ConfigUtils.getOrDefault(config, "name", null);
-    this.conditionalFields = ConfigUtils.getOrDefault(config, "conditional_field", new ArrayList<>());
+    this.conditionalFields = ConfigUtils.getOrDefault(config, "conditional_fields", new ArrayList<>());
     this.conditionalValues = ConfigUtils.getOrDefault(config, "conditional_values", new ArrayList<>());
-    this.operator = ConfigUtils.getOrDefault(config, "conditional_operator", "must");
+    this.operators = config.hasPath("conditional_operators") ?
+        config.getStringList("conditional_operators") :
+        Collections.nCopies(conditionalFields.size(), "must");
   }
 
   public void start() throws StageException {
+    if (conditionalFields.size() != conditionalValues.size() || conditionalFields.size() != operators.size()) {
+      throw new StageException("Must supply the same length list for all conditional execution parameters");
+    }
   }
 
   /**
@@ -49,25 +56,36 @@ public abstract class Stage {
    * @return  boolean representing - should we process?
    */
   public boolean shouldProcess(Document doc) {
-    boolean resultWhenValueFound = operator.equalsIgnoreCase("must");
+    boolean result = true;
 
-    if (conditionalFields.isEmpty()) {
-      return true;
-    }
+    foundValue:
+    for (int i = 0; i < conditionalFields.size(); i++) {
+      List<String> currentFields = conditionalFields.get(i);
+      List<String> currentValues = conditionalValues.get(i);
+      String currentOperator = operators.get(i);
 
-    for (String field : conditionalFields) {
-      if (!doc.has(field)) {
-        continue;
+      boolean resultWhenValueFound = currentOperator.equalsIgnoreCase("must");
+
+      if (currentFields.isEmpty()) {
+        result = result && true;
       }
 
-      for (String value : doc.getStringList(field)) {
-        if (conditionalValues.contains(value)) {
-          return resultWhenValueFound;
+      for (String field : currentFields) {
+        if (!doc.has(field)) {
+          continue;
+        }
+
+        for (String value : doc.getStringList(field)) {
+          if (currentValues.contains(value)) {
+            result = result && resultWhenValueFound;
+            continue foundValue;
+          }
         }
       }
+      result = result && !resultWhenValueFound;
     }
 
-    return !resultWhenValueFound;
+    return result;
   }
 
   /**
@@ -84,7 +102,6 @@ public abstract class Stage {
 
     return null;
   }
-
 
   /**
    * Applies an operation to a Document in place and returns a list containing any child Documents generated
