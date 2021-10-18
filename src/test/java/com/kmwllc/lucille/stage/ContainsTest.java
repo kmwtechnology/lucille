@@ -30,6 +30,17 @@ public class ContainsTest {
     doc3.addToField("input1", "here's a match");
     stage.processDocument(doc3);
     assertEquals("FOUND", doc3.getString("output"));
+
+    Document doc4 = new Document("doc4");
+    doc4.setField("notChecked", "this has a match");
+    doc4.setField("input1", "nothing here!");
+    stage.processDocument(doc4);
+    assertFalse(doc4.has("output"));
+
+    Document doc5 = new Document("doc5");
+    doc4.setField("input1", "nothing here!");
+    stage.processDocument(doc5);
+    assertFalse(doc5.has("output"));
   }
 
 

@@ -69,7 +69,6 @@ public class Contains extends Stage {
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    foundMatch:
     for (String field : fields) {
       if (!doc.has(field))
         continue;
@@ -78,7 +77,7 @@ public class Contains extends Stage {
       for (String value : values) {
         if (trie.containsMatch(value)) {
           doc.update(output, UpdateMode.DEFAULT, this.value);
-          break foundMatch;
+          return null;
         }
       }
     }
