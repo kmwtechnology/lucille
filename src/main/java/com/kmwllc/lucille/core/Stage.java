@@ -56,36 +56,38 @@ public abstract class Stage {
    * @return  boolean representing - should we process?
    */
   public boolean shouldProcess(Document doc) {
-    boolean result = true;
-
-    foundValue:
     for (int i = 0; i < conditionalFields.size(); i++) {
       List<String> currentFields = conditionalFields.get(i);
       List<String> currentValues = conditionalValues.get(i);
       String currentOperator = operators.get(i);
 
-      boolean resultWhenValueFound = currentOperator.equalsIgnoreCase("must");
+      if (!checkCurrentCondition(currentFields, currentValues, currentOperator, doc)) {
+        return false;
+      }
+    }
 
-      if (currentFields.isEmpty()) {
+    return true;
+  }
+
+  private boolean checkCurrentCondition(List<String> currentFields, List<String> currentValues, String currentOperator, Document doc) {
+    boolean resultWhenValueFound = currentOperator.equalsIgnoreCase("must");
+
+    if (currentFields.isEmpty()) {
+      return true;
+    }
+
+    for (String field : currentFields) {
+      if (!doc.has(field)) {
         continue;
       }
 
-      for (String field : currentFields) {
-        if (!doc.has(field)) {
-          continue;
-        }
-
-        for (String value : doc.getStringList(field)) {
-          if (currentValues.contains(value)) {
-            result = result && resultWhenValueFound;
-            continue foundValue;
-          }
+      for (String value : doc.getStringList(field)) {
+        if (currentValues.contains(value)) {
+          return resultWhenValueFound;
         }
       }
-      result = result && !resultWhenValueFound;
     }
-
-    return result;
+    return !resultWhenValueFound;
   }
 
   /**
