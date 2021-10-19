@@ -45,8 +45,10 @@ class Worker implements Runnable {
     this.pipeline = Pipeline.fromConfig(config, pipelineName);
     this.metrics = SharedMetricRegistries.getOrCreate("default");
     this.meter = metrics.meter("worker.meter");
-    if (config.hasPath("worker.trackRetries") && config.getBoolean("worker.trackRetries")) {
-      counter = new ZKRetryCounter(config);
+    if (config.hasPath("worker.maxRetries")) {
+      log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
+      this.trackRetries = true;
+      this.counter = new ZKRetryCounter(config);
     }
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
@@ -74,12 +76,21 @@ class Worker implements Runnable {
 
       if (trackRetries && counter.add(doc)) {
         try {
+          log.info("Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");
           manager.sendFailed(doc);
         } catch (Exception e) {
-          log.error("Failed to send doc to Dead Letter Queue: " + doc.getId(), e);
+          log.error("Failed to send doc to failure topic: " + doc.getId(), e);
         }
+
+        try {
+          Event event = new Event(doc.getId(), doc.getRunId(), "SENT_TO_DLQ", Event.Type.FAIL);
+          manager.sendEvent(event);
+        } catch (Exception e) {
+          log.error("Failed to send completion event for: " + doc.getId(), e);
+        }
+
         commitOffsetsAndRemoveCounter(doc);
-        return;
+        continue;
       }
 
       List<Document> results = null;

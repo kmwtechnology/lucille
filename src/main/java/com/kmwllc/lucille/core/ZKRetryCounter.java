@@ -55,8 +55,8 @@ public class ZKRetryCounter implements RetryCounter {
   private String getCounterPath(Document document) {
     if (document instanceof KafkaDocument) {
       KafkaDocument doc = (KafkaDocument) document;
-      return retryCounterPrefix + doc.getTopic() + "_" + doc.getRunId() + "_" + doc.getKey() + "_" + doc.getParititon() + "_" + doc.getOffset();
+      return retryCounterPrefix + doc.getTopic() + "/" + doc.getRunId() + "/" + doc.getKey() + "___" + doc.getParititon() + "_" + doc.getOffset();
     }
-    return retryCounterPrefix + "_NON_KAFKA_ " + document.getId();
+    return retryCounterPrefix + "/NON_KAFKA/" + document.getRunId() + "/" + document.getId();
   }
 }

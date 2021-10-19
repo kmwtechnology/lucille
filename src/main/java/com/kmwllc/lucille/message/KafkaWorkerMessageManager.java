@@ -70,12 +70,10 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
   }
 
   public void sendFailed(Document document) throws Exception {
-    if (config.hasPath("kafka.failureTopic")) {
-      ProducerRecord<String, String> producerRecord =
-        new ProducerRecord(config.getString("kafka.failureTopic"), document.getId(), document.toString());
-      RecordMetadata metadata = (RecordMetadata) kafkaProducer.send(producerRecord).get();
-      kafkaProducer.flush();
-    }
+    ProducerRecord<String, String> producerRecord =
+      new ProducerRecord(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document.toString());
+    RecordMetadata metadata = (RecordMetadata) kafkaProducer.send(producerRecord).get();
+    kafkaProducer.flush();
   }
 
   /**
