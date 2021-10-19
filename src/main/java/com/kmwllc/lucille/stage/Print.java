@@ -52,7 +52,6 @@ public class Print extends Stage {
       log.info(doc.toString());
     }
     if (writer!=null) {
-      System.out.println("Attempting to print : " + doc.toString());
       try {
         writer.append(doc.toString() + "\n");
       } catch (IOException e) {
