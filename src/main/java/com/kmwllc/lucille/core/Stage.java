@@ -1,11 +1,13 @@
 package com.kmwllc.lucille.core;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigList;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * An operation that can be performed on a Document.
@@ -33,8 +35,12 @@ public abstract class Stage {
   public Stage(Config config) {
     this.config = config;
     this.name = ConfigUtils.getOrDefault(config, "name", null);
-    this.conditionalFields = ConfigUtils.getOrDefault(config, "conditional_fields", new ArrayList<>());
-    this.conditionalValues = ConfigUtils.getOrDefault(config, "conditional_values", new ArrayList<>());
+    conditionalFields = config.hasPath("conditional_fields") ?
+        config.getList("conditional_fields").stream().map(configValue -> (List<String>) configValue.unwrapped()).collect(Collectors.toList())
+        : new ArrayList<>();
+    this.conditionalValues = config.hasPath("conditional_values") ?
+        config.getList("conditional_values").stream().map(configValue -> (List<String>) configValue.unwrapped()).collect(Collectors.toList())
+        : new ArrayList<>();
     this.operators = config.hasPath("conditional_operators") ?
         config.getStringList("conditional_operators") :
         Collections.nCopies(conditionalFields.size(), "must");
