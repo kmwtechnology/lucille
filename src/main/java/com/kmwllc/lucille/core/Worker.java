@@ -135,6 +135,12 @@ class Worker implements Runnable {
       log.error("Error closing message manager", e);
     }
 
+    try {
+      pipeline.stopStages();
+    } catch (StageException e) {
+      log.error("Error stopping pipeline stage", e);
+    }
+
     log.info("Exiting");
   }
 

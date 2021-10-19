@@ -40,6 +40,12 @@ public class Pipeline {
     }
   }
 
+  public void stopStages() throws StageException {
+    for (Stage stage : stages) {
+      stage.stop();
+    }
+  }
+
   /**
    * Instantiates a Pipeline from the designated list of Stage Configs.
    * The Config for each Stage must specify the stage's class.

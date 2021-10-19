@@ -55,10 +55,11 @@ public class DetectLanguage extends Stage {
 
     this.sourceFields = config.getStringList("source");
     this.languageField = config.getString("language_field");
-    this.languageConfidenceField = config.getString("language_confidence_field");
-    this.minLength = config.getInt("min_length");
-    this.maxLength = config.getInt("max_length");
-    this.minProbability = config.getDouble("min_probability");
+    this.languageConfidenceField = config.hasPath("language_confidence_field") ?
+        config.getString("language_confidence_field") : "languageConfidence";
+    this.minLength = config.hasPath("min_length") ? config.getInt("min_length") : 50;
+    this.maxLength = config.hasPath("max_length") ? config.getInt("max_length") : 10_000;
+    this.minProbability = config.hasPath("min_probability") ? config.getDouble("min_probability") : .95;
     this.updateMode = UpdateMode.fromConfig(config);
   }
 

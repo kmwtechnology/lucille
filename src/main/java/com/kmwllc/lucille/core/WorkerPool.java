@@ -62,6 +62,12 @@ public class WorkerPool {
     }
   }
 
+  public void join(long millis) throws InterruptedException {
+    for (WorkerThread workerThread : threads) {
+      workerThread.join(millis);
+    }
+  }
+
   public int getNumWorkers() {
     return numWorkers;
   }
