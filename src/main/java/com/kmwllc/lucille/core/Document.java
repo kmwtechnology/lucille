@@ -28,7 +28,7 @@ public class Document implements Cloneable {
 
   public static final List<String> RESERVED_FIELDS = List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD);
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+  protected static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
   private static final Logger log = LoggerFactory.getLogger(Document.class);
 
