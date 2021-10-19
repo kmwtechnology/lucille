@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
  *   - postActions (List<String>, Optional) : A list of requests to be issued to Solr. These actions will be performed second.
  *   - solr.url (String) : The url of the Solr instance for this Connector to issue its requests to.
  */
+// TODO : Honor and return children documents
 public class SolrConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
