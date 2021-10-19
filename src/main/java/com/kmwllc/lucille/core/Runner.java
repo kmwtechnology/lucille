@@ -49,6 +49,8 @@ public class Runner {
 
   public static final int DEFAULT_CONNECTOR_TIMEOUT = 1000 * 60 * 60 * 24;
 
+  public static final long DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT = 3000;
+
   private static final Logger log = LoggerFactory.getLogger(Runner.class);
 
   private final String runId;
@@ -276,13 +278,18 @@ public class Runner {
 
     WorkerPool workerPool = null;
     Indexer indexer = null;
+    Thread indexerThread = null;
     Publisher publisher = null;
 
     if (startWorkerAndIndexer && connector.getPipelineName() != null) {
       workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory);
       workerPool.start();
       IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
-      indexer = Indexer.startThread(config, indexerMessageManager, bypassSolr);
+
+      indexer = new Indexer(config, indexerMessageManager, bypassSolr);
+      indexerThread = new Thread(indexer);
+      indexerThread.start();
+
     }
 
     if (connector.getPipelineName() != null) {
@@ -293,9 +300,11 @@ public class Runner {
     boolean result = runner.runConnector(connector, publisher);
     if (workerPool != null) {
       workerPool.stop();
+      workerPool.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
     }
     if (indexer != null) {
       indexer.terminate();
+      indexerThread.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
     }
 
     return result;

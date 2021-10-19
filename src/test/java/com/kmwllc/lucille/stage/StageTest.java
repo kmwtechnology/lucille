@@ -104,6 +104,37 @@ public class StageTest {
   }
 
   @Test
+  public void testProcessMultipleConditions() throws StageException {
+    Stage stage = factory.get("StageTest/multipleConditions.conf");
+
+    // Check that the must condition is applied
+    Document doc1 = new Document("doc1");
+    doc1.setField("country", "Russia");
+    stage.processConditional(doc1);
+    assertTrue(doc1.has("processed"));
+
+    // Check that the must not condition is applied
+    Document doc2 = new Document("doc2");
+    doc2.setField("country", "US");
+    doc2.setField("state", "CA");
+    stage.processConditional(doc2);
+    assertFalse(doc2.has("processed"));
+
+    // Check that the must condition works for either field
+    Document doc3 = new Document("doc3");
+    doc3.setField("long_country", "United States of America");
+    doc3.setField("state", "NJ");
+    stage.processConditional(doc3);
+    assertTrue(doc3.has("processed"));
+
+    Document doc4 = new Document("doc4");
+    doc4.setField("country", "Canada");
+    doc4.setField("province", "BC");
+    stage.processConditional(doc4);
+    assertFalse(doc4.has("processed"));
+  }
+
+  @Test
   public void testGetName() throws Exception {
     Stage stage = factory.get("StageTest/name.conf");
     assertEquals("name1", stage.getName());
