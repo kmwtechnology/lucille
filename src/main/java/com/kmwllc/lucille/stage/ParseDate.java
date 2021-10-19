@@ -21,15 +21,15 @@ import java.util.function.Function;
  * This Stage will parse dates into ISO_INSTANT format to be ingested by Solr. If a given date cannot be parsed, it
  * will not be passed through to the destination field.
  * Config Parameters:
- *
- *   - source (List<String>) : List of source field names.
- *   - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
- *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- *   - formatters (List<Function>) : List of formatter classes to be used for parsing dates. Formatters must implement
- *       the Function<String, LocalDate> Interface.
- *   - format_strs (List<String>, Optional) : A List of format Strings to try and apply to the dates. Defaults to an empty list.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
- *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
+ * <p>
+ * - source (List<String>) : List of source field names.
+ * - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
+ * for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
+ * - formatters (List<Function>) : List of formatter classes to be used for parsing dates. Formatters must implement
+ * the Function<String, LocalDate> Interface.
+ * - format_strs (List<String>, Optional) : A List of format Strings to try and apply to the dates. Defaults to an empty list.
+ * - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ * Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class ParseDate extends Stage {
 
@@ -55,16 +55,18 @@ public class ParseDate extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Parse Date");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Parse Date");
 
-    // Instantiate all of the formatters supplied in the Config
-    List<? extends Config> formatterClasses = config.getConfigList("formatters");
-    for (Config c : formatterClasses) {
-      try {
-        Class<?> clazz = Class.forName(c.getString("class"));
-        Constructor<?> constructor = clazz.getConstructor();
-        Function<String, LocalDate> formatter = (Function<String, LocalDate>) constructor.newInstance();
-        formatters.add(formatter);
-      } catch (Exception e) {
-        throw new StageException("Unable to instantiate date formatters.", e);
+    if (config.hasPath("formatters")) {
+      // Instantiate all of the formatters supplied in the Config
+      List<? extends Config> formatterClasses = config.getConfigList("formatters");
+      for (Config c : formatterClasses) {
+        try {
+          Class<?> clazz = Class.forName(c.getString("class"));
+          Constructor<?> constructor = clazz.getConstructor();
+          Function<String, LocalDate> formatter = (Function<String, LocalDate>) constructor.newInstance();
+          formatters.add(formatter);
+        } catch (Exception e) {
+          throw new StageException("Unable to instantiate date formatters.", e);
+        }
       }
     }
   }
