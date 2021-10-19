@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
 /**
  * A record from a source system to be passed through a Pipeline, enriched,
@@ -28,7 +29,7 @@ public class Document implements Cloneable {
 
   public static final List<String> RESERVED_FIELDS = List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD);
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+  protected static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
   private static final Logger log = LoggerFactory.getLogger(Document.class);
 
@@ -63,6 +64,12 @@ public class Document implements Cloneable {
 
   public static Document fromJsonString(String json) throws DocumentException, JsonProcessingException {
     return new Document((ObjectNode)MAPPER.readTree(json));
+  }
+
+  public static Document fromJsonString(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
+    Document doc = fromJsonString(json);
+    doc.data.put(ID_FIELD, idUpdater.apply(doc.getId()));
+    return doc;
   }
 
   public void removeField(String name) {

@@ -14,7 +14,11 @@ import com.kmwllc.lucille.core.Document;
 public interface WorkerMessageManager {
   Document pollDocToProcess() throws Exception;
 
+  void commitPendingDocOffsets() throws Exception;
+
   void sendCompleted(Document document) throws Exception;
+
+  void sendFailed(Document document) throws Exception;
 
   void sendEvent(Event event) throws Exception;
 

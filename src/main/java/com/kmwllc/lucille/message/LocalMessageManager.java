@@ -48,8 +48,17 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   @Override
+  public void commitPendingDocOffsets() throws Exception {
+  }
+
+  @Override
   public void sendCompleted(Document document) throws Exception {
     pipelineDest.add(document);
+  }
+
+  @Override
+  public void sendFailed(Document document) throws Exception {
+
   }
 
   @Override
