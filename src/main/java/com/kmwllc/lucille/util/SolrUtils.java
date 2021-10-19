@@ -9,9 +9,9 @@ public class SolrUtils {
 
   public static SolrClient getSolrClient(Config config) {
     if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
-      return new CloudSolrClient.Builder(config.getStringList("solrUrl")).build();
+      return new CloudSolrClient.Builder(config.getStringList("solr.url")).build();
     } else {
-      return new HttpSolrClient.Builder(config.getString("solrUrl")).build();
+      return new HttpSolrClient.Builder(config.getString("solr.url")).build();
     }
   }
 
