@@ -52,6 +52,9 @@ public abstract class Stage {
     }
   }
 
+  public void stop() throws StageException {
+  }
+
   /**
    * Determines if this Stage should process this Document based on the conditional execution parameters. If no no
    * conditionalFields are supplied in the config, the Stage will always execute. If none of the provided conditionalFields
