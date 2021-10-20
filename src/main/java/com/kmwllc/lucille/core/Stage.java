@@ -26,31 +26,19 @@ import java.util.stream.Collectors;
 public abstract class Stage {
 
   protected Config config;
-  private final List<List<String>> conditionalFields;
-  private final List<List<String>> conditionalValues;
-  private final List<String> operators;
+  private final List<Condition> conditions;
   private String name;
 
   // TODO : Debug mode
   public Stage(Config config) {
     this.config = config;
     this.name = ConfigUtils.getOrDefault(config, "name", null);
-    conditionalFields = config.hasPath("conditional_fields") ?
-        config.getList("conditional_fields").stream().map(configValue -> (List<String>) configValue.unwrapped()).collect(Collectors.toList())
+    this.conditions = config.hasPath("conditions") ?
+        config.getConfigList("conditions").stream().map(Condition::new).collect(Collectors.toList())
         : new ArrayList<>();
-    this.conditionalValues = config.hasPath("conditional_values") ?
-        config.getList("conditional_values").stream().map(configValue -> (List<String>) configValue.unwrapped()).collect(Collectors.toList())
-        : new ArrayList<>();
-    this.operators = config.hasPath("conditional_operators") ?
-        config.getStringList("conditional_operators") :
-        Collections.nCopies(conditionalFields.size(), "must");
   }
 
-  public void start() throws StageException {
-    if (conditionalFields.size() != conditionalValues.size() || conditionalFields.size() != operators.size()) {
-      throw new StageException("Must supply the same length list for all conditional execution parameters");
-    }
-  }
+  public void start() throws StageException {}
 
   public void stop() throws StageException {
   }
@@ -65,12 +53,8 @@ public abstract class Stage {
    * @return  boolean representing - should we process?
    */
   public boolean shouldProcess(Document doc) {
-    for (int i = 0; i < conditionalFields.size(); i++) {
-      List<String> currentFields = conditionalFields.get(i);
-      List<String> currentValues = conditionalValues.get(i);
-      String currentOperator = operators.get(i);
-
-      if (!checkCurrentCondition(currentFields, currentValues, currentOperator, doc)) {
+    for (Condition condition : conditions) {
+      if (!condition.checkCondition(doc)) {
         return false;
       }
     }
@@ -78,26 +62,7 @@ public abstract class Stage {
     return true;
   }
 
-  private boolean checkCurrentCondition(List<String> currentFields, List<String> currentValues, String currentOperator, Document doc) {
-    boolean resultWhenValueFound = currentOperator.equalsIgnoreCase("must");
 
-    if (currentFields.isEmpty()) {
-      return true;
-    }
-
-    for (String field : currentFields) {
-      if (!doc.has(field)) {
-        continue;
-      }
-
-      for (String value : doc.getStringList(field)) {
-        if (currentValues.contains(value)) {
-          return resultWhenValueFound;
-        }
-      }
-    }
-    return !resultWhenValueFound;
-  }
 
   /**
    * Process this Document iff it adheres to our conditional requirements.

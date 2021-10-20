@@ -99,8 +99,8 @@ public class PipelineTest {
   public void testConditional() throws Exception {
     String s = "pipelines = [{name:\"pipeline1\", " +
         "stages: " +
-        "[{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\", conditional_fields:[[\"cond\"]], conditional_values:[[\"abc\", \"123\"]], conditional_operators:[\"must\"]}," +
-        "{class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\", conditional_fields:[[\"cond\"]], conditional_values:[[\"have\", \"test\"]], conditional_operators:[\"must\"]}]}]";
+        "[{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\", conditions:[{fields:[\"cond\"], values:[\"abc\",\"123\"], operator:\"must\"}]}, " +
+        "{class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\", conditions:[{fields:[\"cond\"], values:[\"have\",\"test\"], operator:\"must\"}]}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1");
 
