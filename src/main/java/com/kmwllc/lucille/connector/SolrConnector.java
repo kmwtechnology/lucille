@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
@@ -31,7 +32,7 @@ import java.util.stream.Collectors;
  *
  *   - preActions (List<String>, Optional) : A list of requests to be issued to Solr. These actions will be performed first.
  *   - postActions (List<String>, Optional) : A list of requests to be issued to Solr. These actions will be performed second.
- *   - solr.url (String) : The url of the Solr instance for this Connector to issue its requests to.
+ *   - solrUrl (String) : The url of the Solr instance for this Connector to issue its requests to.
  */
 // TODO : Honor and return children documents
 public class SolrConnector extends AbstractConnector {
@@ -54,11 +55,7 @@ public class SolrConnector extends AbstractConnector {
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
 
-    if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
-      this.client = new CloudSolrClient.Builder(config.getStringList("solr.url")).build();
-    } else {
-      this.client = new HttpSolrClient.Builder(config.getString("solr.url")).build();
-    }
+    this.client = SolrUtils.getSolrClient(config);
 
     this.request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
     this.solrParams = new HashMap<>();

@@ -50,6 +50,7 @@ public class ExtractEntities extends Stage {
   private PayloadTrie<String> dictTrie;
   private final List<String> sourceFields;
   private final List<String> destFields;
+  private final List<String> dictionaries;
   private final UpdateMode updateMode;
 
   private final boolean ignoreCase;
@@ -72,6 +73,7 @@ public class ExtractEntities extends Stage {
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
+    this.dictionaries = config.getStringList("dictionaries");
     this.updateMode = UpdateMode.fromConfig(config);
   }
 
@@ -81,16 +83,15 @@ public class ExtractEntities extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Extract Entities");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Extract Entities");
 
-    dictTrie = buildTrie(config.getString("dict_path"));
+    dictTrie = buildTrie();
   }
 
   /**
    * Generate a Trie to perform dictionary based entity extraction with
    *
-   * @param dictFile  the path of the dictionary file to read from
    * @return  a PayloadTrie capable of finding matches for its dictionary values
    */
-  private PayloadTrie<String> buildTrie(String dictFile) throws StageException {
+  private PayloadTrie<String> buildTrie() throws StageException {
     PayloadTrie.PayloadTrieBuilder<String> trieBuilder = PayloadTrie.builder();
 
     // For each of the possible Trie settings, check what value the user set and apply it.
@@ -114,37 +115,39 @@ public class ExtractEntities extends Stage {
       trieBuilder = trieBuilder.ignoreOverlaps();
     }
 
-    try (CSVReader reader = new CSVReader(FileUtils.getReader(dictFile))) {
-      // For each line of the dictionary file, add a keyword/payload pair to the Trie
-      String[] line;
-      boolean ignore = false;
-      while((line = reader.readNext()) != null) {
-        if (line.length == 0)
-          continue;
+    for (String dictFile : dictionaries) {
+      try (CSVReader reader = new CSVReader(FileUtils.getReader(dictFile))) {
+        // For each line of the dictionary file, add a keyword/payload pair to the Trie
+        String[] line;
+        boolean ignore = false;
+        while ((line = reader.readNext()) != null) {
+          if (line.length == 0)
+            continue;
 
-        for (String term : line) {
-          if (term.contains("\uFFFD")) {
-            log.warn(String.format("Entry \"%s\" on line %d contained malformed characters which were removed. " +
-                "This dictionary entry will be ignored.", term, reader.getLinesRead()));
-            ignore = true;
-            break;
+          for (String term : line) {
+            if (term.contains("\uFFFD")) {
+              log.warn(String.format("Entry \"%s\" on line %d contained malformed characters which were removed. " +
+                  "This dictionary entry will be ignored.", term, reader.getLinesRead()));
+              ignore = true;
+              break;
+            }
+          }
+
+          if (ignore) {
+            ignore = false;
+            continue;
+          }
+
+          if (line.length == 1) {
+            String word = line[0].trim();
+            trieBuilder = trieBuilder.addKeyword(word, word);
+          } else {
+            trieBuilder = trieBuilder.addKeyword(line[0].trim(), line[1].trim());
           }
         }
-
-        if (ignore) {
-          ignore = false;
-          continue;
-        }
-
-        if (line.length == 1) {
-          String word = line[0].trim();
-          trieBuilder = trieBuilder.addKeyword(word, word);
-        } else {
-          trieBuilder = trieBuilder.addKeyword(line[0].trim(), line[1].trim());
-        }
+      } catch (Exception e) {
+        throw new StageException("Failed to read from the given file.", e);
       }
-    } catch (Exception e) {
-      throw new StageException("Failed to read from the given file.", e);
     }
 
     return trieBuilder.build();
