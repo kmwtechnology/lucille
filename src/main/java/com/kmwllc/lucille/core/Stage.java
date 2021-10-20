@@ -34,7 +34,7 @@ public abstract class Stage {
     this.config = config;
     this.name = ConfigUtils.getOrDefault(config, "name", null);
     this.conditions = config.hasPath("conditions") ?
-        config.getConfigList("conditions").stream().map(Condition::new).collect(Collectors.toList())
+        config.getConfigList("conditions").stream().map(Condition::fromConfig).collect(Collectors.toList())
         : new ArrayList<>();
   }
 
