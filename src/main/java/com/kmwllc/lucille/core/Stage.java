@@ -43,13 +43,13 @@ public abstract class Stage {
   }
 
   /**
-   * Determines if this Stage should process this Document based on the conditional execution parameters. If no no
+   * Determines if this Stage should process this Document based on the conditional execution parameters. If no
    * conditionalFields are supplied in the config, the Stage will always execute. If none of the provided conditionalFields
    * are present on the given document, this should behave the same as if the fields were present but none of the supplied
    * values were found in the fields.
    *
    * @param doc the doc to determine processing for
-   * @return  boolean representing - should we process?
+   * @return  boolean representing - should we process this doc according to its conditionals?
    */
   public boolean shouldProcess(Document doc) {
     return condition.test(doc);
