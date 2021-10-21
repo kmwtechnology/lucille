@@ -8,7 +8,6 @@ import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.common.SolrInputDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -132,28 +131,32 @@ class Indexer implements Runnable {
             meter.getCount(), meter.getMeanRate()));
       }
     } catch (Exception e) {
+
+      log.error("Error sending documents to solr: " + e.getMessage(), e);
+
       for (Document d : batchedDocs) {
         try {
           manager.sendEvent(new Event(d.getId(), d.getRunId(),
               "FAILED: " + e.getMessage(), Event.Type.FAIL));
         } catch (Exception e2) {
-          // TODO : Do something special if we get an error when sending Failure events
-          e2.printStackTrace();
+          // TODO: The run won't be able to finish if this event isn't received; can we do something special here?
+          log.error("Couldn't send failure event for doc " + d.getId(), e2);
         }
       }
       return;
     }
 
-    try {
-      for (Document d : batchedDocs) {
-        Event event = new Event(d.getId(), d.getRunId(), "SUCCEEDED", Event.Type.FINISH);
-        // log.info("submitting completion event " + event);
+
+    for (Document d : batchedDocs) {
+      Event event = new Event(d.getId(), d.getRunId(), "SUCCEEDED", Event.Type.FINISH);
+      try {
         manager.sendEvent(event);
+      } catch (Exception e) {
+        // TODO: The run won't be able to finish if this event isn't received; can we do something special here?
+        log.error("Error sending completion event for doc " + d.getId(), e);
       }
-    } catch (Exception e) {
-      // TODO : Do something special if we get an error when sending Success events
-      e.printStackTrace();
     }
+
 
   }
 

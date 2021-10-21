@@ -97,7 +97,7 @@ class Worker implements Runnable {
       try {
         results = pipeline.processDocument(doc);
         meter.mark();
-      } catch (StageException e) {
+      } catch (Exception e) {
         log.error("Error processing document: " + doc.getId(), e);
         try {
           manager.sendEvent(new Event(doc.getId(), doc.getString("run_id"), null, Event.Type.FAIL));
