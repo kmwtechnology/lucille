@@ -314,6 +314,55 @@ public class Document implements Cloneable {
     array.add(value);
   }
 
+
+  /**
+   * Sets the field to the given value if the field is not already present; otherwise adds it to the field.
+   *
+   * If the field does not already exist and this method is called once, the field will be created as single-valued;
+   * if the field already exists and/or this method is called more than once, the field will converted to a list
+   * of values.
+   *
+   */
+  public void setOrAdd(String name, String value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  public void setOrAdd(String name, Long value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  public void setOrAdd(String name, Integer value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  public void setOrAdd(String name, Boolean value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  public void setOrAdd(String name, Double value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
   public void logError(String description) {
     addToField(ERROR_FIELD, description);
   }

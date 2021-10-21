@@ -149,7 +149,7 @@ public class DatabaseConnector extends AbstractConnector {
         // log.info("Add Field {} Value {} -- Doc {}", columns[i-1].toLowerCase(), rs.getString(i), doc);
         String fieldValue = rs.getString(i);
         if (fieldValue != null) {
-          doc.addToField(fieldName, fieldValue);
+          doc.setOrAdd(fieldName, fieldValue);
         }
       }
 
@@ -213,7 +213,7 @@ public class DatabaseConnector extends AbstractConnector {
         String fieldName = c.trim().toLowerCase();
         String fieldValue = rs2.getString(c);
         if (fieldValue != null) {
-          child.addToField(fieldName, fieldValue);
+          child.setOrAdd(fieldName, fieldValue);
         }
       }
       // add the accumulated child doc.
