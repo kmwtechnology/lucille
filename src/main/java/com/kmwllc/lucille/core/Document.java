@@ -151,6 +151,11 @@ public class Document implements Cloneable {
     data.put(RUNID_FIELD, value);
   }
 
+  public void clearRunId() {
+    if (data.has(RUNID_FIELD)) {
+      data.remove(RUNID_FIELD);
+    }
+  }
 
   public void setField(String name, String value) {
     validateNotReservedField(name);

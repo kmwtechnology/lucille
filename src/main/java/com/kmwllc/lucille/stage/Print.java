@@ -21,6 +21,7 @@ import java.util.List;
  * <p>
  * - shouldLog (Boolean, Optional) : Whether to log the document in JSON format at INFO level. Defaults to true.
  * - outputFile (String, Optional) : A file to append the documents to (will be created if it doesn't already exist).
+ * - excludeFields (String list, Optional) : A list of fields to exclude from the output.
  */
 public class Print extends Stage {
 
@@ -29,11 +30,13 @@ public class Print extends Stage {
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private Writer writer = null;
+  private List<String> excludeFields;
 
   public Print(Config config) {
     super(config);
     this.outputFile = config.hasPath("outputFile") ? config.getString("outputFile") : null;
     this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;
+    this.excludeFields = config.hasPath("excludeFields") ? config.getStringList("excludeFields") : null;
   }
 
   public void start() throws StageException {
@@ -48,9 +51,21 @@ public class Print extends Stage {
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
+    if (excludeFields!=null) {
+      doc = doc.clone();
+      for (String field : excludeFields) {
+        if (Document.RUNID_FIELD.equals(field)) {
+          doc.clearRunId();
+        } else {
+          doc.removeField(field);
+        }
+      }
+    }
+
     if (shouldLog) {
       log.info(doc.toString());
     }
+
     if (writer!=null) {
       try {
         writer.append(doc.toString() + "\n");

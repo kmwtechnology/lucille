@@ -16,6 +16,7 @@ public class PrintTest {
 
     Document doc1 = new Document("doc1");
     doc1.setField("test", "this is a test");
+    doc1.initializeRunId("runID1");
     stage.processDocument(doc1);
     stage.stop();
   }
