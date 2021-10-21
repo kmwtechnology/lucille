@@ -1,9 +1,11 @@
 package com.kmwllc.lucille.core;
 
 import java.util.List;
+import java.util.function.Predicate;
+
 import com.typesafe.config.Config;
 
-public class Condition {
+public class Condition implements Predicate<Document> {
 
   private final List<String> fields;
   private final List<String> values;
@@ -25,7 +27,8 @@ public class Condition {
     return new Condition(config);
   }
 
-  public boolean checkCondition(Document doc) {
+  @Override
+  public boolean test(Document doc) {
     boolean resultWhenValueFound = operator.equalsIgnoreCase("must");
 
     if (fields.isEmpty()) {

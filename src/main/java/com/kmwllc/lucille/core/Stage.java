@@ -1,12 +1,10 @@
 package com.kmwllc.lucille.core;
 
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigList;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -26,16 +24,17 @@ import java.util.stream.Collectors;
 public abstract class Stage {
 
   protected Config config;
-  private final List<Condition> conditions;
+  private final Predicate<Document> condition;
   private String name;
 
   // TODO : Debug mode
   public Stage(Config config) {
     this.config = config;
     this.name = ConfigUtils.getOrDefault(config, "name", null);
-    this.conditions = config.hasPath("conditions") ?
+    List<Predicate<Document>> conditions = config.hasPath("conditions") ?
         config.getConfigList("conditions").stream().map(Condition::fromConfig).collect(Collectors.toList())
         : new ArrayList<>();
+    this.condition = conditions.stream().reduce((d) -> true, Predicate::and);
   }
 
   public void start() throws StageException {}
@@ -53,13 +52,7 @@ public abstract class Stage {
    * @return  boolean representing - should we process?
    */
   public boolean shouldProcess(Document doc) {
-    for (Condition condition : conditions) {
-      if (!condition.checkCondition(doc)) {
-        return false;
-      }
-    }
-
-    return true;
+    return condition.test(doc);
   }
 
 
