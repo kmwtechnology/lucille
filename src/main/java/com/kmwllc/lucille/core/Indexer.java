@@ -5,6 +5,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
+import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
@@ -54,7 +55,7 @@ class Indexer implements Runnable {
     if (bypass) {
       this.solrClient = null;
     } else {
-      this.solrClient = new HttpSolrClient.Builder(config.getString("solr.url")).build();
+      this.solrClient = SolrUtils.getSolrClient(config);
     }
     this.logRate = ConfigUtils.getOrDefault(config, "indexer.logRate", 1000);
     this.metrics = SharedMetricRegistries.getOrCreate("default");

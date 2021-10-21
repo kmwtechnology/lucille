@@ -2,9 +2,12 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
+
+import java.util.ArrayList;
 
 import static org.junit.Assert.*;
 
@@ -60,5 +63,4 @@ public class CopyFieldsTest {
     assertEquals("Here is another input.", doc.getStringList("output2").get(0));
     assertEquals("input3 should be skipped.", doc.getStringList("output3").get(0));
   }
-
 }

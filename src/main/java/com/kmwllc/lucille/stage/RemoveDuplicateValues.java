@@ -26,7 +26,7 @@ public class RemoveDuplicateValues extends Stage {
 
   public RemoveDuplicateValues(Config config) {
     super(config);
-    this.fieldMapping = config.getConfig("fields").entrySet();
+    this.fieldMapping = config.getConfig("fieldMapping").entrySet();
   }
 
   @Override
