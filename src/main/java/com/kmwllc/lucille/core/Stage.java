@@ -1,12 +1,10 @@
 package com.kmwllc.lucille.core;
 
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigList;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -26,78 +24,38 @@ import java.util.stream.Collectors;
 public abstract class Stage {
 
   protected Config config;
-  private final List<List<String>> conditionalFields;
-  private final List<List<String>> conditionalValues;
-  private final List<String> operators;
+  private final Predicate<Document> condition;
   private String name;
 
   // TODO : Debug mode
   public Stage(Config config) {
     this.config = config;
     this.name = ConfigUtils.getOrDefault(config, "name", null);
-    conditionalFields = config.hasPath("conditional_fields") ?
-        config.getList("conditional_fields").stream().map(configValue -> (List<String>) configValue.unwrapped()).collect(Collectors.toList())
+    List<Predicate<Document>> conditions = config.hasPath("conditions") ?
+        config.getConfigList("conditions").stream().map(Condition::fromConfig).collect(Collectors.toList())
         : new ArrayList<>();
-    this.conditionalValues = config.hasPath("conditional_values") ?
-        config.getList("conditional_values").stream().map(configValue -> (List<String>) configValue.unwrapped()).collect(Collectors.toList())
-        : new ArrayList<>();
-    this.operators = config.hasPath("conditional_operators") ?
-        config.getStringList("conditional_operators") :
-        Collections.nCopies(conditionalFields.size(), "must");
+    this.condition = conditions.stream().reduce((d) -> true, Predicate::and);
   }
 
-  public void start() throws StageException {
-    if (conditionalFields.size() != conditionalValues.size() || conditionalFields.size() != operators.size()) {
-      throw new StageException("Must supply the same length list for all conditional execution parameters");
-    }
-  }
+  public void start() throws StageException {}
 
   public void stop() throws StageException {
   }
 
   /**
-   * Determines if this Stage should process this Document based on the conditional execution parameters. If no no
+   * Determines if this Stage should process this Document based on the conditional execution parameters. If no
    * conditionalFields are supplied in the config, the Stage will always execute. If none of the provided conditionalFields
    * are present on the given document, this should behave the same as if the fields were present but none of the supplied
    * values were found in the fields.
    *
    * @param doc the doc to determine processing for
-   * @return  boolean representing - should we process?
+   * @return  boolean representing - should we process this doc according to its conditionals?
    */
   public boolean shouldProcess(Document doc) {
-    for (int i = 0; i < conditionalFields.size(); i++) {
-      List<String> currentFields = conditionalFields.get(i);
-      List<String> currentValues = conditionalValues.get(i);
-      String currentOperator = operators.get(i);
-
-      if (!checkCurrentCondition(currentFields, currentValues, currentOperator, doc)) {
-        return false;
-      }
-    }
-
-    return true;
+    return condition.test(doc);
   }
 
-  private boolean checkCurrentCondition(List<String> currentFields, List<String> currentValues, String currentOperator, Document doc) {
-    boolean resultWhenValueFound = currentOperator.equalsIgnoreCase("must");
 
-    if (currentFields.isEmpty()) {
-      return true;
-    }
-
-    for (String field : currentFields) {
-      if (!doc.has(field)) {
-        continue;
-      }
-
-      for (String value : doc.getStringList(field)) {
-        if (currentValues.contains(value)) {
-          return resultWhenValueFound;
-        }
-      }
-    }
-    return !resultWhenValueFound;
-  }
 
   /**
    * Process this Document iff it adheres to our conditional requirements.
