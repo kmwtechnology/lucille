@@ -193,9 +193,12 @@ public class Pipeline {
       long errors = stageErrorCounters.get(name).getCount();
       long children = stageChildrenCounters.get(name).getCount();
       long skipped = stageSkippedCounters.get(name).getCount();
-      builder.append(String.format("Stage %s processed %d documents at a rate of %f docs/sec. This stage produced a total of %d children.\n",
-          name, processed, (double) processed / duration, children));
+      builder.append(String.format("Stage %s processed %d documents at a rate of %f docs/sec. This stage produced a " +
+              "total of %d children, conditionally skipped %d documents are caught an error on %d documents.\n",
+          name, processed, (double) processed / duration, children, skipped, errors));
     }
+
+    return builder.toString();
   }
 
 }
