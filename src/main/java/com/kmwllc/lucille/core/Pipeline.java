@@ -63,6 +63,7 @@ public class Pipeline {
     for (Stage stage : stages) {
       stage.stop();
     }
+    log.info(generateLogDump());
   }
 
   /**
