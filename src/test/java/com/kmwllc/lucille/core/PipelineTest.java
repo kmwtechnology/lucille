@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,6 +40,14 @@ public class PipelineTest {
   @Test(expected = PipelineException.class)
   public void testFromConfigWithUnnamedPipeline() throws Exception {
     String s = "pipelines = [{stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, " +
+      "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
+    Config config = ConfigFactory.parseString(s);
+    Pipeline.fromConfig(config, "pipeline1");
+  }
+
+  @Test(expected = PipelineException.class)
+  public void testFromConfigWithDuplicatePipelineName() throws Exception {
+    String s = "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, " +
       "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline.fromConfig(config, "pipeline1");
@@ -91,8 +100,8 @@ public class PipelineTest {
   public void testConditional() throws Exception {
     String s = "pipelines = [{name:\"pipeline1\", " +
         "stages: " +
-        "[{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\", conditional_field:[\"cond\"], conditional_values:[\"abc\", \"123\"], conditional_operator:\"must\"}," +
-        "{class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\", conditional_field:[\"cond\"], conditional_values:[\"have\", \"test\"], conditional_operator:\"must\"}]}]";
+        "[{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\", conditions:[{fields:[\"cond\"], values:[\"abc\",\"123\"], operator:\"must\"}]}, " +
+        "{class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\", conditions:[{fields:[\"cond\"], values:[\"have\",\"test\"], operator:\"must\"}]}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1");
 
@@ -103,6 +112,26 @@ public class PipelineTest {
     assertTrue(doc.has("s1"));
     assertEquals("v1", doc.getString("s1"));
     assertFalse(doc.has("s4"));
+  }
+
+  @Test
+  public void testDefaultName() throws Exception {
+    Pipeline pipeline = new Pipeline();
+    Config config = ConfigFactory.empty();
+    pipeline.addStage(new Stage1(config));
+    pipeline.addStage(new Stage2(config));
+    List<Stage> stages = pipeline.getStages();
+    assertEquals(2, stages.size());
+    assertEquals("stage_1", stages.get(0).getName());
+    assertEquals("stage_2", stages.get(1).getName());
+  }
+
+  @Test(expected = PipelineException.class)
+  public void testDuplicateName() throws Exception {
+    Pipeline pipeline = new Pipeline();
+    Config config = ConfigFactory.empty().withValue("name", ConfigValueFactory.fromAnyRef("stage1"));
+    pipeline.addStage(new Stage1(config));
+    pipeline.addStage(new Stage2(config));
   }
 
   private static class Stage1 extends Stage {

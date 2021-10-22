@@ -23,10 +23,12 @@ public class CSVConnector extends AbstractConnector {
   private static final Logger log = LoggerFactory.getLogger(CSVConnector.class);
 
   private final String path;
+  private final String lineNumField;
 
   public CSVConnector(Config config) {
     super(config);
     this.path = config.getString("path");
+    this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
   }
 
   @Override
@@ -57,7 +59,7 @@ public class CSVConnector extends AbstractConnector {
         for (int i = 1; i < maxIndex; i++) {
           if (line[i] != null) {
             doc.setField(header[i], line[i]);
-            doc.setField("csvLineNumber", lineNum);
+            doc.setField(lineNumField, lineNum);
           }
         }
         log.info("submitting " + doc);

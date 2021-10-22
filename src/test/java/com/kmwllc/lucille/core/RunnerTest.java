@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core;
 import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.stage.StartStopCaptureStage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
@@ -278,6 +279,15 @@ public class RunnerTest {
   public void testConnectorWithUnrecognizedPipeline() throws Exception {
     // we should get a PipelineException if a connector specifies a pipeline that isn't defined
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/pipelineNotFound.conf");
+  }
+
+  @Test
+  public void testStartStopCalledOnPipelineStages() throws Exception {
+    StartStopCaptureStage.reset();
+    Runner.runInTestMode("RunnerTest/stageStartStop.conf");
+    assertTrue(StartStopCaptureStage.startCalled);
+    assertTrue(StartStopCaptureStage.stopCalled);
+    StartStopCaptureStage.reset();
   }
 
 }

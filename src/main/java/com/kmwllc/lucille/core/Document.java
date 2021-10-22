@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
 /**
  * A record from a source system to be passed through a Pipeline, enriched,
@@ -26,7 +27,9 @@ public class Document implements Cloneable {
   public static final String ERROR_FIELD = "errors";
   public static final String CHILDREN_FIELD = ".children";
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+  public static final List<String> RESERVED_FIELDS = List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD);
+
+  protected static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
   private static final Logger log = LoggerFactory.getLogger(Document.class);
 
@@ -61,6 +64,12 @@ public class Document implements Cloneable {
 
   public static Document fromJsonString(String json) throws DocumentException, JsonProcessingException {
     return new Document((ObjectNode)MAPPER.readTree(json));
+  }
+
+  public static Document fromJsonString(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
+    Document doc = fromJsonString(json);
+    doc.data.put(ID_FIELD, idUpdater.apply(doc.getId()));
+    return doc;
   }
 
   public void removeField(String name) {
@@ -142,6 +151,11 @@ public class Document implements Cloneable {
     data.put(RUNID_FIELD, value);
   }
 
+  public void clearRunId() {
+    if (data.has(RUNID_FIELD)) {
+      data.remove(RUNID_FIELD);
+    }
+  }
 
   public void setField(String name, String value) {
     validateNotReservedField(name);
@@ -349,7 +363,7 @@ public class Document implements Cloneable {
   }
 
   private void validateNotReservedField(String name) {
-    if (ID_FIELD.equals(name) || RUNID_FIELD.equals(name) || CHILDREN_FIELD.equals(name)) {
+    if (RESERVED_FIELDS.contains(name)) {
       throw new IllegalArgumentException();
     }
   }

@@ -35,9 +35,19 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   }
 
   @Override
+  public void commitPendingDocOffsets() throws Exception {
+    manager.commitPendingDocOffsets();
+  }
+
+  @Override
   public void sendCompleted(Document document) throws Exception {
     savedDestMessages.add(document);
     manager.sendCompleted(document);
+  }
+
+  @Override
+  public void sendFailed(Document document) throws Exception {
+    manager.sendFailed(document);
   }
 
   @Override

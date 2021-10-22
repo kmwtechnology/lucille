@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.Map;
 
 /**
@@ -37,7 +38,13 @@ public class Pipeline {
     return stages;
   }
 
-  public void addStage(Stage stage) {
+  public void addStage(Stage stage) throws PipelineException, StageException {
+    if (stage.getName()==null) {
+      stage.initializeName("stage_" + (stages.size()+1));
+    }
+    if (stages.stream().anyMatch(s -> stage.getName().equals(s.getName()))) {
+      throw new PipelineException("Two stages cannot have the same name: " + stage.getName());
+    }
     stages.add(stage);
   }
 
@@ -52,12 +59,18 @@ public class Pipeline {
     }
   }
 
+  public void stopStages() throws StageException {
+    for (Stage stage : stages) {
+      stage.stop();
+    }
+  }
+
   /**
    * Instantiates a Pipeline from the designated list of Stage Configs.
    * The Config for each Stage must specify the stage's class.
    */
   public static Pipeline fromConfig(List<? extends Config> stages) throws ClassNotFoundException, NoSuchMethodException,
-    IllegalAccessException, InvocationTargetException, InstantiationException, StageException {
+    IllegalAccessException, InvocationTargetException, InstantiationException, StageException, PipelineException {
     Pipeline pipeline = new Pipeline();
     for (Config c : stages) {
       Class<?> clazz = Class.forName(c.getString("class"));
@@ -80,13 +93,16 @@ public class Pipeline {
       throw new PipelineException("No pipelines element present in config");
     }
     List<? extends Config> pipelines = config.getConfigList("pipelines");
-    for (Config pipeline : pipelines) {
-      if (!pipeline.hasPath("name")) {
-        throw new PipelineException("Pipeline without name found in config");
-      }
-      if (name.equals(pipeline.getString("name"))) {
-        return fromConfig(pipeline.getConfigList("stages"));
-      }
+    if (pipelines.stream().anyMatch(p -> !p.hasPath("name"))) {
+      throw new PipelineException("Pipeline without name found in config");
+    }
+    List<Config> matchingPipelines =
+      pipelines.stream().filter(p -> name.equals(p.getString("name"))).collect(Collectors.toList());
+    if (matchingPipelines.size()>1) {
+      throw new PipelineException("More than one pipeline found with name: " + name);
+    }
+    if (matchingPipelines.size()==1) {
+      return fromConfig(matchingPipelines.get(0).getConfigList("stages"));
     }
     throw new PipelineException("No pipeline found with name: " + name);
   }
@@ -139,7 +155,6 @@ public class Pipeline {
       stageProcessedTimers.get(stage.getName()).inc(Duration.between(stageStart, Instant.now()).toMillis());
       stageChildrenCounters.get(stage.getName()).inc(childrenFromCurrentStage.size());
     }
-
 
     return documents;
   }

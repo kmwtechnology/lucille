@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.consumer.*;
@@ -44,12 +45,17 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
   @Override
   public Document pollDocToProcess() throws Exception {
     ConsumerRecords<String, String> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
-      sourceConsumer.commitSync();
       ConsumerRecord<String, String> record = consumerRecords.iterator().next();
-      return Document.fromJsonString(record.value());
+      return new KafkaDocument(record);
     }
     return null;
+  }
+
+  @Override
+  public void commitPendingDocOffsets() throws Exception {
+    sourceConsumer.commitSync();
   }
 
   /**
@@ -60,6 +66,13 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
   public void sendCompleted(Document document) throws Exception {
     RecordMetadata result = (RecordMetadata) kafkaProducer.send(
       new ProducerRecord(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document.toString())).get();
+    kafkaProducer.flush();
+  }
+
+  public void sendFailed(Document document) throws Exception {
+    ProducerRecord<String, String> producerRecord =
+      new ProducerRecord(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document.toString());
+    RecordMetadata metadata = (RecordMetadata) kafkaProducer.send(producerRecord).get();
     kafkaProducer.flush();
   }
 
