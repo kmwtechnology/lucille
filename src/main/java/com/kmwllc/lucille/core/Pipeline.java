@@ -126,10 +126,9 @@ public class Pipeline {
     for (Stage stage : stages) {
       List<Document> childrenFromCurrentStage = new ArrayList();
 
+      Instant stageStart = Instant.now();
       for (Document doc : documents) {
-        Instant stageStart = Instant.now();
         List<Document> childrenOfCurrentDoc = stage.processConditional(doc);
-        stageProcessedTimers.get(stage.getName()).inc(Duration.between(stageStart, Instant.now()).toMillis());
 
         if (childrenOfCurrentDoc != null) {
           childrenFromCurrentStage.addAll(childrenOfCurrentDoc);
@@ -137,8 +136,10 @@ public class Pipeline {
       }
 
       documents.addAll(childrenFromCurrentStage);
+      stageProcessedTimers.get(stage.getName()).inc(Duration.between(stageStart, Instant.now()).toMillis());
       stageChildrenCounters.get(stage.getName()).inc(childrenFromCurrentStage.size());
     }
+
 
     return documents;
   }
@@ -165,6 +166,21 @@ public class Pipeline {
     }
 
     return null;
+  }
+
+  public String generateLogDump() {
+    StringBuilder builder = new StringBuilder();
+
+    for (Stage stage : stages) {
+      String name = stage.getName();
+      long processed = stageProcessedCounters.get(name).getCount();
+      long duration = stageProcessedTimers.get(name).getCount();
+      long errors = stageErrorCounters.get(name).getCount();
+      long children = stageChildrenCounters.get(name).getCount();
+      long skipped = stageSkippedCounters.get(name).getCount();
+      builder.append(String.format("Stage %s processed %d documents at a rate of %f docs/sec. This stage produced a total of %d children.\n",
+          name, processed, (double) processed / duration, children));
+    }
   }
 
 }

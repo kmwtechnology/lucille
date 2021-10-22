@@ -12,6 +12,7 @@ import sun.misc.Signal;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 /**
@@ -97,7 +98,8 @@ class Worker implements Runnable {
         log.error("Messaging error after processing document: " + doc.getId(), e);
       }
 
-      if (Instant.now().atZone(ZoneOffset.UTC).getMinute() == 5) {
+      ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
+      if (now.getMinute() % 5 == 0 && now.getSecond() == 0) {
         log.info(String.format("Workers are currently processing documents at a rate of %f documents/second. " +
             "%d documents have been processed so far.", meter.getFiveMinuteRate(), meter.getCount()));
       }
