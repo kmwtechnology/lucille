@@ -131,7 +131,6 @@ class Indexer implements Runnable {
       sendToSolr(batchedDocs);
       meter.mark(batchedDocs.size());
     } catch (Exception e) {
-
       log.error("Error sending documents to solr: " + e.getMessage(), e);
 
       for (Document d : batchedDocs) {
@@ -145,7 +144,6 @@ class Indexer implements Runnable {
       }
       return;
     }
-
 
     for (Document d : batchedDocs) {
       Event event = new Event(d.getId(), d.getRunId(), "SUCCEEDED", Event.Type.FINISH);

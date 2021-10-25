@@ -15,6 +15,8 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -58,6 +60,16 @@ class Worker implements Runnable {
   @Override
   public void run() {
     meter.mark(0);
+
+    // Timer to log a status message every five minutes
+    Timer logTimer = new Timer();
+    logTimer.schedule(new TimerTask() {
+      @Override
+      public void run() {
+        log.info(String.format("Workers are currently processing documents at a rate of %f documents/second. " +
+            "%d documents have been processed so far.", meter.getFiveMinuteRate(), meter.getCount()));
+      }
+    }, 5000, 5000);
 
     while (running) {
 
@@ -135,13 +147,15 @@ class Worker implements Runnable {
 
       commitOffsetsAndRemoveCounter(doc);
 
-      if (Instant.now().atZone(ZoneOffset.UTC).getMinute() == 5) {
-        ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
-        if (now.getMinute() % 5 == 0 && now.getSecond() == 0) {
-          log.info(String.format("Workers are currently processing documents at a rate of %f documents/second. " +
-              "%d documents have been processed so far.", meter.getFiveMinuteRate(), meter.getCount()));
-        }
-      }
+      /*ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
+      if (now.getMinute() % 5 == 0 && !loggedThisMinute) {
+        log.info(String.format("Workers are currently processing documents at a rate of %f documents/second. " +
+            "%d documents have been processed so far.", meter.getFiveMinuteRate(), meter.getCount()));
+        loggedThisMinute = true;
+      } else if (now.getMinute() % 6 == 0) {
+        loggedThisMinute = false;
+      }*/
+    }
 
       try {
         manager.close();
@@ -155,8 +169,9 @@ class Worker implements Runnable {
         log.error("Error stopping pipeline stage", e);
       }
 
+      logTimer.cancel();
+
       log.info("Exiting");
-    }
   }
 
   private void commitOffsetsAndRemoveCounter(Document doc) {
