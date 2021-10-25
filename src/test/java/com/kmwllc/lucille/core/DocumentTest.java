@@ -309,6 +309,24 @@ public class DocumentTest {
     assertEquals(2, ((List<Object>)map.get("myBooleanField")).size());
   }
 
+  @Test
+  public void testUpdateSingleVersusMultiValued() {
+    Document document = new Document("id1");
+    document.update("myStringField1", UpdateMode.OVERWRITE, "val1");
+    assertFalse(document.isMultiValued("myStringField1"));
+    document.update("myStringField1", UpdateMode.OVERWRITE, "val2");
+    assertFalse(document.isMultiValued("myStringField1"));
+
+    // when we call APPEND on a field that doesn't exist, it gets created as a single-valued field
+    document.update("myStringField2", UpdateMode.APPEND, "val1");
+    assertFalse(document.isMultiValued("myStringField2"));
+    // when we call APPEND on a field that already exists, now it becomes multi-valued if it wasn't already
+    document.update("myStringField2", UpdateMode.APPEND, "val2");
+    assertTrue(document.isMultiValued("myStringField2"));
+    document.update("myStringField2", UpdateMode.OVERWRITE, "val3");
+    assertFalse(document.isMultiValued("myStringField2"));
+  }
+
   @Test(expected = Exception.class)
   public void testSetDocIdFails() {
     Document document = new Document("id1");
@@ -341,5 +359,39 @@ public class DocumentTest {
     document.initializeRunId("run_id2");
   }
 
+  @Test
+  public void testSetOrAdd() {
+
+    // confirm setOrAdd behaves as expected
+    Document document = new Document("id1");
+    document.setOrAdd("field1", "value1");
+    assertFalse(document.isMultiValued("field1"));
+    assertEquals("value1", document.getString("field1"));
+    document.setOrAdd("field1", "value2");
+    assertTrue(document.isMultiValued("field1"));
+    assertEquals("value1", document.getStringList("field1").get(0));
+    assertEquals("value2", document.getStringList("field1").get(1));
+    assertEquals(2, document.getStringList("field1").size());
+
+    // compare with setField behavior
+    Document document2 = new Document("id2");
+    document2.setField("field1", "value1");
+    assertFalse(document2.isMultiValued("field1"));
+    assertEquals("value1", document2.getString("field1"));
+    document2.setField("field1", "value2");
+    assertFalse(document2.isMultiValued("field1"));
+    assertEquals("value2", document2.getString("field1"));
+
+    // compare with addToField behavior
+    Document document3 = new Document("id1");
+    document3.addToField("field1", "value1");
+    assertTrue(document3.isMultiValued("field1"));
+    assertEquals("value1", document3.getString("field1"));
+    document3.addToField("field1", "value2");
+    assertTrue(document3.isMultiValued("field1"));
+    assertEquals("value1", document3.getStringList("field1").get(0));
+    assertEquals("value2", document3.getStringList("field1").get(1));
+    assertEquals(2, document3.getStringList("field1").size());
+  }
 
 }

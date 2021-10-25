@@ -153,7 +153,7 @@ public class DatabaseConnectorTest {
     assertEquals(3, docs.size());
 
     // TODO: better verification / edge cases.. also formalize the "children" docs.
-    String expected ="{\"id\":\"1\",\"name\":[\"Matt\"],\".children\":[{\"id\":\"0\",\"meal_id\":[\"1\"],\"animal_id\":[\"1\"],\"name\":[\"breakfast\"]},{\"id\":\"1\",\"meal_id\":[\"2\"],\"animal_id\":[\"1\"],\"name\":[\"lunch\"]},{\"id\":\"2\",\"meal_id\":[\"3\"],\"animal_id\":[\"1\"],\"name\":[\"dinner\"]}],\"run_id\":\"testRunId\"}";
+    String expected ="{\"id\":\"1\",\"name\":\"Matt\",\".children\":[{\"id\":\"0\",\"meal_id\":\"1\",\"animal_id\":\"1\",\"name\":\"breakfast\"},{\"id\":\"1\",\"meal_id\":\"2\",\"animal_id\":\"1\",\"name\":\"lunch\"},{\"id\":\"2\",\"meal_id\":\"3\",\"animal_id\":\"1\",\"name\":\"dinner\"}],\"run_id\":\"testRunId\"}";
     assertEquals(expected, docs.get(0).toString());
 
   }

@@ -93,23 +93,23 @@ public class Document implements Cloneable {
    *
    */
   public void update(String name, UpdateMode mode, String... values) {
-    update(name, mode, (v)->{setField(name,(String)v);}, (v)->{addToField(name,(String)v);}, values);
+    update(name, mode, (v)->{setField(name,(String)v);}, (v)->{setOrAdd(name,(String)v);}, values);
   }
 
   public void update(String name, UpdateMode mode, Long... values) {
-    update(name, mode, (v)->{setField(name,(Long)v);}, (v)->{addToField(name,(Long)v);}, values);
+    update(name, mode, (v)->{setField(name,(Long)v);}, (v)->{setOrAdd(name,(Long)v);}, values);
   }
 
   public void update(String name, UpdateMode mode, Integer... values) {
-    update(name, mode, (v)->{setField(name,(Integer)v);}, (v)->{addToField(name,(Integer)v);}, values);
+    update(name, mode, (v)->{setField(name,(Integer)v);}, (v)->{setOrAdd(name,(Integer)v);}, values);
   }
 
   public void update(String name, UpdateMode mode, Boolean... values) {
-    update(name, mode, (v)->{setField(name,(Boolean)v);}, (v)->{addToField(name,(Boolean)v);}, values);
+    update(name, mode, (v)->{setField(name,(Boolean)v);}, (v)->{setOrAdd(name,(Boolean)v);}, values);
   }
 
   public void update(String name, UpdateMode mode, Double... values) {
-    update(name, mode, (v)->{setField(name,(Double)v);}, (v)->{addToField(name,(Double)v);}, values);
+    update(name, mode, (v)->{setField(name,(Double)v);}, (v)->{setOrAdd(name,(Double)v);}, values);
   }
 
   /**
@@ -312,6 +312,55 @@ public class Document implements Cloneable {
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
+  }
+
+
+  /**
+   * Sets the field to the given value if the field is not already present; otherwise adds it to the field.
+   *
+   * If the field does not already exist and this method is called once, the field will be created as single-valued;
+   * if the field already exists and/or this method is called more than once, the field will converted to a list
+   * of values.
+   *
+   */
+  public void setOrAdd(String name, String value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  public void setOrAdd(String name, Long value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  public void setOrAdd(String name, Integer value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  public void setOrAdd(String name, Boolean value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  public void setOrAdd(String name, Double value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
   }
 
   public void logError(String description) {
