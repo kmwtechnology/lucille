@@ -119,6 +119,7 @@ class Indexer implements Runnable {
 
   private void sendToSolrWithAccounting(List<Document> batchedDocs) {
     if (numIndexed % logRate == 0) {
+      // TODO : Potentially reword this
       log.info(String.format("%d documents have been indexed so far. Documents are currently being indexed at a rate of %.2f documents/second",
           meter.getCount(), meter.getMeanRate()));
     }
