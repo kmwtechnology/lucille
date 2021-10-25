@@ -15,23 +15,29 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   public static final Logger log = LoggerFactory.getLogger(LocalMessageManager.class);
 
   public static final int POLL_TIMEOUT_MS = 50;
+  public static final int DEFAULT_QUEUE_CAPACITY = 100;
 
   private final BlockingQueue<Event> pipelineEvents = new LinkedBlockingQueue<>();
   private final BlockingQueue<Document> pipelineSource;
-  private final BlockingQueue<Document> pipelineDest = new LinkedBlockingQueue<>();
+  private final BlockingQueue<Document> pipelineDest;
 
   public LocalMessageManager() {
     this.pipelineSource = new LinkedBlockingQueue<>();
+    this.pipelineDest = new LinkedBlockingQueue<>();
   }
 
   public LocalMessageManager(int capacity) {
     this.pipelineSource = new LinkedBlockingQueue<>(capacity);
+    this.pipelineDest = new LinkedBlockingQueue<>(capacity);
   }
 
   public LocalMessageManager(Config config) {
     this.pipelineSource = config.hasPath("publisher.queueCapacity") ?
       new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity")) :
-      new LinkedBlockingQueue<>();
+      new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
+    this.pipelineDest = config.hasPath("publisher.queueCapacity") ?
+      new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity")) :
+      new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
   }
 
   private String runId = null;
