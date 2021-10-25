@@ -93,23 +93,23 @@ public class Document implements Cloneable {
    *
    */
   public void update(String name, UpdateMode mode, String... values) {
-    update(name, mode, (v)->{setField(name,(String)v);}, (v)->{addToField(name,(String)v);}, values);
+    update(name, mode, (v)->{setField(name,(String)v);}, (v)->{setOrAdd(name,(String)v);}, values);
   }
 
   public void update(String name, UpdateMode mode, Long... values) {
-    update(name, mode, (v)->{setField(name,(Long)v);}, (v)->{addToField(name,(Long)v);}, values);
+    update(name, mode, (v)->{setField(name,(Long)v);}, (v)->{setOrAdd(name,(Long)v);}, values);
   }
 
   public void update(String name, UpdateMode mode, Integer... values) {
-    update(name, mode, (v)->{setField(name,(Integer)v);}, (v)->{addToField(name,(Integer)v);}, values);
+    update(name, mode, (v)->{setField(name,(Integer)v);}, (v)->{setOrAdd(name,(Integer)v);}, values);
   }
 
   public void update(String name, UpdateMode mode, Boolean... values) {
-    update(name, mode, (v)->{setField(name,(Boolean)v);}, (v)->{addToField(name,(Boolean)v);}, values);
+    update(name, mode, (v)->{setField(name,(Boolean)v);}, (v)->{setOrAdd(name,(Boolean)v);}, values);
   }
 
   public void update(String name, UpdateMode mode, Double... values) {
-    update(name, mode, (v)->{setField(name,(Double)v);}, (v)->{addToField(name,(Double)v);}, values);
+    update(name, mode, (v)->{setField(name,(Double)v);}, (v)->{setOrAdd(name,(Double)v);}, values);
   }
 
   /**

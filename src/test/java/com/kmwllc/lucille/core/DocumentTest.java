@@ -309,6 +309,24 @@ public class DocumentTest {
     assertEquals(2, ((List<Object>)map.get("myBooleanField")).size());
   }
 
+  @Test
+  public void testUpdateSingleVersusMultiValued() {
+    Document document = new Document("id1");
+    document.update("myStringField1", UpdateMode.OVERWRITE, "val1");
+    assertFalse(document.isMultiValued("myStringField1"));
+    document.update("myStringField1", UpdateMode.OVERWRITE, "val2");
+    assertFalse(document.isMultiValued("myStringField1"));
+
+    // when we call APPEND on a field that doesn't exist, it gets created as a single-valued field
+    document.update("myStringField2", UpdateMode.APPEND, "val1");
+    assertFalse(document.isMultiValued("myStringField2"));
+    // when we call APPEND on a field that already exists, now it becomes multi-valued if it wasn't already
+    document.update("myStringField2", UpdateMode.APPEND, "val2");
+    assertTrue(document.isMultiValued("myStringField2"));
+    document.update("myStringField2", UpdateMode.OVERWRITE, "val3");
+    assertFalse(document.isMultiValued("myStringField2"));
+  }
+
   @Test(expected = Exception.class)
   public void testSetDocIdFails() {
     Document document = new Document("id1");
