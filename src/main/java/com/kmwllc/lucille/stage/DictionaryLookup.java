@@ -3,10 +3,12 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,7 +41,7 @@ public class DictionaryLookup extends Stage {
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  public DictionaryLookup(Config config) {
+  public DictionaryLookup(Config config) throws StageException {
     super(config);
 
     this.sourceFields = config.getStringList("source");
@@ -55,7 +57,7 @@ public class DictionaryLookup extends Stage {
    * @param dictPath  the path of the dictionary file
    * @return  the populated HashMap
    */
-  private HashMap<String, String> buildHashMap(String dictPath) {
+  private HashMap<String, String> buildHashMap(String dictPath) throws StageException {
     HashMap<String, String> dict = new HashMap<>();
     try (CSVReader reader = new CSVReader(FileUtils.getReader(dictPath))) {
       // For each line of the dictionary file, add a keyword/payload pair to the Trie
@@ -88,8 +90,10 @@ public class DictionaryLookup extends Stage {
           dict.put(line[0].trim(), line[1].trim());
         }
       }
-    } catch (Exception e) {
-      log.error("Failed to read from the given file.", e);
+    } catch (IOException e) {
+      throw new StageException("Failed to read from the given file.", e);
+    } catch (CsvValidationException e) {
+      throw new StageException("Error validating CSV", e);
     }
 
     return dict;
