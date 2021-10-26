@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Document;
@@ -11,12 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Duration;
 import java.time.Instant;
-import java.util.UUID;
 
 public class CSVConnector extends AbstractConnector {
 
@@ -30,7 +24,7 @@ public class CSVConnector extends AbstractConnector {
     super(config);
     this.path = config.getString("path");
     this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
-    this.idField = config.hasPath("idField") ? config.getString("idField") : "";
+    this.idField = config.hasPath("idField") ? config.getString("idField") : null;
   }
 
   @Override
@@ -45,7 +39,7 @@ public class CSVConnector extends AbstractConnector {
       }
 
       int idFieldNum = 0;
-      if (!idField.equals("")) {
+      if (idField != null) {
         for (int i = 0; i < header.length; i++) {
           if (idField.equals(header[i])) {
             idFieldNum = i;
