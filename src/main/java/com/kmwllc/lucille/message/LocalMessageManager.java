@@ -59,7 +59,7 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
 
   @Override
   public void sendCompleted(Document document) throws Exception {
-    pipelineDest.add(document);
+    pipelineDest.put(document);
   }
 
   @Override
