@@ -13,7 +13,10 @@ import sun.misc.Signal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -57,6 +60,16 @@ class Worker implements Runnable {
   @Override
   public void run() {
     meter.mark(0);
+
+    // Timer to log a status message every five minutes
+    Timer logTimer = new Timer();
+    logTimer.schedule(new TimerTask() {
+      @Override
+      public void run() {
+        log.info(String.format("Workers are currently processing documents at a rate of %f documents/second. " +
+            "%d documents have been processed so far.", meter.getFiveMinuteRate(), meter.getCount()));
+      }
+    }, 5000, 5000);
 
     while (running) {
 
@@ -134,25 +147,31 @@ class Worker implements Runnable {
 
       commitOffsetsAndRemoveCounter(doc);
 
-      if (Instant.now().atZone(ZoneOffset.UTC).getMinute() == 5) {
+      /*ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
+      if (now.getMinute() % 5 == 0 && !loggedThisMinute) {
         log.info(String.format("Workers are currently processing documents at a rate of %f documents/second. " +
             "%d documents have been processed so far.", meter.getFiveMinuteRate(), meter.getCount()));
+        loggedThisMinute = true;
+      } else if (now.getMinute() % 6 == 0) {
+        loggedThisMinute = false;
+      }*/
+    }
+
+      try {
+        manager.close();
+      } catch (Exception e) {
+        log.error("Error closing message manager", e);
       }
-    }
 
-    try {
-      manager.close();
-    } catch (Exception e) {
-      log.error("Error closing message manager", e);
-    }
+      try {
+        pipeline.stopStages();
+      } catch (StageException e) {
+        log.error("Error stopping pipeline stage", e);
+      }
 
-    try {
-      pipeline.stopStages();
-    } catch (StageException e) {
-      log.error("Error stopping pipeline stage", e);
-    }
+      logTimer.cancel();
 
-    log.info("Exiting");
+      log.info("Exiting");
   }
 
   private void commitOffsetsAndRemoveCounter(Document doc) {
@@ -174,7 +193,7 @@ class Worker implements Runnable {
     Executors.newSingleThreadExecutor().submit(new Runnable() {
       public void run() {
         while (true) {
-          if (Duration.between(worker.getPreviousPollInstant().get(),Instant.now()).getSeconds() > maxProcessingSecs) {
+          if (Duration.between(worker.getPreviousPollInstant().get(), Instant.now()).getSeconds() > maxProcessingSecs) {
             log.error("Shutting down because maximum allowed time between previous poll is exceeded.");
             System.exit(1);
           }
@@ -189,7 +208,8 @@ class Worker implements Runnable {
     });
   }
 
-  public static WorkerThread startThread(Config config, WorkerMessageManager manager, String pipelineName) throws Exception {
+  public static WorkerThread startThread(Config config, WorkerMessageManager manager, String pipelineName) throws
+      Exception {
     Worker worker = new Worker(config, manager, pipelineName);
     WorkerThread workerThread = new WorkerThread(worker);
     workerThread.start();

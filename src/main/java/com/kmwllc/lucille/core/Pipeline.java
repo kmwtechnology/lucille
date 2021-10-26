@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -7,9 +10,13 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Map;
 
 /**
  * A sequence of processing Stages to be applied to incoming Documents.
@@ -19,6 +26,13 @@ public class Pipeline {
   private static final Logger log = LoggerFactory.getLogger(Pipeline.class);
 
   private ArrayList<Stage> stages = new ArrayList();
+
+  private static final MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
+  private Map<String, Counter> stageErrorCounters = new HashMap<>();
+  private Map<String, Counter> stageProcessedCounters = new HashMap<>();
+  private Map<String, Counter> stageProcessedTimers = new HashMap<>();
+  private Map<String, Counter> stageSkippedCounters = new HashMap<>();
+  private Map<String, Counter> stageChildrenCounters = new HashMap<>();
 
   public List<Stage> getStages() {
     return stages;
@@ -37,6 +51,11 @@ public class Pipeline {
   public void startStages() throws StageException {
     for (Stage stage : stages) {
       stage.start();
+      stageErrorCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".errors"));
+      stageProcessedCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".processed"));
+      stageProcessedTimers.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".timer"));
+      stageSkippedCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".skipped"));
+      stageChildrenCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".children"));
     }
   }
 
@@ -44,6 +63,7 @@ public class Pipeline {
     for (Stage stage : stages) {
       stage.stop();
     }
+    log.info(generateLogDump());
   }
 
   /**
@@ -123,14 +143,18 @@ public class Pipeline {
     for (Stage stage : stages) {
       List<Document> childrenFromCurrentStage = new ArrayList();
 
+      Instant stageStart = Instant.now();
       for (Document doc : documents) {
         List<Document> childrenOfCurrentDoc = stage.processConditional(doc);
+
         if (childrenOfCurrentDoc != null) {
           childrenFromCurrentStage.addAll(childrenOfCurrentDoc);
         }
       }
 
       documents.addAll(childrenFromCurrentStage);
+      stageProcessedTimers.get(stage.getName()).inc(Duration.between(stageStart, Instant.now()).toMillis());
+      stageChildrenCounters.get(stage.getName()).inc(childrenFromCurrentStage.size());
     }
 
     return documents;
@@ -158,6 +182,24 @@ public class Pipeline {
     }
 
     return null;
+  }
+
+  public String generateLogDump() {
+    StringBuilder builder = new StringBuilder();
+
+    for (Stage stage : stages) {
+      String name = stage.getName();
+      long processed = stageProcessedCounters.get(name).getCount();
+      long duration = stageProcessedTimers.get(name).getCount();
+      long errors = stageErrorCounters.get(name).getCount();
+      long children = stageChildrenCounters.get(name).getCount();
+      long skipped = stageSkippedCounters.get(name).getCount();
+      builder.append(String.format("Stage %s processed %d documents at a rate of %f docs/sec. This stage produced a " +
+              "total of %d children, conditionally skipped %d documents are caught an error on %d documents.\n",
+          name, processed, (double) processed / duration, children, skipped, errors));
+    }
+
+    return builder.toString();
   }
 
 }

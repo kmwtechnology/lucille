@@ -118,6 +118,12 @@ class Indexer implements Runnable {
   }
 
   private void sendToSolrWithAccounting(List<Document> batchedDocs) {
+    if (numIndexed % logRate == 0) {
+      // TODO : Potentially reword this
+      log.info(String.format("%d documents have been indexed so far. Documents are currently being indexed at a rate of %.2f documents/second",
+          meter.getCount(), meter.getMeanRate()));
+    }
+
     if (batchedDocs.isEmpty()) {
       return;
     }
@@ -125,13 +131,7 @@ class Indexer implements Runnable {
     try {
       sendToSolr(batchedDocs);
       meter.mark(batchedDocs.size());
-
-      if (numIndexed % logRate == 0) {
-        log.info(String.format("%d documents have been indexed so far. Documents are currently being indexed at a rate of %.2f documents/second",
-            meter.getCount(), meter.getMeanRate()));
-      }
     } catch (Exception e) {
-
       log.error("Error sending documents to solr: " + e.getMessage(), e);
 
       for (Document d : batchedDocs) {
@@ -145,7 +145,6 @@ class Indexer implements Runnable {
       }
       return;
     }
-
 
     for (Document d : batchedDocs) {
       Event event = new Event(d.getId(), d.getRunId(), "SUCCEEDED", Event.Type.FINISH);
