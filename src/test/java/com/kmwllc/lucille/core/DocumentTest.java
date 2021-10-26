@@ -316,6 +316,10 @@ public class DocumentTest {
     assertFalse(document.isMultiValued("myStringField1"));
     document.update("myStringField1", UpdateMode.OVERWRITE, "val2");
     assertFalse(document.isMultiValued("myStringField1"));
+    document.update("myStringField1", UpdateMode.OVERWRITE, "val1", "val2", "val3");
+    assertTrue(document.isMultiValued("myStringField1"));
+    document.update("myStringField1", UpdateMode.OVERWRITE, "val1");
+    assertFalse(document.isMultiValued("myStringField1"));
 
     // when we call APPEND on a field that doesn't exist, it gets created as a single-valued field
     document.update("myStringField2", UpdateMode.APPEND, "val1");
