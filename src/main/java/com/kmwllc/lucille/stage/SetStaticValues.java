@@ -12,19 +12,18 @@ import java.util.stream.Collectors;
 
 public class SetStaticValues extends Stage {
 
-  private final Map<String, String> staticValues;
+  private final Map<String, Object> staticValues;
   private final UpdateMode updateMode;
 
   public SetStaticValues(Config config) {
     super(config);
-    staticValues = config.getConfig("static_values").entrySet().stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> (String) entry.getValue().unwrapped()));
+    staticValues = config.getConfig("static_values").root().unwrapped();
     updateMode = UpdateMode.fromConfig(config);
   }
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    staticValues.forEach((fieldName, staticValue) -> doc.update(fieldName, updateMode, staticValue));
+    staticValues.forEach((fieldName, staticValue) -> doc.update(fieldName, updateMode, (String) staticValue));
     return null;
   }
 }

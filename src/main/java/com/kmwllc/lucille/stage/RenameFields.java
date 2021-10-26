@@ -23,13 +23,13 @@ import java.util.Map.Entry;
  */
 public class RenameFields extends Stage {
 
-  private final Set<Entry<String, ConfigValue>> fieldMap;
+  private final Map<String, Object> fieldMap;
   private final UpdateMode updateMode;
 
   public RenameFields (Config config) {
     super(config);
 
-    this.fieldMap = config.getConfig("field_mapping").entrySet();
+    this.fieldMap = config.getConfig("field_mapping").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
   }
 
@@ -42,11 +42,11 @@ public class RenameFields extends Stage {
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     // For each field, if this document has the source field, rename it to the destination field
-    for (Entry<String, ConfigValue> fieldPair : fieldMap) {
+    for (Entry<String, Object> fieldPair : fieldMap.entrySet()) {
       if (!doc.has(fieldPair.getKey()))
         continue;
 
-      String dest = (String) fieldPair.getValue().unwrapped();
+      String dest = (String) fieldPair.getValue();
       doc.renameField(fieldPair.getKey(), dest, updateMode);
     }
 

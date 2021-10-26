@@ -30,7 +30,7 @@ public class Concatenate extends Stage {
   private final List<String> sourceFields;
   private final String destField;
   private final String formatStr;
-  private final Map<String, String> defaultInputs;
+  private final Map<String, Object> defaultInputs;
   private final UpdateMode updateMode;
 
   public Concatenate(Config config) {
@@ -39,7 +39,8 @@ public class Concatenate extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");
-    defaultInputs = ConfigUtils.getOrDefault(config, "default_inputs", new HashMap<>());
+    this.defaultInputs = config.hasPath("default_inputs") ?
+        config.getConfig("default_inputs").root().unwrapped() : new HashMap<>();
     // defaultInputs = set.stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue));
     this.updateMode = UpdateMode.fromConfig(config);
   }
@@ -57,7 +58,7 @@ public class Concatenate extends Stage {
       String value;
       if (!doc.has(source)) {
         if (defaultInputs.containsKey(source)) {
-          value = defaultInputs.get(source);
+          value = (String) defaultInputs.get(source);
         } else {
           continue;
         }
