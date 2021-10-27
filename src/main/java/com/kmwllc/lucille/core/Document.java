@@ -11,6 +11,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
@@ -112,6 +115,10 @@ public class Document implements Cloneable {
     update(name, mode, (v)->{setField(name,(Double)v);}, (v)->{setOrAdd(name,(Double)v);}, values);
   }
 
+  public void update(String name, UpdateMode mode, Date... values) {
+    update(name, mode, (v)->setField(name, (Date) v), (v) ->setOrAdd(name, (Date) v), values);
+  }
+
   /**
    * Private helper method used by different public versions of the overloaded update method.
    *
@@ -180,6 +187,13 @@ public class Document implements Cloneable {
   public void setField(String name, Double value) {
     validateNotReservedField(name);
     data.put(name, value);
+  }
+
+  public void setField(String name, Date value) {
+    validateNotReservedField(name);
+    LocalDateTime date = LocalDateTime.ofInstant(value.toInstant(), ZoneOffset.UTC);
+    String dateStr = DateTimeFormatter.ISO_INSTANT.format(date);
+    data.put(name, dateStr);
   }
 
   public void renameField(String oldName, String newName, UpdateMode mode) {
@@ -314,6 +328,15 @@ public class Document implements Cloneable {
     array.add(value);
   }
 
+  public void addToField(String name, Date value) {
+    validateNotReservedField(name);
+    convertToList(name);
+    ArrayNode array = data.withArray(name);
+    LocalDateTime date = LocalDateTime.ofInstant(value.toInstant(), ZoneOffset.UTC);
+    String dateStr = DateTimeFormatter.ISO_INSTANT.format(date);
+    array.add(dateStr);
+  }
+
 
   /**
    * Sets the field to the given value if the field is not already present; otherwise adds it to the field.
@@ -356,6 +379,14 @@ public class Document implements Cloneable {
   }
 
   public void setOrAdd(String name, Double value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  public void setOrAdd(String name, Date value) {
     if (has(name)) {
       addToField(name, value);
     } else {

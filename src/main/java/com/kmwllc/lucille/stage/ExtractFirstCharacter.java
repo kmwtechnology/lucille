@@ -26,12 +26,12 @@ import java.util.regex.Pattern;
  */
 public class ExtractFirstCharacter extends Stage {
 
-  private final Set<Map.Entry<String, ConfigValue>> fieldMapping;
+  private final Map<String, Object> fieldMapping;
   private final String replacement;
 
   public ExtractFirstCharacter(Config config) {
     super(config);
-    this.fieldMapping = config.getConfig("fieldMapping").entrySet();
+    this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";
   }
 
@@ -43,7 +43,7 @@ public class ExtractFirstCharacter extends Stage {
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    for (Map.Entry<String, ConfigValue> entry : fieldMapping) {
+    for (Map.Entry<String, Object> entry : fieldMapping.entrySet()) {
 
       if (!doc.has(entry.getKey()))
         continue;
@@ -54,7 +54,7 @@ public class ExtractFirstCharacter extends Stage {
         continue;
 
       String firstChar = value.substring(0, 1);
-      String dest = (String) entry.getValue().unwrapped();
+      String dest = (String) entry.getValue();
 
       if (StringUtils.isAlpha(firstChar)) {
         doc.update(dest, UpdateMode.DEFAULT, firstChar);

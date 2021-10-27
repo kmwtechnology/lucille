@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
 
+import java.util.Map;
 import java.util.Map.Entry;
 
 import java.util.List;
@@ -22,11 +23,11 @@ import java.util.stream.Collectors;
  */
 public class RemoveDuplicateValues extends Stage {
 
-  private final Set<Entry<String, ConfigValue>> fieldMapping;
+  private final Map<String, Object> fieldMapping;
 
   public RemoveDuplicateValues(Config config) {
     super(config);
-    this.fieldMapping = config.getConfig("fieldMapping").entrySet();
+    this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
   }
 
   @Override
@@ -37,7 +38,7 @@ public class RemoveDuplicateValues extends Stage {
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    for (Entry<String, ConfigValue> entry : fieldMapping) {
+    for (Entry<String, Object> entry : fieldMapping.entrySet()) {
       String field = entry.getKey();
 
       if (!doc.has(field) || !doc.isMultiValued(field)) {
@@ -45,7 +46,7 @@ public class RemoveDuplicateValues extends Stage {
       }
 
       List<String> uniqueValues = doc.getStringList(field).stream().distinct().collect(Collectors.toList());
-      doc.update((String) entry.getValue().unwrapped(), UpdateMode.DEFAULT, uniqueValues.toArray(new String[0]));
+      doc.update((String) entry.getValue(), UpdateMode.DEFAULT, uniqueValues.toArray(new String[0]));
     }
 
     return null;

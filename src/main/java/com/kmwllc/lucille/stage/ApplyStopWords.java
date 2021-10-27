@@ -31,7 +31,7 @@ import java.util.stream.Stream;
 public class ApplyStopWords extends Stage {
 
   private final List<String> dictionaries;
-  private final List<String> stopWords;
+  // private final List<String> stopWords;
   private final List<String> fieldNames;
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -42,7 +42,6 @@ public class ApplyStopWords extends Stage {
     super(config);
     this.dictionaries = config.getStringList("dictionaries");
     this.fieldNames = config.hasPath("fields") ? config.getStringList("fields") : null;
-    this.stopWords = new ArrayList<>(Collections.singletonList(" "));
   }
 
   @Override
@@ -90,7 +89,6 @@ public class ApplyStopWords extends Stage {
 
           String word = line[0].trim();
           trieBuilder = trieBuilder.addKeyword(word, word);
-          stopWords.add(word);
         }
       } catch (Exception e) {
         throw new StageException("Failed to read from the given file.", e);
