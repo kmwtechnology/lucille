@@ -67,9 +67,9 @@ class Worker implements Runnable {
       @Override
       public void run() {
         log.info(String.format("Workers are currently processing documents at a rate of %f documents/second. " +
-            "%d documents have been processed so far.", meter.getFiveMinuteRate(), meter.getCount()));
+            "%d documents have been processed so far.", meter.getOneMinuteRate(), meter.getCount()));
       }
-    }, 5000, 5000);
+    }, 100000, 100000);
 
     while (running) {
 
