@@ -80,6 +80,7 @@ public class PipelineTest {
 
     pipeline.startStages();
     List<Document> results = pipeline.processDocument(doc);
+    pipeline.stopStages();
 
     ArrayList<Document> expected = new ArrayList<>();
     expected.add(Document.fromJsonString("{\"id\":\"d1\",\"s1\":\"v1\",\"s2\":\"v2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
