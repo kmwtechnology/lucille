@@ -5,9 +5,7 @@ import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.lang.text.StrSubstitutor;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * This Stage replaces wildcards in a given format String with the value for the given field. To declare a wildcard,
@@ -27,34 +25,38 @@ import java.util.Map;
  */
 public class Concatenate extends Stage {
 
-  private final List<String> sourceFields;
   private final String destField;
   private final String formatStr;
   private final Map<String, Object> defaultInputs;
   private final UpdateMode updateMode;
 
+  private final List<String> fields;
+
   public Concatenate(Config config) {
     super(config);
 
-    this.sourceFields = config.getStringList("source");
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");
     this.defaultInputs = config.hasPath("default_inputs") ?
         config.getConfig("default_inputs").root().unwrapped() : new HashMap<>();
     // defaultInputs = set.stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue));
     this.updateMode = UpdateMode.fromConfig(config);
+    this.fields = new ArrayList<>();
   }
 
   @Override
   public void start() throws StageException {
-    StageUtils.validateFieldNumNotZero(sourceFields, "Concatenate");
+    Scanner scan = new Scanner(formatStr);
+    for (String s; (s = scan.findWithinHorizon("(?<=\\{).*?(?=})", 0)) != null;) {
+      fields.add(s);
+    }
   }
 
   // NOTE : If a given field is multivalued, this Stage will only operate on the first value
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     HashMap<String, String> replacements = new HashMap<>();
-    for (String source : sourceFields) {
+    for (String source : fields) {
       String value;
       if (!doc.has(source)) {
         if (defaultInputs.containsKey(source)) {

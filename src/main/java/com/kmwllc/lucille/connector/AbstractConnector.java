@@ -9,11 +9,13 @@ public abstract class AbstractConnector implements Connector {
   private String name;
   private String pipelineName;
   private String docIdPrefix;
+  private final String docIdFormat;
 
   public AbstractConnector(Config config) {
     this.name = config.getString("name");
     this.pipelineName = config.hasPath("pipeline") ? config.getString("pipeline") : null;
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
+    this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
   }
 
   public String getName() {
