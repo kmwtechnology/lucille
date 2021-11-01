@@ -100,6 +100,8 @@ public interface Publisher {
    */
   boolean waitForCompletion(ConnectorThread thread, int timeout) throws Exception;
 
+  void flush() throws Exception;
+
   /**
    * Closes any connections opened by the publisher.
    *

@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
+import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 
 public abstract class AbstractConnector implements Connector {
@@ -14,6 +15,16 @@ public abstract class AbstractConnector implements Connector {
     this.name = config.getString("name");
     this.pipelineName = config.hasPath("pipeline") ? config.getString("pipeline") : null;
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
+  }
+
+  @Override
+  public void executeAndFlush(Publisher publisher) throws ConnectorException {
+    execute(publisher);
+    try {
+      publisher.flush();
+    } catch (Exception e) {
+      throw new ConnectorException("Couldn't flush publisher", e);
+    }
   }
 
   public String getName() {

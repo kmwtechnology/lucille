@@ -394,6 +394,43 @@ public class Document implements Cloneable {
     }
   }
 
+  public void setOrAdd(String name, Document other) {
+    validateNotReservedField(name);
+
+    if (!has(name)) {
+
+      if (!other.has(name)) {
+        return;
+      } else {
+        data.set(name, other.data.get(name));
+        return;
+      }
+
+    } else {
+
+      convertToList(name);
+      ArrayNode currentValues = (ArrayNode) data.get(name);
+      JsonNode otherValue = other.data.get(name);
+
+      if (otherValue.getNodeType() == JsonNodeType.ARRAY) {
+        currentValues.addAll((ArrayNode) otherValue);
+      } else {
+        currentValues.add(otherValue);
+      }
+
+    }
+  }
+
+  public void setOrAddAll(Document other) {
+    for (Iterator<String> it = other.data.fieldNames(); it.hasNext(); ) {
+      String name = it.next();
+      if (RESERVED_FIELDS.contains(name)) {
+        continue;
+      }
+      setOrAdd(name, other);
+    }
+  }
+
   public void logError(String description) {
     addToField(ERROR_FIELD, description);
   }
