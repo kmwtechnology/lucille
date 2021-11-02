@@ -12,8 +12,10 @@ import org.junit.runners.JUnit4;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
 
@@ -289,5 +291,48 @@ public class RunnerTest {
     assertTrue(StartStopCaptureStage.stopCalled);
     StartStopCaptureStage.reset();
   }
+
+
+  @Test
+  public void testCollapse() throws Exception {
+
+    // DATA:
+    //
+    // 0,a,b,c
+    // 1,foo,bar,baz
+    // 1,foo,bar,baz
+    // 1,foo2,bar2,baz2
+    // 2,a,b,c
+    // 1,non-consecutive,bar,baz
+
+    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/collapse.conf");
+    assertEquals(2, map.size());
+    PersistingLocalMessageManager manager1 = map.get("connector1");
+    PersistingLocalMessageManager manager2 = map.get("connector2");
+
+    // docs IDs should have the specified docIdPrefix;
+    // when collapsing, the three consecutive docs with id=1 should be collapsed into one doc, but the fourth
+    // doc with id=1 should not be collapsed because it is out of sequence;
+    // so, when collapsing we expect a total of 4 docs, when not collapsing we expect 6
+
+    assertEquals(4, manager1.getSavedDocumentsSentForProcessing().size());
+    assertEquals(6, manager2.getSavedDocumentsSentForProcessing().size());
+    List<String> expectedIdsFromCollapsingConnector =
+      Arrays.asList(new String[] {"connector1-0", "connector1-1", "connector1-2", "connector1-1"});
+    List<String> expectedIdsFromNonCollapsingConnector =
+      Arrays.asList(new String[] {"connector2-0", "connector2-1", "connector2-1", "connector2-1", "connector2-2", "connector2-1"});
+    assertEquals(expectedIdsFromCollapsingConnector,
+      manager1.getSavedDocumentsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
+    assertEquals(expectedIdsFromNonCollapsingConnector,
+      manager2.getSavedDocumentsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
+    assertEquals(4, manager1.getSavedEvents().size());
+    assertEquals(6, manager2.getSavedEvents().size());
+
+    assertEquals(Arrays.asList(new String[] {"foo", "foo", "foo2"}),
+      manager1.getSavedDocumentsSentForProcessing().get(1).getStringList("field1"));
+    assertEquals("non-consecutive",
+      manager1.getSavedDocumentsSentForProcessing().get(3).getString("field1"));
+  }
+
 
 }

@@ -294,7 +294,8 @@ public class Runner {
 
     if (connector.getPipelineName() != null) {
       PublisherMessageManager publisherMessageManager = publisherMessageManagerFactory.create();
-      publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(), connector.getPipelineName());
+      publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(),
+        connector.getPipelineName(), connector.shouldCollapseUponPublish());
     }
 
     boolean result = runner.runConnector(connector, publisher);

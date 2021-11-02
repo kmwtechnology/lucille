@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -394,7 +395,13 @@ public class Document implements Cloneable {
     }
   }
 
-  public void setOrAdd(String name, Document other) {
+  /**
+   * Adds a given field from the designated "other" document to the current document.
+   * If a field is already present on the current document, the field is converted to a list
+   * IllegalArgumentException is thrown if this method is called with a reserved field like id.
+   *
+   */
+  public void setOrAdd(String name, Document other) throws IllegalArgumentException {
     validateNotReservedField(name);
 
     if (!has(name)) {
@@ -421,6 +428,12 @@ public class Document implements Cloneable {
     }
   }
 
+  /**
+   * Adds all the fields of the designated "other" document to the current document, excluding reserved fields
+   * like id. If a field is already present on the current document, the field is converted to a list
+   * and the new value is appended.
+   *
+   */
   public void setOrAddAll(Document other) {
     for (Iterator<String> it = other.data.fieldNames(); it.hasNext(); ) {
       String name = it.next();
@@ -479,7 +492,7 @@ public class Document implements Cloneable {
     return doc;
   }
 
-  private void validateNotReservedField(String name) {
+  private void validateNotReservedField(String name) throws IllegalArgumentException {
     if (RESERVED_FIELDS.contains(name)) {
       throw new IllegalArgumentException();
     }

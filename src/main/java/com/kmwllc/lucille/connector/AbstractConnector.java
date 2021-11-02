@@ -10,11 +10,13 @@ public abstract class AbstractConnector implements Connector {
   private String name;
   private String pipelineName;
   private String docIdPrefix;
+  private boolean collapse;
 
   public AbstractConnector(Config config) {
     this.name = config.getString("name");
     this.pipelineName = config.hasPath("pipeline") ? config.getString("pipeline") : null;
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
+    this.collapse = config.hasPath("collapse") ? config.getBoolean("collapse") : false;
   }
 
   @Override
@@ -33,6 +35,11 @@ public abstract class AbstractConnector implements Connector {
 
   public String getPipelineName() {
     return pipelineName;
+  }
+
+  @Override
+  public boolean shouldCollapseUponPublish() {
+    return collapse;
   }
   
   public String getDocIdPrefix() {
