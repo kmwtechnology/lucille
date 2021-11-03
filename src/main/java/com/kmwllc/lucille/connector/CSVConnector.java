@@ -40,6 +40,11 @@ public class CSVConnector extends AbstractConnector {
         return;
       }
 
+      if (lowercaseFields) {
+        for (int i = 0; i < header.length; i++)
+          header[i] = header[i].toLowerCase();
+      }
+
       int idFieldNum = 0;
       if (idField != null) {
         for (int i = 0; i < header.length; i++) {
@@ -71,11 +76,7 @@ public class CSVConnector extends AbstractConnector {
         int maxIndex = Math.min(header.length, line.length);
         for (int i = 0; i < maxIndex; i++) {
           if (line[i] != null && !Document.RESERVED_FIELDS.contains(header[i])) {
-            if (lowercaseFields) {
-              doc.setField(header[i].toLowerCase(), line[i]);
-            } else {
-              doc.setField(header[i], line[i]);
-            }
+            doc.setField(header[i], line[i]);
 
             doc.setField(lineNumField, lineNum);
           }
