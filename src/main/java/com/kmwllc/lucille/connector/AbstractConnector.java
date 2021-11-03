@@ -19,16 +19,6 @@ public abstract class AbstractConnector implements Connector {
     this.collapse = config.hasPath("collapse") ? config.getBoolean("collapse") : false;
   }
 
-  @Override
-  public void executeAndFlush(Publisher publisher) throws ConnectorException {
-    execute(publisher);
-    try {
-      publisher.flush();
-    } catch (Exception e) {
-      throw new ConnectorException("Couldn't flush publisher", e);
-    }
-  }
-
   public String getName() {
     return name;
   }
@@ -38,7 +28,7 @@ public abstract class AbstractConnector implements Connector {
   }
 
   @Override
-  public boolean shouldCollapseUponPublish() {
+  public boolean requiresCollapsingPublisher() {
     return collapse;
   }
   

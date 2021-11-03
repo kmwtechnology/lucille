@@ -29,13 +29,11 @@ public interface Connector {
    */
   void execute(Publisher publisher) throws ConnectorException;
 
-  void executeAndFlush(Publisher publisher) throws ConnectorException;
-
   String getName();
 
   String getPipelineName();
 
-  boolean shouldCollapseUponPublish();
+  boolean requiresCollapsingPublisher();
 
   void preExecute(String runId) throws ConnectorException;
 

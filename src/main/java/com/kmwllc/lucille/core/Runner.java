@@ -295,7 +295,7 @@ public class Runner {
     if (connector.getPipelineName() != null) {
       PublisherMessageManager publisherMessageManager = publisherMessageManagerFactory.create();
       publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(),
-        connector.getPipelineName(), connector.shouldCollapseUponPublish());
+        connector.getPipelineName(), connector.requiresCollapsingPublisher());
     }
 
     boolean result = runner.runConnector(connector, publisher);

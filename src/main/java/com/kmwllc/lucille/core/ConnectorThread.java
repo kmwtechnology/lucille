@@ -5,7 +5,7 @@ public class ConnectorThread extends Thread {
   private final Connector connector;
   private final Publisher publisher;
 
-  private volatile ConnectorException exception;
+  private volatile Exception exception;
 
   public ConnectorThread(Connector connector, Publisher publisher) {
     this.connector = connector;
@@ -15,13 +15,14 @@ public class ConnectorThread extends Thread {
   @Override
   public void run() {
     try {
-      connector.executeAndFlush(publisher);
-    } catch (ConnectorException e) {
+      connector.execute(publisher);
+      publisher.flush();
+    } catch (Exception e) {
       exception = e;
     }
   }
 
-  public ConnectorException getException() {
+  public Exception getException() {
     return exception;
   }
 

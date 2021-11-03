@@ -10,6 +10,9 @@ package com.kmwllc.lucille.core;
  * A new Publisher should be created for each run of a sequence of Connectors. The Publisher is responsible
  * for stamping a designated run_id on each published Document and maintaining accounting details specific to that run.
  *
+ * Publisher implementations may support a collapsing mode where consecutive Documents having the same ID are
+ * combined into one Document with multi-valued fields.
+ *
  */
 public interface Publisher {
 
@@ -100,6 +103,16 @@ public interface Publisher {
    */
   boolean waitForCompletion(ConnectorThread thread, int timeout) throws Exception;
 
+  /**
+   * Publish any documents that the Publisher might not have published immediately when publish() was called.
+   * This applies mainly to a "collapsing mode" where the Publisher combines consecutive documents having the same
+   * ID into a single document. In such a mode, the Publisher would not be able to immediately publish each
+   * incoming document because the next might have the same ID and the two should be collapsed. So the Publisher
+   * would have to save the previous document and only publish it if the _next_ document has a different ID.
+   * At the end of the input, the publisher would be holding on to one previous document and flush() would need
+   * to be called to make sure it gets published.
+   *
+   */
   void flush() throws Exception;
 
   /**
