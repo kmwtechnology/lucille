@@ -59,8 +59,6 @@ public abstract class Stage {
     return condition.test(doc);
   }
 
-
-
   /**
    * Process this Document iff it adheres to our conditional requirements.
    *

@@ -110,6 +110,9 @@ public class ApplyStopWords extends Stage {
       // TODO : Decide how we want to handle punctuation (currently it is left in, see tests for examples)
       List<String> newValues = new ArrayList<>();
       for (String val : doc.getStringList(field)) {
+        if (val == null)
+          continue;
+
         if (dictTrie.containsMatch(val)) {
           Stream<PayloadToken<String>> tokenStream = dictTrie.tokenize(val).stream();
           tokenStream = tokenStream.filter((PayloadToken<String> token) -> token.getEmit() == null && !token.getFragment().isBlank());
