@@ -6,10 +6,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.time.Instant;
+import java.util.*;
 
 import static org.junit.Assert.*;
 
@@ -396,6 +394,37 @@ public class DocumentTest {
     assertEquals("value1", document3.getStringList("field1").get(0));
     assertEquals("value2", document3.getStringList("field1").get(1));
     assertEquals(2, document3.getStringList("field1").size());
+  }
+
+  @Test
+  public void testSetOrAddWithOtherDocument() {
+
+    Date d = new Date();
+    Document d1 = new Document("id1");
+    d1.initializeRunId("run1");
+    d1.setField("stringField", "val");
+    d1.setField("intField", 1);
+    d1.setField("boolField", true);
+    d1.setField("doubleField", 2.0);
+    d1.setField("longField", 3L);
+
+    Document d2 = d1.cloneWithNewId("id2");
+    d1.setOrAddAll(d2);
+    d1.setOrAddAll(d2);
+    d1.setOrAddAll(d2);
+
+    Document expected = new Document("id1");
+    expected.initializeRunId("run1");
+    for (int i=0; i<=3; i++) {
+      expected.setOrAdd("stringField", "val");
+      expected.setOrAdd("intField", 1);
+      expected.setOrAdd("boolField", true);
+      expected.setOrAdd("doubleField", 2.0);
+      expected.setOrAdd("longField", 3L);
+    }
+
+    assertEquals(expected, d1);
+
   }
 
 }

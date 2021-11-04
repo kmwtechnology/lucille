@@ -24,6 +24,7 @@ public class CSVConnector extends AbstractConnector {
   private final String idField;
   private final char separatorChar;
   private final char quoteChar;
+  private final boolean lowercaseFields;
 
   public CSVConnector(Config config) {
     super(config);
@@ -33,6 +34,7 @@ public class CSVConnector extends AbstractConnector {
     this.separatorChar = (config.hasPath("useTabs") && config.getBoolean("useTabs")) ? '\t' : ',';
     this.quoteChar = (config.hasPath("interpretQuotes") && !config.getBoolean("interpretQuotes")) ?
       CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;
+    this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
   }
 
   @Override
@@ -45,6 +47,11 @@ public class CSVConnector extends AbstractConnector {
       String[] header = csvReader.readNext();
       if (header == null || header.length == 0) {
         return;
+      }
+
+      if (lowercaseFields) {
+        for (int i = 0; i < header.length; i++)
+          header[i] = header[i].toLowerCase();
       }
 
       int idFieldNum = 0;
@@ -79,6 +86,7 @@ public class CSVConnector extends AbstractConnector {
         for (int i = 0; i < maxIndex; i++) {
           if (line[i] != null && !Document.RESERVED_FIELDS.contains(header[i])) {
             doc.setField(header[i], line[i]);
+
             doc.setField(lineNumField, lineNum);
           }
         }

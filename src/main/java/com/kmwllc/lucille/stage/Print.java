@@ -22,11 +22,13 @@ import java.util.List;
  * - shouldLog (Boolean, Optional) : Whether to log the document in JSON format at INFO level. Defaults to true.
  * - outputFile (String, Optional) : A file to append the documents to (will be created if it doesn't already exist).
  * - excludeFields (String list, Optional) : A list of fields to exclude from the output.
+ * - overwriteFile (Boolean, Optional) : Whether the output file should overwritten if it already exists. Defaults to true.
  */
 public class Print extends Stage {
 
   private final String outputFile;
   private boolean shouldLog;
+  private boolean overwriteFile;
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private Writer writer = null;
@@ -37,12 +39,13 @@ public class Print extends Stage {
     this.outputFile = config.hasPath("outputFile") ? config.getString("outputFile") : null;
     this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;
     this.excludeFields = config.hasPath("excludeFields") ? config.getStringList("excludeFields") : null;
+    this.overwriteFile = config.hasPath("overwriteFile") ? config.getBoolean("overwriteFile") : true;
   }
 
   public void start() throws StageException {
     if (outputFile!=null) {
       try {
-        writer = new BufferedWriter(new FileWriter(outputFile, true));
+        writer = new BufferedWriter(new FileWriter(outputFile, !overwriteFile));
       } catch (IOException e) {
         throw new StageException("Could not open the specified file.", e);
       }

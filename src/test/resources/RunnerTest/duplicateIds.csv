@@ -1,0 +1,7 @@
+id,field1,field2,field3
+0,a,b,c
+1,foo,bar,baz
+1,foo,bar,baz
+1,foo2,bar2,baz2
+2,a,b,c
+1,non-consecutive,bar,baz

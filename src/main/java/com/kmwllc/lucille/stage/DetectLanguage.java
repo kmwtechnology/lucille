@@ -91,6 +91,10 @@ public class DetectLanguage extends Stage {
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Detect Language");
 
+    if (!DetectorFactory.getLangList().isEmpty()) {
+      return;
+    }
+
     String profilesPath = FileUtils.getLucilleHomeDirectory() + "/DetectLanguage/profiles";
     File profileDir = new File(profilesPath);
 

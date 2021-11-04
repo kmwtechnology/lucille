@@ -70,7 +70,6 @@ class Worker implements Runnable {
             "%d documents have been processed so far.", meter.getOneMinuteRate(), meter.getCount()));
       }
     }, 60000, 60000);
-
     while (running) {
 
       Document doc;
@@ -146,15 +145,6 @@ class Worker implements Runnable {
       }
 
       commitOffsetsAndRemoveCounter(doc);
-
-      /*ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
-      if (now.getMinute() % 5 == 0 && !loggedThisMinute) {
-        log.info(String.format("Workers are currently processing documents at a rate of %f documents/second. " +
-            "%d documents have been processed so far.", meter.getFiveMinuteRate(), meter.getCount()));
-        loggedThisMinute = true;
-      } else if (now.getMinute() % 6 == 0) {
-        loggedThisMinute = false;
-      }*/
     }
 
       try {

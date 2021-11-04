@@ -49,6 +49,8 @@ public class PublisherImpl implements Publisher {
   private Instant start;
   private final MetricRegistry metrics;
   private final Meter meter;
+  private boolean isCollapsing = false;
+  private Document previousDoc = null;
 
   // List of published documents that have not reached a terminal state. Also includes children of published documents.
   // Note that this is a List, not a Set, because if two documents with the same ID are published, we would
@@ -63,22 +65,55 @@ public class PublisherImpl implements Publisher {
   // List of child documents for which a terminal event has been received early, before the corresponding CREATE event
   private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
 
-  public PublisherImpl(PublisherMessageManager manager, String runId, String pipelineName) throws Exception {
+  public PublisherImpl(PublisherMessageManager manager, String runId, String pipelineName, boolean isCollapsing) throws Exception {
     this.manager = manager;
     this.runId = runId;
     this.pipelineName = pipelineName;
     this.metrics = SharedMetricRegistries.getOrCreate("default");
     this.meter = metrics.meter("publisher.meter");
+    this.isCollapsing = isCollapsing;
     manager.initialize(runId, pipelineName);
+  }
+
+  public PublisherImpl(PublisherMessageManager manager, String runId, String pipelineName) throws Exception {
+    this(manager, runId, pipelineName, false);
   }
 
   @Override
   public void publish(Document document) throws Exception {
+    if (!isCollapsing) {
+      publishInternal(document);
+      return;
+    }
+
+    if (previousDoc==null) {
+      previousDoc = document;
+      return;
+    }
+
+    if (previousDoc.getId().equals(document.getId())) {
+      previousDoc.setOrAddAll(document);
+    } else {
+      publishInternal(previousDoc);
+      previousDoc = document;
+    }
+
+  }
+
+  public void publishInternal(Document document) throws Exception {
     document.initializeRunId(runId);
     manager.sendForProcessing(document);
     docIdsToTrack.add(document.getId());
     meter.mark();
     numPublished++;
+  }
+
+  @Override
+  public void flush() throws Exception {
+    if (previousDoc!=null) {
+      publishInternal(previousDoc);
+    }
+    previousDoc=null;
   }
 
   @Override

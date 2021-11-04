@@ -8,6 +8,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.Arrays;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -213,4 +215,54 @@ public class PublisherImplTest {
     publisher.publish(new Document("doc6"));
     assertEquals(6, publisher.numPublished());
   }
+
+
+  @Test
+  public void testCollapse() throws Exception {
+
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1", true);
+
+    Document doc1 = new Document("before");
+
+    Document doc2 = new Document("collapseMe");
+    doc2.setField("field1", "val1");
+
+    Document doc3 = new Document("collapseMe");
+    doc3.setField("field1", "val2");
+
+    Document doc4 = new Document("after");
+
+    assertEquals(0, publisher.numPublished());
+    assertEquals(0, publisher.numPending());
+    assertEquals(0, manager.getSavedDocumentsSentForProcessing().size());
+    publisher.publish(doc1);
+    assertEquals(0, publisher.numPublished());
+    assertEquals(0, publisher.numPending());
+    assertEquals(0, manager.getSavedDocumentsSentForProcessing().size());
+    publisher.publish(doc2);
+    assertEquals(1, publisher.numPublished());
+    assertEquals(1, publisher.numPending());
+    assertEquals(1, manager.getSavedDocumentsSentForProcessing().size());
+    assertEquals("before", manager.getSavedDocumentsSentForProcessing().get(0).getId());
+    publisher.publish(doc3);
+    assertEquals(1, publisher.numPublished());
+    assertEquals(1, publisher.numPending());
+    assertEquals(1, manager.getSavedDocumentsSentForProcessing().size());
+    publisher.publish(doc4);
+    assertEquals(2, publisher.numPublished());
+    assertEquals(2, publisher.numPending());
+    assertEquals(2, manager.getSavedDocumentsSentForProcessing().size());
+    assertEquals("collapseMe", manager.getSavedDocumentsSentForProcessing().get(1).getId());
+    publisher.flush();
+    assertEquals(3, publisher.numPublished());
+    assertEquals(3, publisher.numPending());
+    assertEquals(3, manager.getSavedDocumentsSentForProcessing().size());
+    assertEquals("after", manager.getSavedDocumentsSentForProcessing().get(2).getId());
+
+    Document collapsedDoc = manager.getSavedDocumentsSentForProcessing().get(1);
+    assertEquals("run1", collapsedDoc.getRunId());
+    assertEquals(Arrays.asList(new String[] {"val1", "val2"}), collapsedDoc.getStringList("field1"));
+  }
+
 }

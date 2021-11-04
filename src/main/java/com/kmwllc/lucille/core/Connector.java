@@ -33,6 +33,8 @@ public interface Connector {
 
   String getPipelineName();
 
+  boolean requiresCollapsingPublisher();
+
   void preExecute(String runId) throws ConnectorException;
 
   void postExecute(String runId) throws ConnectorException;
