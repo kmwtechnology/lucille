@@ -32,7 +32,7 @@ public class CSVConnector extends AbstractConnector {
     this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
     this.idField = config.hasPath("idField") ? config.getString("idField") : null;
     this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
-    this.ignoredTerms = config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : Collections.singletonList("NULL");
+    this.ignoredTerms = config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : new ArrayList<>();
   }
 
   @Override
