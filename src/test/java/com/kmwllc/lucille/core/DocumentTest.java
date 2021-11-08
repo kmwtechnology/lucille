@@ -30,7 +30,7 @@ public class DocumentTest {
   }
 
   @Test
-  public void testSize() {
+  public void testLength() {
     Document d = new Document("id");
     d.setField("field1", 1);
     d.setField("field2", 1);
@@ -38,6 +38,7 @@ public class DocumentTest {
     d.addToField("field2", 3);
     assertEquals(1, d.length("field1"));
     assertEquals(3, d.length("field2"));
+    assertEquals(0, d.length("field3"));
   }
 
   @Test(expected = DocumentException.class)
