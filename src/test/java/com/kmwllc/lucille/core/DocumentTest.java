@@ -29,6 +29,18 @@ public class DocumentTest {
     Document.fromJsonString("{\"id\":\"\"}");
   }
 
+  @Test
+  public void testLength() {
+    Document d = new Document("id");
+    d.setField("field1", 1);
+    d.setField("field2", 1);
+    d.addToField("field2", 2);
+    d.addToField("field2", 3);
+    assertEquals(1, d.length("field1"));
+    assertEquals(3, d.length("field2"));
+    assertEquals(0, d.length("field3"));
+  }
+
   @Test(expected = DocumentException.class)
   public void testCreateWithoutId4() throws Exception {
     Document.fromJsonString("{\"id\":null}");

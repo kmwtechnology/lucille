@@ -14,6 +14,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class CSVConnector extends AbstractConnector {
 
@@ -25,6 +29,7 @@ public class CSVConnector extends AbstractConnector {
   private final char separatorChar;
   private final char quoteChar;
   private final boolean lowercaseFields;
+  private final List<String> ignoredTerms;
 
   public CSVConnector(Config config) {
     super(config);
@@ -35,6 +40,7 @@ public class CSVConnector extends AbstractConnector {
     this.quoteChar = (config.hasPath("interpretQuotes") && !config.getBoolean("interpretQuotes")) ?
       CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;
     this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
+    this.ignoredTerms = config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : new ArrayList<>();
   }
 
   @Override
@@ -84,12 +90,12 @@ public class CSVConnector extends AbstractConnector {
 
         int maxIndex = Math.min(header.length, line.length);
         for (int i = 0; i < maxIndex; i++) {
-          if (line[i] != null && !Document.RESERVED_FIELDS.contains(header[i])) {
+          if (line[i] != null && !ignoredTerms.contains(line[i]) && !Document.RESERVED_FIELDS.contains(header[i])) {
             doc.setField(header[i], line[i]);
-
-            doc.setField(lineNumField, lineNum);
           }
         }
+        doc.setField(lineNumField, lineNum);
+
         // log.info("submitting " + doc);
         publisher.publish(doc);
       }

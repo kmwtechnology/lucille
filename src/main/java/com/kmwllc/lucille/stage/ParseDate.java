@@ -115,6 +115,10 @@ public class ParseDate extends Stage {
         String dateStr = DateTimeFormatter.ISO_INSTANT.format(date.atStartOfDay().toInstant(ZoneOffset.UTC));
         outputValues.add(dateStr);
       }
+      if (outputValues.isEmpty() && destField.equals(sourceField)) {
+        doc.removeField(sourceField);
+      }
+
       doc.update(destField, updateMode, outputValues.toArray(new String[0]));
     }
     return null;

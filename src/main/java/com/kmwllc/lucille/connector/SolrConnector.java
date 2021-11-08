@@ -95,6 +95,10 @@ public class SolrConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     // FUTURE : Query output mode: Feeding documents or iterating facet buckets and send those
+    if (getPipelineName() == null) {
+      return;
+    }
+
     SolrQuery q = new SolrQuery();
     for (Map.Entry<String, List<String>> e : solrParams.entrySet()) {
       String[] vals = e.getValue().toArray(new String[0]);
