@@ -75,12 +75,12 @@ public class CSVConnector extends AbstractConnector {
 
         int maxIndex = Math.min(header.length, line.length);
         for (int i = 0; i < maxIndex; i++) {
-          if (line[i] != null && !Document.RESERVED_FIELDS.contains(header[i])) {
+          if (line[i] != null && !line[i].equals("NULL") && !Document.RESERVED_FIELDS.contains(header[i])) {
             doc.setField(header[i], line[i]);
-
-            doc.setField(lineNumField, lineNum);
           }
         }
+        doc.setField(lineNumField, lineNum);
+
         // log.info("submitting " + doc);
         publisher.publish(doc);
       }
