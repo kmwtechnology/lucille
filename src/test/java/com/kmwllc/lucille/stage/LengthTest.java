@@ -11,7 +11,7 @@ public class LengthTest {
   private static final StageFactory factory = StageFactory.of(Length.class);
 
   @Test
-  public void LengthTest() throws StageException {
+  public void testLength() throws StageException {
     Stage stage = factory.get("LengthTest/config.conf");
 
     Document doc1 = new Document("doc1");
