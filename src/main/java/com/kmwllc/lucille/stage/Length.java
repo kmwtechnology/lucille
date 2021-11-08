@@ -21,12 +21,7 @@ public class Length extends Stage {
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     for (Entry<String, Object> e : fieldMap.entrySet()) {
-      if (!doc.has(e.getKey())) {
-        doc.setField((String) e.getValue(), 0);
-        continue;
-      }
-
-      doc.setField((String) e.getValue(), doc.getStringList(e.getKey()).size());
+      doc.setField((String) e.getValue(), doc.length(e.getKey()));
     }
 
     return null;

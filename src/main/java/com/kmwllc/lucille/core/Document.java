@@ -256,6 +256,16 @@ public class Document implements Cloneable {
     return result;
   }
 
+  public int length(String name) {
+    if (!has(name)) {
+      return 0;
+    } else if (!isMultiValued(name)) {
+      return 1;
+    } else {
+      return data.get(name).size();
+    }
+  }
+
   public String getId() {
     return getString(ID_FIELD);
   }
