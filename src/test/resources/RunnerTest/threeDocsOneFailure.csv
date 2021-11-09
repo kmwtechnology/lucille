@@ -1,0 +1,4 @@
+id,field1,field2,field3,shouldFail
+1,foo1,bar1,baz1,false
+2,foo2,bar2,baz2,true
+3,foo3,bar3,baz3,false

@@ -67,11 +67,11 @@ class Worker implements Runnable {
       @Override
       public void run() {
         log.info(String.format("Workers are currently processing documents at a rate of %f documents/second. " +
-            "%d documents have been processed so far.", meter.getOneMinuteRate(), meter.getCount()));
+          "%d documents have been processed so far.", meter.getOneMinuteRate(), meter.getCount()));
       }
     }, 60000, 60000);
-    while (running) {
 
+    while (running) {
       Document doc;
       try {
         pollInstant.set(Instant.now());
@@ -112,14 +112,14 @@ class Worker implements Runnable {
       } catch (Exception e) {
         log.error("Error processing document: " + doc.getId(), e);
         try {
-          manager.sendEvent(new Event(doc.getId(), doc.getString("run_id"), null, Event.Type.FAIL));
+          manager.sendEvent(new Event(doc.getId(), doc.getRunId(), null, Event.Type.FAIL));
         } catch (Exception e2) {
           log.error("Error sending failure event for document: " + doc.getId(), e2);
         }
 
         commitOffsetsAndRemoveCounter(doc);
 
-        return;
+        continue;
       }
 
       try {
@@ -132,7 +132,7 @@ class Worker implements Runnable {
           // a document is a child if it has a different ID from the initial document
           if (!doc.getId().equals(result.getId())) {
             manager.sendEvent(new Event(result.getId(),
-                doc.getString("run_id"), null, Event.Type.CREATE));
+              doc.getRunId(), null, Event.Type.CREATE));
           }
         }
 
@@ -147,21 +147,21 @@ class Worker implements Runnable {
       commitOffsetsAndRemoveCounter(doc);
     }
 
-      try {
-        manager.close();
-      } catch (Exception e) {
-        log.error("Error closing message manager", e);
-      }
+    try {
+      manager.close();
+    } catch (Exception e) {
+      log.error("Error closing message manager", e);
+    }
 
-      try {
-        pipeline.stopStages();
-      } catch (StageException e) {
-        log.error("Error stopping pipeline stage", e);
-      }
+    try {
+      pipeline.stopStages();
+    } catch (StageException e) {
+      log.error("Error stopping pipeline stage", e);
+    }
 
-      logTimer.cancel();
+    logTimer.cancel();
 
-      log.info("Exiting");
+    log.info("Exiting");
   }
 
   private void commitOffsetsAndRemoveCounter(Document doc) {

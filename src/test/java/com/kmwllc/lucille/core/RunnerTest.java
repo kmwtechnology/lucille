@@ -13,6 +13,7 @@ import org.junit.runners.JUnit4;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -82,31 +83,46 @@ public class RunnerTest {
   }
 
   /**
-   * Test an end-to-end run with a single connector that generates 1 document, and a pipeline
-   * that throws an exception
+   * Test an end-to-end run with a single connector that generates 3 documents, where
+   * the second document causes a stage exception but the first and third should
+   * finish without out errors
    */
   @Test
-  public void testRunnerWithSingleFailingDoc() throws Exception {
+  public void testRunnerWithFailingDoc() throws Exception {
 
     // run connectors and pipeline; acquire a persisting message manager that allows
     // for reviewing saved message traffic
     PersistingLocalMessageManager manager =
-      Runner.runInTestMode("RunnerTest/singleDocFailure.conf").get("connector1");
+      Runner.runInTestMode("RunnerTest/threeDocsOneFailure.conf").get("connector1");
 
-    // confirm doc 1 sent for processing but no docs completed or sent to solr
+    // confirm doc 3 docs sent for processing but only 2 docs completed
     List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
-    assertEquals(1, docsSentForProcessing.size());
+    assertEquals(3, docsSentForProcessing.size());
     assertEquals("1", docsSentForProcessing.get(0).getId());
-    assertEquals(0, manager.getSavedCompletedDocuments().size());
-    //assertEquals(0, manager.getSavedDocsSentToSolr().size());
+    assertEquals("2", docsSentForProcessing.get(1).getId());
+    assertEquals("3", docsSentForProcessing.get(2).getId());
 
-    // confirm that an ERROR event was sent for doc 1 and is stamped with the proper run ID
+    assertEquals(2, manager.getSavedCompletedDocuments().size());
+    assertEquals("1", manager.getSavedCompletedDocuments().get(0).getId());
+    assertEquals("3", manager.getSavedCompletedDocuments().get(1).getId());
+
+    // confirm that the proper events were sent for all three documents
     List<Event> events = manager.getSavedEvents();
-    assertEquals(1, events.size());
-    assertEquals("1", events.get(0).getDocumentId());
     assertNotNull(manager.getRunId());
+    assertEquals(3, events.size());
+
+    events.sort(Comparator.comparing(Event::getDocumentId));
+    assertEquals("1", events.get(0).getDocumentId());
     assertEquals(manager.getRunId(), events.get(0).getRunId());
-    assertEquals(Event.Type.FAIL, events.get(0).getType());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
+
+    assertEquals("2", events.get(1).getDocumentId());
+    assertEquals(manager.getRunId(), events.get(1).getRunId());
+    assertEquals(Event.Type.FAIL, events.get(1).getType());
+
+    assertEquals("3", events.get(2).getDocumentId());
+    assertEquals(manager.getRunId(), events.get(2).getRunId());
+    assertEquals(Event.Type.FINISH, events.get(2).getType());
 
     // confirm that topics are empty
     assertFalse(manager.hasEvents());
