@@ -15,6 +15,12 @@ public class ErrorStage extends Stage {
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
+
+    // bypass throwing an exception if the document has shouldFail==false
+    if (doc.has("shouldFail") && "false".equals(doc.getString("shouldFail"))) {
+      return null;
+    }
+
     throw new StageException("Expected");
   }
 }
