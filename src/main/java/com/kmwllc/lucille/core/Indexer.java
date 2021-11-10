@@ -29,9 +29,7 @@ class Indexer implements Runnable {
   private final SolrClient solrClient;
 
   private volatile boolean running = true;
-
-  private Config config;
-
+  
   private long numIndexed;
 
   // Determines the number of documents which must be indexed in between each metric info log.
@@ -40,14 +38,16 @@ class Indexer implements Runnable {
   private final MetricRegistry metrics;
   private final Meter meter;
 
+  private final String idOverrideField;
+
   public void terminate() {
     running = false;
     log.info("terminate");
   }
 
   public Indexer(Config config, IndexerMessageManager manager, boolean bypass) {
-    this.config = config;
     this.manager = manager;
+    this.idOverrideField = config.hasPath("indexer.idOverrideField") ? config.getString("indexer.idOverrideField") : null;
     int batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : DEFAULT_BATCH_SIZE;
     int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
     this.batch = new Batch(batchSize, batchTimeout);
@@ -72,9 +72,8 @@ class Indexer implements Runnable {
     try {
       manager.close();
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("Error closing message manager", e);
     }
-    log.info("exit");
   }
 
   protected void run(int iterations) {
@@ -87,9 +86,8 @@ class Indexer implements Runnable {
     try {
       manager.close();
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("Error closing message manager", e);
     }
-    log.info("exit");
   }
 
   private void checkForDoc() {
@@ -113,7 +111,6 @@ class Indexer implements Runnable {
     }
 
     sendToSolrWithAccounting(batch.add(doc));
-    // meter.mark();
     numIndexed++;
   }
 
@@ -156,7 +153,6 @@ class Indexer implements Runnable {
       }
     }
 
-
   }
 
   protected void sendToSolr(List<Document> documents) throws Exception {
@@ -168,14 +164,26 @@ class Indexer implements Runnable {
 
     List<SolrInputDocument> solrDocs = new ArrayList();
     for (Document doc : documents) {
+
       Map<String,Object> map = doc.asMap();
       SolrInputDocument solrDoc = new SolrInputDocument();
+
       for (String key : map.keySet()) {
+
+        // if an id override field has been specified, use its value as the id to send to solr, instead
+        // of the document's own id
+        if (idOverrideField!=null && Document.ID_FIELD.equals(key) && doc.has(idOverrideField)) {
+          solrDoc.setField(Document.ID_FIELD, doc.getString(idOverrideField));
+          continue;
+        }
+
         Object value = map.get(key);
         solrDoc.setField(key,value);
       }
+
       solrDocs.add(solrDoc);
     }
+
     solrClient.add(solrDocs);
   }
 
