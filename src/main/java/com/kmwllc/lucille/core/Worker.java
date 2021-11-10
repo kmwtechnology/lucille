@@ -61,7 +61,7 @@ class Worker implements Runnable {
   public void run() {
     meter.mark(0);
 
-    // Timer to log a status message every five minutes
+    // Timer to log a status message every minute
     Timer logTimer = new Timer();
     logTimer.schedule(new TimerTask() {
       @Override

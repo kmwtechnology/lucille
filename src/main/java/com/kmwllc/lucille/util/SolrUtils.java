@@ -5,6 +5,8 @@ import com.typesafe.config.Config;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 
+import java.util.List;
+
 /**
  * Utility methods for communicating with Solr.
  */
@@ -18,9 +20,25 @@ public class SolrUtils {
    */
   public static SolrClient getSolrClient(Config config) {
     if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
-      return new CloudSolrClient.Builder(config.getStringList("solr.url")).build();
+      return new CloudSolrClient.Builder(getSolrUrls(config)).build();
     } else {
-      return new HttpSolrClient.Builder(config.getString("solr.url")).build();
+      return new HttpSolrClient.Builder(getSolrUrl(config)).build();
+    }
+  }
+
+  public static String getSolrUrl(Config config) {
+    if (config.hasPath("solr.url")) {
+      return config.getString("solr.url");
+    } else {
+      return config.getString("solrUrl");
+    }
+  }
+
+  public static List<String> getSolrUrls(Config config) {
+    if (config.hasPath("solr.url")) {
+      return config.getStringList("solr.url");
+    } else {
+      return config.getStringList("solrUrl");
     }
   }
 
