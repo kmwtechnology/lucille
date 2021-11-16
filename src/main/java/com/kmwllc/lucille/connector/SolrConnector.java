@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 
 /**
  * Connector for issuing requests to Solr. Requests should be formatted as JSON Strings and can contain
- * the ${runId} wildcard, which will be substituted for the current runId before the requests are issued.
+ * the {runId} wildcard, which will be substituted for the current runId before the requests are issued.
  * This is the only wildcard supported. XML can be used instead of JSON with the useXml=true parameter.
  *
  * Connector Parameters:
@@ -90,10 +90,8 @@ public class SolrConnector extends AbstractConnector {
 
   @Override
   public void preExecute(String runId) throws ConnectorException {
-    Map<String, String> replacement = new HashMap<>();
-    replacement.put("runId", runId);
-    StrSubstitutor sub = new StrSubstitutor(replacement, "${", "}");
-    replacedPreActions = preActions.stream().map(sub::replace).collect(Collectors.toList());
+    replacedPreActions =
+      preActions.stream().map(x->x.replaceAll("\\{runId\\}", runId)).collect(Collectors.toList());
     executeActions(replacedPreActions);
   }
 
@@ -157,10 +155,8 @@ public class SolrConnector extends AbstractConnector {
 
   @Override
   public void postExecute(String runId) throws ConnectorException {
-    Map<String, String> replacement = new HashMap<>();
-    replacement.put("runId", runId);
-    StrSubstitutor sub = new StrSubstitutor(replacement, "${", "}");
-    replacedPostActions = postActions.stream().map(sub::replace).collect(Collectors.toList());
+    replacedPostActions =
+      postActions.stream().map(x->x.replaceAll("\\{runId\\}", runId)).collect(Collectors.toList());
 
     try {
       executeActions(replacedPostActions);
