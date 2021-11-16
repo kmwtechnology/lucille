@@ -121,4 +121,22 @@ public class SolrConnectorTest {
     connector.postExecute("run2");
     assertEquals("<query>runId:run2</query>", connector.getLastExecutedPostActions().get(0));
   }
+
+  @Test
+  public void testRunIdReplacementJson() throws SolrServerException, IOException, ConnectorException {
+    Config config = ConfigFactory.load("SolrConnectorTest/runIdJson.conf");
+    SolrClient mockClient = mock(SolrClient.class);
+    when(mockClient.request(any(GenericSolrRequest.class))).thenReturn(new NamedList<>());
+    SolrConnector connector = new SolrConnector(config, mockClient);
+
+    connector.preExecute("run1");
+    assertEquals("{\"delete\":{\"query\":\"runId:run1\"}}", connector.getLastExecutedPreActions().get(0));
+    connector.preExecute("run2");
+    assertEquals("{\"delete\":{\"query\":\"runId:run2\"}}", connector.getLastExecutedPreActions().get(0));
+
+    connector.postExecute("run1");
+    assertEquals("{\"delete\":{\"query\":\"runId:run1\"}}", connector.getLastExecutedPostActions().get(0));
+    connector.postExecute("run2");
+    assertEquals("{\"delete\":{\"query\":\"runId:run2\"}}", connector.getLastExecutedPostActions().get(0));
+  }
 }
