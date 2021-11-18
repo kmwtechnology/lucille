@@ -111,10 +111,11 @@ public class ApplyRegex extends Stage {
       List<String> outputValues = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {
         Matcher matcher = pattern.matcher(value);
+        int group = matcher.groupCount() > 0 ? 1 : 0;
 
         // If we find regex matches in the text, add them to the output field
         while (matcher.find()) {
-          outputValues.add(matcher.group());
+          outputValues.add(matcher.group(group));
         }
       }
 
