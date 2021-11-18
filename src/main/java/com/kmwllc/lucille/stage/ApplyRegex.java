@@ -21,6 +21,7 @@ import java.util.regex.Pattern;
  *   - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  *   - regex (String) : A regex expression to find matches for. Matches will be extracted and placed in the destination fields.
+ *     If the regex includes capturing groups, the value of the first group will be used.
  *   - update_mode (String. Optional) : Determines how writing will be handling if the destination field is already populated.
  *     Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  *   - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.
@@ -111,10 +112,11 @@ public class ApplyRegex extends Stage {
       List<String> outputValues = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {
         Matcher matcher = pattern.matcher(value);
+        int group = matcher.groupCount() > 0 ? 1 : 0;
 
         // If we find regex matches in the text, add them to the output field
         while (matcher.find()) {
-          outputValues.add(matcher.group());
+          outputValues.add(matcher.group(group));
         }
       }
 

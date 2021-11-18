@@ -52,4 +52,13 @@ public class ApplyRegexTest {
     assertEquals("output3 should contain values from input3", "3", doc4.getStringList("output3").get(0));
   }
 
+  @Test
+  public void testCapturingGroup() throws Exception {
+    Stage stage = factory.get("ApplyRegexTest/capturing.conf");
+
+    Document doc = new Document("1");
+    doc.setField("input", "test~123");
+    stage.processDocument(doc);
+    assertEquals("123", doc.getString("output"));
+  }
 }
