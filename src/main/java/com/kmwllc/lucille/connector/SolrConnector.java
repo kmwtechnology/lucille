@@ -178,7 +178,7 @@ public class SolrConnector extends AbstractConnector {
 
   private void executeActions(List<String> actions) throws ConnectorException {
     for (String action : actions) {
-      RequestWriter.ContentWriter contentWriter = new RequestWriter.StringPayloadContentWriter(action, "text/xml");
+      RequestWriter.ContentWriter contentWriter = new RequestWriter.StringPayloadContentWriter(action, "text/json");
       request.setContentWriter(contentWriter);
 
       try {
