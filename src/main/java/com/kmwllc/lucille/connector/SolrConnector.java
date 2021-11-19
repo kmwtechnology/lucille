@@ -25,14 +25,18 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Connector for issuing requests to Solr. Requests should be formatted as xml Strings and can contain the {runId} wildcard,
- * which will be substituted for the current runId before the requests are issued. This is the only wildcard supported.
+ * Connector for issuing requests to Solr. Requests should be formatted as JSON Strings and can contain
+ * the {runId} wildcard, which will be substituted for the current runId before the requests are issued.
+ * This is the only wildcard supported. XML can be used instead of JSON with the useXml=true parameter.
  *
  * Connector Parameters:
  *
  *   - preActions (List<String>, Optional) : A list of requests to be issued to Solr. These actions will be performed first.
  *   - postActions (List<String>, Optional) : A list of requests to be issued to Solr. These actions will be performed second.
  *   - solrUrl (String) : The url of the Solr instance for this Connector to issue its requests to.
+ *   - useXml (boolean, Optional) : indicates whether actions are in xml or json format; defaults to json; note that
+ *     Solr does more validation on json commands than xml ones (e.g. it rejects unrecognized JSON commands but
+ *     accepts unrecognized XML commands and reports success); therefore, json is preferable
  */
 // TODO : Honor and return children documents
 public class SolrConnector extends AbstractConnector {
@@ -49,12 +53,13 @@ public class SolrConnector extends AbstractConnector {
 
   private final Map<String, List<String>> solrParams;
   private final String idField;
+  private final String actionFormat;
 
   public SolrConnector(Config config) {
     super(config);
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
-
+    this.actionFormat = config.hasPath("useXml") && config.getBoolean("useXml") ? "text/xml" : "text/json";
     this.client = SolrUtils.getSolrClient(config);
 
     this.request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
@@ -85,10 +90,8 @@ public class SolrConnector extends AbstractConnector {
 
   @Override
   public void preExecute(String runId) throws ConnectorException {
-    Map<String, String> replacement = new HashMap<>();
-    replacement.put("runId", runId);
-    StrSubstitutor sub = new StrSubstitutor(replacement, "{", "}");
-    replacedPreActions = preActions.stream().map(sub::replace).collect(Collectors.toList());
+    replacedPreActions =
+      preActions.stream().map(x->x.replaceAll("\\{runId\\}", runId)).collect(Collectors.toList());
     executeActions(replacedPreActions);
   }
 
@@ -152,10 +155,8 @@ public class SolrConnector extends AbstractConnector {
 
   @Override
   public void postExecute(String runId) throws ConnectorException {
-    Map<String, String> replacement = new HashMap<>();
-    replacement.put("runId", runId);
-    StrSubstitutor sub = new StrSubstitutor(replacement, "{", "}");
-    replacedPostActions = postActions.stream().map(sub::replace).collect(Collectors.toList());
+    replacedPostActions =
+      postActions.stream().map(x->x.replaceAll("\\{runId\\}", runId)).collect(Collectors.toList());
 
     try {
       executeActions(replacedPostActions);
@@ -178,7 +179,7 @@ public class SolrConnector extends AbstractConnector {
 
   private void executeActions(List<String> actions) throws ConnectorException {
     for (String action : actions) {
-      RequestWriter.ContentWriter contentWriter = new RequestWriter.StringPayloadContentWriter(action, "text/json");
+      RequestWriter.ContentWriter contentWriter = new RequestWriter.StringPayloadContentWriter(action, actionFormat);
       request.setContentWriter(contentWriter);
 
       try {
