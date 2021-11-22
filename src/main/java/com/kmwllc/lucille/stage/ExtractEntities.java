@@ -67,7 +67,7 @@ public class ExtractEntities extends Stage {
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
     this.onlyWhitespaceSeparated = ConfigUtils.getOrDefault(config, "only_whitespace_separated", false);
     this.stopOnHit = ConfigUtils.getOrDefault(config, "stop_on_hit", false);
-    this.onlyWholeWords = ConfigUtils.getOrDefault(config, "only_whole_words", false);
+    this.onlyWholeWords = ConfigUtils.getOrDefault(config, "only_whole_words", true);
     this.ignoreOverlaps = ConfigUtils.getOrDefault(config, "ignore_overlaps", false);
     this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
 
