@@ -8,12 +8,12 @@ import com.typesafe.config.Config;
 
 import java.util.List;
 
-public class NormalizeFields extends Stage {
+public class NormalizeFieldNames extends Stage {
 
   private final String delimeter;
   private final String nonAlphanumReplacement;
 
-  public NormalizeFields(Config config) {
+  public NormalizeFieldNames(Config config) {
     super(config);
     this.delimeter = config.hasPath("delimeter") ? config.getString("delimeter") : "_";
     this.nonAlphanumReplacement = config.hasPath("nonAlphaNumReplacement") ? config.getString("nonAlphanumReplacement") : "";

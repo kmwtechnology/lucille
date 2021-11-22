@@ -7,12 +7,12 @@ import org.junit.Test;
 
 import static org.junit.Assert.*;
 
-public class NormalizeFieldsTest {
+public class NormalizeFieldNamesTest {
 
-  StageFactory factory = StageFactory.of(NormalizeFields.class);
+  StageFactory factory = StageFactory.of(NormalizeFieldNames.class);
 
   @Test
-  public void testNormalizeFields() throws StageException {
+  public void testNormalizeFieldNames() throws StageException {
     Stage stage = factory.get("FieldNormalizerTest/config.conf");
 
     Document doc1 = new Document("doc1");
