@@ -157,15 +157,15 @@ public class SolrConnector extends AbstractConnector {
   public void postExecute(String runId) throws ConnectorException {
     replacedPostActions =
       postActions.stream().map(x->x.replaceAll("\\{runId\\}", runId)).collect(Collectors.toList());
+    executeActions(replacedPostActions);
+  }
 
+  @Override
+  public void close() throws ConnectorException {
     try {
-      executeActions(replacedPostActions);
-    } finally {
-      try {
-        client.close();
-      } catch (Exception e) {
-        throw new ConnectorException("Unable to close the Solr Client", e);
-      }
+      client.close();
+    } catch (Exception e) {
+      throw new ConnectorException("Unable to close the Solr Client", e);
     }
   }
 
