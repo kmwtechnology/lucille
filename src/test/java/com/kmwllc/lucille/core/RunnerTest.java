@@ -19,6 +19,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 @RunWith(JUnit4.class)
 public class RunnerTest {
@@ -273,12 +275,52 @@ public class RunnerTest {
   }
 
   /**
+   * Ensure that if pre completion events fail, further connectors in the pipeline will not run.
+   */
+  @Test
+  public void testFailingPreCompletionActions() throws Exception {
+    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/failingPreCompletionActions.conf");
+    assertEquals(2, map.size());
+  }
+
+  /**
    * Ensure that if post completion events fail, further connectors in the pipeline will not run.
    */
   @Test
   public void testFailingPostCompletionActions() throws Exception {
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/failingPostCompletionActions.conf");
     assertEquals(2, map.size());
+  }
+
+  @Test
+  public void testLifecycleMethods() throws Exception {
+
+    // preExecute(), execute(), and postExecute() should be called when running a connector
+    NoOpConnector connector = mock(NoOpConnector.class);
+    Runner runner = new Runner(ConfigFactory.empty());
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1");
+    runner.runConnector(connector, publisher);
+    verify(connector, times(1)).preExecute(any());
+    verify(connector, times(1)).execute(any());
+    verify(connector, times(1)).postExecute(any());
+
+    // if preExecute() throws an exception, execute() and postExecute() should not be called
+    connector = mock(NoOpConnector.class);
+    doThrow(new ConnectorException()).when(connector).preExecute(any());
+    runner.runConnector(connector, publisher);
+    verify(connector, times(1)).preExecute(any());
+    verify(connector, times(0)).execute(any());
+    verify(connector, times(0)).postExecute(any());
+
+    // currently, if execute() throws an exception, postExecute() is still called
+    // TODO: add Connector.close() and make postExecute() conditional on execute()
+    connector = mock(NoOpConnector.class);
+    doThrow(new ConnectorException()).when(connector).execute(any());
+    runner.runConnector(connector, publisher);
+    verify(connector, times(1)).preExecute(any());
+    verify(connector, times(1)).execute(any());
+    verify(connector, times(1)).postExecute(any());
   }
 
   @Test
@@ -292,6 +334,17 @@ public class RunnerTest {
     assertEquals(2, map.size());
     assertNull(NoOpConnector.getSuppliedPublisher());
   }
+
+  @Test
+  public void testConnectorsWithoutName() throws Exception {
+    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/connectorsWithoutName.conf");
+    assertEquals(3, map.size());
+    // when connector names are not provided in the config, they are assigned as "connector_N"
+    assertTrue(map.containsKey("connector_1"));
+    assertTrue(map.containsKey("connector_2"));
+    assertTrue(map.containsKey("connector_3"));
+  }
+
 
   @Test(expected = PipelineException.class)
   public void testConnectorWithUnrecognizedPipeline() throws Exception {

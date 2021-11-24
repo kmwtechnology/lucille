@@ -7,9 +7,9 @@ import com.typesafe.config.Config;
 
 import java.util.List;
 
-public class ExampleStage extends Stage {
+public class NoopStage extends Stage {
 
-  public ExampleStage(Config config) {
+  public NoopStage(Config config) {
     super(config);
   }
 
