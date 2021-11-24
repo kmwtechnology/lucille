@@ -17,17 +17,14 @@ import java.util.List;
  * Implementations of Connector should provide a constructor that takes a Config as the only argument;
  * this allows for Connectors to be instantiated reflectively based on a configuration.
  *
+ * A new Connector instance will be created for each run.
+ * During a run:
+ *      preExecute() is always called
+ *      execute() is called if preExecute() succeeds
+ *      postExecute() is called if preExecute() and execute() succeed
+ *      close() is always called
  */
-public interface Connector {
-
-  /**
-   * An implementation of this method should perform any data-source specific logic for connecting,
-   * acquiring data, and generating documents from it. All generated documents should be published
-   * via the supplied Publisher
-   *
-   * @param publisher provides a publish() method accepting a document to be published
-   */
-  void execute(Publisher publisher) throws ConnectorException;
+public interface Connector extends AutoCloseable {
 
   String getName();
 
@@ -35,8 +32,28 @@ public interface Connector {
 
   boolean requiresCollapsingPublisher();
 
+  /**
+   * Performs any logic that should occur before execute().
+   */
   void preExecute(String runId) throws ConnectorException;
 
+  /**
+   * Performs any data-source specific logic for connecting to a backend source,
+   * acquiring data, and generating documents from it. All generated documents should be published
+   * via the supplied Publisher. Connections should be closed in close().
+   *
+   * Will not be called if preExecute() throws an exception.
+   *
+   * @param publisher provides a publish() method accepting a document to be published
+   */
+  void execute(Publisher publisher) throws ConnectorException;
+
+  /**
+   * Performs any logic that should occur after execute(), not including
+   * the closing of connections, which should be done in close().
+   *
+   * Will not be called if preExecute() or execute() throw an exception.
+   */
   void postExecute(String runId) throws ConnectorException;
 
   /**
