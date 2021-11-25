@@ -129,6 +129,14 @@ public class Runner {
    * throws an exception).
    */
   public boolean runConnector(Connector connector, Publisher publisher) throws Exception {
+    try {
+      return runConnectorInternal(connector, publisher);
+    } finally {
+      connector.close();
+    }
+  }
+
+  private boolean runConnectorInternal(Connector connector, Publisher publisher) throws Exception {
     log.info("Running connector: " + connector.getName());
     Timer timer = metrics.timer("runner.connector.timer");
     Timer.Context context = timer.time();
@@ -148,15 +156,23 @@ public class Runner {
     // the publisher could be null if we are running a connector that has no associated pipeline and therefore
     // there's nothing to publish to
     if (publisher!=null) {
-      result = publisher.waitForCompletion(connectorThread, connectorTimeout);
-      publisher.close();
+      try {
+        result = publisher.waitForCompletion(connectorThread, connectorTimeout);
+      } catch (Exception e) {
+        log.error("Error while waiting for completion", e);
+        return false;
+      } finally {
+        publisher.close();
+      }
     }
 
-    try {
-      connector.postExecute(runId);
-    } catch (ConnectorException e) {
-      log.error("Connector failed to perform post execution actions.", e);
-      return false;
+    if (result) {
+      try {
+        connector.postExecute(runId);
+      } catch (ConnectorException e) {
+        log.error("Connector failed to perform post execution actions.", e);
+        return false;
+      }
     }
 
     context.stop();

@@ -52,4 +52,8 @@ public abstract class AbstractConnector implements Connector {
     // no-op
   }
 
+  public void close() throws ConnectorException {
+    // no-op
+  }
+
 }

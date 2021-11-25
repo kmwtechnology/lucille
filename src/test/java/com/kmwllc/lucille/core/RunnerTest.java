@@ -295,32 +295,61 @@ public class RunnerTest {
   @Test
   public void testLifecycleMethods() throws Exception {
 
-    // preExecute(), execute(), and postExecute() should be called when running a connector
+    // preExecute(), execute(), postExecute(), and close() should be called when running a connector
     NoOpConnector connector = mock(NoOpConnector.class);
     Runner runner = new Runner(ConfigFactory.empty());
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1");
-    runner.runConnector(connector, publisher);
+    assertTrue(runner.runConnector(connector, publisher));
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
     verify(connector, times(1)).postExecute(any());
+    verify(connector, times(1)).close();
 
-    // if preExecute() throws an exception, execute() and postExecute() should not be called
+    // if preExecute() throws an exception, execute() and postExecute() should not be called, but close() should be
     connector = mock(NoOpConnector.class);
     doThrow(new ConnectorException()).when(connector).preExecute(any());
-    runner.runConnector(connector, publisher);
+    assertFalse(runner.runConnector(connector, publisher));
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(0)).execute(any());
     verify(connector, times(0)).postExecute(any());
+    verify(connector, times(1)).close();
 
-    // currently, if execute() throws an exception, postExecute() is still called
-    // TODO: add Connector.close() and make postExecute() conditional on execute()
+    // if execute() throws an exception, postExecute() should not be called, but close() should be
     connector = mock(NoOpConnector.class);
     doThrow(new ConnectorException()).when(connector).execute(any());
-    runner.runConnector(connector, publisher);
+    assertFalse(runner.runConnector(connector, publisher));
+    verify(connector, times(1)).preExecute(any());
+    verify(connector, times(1)).execute(any());
+    verify(connector, times(0)).postExecute(any());
+    verify(connector, times(1)).close();
+
+    // if postExecute() throws an exception, close() should still be called
+    connector = mock(NoOpConnector.class);
+    doThrow(new ConnectorException()).when(connector).postExecute(any());
+    assertFalse(runner.runConnector(connector, publisher));
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
     verify(connector, times(1)).postExecute(any());
+    verify(connector, times(1)).close();
+  }
+
+  @Test
+  public void testPublisherException() throws Exception {
+    NoOpConnector connector = mock(NoOpConnector.class);
+    Runner runner = new Runner(ConfigFactory.empty());
+    PublisherImpl publisher = mock(PublisherImpl.class);
+    doThrow(new Exception()).when(publisher).waitForCompletion(any(), anyInt());
+
+    // if the publisher throws an exception during execute(), postExecute() should not be called
+    // both the publisher and connector should be closed
+    // runConnector should return false and not propagate the exception
+    assertFalse(runner.runConnector(connector, publisher));
+    verify(connector, times(1)).preExecute(any());
+    verify(connector, times(1)).execute(any());
+    verify(connector, times(0)).postExecute(any());
+    verify(connector, times(1)).close();
+    verify(publisher, times(1)).close();
   }
 
   @Test
