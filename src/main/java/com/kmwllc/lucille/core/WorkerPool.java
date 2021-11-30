@@ -42,7 +42,7 @@ public class WorkerPool {
       throw new IllegalStateException("WorkerPool can be started at most once");
     }
     started = true;
-    log.info("Starting " + numWorkers + " worker threads");
+    log.info("Starting " + numWorkers + " worker threads for pipeline " + pipelineName);
     for (int i=0; i<numWorkers; i++) {
       WorkerMessageManager manager = workerMessageManagerFactory.create();
       threads.add(Worker.startThread(config,manager,pipelineName));
@@ -50,7 +50,7 @@ public class WorkerPool {
   }
 
   public void stop() {
-    log.info("Stopping " + threads.size() + " worker threads");
+    log.debug("Stopping " + threads.size() + " worker threads");
     for (WorkerThread workerThread : threads) {
       workerThread.terminate();
     }

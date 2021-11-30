@@ -183,14 +183,14 @@ public class PublisherImpl implements Publisher {
       // 3) there are no more Events relating to the current run to consume
       if (!thread.isAlive() && !hasPending() && !manager.hasEvents()) {
         log.info(String.format("Pipeline %s complete. %d docs processed. %d children created. " +
-            "%d success events received. %d failure events received.",
+            "%d success events. %d failure events.",
             pipelineName, numPublished, numCreated, numSucceeded, numFailed));
         log.info(String.format("Publishing rate: %.2f docs/sec", meter.getMeanRate()));
         return true;
       }
 
       if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>LOG_SECONDS) {
-        log.info("waiting on " + numPending() + " documents");
+        log.info(meter.getCount() + " docs published. Waiting on " + numPending() + ".");
         lastLog = Instant.now();
       }
     }

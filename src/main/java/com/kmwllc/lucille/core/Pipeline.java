@@ -63,7 +63,7 @@ public class Pipeline {
     for (Stage stage : stages) {
       stage.stop();
     }
-    log.info(generateLogDump());
+    log.debug(generateLogDump());
   }
 
   /**
@@ -195,8 +195,8 @@ public class Pipeline {
       long errors = stageErrorCounters.get(name).getCount();
       long children = stageChildrenCounters.get(name).getCount();
       long skipped = stageSkippedCounters.get(name).getCount();
-      builder.append(String.format("Stage %s processed %d documents at a rate of %f ns/document. This stage produced a " +
-              "total of %d children, conditionally skipped %d documents and caught an error on %d documents.\n",
+      builder.append(String.format("Stage %s processed %d docs. Rate: %f ns/doc. Children produced:  " +
+              "%d. Skipped: %d docs. Errors: %d docs.\n",
           name, processed, (double) duration / processed, children, skipped, errors));
     }
 

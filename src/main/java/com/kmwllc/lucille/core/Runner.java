@@ -97,20 +97,21 @@ public class Runner {
       System.exit(1);
     }
 
-    if (cli.hasOption("usekafka")) {
-      runWithKafka(cli.hasOption("local"));
-    } else {
-      runLocal();
-    }
+    boolean result = cli.hasOption("usekafka") ? runWithKafka(cli.hasOption("local")) : runLocal();
 
     context.stop();
-    log.info(String.format("Entire run took %.2f seconds to run.", timer.getSnapshot().getValues()[0] / Math.pow(10, 9)));
+    log.info(String.format("Run took %.2f secs.", timer.getSnapshot().getValues()[0] / Math.pow(10, 9)));
+    if (result) {
+      System.exit(0);
+    } else {
+      System.exit(1);
+    }
   }
 
   public Runner(Config config) throws Exception {
     // generate a unique ID for this run
     this.runId = UUID.randomUUID().toString();
-    log.info("runId=" + runId);
+    log.info("Starting run with id " + runId);
     this.connectorTimeout =
       config.hasPath("runner.connectorTimeout") ? config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
   }
@@ -137,7 +138,7 @@ public class Runner {
   }
 
   private boolean runConnectorInternal(Connector connector, Publisher publisher) throws Exception {
-    log.info("Running connector: " + connector.getName());
+    log.info("Running connector " + connector.getName() + " feeding to pipeline " + connector.getPipelineName());
     Timer timer = metrics.timer("runner.connector.timer");
     Timer.Context context = timer.time();
 
@@ -188,9 +189,11 @@ public class Runner {
    * Run in a local mode where message traffic is kept in memory and there is no
    * communication with Kafka. Documents are sent to Solr as expected; sending to Solr is NOT bypassed.
    */
-  public static void runLocal() throws Exception {
+  public static boolean runLocal() throws Exception {
+    return runLocal(ConfigFactory.load());
+  }
 
-    Config config = ConfigFactory.load();
+  public static boolean runLocal(Config config) throws Exception {
     Runner runner = new Runner(config);
     List<Connector> connectors = Connector.fromConfig(config);
 
@@ -204,10 +207,12 @@ public class Runner {
         workerMessageManagerFactory, indexerMessageManagerFactory, publisherMessageManagerFactory,
         true, false);
       if (!result) {
-        break;
+        log.error("Aborting run because " + connector.getName() + " failed.");
+        return false;
       }
     }
 
+    return true;
   }
 
   /**
@@ -255,7 +260,7 @@ public class Runner {
    * Run in Kafka mode where message traffic flows through the Kafka deployment defined
    * in the config.
    */
-  public static void runWithKafka(boolean startWorkerAndIndexer) throws Exception {
+  public static boolean runWithKafka(boolean startWorkerAndIndexer) throws Exception {
     Config config = ConfigFactory.load();
     Runner runner = new Runner(config);
     List<Connector> connectors = Connector.fromConfig(config);
@@ -271,9 +276,10 @@ public class Runner {
       boolean result = run(config, runner, connector, workerMessageManagerFactory,
         indexerMessageManagerFactory, publisherMessageManagerFactory, startWorkerAndIndexer, false);
       if (!result) {
-        break;
+        return false;
       }
     }
+    return true;
   }
 
   private static boolean run(Config config,
@@ -297,34 +303,42 @@ public class Runner {
     Thread indexerThread = null;
     Publisher publisher = null;
 
-    if (startWorkerAndIndexer && connector.getPipelineName() != null) {
-      workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory);
-      workerPool.start();
-      IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
+    try {
 
-      indexer = new Indexer(config, indexerMessageManager, bypassSolr);
-      indexerThread = new Thread(indexer);
-      indexerThread.start();
+      if (startWorkerAndIndexer && connector.getPipelineName() != null) {
+        workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory);
+        workerPool.start();
 
+        IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
+        indexer = new Indexer(config, indexerMessageManager, bypassSolr);
+
+        if (!indexer.validateConnection()) {
+          log.error("Indexer could not connect.");
+          return false;
+        }
+
+        indexerThread = new Thread(indexer);
+        indexerThread.start();
+      }
+
+      if (connector.getPipelineName() != null) {
+        PublisherMessageManager publisherMessageManager = publisherMessageManagerFactory.create();
+        publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(),
+          connector.getPipelineName(), connector.requiresCollapsingPublisher());
+      }
+
+      return runner.runConnector(connector, publisher);
+
+    } finally {
+      if (workerPool != null) {
+        workerPool.stop();
+        workerPool.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
+      }
+      if (indexerThread != null) {
+        indexer.terminate();
+        indexerThread.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
+      }
     }
-
-    if (connector.getPipelineName() != null) {
-      PublisherMessageManager publisherMessageManager = publisherMessageManagerFactory.create();
-      publisher = new PublisherImpl(publisherMessageManager, runner.getRunId(),
-        connector.getPipelineName(), connector.requiresCollapsingPublisher());
-    }
-
-    boolean result = runner.runConnector(connector, publisher);
-    if (workerPool != null) {
-      workerPool.stop();
-      workerPool.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
-    }
-    if (indexer != null) {
-      indexer.terminate();
-      indexerThread.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
-    }
-
-    return result;
   }
 
 }

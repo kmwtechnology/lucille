@@ -39,7 +39,7 @@ class Worker implements Runnable {
   private RetryCounter counter = null;
 
   public void terminate() {
-    log.info("terminate called");
+    log.debug("terminate called");
     running = false;
   }
 
@@ -66,8 +66,8 @@ class Worker implements Runnable {
     logTimer.schedule(new TimerTask() {
       @Override
       public void run() {
-        log.info(String.format("Workers are currently processing documents at a rate of %f documents/second. " +
-          "%d documents have been processed so far.", meter.getOneMinuteRate(), meter.getCount()));
+        log.info(String.format("Rate: %f docs/sec. " +
+          "%d docs processed.", meter.getOneMinuteRate(), meter.getCount()));
       }
     }, 60000, 60000);
 
@@ -161,7 +161,7 @@ class Worker implements Runnable {
 
     logTimer.cancel();
 
-    log.info("Exiting");
+    log.debug("Exiting");
   }
 
   private void commitOffsetsAndRemoveCounter(Document doc) {
@@ -209,7 +209,7 @@ class Worker implements Runnable {
   public static void main(String[] args) throws Exception {
     Config config = ConfigUtils.loadConfig();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
-    log.info("Starting Workers for pipeline: " + pipelineName);
+    log.debug("Starting Workers for pipeline: " + pipelineName);
 
     WorkerMessageManagerFactory workerMessageManagerFactory =
         WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName);

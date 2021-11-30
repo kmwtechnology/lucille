@@ -8,6 +8,7 @@ import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +43,7 @@ class Indexer implements Runnable {
 
   public void terminate() {
     running = false;
-    log.info("terminate");
+    log.debug("terminate");
   }
 
   public Indexer(Config config, IndexerMessageManager manager, SolrClient solrClient) {
@@ -64,6 +65,28 @@ class Indexer implements Runnable {
   private static SolrClient getSolrClient(Config config, boolean bypass) {
     return bypass ? null : SolrUtils.getSolrClient(config);
   }
+
+  public boolean validateConnection() {
+    if (solrClient==null) {
+      return true;
+    }
+    SolrPingResponse response = null;
+    try {
+      response = solrClient.ping();
+    } catch (Exception e) {
+      log.error("Couldn't ping Solr ", e);
+      return false;
+    }
+    if (response==null) {
+      log.error("Null response when pinging solr");
+      return false;
+    }
+    if (response.getStatus()!=0) {
+      log.error("Non zero response when pinging solr: " + response.getStatus());
+    }
+    return true;
+  }
+
 
   @Override
   public void run() {
@@ -89,16 +112,20 @@ class Indexer implements Runnable {
   }
 
   private void close() {
-    try {
-      manager.close();
-    } catch (Exception e) {
-      log.error("Error closing message manager", e);
+    if (manager!=null) {
+      try {
+        manager.close();
+      } catch (Exception e) {
+        log.error("Error closing message manager", e);
+      }
     }
 
-    try {
-      solrClient.close();
-    } catch (Exception e) {
-      log.error("Error closing SolrClient", e);
+    if (solrClient!=null) {
+      try {
+        solrClient.close();
+      } catch (Exception e) {
+        log.error("Error closing SolrClient", e);
+      }
     }
   }
 
@@ -230,6 +257,11 @@ class Indexer implements Runnable {
     log.info("Starting Indexer for pipeline: " + pipelineName);
     IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);
     Indexer indexer = new Indexer(config, manager, false);
+    if (!indexer.validateConnection()) {
+      log.error("Indexer could not connect");
+      System.exit(1);
+    }
+
     Thread indexerThread = new Thread(indexer);
     indexerThread.start();
 

@@ -432,5 +432,11 @@ public class RunnerTest {
       manager1.getSavedDocumentsSentForProcessing().get(3).getString("field1"));
   }
 
+  @Test
+  public void testIndexerConnectFailure() throws Exception {
+    // use runLocal() instead of runInTestMode() so we attempt to start an Indexer and
+    // handle the failure
+    assertFalse(Runner.runLocal(ConfigFactory.load("RunnerTest/indexerConnectFailure.conf")));
+  }
 
 }
