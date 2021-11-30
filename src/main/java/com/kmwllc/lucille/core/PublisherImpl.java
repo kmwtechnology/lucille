@@ -7,7 +7,6 @@ import com.kmwllc.lucille.message.PublisherMessageManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -183,10 +182,10 @@ public class PublisherImpl implements Publisher {
       // 2) all published Documents and their children are accounted for (none are pending),
       // 3) there are no more Events relating to the current run to consume
       if (!thread.isAlive() && !hasPending() && !manager.hasEvents()) {
-        log.info(String.format("Pipeline %s finished processing its documents. In total, it processed %d documents and " +
-            "created %d child documents. The publisher received success events for %d documents and failure events for %d documents",
+        log.info(String.format("Pipeline %s complete. %d docs processed. %d children created. " +
+            "%d success events received. %d failure events received.",
             pipelineName, numPublished, numCreated, numSucceeded, numFailed));
-        log.info(String.format("Documents were published at a rate of %.2f documents/second.", meter.getMeanRate()));
+        log.info(String.format("Publishing rate: %.2f docs/sec", meter.getMeanRate()));
         return true;
       }
 
