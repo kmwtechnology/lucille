@@ -28,7 +28,7 @@ public class SolrConnectorTest {
     Config config = ConfigFactory.load("SolrConnectorTest/execute.conf");
     SolrClient mockClient = mock(SolrClient.class);
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(manager, "run", "pipeline1");
+    Publisher publisher = new PublisherImpl(config, manager, "run", "pipeline1");
 
     when(mockClient.query(any(SolrQuery.class))).then(new Answer<>() {
       @Override

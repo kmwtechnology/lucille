@@ -25,7 +25,7 @@ public class CSVConnectorTest {
     // properties like ConfigFactory.load() does
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/defaults.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(manager, "run1", "pipeline1");
+    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
     connector.execute(publisher);
 
@@ -46,7 +46,7 @@ public class CSVConnectorTest {
   public void testTabsAndNoninterpretedQuotes() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/tabs.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(manager, "run1", "pipeline1");
+    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
     connector.execute(publisher);
 

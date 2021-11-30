@@ -4,6 +4,8 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.PublisherMessageManager;
+import com.kmwllc.lucille.util.LogUtils;
+import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,8 +32,6 @@ import java.util.List;
  */
 public class PublisherImpl implements Publisher {
 
-  public static final int LOG_SECONDS = 5;
-
   private static final Logger log = LoggerFactory.getLogger(PublisherImpl.class);
 
   private final PublisherMessageManager manager;
@@ -39,6 +39,8 @@ public class PublisherImpl implements Publisher {
   private final String runId;
 
   private final String pipelineName;
+
+  private final int logSeconds;
 
   private int numPublished = 0;
   private int numCreated = 0;
@@ -64,18 +66,21 @@ public class PublisherImpl implements Publisher {
   // List of child documents for which a terminal event has been received early, before the corresponding CREATE event
   private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
 
-  public PublisherImpl(PublisherMessageManager manager, String runId, String pipelineName, boolean isCollapsing) throws Exception {
+  public PublisherImpl(Config config, PublisherMessageManager manager, String runId,
+                       String pipelineName, boolean isCollapsing) throws Exception {
     this.manager = manager;
     this.runId = runId;
     this.pipelineName = pipelineName;
     this.metrics = SharedMetricRegistries.getOrCreate("default");
     this.meter = metrics.meter("publisher.meter");
     this.isCollapsing = isCollapsing;
+    this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     manager.initialize(runId, pipelineName);
   }
 
-  public PublisherImpl(PublisherMessageManager manager, String runId, String pipelineName) throws Exception {
-    this(manager, runId, pipelineName, false);
+  public PublisherImpl(Config config, PublisherMessageManager manager, String runId,
+                       String pipelineName) throws Exception {
+    this(config, manager, runId, pipelineName, false);
   }
 
   @Override
@@ -189,7 +194,7 @@ public class PublisherImpl implements Publisher {
         return true;
       }
 
-      if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>LOG_SECONDS) {
+      if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
         log.info(meter.getCount() + " docs published. Waiting on " + numPending() + ".");
         lastLog = Instant.now();
       }

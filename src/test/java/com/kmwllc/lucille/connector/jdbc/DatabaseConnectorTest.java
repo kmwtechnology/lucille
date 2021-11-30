@@ -40,7 +40,7 @@ public class DatabaseConnectorTest {
   public void initTestMode() throws Exception {
     // set lucille into loopback mode for local / standalone testing.
     manager = new PersistingLocalMessageManager();
-    publisher = new PublisherImpl(manager, testRunId, pipelineName);
+    publisher = new PublisherImpl(ConfigFactory.empty(), manager, testRunId, pipelineName);
   }
   
   @Test

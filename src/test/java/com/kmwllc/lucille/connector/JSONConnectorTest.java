@@ -20,7 +20,7 @@ public class JSONConnectorTest {
   public void testExecute() throws Exception {
     Config config = ConfigFactory.load("JSONConnectorTest/config.conf");
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(manager, "run1", "pipeline1");
+    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new JSONConnector(config);
     connector.execute(publisher);
 
