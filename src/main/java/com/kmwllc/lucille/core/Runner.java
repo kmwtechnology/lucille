@@ -176,7 +176,7 @@ public class Runner {
     }
 
     context.stop();
-    log.info(String.format("Connector %s is complete. It took %.2f seconds to run.", connector.getName(), timer.getSnapshot().getValues()[0] / Math.pow(10, 9)));
+    log.info(String.format("Connector %s complete. Time: %.2f secs.", connector.getName(), timer.getSnapshot().getValues()[0] / Math.pow(10, 9)));
 
     return result;
   }

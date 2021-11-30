@@ -45,48 +45,60 @@ class Indexer implements Runnable {
     log.info("terminate");
   }
 
-  public Indexer(Config config, IndexerMessageManager manager, boolean bypass) {
+  public Indexer(Config config, IndexerMessageManager manager, SolrClient solrClient) {
     this.manager = manager;
+    this.solrClient = solrClient;
     this.idOverrideField = config.hasPath("indexer.idOverrideField") ? config.getString("indexer.idOverrideField") : null;
     int batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : DEFAULT_BATCH_SIZE;
     int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
     this.batch = new Batch(batchSize, batchTimeout);
-    if (bypass) {
-      this.solrClient = null;
-    } else {
-      this.solrClient = SolrUtils.getSolrClient(config);
-    }
     this.logRate = ConfigUtils.getOrDefault(config, "indexer.logRate", 1000);
     this.metrics = SharedMetricRegistries.getOrCreate("default");
     this.meter = metrics.meter("indexer.meter");
   }
 
+  public Indexer(Config config, IndexerMessageManager manager, boolean bypass) {
+    this(config, manager, getSolrClient(config, bypass));
+  }
+
+  private static SolrClient getSolrClient(Config config, boolean bypass) {
+    return bypass ? null : SolrUtils.getSolrClient(config);
+  }
+
   @Override
   public void run() {
-
-    while (running) {
-      checkForDoc();
-    }
-
-    sendToSolrWithAccounting(batch.flush());
     try {
-      manager.close();
-    } catch (Exception e) {
-      log.error("Error closing message manager", e);
+      while (running) {
+        checkForDoc();
+      }
+      sendToSolrWithAccounting(batch.flush()); // handle final batch
+    } finally {
+      close();
     }
   }
 
   protected void run(int iterations) {
-
-    for (int i = 0; i < iterations; i++) {
-      checkForDoc();
+    try {
+      for (int i = 0; i < iterations; i++) {
+        checkForDoc();
+      }
+      sendToSolrWithAccounting(batch.flush()); // handle final batch
+    } finally {
+      close();
     }
+  }
 
-    sendToSolrWithAccounting(batch.flush());
+  private void close() {
     try {
       manager.close();
     } catch (Exception e) {
       log.error("Error closing message manager", e);
+    }
+
+    try {
+      solrClient.close();
+    } catch (Exception e) {
+      log.error("Error closing SolrClient", e);
     }
   }
 
@@ -116,8 +128,8 @@ class Indexer implements Runnable {
 
   private void sendToSolrWithAccounting(List<Document> batchedDocs) {
     if (numIndexed != 0 && numIndexed % logRate == 0) {
-      // TODO : Potentially reword this
-      log.info(String.format("%d documents have been indexed so far. Documents are currently being indexed at a rate of %.2f documents/second",
+
+      log.info(String.format("%d docs indexed. Rate: %.2f docs/sec",
           meter.getCount(), meter.getOneMinuteRate()));
     }
 
@@ -158,7 +170,7 @@ class Indexer implements Runnable {
   protected void sendToSolr(List<Document> documents) throws Exception {
 
     if (solrClient==null) {
-      // log.info("sendToSolr bypassed for documents: " + documents);
+      log.debug("sendToSolr bypassed for documents: " + documents);
       return;
     }
 
@@ -169,6 +181,10 @@ class Indexer implements Runnable {
       SolrInputDocument solrDoc = new SolrInputDocument();
 
       for (String key : map.keySet()) {
+
+        if (Document.CHILDREN_FIELD.equals(key)) {
+          continue;
+        }
 
         // if an id override field has been specified, use its value as the id to send to solr, instead
         // of the document's own id
@@ -181,10 +197,31 @@ class Indexer implements Runnable {
         solrDoc.setField(key,value);
       }
 
+      addChildren(doc, solrDoc);
       solrDocs.add(solrDoc);
     }
 
     solrClient.add(solrDocs);
+  }
+
+  private void addChildren(Document doc, SolrInputDocument solrDoc) {
+    List<Document> children = doc.getChildren();
+    if (children==null || children.isEmpty()) {
+      return;
+    }
+    for (Document child : children) {
+      Map<String,Object> map = child.asMap();
+      SolrInputDocument solrChild = new SolrInputDocument();
+      for (String key : map.keySet()) {
+        // we don't support children that contain nested children
+        if (Document.CHILDREN_FIELD.equals(key)) {
+          continue;
+        }
+        Object value = map.get(key);
+        solrChild.setField(key,value);
+      }
+      solrDoc.addChildDocument(solrChild);
+    }
   }
 
   public static void main(String[] args) throws Exception {
