@@ -5,6 +5,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
+import com.kmwllc.lucille.util.LogUtils;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import org.apache.solr.client.solrj.SolrClient;
@@ -14,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,13 +36,14 @@ class Indexer implements Runnable {
   
   private long numIndexed;
 
-  // Determines the number of documents which must be indexed in between each metric info log.
-  private final int logRate;
+  private final int logSeconds;
 
   private final MetricRegistry metrics;
   private final Meter meter;
 
   private final String idOverrideField;
+
+  private Instant lastLog = Instant.now();
 
   public void terminate() {
     running = false;
@@ -53,7 +57,7 @@ class Indexer implements Runnable {
     int batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : DEFAULT_BATCH_SIZE;
     int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
     this.batch = new Batch(batchSize, batchTimeout);
-    this.logRate = ConfigUtils.getOrDefault(config, "indexer.logRate", 1000);
+    this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     this.metrics = SharedMetricRegistries.getOrCreate("default");
     this.meter = metrics.meter("indexer.meter");
   }
@@ -154,10 +158,10 @@ class Indexer implements Runnable {
   }
 
   private void sendToSolrWithAccounting(List<Document> batchedDocs) {
-    if (numIndexed != 0 && numIndexed % logRate == 0) {
-
+    if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
       log.info(String.format("%d docs indexed. Rate: %.2f docs/sec",
-          meter.getCount(), meter.getOneMinuteRate()));
+        meter.getCount(), meter.getOneMinuteRate()));
+      lastLog = Instant.now();
     }
 
     if (batchedDocs.isEmpty()) {

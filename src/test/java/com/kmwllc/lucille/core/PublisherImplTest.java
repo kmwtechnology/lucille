@@ -20,7 +20,7 @@ public class PublisherImplTest {
   public void testOutOfOrderCreateEvents() throws Exception {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     Event createEvent = new Event("doc1", "run1", "", Event.Type.CREATE);
     Event finishEvent = new Event("doc1", "run1", "", Event.Type.FINISH);
@@ -42,7 +42,7 @@ public class PublisherImplTest {
   public void testCreateAndFinish() throws Exception {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     Event createEvent = new Event("doc1", "run1", "", Event.Type.CREATE);
     Event finishEvent = new Event("doc1", "run1", "", Event.Type.FINISH);
@@ -61,7 +61,7 @@ public class PublisherImplTest {
   public void testPublishAndFinish() throws Exception {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     Document doc = new Document("doc1");
     assertEquals(0, publisher.numPublished());
@@ -92,7 +92,7 @@ public class PublisherImplTest {
   public void testPublishAndError() throws Exception {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     Document doc = new Document("doc1");
     assertEquals(0, publisher.numPublished());
@@ -112,7 +112,7 @@ public class PublisherImplTest {
   public void testRedundantDocIDs() throws Exception {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     Document doc = new Document("doc1");
     assertEquals(0, publisher.numPublished());
@@ -139,7 +139,7 @@ public class PublisherImplTest {
   @Test
   public void testSucceededFailedCreatedCounts() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     assertEquals(0, publisher.numPublished());
     assertEquals(0, publisher.numPending());
@@ -169,7 +169,7 @@ public class PublisherImplTest {
   @Test
   public void testRedundantFinishEvents() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     assertEquals(0, publisher.numSucceeded());
 
@@ -188,7 +188,7 @@ public class PublisherImplTest {
   public void testBlockOnQueueCapacity() throws Exception {
     Config config = ConfigFactory.parseString("publisher {queueCapacity: 5}");
     LocalMessageManager manager = new LocalMessageManager(config);
-    PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     Thread publisherThread = new Thread() {
       public void run() {
@@ -221,7 +221,7 @@ public class PublisherImplTest {
   public void testCollapse() throws Exception {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1", true);
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1", true);
 
     Document doc1 = new Document("before");
 

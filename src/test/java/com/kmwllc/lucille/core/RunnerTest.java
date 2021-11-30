@@ -144,7 +144,7 @@ public class RunnerTest {
     Runner runner = new Runner(config);
     Connector connector = Connector.fromConfig(config).get(0);
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(manager, runner.getRunId(), connector.getPipelineName());
+    Publisher publisher = new PublisherImpl(config, manager, runner.getRunId(), connector.getPipelineName());
     Instant start = Instant.now();
     boolean result = runner.runConnector(connector, publisher);
     Instant end = Instant.now();
@@ -299,7 +299,7 @@ public class RunnerTest {
     NoOpConnector connector = mock(NoOpConnector.class);
     Runner runner = new Runner(ConfigFactory.empty());
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(manager, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
     assertTrue(runner.runConnector(connector, publisher));
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());

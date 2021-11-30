@@ -5,6 +5,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.WorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
+import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,7 @@ class Worker implements Runnable {
   private final MetricRegistry metrics;
   private final Meter meter;
   private final AtomicReference<Instant> pollInstant;
+  private final int logSeconds;
 
   private boolean trackRetries = false;
   private RetryCounter counter = null;
@@ -48,6 +50,7 @@ class Worker implements Runnable {
     this.pipeline = Pipeline.fromConfig(config, pipelineName);
     this.metrics = SharedMetricRegistries.getOrCreate("default");
     this.meter = metrics.meter("worker.meter");
+    this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     if (config.hasPath("worker.maxRetries")) {
       log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
       this.trackRetries = true;
@@ -66,10 +69,9 @@ class Worker implements Runnable {
     logTimer.schedule(new TimerTask() {
       @Override
       public void run() {
-        log.info(String.format("Rate: %f docs/sec. " +
-          "%d docs processed.", meter.getOneMinuteRate(), meter.getCount()));
+        log.info(String.format("%d docs processed. Rate: %.2f docs/sec.", meter.getCount(), meter.getOneMinuteRate()));
       }
-    }, 60000, 60000);
+    }, logSeconds*1000, logSeconds*1000);
 
     while (running) {
       Document doc;
