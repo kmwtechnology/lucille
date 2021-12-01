@@ -14,6 +14,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Publisher implementation that maintains an in-memory list of pending documents.
@@ -72,7 +73,7 @@ public class PublisherImpl implements Publisher {
     this.runId = runId;
     this.pipelineName = pipelineName;
     this.metrics = SharedMetricRegistries.getOrCreate("default");
-    this.meter = metrics.meter("publisher.meter");
+    this.meter = metrics.meter("publisher.meter." + UUID.randomUUID());
     this.isCollapsing = isCollapsing;
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     manager.initialize(runId, pipelineName);
@@ -191,11 +192,12 @@ public class PublisherImpl implements Publisher {
             "%d success events. %d failure events.",
             pipelineName, numPublished, numCreated, numSucceeded, numFailed));
         log.info(String.format("Publishing rate: %.2f docs/sec", meter.getMeanRate()));
-        return true;
+        return !thread.hasException();
       }
 
       if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
-        log.info(meter.getCount() + " docs published. Waiting on " + numPending() + ".");
+        log.info(String.format("%d docs published. Rate: %.2f docs/sec. Waiting on %d.",
+          meter.getCount(), meter.getOneMinuteRate(), numPending()));
         lastLog = Instant.now();
       }
     }

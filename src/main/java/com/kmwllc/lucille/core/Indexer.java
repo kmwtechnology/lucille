@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
@@ -8,6 +9,7 @@ import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.LogUtils;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
+import org.apache.commons.lang3.time.StopWatch;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrInputDocument;
@@ -20,6 +22,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 class Indexer implements Runnable {
 
@@ -33,13 +36,12 @@ class Indexer implements Runnable {
   private final SolrClient solrClient;
 
   private volatile boolean running = true;
-  
-  private long numIndexed;
 
   private final int logSeconds;
 
-  private final MetricRegistry metrics;
+  private final StopWatch stopWatch;
   private final Meter meter;
+  private final Histogram histogram;
 
   private final String idOverrideField;
 
@@ -58,8 +60,11 @@ class Indexer implements Runnable {
     int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
     this.batch = new Batch(batchSize, batchTimeout);
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
-    this.metrics = SharedMetricRegistries.getOrCreate("default");
-    this.meter = metrics.meter("indexer.meter");
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
+    this.stopWatch = new StopWatch();
+    String metricsId = UUID.randomUUID().toString();
+    this.meter = metrics.meter("indexer.meter." + metricsId);
+    this.histogram = metrics.histogram("indexer.solrAddTimePerDoc." + metricsId);
   }
 
   public Indexer(Config config, IndexerMessageManager manager, boolean bypass) {
@@ -154,13 +159,12 @@ class Indexer implements Runnable {
     }
 
     sendToSolrWithAccounting(batch.add(doc));
-    numIndexed++;
   }
 
   private void sendToSolrWithAccounting(List<Document> batchedDocs) {
     if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
-      log.info(String.format("%d docs indexed. Rate: %.2f docs/sec",
-        meter.getCount(), meter.getOneMinuteRate()));
+      log.info(String.format("%d docs indexed. Rate: %.2f docs/sec. Solr latency: %.2f ms/doc.",
+        meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()/1000000));
       lastLog = Instant.now();
     }
 
@@ -232,7 +236,11 @@ class Indexer implements Runnable {
       solrDocs.add(solrDoc);
     }
 
+    stopWatch.reset();
+    stopWatch.start();
     solrClient.add(solrDocs);
+    stopWatch.stop();
+    histogram.update(stopWatch.getNanoTime() / solrDocs.size());
   }
 
   private void addChildren(Document doc, SolrInputDocument solrDoc) {

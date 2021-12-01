@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector.jdbc;
 
 import com.kmwllc.lucille.connector.AbstractConnector;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
@@ -87,7 +88,7 @@ public class DatabaseConnector extends AbstractConnector {
   }
 
   @Override
-  public void execute(Publisher publisher) {
+  public void execute(Publisher publisher) throws ConnectorException {
     
     try {
     setState(ConnectorState.RUNNING);
@@ -182,7 +183,7 @@ public class DatabaseConnector extends AbstractConnector {
     setState(ConnectorState.STOPPED);
     } catch (Exception e) {
       setState(ConnectorState.ERROR);
-      e.printStackTrace();
+      throw new ConnectorException("Exception caught during connector execution", e);
     }
   }
 

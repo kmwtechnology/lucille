@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
@@ -7,14 +8,13 @@ import com.kmwllc.lucille.message.WorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -32,25 +32,20 @@ class Worker implements Runnable {
 
   private volatile boolean running = true;
 
-  private final MetricRegistry metrics;
-  private final Meter meter;
   private final AtomicReference<Instant> pollInstant;
-  private final int logSeconds;
 
   private boolean trackRetries = false;
   private RetryCounter counter = null;
+  private final String metricsId;
 
   public void terminate() {
     log.debug("terminate called");
     running = false;
   }
 
-  public Worker(Config config, WorkerMessageManager manager, String pipelineName) throws Exception {
+  public Worker(Config config, WorkerMessageManager manager, String pipelineName, String metricsId) throws Exception {
     this.manager = manager;
     this.pipeline = Pipeline.fromConfig(config, pipelineName);
-    this.metrics = SharedMetricRegistries.getOrCreate("default");
-    this.meter = metrics.meter("worker.meter");
-    this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     if (config.hasPath("worker.maxRetries")) {
       log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
       this.trackRetries = true;
@@ -58,20 +53,17 @@ class Worker implements Runnable {
     }
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
+    this.metricsId = metricsId;
   }
 
   @Override
   public void run() {
-    meter.mark(0);
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
+    Meter meter = metrics.meter("worker.meter." + metricsId);
+    Histogram histogram = metrics.histogram("worker.pipelineTimePerDoc." + metricsId);
+    StopWatch stopWatch = new StopWatch();
 
-    // Timer to log a status message every minute
-    Timer logTimer = new Timer();
-    logTimer.schedule(new TimerTask() {
-      @Override
-      public void run() {
-        log.info(String.format("%d docs processed. Rate: %.2f docs/sec.", meter.getCount(), meter.getOneMinuteRate()));
-      }
-    }, logSeconds*1000, logSeconds*1000);
+    meter.mark(0);
 
     while (running) {
       Document doc;
@@ -109,7 +101,11 @@ class Worker implements Runnable {
 
       List<Document> results = null;
       try {
+        stopWatch.reset();
+        stopWatch.start();
         results = pipeline.processDocument(doc);
+        stopWatch.stop();
+        histogram.update(stopWatch.getNanoTime());
         meter.mark();
       } catch (Exception e) {
         log.error("Error processing document: " + doc.getId(), e);
@@ -161,8 +157,6 @@ class Worker implements Runnable {
       log.error("Error stopping pipeline stage", e);
     }
 
-    logTimer.cancel();
-
     log.debug("Exiting");
   }
 
@@ -200,9 +194,10 @@ class Worker implements Runnable {
     });
   }
 
-  public static WorkerThread startThread(Config config, WorkerMessageManager manager, String pipelineName) throws
+  public static WorkerThread startThread(Config config, WorkerMessageManager manager,
+                                         String pipelineName, String metricsId) throws
       Exception {
-    Worker worker = new Worker(config, manager, pipelineName);
+    Worker worker = new Worker(config, manager, pipelineName, metricsId);
     WorkerThread workerThread = new WorkerThread(worker);
     workerThread.start();
     return workerThread;
