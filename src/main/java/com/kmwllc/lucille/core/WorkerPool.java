@@ -62,7 +62,7 @@ public class WorkerPool {
       private final Histogram histogram = metrics.histogram("worker.pipelineTimePerDoc." + metricsId);
       @Override
       public void run() {
-        log.info(String.format("%d docs processed. Rate: %.2f docs/sec. Pipeline latency: %.2f ms/doc",
+        log.info(String.format("%d docs processed. Rate: %.2f docs/sec. Pipeline latency: %.2f ms/doc.",
           meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()/1000000));
       }
     }, logSeconds*1000, logSeconds*1000);

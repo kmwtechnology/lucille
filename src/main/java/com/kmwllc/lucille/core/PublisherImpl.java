@@ -1,11 +1,13 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.PublisherMessageManager;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,7 +52,9 @@ public class PublisherImpl implements Publisher {
 
   private Instant start;
   private final MetricRegistry metrics;
+  private final Histogram histogram;
   private final Meter meter;
+  private final StopWatch stopWatch;
   private boolean isCollapsing = false;
   private Document previousDoc = null;
 
@@ -73,9 +77,12 @@ public class PublisherImpl implements Publisher {
     this.runId = runId;
     this.pipelineName = pipelineName;
     this.metrics = SharedMetricRegistries.getOrCreate("default");
-    this.meter = metrics.meter("publisher.meter." + UUID.randomUUID());
+    String metricsId = UUID.randomUUID().toString();
+    this.meter = metrics.meter("publisher.meter." + metricsId);
+    this.histogram = metrics.histogram("publisher.timeBetweenCalls." + metricsId);
     this.isCollapsing = isCollapsing;
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
+    this.stopWatch = new StopWatch();
     manager.initialize(runId, pipelineName);
   }
 
@@ -86,8 +93,21 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public void publish(Document document) throws Exception {
-    if (!isCollapsing) {
+    if (stopWatch.isStarted()) {
+      stopWatch.stop();
+      histogram.update(stopWatch.getNanoTime());
+    }
+    try {
       publishInternal(document);
+    } finally {
+      stopWatch.reset();
+      stopWatch.start();
+    }
+  }
+
+  private void publishInternal(Document document) throws Exception {
+    if (!isCollapsing) {
+      sendForProcessing(document);
       return;
     }
 
@@ -99,13 +119,12 @@ public class PublisherImpl implements Publisher {
     if (previousDoc.getId().equals(document.getId())) {
       previousDoc.setOrAddAll(document);
     } else {
-      publishInternal(previousDoc);
+      sendForProcessing(previousDoc);
       previousDoc = document;
     }
-
   }
 
-  public void publishInternal(Document document) throws Exception {
+  public void sendForProcessing(Document document) throws Exception {
     document.initializeRunId(runId);
     manager.sendForProcessing(document);
     docIdsToTrack.add(document.getId());
@@ -116,7 +135,7 @@ public class PublisherImpl implements Publisher {
   @Override
   public void flush() throws Exception {
     if (previousDoc!=null) {
-      publishInternal(previousDoc);
+      sendForProcessing(previousDoc);
     }
     previousDoc=null;
   }
@@ -191,13 +210,20 @@ public class PublisherImpl implements Publisher {
         log.info(String.format("Pipeline %s complete. %d docs processed. %d children created. " +
             "%d success events. %d failure events.",
             pipelineName, numPublished, numCreated, numSucceeded, numFailed));
-        log.info(String.format("Publishing rate: %.2f docs/sec", meter.getMeanRate()));
+        log.info(String.format("Publishing rate: %.2f docs/sec. Connector latency: %.2f ms/doc.",
+          meter.getMeanRate(), histogram.getSnapshot().getMean()/1000000));
+        if (numPublished>0 && numFailed==0) {
+          log.info("All documents SUCCEEDED.");
+        }
+        if (numFailed>0) {
+          log.error(numFailed + " documents FAILED, but run was not stopped.");
+        }
         return !thread.hasException();
       }
 
       if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
-        log.info(String.format("%d docs published. Rate: %.2f docs/sec. Waiting on %d.",
-          meter.getCount(), meter.getOneMinuteRate(), numPending()));
+        log.info(String.format("%d docs published. Rate: %.2f docs/sec. Connector latency: %.2f ms/doc. Waiting on %d docs.",
+          meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()/1000000, numPending()));
         lastLog = Instant.now();
       }
     }
