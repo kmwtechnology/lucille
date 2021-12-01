@@ -222,8 +222,12 @@ public class PublisherImpl implements Publisher {
       }
 
       if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
-        log.info(String.format("%d docs published. Rate: %.2f docs/sec. Connector latency: %.2f ms/doc. Waiting on %d docs.",
-          meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()/1000000, numPending()));
+        if (thread.isAlive()) {
+          log.info(String.format("%d docs published. Rate: %.2f docs/sec. Connector latency: %.2f ms/doc. Waiting on %d docs.",
+            meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean() / 1000000, numPending()));
+        } else {
+          log.info(String.format("Connector complete. Waiting on %d docs.", numPending()));
+        }
         lastLog = Instant.now();
       }
     }
