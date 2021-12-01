@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
@@ -7,14 +8,13 @@ import com.kmwllc.lucille.message.WorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -32,8 +32,6 @@ class Worker implements Runnable {
 
   private volatile boolean running = true;
 
-  private final MetricRegistry metrics;
-  private final Meter meter;
   private final AtomicReference<Instant> pollInstant;
   private final int logSeconds;
 
@@ -48,8 +46,6 @@ class Worker implements Runnable {
   public Worker(Config config, WorkerMessageManager manager, String pipelineName) throws Exception {
     this.manager = manager;
     this.pipeline = Pipeline.fromConfig(config, pipelineName);
-    this.metrics = SharedMetricRegistries.getOrCreate("default");
-    this.meter = metrics.meter("worker.meter");
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     if (config.hasPath("worker.maxRetries")) {
       log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
@@ -62,6 +58,11 @@ class Worker implements Runnable {
 
   @Override
   public void run() {
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
+    Meter meter = metrics.meter("worker.meter." + Thread.currentThread().getId());
+    Histogram histogram = metrics.histogram("worker.pipelineTimePerDoc." + Thread.currentThread().getId());
+    StopWatch stopWatch = new StopWatch();
+
     meter.mark(0);
 
     // Timer to log a status message every minute
@@ -69,7 +70,8 @@ class Worker implements Runnable {
     logTimer.schedule(new TimerTask() {
       @Override
       public void run() {
-        log.info(String.format("%d docs processed. Rate: %.2f docs/sec.", meter.getCount(), meter.getOneMinuteRate()));
+        log.info(String.format("%d docs processed. Rate: %.2f docs/sec. Pipeline latency: %.2f ns/doc",
+          meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()));
       }
     }, logSeconds*1000, logSeconds*1000);
 
@@ -109,7 +111,11 @@ class Worker implements Runnable {
 
       List<Document> results = null;
       try {
+        stopWatch.reset();
+        stopWatch.start();
         results = pipeline.processDocument(doc);
+        stopWatch.stop();
+        histogram.update(stopWatch.getNanoTime());
         meter.mark();
       } catch (Exception e) {
         log.error("Error processing document: " + doc.getId(), e);
