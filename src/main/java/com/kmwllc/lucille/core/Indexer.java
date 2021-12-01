@@ -163,8 +163,8 @@ class Indexer implements Runnable {
 
   private void sendToSolrWithAccounting(List<Document> batchedDocs) {
     if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
-      log.info(String.format("%d docs indexed. Rate: %.2f docs/sec. Solr latency: %.2f ns/doc.",
-        meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()));
+      log.info(String.format("%d docs indexed. Rate: %.2f docs/sec. Solr latency: %.2f ms/doc.",
+        meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()/1000000));
       lastLog = Instant.now();
     }
 

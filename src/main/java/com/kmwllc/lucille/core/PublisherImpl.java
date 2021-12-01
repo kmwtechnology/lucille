@@ -191,11 +191,12 @@ public class PublisherImpl implements Publisher {
             "%d success events. %d failure events.",
             pipelineName, numPublished, numCreated, numSucceeded, numFailed));
         log.info(String.format("Publishing rate: %.2f docs/sec", meter.getMeanRate()));
-        return true;
+        return !thread.hasException();
       }
 
       if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
-        log.info(meter.getCount() + " docs published. Waiting on " + numPending() + ".");
+        log.info(String.format("%d docs published. Rate: %.2f docs/sec. Waiting on %d.",
+          meter.getCount(), meter.getOneMinuteRate(), numPending()));
         lastLog = Instant.now();
       }
     }

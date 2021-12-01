@@ -33,20 +33,19 @@ class Worker implements Runnable {
   private volatile boolean running = true;
 
   private final AtomicReference<Instant> pollInstant;
-  private final int logSeconds;
 
   private boolean trackRetries = false;
   private RetryCounter counter = null;
+  private final String metricsId;
 
   public void terminate() {
     log.debug("terminate called");
     running = false;
   }
 
-  public Worker(Config config, WorkerMessageManager manager, String pipelineName) throws Exception {
+  public Worker(Config config, WorkerMessageManager manager, String pipelineName, String metricsId) throws Exception {
     this.manager = manager;
     this.pipeline = Pipeline.fromConfig(config, pipelineName);
-    this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     if (config.hasPath("worker.maxRetries")) {
       log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
       this.trackRetries = true;
@@ -54,26 +53,17 @@ class Worker implements Runnable {
     }
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
+    this.metricsId = metricsId;
   }
 
   @Override
   public void run() {
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
-    Meter meter = metrics.meter("worker.meter." + Thread.currentThread().getId());
-    Histogram histogram = metrics.histogram("worker.pipelineTimePerDoc." + Thread.currentThread().getId());
+    Meter meter = metrics.meter("worker.meter." + metricsId);
+    Histogram histogram = metrics.histogram("worker.pipelineTimePerDoc." + metricsId);
     StopWatch stopWatch = new StopWatch();
 
     meter.mark(0);
-
-    // Timer to log a status message every minute
-    Timer logTimer = new Timer();
-    logTimer.schedule(new TimerTask() {
-      @Override
-      public void run() {
-        log.info(String.format("%d docs processed. Rate: %.2f docs/sec. Pipeline latency: %.2f ns/doc",
-          meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()));
-      }
-    }, logSeconds*1000, logSeconds*1000);
 
     while (running) {
       Document doc;
@@ -167,8 +157,6 @@ class Worker implements Runnable {
       log.error("Error stopping pipeline stage", e);
     }
 
-    logTimer.cancel();
-
     log.debug("Exiting");
   }
 
@@ -206,9 +194,10 @@ class Worker implements Runnable {
     });
   }
 
-  public static WorkerThread startThread(Config config, WorkerMessageManager manager, String pipelineName) throws
+  public static WorkerThread startThread(Config config, WorkerMessageManager manager,
+                                         String pipelineName, String metricsId) throws
       Exception {
-    Worker worker = new Worker(config, manager, pipelineName);
+    Worker worker = new Worker(config, manager, pipelineName, metricsId);
     WorkerThread workerThread = new WorkerThread(worker);
     workerThread.start();
     return workerThread;
