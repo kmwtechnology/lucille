@@ -1,9 +1,6 @@
 package com.kmwllc.lucille.core;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.*;
 import com.kmwllc.lucille.message.WorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.kmwllc.lucille.util.LogUtils;
@@ -16,7 +13,6 @@ import sun.misc.Signal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
@@ -59,11 +55,7 @@ class Worker implements Runnable {
   @Override
   public void run() {
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
-    Meter meter = metrics.meter("worker.meter." + metricsId);
-    Histogram histogram = metrics.histogram("worker.pipelineTimePerDoc." + metricsId);
-    StopWatch stopWatch = new StopWatch();
-
-    meter.mark(0);
+    Timer timer = metrics.timer("worker.timer." + metricsId);
 
     while (running) {
       Document doc;
@@ -101,12 +93,9 @@ class Worker implements Runnable {
 
       List<Document> results = null;
       try {
-        stopWatch.reset();
-        stopWatch.start();
+        Timer.Context context = timer.time();
         results = pipeline.processDocument(doc);
-        stopWatch.stop();
-        histogram.update(stopWatch.getNanoTime());
-        meter.mark();
+        context.stop();
       } catch (Exception e) {
         log.error("Error processing document: " + doc.getId(), e);
         try {

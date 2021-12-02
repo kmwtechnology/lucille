@@ -3,11 +3,11 @@ package com.kmwllc.lucille.core;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.message.*;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.apache.commons.cli.*;
+import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,6 +15,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Responsible for managing a "run." A run is a sequential execution of one or more Connectors.
@@ -56,8 +57,6 @@ public class Runner {
   private final String runId;
   private final int connectorTimeout;
 
-  private static MetricRegistry metrics = new MetricRegistry();
-
   /**
    * Runs the configured connectors.
    *
@@ -72,10 +71,6 @@ public class Runner {
    *
    */
   public static void main(String[] args) throws Exception {
-    SharedMetricRegistries.setDefault("default", metrics);
-    Timer timer = metrics.timer("runner.timer");
-    Timer.Context context = timer.time();
-
     Options cliOptions = new Options()
       .addOption(Option.builder("usekafka").hasArg(false)
         .desc("Use Kafka for inter-component communication and don't execute pipelines locally").build())
@@ -97,10 +92,17 @@ public class Runner {
       System.exit(1);
     }
 
-    boolean result = cli.hasOption("usekafka") ? runWithKafka(cli.hasOption("local")) : runLocal();
+    StopWatch stopWatch = new StopWatch();
+    stopWatch.start();
+    boolean result = false;
 
-    context.stop();
-    log.info(String.format("Run took %.2f secs.", timer.getSnapshot().getValues()[0] / Math.pow(10, 9)));
+    try {
+      result = cli.hasOption("usekafka") ? runWithKafka(cli.hasOption("local")) : runLocal();
+    } finally {
+      stopWatch.stop();
+      log.info(String.format("Run took %.2f secs.", (double)stopWatch.getTime(TimeUnit.MILLISECONDS)/1000));
+    }
+
     if (result) {
       System.exit(0);
     } else {
@@ -139,8 +141,8 @@ public class Runner {
 
   private boolean runConnectorInternal(Connector connector, Publisher publisher) throws Exception {
     log.info("Running connector " + connector.getName() + " feeding to pipeline " + connector.getPipelineName());
-    Timer timer = metrics.timer("runner.connector.timer");
-    Timer.Context context = timer.time();
+    StopWatch stopWatch = new StopWatch();
+    stopWatch.start();
 
     try {
       connector.preExecute(runId);
@@ -176,8 +178,8 @@ public class Runner {
       }
     }
 
-    context.stop();
-    log.info(String.format("Connector %s complete. Time: %.2f secs.", connector.getName(), timer.getSnapshot().getValues()[0] / Math.pow(10, 9)));
+    stopWatch.stop();
+    log.info(String.format("Connector %s complete. Time: %.2f secs.", connector.getName(), (double)stopWatch.getTime(TimeUnit.MILLISECONDS)/1000));
 
     return result;
   }
@@ -290,14 +292,7 @@ public class Runner {
                              PublisherMessageManagerFactory publisherMessageManagerFactory,
                              boolean startWorkerAndIndexer,
                              boolean bypassSolr) throws Exception {
-
-    // Does not take into account connector creation time
     String pipelineName = connector.getPipelineName();
-    Meter indexerMeter = metrics.meter("indexer.meter");
-    Meter publisherMeter = metrics.meter("publisher.meter");
-    indexerMeter.mark(0);
-    publisherMeter.mark(0);
-
     WorkerPool workerPool = null;
     Indexer indexer = null;
     Thread indexerThread = null;
