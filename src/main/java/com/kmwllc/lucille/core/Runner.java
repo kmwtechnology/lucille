@@ -179,7 +179,8 @@ public class Runner {
     }
 
     stopWatch.stop();
-    log.info(String.format("Connector %s complete. Time: %.2f secs.", connector.getName(), (double)stopWatch.getTime(TimeUnit.MILLISECONDS)/1000));
+    log.info(String.format("Connector %s feeding to pipeline %s complete. Time: %.2f secs.",
+      connector.getName(), connector.getPipelineName(), (double)stopWatch.getTime(TimeUnit.MILLISECONDS)/1000));
 
     return result;
   }

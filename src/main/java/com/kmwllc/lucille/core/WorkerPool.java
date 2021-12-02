@@ -59,7 +59,7 @@ public class WorkerPool {
       private final com.codahale.metrics.Timer timer = metrics.timer("worker.timer." + metricsId);
       @Override
       public void run() {
-        log.info(String.format("%d docs processed. Rate: %.2f docs/sec. Pipeline latency: %.2f ms/doc.",
+        log.info(String.format("%d docs processed. One minute rate: %.2f docs/sec. Mean pipeline latency: %.2f ms/doc.",
           timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean()/1000000));
       }
     }, logSeconds*1000, logSeconds*1000);

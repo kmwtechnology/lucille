@@ -1,13 +1,9 @@
 package com.kmwllc.lucille.core;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.*;
 import com.kmwllc.lucille.message.PublisherMessageManager;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
-import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,17 +41,18 @@ public class PublisherImpl implements Publisher {
 
   private final int logSeconds;
 
+  // the actual number of documents sent for processing, which may be smaller
+  // than the number of calls to publish() if isCollapsing==true
   private int numPublished = 0;
+
   private int numCreated = 0;
   private int numFailed = 0;
   private int numSucceeded = 0;
 
   private Instant start;
-  private final MetricRegistry metrics;
-  private final Histogram histogram;
-  private final Meter meter;
-  private final StopWatch stopWatch;
-  private boolean isCollapsing = false;
+  private final Timer timer;
+  private Timer.Context timerContext = null;
+  private boolean isCollapsing;
   private Document previousDoc = null;
 
   // List of published documents that have not reached a terminal state. Also includes children of published documents.
@@ -76,13 +73,10 @@ public class PublisherImpl implements Publisher {
     this.manager = manager;
     this.runId = runId;
     this.pipelineName = pipelineName;
-    this.metrics = SharedMetricRegistries.getOrCreate("default");
-    String metricsId = UUID.randomUUID().toString();
-    this.meter = metrics.meter("publisher.meter." + metricsId);
-    this.histogram = metrics.histogram("publisher.timeBetweenCalls." + metricsId);
+    this.timer =
+      SharedMetricRegistries.getOrCreate("default").timer("publisher.timer." + UUID.randomUUID());
     this.isCollapsing = isCollapsing;
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
-    this.stopWatch = new StopWatch();
     manager.initialize(runId, pipelineName);
   }
 
@@ -93,15 +87,16 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public void publish(Document document) throws Exception {
-    if (stopWatch.isStarted()) {
-      stopWatch.stop();
-      histogram.update(stopWatch.getNanoTime());
+    if (timerContext!=null) {
+      // stop timing the duration since tha last call to publish;
+      // the goal is to track the rate of publish() calls as well as the
+      // average lag between them (which tells us how fast the connector produces each document)
+      timerContext.stop();
     }
     try {
       publishInternal(document);
     } finally {
-      stopWatch.reset();
-      stopWatch.start();
+      timerContext = timer.time();
     }
   }
 
@@ -128,7 +123,6 @@ public class PublisherImpl implements Publisher {
     document.initializeRunId(runId);
     manager.sendForProcessing(document);
     docIdsToTrack.add(document.getId());
-    meter.mark();
     numPublished++;
   }
 
@@ -142,6 +136,9 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public void close() throws Exception {
+    if (timerContext!=null) {
+      timerContext.stop();
+    }
     manager.close();
   }
 
@@ -197,7 +194,6 @@ public class PublisherImpl implements Publisher {
       }
 
       // stop waiting if the connector threw an exception
-      // TODO: consider whether we still want to wait for completion of any work the connector may have generated before it threw the exception
       if (thread.hasException()) {
         log.error("Exiting run with " + numPending() + " pending documents; connector threw exception", thread.getException());
         return false;
@@ -207,24 +203,30 @@ public class PublisherImpl implements Publisher {
       // 2) all published Documents and their children are accounted for (none are pending),
       // 3) there are no more Events relating to the current run to consume
       if (!thread.isAlive() && !hasPending() && !manager.hasEvents()) {
-        log.info(String.format("Pipeline %s complete. %d docs processed. %d children created. " +
-            "%d success events. %d failure events.",
-            pipelineName, numPublished, numCreated, numSucceeded, numFailed));
-        log.info(String.format("Publishing rate: %.2f docs/sec. Connector latency: %.2f ms/doc.",
-          meter.getMeanRate(), histogram.getSnapshot().getMean()/1000000));
+        if (timerContext!=null) {
+          timerContext.stop();
+        }
+        String collapseInfo = "";
+        if (isCollapsing && numPublished < timer.getCount()) {
+          collapseInfo = String.format(" (%d after collapsing)", numPublished);
+        }
+        log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
+          timer.getMeanRate(), timer.getSnapshot().getMean()/1000000));
+        log.info(String.format("%d docs published%s. %d children created. %d success events. %d failure events.",
+            timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed));
         if (numPublished>0 && numFailed==0) {
           log.info("All documents SUCCEEDED.");
         }
         if (numFailed>0) {
-          log.error(numFailed + " documents FAILED, but run was not stopped.");
+          log.error(numFailed + " documents FAILED, but run will continue.");
         }
         return !thread.hasException();
       }
 
       if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
         if (thread.isAlive()) {
-          log.info(String.format("%d docs published. Rate: %.2f docs/sec. Connector latency: %.2f ms/doc. Waiting on %d docs.",
-            meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean() / 1000000, numPending()));
+          log.info(String.format("%d docs published. One minute rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc. Waiting on %d docs.",
+            timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000, numPending()));
         } else {
           log.info(String.format("Connector complete. Waiting on %d docs.", numPending()));
         }
