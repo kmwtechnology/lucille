@@ -3,7 +3,6 @@ package com.kmwllc.lucille.core;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.message.*;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -58,8 +57,6 @@ public class Runner {
   private final String runId;
   private final int connectorTimeout;
 
-  private static MetricRegistry metrics = new MetricRegistry();
-
   /**
    * Runs the configured connectors.
    *
@@ -74,8 +71,6 @@ public class Runner {
    *
    */
   public static void main(String[] args) throws Exception {
-    SharedMetricRegistries.setDefault("default", metrics);
-
     Options cliOptions = new Options()
       .addOption(Option.builder("usekafka").hasArg(false)
         .desc("Use Kafka for inter-component communication and don't execute pipelines locally").build())
@@ -297,14 +292,7 @@ public class Runner {
                              PublisherMessageManagerFactory publisherMessageManagerFactory,
                              boolean startWorkerAndIndexer,
                              boolean bypassSolr) throws Exception {
-
-    // Does not take into account connector creation time
     String pipelineName = connector.getPipelineName();
-    Meter indexerMeter = metrics.meter("indexer.meter");
-    Meter publisherMeter = metrics.meter("publisher.meter");
-    indexerMeter.mark(0);
-    publisherMeter.mark(0);
-
     WorkerPool workerPool = null;
     Indexer indexer = null;
     Thread indexerThread = null;
