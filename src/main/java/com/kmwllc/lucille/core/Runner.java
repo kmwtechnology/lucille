@@ -8,6 +8,7 @@ import com.kmwllc.lucille.message.*;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.apache.commons.cli.*;
+import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,6 +16,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Responsible for managing a "run." A run is a sequential execution of one or more Connectors.
@@ -73,8 +75,6 @@ public class Runner {
    */
   public static void main(String[] args) throws Exception {
     SharedMetricRegistries.setDefault("default", metrics);
-    Timer timer = metrics.timer("runner.timer");
-    Timer.Context context = timer.time();
 
     Options cliOptions = new Options()
       .addOption(Option.builder("usekafka").hasArg(false)
@@ -97,10 +97,17 @@ public class Runner {
       System.exit(1);
     }
 
-    boolean result = cli.hasOption("usekafka") ? runWithKafka(cli.hasOption("local")) : runLocal();
+    StopWatch stopWatch = new StopWatch();
+    stopWatch.start();
+    boolean result = false;
 
-    context.stop();
-    log.info(String.format("Run took %.2f secs.", timer.getSnapshot().getValues()[0] / Math.pow(10, 9)));
+    try {
+      result = cli.hasOption("usekafka") ? runWithKafka(cli.hasOption("local")) : runLocal();
+    } finally {
+      stopWatch.stop();
+      log.info(String.format("Run took %.2f secs.", (double)stopWatch.getTime(TimeUnit.MILLISECONDS)/1000));
+    }
+
     if (result) {
       System.exit(0);
     } else {
@@ -139,8 +146,8 @@ public class Runner {
 
   private boolean runConnectorInternal(Connector connector, Publisher publisher) throws Exception {
     log.info("Running connector " + connector.getName() + " feeding to pipeline " + connector.getPipelineName());
-    Timer timer = metrics.timer("runner.connector.timer");
-    Timer.Context context = timer.time();
+    StopWatch stopWatch = new StopWatch();
+    stopWatch.start();
 
     try {
       connector.preExecute(runId);
@@ -176,8 +183,8 @@ public class Runner {
       }
     }
 
-    context.stop();
-    log.info(String.format("Connector %s complete. Time: %.2f secs.", connector.getName(), timer.getSnapshot().getValues()[0] / Math.pow(10, 9)));
+    stopWatch.stop();
+    log.info(String.format("Connector %s complete. Time: %.2f secs.", connector.getName(), (double)stopWatch.getTime(TimeUnit.MILLISECONDS)/1000));
 
     return result;
   }

@@ -1,7 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.WorkerMessageManager;
@@ -58,12 +56,11 @@ public class WorkerPool {
     // Timer to log a status message every minute
     logTimer.schedule(new TimerTask() {
       private final MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
-      private final Meter meter = metrics.meter("worker.meter." + metricsId);
-      private final Histogram histogram = metrics.histogram("worker.pipelineTimePerDoc." + metricsId);
+      private final com.codahale.metrics.Timer timer = metrics.timer("worker.timer." + metricsId);
       @Override
       public void run() {
         log.info(String.format("%d docs processed. Rate: %.2f docs/sec. Pipeline latency: %.2f ms/doc.",
-          meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()/1000000));
+          timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean()/1000000));
       }
     }, logSeconds*1000, logSeconds*1000);
 
