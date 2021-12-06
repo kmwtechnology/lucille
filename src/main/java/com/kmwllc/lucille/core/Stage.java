@@ -1,10 +1,14 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
@@ -30,8 +34,11 @@ public abstract class Stage {
   private final Predicate<Document> condition;
   private String name;
 
-  private static final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
-  
+  private Timer timer;
+  private Timer.Context context;
+  private Counter errorCounter;
+  private Counter childCounter;
+
   public Stage(Config config) {
     this.config = config;
     this.name = ConfigUtils.getOrDefault(config, "name", null);
@@ -41,9 +48,19 @@ public abstract class Stage {
     this.condition = conditions.stream().reduce((d) -> true, Predicate::and);
   }
 
-  public void start() throws StageException {}
+  public void start() throws StageException {
+  }
 
-  public void stop() throws StageException {
+  public void stop() throws StageException {}
+
+  public void logMetrics() {
+    if (timer==null || childCounter==null || errorCounter==null) {
+      LoggerFactory.getLogger(Stage.class).error("Metrics not initialized");
+    } else {
+      LoggerFactory.getLogger(Stage.class).info(
+        String.format("Stage %s metrics. Docs processed: %d. Mean latency: %.4f ms/doc. Children: %d. Errors: %d.",
+          name, timer.getCount(), timer.getSnapshot().getMean() / 1000000, childCounter.getCount(), errorCounter.getCount()));
+    }
   }
 
   /**
@@ -68,17 +85,27 @@ public abstract class Stage {
    */
   public List<Document> processConditional(Document doc) throws StageException {
     if (shouldProcess(doc)) {
-      metrics.counter("stage." + getName() + ".processed").inc();
-
+      if (timer!=null) {
+        context = timer.time();
+      }
       try {
-        return processDocument(doc);
+        List<Document> children = processDocument(doc);
+        if (children!=null && children.size()>0) {
+          childCounter.inc(children.size());
+        }
+        return children;
       } catch (StageException e) {
-        metrics.counter("stage." + getName() + ".errors").inc();
+        if (errorCounter!=null) {
+          errorCounter.inc();
+        }
         throw e;
+      } finally {
+        if (context!=null) {
+          context.stop();
+        }
       }
     }
 
-    metrics.counter("stage." + getName() + ".skipped").inc();
     return null;
   }
 
@@ -96,11 +123,18 @@ public abstract class Stage {
     return name;
   }
 
-  public void initializeName(String name) throws StageException {
-    if (this.name!=null) {
-      throw new StageException("Stage name cannot be changed after it has been initialized.");
+  /**
+   * Initialize metrics and set the Stage's name based on the position if the name has not already been set.
+   */
+  public void initialize(int position, String metricsPrefix) throws StageException {
+    if (name==null) {
+      this.name = "stage_" + position;
     }
-    this.name = name;
+
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+    this.timer = metrics.timer(metricsPrefix + ".stage." + name + ".processDocumentTime");
+    this.errorCounter = metrics.counter(metricsPrefix + ".stage." + name + ".errors");
+    this.childCounter = metrics.counter(metricsPrefix + ".stage." + name + ".children");
   }
 
   public Config getConfig() {

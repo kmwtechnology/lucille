@@ -1,9 +1,9 @@
 package com.kmwllc.lucille.core;
 
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Slf4jReporter;
 import com.kmwllc.lucille.message.*;
+import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.apache.commons.cli.*;
@@ -100,6 +100,10 @@ public class Runner {
       result = cli.hasOption("usekafka") ? runWithKafka(cli.hasOption("local")) : runLocal();
     } finally {
       stopWatch.stop();
+
+      //Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
+      //  .outputTo(log).build().report();
+
       log.info(String.format("Run took %.2f secs.", (double)stopWatch.getTime(TimeUnit.MILLISECONDS)/1000));
     }
 
@@ -301,12 +305,16 @@ public class Runner {
 
     try {
 
+      // create a common metrics naming prefix to be used by all components that will be collecting metrics,
+      // to ensure that metrics are collected separately for each connector/pipeline pair
+      String metricsPrefix = connector.getName() + "." + connector.getPipelineName();
+
       if (startWorkerAndIndexer && connector.getPipelineName() != null) {
-        workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory);
+        workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory, metricsPrefix);
         workerPool.start();
 
         IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
-        indexer = new Indexer(config, indexerMessageManager, bypassSolr);
+        indexer = new Indexer(config, indexerMessageManager, bypassSolr, metricsPrefix);
 
         if (!indexer.validateConnection()) {
           log.error("Indexer could not connect.");
@@ -320,7 +328,7 @@ public class Runner {
       if (connector.getPipelineName() != null) {
         PublisherMessageManager publisherMessageManager = publisherMessageManagerFactory.create();
         publisher = new PublisherImpl(config, publisherMessageManager, runner.getRunId(),
-          connector.getPipelineName(), connector.requiresCollapsingPublisher());
+          connector.getPipelineName(), metricsPrefix, connector.requiresCollapsingPublisher());
       }
 
       return runner.runConnector(connector, publisher);

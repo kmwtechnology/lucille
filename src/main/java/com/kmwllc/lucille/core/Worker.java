@@ -5,7 +5,6 @@ import com.kmwllc.lucille.message.WorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
-import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
@@ -13,13 +12,13 @@ import sun.misc.Signal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.TimerTask;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
 class Worker implements Runnable {
 
   public static final int TIMEOUT_CHECK_MS = 1000;
+  public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
   private final WorkerMessageManager manager;
@@ -32,16 +31,16 @@ class Worker implements Runnable {
 
   private boolean trackRetries = false;
   private RetryCounter counter = null;
-  private final String metricsId;
+  private final String metricsPrefix;
 
   public void terminate() {
     log.debug("terminate called");
     running = false;
   }
 
-  public Worker(Config config, WorkerMessageManager manager, String pipelineName, String metricsId) throws Exception {
+  public Worker(Config config, WorkerMessageManager manager, String pipelineName, String metricsPrefix) throws Exception {
     this.manager = manager;
-    this.pipeline = Pipeline.fromConfig(config, pipelineName);
+    this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
     if (config.hasPath("worker.maxRetries")) {
       log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
       this.trackRetries = true;
@@ -49,13 +48,13 @@ class Worker implements Runnable {
     }
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
-    this.metricsId = metricsId;
+    this.metricsPrefix = metricsPrefix;
   }
 
   @Override
   public void run() {
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
-    Timer timer = metrics.timer("worker.timer." + metricsId);
+    Timer timer = metrics.timer(metricsPrefix + METRICS_SUFFIX);
 
     while (running) {
       Document doc;
@@ -149,6 +148,10 @@ class Worker implements Runnable {
     log.debug("Exiting");
   }
 
+  public void logMetrics() {
+    pipeline.logMetrics();
+  }
+
   private void commitOffsetsAndRemoveCounter(Document doc) {
     try {
       manager.commitPendingDocOffsets();
@@ -184,9 +187,9 @@ class Worker implements Runnable {
   }
 
   public static WorkerThread startThread(Config config, WorkerMessageManager manager,
-                                         String pipelineName, String metricsId) throws
+                                         String pipelineName, String metricsPrefix) throws
       Exception {
-    Worker worker = new Worker(config, manager, pipelineName, metricsId);
+    Worker worker = new Worker(config, manager, pipelineName, metricsPrefix);
     WorkerThread workerThread = new WorkerThread(worker);
     workerThread.start();
     return workerThread;
@@ -200,7 +203,7 @@ class Worker implements Runnable {
     WorkerMessageManagerFactory workerMessageManagerFactory =
         WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName);
 
-    WorkerPool workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory);
+    WorkerPool workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory, pipelineName);
     workerPool.start();
 
     Signal.handle(new Signal("INT"), signal -> {

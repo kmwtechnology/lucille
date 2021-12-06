@@ -221,7 +221,8 @@ public class PublisherImplTest {
   public void testCollapse() throws Exception {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1", true);
+    PublisherImpl publisher =
+      new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1", "",true);
 
     Document doc1 = new Document("before");
 

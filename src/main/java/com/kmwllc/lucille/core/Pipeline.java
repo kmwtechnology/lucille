@@ -1,9 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.codahale.metrics.Counter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
-import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -11,13 +7,10 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.Map;
 
 /**
  * A sequence of processing Stages to be applied to incoming Documents.
@@ -28,35 +21,25 @@ public class Pipeline {
 
   private ArrayList<Stage> stages = new ArrayList();
 
-  private static final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
-  private Map<String, Counter> stageErrorCounters = new HashMap<>();
-  private Map<String, Counter> stageProcessedCounters = new HashMap<>();
-  private Map<String, Counter> stageProcessedTimers = new HashMap<>();
-  private Map<String, Counter> stageSkippedCounters = new HashMap<>();
-  private Map<String, Counter> stageChildrenCounters = new HashMap<>();
-
   public List<Stage> getStages() {
     return stages;
   }
 
-  public void addStage(Stage stage) throws PipelineException, StageException {
-    if (stage.getName()==null) {
-      stage.initializeName("stage_" + (stages.size()+1));
-    }
+  public void addStage(Stage stage, String metricsPrefix) throws PipelineException, StageException {
+    stage.initialize(stages.size()+1, metricsPrefix);
     if (stages.stream().anyMatch(s -> stage.getName().equals(s.getName()))) {
       throw new PipelineException("Two stages cannot have the same name: " + stage.getName());
     }
     stages.add(stage);
   }
 
+  public void addStage(Stage stage) throws PipelineException, StageException {
+    addStage(stage, "default");
+  }
+
   public void startStages() throws StageException {
     for (Stage stage : stages) {
       stage.start();
-      stageErrorCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".errors"));
-      stageProcessedCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".processed"));
-      stageProcessedTimers.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".timer"));
-      stageSkippedCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".skipped"));
-      stageChildrenCounters.put(stage.getName(), metrics.counter("stage." + stage.getName() + ".children"));
     }
   }
 
@@ -64,21 +47,27 @@ public class Pipeline {
     for (Stage stage : stages) {
       stage.stop();
     }
-    log.debug(generateLogDump());
+  }
+
+  public void logMetrics() {
+    for (Stage stage : stages) {
+      stage.logMetrics();
+    }
   }
 
   /**
    * Instantiates a Pipeline from the designated list of Stage Configs.
    * The Config for each Stage must specify the stage's class.
    */
-  public static Pipeline fromConfig(List<? extends Config> stages) throws ClassNotFoundException, NoSuchMethodException,
-    IllegalAccessException, InvocationTargetException, InstantiationException, StageException, PipelineException {
+  public static Pipeline fromConfig(List<? extends Config> stages, String metricsPrefix) throws
+    ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException,
+    InstantiationException, StageException, PipelineException {
     Pipeline pipeline = new Pipeline();
     for (Config c : stages) {
       Class<?> clazz = Class.forName(c.getString("class"));
       Constructor<?> constructor = clazz.getConstructor(Config.class);
       Stage stage = (Stage) constructor.newInstance(c);
-      pipeline.addStage(stage);
+      pipeline.addStage(stage, metricsPrefix);
     }
     pipeline.startStages();
     return pipeline;
@@ -89,7 +78,8 @@ public class Pipeline {
    * The Config is expected to have a "pipeline.<name>.stages" element
    * containing a List of stages and their settings. The list element for each Stage must specify the stage's class.
    */
-  public static Pipeline fromConfig(Config config, String name) throws ClassNotFoundException, NoSuchMethodException,
+  public static Pipeline fromConfig(Config config, String name, String metricsPrefix)
+    throws ClassNotFoundException, NoSuchMethodException,
     IllegalAccessException, InvocationTargetException, InstantiationException, StageException, PipelineException {
     if (!config.hasPath("pipelines")) {
       throw new PipelineException("No pipelines element present in config");
@@ -104,7 +94,7 @@ public class Pipeline {
       throw new PipelineException("More than one pipeline found with name: " + name);
     }
     if (matchingPipelines.size()==1) {
-      return fromConfig(matchingPipelines.get(0).getConfigList("stages"));
+      return fromConfig(matchingPipelines.get(0).getConfigList("stages"), metricsPrefix);
     }
     throw new PipelineException("No pipeline found with name: " + name);
   }
@@ -140,7 +130,6 @@ public class Pipeline {
     ArrayList<Document> documents = new ArrayList();
     documents.add(document);
 
-    // TODO : Add Stage metric timing
     for (Stage stage : stages) {
       List<Document> childrenFromCurrentStage = new ArrayList();
 
@@ -153,10 +142,7 @@ public class Pipeline {
         }
       }
 
-      // TODO : Handle millis, potentially change to secs/doc
       documents.addAll(childrenFromCurrentStage);
-      stageProcessedTimers.get(stage.getName()).inc(Duration.between(stageStart, Instant.now()).toNanos());
-      stageChildrenCounters.get(stage.getName()).inc(childrenFromCurrentStage.size());
     }
 
     return documents;
@@ -184,24 +170,6 @@ public class Pipeline {
     }
 
     return null;
-  }
-
-  public String generateLogDump() {
-    StringBuilder builder = new StringBuilder();
-
-    for (Stage stage : stages) {
-      String name = stage.getName();
-      long processed = stageProcessedCounters.get(name).getCount();
-      long duration = stageProcessedTimers.get(name).getCount();
-      long errors = stageErrorCounters.get(name).getCount();
-      long children = stageChildrenCounters.get(name).getCount();
-      long skipped = stageSkippedCounters.get(name).getCount();
-      builder.append(String.format("Stage %s processed %d docs. Rate: %f ns/doc. Children produced:  " +
-              "%d. Skipped: %d docs. Errors: %d docs.\n",
-          name, processed, (double) duration / processed, children, skipped, errors));
-    }
-
-    return builder.toString();
   }
 
 }

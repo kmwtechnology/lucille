@@ -75,7 +75,7 @@ public class PipelineWorker {
     producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
     kafkaProducer = new KafkaProducer(producerProps);
-    pipeline = Pipeline.fromConfig(config, pipelineName);
+    pipeline = Pipeline.fromConfig(config, pipelineName, pipelineName);
   }
 
   public static void main(String[] args) throws Exception {
