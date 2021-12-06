@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 
 import java.util.ArrayList;
@@ -29,9 +30,8 @@ public abstract class Stage {
   private final Predicate<Document> condition;
   private String name;
 
-  private static final MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
-
-  // TODO : Debug mode
+  private static final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+  
   public Stage(Config config) {
     this.config = config;
     this.name = ConfigUtils.getOrDefault(config, "name", null);

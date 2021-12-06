@@ -54,7 +54,7 @@ class Worker implements Runnable {
 
   @Override
   public void run() {
-    MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     Timer timer = metrics.timer("worker.timer." + metricsId);
 
     while (running) {

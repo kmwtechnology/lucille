@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core;
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -27,7 +28,7 @@ public class Pipeline {
 
   private ArrayList<Stage> stages = new ArrayList();
 
-  private static final MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
+  private static final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
   private Map<String, Counter> stageErrorCounters = new HashMap<>();
   private Map<String, Counter> stageProcessedCounters = new HashMap<>();
   private Map<String, Counter> stageProcessedTimers = new HashMap<>();

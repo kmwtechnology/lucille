@@ -60,7 +60,7 @@ class Indexer implements Runnable {
     int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
     this.batch = new Batch(batchSize, batchTimeout);
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
-    MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     this.stopWatch = new StopWatch();
     String metricsId = UUID.randomUUID().toString();
     this.meter = metrics.meter("indexer.meter." + metricsId);

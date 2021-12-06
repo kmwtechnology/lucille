@@ -74,7 +74,7 @@ public class PublisherImpl implements Publisher {
     this.runId = runId;
     this.pipelineName = pipelineName;
     this.timer =
-      SharedMetricRegistries.getOrCreate("default").timer("publisher.timer." + UUID.randomUUID());
+      SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).timer("publisher.timer." + UUID.randomUUID());
     this.isCollapsing = isCollapsing;
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     manager.initialize(runId, pipelineName);

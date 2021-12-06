@@ -55,7 +55,7 @@ public class WorkerPool {
     }
     // Timer to log a status message every minute
     logTimer.schedule(new TimerTask() {
-      private final MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
+      private final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
       private final com.codahale.metrics.Timer timer = metrics.timer("worker.timer." + metricsId);
       @Override
       public void run() {
