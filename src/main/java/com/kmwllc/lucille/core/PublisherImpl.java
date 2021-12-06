@@ -4,6 +4,7 @@ import com.codahale.metrics.*;
 import com.kmwllc.lucille.message.PublisherMessageManager;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,7 +13,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Publisher implementation that maintains an in-memory list of pending documents.
@@ -54,6 +55,7 @@ public class PublisherImpl implements Publisher {
   private Timer.Context timerContext = null;
   private boolean isCollapsing;
   private Document previousDoc = null;
+  private StopWatch firstDocStopWatch;
 
   // List of published documents that have not reached a terminal state. Also includes children of published documents.
   // Note that this is a List, not a Set, because if two documents with the same ID are published, we would
@@ -69,24 +71,30 @@ public class PublisherImpl implements Publisher {
   private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
 
   public PublisherImpl(Config config, PublisherMessageManager manager, String runId,
-                       String pipelineName, boolean isCollapsing) throws Exception {
+                       String pipelineName, String metricsPrefix, boolean isCollapsing) throws Exception {
     this.manager = manager;
     this.runId = runId;
     this.pipelineName = pipelineName;
     this.timer =
-      SharedMetricRegistries.getOrCreate("default").timer("publisher.timer." + UUID.randomUUID());
+      SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).timer(metricsPrefix + ".timeBetweenPublishCalls");
     this.isCollapsing = isCollapsing;
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     manager.initialize(runId, pipelineName);
+    this.firstDocStopWatch = new StopWatch();
+    this.firstDocStopWatch.start();
   }
 
   public PublisherImpl(Config config, PublisherMessageManager manager, String runId,
                        String pipelineName) throws Exception {
-    this(config, manager, runId, pipelineName, false);
+    this(config, manager, runId, pipelineName, "default",false);
   }
 
   @Override
   public void publish(Document document) throws Exception {
+    if (firstDocStopWatch.isStarted()) {
+      firstDocStopWatch.stop();
+      log.info("First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
+    }
     if (timerContext!=null) {
       // stop timing the duration since tha last call to publish;
       // the goal is to track the rate of publish() calls as well as the

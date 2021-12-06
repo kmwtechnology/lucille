@@ -20,7 +20,7 @@ public class PipelineTest {
   public void testFromConfig() throws Exception {
     String s = "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}, {class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\"}]}]";
     Config config = ConfigFactory.parseString(s);
-    Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1");
+    Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1", "");
     List<Stage> stages = pipeline.getStages();
     assertEquals(stages.get(0).getClass(), Stage1.class);
     assertEquals(stages.get(1).getClass(), Stage4.class);
@@ -34,7 +34,7 @@ public class PipelineTest {
   @Test(expected = PipelineException.class)
   public void testFromConfigWithoutPipelinesElement() throws Exception {
     Config config = ConfigFactory.empty();
-    Pipeline.fromConfig(config, "pipeline1");
+    Pipeline.fromConfig(config, "pipeline1", "");
   }
 
   @Test(expected = PipelineException.class)
@@ -42,7 +42,7 @@ public class PipelineTest {
     String s = "pipelines = [{stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, " +
       "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
     Config config = ConfigFactory.parseString(s);
-    Pipeline.fromConfig(config, "pipeline1");
+    Pipeline.fromConfig(config, "pipeline1", "");
   }
 
   @Test(expected = PipelineException.class)
@@ -50,14 +50,14 @@ public class PipelineTest {
     String s = "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, " +
       "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
     Config config = ConfigFactory.parseString(s);
-    Pipeline.fromConfig(config, "pipeline1");
+    Pipeline.fromConfig(config, "pipeline1", "");
   }
 
   @Test(expected = PipelineException.class)
   public void testFromConfigWithoutDesignatedPipeline() throws Exception {
     String s = "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
     Config config = ConfigFactory.parseString(s);
-    Pipeline.fromConfig(config, "pipeline2");
+    Pipeline.fromConfig(config, "pipeline2", "");
   }
 
   @Test
@@ -104,7 +104,7 @@ public class PipelineTest {
         "[{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\", conditions:[{fields:[\"cond\"], values:[\"abc\",\"123\"], operator:\"must\"}]}, " +
         "{class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\", conditions:[{fields:[\"cond\"], values:[\"have\",\"test\"], operator:\"must\"}]}]}]";
     Config config = ConfigFactory.parseString(s);
-    Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1");
+    Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1", "");
 
     Document doc = new Document("doc");
     doc.setField("cond", "123");

@@ -52,7 +52,7 @@ class Indexer implements Runnable {
     log.debug("terminate");
   }
 
-  public Indexer(Config config, IndexerMessageManager manager, SolrClient solrClient) {
+  public Indexer(Config config, IndexerMessageManager manager, SolrClient solrClient, String metricsPrefix) {
     this.manager = manager;
     this.solrClient = solrClient;
     this.idOverrideField = config.hasPath("indexer.idOverrideField") ? config.getString("indexer.idOverrideField") : null;
@@ -60,15 +60,14 @@ class Indexer implements Runnable {
     int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
     this.batch = new Batch(batchSize, batchTimeout);
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
-    MetricRegistry metrics = SharedMetricRegistries.getOrCreate("default");
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     this.stopWatch = new StopWatch();
-    String metricsId = UUID.randomUUID().toString();
-    this.meter = metrics.meter("indexer.meter." + metricsId);
-    this.histogram = metrics.histogram("indexer.solrAddTimePerDoc." + metricsId);
+    this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
+    this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
   }
 
-  public Indexer(Config config, IndexerMessageManager manager, boolean bypass) {
-    this(config, manager, getSolrClient(config, bypass));
+  public Indexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
+    this(config, manager, getSolrClient(config, bypass), metricsPrefix);
   }
 
   private static SolrClient getSolrClient(Config config, boolean bypass) {
@@ -268,7 +267,7 @@ class Indexer implements Runnable {
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
     log.info("Starting Indexer for pipeline: " + pipelineName);
     IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);
-    Indexer indexer = new Indexer(config, manager, false);
+    Indexer indexer = new Indexer(config, manager, false, pipelineName);
     if (!indexer.validateConnection()) {
       log.error("Indexer could not connect");
       System.exit(1);

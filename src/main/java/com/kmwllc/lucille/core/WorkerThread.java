@@ -17,4 +17,7 @@ public class WorkerThread extends Thread {
     worker.terminate();
   }
 
+  public void logMetrics() {
+    worker.logMetrics();
+  }
 }

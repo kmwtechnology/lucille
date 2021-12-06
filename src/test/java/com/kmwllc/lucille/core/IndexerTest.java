@@ -33,7 +33,7 @@ public class IndexerTest {
     Document doc2 = new Document("doc2", "test_run");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new Indexer(config, manager, solrClient);
+    Indexer indexer = new Indexer(config, manager, solrClient, "");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     indexer.run(2);
@@ -73,7 +73,7 @@ public class IndexerTest {
     Document doc2 = new Document("doc2", "test_run");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new Indexer(config, manager, solrClient);
+    Indexer indexer = new Indexer(config, manager, solrClient, "");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     indexer.run(2);
@@ -120,7 +120,7 @@ public class IndexerTest {
     assertTrue(doc.has(Document.CHILDREN_FIELD));
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new Indexer(config, manager, solrClient);
+    Indexer indexer = new Indexer(config, manager, solrClient, "");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -180,7 +180,7 @@ public class IndexerTest {
   private static class ErroringIndexer extends Indexer {
 
     public ErroringIndexer(Config config, IndexerMessageManager manager, boolean bypass) {
-      super(config, manager, bypass);
+      super(config, manager, bypass, "");
     }
 
     @Override
