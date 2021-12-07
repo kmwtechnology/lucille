@@ -1,21 +1,28 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
+import com.kmwllc.lucille.util.LogUtils;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
+import org.apache.commons.lang3.time.StopWatch;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 class Indexer implements Runnable {
 
@@ -29,64 +36,104 @@ class Indexer implements Runnable {
   private final SolrClient solrClient;
 
   private volatile boolean running = true;
-  
-  private long numIndexed;
 
-  // Determines the number of documents which must be indexed in between each metric info log.
-  private final int logRate;
+  private final int logSeconds;
 
-  private final MetricRegistry metrics;
+  private final StopWatch stopWatch;
   private final Meter meter;
+  private final Histogram histogram;
 
   private final String idOverrideField;
 
+  private Instant lastLog = Instant.now();
+
   public void terminate() {
     running = false;
-    log.info("terminate");
+    log.debug("terminate");
   }
 
-  public Indexer(Config config, IndexerMessageManager manager, boolean bypass) {
+  public Indexer(Config config, IndexerMessageManager manager, SolrClient solrClient, String metricsPrefix) {
     this.manager = manager;
+    this.solrClient = solrClient;
     this.idOverrideField = config.hasPath("indexer.idOverrideField") ? config.getString("indexer.idOverrideField") : null;
     int batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : DEFAULT_BATCH_SIZE;
     int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
     this.batch = new Batch(batchSize, batchTimeout);
-    if (bypass) {
-      this.solrClient = null;
-    } else {
-      this.solrClient = SolrUtils.getSolrClient(config);
-    }
-    this.logRate = ConfigUtils.getOrDefault(config, "indexer.logRate", 1000);
-    this.metrics = SharedMetricRegistries.getOrCreate("default");
-    this.meter = metrics.meter("indexer.meter");
+    this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+    this.stopWatch = new StopWatch();
+    this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
+    this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
   }
+
+  public Indexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
+    this(config, manager, getSolrClient(config, bypass), metricsPrefix);
+  }
+
+  private static SolrClient getSolrClient(Config config, boolean bypass) {
+    return bypass ? null : SolrUtils.getSolrClient(config);
+  }
+
+  public boolean validateConnection() {
+    if (solrClient==null) {
+      return true;
+    }
+    SolrPingResponse response = null;
+    try {
+      response = solrClient.ping();
+    } catch (Exception e) {
+      log.error("Couldn't ping Solr ", e);
+      return false;
+    }
+    if (response==null) {
+      log.error("Null response when pinging solr");
+      return false;
+    }
+    if (response.getStatus()!=0) {
+      log.error("Non zero response when pinging solr: " + response.getStatus());
+    }
+    return true;
+  }
+
 
   @Override
   public void run() {
-
-    while (running) {
-      checkForDoc();
-    }
-
-    sendToSolrWithAccounting(batch.flush());
     try {
-      manager.close();
-    } catch (Exception e) {
-      log.error("Error closing message manager", e);
+      while (running) {
+        checkForDoc();
+      }
+      sendToSolrWithAccounting(batch.flush()); // handle final batch
+    } finally {
+      close();
     }
   }
 
   protected void run(int iterations) {
+    try {
+      for (int i = 0; i < iterations; i++) {
+        checkForDoc();
+      }
+      sendToSolrWithAccounting(batch.flush()); // handle final batch
+    } finally {
+      close();
+    }
+  }
 
-    for (int i = 0; i < iterations; i++) {
-      checkForDoc();
+  private void close() {
+    if (manager!=null) {
+      try {
+        manager.close();
+      } catch (Exception e) {
+        log.error("Error closing message manager", e);
+      }
     }
 
-    sendToSolrWithAccounting(batch.flush());
-    try {
-      manager.close();
-    } catch (Exception e) {
-      log.error("Error closing message manager", e);
+    if (solrClient!=null) {
+      try {
+        solrClient.close();
+      } catch (Exception e) {
+        log.error("Error closing SolrClient", e);
+      }
     }
   }
 
@@ -111,14 +158,13 @@ class Indexer implements Runnable {
     }
 
     sendToSolrWithAccounting(batch.add(doc));
-    numIndexed++;
   }
 
   private void sendToSolrWithAccounting(List<Document> batchedDocs) {
-    if (numIndexed != 0 && numIndexed % logRate == 0) {
-      // TODO : Potentially reword this
-      log.info(String.format("%d documents have been indexed so far. Documents are currently being indexed at a rate of %.2f documents/second",
-          meter.getCount(), meter.getOneMinuteRate()));
+    if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
+      log.info(String.format("%d docs indexed. One minute rate: %.2f docs/sec. Mean Solr latency: %.2f ms/doc.",
+        meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()/1000000));
+      lastLog = Instant.now();
     }
 
     if (batchedDocs.isEmpty()) {
@@ -158,7 +204,7 @@ class Indexer implements Runnable {
   protected void sendToSolr(List<Document> documents) throws Exception {
 
     if (solrClient==null) {
-      // log.info("sendToSolr bypassed for documents: " + documents);
+      log.debug("sendToSolr bypassed for documents: " + documents);
       return;
     }
 
@@ -169,6 +215,10 @@ class Indexer implements Runnable {
       SolrInputDocument solrDoc = new SolrInputDocument();
 
       for (String key : map.keySet()) {
+
+        if (Document.CHILDREN_FIELD.equals(key)) {
+          continue;
+        }
 
         // if an id override field has been specified, use its value as the id to send to solr, instead
         // of the document's own id
@@ -181,10 +231,35 @@ class Indexer implements Runnable {
         solrDoc.setField(key,value);
       }
 
+      addChildren(doc, solrDoc);
       solrDocs.add(solrDoc);
     }
 
+    stopWatch.reset();
+    stopWatch.start();
     solrClient.add(solrDocs);
+    stopWatch.stop();
+    histogram.update(stopWatch.getNanoTime() / solrDocs.size());
+  }
+
+  private void addChildren(Document doc, SolrInputDocument solrDoc) {
+    List<Document> children = doc.getChildren();
+    if (children==null || children.isEmpty()) {
+      return;
+    }
+    for (Document child : children) {
+      Map<String,Object> map = child.asMap();
+      SolrInputDocument solrChild = new SolrInputDocument();
+      for (String key : map.keySet()) {
+        // we don't support children that contain nested children
+        if (Document.CHILDREN_FIELD.equals(key)) {
+          continue;
+        }
+        Object value = map.get(key);
+        solrChild.setField(key,value);
+      }
+      solrDoc.addChildDocument(solrChild);
+    }
   }
 
   public static void main(String[] args) throws Exception {
@@ -192,7 +267,12 @@ class Indexer implements Runnable {
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
     log.info("Starting Indexer for pipeline: " + pipelineName);
     IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);
-    Indexer indexer = new Indexer(config, manager, false);
+    Indexer indexer = new Indexer(config, manager, false, pipelineName);
+    if (!indexer.validateConnection()) {
+      log.error("Indexer could not connect");
+      System.exit(1);
+    }
+
     Thread indexerThread = new Thread(indexer);
     indexerThread.start();
 

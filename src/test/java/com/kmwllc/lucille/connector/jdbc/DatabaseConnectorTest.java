@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import com.kmwllc.lucille.core.ConnectorException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -40,7 +41,7 @@ public class DatabaseConnectorTest {
   public void initTestMode() throws Exception {
     // set lucille into loopback mode for local / standalone testing.
     manager = new PersistingLocalMessageManager();
-    publisher = new PublisherImpl(manager, testRunId, pipelineName);
+    publisher = new PublisherImpl(ConfigFactory.empty(), manager, testRunId, pipelineName);
   }
   
   @Test
@@ -88,7 +89,7 @@ public class DatabaseConnectorTest {
   }
 
   @Test
-  public void testCompaniesQuery() {
+  public void testCompaniesQuery() throws ConnectorException {
     HashMap<String,Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);

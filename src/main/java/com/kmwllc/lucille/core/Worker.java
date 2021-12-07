@@ -1,10 +1,9 @@
 package com.kmwllc.lucille.core;
 
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.*;
 import com.kmwllc.lucille.message.WorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
+import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,17 +11,14 @@ import sun.misc.Signal;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
 class Worker implements Runnable {
 
   public static final int TIMEOUT_CHECK_MS = 1000;
+  public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
   private final WorkerMessageManager manager;
@@ -31,23 +27,20 @@ class Worker implements Runnable {
 
   private volatile boolean running = true;
 
-  private final MetricRegistry metrics;
-  private final Meter meter;
   private final AtomicReference<Instant> pollInstant;
 
   private boolean trackRetries = false;
   private RetryCounter counter = null;
+  private final String metricsPrefix;
 
   public void terminate() {
-    log.info("terminate called");
+    log.debug("terminate called");
     running = false;
   }
 
-  public Worker(Config config, WorkerMessageManager manager, String pipelineName) throws Exception {
+  public Worker(Config config, WorkerMessageManager manager, String pipelineName, String metricsPrefix) throws Exception {
     this.manager = manager;
-    this.pipeline = Pipeline.fromConfig(config, pipelineName);
-    this.metrics = SharedMetricRegistries.getOrCreate("default");
-    this.meter = metrics.meter("worker.meter");
+    this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
     if (config.hasPath("worker.maxRetries")) {
       log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
       this.trackRetries = true;
@@ -55,21 +48,13 @@ class Worker implements Runnable {
     }
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
+    this.metricsPrefix = metricsPrefix;
   }
 
   @Override
   public void run() {
-    meter.mark(0);
-
-    // Timer to log a status message every minute
-    Timer logTimer = new Timer();
-    logTimer.schedule(new TimerTask() {
-      @Override
-      public void run() {
-        log.info(String.format("Workers are currently processing documents at a rate of %f documents/second. " +
-          "%d documents have been processed so far.", meter.getOneMinuteRate(), meter.getCount()));
-      }
-    }, 60000, 60000);
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+    Timer timer = metrics.timer(metricsPrefix + METRICS_SUFFIX);
 
     while (running) {
       Document doc;
@@ -107,8 +92,9 @@ class Worker implements Runnable {
 
       List<Document> results = null;
       try {
+        Timer.Context context = timer.time();
         results = pipeline.processDocument(doc);
-        meter.mark();
+        context.stop();
       } catch (Exception e) {
         log.error("Error processing document: " + doc.getId(), e);
         try {
@@ -159,9 +145,11 @@ class Worker implements Runnable {
       log.error("Error stopping pipeline stage", e);
     }
 
-    logTimer.cancel();
+    log.debug("Exiting");
+  }
 
-    log.info("Exiting");
+  public void logMetrics() {
+    pipeline.logMetrics();
   }
 
   private void commitOffsetsAndRemoveCounter(Document doc) {
@@ -198,9 +186,10 @@ class Worker implements Runnable {
     });
   }
 
-  public static WorkerThread startThread(Config config, WorkerMessageManager manager, String pipelineName) throws
+  public static WorkerThread startThread(Config config, WorkerMessageManager manager,
+                                         String pipelineName, String metricsPrefix) throws
       Exception {
-    Worker worker = new Worker(config, manager, pipelineName);
+    Worker worker = new Worker(config, manager, pipelineName, metricsPrefix);
     WorkerThread workerThread = new WorkerThread(worker);
     workerThread.start();
     return workerThread;
@@ -209,12 +198,12 @@ class Worker implements Runnable {
   public static void main(String[] args) throws Exception {
     Config config = ConfigUtils.loadConfig();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
-    log.info("Starting Workers for pipeline: " + pipelineName);
+    log.debug("Starting Workers for pipeline: " + pipelineName);
 
     WorkerMessageManagerFactory workerMessageManagerFactory =
         WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName);
 
-    WorkerPool workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory);
+    WorkerPool workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory, pipelineName);
     workerPool.start();
 
     Signal.handle(new Signal("INT"), signal -> {
