@@ -101,7 +101,7 @@ public interface Publisher {
    *               has finished and no more Documents will be published
    * @param timeout number of milliseconds to wait, after which the method will return false
    */
-  boolean waitForCompletion(ConnectorThread thread, int timeout) throws Exception;
+  PublisherResult waitForCompletion(ConnectorThread thread, int timeout) throws Exception;
 
   /**
    * Publish any documents that the Publisher might not have published immediately when publish() was called.
