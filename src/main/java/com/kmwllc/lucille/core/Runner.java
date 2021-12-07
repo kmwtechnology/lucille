@@ -98,13 +98,15 @@ public class Runner {
 
     try {
       result = cli.hasOption("usekafka") ? runWithKafka(cli.hasOption("local")) : runLocal();
+
+      // log detailed metrics
+      Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
+        .outputTo(log).withLoggingLevel(getMetricsLoggingLevel()).build().report();
+
+      // log run summary
       log.info(result.toString());
     } finally {
       stopWatch.stop();
-
-      Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
-        .outputTo(log).withLoggingLevel(Slf4jReporter.LoggingLevel.DEBUG).build().report();
-
       log.info(String.format("Run took %.2f secs.", (double)stopWatch.getTime(TimeUnit.MILLISECONDS)/1000));
     }
 
@@ -354,4 +356,16 @@ public class Runner {
     }
   }
 
+
+  private static Slf4jReporter.LoggingLevel getMetricsLoggingLevel() {
+    try {
+      Config config = ConfigFactory.load();
+      return config.hasPath("runner.metricsLoggingLevel") ?
+        Slf4jReporter.LoggingLevel.valueOf(config.getString("runner.metricsLoggingLevel")) :
+        Slf4jReporter.LoggingLevel.DEBUG;
+    } catch (Exception e) {
+      log.error("Error obtaining metrics logging level", e);
+    }
+    return Slf4jReporter.LoggingLevel.DEBUG;
+  }
 }
