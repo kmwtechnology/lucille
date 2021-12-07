@@ -94,20 +94,21 @@ public class Runner {
 
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
-    boolean result = false;
+    RunResult result;
 
     try {
       result = cli.hasOption("usekafka") ? runWithKafka(cli.hasOption("local")) : runLocal();
+      log.info(result.toString());
     } finally {
       stopWatch.stop();
 
-      //Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
-      //  .outputTo(log).build().report();
+      Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
+        .outputTo(log).withLoggingLevel(Slf4jReporter.LoggingLevel.DEBUG).build().report();
 
       log.info(String.format("Run took %.2f secs.", (double)stopWatch.getTime(TimeUnit.MILLISECONDS)/1000));
     }
 
-    if (result) {
+    if (result.getStatus()) {
       System.exit(0);
     } else {
       System.exit(1);
@@ -135,7 +136,7 @@ public class Runner {
    * either being indexed or erroring-out. Returns false if the connector execution fails (i.e. if the connector
    * throws an exception).
    */
-  public boolean runConnector(Connector connector, Publisher publisher) throws Exception {
+  public ConnectorResult runConnector(Connector connector, Publisher publisher) throws Exception {
     try {
       return runConnectorInternal(connector, publisher);
     } finally {
@@ -143,7 +144,7 @@ public class Runner {
     }
   }
 
-  private boolean runConnectorInternal(Connector connector, Publisher publisher) throws Exception {
+  private ConnectorResult runConnectorInternal(Connector connector, Publisher publisher) throws Exception {
     log.info("Running connector " + connector.getName() + " feeding to pipeline " + connector.getPipelineName());
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
@@ -152,41 +153,44 @@ public class Runner {
       connector.preExecute(runId);
     } catch (ConnectorException e) {
       log.error("Connector failed to perform pre execution actions.", e);
-      return false;
+      return new ConnectorResult(connector, publisher, false,"preExecute failed.");
     }
 
     ConnectorThread connectorThread = new ConnectorThread(connector, publisher);
     connectorThread.start();
 
-    boolean result = true;
+    PublisherResult pubResult = null;
 
     // the publisher could be null if we are running a connector that has no associated pipeline and therefore
     // there's nothing to publish to
     if (publisher!=null) {
       try {
-        result = publisher.waitForCompletion(connectorThread, connectorTimeout);
+        pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
       } catch (Exception e) {
         log.error("Error while waiting for completion", e);
-        return false;
+        return new ConnectorResult(connector, publisher, false,"waitForCompletion failed.");
       } finally {
         publisher.close();
       }
     }
 
-    if (result) {
+    if (pubResult==null || pubResult.getStatus()) {
       try {
         connector.postExecute(runId);
       } catch (ConnectorException e) {
         log.error("Connector failed to perform post execution actions.", e);
-        return false;
+        return new ConnectorResult(connector, publisher, false,"postExecute failed.");
       }
     }
 
     stopWatch.stop();
+    double durationSecs = ((double)stopWatch.getTime(TimeUnit.MILLISECONDS))/1000;
     log.info(String.format("Connector %s feeding to pipeline %s complete. Time: %.2f secs.",
-      connector.getName(), connector.getPipelineName(), (double)stopWatch.getTime(TimeUnit.MILLISECONDS)/1000));
+      connector.getName(), connector.getPipelineName(), durationSecs));
 
-    return result;
+    boolean status = pubResult==null ? true : pubResult.getStatus();
+    String msg = pubResult==null ? null : pubResult.getMessage();
+    return new ConnectorResult(connector, publisher, status, msg, durationSecs);
   }
 
   /**
@@ -196,13 +200,14 @@ public class Runner {
    * Run in a local mode where message traffic is kept in memory and there is no
    * communication with Kafka. Documents are sent to Solr as expected; sending to Solr is NOT bypassed.
    */
-  public static boolean runLocal() throws Exception {
+  public static RunResult runLocal() throws Exception {
     return runLocal(ConfigFactory.load());
   }
 
-  public static boolean runLocal(Config config) throws Exception {
+  public static RunResult runLocal(Config config) throws Exception {
     Runner runner = new Runner(config);
     List<Connector> connectors = Connector.fromConfig(config);
+    List<ConnectorResult> connectorResults = new ArrayList<>();
 
     for (Connector connector : connectors) {
       LocalMessageManager manager = new LocalMessageManager(config);
@@ -210,16 +215,17 @@ public class Runner {
       IndexerMessageManagerFactory indexerMessageManagerFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
       PublisherMessageManagerFactory publisherMessageManagerFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
 
-      boolean result = run(config, runner, connector,
+      ConnectorResult result = run(config, runner, connector,
         workerMessageManagerFactory, indexerMessageManagerFactory, publisherMessageManagerFactory,
         true, false);
-      if (!result) {
+      connectorResults.add(result);
+      if (!result.getStatus()) {
         log.error("Aborting run because " + connector.getName() + " failed.");
-        return false;
+        return new RunResult(false, connectors, connectorResults);
       }
     }
 
-    return true;
+    return new RunResult(true, connectors, connectorResults);
   }
 
   /**
@@ -249,10 +255,10 @@ public class Runner {
       IndexerMessageManagerFactory indexerMessageManagerFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
       PublisherMessageManagerFactory publisherMessageManagerFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
       map.put(connector.getName(), manager);
-      boolean result = run(config, runner, connector,
+      ConnectorResult result = run(config, runner, connector,
         workerMessageManagerFactory, indexerMessageManagerFactory, publisherMessageManagerFactory,
         true, true);
-      if (!result) {
+      if (!result.getStatus()) {
         break;
       }
     }
@@ -267,10 +273,11 @@ public class Runner {
    * Run in Kafka mode where message traffic flows through the Kafka deployment defined
    * in the config.
    */
-  public static boolean runWithKafka(boolean startWorkerAndIndexer) throws Exception {
+  public static RunResult runWithKafka(boolean startWorkerAndIndexer) throws Exception {
     Config config = ConfigFactory.load();
     Runner runner = new Runner(config);
     List<Connector> connectors = Connector.fromConfig(config);
+    List<ConnectorResult> connectorResults = new ArrayList<>();
     for (Connector connector : connectors) {
       String pipelineName = connector.getPipelineName();
       WorkerMessageManagerFactory workerMessageManagerFactory =
@@ -280,23 +287,24 @@ public class Runner {
       PublisherMessageManagerFactory publisherMessageManagerFactory =
         PublisherMessageManagerFactory.getKafkaFactory(config);
 
-      boolean result = run(config, runner, connector, workerMessageManagerFactory,
+      ConnectorResult result = run(config, runner, connector, workerMessageManagerFactory,
         indexerMessageManagerFactory, publisherMessageManagerFactory, startWorkerAndIndexer, false);
-      if (!result) {
-        return false;
+      connectorResults.add(result);
+      if (!result.getStatus()) {
+        return new RunResult(false, connectors, connectorResults);
       }
     }
-    return true;
+    return new RunResult(true, connectors, connectorResults);
   }
 
-  private static boolean run(Config config,
-                             Runner runner,
-                             Connector connector,
-                             WorkerMessageManagerFactory workerMessageManagerFactory,
-                             IndexerMessageManagerFactory indexerMessageManagerFactory,
-                             PublisherMessageManagerFactory publisherMessageManagerFactory,
-                             boolean startWorkerAndIndexer,
-                             boolean bypassSolr) throws Exception {
+  private static ConnectorResult run(Config config,
+                                     Runner runner,
+                                     Connector connector,
+                                     WorkerMessageManagerFactory workerMessageManagerFactory,
+                                     IndexerMessageManagerFactory indexerMessageManagerFactory,
+                                     PublisherMessageManagerFactory publisherMessageManagerFactory,
+                                     boolean startWorkerAndIndexer,
+                                     boolean bypassSolr) throws Exception {
     String pipelineName = connector.getPipelineName();
     WorkerPool workerPool = null;
     Indexer indexer = null;
@@ -317,8 +325,9 @@ public class Runner {
         indexer = new Indexer(config, indexerMessageManager, bypassSolr, metricsPrefix);
 
         if (!indexer.validateConnection()) {
-          log.error("Indexer could not connect.");
-          return false;
+          String msg = "Indexer could not connect.";
+          log.error(msg);
+          return new ConnectorResult(connector, publisher,false, msg);
         }
 
         indexerThread = new Thread(indexer);

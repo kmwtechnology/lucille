@@ -146,7 +146,7 @@ public class RunnerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, runner.getRunId(), connector.getPipelineName());
     Instant start = Instant.now();
-    boolean result = runner.runConnector(connector, publisher);
+    boolean result = runner.runConnector(connector, publisher).getStatus();
     Instant end = Instant.now();
 
     assertFalse(result);
@@ -275,6 +275,17 @@ public class RunnerTest {
   }
 
   /**
+   * Test that the post completion events occur as expected in the case where no pipeline is configured.
+   */
+  @Test
+  public void testPostCompletionActionsWithoutPipeline() throws Exception {
+    PostCompletionCSVConnector.reset();
+    PersistingLocalMessageManager manager =
+      Runner.runInTestMode("RunnerTest/postCompletionActionsWithoutPipeline.conf").get("connector1");
+    assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
+  }
+
+  /**
    * Ensure that if pre completion events fail, further connectors in the pipeline will not run.
    */
   @Test
@@ -300,7 +311,7 @@ public class RunnerTest {
     Runner runner = new Runner(ConfigFactory.empty());
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
-    assertTrue(runner.runConnector(connector, publisher));
+    assertTrue(runner.runConnector(connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
     verify(connector, times(1)).postExecute(any());
@@ -309,7 +320,7 @@ public class RunnerTest {
     // if preExecute() throws an exception, execute() and postExecute() should not be called, but close() should be
     connector = mock(NoOpConnector.class);
     doThrow(new ConnectorException()).when(connector).preExecute(any());
-    assertFalse(runner.runConnector(connector, publisher));
+    assertFalse(runner.runConnector(connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(0)).execute(any());
     verify(connector, times(0)).postExecute(any());
@@ -318,7 +329,7 @@ public class RunnerTest {
     // if execute() throws an exception, postExecute() should not be called, but close() should be
     connector = mock(NoOpConnector.class);
     doThrow(new ConnectorException()).when(connector).execute(any());
-    assertFalse(runner.runConnector(connector, publisher));
+    assertFalse(runner.runConnector(connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
     verify(connector, times(0)).postExecute(any());
@@ -327,7 +338,7 @@ public class RunnerTest {
     // if postExecute() throws an exception, close() should still be called
     connector = mock(NoOpConnector.class);
     doThrow(new ConnectorException()).when(connector).postExecute(any());
-    assertFalse(runner.runConnector(connector, publisher));
+    assertFalse(runner.runConnector(connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
     verify(connector, times(1)).postExecute(any());
@@ -344,7 +355,7 @@ public class RunnerTest {
     // if the publisher throws an exception during execute(), postExecute() should not be called
     // both the publisher and connector should be closed
     // runConnector should return false and not propagate the exception
-    assertFalse(runner.runConnector(connector, publisher));
+    assertFalse(runner.runConnector(connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
     verify(connector, times(0)).postExecute(any());
@@ -436,7 +447,7 @@ public class RunnerTest {
   public void testIndexerConnectFailure() throws Exception {
     // use runLocal() instead of runInTestMode() so we attempt to start an Indexer and
     // handle the failure
-    assertFalse(Runner.runLocal(ConfigFactory.load("RunnerTest/indexerConnectFailure.conf")));
+    assertFalse(Runner.runLocal(ConfigFactory.load("RunnerTest/indexerConnectFailure.conf")).getStatus());
   }
 
 }

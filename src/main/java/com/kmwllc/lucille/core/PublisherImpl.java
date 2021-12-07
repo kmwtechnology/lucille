@@ -184,7 +184,7 @@ public class PublisherImpl implements Publisher {
   }
 
   @Override
-  public boolean waitForCompletion(ConnectorThread thread, int timeout) throws Exception {
+  public PublisherResult waitForCompletion(ConnectorThread thread, int timeout) throws Exception {
     start = Instant.now();
     Instant lastLog = Instant.now();
 
@@ -198,13 +198,13 @@ public class PublisherImpl implements Publisher {
 
       if (ChronoUnit.MILLIS.between(start, Instant.now()) > timeout) {
         log.error("Exiting run with " + numPending() + " pending documents; publisher timed out (" + timeout + "ms)");
-        return false;
+        return new PublisherResult(false, "Publisher timeout.");
       }
 
       // stop waiting if the connector threw an exception
       if (thread.hasException()) {
         log.error("Exiting run with " + numPending() + " pending documents; connector threw exception", thread.getException());
-        return false;
+        return new PublisherResult(false, "Connector exception.");
       }
 
       // We are done if 1) the Connector thread has terminated and therefore no more Documents will be generated,
@@ -228,7 +228,7 @@ public class PublisherImpl implements Publisher {
         if (numFailed>0) {
           log.error(numFailed + " documents FAILED, but run will continue.");
         }
-        return !thread.hasException();
+        return new PublisherResult(!thread.hasException(), null);
       }
 
       if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
