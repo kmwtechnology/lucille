@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
  * is stored in in-memory queues, or in Kafka mode, where message traffic flows through an external
  * deployment of Kafka.
  *
- * A local end-to-end run involves a total of 4 threads:
+ * A local end-to-end run involves a total of 4 threads for each connector:
  *
  * 1) a Worker thread polls for documents to process and runs them through the pipeline
  * 2) an Indexer thread polls for processed documents and indexes them
@@ -54,8 +54,12 @@ public class Runner {
 
   private static final Logger log = LoggerFactory.getLogger(Runner.class);
 
-  private final String runId;
-  private final int connectorTimeout;
+  public enum RunType {
+    TEST,
+    LOCAL,
+    KAFKA_LOCAL,
+    KAFKA_DISTRIBUTED
+  }
 
   /**
    * Runs the configured connectors.
@@ -97,11 +101,25 @@ public class Runner {
     RunResult result;
 
     try {
-      result = cli.hasOption("usekafka") ? runWithKafka(cli.hasOption("local")) : runLocal();
+
+      RunType runType;
+      if (cli.hasOption("usekafka")) {
+        if (cli.hasOption("local")) {
+          runType = RunType.KAFKA_LOCAL;
+        } else {
+          runType = RunType.KAFKA_DISTRIBUTED;
+        }
+      } else {
+        runType = RunType.LOCAL;
+      }
+
+      Config config = ConfigFactory.load();
+
+      result = run(config, runType);
 
       // log detailed metrics
       Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
-        .outputTo(log).withLoggingLevel(getMetricsLoggingLevel()).build().report();
+        .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
 
       // log run summary
       log.info(result.toString());
@@ -117,30 +135,84 @@ public class Runner {
     }
   }
 
-  public Runner(Config config) throws Exception {
-    // generate a unique ID for this run
-    this.runId = UUID.randomUUID().toString();
+  /**
+   * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
+   * config file. Stop the run if any of the connectors fails.
+   *
+   * Run in a local mode where message traffic is kept in memory and there is no
+   * communication with external systems like Kafka. Sending to solr is bypassed.
+   *
+   * Return a PersistingLocalMessageManager that
+   * can be used to review the messages that were sent between various components during the run.
+   */
+  public static Map<String, PersistingLocalMessageManager> runInTestMode(String configName) throws Exception {
+    Config config = ConfigFactory.load(configName);
+    RunResult result = run(config, RunType.TEST);
+    return result.getHistory();
+  }
+
+  /**
+   * Generates a run ID and performs an end-to-end run of the designated type.
+   */
+  public static RunResult run(Config config, RunType type) throws Exception {
+    String runId = UUID.randomUUID().toString();
     log.info("Starting run with id " + runId);
-    this.connectorTimeout =
-      config.hasPath("runner.connectorTimeout") ? config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
-  }
 
-  /**
-   * Returns the ID for the current run.
-   */
-  public String getRunId() {
-    return runId;
-  }
+    List<Connector> connectors = Connector.fromConfig(config);
+    List<ConnectorResult> connectorResults = new ArrayList<>();
 
+    boolean startWorkerAndIndexer = !type.equals(RunType.KAFKA_DISTRIBUTED);
+    boolean bypassSolr = type.equals(RunType.TEST);
+
+    Map<String,PersistingLocalMessageManager> history = type.equals(RunType.TEST) ? new HashMap<>() : null;
+
+    for (Connector connector : connectors) {
+
+      WorkerMessageManagerFactory workerMMFactory;
+      IndexerMessageManagerFactory indexerMMFactory;
+      PublisherMessageManagerFactory publisherMMFactory;
+
+      if (RunType.TEST.equals(type)) {
+        PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+        history.put(connector.getName(), manager);
+        workerMMFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
+        indexerMMFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
+        publisherMMFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
+      } else if (RunType.LOCAL.equals(type)) {
+        LocalMessageManager manager = new LocalMessageManager(config);
+        workerMMFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
+        indexerMMFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
+        publisherMMFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
+      } else { // RunType.KAFKA_LOCAL.equals(type) || RunType.KAFKA_DISTRIBUTED.equals(type)
+        workerMMFactory = WorkerMessageManagerFactory.getKafkaFactory(config, connector.getPipelineName());
+        indexerMMFactory = IndexerMessageManagerFactory.getKafkaFactory(config, connector.getPipelineName());
+        publisherMMFactory = PublisherMessageManagerFactory.getKafkaFactory(config);
+      }
+
+      ConnectorResult result =
+        runConnectorWithComponents(config, runId, connector,
+          workerMMFactory, indexerMMFactory, publisherMMFactory, startWorkerAndIndexer, bypassSolr);
+
+      connectorResults.add(result);
+
+      if (!result.getStatus()) {
+        log.error("Aborting run because " + connector.getName() + " failed.");
+        return new RunResult(false, connectors, connectorResults, history);
+      }
+    }
+
+    return new RunResult(true, connectors, connectorResults, history);
+  }
+  
   /**
-   * Runs the designated Connector. Returns true only when 1) the Connector has finished generating documents, and
-   * 2) all of the documents (and any generated children) have reached an end state in the workflow:
-   * either being indexed or erroring-out. Returns false if the connector execution fails (i.e. if the connector
-   * throws an exception).
+   * Runs the designated Connector. Returns a successful ConnectorResult only when 1) the Connector has
+   * finished generating documents, and 2) all of the documents (and any generated children) have reached
+   * an end state in the workflow: either being indexed or erroring-out. Returns a failing ConnectorResult
+   * if any connector lifecycle method throws an exception or the publisher itself fails
    */
-  public ConnectorResult runConnector(Connector connector, Publisher publisher) {
+  public static ConnectorResult runConnector(Config config, String runId, Connector connector, Publisher publisher) {
     try {
-      return runConnectorInternal(connector, publisher);
+      return runConnectorInternal(config, runId, connector, publisher);
     } finally {
       try {
         connector.close();
@@ -151,7 +223,14 @@ public class Runner {
     }
   }
 
-  private ConnectorResult runConnectorInternal(Connector connector, Publisher publisher) {
+  /**
+   * Helper used by runConnector(). Performs the following steps:
+   * 1) call connector.preExecute()
+   * 2) launch a thread that calls connector.execute() with the given publisher, and then publisher.flush()
+   * 3) call publisher.waitForCompletion()
+   * 4) call connector.postExecute()
+   */
+  private static ConnectorResult runConnectorInternal(Config config, String runId, Connector connector, Publisher publisher) {
     log.info("Running connector " + connector.getName() + " feeding to pipeline " + connector.getPipelineName());
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
@@ -172,6 +251,8 @@ public class Runner {
     // there's nothing to publish to
     if (publisher!=null) {
       try {
+        final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
+          config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
         pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
       } catch (Exception e) {
         log.error("waitForCompletion failed", e);
@@ -206,117 +287,17 @@ public class Runner {
   }
 
   /**
-   * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
-   * config file. Stop the run if any of the connectors fails.
-   *
-   * Run in a local mode where message traffic is kept in memory and there is no
-   * communication with Kafka. Documents are sent to Solr as expected; sending to Solr is NOT bypassed.
+   * Wrapper around runConnector() that starts and stop the other components necessary for a complete connector
+   * execution; specifically, a WorkerPool and an Indexer.
    */
-  public static RunResult runLocal() throws Exception {
-    return runLocal(ConfigFactory.load());
-  }
-
-  public static RunResult runLocal(Config config) throws Exception {
-    Runner runner = new Runner(config);
-    List<Connector> connectors = Connector.fromConfig(config);
-    List<ConnectorResult> connectorResults = new ArrayList<>();
-
-    for (Connector connector : connectors) {
-      LocalMessageManager manager = new LocalMessageManager(config);
-      WorkerMessageManagerFactory workerMessageManagerFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
-      IndexerMessageManagerFactory indexerMessageManagerFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
-      PublisherMessageManagerFactory publisherMessageManagerFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
-
-      ConnectorResult result = run(config, runner, connector,
-        workerMessageManagerFactory, indexerMessageManagerFactory, publisherMessageManagerFactory,
-        true, false);
-      connectorResults.add(result);
-      if (!result.getStatus()) {
-        log.error("Aborting run because " + connector.getName() + " failed.");
-        return new RunResult(false, connectors, connectorResults);
-      }
-    }
-
-    return new RunResult(true, connectors, connectorResults);
-  }
-
-  /**
-   * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
-   * config file. Stop the run if any of the connectors fails.
-   *
-   * Run in a local mode where message traffic is kept in memory and there is no
-   * communication with external systems like Kafka. Sending to solr is bypassed.
-   *
-   * Return a PersistingLocalMessageManager that
-   * can be used to review the messages that were sent between various components during the run.
-   */
-  public static Map<String, PersistingLocalMessageManager> runInTestMode(String configName) throws Exception {
-
-    Config config = ConfigFactory.load(configName);
-    Runner runner = new Runner(config);
-    List<Connector> connectors = Connector.fromConfig(config);
-    Map<String,PersistingLocalMessageManager> map = new HashMap<>();
-    for (Connector connector : connectors) {
-      // create a persisting message manager that saves all message traffic so we can review it
-      // even after various simulated topics have been fully consumed/cleared;
-      // this implements the Worker/Indexer/PublisherMessageManager interfaces so it can be passed
-      // to all three components; indeed, the same instance must be passed to the various components
-      // so those components will see each other's messages
-      PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-      WorkerMessageManagerFactory workerMessageManagerFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
-      IndexerMessageManagerFactory indexerMessageManagerFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
-      PublisherMessageManagerFactory publisherMessageManagerFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
-      map.put(connector.getName(), manager);
-      ConnectorResult result = run(config, runner, connector,
-        workerMessageManagerFactory, indexerMessageManagerFactory, publisherMessageManagerFactory,
-        true, true);
-      if (!result.getStatus()) {
-        break;
-      }
-    }
-
-    return map;
-  }
-
-  /**
-   * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
-   * config file. Stop the run if any of the connectors fails.
-   *
-   * Run in Kafka mode where message traffic flows through the Kafka deployment defined
-   * in the config.
-   */
-  public static RunResult runWithKafka(boolean startWorkerAndIndexer) throws Exception {
-    Config config = ConfigFactory.load();
-    Runner runner = new Runner(config);
-    List<Connector> connectors = Connector.fromConfig(config);
-    List<ConnectorResult> connectorResults = new ArrayList<>();
-    for (Connector connector : connectors) {
-      String pipelineName = connector.getPipelineName();
-      WorkerMessageManagerFactory workerMessageManagerFactory =
-        WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName);
-      IndexerMessageManagerFactory indexerMessageManagerFactory =
-        IndexerMessageManagerFactory.getKafkaFactory(config, pipelineName);
-      PublisherMessageManagerFactory publisherMessageManagerFactory =
-        PublisherMessageManagerFactory.getKafkaFactory(config);
-
-      ConnectorResult result = run(config, runner, connector, workerMessageManagerFactory,
-        indexerMessageManagerFactory, publisherMessageManagerFactory, startWorkerAndIndexer, false);
-      connectorResults.add(result);
-      if (!result.getStatus()) {
-        return new RunResult(false, connectors, connectorResults);
-      }
-    }
-    return new RunResult(true, connectors, connectorResults);
-  }
-
-  private static ConnectorResult run(Config config,
-                                     Runner runner,
-                                     Connector connector,
-                                     WorkerMessageManagerFactory workerMessageManagerFactory,
-                                     IndexerMessageManagerFactory indexerMessageManagerFactory,
-                                     PublisherMessageManagerFactory publisherMessageManagerFactory,
-                                     boolean startWorkerAndIndexer,
-                                     boolean bypassSolr) throws Exception {
+  private static ConnectorResult runConnectorWithComponents(Config config,
+                                                            String runId,
+                                                            Connector connector,
+                                                            WorkerMessageManagerFactory workerMessageManagerFactory,
+                                                            IndexerMessageManagerFactory indexerMessageManagerFactory,
+                                                            PublisherMessageManagerFactory publisherMessageManagerFactory,
+                                                            boolean startWorkerAndIndexer,
+                                                            boolean bypassSolr) throws Exception {
     String pipelineName = connector.getPipelineName();
     WorkerPool workerPool = null;
     Indexer indexer = null;
@@ -348,11 +329,11 @@ public class Runner {
 
       if (connector.getPipelineName() != null) {
         PublisherMessageManager publisherMessageManager = publisherMessageManagerFactory.create();
-        publisher = new PublisherImpl(config, publisherMessageManager, runner.getRunId(),
+        publisher = new PublisherImpl(config, publisherMessageManager, runId,
           connector.getPipelineName(), metricsPrefix, connector.requiresCollapsingPublisher());
       }
 
-      return runner.runConnector(connector, publisher);
+      return runConnector(config, runId, connector, publisher);
 
     } finally {
       if (workerPool != null) {
@@ -366,10 +347,8 @@ public class Runner {
     }
   }
 
-
-  private static Slf4jReporter.LoggingLevel getMetricsLoggingLevel() {
+  private static Slf4jReporter.LoggingLevel getMetricsLoggingLevel(Config config) {
     try {
-      Config config = ConfigFactory.load();
       return config.hasPath("runner.metricsLoggingLevel") ?
         Slf4jReporter.LoggingLevel.valueOf(config.getString("runner.metricsLoggingLevel")) :
         Slf4jReporter.LoggingLevel.DEBUG;

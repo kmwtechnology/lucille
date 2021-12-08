@@ -1,6 +1,9 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+
 import java.util.List;
+import java.util.Map;
 
 /**
  * Represents the outcome of a Run. Contains a status as well as a message summarizing the Run.
@@ -10,10 +13,17 @@ public class RunResult {
   // true indicates success, false indicates failure
   private final boolean status;
   private final String message;
+  private Map<String, PersistingLocalMessageManager> history = null;
 
   public RunResult(boolean status, List<Connector> connectors, List<ConnectorResult> connectorResults) {
     this.status = status;
     this.message = formatMessage(status, connectors, connectorResults);
+  }
+
+  public RunResult(boolean status, List<Connector> connectors, List<ConnectorResult> connectorResults,
+                   Map<String, PersistingLocalMessageManager> history) {
+    this(status, connectors, connectorResults);
+    this.history = history;
   }
 
   public boolean getStatus() {
@@ -63,4 +73,13 @@ public class RunResult {
     return sb.toString();
   }
 
+
+  /**
+   * Get the history of the run. History is only tracked for runs with RunType.TEST;
+   * otherwise the return value will be null;
+   *
+   */
+  public Map<String, PersistingLocalMessageManager> getHistory() {
+    return history;
+  }
 }
