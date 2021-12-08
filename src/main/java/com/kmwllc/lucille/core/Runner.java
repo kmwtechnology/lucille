@@ -62,6 +62,9 @@ public class Runner {
     KAFKA_DISTRIBUTED // assume Workers/Indexers were started separately (don't launch threads); have all components communicate via Kafka
   }
 
+  // no need to instantiate Runner; all methods currently static
+  private Runner() {}
+
   /**
    * Runs the configured connectors.
    *
