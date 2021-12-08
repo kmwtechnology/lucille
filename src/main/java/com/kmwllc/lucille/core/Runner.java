@@ -138,15 +138,20 @@ public class Runner {
    * either being indexed or erroring-out. Returns false if the connector execution fails (i.e. if the connector
    * throws an exception).
    */
-  public ConnectorResult runConnector(Connector connector, Publisher publisher) throws Exception {
+  public ConnectorResult runConnector(Connector connector, Publisher publisher) {
     try {
       return runConnectorInternal(connector, publisher);
     } finally {
-      connector.close();
+      try {
+        connector.close();
+      } catch (Exception e) {
+        log.error("Error closing connector", e);
+        return new ConnectorResult(connector, publisher, false, "Error closing connector");
+      }
     }
   }
 
-  private ConnectorResult runConnectorInternal(Connector connector, Publisher publisher) throws Exception {
+  private ConnectorResult runConnectorInternal(Connector connector, Publisher publisher) {
     log.info("Running connector " + connector.getName() + " feeding to pipeline " + connector.getPipelineName());
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
@@ -169,10 +174,15 @@ public class Runner {
       try {
         pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
       } catch (Exception e) {
-        log.error("Error while waiting for completion", e);
-        return new ConnectorResult(connector, publisher, false,"waitForCompletion failed.");
+        log.error("waitForCompletion failed", e);
+        return new ConnectorResult(connector, publisher, false,"waitForCompletion failed");
       } finally {
-        publisher.close();
+        try {
+          publisher.close();
+        } catch (Exception e) {
+          log.error("Error closing publisher", e);
+          return new ConnectorResult(connector, publisher, false, "Error closing publisher");
+        }
       }
     }
 
@@ -180,8 +190,8 @@ public class Runner {
       try {
         connector.postExecute(runId);
       } catch (ConnectorException e) {
-        log.error("Connector failed to perform post execution actions.", e);
-        return new ConnectorResult(connector, publisher, false,"postExecute failed.");
+        log.error("postExecute failed", e);
+        return new ConnectorResult(connector, publisher, false,"postExecute failed");
       }
     }
 

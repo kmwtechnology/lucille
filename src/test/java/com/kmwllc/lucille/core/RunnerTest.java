@@ -364,6 +364,39 @@ public class RunnerTest {
   }
 
   @Test
+  public void testPublisherCloseException() throws Exception {
+    NoOpConnector connector = mock(NoOpConnector.class);
+    Runner runner = new Runner(ConfigFactory.empty());
+    PublisherImpl publisher = mock(PublisherImpl.class);
+    doThrow(new Exception()).when(publisher).close();
+
+    // if the publisher throws an exception during execute(), postExecute() should not be called
+    // both the publisher and connector should be closed
+    // runConnector should return false and not propagate the exception
+    assertFalse(runner.runConnector(connector, publisher).getStatus());
+    verify(connector, times(1)).preExecute(any());
+    verify(connector, times(1)).execute(any());
+    verify(connector, times(0)).postExecute(any());
+    verify(connector, times(1)).close();
+    verify(publisher, times(1)).close();
+  }
+
+  @Test
+  public void testConnectorCloseException() throws Exception {
+    NoOpConnector connector = mock(NoOpConnector.class);
+    doThrow(new ConnectorException()).when(connector).close();
+    Runner runner = new Runner(ConfigFactory.empty());
+    PublisherImpl publisher = mock(PublisherImpl.class);
+
+    assertFalse(runner.runConnector(connector, publisher).getStatus());
+    verify(connector, times(1)).preExecute(any());
+    verify(connector, times(1)).execute(any());
+    verify(connector, times(1)).postExecute(any());
+    verify(connector, times(1)).close();
+    verify(publisher, times(1)).close();
+  }
+  
+  @Test
   public void testConnectorWithoutPipeline() throws Exception {
     // we should be able to run a connector that has no associated pipeline
     // in this case, the runner should not start Worker or Indexer threads
