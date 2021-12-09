@@ -405,6 +405,15 @@ public class RunnerTest {
   }
 
   @Test
+  public void testConnectorExecutionFailureWithoutPipeline() throws Exception {
+    // if a connector's execute() method fails, the run should fail,
+    // even in the case where connector is not feeding to a pipeline
+    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/failingExecuteWithoutPipeline.conf");
+    // the run should have been aborted with the second connector; the third should not have have been run
+    assertEquals(2, map.size());
+  }
+
+  @Test
   public void testConnectorsWithoutName() throws Exception {
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/connectorsWithoutName.conf");
     assertEquals(3, map.size());

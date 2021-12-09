@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
+import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 
 import java.time.Instant;
@@ -23,6 +24,17 @@ public class PostCompletionCSVConnector extends CSVConnector {
   public void postExecute(String runId) throws ConnectorException {
     completionActionsOccurred = true;
     postCompletionInstant = Instant.now();
+  }
+
+  @Override
+  public void execute(Publisher publisher) throws ConnectorException {
+    // this method may be called in different testing scenarios,
+    // where a pipeline is configured and where it isn't; here we try to handle both
+    if (publisher==null) {
+      return;
+    } else {
+      super.execute(publisher);
+    }
   }
 
   // Getters for our static variables. These will help us determine if the postCompletionActions were executed as
