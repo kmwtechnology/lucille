@@ -1,9 +1,12 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.*;
+import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.kmwllc.lucille.stage.StartStopCaptureStage;
+import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
@@ -12,10 +15,7 @@ import org.junit.runners.JUnit4;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
@@ -480,4 +480,39 @@ public class RunnerTest {
       Runner.RunType.LOCAL).getStatus());
   }
 
+  @Test
+  public void testMetrics() throws Exception {
+    SharedMetricRegistries.clear();
+    assertEquals(0, SharedMetricRegistries.names().size());
+    Runner.runInTestMode("RunnerTest/twoConnectors.conf");
+    assertEquals(1, SharedMetricRegistries.names().size());
+    assertEquals(LogUtils.METRICS_REG, SharedMetricRegistries.names().toArray()[0]);
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+
+    // confirm that each stage instance within each connector/pipeline pair creates a timer with a unique name
+    // note: it's important for names to be unique, otherwise metrics across instances of a stage would be combined
+    SortedMap<String, Timer> connector1Pipeline1Stage1Timers =
+      metrics.getTimers(MetricFilter.contains("connector1.pipeline1.stage.stage_1.processDocumentTime"));
+    SortedMap<String, Timer> connector2Pipeline2Stage1Timers =
+      metrics.getTimers(MetricFilter.contains("connector2.pipeline2.stage.stage_1.processDocumentTime"));
+    assertEquals(1, connector1Pipeline1Stage1Timers.size());
+    assertEquals(1, connector2Pipeline2Stage1Timers.size());
+
+    // each timer should have a count of one because each connector produces one document
+    assertEquals(1, connector1Pipeline1Stage1Timers.get(connector1Pipeline1Stage1Timers.firstKey()).getCount());
+    assertEquals(1, connector2Pipeline2Stage1Timers.get(connector2Pipeline2Stage1Timers.firstKey()).getCount());
+
+    // currently, metrics for the same connector/pipeline pairs will be combined across mulitple runs occurring in the
+    // same JVM;
+    // if we re-execute the run from above the counts will not be reset but will increase from their earlier values;
+    // we may wish to prevent this in the future by including the runId in the metrics naming scheme
+    // or by updating Runner to call SharedMetricRegistries.clear() before each run, assuming runs are sequential
+    Runner.runInTestMode("RunnerTest/twoConnectors.conf");
+    assertEquals(2, connector1Pipeline1Stage1Timers.get(connector1Pipeline1Stage1Timers.firstKey()).getCount());
+    assertEquals(2, connector2Pipeline2Stage1Timers.get(connector2Pipeline2Stage1Timers.firstKey()).getCount());
+
+    // not tested:
+    // 1) other metrics collected by Stage beyond the counts in the processDocumentTime timer
+    // 2) metrics collected by Indexer, Worker, Publisher
+  }
 }
