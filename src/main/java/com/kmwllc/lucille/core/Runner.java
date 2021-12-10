@@ -319,7 +319,7 @@ public class Runner {
         workerPool.start();
 
         IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
-        indexer = new Indexer(config, indexerMessageManager, bypassSolr, metricsPrefix);
+        indexer = new SolrIndexer(config, indexerMessageManager, bypassSolr, metricsPrefix);
 
         if (!indexer.validateConnection()) {
           String msg = "Indexer could not connect.";
