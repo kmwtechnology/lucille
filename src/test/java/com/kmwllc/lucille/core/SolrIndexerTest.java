@@ -184,7 +184,7 @@ public class IndexerTest {
     }
 
     @Override
-    public void sendToSolr(List<Document> docs) throws Exception {
+    public void sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to Solr are correctly handled");
     }
   }
