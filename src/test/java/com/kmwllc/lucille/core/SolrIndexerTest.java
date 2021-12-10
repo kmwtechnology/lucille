@@ -107,6 +107,57 @@ public class SolrIndexerTest {
   }
 
   /**
+   * Tests that the indexer correctly handles the idOverrideField config setting
+   *
+   * @throws Exception
+   */
+  @Test
+  public void testIdOverride() throws Exception {
+    Config config = ConfigFactory.empty().
+      withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("id_temp")).
+      withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    // idOverrideField is set to id_temp
+    // doc1 and doc2 have a value for id_temp, doc2 doesn't
+    Document doc = new Document("doc1", "test_run");
+    doc.setField("id_temp", "doc1_overriden");
+    Document doc2 = new Document("doc2", "test_run");
+    Document doc3 = new Document("doc3", "test_run");
+    doc3.setField("id_temp", "doc3_overriden");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(doc);
+    manager.sendCompleted(doc2);
+    manager.sendCompleted(doc3);
+    indexer.run(3);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor =
+      ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(3)).add((captor.capture()));
+    verify(solrClient, times(1)).close();
+    assertEquals(3, captor.getAllValues().size());
+
+    // confirm that doc1 and doc3 are sent with their overriden IDs, while doc2 is sent with its actual ID
+    assertEquals("doc1_overriden",
+      ((SolrInputDocument)captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
+    assertEquals(doc2.getId(), ((SolrInputDocument)captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
+    assertEquals("doc3_overriden",
+      ((SolrInputDocument)captor.getAllValues().get(2).toArray()[0]).getFieldValue("id"));
+
+    assertTrue(manager.hasEvents());
+    assertEquals(3, manager.getSavedEvents().size());
+
+    // confirm that events are sent using original doc IDs, not overriden ones
+    List<Event> events = manager.getSavedEvents();
+    for (int i = 1; i <= events.size(); i++) {
+      assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
+    }
+  }
+
+  /**
    * Tests that the indexer correctly handles nested child documents.
    *
    * @throws Exception
