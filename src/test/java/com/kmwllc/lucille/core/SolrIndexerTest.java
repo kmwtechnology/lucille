@@ -210,7 +210,7 @@ public class SolrIndexerTest {
   @Test
   public void testSolrException() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Config config = ConfigFactory.load("IndexerTest/exception.conf");
+    Config config = ConfigFactory.load("SolrIndexerTest/exception.conf");
 
     Document doc = new Document("doc1", "test_run");
     Document doc2 = new Document("doc2", "test_run");
