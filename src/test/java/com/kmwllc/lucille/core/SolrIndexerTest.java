@@ -16,7 +16,13 @@ import java.util.List;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
-public class IndexerTest {
+/**
+ * Tests for SolrIndexer.
+ *
+ * TODO: Split these tests into IndexerTest vs. SolrIndexerTest. Tests that only flex generic Indexer functionality
+ * should be moved to IndexerTest even if they use a SolrIndexer as a means of invoking that functionality.
+ */
+public class SolrIndexerTest {
 
   /**
    * Tests that the indexer correctly polls completed documents from the destination topic and sends them to Solr,
@@ -33,7 +39,7 @@ public class IndexerTest {
     Document doc2 = new Document("doc2", "test_run");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new Indexer(config, manager, solrClient, "");
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     indexer.run(2);
@@ -73,7 +79,7 @@ public class IndexerTest {
     Document doc2 = new Document("doc2", "test_run");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new Indexer(config, manager, solrClient, "");
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     indexer.run(2);
@@ -120,7 +126,7 @@ public class IndexerTest {
     assertTrue(doc.has(Document.CHILDREN_FIELD));
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new Indexer(config, manager, solrClient, "");
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -177,7 +183,7 @@ public class IndexerTest {
     }
   }
 
-  private static class ErroringIndexer extends Indexer {
+  private static class ErroringIndexer extends SolrIndexer {
 
     public ErroringIndexer(Config config, IndexerMessageManager manager, boolean bypass) {
       super(config, manager, bypass, "");
@@ -188,7 +194,5 @@ public class IndexerTest {
       throw new Exception("Test that errors when sending to Solr are correctly handled");
     }
   }
-
-
 
 }
