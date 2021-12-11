@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
+import com.kmwllc.lucille.indexer.SolrIndexer;
 import com.kmwllc.lucille.message.*;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
@@ -13,7 +14,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
