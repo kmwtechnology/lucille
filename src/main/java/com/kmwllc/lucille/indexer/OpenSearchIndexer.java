@@ -21,7 +21,7 @@ import java.util.Optional;
 
 public class OpenSearchIndexer extends Indexer {
 
-  private static final Logger log = LoggerFactory.getLogger(SolrIndexer.class);
+  private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
   private final OpenSearchClient client;
   private final String index;
@@ -58,6 +58,7 @@ public class OpenSearchIndexer extends Indexer {
     }
     if (!response.value()) {
       log.error("Non true response when pinging OpenSearch: " + response);
+      return false;
     }
     return true;
   }

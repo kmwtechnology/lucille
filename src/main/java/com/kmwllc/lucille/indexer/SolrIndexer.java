@@ -55,6 +55,7 @@ public class SolrIndexer extends Indexer {
     }
     if (response.getStatus()!=0) {
       log.error("Non zero response when pinging solr: " + response.getStatus());
+      return false;
     }
     return true;
   }
