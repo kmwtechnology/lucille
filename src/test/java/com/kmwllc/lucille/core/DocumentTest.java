@@ -162,12 +162,14 @@ public class DocumentTest {
   @Test
   public void testChildren() throws Exception {
     Document parent = new Document("parent");
+    assertFalse(parent.hasChildren());
     Document child1 = new Document("child1");
     child1.setField("field1", "val1");
     Document child2 = new Document("child2");
     child2.setField("field1", "val1b");
     child1.setField("field2", "val2");
     parent.addChild(child1);
+    assertTrue(parent.hasChildren());
     parent.addChild(child2);
     List<Document> children = parent.getChildren();
     assertEquals(2, children.size());
@@ -175,6 +177,7 @@ public class DocumentTest {
     assertEquals(child2, children.get(1));
     Document deserializedParent = Document.fromJsonString(parent.toString());
     assertEquals(parent, Document.fromJsonString(parent.toString()));
+    assertTrue(deserializedParent.hasChildren());
     List<Document> deserializedChildren = deserializedParent.getChildren();
     assertEquals(child1, deserializedChildren.get(0));
     assertEquals(child2, deserializedChildren.get(1));
@@ -183,7 +186,12 @@ public class DocumentTest {
   @Test
   public void testEmptyChildren() throws Exception {
     Document parent = new Document("parent");
+    String beforeString = parent.toString();
     List<Document> children = parent.getChildren();
+    String afterString = parent.toString();
+    // getChildren() should not create a .children field if it didn't already exist,
+    // so the json-stringified form of the document should not change after calling getChildren()
+    assertEquals(beforeString, afterString);
     assertEquals(0, children.size());
     assertEquals(parent, Document.fromJsonString(parent.toString()));
   }

@@ -468,9 +468,22 @@ public class Document implements Cloneable {
     node.add(document.data);
   }
 
+  public boolean hasChildren() {
+    if (!data.has(CHILDREN_FIELD)) {
+      return false;
+    }
+    if (getChildren().isEmpty()) {
+      return false;
+    }
+    return true;
+  }
+
   public List<Document> getChildren() {
+    if (!data.has(CHILDREN_FIELD)) {
+      return new ArrayList();
+    }
     ArrayNode node = data.withArray(CHILDREN_FIELD);
-    ArrayList<Document> children = new ArrayList<Document>();
+    ArrayList<Document> children = new ArrayList();
     for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
       JsonNode element = it.next();
       try {
