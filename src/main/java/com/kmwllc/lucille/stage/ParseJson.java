@@ -13,6 +13,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+/**
+ * This stage parses a JSON string and sets fields on the processed document according to the configured mapping using
+ * JSONPointers.
+ * @see <a href="https://datatracker.ietf.org/doc/html/rfc6901">JSONPointers</a>
+ * Config Parameters
+ * <p>
+ *   - src (String) : The field containing the JSON string to be parsed.
+ *   - jsonFieldPointers (Map<String, Object>) : Defines the mapping between JSON pointers to fields in the parsed JSON
+ *   and the destination fields in the processed document.
+ * </p>
+ */
 public class ParseJson extends Stage {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -29,12 +40,12 @@ public class ParseJson extends Stage {
    *
    * @param doc
    * @return
-   * @throws StageException
+   * @throws StageException when the src JSON string cannot be parsed.
    */
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     try {
-      //Should this be a byte[]. Document doesn't support byte fields currently.
+      //Should this be a byte[]? Document doesn't support byte fields currently.
       JsonNode srcNode = MAPPER.readTree(doc.getString(this.src));
       for (Entry<String, Object> entry : this.jsonFieldPointers.entrySet()) {
         JsonNode val = srcNode.at((String) entry.getValue());
