@@ -235,7 +235,8 @@ public class Runner {
    * 4) call connector.postExecute()
    */
   private static ConnectorResult runConnectorInternal(Config config, String runId, Connector connector, Publisher publisher) {
-    log.info("Running connector " + connector.getName() + " feeding to pipeline " + connector.getPipelineName());
+    log.info("Running connector " + connector.getName() + " feeding to pipeline " +
+      (connector.getPipelineName()==null ? "NOT CONFIGURED" : connector.getPipelineName()));
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
 
@@ -246,15 +247,22 @@ public class Runner {
       return new ConnectorResult(connector, publisher, false,"preExecute failed.");
     }
 
-    ConnectorThread connectorThread = new ConnectorThread(connector, publisher);
-    connectorThread.start();
-
     PublisherResult pubResult = null;
 
     // the publisher could be null if we are running a connector that has no associated pipeline and therefore
-    // there's nothing to publish to
-    if (publisher!=null) {
+    // there's nothing to publish to; in this case, we call execute synchronously because we are not
+    // pumping any work into the system and waiting for other components to complete it
+    if (publisher==null) {
       try {
+        connector.execute(null);
+      } catch (ConnectorException e) {
+        log.error("Connector execution failed.", e);
+        return new ConnectorResult(connector, publisher, false,"execute failed.");
+      }
+    } else {
+      try {
+        ConnectorThread connectorThread = new ConnectorThread(connector, publisher);
+        connectorThread.start();
         final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
           config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
         pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
@@ -319,7 +327,7 @@ public class Runner {
         workerPool.start();
 
         IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
-        indexer = new Indexer(config, indexerMessageManager, bypassSolr, metricsPrefix);
+        indexer = new SolrIndexer(config, indexerMessageManager, bypassSolr, metricsPrefix);
 
         if (!indexer.validateConnection()) {
           String msg = "Indexer could not connect.";
