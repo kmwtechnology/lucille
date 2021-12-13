@@ -21,78 +21,78 @@ import java.net.URI;
  */
 public class OpenSearchUtils {
 
-    /**
-     * Generate a OpenSearchClient from the given config file. Supports Http OpenSearchClients.
-     *
-     * @param config The configuration file to generate a client from
-     * @return the OpenSearch client
-     */
-    public static OpenSearchClient getOpenSearchClient(Config config) {
+  /**
+   * Generate a OpenSearchClient from the given config file. Supports Http OpenSearchClients.
+   *
+   * @param config The configuration file to generate a client from
+   * @return the OpenSearch client
+   */
+  public static OpenSearchClient getOpenSearchClient(Config config) {
 
-        // get host uri
-        URI hostUri = URI.create(getOpenSearchUrl(config));
+    // get host uri
+    URI hostUri = URI.create(getOpenSearchUrl(config));
 
-        // setup basic credentials handler
-        final CredentialsProvider provider = new BasicCredentialsProvider();
+    // setup basic credentials handler
+    final CredentialsProvider provider = new BasicCredentialsProvider();
 
-        // get user info from URI if present and setup BasicAuth credentials if needed
-        String userInfo = hostUri.getUserInfo();
-        if (userInfo != null) {
-            int pos = userInfo.indexOf(":");
-            String username = userInfo.substring(0, pos);
-            String password = userInfo.substring(pos + 1);
-            provider.setCredentials(AuthScope.ANY,
-                    new UsernamePasswordCredentials(username, password));
-        }
-
-        // needed to allow for local testing of HTTPS
-        SSLFactory.Builder sslFactoryBuilder = SSLFactory.builder();
-        boolean allowInvalidCert = getAllowInvalidCert(config);
-        if (allowInvalidCert) {
-            sslFactoryBuilder
-                    .withTrustingAllCertificatesWithoutValidation()
-                    .withHostnameVerifier((host, session) -> true);
-
-        } else {
-            sslFactoryBuilder.withDefaultTrustMaterial();
-        }
-        SSLFactory sslFactory = sslFactoryBuilder.build();
-
-        HttpHost target = new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme());
-        RestClientBuilder restClientBuilder = RestClient.builder(target);
-        restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder
-                .setDefaultCredentialsProvider(provider)
-                .setSSLContext(sslFactory.getSslContext())
-                .setSSLHostnameVerifier(sslFactory.getHostnameVerifier()));
-
-        Transport transport = new RestClientTransport(restClientBuilder.build(), new JacksonJsonpMapper());
-        return new OpenSearchClient(transport);
+    // get user info from URI if present and setup BasicAuth credentials if needed
+    String userInfo = hostUri.getUserInfo();
+    if (userInfo != null) {
+      int pos = userInfo.indexOf(":");
+      String username = userInfo.substring(0, pos);
+      String password = userInfo.substring(pos + 1);
+      provider.setCredentials(AuthScope.ANY,
+          new UsernamePasswordCredentials(username, password));
     }
 
-    public static String getOpenSearchUrl(Config config) {
-        if (config.hasPath("opensearch.url")) {
-            return config.getString("opensearch.url");
-        } else {
-            return config.getString("opensearchUrl");
-        }
-    }
+    // needed to allow for local testing of HTTPS
+    SSLFactory.Builder sslFactoryBuilder = SSLFactory.builder();
+    boolean allowInvalidCert = getAllowInvalidCert(config);
+    if (allowInvalidCert) {
+      sslFactoryBuilder
+          .withTrustingAllCertificatesWithoutValidation()
+          .withHostnameVerifier((host, session) -> true);
 
-    public static String getOpenSearchIndex(Config config) {
-        if (config.hasPath("opensearch.index")) {
-            return config.getString("opensearch.index");
-        } else {
-            return config.getString("opensearchIndex");
-        }
+    } else {
+      sslFactoryBuilder.withDefaultTrustMaterial();
     }
+    SSLFactory sslFactory = sslFactoryBuilder.build();
 
-    public static boolean getAllowInvalidCert(Config config) {
-        if (config.hasPath("opensearch.acceptInvalidCert")) {
-            return config.getString("opensearch.acceptInvalidCert").equalsIgnoreCase("true");
-        }
-        if (config.hasPath("opensearchAcceptInvalidCert")) {
-            return config.getString("opensearchAcceptInvalidCert").equalsIgnoreCase("true");
-        }
-        return false;
+    HttpHost target = new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme());
+    RestClientBuilder restClientBuilder = RestClient.builder(target);
+    restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder
+        .setDefaultCredentialsProvider(provider)
+        .setSSLContext(sslFactory.getSslContext())
+        .setSSLHostnameVerifier(sslFactory.getHostnameVerifier()));
+
+    Transport transport = new RestClientTransport(restClientBuilder.build(), new JacksonJsonpMapper());
+    return new OpenSearchClient(transport);
+  }
+
+  public static String getOpenSearchUrl(Config config) {
+    if (config.hasPath("opensearch.url")) {
+      return config.getString("opensearch.url");
+    } else {
+      return config.getString("opensearchUrl");
     }
+  }
+
+  public static String getOpenSearchIndex(Config config) {
+    if (config.hasPath("opensearch.index")) {
+      return config.getString("opensearch.index");
+    } else {
+      return config.getString("opensearchIndex");
+    }
+  }
+
+  public static boolean getAllowInvalidCert(Config config) {
+    if (config.hasPath("opensearch.acceptInvalidCert")) {
+      return config.getString("opensearch.acceptInvalidCert").equalsIgnoreCase("true");
+    }
+    if (config.hasPath("opensearchAcceptInvalidCert")) {
+      return config.getString("opensearchAcceptInvalidCert").equalsIgnoreCase("true");
+    }
+    return false;
+  }
 
 }
