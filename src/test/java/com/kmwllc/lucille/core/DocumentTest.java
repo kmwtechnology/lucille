@@ -29,6 +29,16 @@ public class DocumentTest {
     Document.fromJsonString("{\"id\":\"\"}");
   }
 
+  @Test(expected = DocumentException.class)
+  public void testIntIdJson() throws Exception {
+    Document.fromJsonString("{\"id\":1}");
+  }
+
+  @Test(expected = DocumentException.class)
+  public void testNullIdJson() throws Exception {
+    Document.fromJsonString("{\"id\":null}");
+  }
+
   @Test
   public void testLength() {
     Document d = new Document("id");
