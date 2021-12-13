@@ -80,9 +80,7 @@ public class Document implements Cloneable {
     Document d = new Document(tuple.getString("instrument_id_dv"));
 
     for (Map.Entry<Object, Object> e : tuple.getFields().entrySet()) {
-      if (!e.getKey().equals("instrument_id_dv")) {
         d.data.put((String) e.getKey(), (String) e.getValue());
-      }
     }
 
     return d;
