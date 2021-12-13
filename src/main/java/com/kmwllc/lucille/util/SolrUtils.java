@@ -27,19 +27,11 @@ public class SolrUtils {
   }
 
   public static String getSolrUrl(Config config) {
-    if (config.hasPath("solr.url")) {
-      return config.getString("solr.url");
-    } else {
-      return config.getString("solrUrl");
-    }
+    return config.getString("solr.url");
   }
 
   public static List<String> getSolrUrls(Config config) {
-    if (config.hasPath("solr.url")) {
-      return config.getStringList("solr.url");
-    } else {
-      return config.getStringList("solrUrl");
-    }
+    return config.getStringList("solr.url");
   }
 
 }
