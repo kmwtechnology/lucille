@@ -1,5 +1,8 @@
-package com.kmwllc.lucille.core;
+package com.kmwllc.lucille.indexer;
 
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;

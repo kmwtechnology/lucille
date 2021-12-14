@@ -15,7 +15,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
-abstract class Indexer implements Runnable {
+public abstract class Indexer implements Runnable {
 
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
@@ -67,7 +67,7 @@ abstract class Indexer implements Runnable {
    * use a single call to the batch API provided by the search engine client, if available,
    * as opposed to sending each document individually.
    */
-  abstract void sendToIndex(List<Document> documents) throws Exception;
+  abstract protected void sendToIndex(List<Document> documents) throws Exception;
 
   /**
    * Close the client or connection to the destination search engine.
@@ -97,7 +97,7 @@ abstract class Indexer implements Runnable {
     }
   }
 
-  protected void run(int iterations) {
+  public void run(int iterations) {
     try {
       for (int i = 0; i < iterations; i++) {
         checkForDoc();
@@ -133,7 +133,7 @@ abstract class Indexer implements Runnable {
 
   private void sendToIndexWithAccounting(List<Document> batchedDocs) {
     if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
-      log.info(String.format("%d docs indexed. One minute rate: %.2f docs/sec. Mean Solr latency: %.2f ms/doc.",
+      log.info(String.format("%d docs indexed. One minute rate: %.2f docs/sec. Mean backend latency: %.2f ms/doc.",
         meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()/1000000));
       lastLog = Instant.now();
     }
@@ -150,7 +150,7 @@ abstract class Indexer implements Runnable {
       histogram.update(stopWatch.getNanoTime() / batchedDocs.size());
       meter.mark(batchedDocs.size());
     } catch (Exception e) {
-      log.error("Error sending documents to solr: " + e.getMessage(), e);
+      log.error("Error sending documents to index: " + e.getMessage(), e);
 
       for (Document d : batchedDocs) {
         try {
