@@ -70,27 +70,16 @@ public class OpenSearchUtils {
   }
 
   public static String getOpenSearchUrl(Config config) {
-    if (config.hasPath("opensearch.url")) {
-      return config.getString("opensearch.url");
-    } else {
-      return config.getString("opensearchUrl");
-    }
+    return config.getString("opensearch.url"); // not optional, throws exception if not found
   }
 
   public static String getOpenSearchIndex(Config config) {
-    if (config.hasPath("opensearch.index")) {
-      return config.getString("opensearch.index");
-    } else {
-      return config.getString("opensearchIndex");
-    }
+    return config.getString("opensearch.index"); // not optional, throws exception if not found
   }
 
   public static boolean getAllowInvalidCert(Config config) {
     if (config.hasPath("opensearch.acceptInvalidCert")) {
       return config.getString("opensearch.acceptInvalidCert").equalsIgnoreCase("true");
-    }
-    if (config.hasPath("opensearchAcceptInvalidCert")) {
-      return config.getString("opensearchAcceptInvalidCert").equalsIgnoreCase("true");
     }
     return false;
   }
