@@ -20,8 +20,8 @@ public class SolrUtils {
   /**
    * Generate a SolrClient from the given config file. Supports both Cloud and Http SolrClients.
    *
-   * @param config  The configuration file to generate a client from
-   * @return  the solr client
+   * @param config The configuration file to generate a client from
+   * @return the solr client
    */
   public static SolrClient getSolrClient(Config config) {
     if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
@@ -47,10 +47,17 @@ public class SolrUtils {
     }
   }
 
+  /**
+   * This method will convert a Tuple produced by a Solr Streaming Expression into a Lucille Document. If no value is
+   * set in the id field of the Tuple, a random UUID will be set as the Document's id.
+   *
+   * @param tuple a Tuple from Solr
+   * @return  a Document
+   */
   public static Document toDocument(Tuple tuple) {
     Document d;
-    if (tuple.getString("id") != null) {
-      d = new Document(tuple.getString("id"));
+    if (tuple.getString(Document.ID_FIELD) != null) {
+      d = new Document(tuple.getString(Document.ID_FIELD));
     } else {
       d = new Document(UUID.randomUUID().toString());
     }
