@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
+import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.*;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
@@ -13,7 +14,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -309,7 +309,7 @@ public class Runner {
                                                             IndexerMessageManagerFactory indexerMessageManagerFactory,
                                                             PublisherMessageManagerFactory publisherMessageManagerFactory,
                                                             boolean startWorkerAndIndexer,
-                                                            boolean bypassSolr) throws Exception {
+                                                            boolean bypassIndexer) throws Exception {
     String pipelineName = connector.getPipelineName();
     WorkerPool workerPool = null;
     Indexer indexer = null;
@@ -327,7 +327,7 @@ public class Runner {
         workerPool.start();
 
         IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
-        indexer = new SolrIndexer(config, indexerMessageManager, bypassSolr, metricsPrefix);
+        indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassIndexer, metricsPrefix);
 
         if (!indexer.validateConnection()) {
           String msg = "Indexer could not connect.";

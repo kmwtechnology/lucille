@@ -1,5 +1,8 @@
-package com.kmwllc.lucille.core;
+package com.kmwllc.lucille.indexer;
 
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.SolrUtils;
@@ -39,7 +42,7 @@ public class SolrIndexer extends Indexer {
     if (solrClient==null) {
       return true;
     }
-    SolrPingResponse response = null;
+    SolrPingResponse response;
     try {
       response = solrClient.ping();
     } catch (Exception e) {
@@ -52,6 +55,7 @@ public class SolrIndexer extends Indexer {
     }
     if (response.getStatus()!=0) {
       log.error("Non zero response when pinging solr: " + response.getStatus());
+      return false;
     }
     return true;
   }
