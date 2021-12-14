@@ -47,7 +47,7 @@ public class SolrUtils {
     }
   }
 
-  public static Document fromSolrTuple(Tuple tuple) {
+  public static Document toDocument(Tuple tuple) {
     Document d;
     if (tuple.getString("id") != null) {
       d = new Document(tuple.getString("id"));
