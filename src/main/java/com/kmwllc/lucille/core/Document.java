@@ -76,16 +76,6 @@ public class Document implements Cloneable {
     return doc;
   }
 
-  public static Document fromSolrTuple(Tuple tuple) throws DocumentException {
-    Document d = new Document(tuple.getString("instrument_id_dv"));
-
-    for (Map.Entry<Object, Object> e : tuple.getFields().entrySet()) {
-        d.data.put((String) e.getKey(), (String) e.getValue());
-    }
-
-    return d;
-  }
-
   public void removeField(String name) {
     validateNotReservedField(name);
     data.remove(name);
