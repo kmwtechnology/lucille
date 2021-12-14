@@ -8,6 +8,7 @@ import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.io.Tuple;
 
+import javax.print.Doc;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -48,18 +49,18 @@ public class SolrUtils {
   }
 
   /**
-   * This method will convert a Tuple produced by a Solr Streaming Expression into a Lucille Document. If no value is
-   * set in the id field of the Tuple, a random UUID will be set as the Document's id.
+   * This method will convert a Tuple produced by a Solr Streaming Expression into a Lucille Document. The Tuple must
+   * have a value in its id field in order to be converted.
    *
    * @param tuple a Tuple from Solr
    * @return  a Document
    */
-  public static Document toDocument(Tuple tuple) {
+  public static Document toDocument(Tuple tuple) throws DocumentException {
     Document d;
     if (tuple.getString(Document.ID_FIELD) != null) {
       d = new Document(tuple.getString(Document.ID_FIELD));
     } else {
-      d = new Document(UUID.randomUUID().toString());
+      throw new DocumentException("Unable to create Document from Tuple. No id field present.");
     }
 
     for (Map.Entry<Object, Object> e : tuple.getFields().entrySet()) {
