@@ -9,13 +9,14 @@ import org.slf4j.LoggerFactory;
 
 public class IndexerFactory {
   public static final String DEFAULT_INDEXER_TYPE = "Solr";
-  private static final Logger log = LoggerFactory.getLogger(Indexer.class);
+  private static final Logger log = LoggerFactory.getLogger(IndexerFactory.class);
 
   /**
    * Instantiates an Indexer from the designated Config.
    */
-  public static Indexer fromConfig(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) throws ClassNotFoundException, NoSuchMethodException,
-      IllegalAccessException, IndexerException {
+  public static Indexer fromConfig(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix)
+    throws  IndexerException {
+
     String typeName;
 
     // fetch indexer type if specified
