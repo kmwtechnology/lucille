@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.indexer;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
@@ -235,6 +237,78 @@ public class SolrIndexerTest {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       assertEquals(Event.Type.FAIL, events.get(i - 1).getType());
     }
+  }
+
+  @Test
+  public void testIndexerWithNestedJson() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    Document doc = new Document("doc1", "test_run");
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode jsonNode = mapper.readTree("{\"a\":1, \"b\":2}");
+    doc.setField("myJsonField", jsonNode);
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor =
+      ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(1)).add((captor.capture()));
+    assertEquals(1, captor.getAllValues().size());
+    SolrInputDocument solrDoc = (SolrInputDocument)captor.getAllValues().get(0).toArray()[0];
+    assertEquals(doc.getId(), solrDoc.getFieldValue("id"));
+    assertEquals(doc.asMap().get("myJsonField"), solrDoc.getFieldValue("myJsonField"));
+  }
+
+  @Test
+  public void testIndexerWithNestedJsonMultivalued() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    Document doc = new Document("doc1", "test_run");
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
+    doc.setField("myJsonField", jsonNode);
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor =
+      ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(1)).add((captor.capture()));
+    assertEquals(1, captor.getAllValues().size());
+    SolrInputDocument solrDoc = (SolrInputDocument)captor.getAllValues().get(0).toArray()[0];
+    assertEquals(doc.getId(), solrDoc.getFieldValue("id"));
+    assertEquals(doc.asMap().get("myJsonField"), solrDoc.getFieldValue("myJsonField"));
+  }
+
+  @Test
+  public void testIndexerWithNestedJsonWithObjects() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    Document doc = new Document("doc1", "test_run");
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
+    doc.setField("myJsonField", jsonNode);
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor =
+      ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(1)).add((captor.capture()));
+    assertEquals(1, captor.getAllValues().size());
+    SolrInputDocument solrDoc = (SolrInputDocument)captor.getAllValues().get(0).toArray()[0];
+    assertEquals(doc.getId(), solrDoc.getFieldValue("id"));
+    assertEquals(doc.asMap().get("myJsonField"), solrDoc.getFieldValue("myJsonField"));
   }
 
   private static class ErroringIndexer extends SolrIndexer {
