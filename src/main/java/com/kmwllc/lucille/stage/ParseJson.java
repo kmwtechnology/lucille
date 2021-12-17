@@ -3,6 +3,12 @@ package com.kmwllc.lucille.stage;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jayway.jsonpath.Configuration;
+import com.jayway.jsonpath.DocumentContext;
+import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.Option;
+import com.jayway.jsonpath.spi.json.JacksonJsonProvider;
+import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -15,46 +21,54 @@ import java.util.Map.Entry;
 
 /**
  * This stage parses a JSON string and sets fields on the processed document according to the configured mapping using
- * JSONPointers.
- * @see <a href="https://datatracker.ietf.org/doc/html/rfc6901">JSONPointers</a>
+ * JsonPath expressions.
+ * @see <a href="https://github.com/json-path/JsonPath">JsonPath</a>
  * Config Parameters
  * <p>
  *   - src (String) : The field containing the JSON string to be parsed.
- *   - jsonFieldPointers (Map<String, Object>) : Defines the mapping between JSON pointers to fields in the parsed JSON
- *   and the destination fields in the processed document.
+ *   - jsonFieldPaths (Map<String, Object>) : Defines the mapping from JsonPath expressions
+ *   to the destination fields in the processed document.
  * </p>
  */
 public class ParseJson extends Stage {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final String src;
-  private final Map<String, Object> jsonFieldPointers;
+  private final Map<String, Object> jsonFieldPaths;
+  private final Configuration jsonPathConf;
 
   public ParseJson(Config config) {
     super(config);
     this.src = config.getString("src");
-    this.jsonFieldPointers = config.getConfig("jsonFieldPointers").root().unwrapped();
+    this.jsonFieldPaths = config.getConfig("jsonFieldPointers").root().unwrapped();
+    this.jsonPathConf = Configuration.builder()
+      .jsonProvider(new JacksonJsonProvider())
+      .mappingProvider(new JacksonMappingProvider())
+      .options(Option.DEFAULT_PATH_LEAF_TO_NULL, Option.SUPPRESS_EXCEPTIONS).build();
+  }
+
+  @Override
+  public void start() {
+
   }
 
   /**
    *
    * @param doc
    * @return
-   * @throws StageException when the src JSON string cannot be parsed.
    */
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    try {
+
       //Should this be a byte[]? Document doesn't support byte fields currently.
-      JsonNode srcNode = MAPPER.readTree(doc.getString(this.src));
-      for (Entry<String, Object> entry : this.jsonFieldPointers.entrySet()) {
-        JsonNode val = srcNode.at((String) entry.getValue());
+      DocumentContext ctx = JsonPath.using(jsonPathConf).parse(doc.getString(this.src));
+      for (Entry<String, Object> entry : this.jsonFieldPaths.entrySet()) {
+        //JsonNode val = srcNode.at((String) entry.getValue());
+        JsonNode val = ctx.read((String) entry.getValue(), JsonNode.class);
+
         doc.setField(entry.getKey(), val);
       }
       doc.removeField(this.src);
       return null;
-    } catch (JsonProcessingException e) {
-      throw new StageException("Not able to parse JSON for document", e);
-    }
   }
 }

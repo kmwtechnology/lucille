@@ -78,6 +78,14 @@ public class ParseJsonTest {
       assertThat(menuItems.get(2).get("value"), equalTo("Close"));
       assertThat(menuItems.get(2).get("onclick"), equalTo("CloseDoc()"));
 
+      //$.menu.popup.menuitem[*].value should consolidate the value field from menuitem objects into a single multivalued field.
+      assertThat(doc.isMultiValued("menuItemValues"), CoreMatchers.is(true));
+      List<String> menuItemValues = doc.getStringList("menuItemValues");
+      assertThat(menuItemValues.size(), CoreMatchers.is(3));
+      assertThat(menuItemValues.get(0), equalTo("New"));
+      assertThat(menuItemValues.get(1), equalTo("Open"));
+      assertThat(menuItemValues.get(2), equalTo("Close"));
+
       assertThat(doc.isMultiValued("items"), CoreMatchers.is(true));
       List<String> itemStrings = doc.getStringList("items");
       assertThat(itemStrings.size(), CoreMatchers.is(7));
