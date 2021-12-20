@@ -380,14 +380,7 @@ public class RunnerTest {
     //  runConnector should return false and not propagate the exception
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
-
-    // TODO: this fails in some environments
-    // we would expect that Runner would not pass the publisher.waitForCompletion() step until
-    // Connector.execute() had completed and the connector thread had terminated;
-    // need to investigate whether this test failure indicates a multi-threading edge case
-    // or whether it is an artifact of mocking
-    // verify(connector, times(1)).execute(publisher);
-
+    verify(connector, times(1)).execute(publisher);
     verify(connector, times(0)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();

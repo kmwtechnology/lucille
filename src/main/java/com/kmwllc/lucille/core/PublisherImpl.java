@@ -210,7 +210,9 @@ public class PublisherImpl implements Publisher {
       // We are done if 1) the Connector thread has terminated and therefore no more Documents will be generated,
       // 2) all published Documents and their children are accounted for (none are pending),
       // 3) there are no more Events relating to the current run to consume
-      if (!thread.isAlive() && !hasPending() && !manager.hasEvents()) {
+      // We use thread.getState() instead of thread.isAlive() because thread.isAlive() may return false immediately
+      // after thread.start() is called
+      if (Thread.State.TERMINATED.equals(thread.getState()) && !hasPending() && !manager.hasEvents()) {
         if (timerContext!=null) {
           timerContext.stop();
         }
@@ -232,7 +234,7 @@ public class PublisherImpl implements Publisher {
       }
 
       if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
-        if (thread.isAlive()) {
+        if (!Thread.State.TERMINATED.equals(thread.getState())) {
           log.info(String.format("%d docs published. One minute rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc. Waiting on %d docs.",
             timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000, numPending()));
         } else {
