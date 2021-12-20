@@ -101,6 +101,9 @@ public class SolrIndexer extends Indexer {
         }
 
         Object value = map.get(key);
+        if(value instanceof Map) {
+          throw new IllegalArgumentException(String.format("Object field '%s' on document id=%s is not supported by the SolrIndexer.", key, doc.getId()));
+        }
         solrDoc.setField(key,value);
       }
 

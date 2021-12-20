@@ -12,12 +12,14 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.common.SolrInputDocument;
+import org.hamcrest.MatcherAssert;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.Collection;
 import java.util.List;
 
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
@@ -256,11 +258,11 @@ public class SolrIndexerTest {
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
       ArgumentCaptor.forClass(Collection.class);
-    verify(solrClient, times(1)).add((captor.capture()));
-    assertEquals(1, captor.getAllValues().size());
-    SolrInputDocument solrDoc = (SolrInputDocument)captor.getAllValues().get(0).toArray()[0];
-    assertEquals(doc.getId(), solrDoc.getFieldValue("id"));
-    assertEquals(doc.asMap().get("myJsonField"), solrDoc.getFieldValue("myJsonField"));
+    verify(solrClient, times(0)).add((captor.capture()));
+    List<Event> events = manager.getSavedEvents();
+    MatcherAssert.assertThat(1, equalTo(events.size()));
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+      Event.Type.FAIL, equalTo(events.get(0).getType()));
   }
 
   @Test
