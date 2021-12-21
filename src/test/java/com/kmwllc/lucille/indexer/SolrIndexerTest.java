@@ -282,11 +282,11 @@ public class SolrIndexerTest {
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
       ArgumentCaptor.forClass(Collection.class);
-    verify(solrClient, times(1)).add((captor.capture()));
-    assertEquals(1, captor.getAllValues().size());
-    SolrInputDocument solrDoc = (SolrInputDocument)captor.getAllValues().get(0).toArray()[0];
-    assertEquals(doc.getId(), solrDoc.getFieldValue("id"));
-    assertEquals(doc.asMap().get("myJsonField"), solrDoc.getFieldValue("myJsonField"));
+    verify(solrClient, times(0)).add((captor.capture()));
+    List<Event> events = manager.getSavedEvents();
+    MatcherAssert.assertThat(1, equalTo(events.size()));
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+      Event.Type.FAIL, equalTo(events.get(0).getType()));
   }
 
   @Test
@@ -306,11 +306,11 @@ public class SolrIndexerTest {
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
       ArgumentCaptor.forClass(Collection.class);
-    verify(solrClient, times(1)).add((captor.capture()));
-    assertEquals(1, captor.getAllValues().size());
-    SolrInputDocument solrDoc = (SolrInputDocument)captor.getAllValues().get(0).toArray()[0];
-    assertEquals(doc.getId(), solrDoc.getFieldValue("id"));
-    assertEquals(doc.asMap().get("myJsonField"), solrDoc.getFieldValue("myJsonField"));
+    verify(solrClient, times(0)).add((captor.capture()));
+    List<Event> events = manager.getSavedEvents();
+    MatcherAssert.assertThat(1, equalTo(events.size()));
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+      Event.Type.FAIL, equalTo(events.get(0).getType()));
   }
 
   private static class ErroringIndexer extends SolrIndexer {
