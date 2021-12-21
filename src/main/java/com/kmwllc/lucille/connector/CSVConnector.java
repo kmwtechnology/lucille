@@ -13,12 +13,12 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
+/**
+ * Connector implementation that produces documents from the rows in a given CSV file.
+ */
 public class CSVConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(CSVConnector.class);
@@ -45,7 +45,6 @@ public class CSVConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    Instant startDocSet = Instant.now();
     try (CSVReader csvReader = new CSVReaderBuilder(FileUtils.getReader(path)).
       withCSVParser(new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).build()).build()) {
 
@@ -96,14 +95,12 @@ public class CSVConnector extends AbstractConnector {
         }
         doc.setField(lineNumField, lineNum);
 
-        // log.info("submitting " + doc);
         publisher.publish(doc);
       }
     } catch (Exception e) {
       log.error("Error during CSV processing", e);
     }
 
-    log.info("produced " + publisher.numPublished() + " docs; complete");
   }
 
   public String toString() {

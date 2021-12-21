@@ -26,10 +26,24 @@ import java.util.List;
  */
 public interface Connector extends AutoCloseable {
 
+  /**
+   * Returns the name of the Connector as specified in the configuration.
+   * Connectors within a Run must have unique names.
+   */
   String getName();
 
+  /**
+   * Returns the name of the pipeline to which this Connector's Documents should be sent.
+   */
   String getPipelineName();
 
+  /**
+   * Indicates whether this Connector instance expects to be passed a collapsing Publisher
+   * when execute() is called. A collapsing Publisher combines Documents that are
+   * published in sequence and share the same ID. Such sequences of Documents are combined
+   * into a single document with multi-valued fields.
+   *
+   */
   boolean requiresCollapsingPublisher();
 
   /**
