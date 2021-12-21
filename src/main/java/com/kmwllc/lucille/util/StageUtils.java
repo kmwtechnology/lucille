@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.core.StageException;
-import com.typesafe.config.Config;
 
 import java.util.List;
 

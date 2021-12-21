@@ -8,7 +8,6 @@ import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
