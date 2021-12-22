@@ -196,6 +196,11 @@ public class Document implements Cloneable {
     data.put(name, dateStr);
   }
 
+  public void setField(String name, JsonNode value) {
+    validateNotReservedField(name);
+    data.set(name, value);
+  }
+
   public void renameField(String oldName, String newName, UpdateMode mode) {
     validateNotReservedField(oldName);
     validateNotReservedField(newName);
