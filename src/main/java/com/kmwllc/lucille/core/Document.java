@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -195,6 +194,11 @@ public class Document implements Cloneable {
     LocalDateTime date = LocalDateTime.ofInstant(value.toInstant(), ZoneOffset.UTC);
     String dateStr = DateTimeFormatter.ISO_INSTANT.format(date);
     data.put(name, dateStr);
+  }
+
+  public void setField(String name, JsonNode value) {
+    validateNotReservedField(name);
+    data.set(name, value);
   }
 
   public void renameField(String oldName, String newName, UpdateMode mode) {

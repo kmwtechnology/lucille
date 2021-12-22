@@ -10,6 +10,10 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Implementation of the message manager APIs used by Indexers, Publishers, and Workers, suitable for
+ * sharing among those three components when executing Lucille in "local" mode.
+ */
 public class LocalMessageManager implements IndexerMessageManager, PublisherMessageManager, WorkerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(LocalMessageManager.class);

@@ -1,0 +1,38 @@
+{
+  "menu": {
+    "id": "file",
+    "value": "File",
+    "popup": {
+      "menuitem": [{
+        "value": "New",
+        "onclick": "CreateNewDoc()"
+      },
+        {
+          "value": "Open",
+          "onclick": "OpenDoc()"
+        },
+        {
+          "value": "Close",
+          "onclick": "CloseDoc()"
+        }
+      ]
+    }
+  },
+  "aNumber": 1,
+  "aDate": "2021-12-10",
+  "aTime": "2021-12-10T14:05:26Z",
+  "isFalse": false,
+  "isTrue": true,
+  "items": [
+    1,
+    2,
+    3,
+    false,
+    true,
+    3.74,
+    {
+      "id": "foo-bar-23",
+      "label": "Foo Bar 23"
+    }
+  ]
+}

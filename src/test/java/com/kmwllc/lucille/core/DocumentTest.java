@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.util.StageUtils;
 import org.junit.Test;
@@ -457,4 +459,62 @@ public class DocumentTest {
 
   }
 
+  @Test
+  public void testJsonField() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode node = mapper.readTree("{\"a\":1, \"b\":2}");
+    Document d = new Document("id1");
+    d.setField("myField", node);
+
+    assertEquals(d, Document.fromJsonString(d.toString()));
+    assertEquals(d.toString(), Document.fromJsonString(d.toString()).toString());
+
+    JsonNode node2 = mapper.readTree("{\"a\":1, \"b\":3}");
+    Document d2 = new Document("id1");
+    d2.setField("myField", node2);
+    assertNotEquals(d,d2);
+
+    d2.setField("myField", node.deepCopy());
+    assertEquals(d,d2);
+  }
+
+  @Test
+  public void testJsonMultivaluedField() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+
+    JsonNode node = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
+    Document d = new Document("id1");
+    d.setField("myField", node);
+
+    assertEquals(d, Document.fromJsonString(d.toString()));
+    assertEquals(d.toString(), Document.fromJsonString(d.toString()).toString());
+
+    JsonNode node2 = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 3}] }");
+    Document d2 = new Document("id1");
+    d2.setField("myField", node2);
+    assertNotEquals(d,d2);
+
+    d2.setField("myField", node.deepCopy());
+    assertEquals(d,d2);
+  }
+
+  @Test
+  public void testJsonObjectField() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+
+    JsonNode node = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
+    Document d = new Document("id1");
+    d.setField("myField", node);
+
+    assertEquals(d, Document.fromJsonString(d.toString()));
+    assertEquals(d.toString(), Document.fromJsonString(d.toString()).toString());
+
+    JsonNode node2 = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 3} }");
+    Document d2 = new Document("id1");
+    d2.setField("myField", node2);
+    assertNotEquals(d,d2);
+
+    d2.setField("myField", node.deepCopy());
+    assertEquals(d,d2);
+  }
 }
