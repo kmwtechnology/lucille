@@ -60,6 +60,8 @@ class Worker implements Runnable {
       Document doc;
       try {
         pollInstant.set(Instant.now());
+        // blocking poll with a timeout which we assume to be in the range of
+        // several milliseconds to several seconds
         doc = manager.pollDocToProcess();
       } catch (Exception e) {
         log.info("interrupted " + e);
