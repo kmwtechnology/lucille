@@ -120,7 +120,7 @@ public abstract class Indexer implements Runnable {
     }
 
     if (doc == null) {
-      sendToIndexWithAccounting(batch.add(null));
+      sendToIndexWithAccounting(batch.flushIfExpired());
       return;
     }
 

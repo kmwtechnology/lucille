@@ -67,24 +67,16 @@ public class BatchTest {
   }
 
   /**
-   * Test that supplying a null document to the batch does not break the code and produces the expected results.
+   * Test that supplying a null document to the batch causes a NullPointerException.
    */
-  @Test
+  @Test(expected = NullPointerException.class)
   public void testSupplyNull() {
     Batch batch = new Batch(100, 1000);
-    Document doc1 = new Document("doc1");
-    Document doc2 = new Document("doc2");
-
-    List<Document> docs = batch.add(doc1);
-    assertTrue(docs.isEmpty());
-    docs = batch.add(null);
-    assertTrue(docs.isEmpty());
-    docs = batch.add(doc2);
-    assertTrue(docs.isEmpty());
+    batch.add(null);
   }
 
   /**
-   * Test that the batch is flushed if add is called after the time elapsed since the last
+   * Test that the batch is flushed if flushIfExpired() or add() is called after the time elapsed since the last
    *
    * @throws InterruptedException
    */
@@ -98,7 +90,7 @@ public class BatchTest {
     List<Document> docs = batch.add(doc1);
     assertTrue(docs.isEmpty());
     TimeUnit.MILLISECONDS.sleep(15);
-    docs = batch.add(null);
+    docs = batch.flushIfExpired();
     assertEquals(1, docs.size());
     assertEquals("doc1", docs.get(0).getId());
     assertTrue(batch.flush().isEmpty());
@@ -110,6 +102,29 @@ public class BatchTest {
     assertEquals(1, docs.size());
     assertEquals("doc2", docs.get(0).getId());
     assertEquals(1, batch.flush().size());
+  }
+
+
+  /**
+   * Test that the batch is NOT flushed if flushIfExpired() or add() is called before the timeout.
+   */
+  @Test
+  public void testNonTimeout() throws InterruptedException {
+    Batch batch = new Batch(100, 100000);
+    Document doc1 = new Document("doc1");
+    Document doc2 = new Document("doc2");
+    Document doc3 = new Document("doc3");
+
+    assertTrue(batch.add(doc1).isEmpty());
+    assertTrue(batch.flushIfExpired().isEmpty());
+
+    assertTrue(batch.add(doc2).isEmpty());
+    assertTrue(batch.flushIfExpired().isEmpty());
+
+    assertTrue(batch.add(doc3).isEmpty());
+    assertTrue(batch.flushIfExpired().isEmpty());
+
+    assertEquals(3, batch.flush().size());
   }
 
 }
