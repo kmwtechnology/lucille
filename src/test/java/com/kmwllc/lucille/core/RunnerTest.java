@@ -355,7 +355,14 @@ public class RunnerTest {
     // runConnector should return false and not propagate the exception
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
-    verify(connector, times(1)).execute(any());
+
+    // We can assume that Runner started a ConnectorThread and
+    // went on to call publisher.waitForCompletion(); however,
+    // we don't know if the ConnectorThread called Connector.execute() yet,
+    // even though that's the first thing it does,
+    // so we can't make an assertion about that
+    //verify(connector, times(1)).execute(any());
+
     verify(connector, times(0)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
@@ -367,12 +374,13 @@ public class RunnerTest {
     PublisherImpl publisher = mock(PublisherImpl.class);
     doThrow(new Exception()).when(publisher).close();
 
-    // if the publisher throws an exception during execute(), postExecute() should not be called
-    // both the publisher and connector should be closed
-    // runConnector should return false and not propagate the exception
+    // if the publisher throws an exception during close():
+    //  Connector.postExecute() should not be called
+    //  the connector should be closed
+    //  runConnector should return false and not propagate the exception
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
-    verify(connector, times(1)).execute(any());
+    verify(connector, times(1)).execute(publisher);
     verify(connector, times(0)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
