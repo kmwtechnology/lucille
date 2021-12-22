@@ -57,8 +57,7 @@ public abstract class Indexer implements Runnable {
 
   /**
    * Return true if connection to the destination search engine is valid and the relevant index
-   * or collection exsits; false otherwise.
-   *
+   * or collection exists; false otherwise.
    */
   abstract public boolean validateConnection();
 
@@ -111,6 +110,8 @@ public abstract class Indexer implements Runnable {
   private void checkForDoc() {
     Document doc;
     try {
+      // blocking poll with a timeout which we assume to be in the range of
+      // several milliseconds to several seconds
       doc = manager.pollCompleted();
     } catch (Exception e) {
       log.info("Indexer interrupted ", e);
@@ -119,7 +120,7 @@ public abstract class Indexer implements Runnable {
     }
 
     if (doc == null) {
-      sendToIndexWithAccounting(batch.add(null));
+      sendToIndexWithAccounting(batch.flushIfExpired());
       return;
     }
 

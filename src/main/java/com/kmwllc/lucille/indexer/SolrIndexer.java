@@ -3,6 +3,7 @@ package com.kmwllc.lucille.indexer;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.SolrUtils;
@@ -101,6 +102,9 @@ public class SolrIndexer extends Indexer {
         }
 
         Object value = map.get(key);
+        if(value instanceof Map) {
+          throw new IndexerException(String.format("Object field '%s' on document id=%s is not supported by the SolrIndexer.", key, doc.getId()));
+        }
         solrDoc.setField(key,value);
       }
 
@@ -111,7 +115,7 @@ public class SolrIndexer extends Indexer {
     solrClient.add(solrDocs);
   }
 
-  private void addChildren(Document doc, SolrInputDocument solrDoc) {
+  private void addChildren(Document doc, SolrInputDocument solrDoc) throws IndexerException {
     List<Document> children = doc.getChildren();
     if (children==null || children.isEmpty()) {
       return;
@@ -125,6 +129,9 @@ public class SolrIndexer extends Indexer {
           continue;
         }
         Object value = map.get(key);
+        if(value instanceof Map) {
+          throw new IndexerException(String.format("Object field '%s' on child document id=%s of document id=%s is not supported by the SolrIndexer.", key, child.getId(), doc.getId()));
+        }
         solrChild.setField(key,value);
       }
       solrDoc.addChildDocument(solrChild);

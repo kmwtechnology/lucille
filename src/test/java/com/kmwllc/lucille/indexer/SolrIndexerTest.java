@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.indexer;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
@@ -10,12 +13,14 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.common.SolrInputDocument;
+import org.hamcrest.MatcherAssert;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.Collection;
 import java.util.List;
 
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
@@ -235,6 +240,156 @@ public class SolrIndexerTest {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       assertEquals(Event.Type.FAIL, events.get(i - 1).getType());
     }
+  }
+
+  @Test
+  public void testIndexerWithNestedJson() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    Document doc = new Document("doc1", "test_run");
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode jsonNode = mapper.readTree("{\"a\":1, \"b\":2}");
+    doc.setField("myJsonField", jsonNode);
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor =
+      ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(0)).add((captor.capture()));
+    List<Event> events = manager.getSavedEvents();
+    MatcherAssert.assertThat(1, equalTo(events.size()));
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+      Event.Type.FAIL, equalTo(events.get(0).getType()));
+  }
+
+  @Test
+  public void testIndexerWithChildDocWithNestedJson() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    Document doc = new Document("doc1", "test_run");
+    Document childDoc = new Document("child1");
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode jsonNode = mapper.readTree("{\"a\":1, \"b\":2}");
+    childDoc.setField("myJsonField", jsonNode);
+    doc.addChild(childDoc);
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor =
+      ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(0)).add((captor.capture()));
+    List<Event> events = manager.getSavedEvents();
+    MatcherAssert.assertThat(1, equalTo(events.size()));
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+      Event.Type.FAIL, equalTo(events.get(0).getType()));
+  }
+
+  @Test
+  public void testIndexerWithNestedJsonMultivalued() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    Document doc = new Document("doc1", "test_run");
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
+    doc.setField("myJsonField", jsonNode);
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor =
+      ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(0)).add((captor.capture()));
+    List<Event> events = manager.getSavedEvents();
+    MatcherAssert.assertThat(1, equalTo(events.size()));
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+      Event.Type.FAIL, equalTo(events.get(0).getType()));
+  }
+
+  @Test
+  public void testIndexerWithChildDocWithNestedJsonMultivalued() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    Document doc = new Document("doc1", "test_run");
+    Document childDoc = new Document("child1");
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
+    childDoc.setField("myJsonField", jsonNode);
+    doc.addChild(childDoc);
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor =
+      ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(0)).add((captor.capture()));
+    List<Event> events = manager.getSavedEvents();
+    MatcherAssert.assertThat(1, equalTo(events.size()));
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+      Event.Type.FAIL, equalTo(events.get(0).getType()));
+  }
+
+  @Test
+  public void testIndexerWithNestedJsonWithObjects() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    Document doc = new Document("doc1", "test_run");
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
+    doc.setField("myJsonField", jsonNode);
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor =
+      ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(0)).add((captor.capture()));
+    List<Event> events = manager.getSavedEvents();
+    MatcherAssert.assertThat(1, equalTo(events.size()));
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+      Event.Type.FAIL, equalTo(events.get(0).getType()));
+  }
+
+  @Test
+  public void testIndexerWithChildDocWithNestedJsonWithObjects() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    Document doc = new Document("doc1", "test_run");
+    Document childDoc = new Document("child1");
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
+    childDoc.setField("myJsonField", jsonNode);
+    doc.addChild(childDoc);
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor =
+      ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(0)).add((captor.capture()));
+    List<Event> events = manager.getSavedEvents();
+    MatcherAssert.assertThat(1, equalTo(events.size()));
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+      Event.Type.FAIL, equalTo(events.get(0).getType()));
   }
 
   private static class ErroringIndexer extends SolrIndexer {

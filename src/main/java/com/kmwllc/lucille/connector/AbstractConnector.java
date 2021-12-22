@@ -2,9 +2,13 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 
+/**
+ * Base class for use by Connector implementations, providing basic Config parsing behavior
+ * for obtaining connector name, pipeline name, doc ID prefix, and collapsing mode.
+ *
+ */
 public abstract class AbstractConnector implements Connector {
 
   private String name;
@@ -19,10 +23,12 @@ public abstract class AbstractConnector implements Connector {
     this.collapse = config.hasPath("collapse") ? config.getBoolean("collapse") : false;
   }
 
+  @Override
   public String getName() {
     return name;
   }
 
+  @Override
   public String getPipelineName() {
     return pipelineName;
   }
@@ -31,7 +37,26 @@ public abstract class AbstractConnector implements Connector {
   public boolean requiresCollapsingPublisher() {
     return collapse;
   }
-  
+
+  @Override
+  public void postExecute(String runId) throws ConnectorException {
+    // no-op
+  }
+
+  @Override
+  public void preExecute(String runId) throws ConnectorException {
+    // no-op
+  }
+
+  @Override
+  public void close() throws ConnectorException {
+    // no-op
+  }
+
+  /**
+   * Returns the configured prefix that this Connector will prepend to ids from the source
+   * data when creating Documents from that data.
+   */
   public String getDocIdPrefix() {
     return docIdPrefix;
   }
@@ -42,18 +67,6 @@ public abstract class AbstractConnector implements Connector {
    */
   public String createDocId(String id) {
     return docIdPrefix + id;
-  }
-
-  public void postExecute(String runId) throws ConnectorException {
-    // no-op
-  }
-
-  public void preExecute(String runId) throws ConnectorException {
-    // no-op
-  }
-
-  public void close() throws ConnectorException {
-    // no-op
   }
 
 }

@@ -18,8 +18,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * Publisher implementation that maintains an in-memory list of pending documents.
  *
- * Note that this implementation includes an explicit design decision that the the publisher should
- * not remember all of the documents it has published because there could be an unbounded number of such docs
+ * Note that this implementation includes an explicit design decision that the publisher should
+ * not remember all of the documents it has published because there could be an unbounded number of such documents
  * and they could take up significant space in memory. We don't even want the publisher to remember
  * all of the ids of those documents. As soon as the publisher learns that a document has reached
  * an end-state in the workflow, it can "forget" about that document aside from including it
@@ -188,8 +188,18 @@ public class PublisherImpl implements Publisher {
     start = Instant.now();
     Instant lastLog = Instant.now();
 
-    // poll for Events relating the current run; loop until all work is complete
+    // poll for Events relating the current run; loop until all work is complete;
+    // Note: this polling loop could be refactored so that we would 1) start a logging thread,
+    // 2) start a Connector thread, 3) start an Event handling thread which would poll for events
+    // in a fully blocking way, without a timeout, testing the termination conditions only after processing
+    // each event. We would then join on the connector thread, then the Event handling thread, and
+    // finally stop the logging thread.
     while (true) {
+
+      // we assume that manager.pollEvent() is a blocking operation with a timeout in the range
+      // of several milliseconds to several seconds.
+      // We want to avoid a busy wait; at the same time, we want to test the termination conditions of the loop
+      // periodically even when there are no available events to process
       Event event = manager.pollEvent();
 
       if (event !=null) {

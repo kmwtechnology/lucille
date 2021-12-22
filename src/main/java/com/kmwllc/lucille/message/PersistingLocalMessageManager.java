@@ -7,6 +7,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Wrapper around LocalMessageManager that stores message traffic so that it can be retrieved later.
+ * Intended for use in a testing context.
+ */
 public class PersistingLocalMessageManager implements IndexerMessageManager, PublisherMessageManager,
   WorkerMessageManager {
 
