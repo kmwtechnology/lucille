@@ -129,8 +129,10 @@ public class PublisherImpl implements Publisher {
 
   public void sendForProcessing(Document document) throws Exception {
     document.initializeRunId(runId);
+    // capture the docId before we make the document available for update by other threads
+    String docId = document.getId();
     manager.sendForProcessing(document);
-    docIdsToTrack.add(document.getId());
+    docIdsToTrack.add(docId);
     numPublished++;
   }
 
