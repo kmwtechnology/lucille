@@ -204,6 +204,7 @@ public class DocumentTest {
     Document document = new Document("doc");
     document.setField("field1", (String)null);
     assertEquals(null, document.getString("field1"));
+    assertFalse(document.isMultiValued("field1"));
 
     // convert the field to a list, add another null, and confirm that getStringList returns an array with two nulls
     document.addToField("field1", (String) null);
@@ -219,6 +220,7 @@ public class DocumentTest {
     assertEquals(null, field1.get(0));
     assertEquals(null, field1.get(1));
     assertEquals(2, field1.size());
+    assertTrue(document.isMultiValued("field1"));
   }
 
   @Test
