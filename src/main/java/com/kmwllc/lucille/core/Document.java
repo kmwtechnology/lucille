@@ -287,7 +287,7 @@ public class Document implements Cloneable {
   }
 
   public boolean isMultiValued(String name) {
-    return data.has(name) && data.get(name).getNodeType() == JsonNodeType.ARRAY;
+    return data.has(name) && JsonNodeType.ARRAY.equals(data.get(name).getNodeType());
   }
 
   public boolean equals(Object other) {
