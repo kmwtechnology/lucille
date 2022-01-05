@@ -49,28 +49,19 @@ public class S3Connector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    FileSystemManager fsManager;
-
-    try {
-      fsManager = VFS.getManager();
+    try (FileSystemManager fsManager = VFS.getManager()) {
+      // locate all valid files within the provided VFS path
+      traverseFiles(fsManager, vfsPath).forEach(fo -> {
+        final Document doc = buildDocument(fo);
+        try {
+          publisher.publish(doc);
+        } catch (Exception e) {
+          log.error("Unable to publish document '" + fo.getPublicURIString() + "', SKIPPING", e);
+        }
+      });
     } catch (FileSystemException e) {
       throw new ConnectorException("Unable to get VFS Manager object", e);
     }
-
-    // locate all valid files within the provided VFS path
-    traverseFiles(fsManager, vfsPath).forEach(fo -> {
-      final Document doc = buildDocument(fo);
-
-      try {
-        publisher.publish(doc);
-      } catch (Exception e) {
-        log.error("Unable to publish document '" + fo.getPublicURIString() + "', SKIPPING", e);
-      }
-
-    });
-
-    fsManager.close();
-
   }
 
   private Document buildDocument(FileObject fo) {
