@@ -8,6 +8,7 @@ import com.kmwllc.lucille.filetraverser.data.producer.DefaultDocumentProducer;
 import com.typesafe.config.Config;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.vfs2.*;
+import org.apache.commons.vfs2.impl.StandardFileSystemManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +31,7 @@ public class S3Connector extends AbstractConnector {
   private final List<Pattern> includes;
   private final List<Pattern> excludes;
 
-  public S3Connector(Config config) {
+  public S3Connector(Config config) throws ConnectorException {
     super(config);
 
     // normalize vfsPath to convert to a URI even if they specified an absolute or relative local file path
@@ -49,7 +50,9 @@ public class S3Connector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    try (FileSystemManager fsManager = VFS.getManager()) {
+    try (StandardFileSystemManager fsManager = new StandardFileSystemManager()) {
+      fsManager.init();
+
       // locate all valid files within the provided VFS path
       traverseFiles(fsManager, vfsPath).forEach(fo -> {
         final Document doc = buildDocument(fo);
@@ -59,6 +62,7 @@ public class S3Connector extends AbstractConnector {
           log.error("Unable to publish document '" + fo.getPublicURIString() + "', SKIPPING", e);
         }
       });
+
     } catch (FileSystemException e) {
       throw new ConnectorException("Unable to get VFS Manager object", e);
     }
@@ -125,7 +129,7 @@ public class S3Connector extends AbstractConnector {
     return true;
   }
 
-  public static boolean isValidURI(String uriString) {
+  private static boolean isValidURI(String uriString) {
     try {
       URI rawURI = URI.create(uriString);
       return rawURI.getScheme() != null && !rawURI.getScheme().trim().isEmpty();
@@ -133,6 +137,5 @@ public class S3Connector extends AbstractConnector {
       return false;
     }
   }
-
 
 }
