@@ -15,21 +15,23 @@ import org.junit.Test;
 import java.util.Arrays;
 import java.util.Base64;
 
-public class S3ConnectorTest {
+public class VFSConnectorTest {
 
   // Connector should be able to use any VFS compatible protocol including relative local files
   @Test
   public void testExecuteWithLocalFiles() throws Exception {
-    Config config = ConfigFactory.load("S3ConnectorTest/localfs.conf");
+    Config config = ConfigFactory.load("VFSConnectorTest/localfs.conf");
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run", "pipeline1");
-    Connector connector = new S3Connector(config);
+    Connector connector = new VFSConnector(config);
     connector.execute(publisher);
     Assert.assertEquals(4, manager.getSavedDocumentsSentForProcessing().size());
     String[] fileNames = {"localfs.conf", "localfs_filtered.conf", "s3config.conf"};
     for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
+      String docId = doc.getId();
       String filePath = doc.getString(FileTraverser.FILE_PATH);
       String content = new String(Base64.getDecoder().decode(doc.getString(DefaultDocumentProducer.CONTENT)));
+      Assert.assertTrue(docId.startsWith("file_"));
       Assert.assertTrue(Arrays.stream(fileNames).anyMatch(filePath::endsWith));
       if (filePath.endsWith("s3config.conf")) {
         Assert.assertTrue(content.contains("name: \"s3-connector-1\""));
@@ -40,17 +42,16 @@ public class S3ConnectorTest {
   // Connector should be able to use any VFS compatible protocol including relative local files
   @Test
   public void testExecuteWithLocalFilesFiltered() throws Exception {
-    Config config = ConfigFactory.load("S3ConnectorTest/localfs_filtered.conf");
+    Config config = ConfigFactory.load("VFSConnectorTest/localfs_filtered.conf");
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run", "pipeline1");
-    Connector connector = new S3Connector(config);
+    Connector connector = new VFSConnector(config);
     connector.execute(publisher);
     Assert.assertEquals(1, manager.getSavedDocumentsSentForProcessing().size());
     Document doc = manager.getSavedDocumentsSentForProcessing().get(0);
     Assert.assertTrue(doc.getString(FileTraverser.FILE_PATH).endsWith("localfs_filtered.conf"));
-    byte[] decodedBytes = Base64.getDecoder().decode(doc.getString(DefaultDocumentProducer.CONTENT));
-    String decodedString = new String(decodedBytes);
-    Assert.assertTrue(decodedString.contains("name: \"vfs-connector-1\""));
+    String contents = new String(Base64.getDecoder().decode(doc.getString(DefaultDocumentProducer.CONTENT)));
+    Assert.assertTrue(contents.contains("name: \"vfs-connector-1\""));
   }
 
 }

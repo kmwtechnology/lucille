@@ -24,14 +24,14 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-public class S3Connector extends AbstractConnector {
-  private static final Logger log = LoggerFactory.getLogger(S3Connector.class);
+public class VFSConnector extends AbstractConnector {
+  private static final Logger log = LoggerFactory.getLogger(VFSConnector.class);
 
   private final String vfsPath;
   private final List<Pattern> includes;
   private final List<Pattern> excludes;
 
-  public S3Connector(Config config) throws ConnectorException {
+  public VFSConnector(Config config) throws ConnectorException {
     super(config);
 
     // normalize vfsPath to convert to a URI even if they specified an absolute or relative local file path
@@ -70,7 +70,7 @@ public class S3Connector extends AbstractConnector {
 
   private Document buildDocument(FileObject fo) {
     final String docId = DigestUtils.md5Hex(fo.getName().getPath());
-    final Document doc = new Document(docId);
+    final Document doc = new Document(createDocId(docId));
 
     // Set up basic file properties on the doc
     doc.setField(FileTraverser.FILE_PATH, fo.getName().getURI());
