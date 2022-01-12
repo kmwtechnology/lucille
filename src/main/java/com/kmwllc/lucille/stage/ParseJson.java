@@ -1,14 +1,12 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.*;
 import com.jayway.jsonpath.spi.json.JacksonJsonProvider;
 import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.filetraverser.data.producer.DefaultDocumentProducer;
 import com.typesafe.config.Config;
 
 import java.io.ByteArrayInputStream;
@@ -64,8 +62,8 @@ public class ParseJson extends Stage {
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     DocumentContext ctx;
-    if(this.sourceIsBase64) {
-      try(InputStream stream = new ByteArrayInputStream(DECODER.decode(doc.getString(this.src)))) {
+    if (this.sourceIsBase64) {
+      try (InputStream stream = new ByteArrayInputStream(DECODER.decode(doc.getString(this.src)))) {
         ctx = this.jsonParseCtx.parse(stream);
       } catch (IOException e) {
         //do nothing this is a byte array stream close is a no-op. Throw stage exception just in case / futureproof.
