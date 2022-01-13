@@ -25,8 +25,8 @@ public class VFSConnectorTest {
     Publisher publisher = new PublisherImpl(config, manager, "run", "pipeline1");
     Connector connector = new VFSConnector(config);
     connector.execute(publisher);
-    Assert.assertEquals(9, manager.getSavedDocumentsSentForProcessing().size());
     String[] fileNames = {"a.json", "b.json", "c.json", "d.json", "e.json", "e.json.gz", "e.yaml", "f.jsonl"};
+    int docCount = 0;
     for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
       String docId = doc.getId();
       String filePath = doc.getString(FileTraverser.FILE_PATH);
@@ -38,7 +38,9 @@ public class VFSConnectorTest {
       if (filePath.endsWith("c.json")) {
         Assert.assertTrue(content.contains("\"artist\":\"Lou Levit\""));
       }
+      docCount++;
     }
+    Assert.assertEquals(8, docCount);
   }
 
   // Connector should be able to use any VFS compatible protocol including relative local files
