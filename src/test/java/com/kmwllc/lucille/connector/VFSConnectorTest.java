@@ -25,16 +25,18 @@ public class VFSConnectorTest {
     Publisher publisher = new PublisherImpl(config, manager, "run", "pipeline1");
     Connector connector = new VFSConnector(config);
     connector.execute(publisher);
-    Assert.assertEquals(4, manager.getSavedDocumentsSentForProcessing().size());
-    String[] fileNames = {"localfs.conf", "localfs_filtered.conf", "s3config.conf"};
+    Assert.assertEquals(9, manager.getSavedDocumentsSentForProcessing().size());
+    String[] fileNames = {"a.json", "b.json", "c.json", "d.json", "e.json", "e.json.gz", "e.yaml", "f.jsonl"};
     for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
       String docId = doc.getId();
       String filePath = doc.getString(FileTraverser.FILE_PATH);
+      // skip if it's an automatically generated Finder file because the directory was opened
+      if (filePath.endsWith(".DS_Store")) continue;
       String content = new String(Base64.getDecoder().decode(doc.getString(DefaultDocumentProducer.CONTENT)));
       Assert.assertTrue(docId.startsWith("file_"));
       Assert.assertTrue(Arrays.stream(fileNames).anyMatch(filePath::endsWith));
-      if (filePath.endsWith("s3config.conf")) {
-        Assert.assertTrue(content.contains("name: \"s3-connector-1\""));
+      if (filePath.endsWith("c.json")) {
+        Assert.assertTrue(content.contains("\"artist\":\"Lou Levit\""));
       }
     }
   }
@@ -47,11 +49,17 @@ public class VFSConnectorTest {
     Publisher publisher = new PublisherImpl(config, manager, "run", "pipeline1");
     Connector connector = new VFSConnector(config);
     connector.execute(publisher);
-    Assert.assertEquals(1, manager.getSavedDocumentsSentForProcessing().size());
-    Document doc = manager.getSavedDocumentsSentForProcessing().get(0);
-    Assert.assertTrue(doc.getString(FileTraverser.FILE_PATH).endsWith("localfs_filtered.conf"));
-    String contents = new String(Base64.getDecoder().decode(doc.getString(DefaultDocumentProducer.CONTENT)));
-    Assert.assertTrue(contents.contains("name: \"vfs-connector-1\""));
+    Assert.assertEquals(3, manager.getSavedDocumentsSentForProcessing().size());
+    String[] fileNames = {"a.json", "b.json", "c.json"};
+    for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
+      String docId = doc.getId();
+      String filePath = doc.getString(FileTraverser.FILE_PATH);
+      String content = new String(Base64.getDecoder().decode(doc.getString(DefaultDocumentProducer.CONTENT)));
+      Assert.assertTrue(Arrays.stream(fileNames).anyMatch(filePath::endsWith));
+      if (filePath.endsWith("a.json")) Assert.assertTrue(content.contains("\"filename\":\"400_106547e2f83b.jpg\""));
+      if (filePath.endsWith("b.json")) Assert.assertTrue(content.contains("\"imageHash\":\"1aaeac2de7c48e4e7773b1f92138291f\""));
+      if (filePath.endsWith("c.json")) Assert.assertTrue(content.contains("\"productImg\":\"mug-400_6812876c6c27.jpg\""));
+    }
   }
 
 }
