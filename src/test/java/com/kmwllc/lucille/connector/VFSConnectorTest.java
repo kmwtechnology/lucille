@@ -25,7 +25,8 @@ public class VFSConnectorTest {
     Publisher publisher = new PublisherImpl(config, manager, "run", "pipeline1");
     Connector connector = new VFSConnector(config);
     connector.execute(publisher);
-    String[] fileNames = {"a.json", "b.json", "c.json", "d.json", "e.json", "e.json.gz", "e.yaml", "f.jsonl"};
+    String[] fileNames = {"a.json", "b.json", "c.json", "d.json",
+        "subdir1/e.json", "subdir1/e.json.gz", "subdir1/e.yaml", "subdir1/f.jsonl"};
     int docCount = 0;
     for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
       String docId = doc.getId();
@@ -37,6 +38,9 @@ public class VFSConnectorTest {
       Assert.assertTrue(Arrays.stream(fileNames).anyMatch(filePath::endsWith));
       if (filePath.endsWith("c.json")) {
         Assert.assertTrue(content.contains("\"artist\":\"Lou Levit\""));
+      }
+      if (filePath.endsWith("subdir1/e.yaml")) {
+        Assert.assertTrue(content.contains("slug: Awesome-Wood-Mug"));
       }
       docCount++;
     }
