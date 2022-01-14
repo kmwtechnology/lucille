@@ -23,6 +23,7 @@
     <opensearch-rest-client.version>1.2.0</opensearch-rest-client.version>
     <opensearch.version>0.1.0</opensearch.version>
     <sslcontext-kickstart.version>7.0.3</sslcontext-kickstart.version>
+    <vfs-s3.version>4.3.5</vfs-s3.version>
     <log4j.version>2.17.0</log4j.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -342,6 +343,13 @@
       <version>${sslcontext-kickstart.version}</version>
     </dependency>
 
+    <!-- S3 Virtual File System Support -->
+    <dependency>
+      <groupId>com.github.abashev</groupId>
+      <artifactId>vfs-s3</artifactId>
+      <version>${vfs-s3.version}</version>
+      <classifier>with-aws-sdk</classifier>
+    </dependency>
 
     <dependency>
       <groupId>org.ahocorasick</groupId>
