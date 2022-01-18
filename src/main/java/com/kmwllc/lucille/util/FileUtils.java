@@ -15,19 +15,22 @@ public class FileUtils {
    *
    */
   public static Reader getReader(String path) throws IOException {
+    return getReader(path, "utf-8");
+  }
 
+  public static Reader getReader(String path, String encoding) throws IOException {
     if (!path.startsWith("classpath:")) {
       // This method of creating the Reader is used because it handles none UTF-8 characters by replacing them with UTF
       // chars, rather than throwing an Exception.
       // https://stackoverflow.com/questions/26268132/all-inclusive-charset-to-avoid-java-nio-charset-malformedinputexception-input
       // return Files.newBufferedReader(Paths.get(path), StandardCharsets.UTF_8);
-      return new BufferedReader(new InputStreamReader(new FileInputStream(path),"utf-8"));
+      return new BufferedReader(new InputStreamReader(new FileInputStream(path),encoding));
     } else {
       InputStream is = FileUtils.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":")+1));
-      return new BufferedReader(new InputStreamReader(is));
+      return new BufferedReader(new InputStreamReader(is, encoding));
     }
   }
-
+  
   // TODO : Potentially support setting home dir in config
   public static String getLucilleHomeDirectory() {
     String homeDir = System.getProperty("LUCILLE_HOME");

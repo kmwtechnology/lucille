@@ -29,11 +29,14 @@ public class CSVConnector extends AbstractConnector {
 
   private final String path;
   private final String lineNumField;
+  private final String filenameField;
+  private final String filePathField;
   // CSV Connector might need a compound key for uniqueness based on many columns.
   private final List<String> idFields;
   private final String docIdFormat;
   private final char separatorChar;
   private final char quoteChar;
+  private final char escapeChar;
   private final boolean lowercaseFields;
   private final List<String> ignoredTerms;
 
@@ -43,6 +46,8 @@ public class CSVConnector extends AbstractConnector {
     super(config);
     this.path = config.getString("path");
     this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
+    this.filenameField = config.hasPath("filenameField") ? config.getString("filenameField") : "filename";
+    this.filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : "source";
     String idField = config.hasPath("idField") ? config.getString("idField") : null;
     // Either specify the idField, or idFields 
     if (idField != null) {
@@ -55,6 +60,8 @@ public class CSVConnector extends AbstractConnector {
     this.separatorChar = (config.hasPath("useTabs") && config.getBoolean("useTabs")) ? '\t' : ',';
     this.quoteChar = (config.hasPath("interpretQuotes") && !config.getBoolean("interpretQuotes")) ?
         CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;
+    this.escapeChar = (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar")) ? 
+        CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_ESCAPE_CHARACTER;
     this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
     this.ignoredTerms = config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : new ArrayList<>();
     // A directory to move the files to after they are doing being processed.
@@ -84,9 +91,12 @@ public class CSVConnector extends AbstractConnector {
   }
 
   private void processFile(String filePath, Publisher publisher) throws ConnectorException {
+    int lineNum = 0;
+    log.info("Beginning to process file {}", filePath);
+    String filename = new File(filePath).getName();
     try (CSVReader csvReader = new CSVReaderBuilder(FileUtils.getReader(filePath)).
-        withCSVParser(new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).build()).build()) {
-
+        withCSVParser(new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build()).build()) {
+      // log.info("Processing linenumber: {}", lineNum);
       // Assume first line is header
       String[] header = csvReader.readNext();
       if (header == null || header.length == 0) {
@@ -121,9 +131,10 @@ public class CSVConnector extends AbstractConnector {
       }
       // At this point we should have the list of column ids that map to the idFields 
       String[] line;
-      int lineNum = 0;
+      
       while ((line = csvReader.readNext()) != null) {
         lineNum++;
+        // log.info("Processing linenumber: {}", lineNum);
         // skip blank lines, lines with no value in the first column
         if (line.length == 0 || (line.length == 1 && StringUtils.isBlank(line[0]))) {
           continue;
@@ -141,13 +152,14 @@ public class CSVConnector extends AbstractConnector {
           }
           docId = createDocId(idColumnData); 
         } else {
-          // TODO: we need to include the filename to make this a unique docId
-          docId = getDocIdPrefix() + lineNum;
+          // a default unique id for a csv file is filename + line num
+          docId = getDocIdPrefix() + filename + "-" + lineNum;
         }
 
         Document doc = new Document(docId);
-        doc.setField("source", path);
-
+        doc.setField(filePathField, path);
+        doc.setField(filenameField, filename);
+        // log.info("DOC ID: {}", docId);
         int maxIndex = Math.min(header.length, line.length);
         for (int i = 0; i < maxIndex; i++) {
           if (line[i] != null && !ignoredTerms.contains(line[i]) && !Document.RESERVED_FIELDS.contains(header[i])) {
@@ -179,7 +191,7 @@ public class CSVConnector extends AbstractConnector {
   private String createDocId(ArrayList<String> idColumnData) {
     // format the string with the data and pre-pend the doc id prefix
     if (docIdFormat != null) {
-      return this.getDocIdPrefix() + String.format(docIdFormat, idColumnData);
+      return this.getDocIdPrefix() + String.format(docIdFormat, idColumnData.toArray());
     } else {
       // no doc id.. just choose the first value in the idColumnData
       return createDocId(idColumnData.get(0));
