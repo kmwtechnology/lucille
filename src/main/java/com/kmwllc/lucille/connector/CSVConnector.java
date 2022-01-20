@@ -39,7 +39,6 @@ public class CSVConnector extends AbstractConnector {
   private final char escapeChar;
   private final boolean lowercaseFields;
   private final List<String> ignoredTerms;
-
   private final String moveToAfterProcessing;
 
   public CSVConnector(Config config) {
@@ -70,6 +69,16 @@ public class CSVConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
+    
+    if (moveToAfterProcessing != null) {
+      // Create the destination directory if it doesn't exist.
+      File destDir = new File(moveToAfterProcessing); 
+      if (!destDir.exists()) {
+        log.info("Creating archive directory {}", destDir.getAbsolutePath());
+        destDir.mkdirs();
+      }
+    }
+    
     // file is on the classpath
     if (path.startsWith("classpath:")) {
       processFile(path, publisher);
