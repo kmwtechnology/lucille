@@ -185,14 +185,18 @@ public class CSVConnector extends AbstractConnector {
     }
     // assuming we got here, we were successful processing the csv file
     if (moveToAfterProcessing != null) {
-      // TODO: a file move command..
-      Path source = Paths.get(filePath);
-      String fileName = source.getFileName().toString();
-      Path dest = Paths.get(moveToAfterProcessing + File.separatorChar + fileName);
-      try {
-        Files.move(source, dest);
-      } catch (IOException e) {
-        throw new ConnectorException("Error moving file to destination directory after crawl.", e);
+      if (filePath.startsWith("classpath:")) {
+        log.warn("Skipping moving classpath file: {} to {}", filePath, moveToAfterProcessing);
+      } else {
+        // Move the file
+        Path source = Paths.get(filePath);
+        String fileName = source.getFileName().toString();
+        Path dest = Paths.get(moveToAfterProcessing + File.separatorChar + fileName);
+        try {
+          Files.move(source, dest);
+        } catch (IOException e) {
+          throw new ConnectorException("Error moving file to destination directory after crawl.", e);
+        }
       }
     }
   }
@@ -203,7 +207,9 @@ public class CSVConnector extends AbstractConnector {
       return this.getDocIdPrefix() + String.format(docIdFormat, idColumnData.toArray());
     } else {
       // no doc id.. just choose the first value in the idColumnData
-      return createDocId(idColumnData.get(0));
+      // Join the column data with an underscore if no docIdFormat provided.
+      String idData = StringUtils.join(idColumnData, "_");
+      return createDocId(idData);
     }
   }
 
