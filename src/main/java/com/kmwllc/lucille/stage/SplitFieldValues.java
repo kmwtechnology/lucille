@@ -33,8 +33,9 @@ public class SplitFieldValues extends Stage {
         doc.removeField(outputField);
       }
       for (String val : values) {
-        if (trimWhitespace) 
+        if (trimWhitespace) {
           val = val.trim();
+        }
         doc.addToField(outputField, val);
       }
     }
