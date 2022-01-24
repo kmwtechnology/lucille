@@ -6,6 +6,7 @@ import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
 
+import java.io.File;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -59,6 +60,7 @@ public class ExtractEntities extends Stage {
   private final boolean onlyWholeWords;
   private final boolean ignoreOverlaps;
   private final boolean usePayloads;
+  private final String entityField;
 
   public ExtractEntities(Config config) {
     super(config);
@@ -75,6 +77,7 @@ public class ExtractEntities extends Stage {
     this.destFields = config.getStringList("dest");
     this.dictionaries = config.getStringList("dictionaries");
     this.updateMode = UpdateMode.fromConfig(config);
+    this.entityField = config.hasPath("entity_field") ? config.getString("entity_field") : null;
   }
 
   @Override
@@ -116,6 +119,8 @@ public class ExtractEntities extends Stage {
     }
 
     for (String dictFile : dictionaries) {
+      File d = new File(dictFile);
+      log.info("loading Dictionary from {}", d.getAbsolutePath());
       try (CSVReader reader = new CSVReader(FileUtils.getReader(dictFile))) {
         // For each line of the dictionary file, add a keyword/payload pair to the Trie
         String[] line;
@@ -179,11 +184,18 @@ public class ExtractEntities extends Stage {
       } else {
         payloads = results.stream().map(PayloadEmit::getKeyword).collect(Collectors.toList());
       }
-
       if (payloads.isEmpty())
         continue;
 
       doc.update(destField, updateMode, payloads.toArray(new String[0]));
+      
+      if (entityField != null && usePayloads) {
+        payloads = results.stream().map(PayloadEmit::getKeyword).collect(Collectors.toList());
+        if (payloads.isEmpty()) {
+          continue;
+        }
+        doc.update(entityField, updateMode, payloads.toArray(new String[0]));
+      }
     }
 
     return null;
