@@ -37,5 +37,15 @@ public class ExtractEntitiesTest {
     assertEquals("Country names from input2 should be extracted to output", "Canada", tokens.get(2));
     assertEquals("Country names from input3 should be extracted to output", "Russia", tokens.get(3));
   }
-
+  
+  @Test
+  public void testExtractEntitiesAndPayloads() throws Exception {
+    Document doc = new Document("doc");
+    doc.setField("input1", "I live in the United States.");
+    Stage stage = factory.get("ExtractEntitiesTest/configEntityAndPayload.conf");
+    stage.processDocument(doc);
+    assertEquals("North America", doc.getString("payload"));
+    assertEquals("United States", doc.getString("entity"));
+  }
+  
 }
