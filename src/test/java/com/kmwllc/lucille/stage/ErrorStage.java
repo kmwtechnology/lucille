@@ -9,8 +9,20 @@ import java.util.List;
 
 public class ErrorStage extends Stage {
 
+  private boolean exceptionOnStart = false;
+
   public ErrorStage(Config config) {
     super(config);
+    if (config.hasPath("exceptionOnStart")&&config.getBoolean("exceptionOnStart")) {
+      this.exceptionOnStart = true;
+    }
+  }
+
+  @Override
+  public void start() throws StageException {
+    if (exceptionOnStart) {
+      throw new StageException("Expected exception on start (thrown because exceptionOnStart==true)");
+    }
   }
 
   @Override

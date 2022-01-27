@@ -324,7 +324,13 @@ public class Runner {
 
       if (startWorkerAndIndexer && connector.getPipelineName() != null) {
         workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory, metricsPrefix);
-        workerPool.start();
+
+        try {
+          workerPool.start();
+        } catch (Exception e) {
+          log.error("Error starting workers for pipeline " + pipelineName, e);
+          return new ConnectorResult(connector, publisher,false, "Error starting workers for pipeline " + pipelineName);
+        }
 
         IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
         indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassIndexer, metricsPrefix);
