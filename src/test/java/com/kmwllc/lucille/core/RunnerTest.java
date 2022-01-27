@@ -259,6 +259,37 @@ public class RunnerTest {
     assertEquals(2, map.size());
   }
 
+  @Test
+  public void testRunStatus() throws Exception {
+    // successful run
+    RunResult result =
+      Runner.run(ConfigFactory.load("RunnerTest/singleDoc.conf"), Runner.RunType.TEST);
+    assertTrue(result.getStatus());
+
+    // successful run with failing documents
+    result =
+      Runner.run(ConfigFactory.load("RunnerTest/threeDocsOneFailure.conf"), Runner.RunType.TEST);
+    assertTrue(result.getStatus());
+
+    // failing run
+    result =
+      Runner.run(ConfigFactory.load("RunnerTest/threeConnectorsWithFailure.conf"), Runner.RunType.TEST);
+    assertFalse(result.getStatus());
+  }
+
+  /**
+   * Attempt to run three connectors, where the second connector feeds to a pipeline
+   * that throws an exception while starting a stage.
+   * Confirm that the third connector is not run.
+   * An exception should not bubble up.
+   */
+  @Test
+  public void testThreeConnectorsWithStageStartFailure() throws Exception {
+    Map<String, PersistingLocalMessageManager> map =
+      Runner.runInTestMode("RunnerTest/threeConnectorsWithStageStartFailure.conf");
+    assertEquals(2, map.size());
+  }
+
   /**
    * Test that the post completion events occur after all of the documents have been fully processed.
    */
@@ -431,11 +462,11 @@ public class RunnerTest {
     assertTrue(map.containsKey("connector_3"));
   }
 
-
-  @Test(expected = PipelineException.class)
+  @Test
   public void testConnectorWithUnrecognizedPipeline() throws Exception {
-    // we should get a PipelineException if a connector specifies a pipeline that isn't defined
-    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/pipelineNotFound.conf");
+    RunResult result =
+      Runner.run(ConfigFactory.load("RunnerTest/pipelineNotFound.conf"), Runner.RunType.TEST);
+    assertFalse(result.getStatus());
   }
 
   @Test
