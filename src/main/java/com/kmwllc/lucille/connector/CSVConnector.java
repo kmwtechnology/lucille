@@ -86,6 +86,11 @@ public class CSVConnector extends AbstractConnector {
     }
     // file is on the file system
     File pathFile = new File(path);
+
+    if (!pathFile.exists()) {
+      throw new ConnectorException("Path [" + path + "] does not exist");
+    }
+
     if (pathFile.isFile()) {
       processFile(path, publisher);
       return;
