@@ -7,8 +7,10 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
+import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.base.RestClientTransport;
 import org.opensearch.client.base.Transport;
 import org.opensearch.client.json.jackson.JacksonJsonpMapper;
@@ -42,7 +44,7 @@ public class OpenSearchUtils {
       String username = userInfo.substring(0, pos);
       String password = userInfo.substring(pos + 1);
       provider.setCredentials(AuthScope.ANY,
-          new UsernamePasswordCredentials(username, password));
+        new UsernamePasswordCredentials(username, password));
     }
 
     // needed to allow for local testing of HTTPS
@@ -50,8 +52,8 @@ public class OpenSearchUtils {
     boolean allowInvalidCert = getAllowInvalidCert(config);
     if (allowInvalidCert) {
       sslFactoryBuilder
-          .withTrustingAllCertificatesWithoutValidation()
-          .withHostnameVerifier((host, session) -> true);
+        .withTrustingAllCertificatesWithoutValidation()
+        .withHostnameVerifier((host, session) -> true);
 
     } else {
       sslFactoryBuilder.withDefaultTrustMaterial();
@@ -61,9 +63,9 @@ public class OpenSearchUtils {
     HttpHost target = new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme());
     RestClientBuilder restClientBuilder = RestClient.builder(target);
     restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder
-        .setDefaultCredentialsProvider(provider)
-        .setSSLContext(sslFactory.getSslContext())
-        .setSSLHostnameVerifier(sslFactory.getHostnameVerifier()));
+      .setDefaultCredentialsProvider(provider)
+      .setSSLContext(sslFactory.getSslContext())
+      .setSSLHostnameVerifier(sslFactory.getHostnameVerifier()));
 
     Transport transport = new RestClientTransport(restClientBuilder.build(), new JacksonJsonpMapper());
     return new OpenSearchClient(transport);
@@ -84,4 +86,49 @@ public class OpenSearchUtils {
     return false;
   }
 
+  public static RestHighLevelClient getOpenSearchRestClient(Config config) {
+
+    // get host uri
+    URI hostUri = URI.create(getOpenSearchUrl(config));
+
+    //Establish credentials to use basic authentication.
+    //Only for demo purposes. Don't specify your credentials in code.
+    final CredentialsProvider provider = new BasicCredentialsProvider();
+
+    // get user info from URI if present and setup BasicAuth credentials if needed
+    String userInfo = hostUri.getUserInfo();
+    if (userInfo != null) {
+      int pos = userInfo.indexOf(":");
+      String username = userInfo.substring(0, pos);
+      String password = userInfo.substring(pos + 1);
+      provider.setCredentials(AuthScope.ANY,
+        new UsernamePasswordCredentials(username, password));
+    }
+
+    // needed to allow for local testing of HTTPS
+    SSLFactory.Builder sslFactoryBuilder = SSLFactory.builder();
+    boolean allowInvalidCert = getAllowInvalidCert(config);
+    if (allowInvalidCert) {
+      sslFactoryBuilder
+        .withTrustingAllCertificatesWithoutValidation()
+        .withHostnameVerifier((host, session) -> true);
+
+    } else {
+      sslFactoryBuilder.withDefaultTrustMaterial();
+    }
+    SSLFactory sslFactory = sslFactoryBuilder.build();
+
+    RestClientBuilder builder = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
+      .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
+        @Override
+        public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
+          return httpClientBuilder.setDefaultCredentialsProvider(provider).setSSLContext(sslFactory.getSslContext())
+            .setSSLHostnameVerifier(sslFactory.getHostnameVerifier());
+        }
+      });
+
+    RestHighLevelClient client = new RestHighLevelClient(builder);
+
+    return client;
+  }
 }

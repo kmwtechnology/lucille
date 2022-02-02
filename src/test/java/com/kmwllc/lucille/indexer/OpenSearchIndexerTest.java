@@ -14,9 +14,14 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestClientBuilder;
+import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.base.BooleanResponse;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.client.opensearch._global.IndexRequest;
+
 
 import java.io.IOException;
 import java.util.Collection;
@@ -28,7 +33,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 public class OpenSearchIndexerTest {
-  private OpenSearchClient mockClient;
+  private RestHighLevelClient mockClient;
 
   @Before
   public void setup() throws IOException {
@@ -36,10 +41,10 @@ public class OpenSearchIndexerTest {
   }
 
   private void setupOpenSearchClient() throws IOException {
-    mockClient = Mockito.mock(OpenSearchClient.class);
+    mockClient = Mockito.mock(RestHighLevelClient.class);
 
     // make first call to validateConnection succeed but subsequent calls to fail
-    Mockito.when(mockClient.ping()).thenReturn(new BooleanResponse(true), new BooleanResponse(false));
+    Mockito.when(mockClient.ping(RequestOptions.DEFAULT)).thenReturn(true, false);
   }
 
   /**
@@ -122,11 +127,12 @@ public class OpenSearchIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<IndexRequest<Map<String,Object>>> captor =
-      ArgumentCaptor.forClass(IndexRequest.class);
-    verify(mockClient, times(1)).index((captor.capture()));
+    ArgumentCaptor<BulkRequest> captor =
+      ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture(), RequestOptions.DEFAULT);
     assertEquals(1, captor.getAllValues().size());
-    Map<String,Object> indexedDoc = captor.getAllValues().get(0).value();
+
+    BulkRequest indexedDoc = captor.getValue();
     assertEquals(doc.getId(), indexedDoc.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), indexedDoc.get("myJsonField"));
 
@@ -152,11 +158,12 @@ public class OpenSearchIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<IndexRequest<Map<String,Object>>> captor =
+    ArgumentCaptor<IndexRequest<Map<String, Object>>> captor =
       ArgumentCaptor.forClass(IndexRequest.class);
     verify(mockClient, times(1)).index((captor.capture()));
     assertEquals(1, captor.getAllValues().size());
-    Map<String,Object> indexedDoc = captor.getAllValues().get(0).value();
+    Map<String, Object> indexedDoc = captor.getAllValues().get(0).value();
+
     assertEquals(doc.getId(), indexedDoc.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), indexedDoc.get("myJsonField"));
 
@@ -182,11 +189,11 @@ public class OpenSearchIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<IndexRequest<Map<String,Object>>> captor =
+    ArgumentCaptor<IndexRequest> captor =
       ArgumentCaptor.forClass(IndexRequest.class);
     verify(mockClient, times(1)).index((captor.capture()));
     assertEquals(1, captor.getAllValues().size());
-    Map<String,Object> indexedDoc = captor.getAllValues().get(0).value();
+    Map<String, Object> indexedDoc = captor.getAllValues().get(0).value();
     assertEquals(doc.getId(), indexedDoc.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), indexedDoc.get("myJsonField"));
 
@@ -201,7 +208,7 @@ public class OpenSearchIndexerTest {
   private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
 
     public ErroringOpenSearchIndexer(Config config, IndexerMessageManager manager,
-                                     OpenSearchClient client, String metricsPrefix) {
+                                     RestHighLevelClient client, String metricsPrefix) {
       super(config, manager, client, "testing");
     }
 
@@ -210,7 +217,6 @@ public class OpenSearchIndexerTest {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
   }
-
 
 
 }
