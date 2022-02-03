@@ -13,12 +13,15 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.index.IndexRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.times;
@@ -132,6 +135,13 @@ public class OpenSearchIndexerTest {
     List<BulkRequest> bulkRequestValue = bulkRequestArgumentCaptor.getAllValues();
     assertEquals(3, bulkRequestValue.size());
 
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<DocWriteRequest<?>> requests = br.requests();
+    IndexRequest indexRequest = (IndexRequest) requests.get(0);
+    Map<String, Object> map = indexRequest.sourceAsMap();
+
+    assertEquals(doc5.getId(), map.get("id"));
+
     Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(5, manager.getSavedEvents().size());
 
@@ -161,7 +171,12 @@ public class OpenSearchIndexerTest {
     verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
 
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
-    assertEquals(1, br.numberOfActions());
+    List<DocWriteRequest<?>> requests = br.requests();
+    IndexRequest indexRequest = (IndexRequest) requests.get(0);
+    Map<String, Object> map = indexRequest.sourceAsMap();
+
+    assertEquals(doc.getId(), map.get("id"));
+    assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
     Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
@@ -191,7 +206,13 @@ public class OpenSearchIndexerTest {
     verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
 
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
-    assertEquals(1, br.numberOfActions());
+    List<DocWriteRequest<?>> requests = br.requests();
+    IndexRequest indexRequest = (IndexRequest) requests.get(0);
+    Map<String, Object> map = indexRequest.sourceAsMap();
+
+    assertEquals(doc.getId(), map.get("id"));
+    assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
+
 
     Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
@@ -221,7 +242,12 @@ public class OpenSearchIndexerTest {
     verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
 
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
-    assertEquals(1, br.numberOfActions());
+    List<DocWriteRequest<?>> requests = br.requests();
+    IndexRequest indexRequest = (IndexRequest) requests.get(0);
+    Map<String, Object> map = indexRequest.sourceAsMap();
+
+    assertEquals(doc.getId(), map.get("id"));
+    assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
     Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());

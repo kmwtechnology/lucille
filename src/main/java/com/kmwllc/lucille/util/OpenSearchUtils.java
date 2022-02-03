@@ -92,7 +92,6 @@ public class OpenSearchUtils {
     URI hostUri = URI.create(getOpenSearchUrl(config));
 
     //Establish credentials to use basic authentication.
-    //Only for demo purposes. Don't specify your credentials in code.
     final CredentialsProvider provider = new BasicCredentialsProvider();
 
     // get user info from URI if present and setup BasicAuth credentials if needed
