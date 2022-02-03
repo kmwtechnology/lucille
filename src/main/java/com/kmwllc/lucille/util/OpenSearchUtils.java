@@ -112,10 +112,10 @@ public class OpenSearchUtils {
       sslFactoryBuilder
         .withTrustingAllCertificatesWithoutValidation()
         .withHostnameVerifier((host, session) -> true);
-
     } else {
       sslFactoryBuilder.withDefaultTrustMaterial();
     }
+
     SSLFactory sslFactory = sslFactoryBuilder.build();
 
     RestClientBuilder builder = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))

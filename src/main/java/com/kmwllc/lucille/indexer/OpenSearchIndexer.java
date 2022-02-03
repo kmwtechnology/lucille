@@ -93,12 +93,14 @@ public class OpenSearchIndexer extends Indexer {
       addChildren(doc, indexerDoc);
 
       // create new IndexRequest
-      IndexRequest indexRequest = new IndexRequest(index).id(docId).source(indexerDoc);
+      IndexRequest indexRequest = new IndexRequest(index);
+      indexRequest.id(docId);
+      indexRequest.source(indexerDoc);
 
       // add indexRequest to bulkRequest
       bulkRequest.add(indexRequest);
-
     }
+
     client.bulk(bulkRequest, RequestOptions.DEFAULT);
   }
 
