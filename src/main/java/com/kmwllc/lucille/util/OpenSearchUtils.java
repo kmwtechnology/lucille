@@ -7,12 +7,10 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
-import org.opensearch.client.base.RestClientTransport;
-import org.opensearch.client.base.Transport;
-import org.opensearch.client.json.jackson.JacksonJsonpMapper;
-import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.RestHighLevelClient;
 
 import java.net.URI;
 
@@ -22,17 +20,17 @@ import java.net.URI;
 public class OpenSearchUtils {
 
   /**
-   * Generate a OpenSearchClient from the given config file. Supports Http OpenSearchClients.
+   * Generate a RestHighLevelClient from the given config file. Supports Http OpenSearchClients.
    *
    * @param config The configuration file to generate a client from
-   * @return the OpenSearch client
+   * @return the RestHighLevelClient client
    */
-  public static OpenSearchClient getOpenSearchClient(Config config) {
+  public static RestHighLevelClient getOpenSearchRestClient(Config config) {
 
     // get host uri
     URI hostUri = URI.create(getOpenSearchUrl(config));
 
-    // setup basic credentials handler
+    //Establish credentials to use basic authentication.
     final CredentialsProvider provider = new BasicCredentialsProvider();
 
     // get user info from URI if present and setup BasicAuth credentials if needed
@@ -42,7 +40,7 @@ public class OpenSearchUtils {
       String username = userInfo.substring(0, pos);
       String password = userInfo.substring(pos + 1);
       provider.setCredentials(AuthScope.ANY,
-          new UsernamePasswordCredentials(username, password));
+        new UsernamePasswordCredentials(username, password));
     }
 
     // needed to allow for local testing of HTTPS
@@ -50,23 +48,26 @@ public class OpenSearchUtils {
     boolean allowInvalidCert = getAllowInvalidCert(config);
     if (allowInvalidCert) {
       sslFactoryBuilder
-          .withTrustingAllCertificatesWithoutValidation()
-          .withHostnameVerifier((host, session) -> true);
-
+        .withTrustingAllCertificatesWithoutValidation()
+        .withHostnameVerifier((host, session) -> true);
     } else {
       sslFactoryBuilder.withDefaultTrustMaterial();
     }
+
     SSLFactory sslFactory = sslFactoryBuilder.build();
 
-    HttpHost target = new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme());
-    RestClientBuilder restClientBuilder = RestClient.builder(target);
-    restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder
-        .setDefaultCredentialsProvider(provider)
-        .setSSLContext(sslFactory.getSslContext())
-        .setSSLHostnameVerifier(sslFactory.getHostnameVerifier()));
+    RestClientBuilder builder = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
+      .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
+        @Override
+        public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
+          return httpClientBuilder.setDefaultCredentialsProvider(provider).setSSLContext(sslFactory.getSslContext())
+            .setSSLHostnameVerifier(sslFactory.getHostnameVerifier());
+        }
+      });
 
-    Transport transport = new RestClientTransport(restClientBuilder.build(), new JacksonJsonpMapper());
-    return new OpenSearchClient(transport);
+    RestHighLevelClient client = new RestHighLevelClient(builder);
+
+    return client;
   }
 
   public static String getOpenSearchUrl(Config config) {
@@ -83,5 +84,4 @@ public class OpenSearchUtils {
     }
     return false;
   }
-
 }

@@ -7,9 +7,10 @@ import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
-import org.opensearch.client.base.BooleanResponse;
-import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.client.opensearch._global.IndexRequest;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestHighLevelClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
@@ -23,10 +24,10 @@ public class OpenSearchIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
-  private final OpenSearchClient client;
+  private final RestHighLevelClient client;
   private final String index;
 
-  public OpenSearchIndexer(Config config, IndexerMessageManager manager, OpenSearchClient client, String metricsPrefix) {
+  public OpenSearchIndexer(Config config, IndexerMessageManager manager, RestHighLevelClient client, String metricsPrefix) {
     super(config, manager, metricsPrefix);
     this.client = client;
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
@@ -36,8 +37,8 @@ public class OpenSearchIndexer extends Indexer {
     this(config, manager, getClient(config, bypass), metricsPrefix);
   }
 
-  private static OpenSearchClient getClient(Config config, boolean bypass) {
-    return bypass ? null : OpenSearchUtils.getOpenSearchClient(config);
+  private static RestHighLevelClient getClient(Config config, boolean bypass) {
+    return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(config);
   }
 
   @Override
@@ -45,18 +46,14 @@ public class OpenSearchIndexer extends Indexer {
     if (client == null) {
       return true;
     }
-    BooleanResponse response;
+    boolean response;
     try {
-      response = client.ping();
+      response = client.ping(RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error("Couldn't ping OpenSearch ", e);
       return false;
     }
-    if (response == null) {
-      log.error("Null response when pinging OpenSearch");
-      return false;
-    }
-    if (!response.value()) {
+    if (!response) {
       log.error("Non true response when pinging OpenSearch: " + response);
       return false;
     }
@@ -65,13 +62,21 @@ public class OpenSearchIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    // TODO: Connections don't seem persistent, nothing to close, revisit with non-beta opensearch-java client
+    if (client != null) {
+      try {
+        client.close();
+      } catch (Exception e) {
+        log.error("Error closing OpenSearchClient", e);
+      }
+    }
   }
 
   @Override
   protected void sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) return;
+
+    BulkRequest bulkRequest = new BulkRequest(index);
 
     // determine what field to use as id field and iterate over the documents
     for (Document doc : documents) {
@@ -87,12 +92,16 @@ public class OpenSearchIndexer extends Indexer {
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);
 
-      // TODO: Modify this to support adding documents in batches once opensearch-java client supports it
-//            String docId = (String) indexerDoc.get(Document.ID_FIELD);
-      IndexRequest<Map<String, Object>> indexRequest = new IndexRequest.Builder<Map<String, Object>>()
-          .index(index).id(docId).value(indexerDoc).build();
-      client.index(indexRequest);
+      // create new IndexRequest
+      IndexRequest indexRequest = new IndexRequest(index);
+      indexRequest.id(docId);
+      indexRequest.source(indexerDoc);
+
+      // add indexRequest to bulkRequest
+      bulkRequest.add(indexRequest);
     }
+
+    client.bulk(bulkRequest, RequestOptions.DEFAULT);
   }
 
   private void addChildren(Document doc, Map<String, Object> indexerDoc) {

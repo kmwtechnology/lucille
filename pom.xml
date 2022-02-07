@@ -21,6 +21,7 @@
     <jackson.version>2.12.2</jackson.version>
     <lucene-solr.version>8.9.0</lucene-solr.version>
     <opensearch-rest-client.version>1.2.0</opensearch-rest-client.version>
+    <opensearch-rest-high-level-client.version>1.2.3</opensearch-rest-high-level-client.version>
     <opensearch.version>0.1.0</opensearch.version>
     <sslcontext-kickstart.version>7.0.3</sslcontext-kickstart.version>
     <vfs-s3.version>4.3.5</vfs-s3.version>
@@ -184,6 +185,12 @@
   <dependencies>
 
     <dependency>
+      <groupId>org.opensearch.client</groupId>
+      <artifactId>opensearch-rest-high-level-client</artifactId>
+      <version>${opensearch-rest-high-level-client.version}</version>
+    </dependency>
+
+    <dependency>
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka-clients</artifactId>
       <version>2.8.0</version>
@@ -321,19 +328,6 @@
       <groupId>org.apache.solr</groupId>
       <artifactId>solr-solrj</artifactId>
       <version>${lucene-solr.version}</version>
-    </dependency>
-
-    <!-- OpenSearch compatible fork of elasticsearch-java -->
-    <dependency>
-      <groupId>org.opensearch.client</groupId>
-      <artifactId>opensearch-rest-client</artifactId>
-      <version>${opensearch-rest-client.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.opensearch.client</groupId>
-      <artifactId>opensearch-java</artifactId>
-      <version>${opensearch.version}</version>
     </dependency>
 
     <!-- SSL Context Kickstart -->

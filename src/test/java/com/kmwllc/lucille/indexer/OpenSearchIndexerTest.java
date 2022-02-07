@@ -8,18 +8,18 @@ import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import org.apache.solr.common.SolrInputDocument;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
-import org.opensearch.client.base.BooleanResponse;
-import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.client.opensearch._global.IndexRequest;
+import org.opensearch.action.DocWriteRequest;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestHighLevelClient;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 public class OpenSearchIndexerTest {
-  private OpenSearchClient mockClient;
+  private RestHighLevelClient mockClient;
 
   @Before
   public void setup() throws IOException {
@@ -36,10 +36,10 @@ public class OpenSearchIndexerTest {
   }
 
   private void setupOpenSearchClient() throws IOException {
-    mockClient = Mockito.mock(OpenSearchClient.class);
+    mockClient = Mockito.mock(RestHighLevelClient.class);
 
     // make first call to validateConnection succeed but subsequent calls to fail
-    Mockito.when(mockClient.ping()).thenReturn(new BooleanResponse(true), new BooleanResponse(false));
+    Mockito.when(mockClient.ping(RequestOptions.DEFAULT)).thenReturn(true, false);
   }
 
   /**
@@ -109,6 +109,48 @@ public class OpenSearchIndexerTest {
   }
 
   @Test
+  public void testMultipleBatches() throws Exception {
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+
+    Document doc = new Document("doc1", "test_run");
+    Document doc2 = new Document("doc2", "test_run");
+    Document doc3 = new Document("doc3", "test_run");
+    Document doc4 = new Document("doc4", "test_run");
+    Document doc5 = new Document("doc5", "test_run");
+
+    manager.sendCompleted(doc);
+    manager.sendCompleted(doc2);
+    manager.sendCompleted(doc3);
+    manager.sendCompleted(doc4);
+    manager.sendCompleted(doc5);
+    indexer.run(5);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+
+    verify(mockClient, times(3)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+
+    List<BulkRequest> bulkRequestValue = bulkRequestArgumentCaptor.getAllValues();
+    assertEquals(3, bulkRequestValue.size());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<DocWriteRequest<?>> requests = br.requests();
+    IndexRequest indexRequest = (IndexRequest) requests.get(0);
+    Map<String, Object> map = indexRequest.sourceAsMap();
+
+    assertEquals(doc5.getId(), map.get("id"));
+
+    Assert.assertTrue(manager.hasEvents());
+    Assert.assertEquals(5, manager.getSavedEvents().size());
+
+    List<Event> events = manager.getSavedEvents();
+    Assert.assertEquals("doc1", events.get(0).getDocumentId());
+    Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  @Test
   public void testOpenSearchIndexerNestedJson() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
@@ -118,17 +160,23 @@ public class OpenSearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
+
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<IndexRequest<Map<String,Object>>> captor =
-      ArgumentCaptor.forClass(IndexRequest.class);
-    verify(mockClient, times(1)).index((captor.capture()));
-    assertEquals(1, captor.getAllValues().size());
-    Map<String,Object> indexedDoc = captor.getAllValues().get(0).value();
-    assertEquals(doc.getId(), indexedDoc.get("id"));
-    assertEquals(doc.asMap().get("myJsonField"), indexedDoc.get("myJsonField"));
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<DocWriteRequest<?>> requests = br.requests();
+    IndexRequest indexRequest = (IndexRequest) requests.get(0);
+    Map<String, Object> map = indexRequest.sourceAsMap();
+
+    assertEquals(doc.getId(), map.get("id"));
+    assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
     Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
@@ -152,13 +200,19 @@ public class OpenSearchIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<IndexRequest<Map<String,Object>>> captor =
-      ArgumentCaptor.forClass(IndexRequest.class);
-    verify(mockClient, times(1)).index((captor.capture()));
-    assertEquals(1, captor.getAllValues().size());
-    Map<String,Object> indexedDoc = captor.getAllValues().get(0).value();
-    assertEquals(doc.getId(), indexedDoc.get("id"));
-    assertEquals(doc.asMap().get("myJsonField"), indexedDoc.get("myJsonField"));
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<DocWriteRequest<?>> requests = br.requests();
+    IndexRequest indexRequest = (IndexRequest) requests.get(0);
+    Map<String, Object> map = indexRequest.sourceAsMap();
+
+    assertEquals(doc.getId(), map.get("id"));
+    assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
+
 
     Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
@@ -182,13 +236,18 @@ public class OpenSearchIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<IndexRequest<Map<String,Object>>> captor =
-      ArgumentCaptor.forClass(IndexRequest.class);
-    verify(mockClient, times(1)).index((captor.capture()));
-    assertEquals(1, captor.getAllValues().size());
-    Map<String,Object> indexedDoc = captor.getAllValues().get(0).value();
-    assertEquals(doc.getId(), indexedDoc.get("id"));
-    assertEquals(doc.asMap().get("myJsonField"), indexedDoc.get("myJsonField"));
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<DocWriteRequest<?>> requests = br.requests();
+    IndexRequest indexRequest = (IndexRequest) requests.get(0);
+    Map<String, Object> map = indexRequest.sourceAsMap();
+
+    assertEquals(doc.getId(), map.get("id"));
+    assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
     Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
@@ -201,7 +260,7 @@ public class OpenSearchIndexerTest {
   private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
 
     public ErroringOpenSearchIndexer(Config config, IndexerMessageManager manager,
-                                     OpenSearchClient client, String metricsPrefix) {
+                                     RestHighLevelClient client, String metricsPrefix) {
       super(config, manager, client, "testing");
     }
 
@@ -210,7 +269,4 @@ public class OpenSearchIndexerTest {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
   }
-
-
-
 }
