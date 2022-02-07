@@ -79,28 +79,14 @@ public class CSVConnector extends AbstractConnector {
       }
     }
     
-    // file is on the classpath
-    if (path.startsWith("classpath:")) {
-      processFile(path, publisher);
-      return;
-    }
-    // file is on the file system
     File pathFile = new File(path);
-
-    if (!pathFile.exists()) {
-      throw new ConnectorException("Path [" + path + "] does not exist");
-    }
-
-    if (pathFile.isFile()) {
-      processFile(path, publisher);
-      return;
-    }
-    // path is a directory
     if (pathFile.isDirectory()) {
       // no recursion supported
       for (File f: pathFile.listFiles()) {
         processFile(f.getAbsolutePath(), publisher);
       }
+    } else {
+      processFile(path, publisher);
     }
   }
 
