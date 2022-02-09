@@ -530,13 +530,8 @@ public class DocumentTest {
     d.setField("field2", 1);
     d.setField("field3", 16);
 
-    List<String> fieldNames = d.getFieldNames();
+    Set<String> fieldNames = d.getFieldNames();
     // expect 4 fields : id, field1, field2, and field3
     assertEquals(4, fieldNames.size());
-
-    assertEquals("id", fieldNames.get(0));
-    assertEquals("field1", fieldNames.get(1));
-    assertEquals("field2", fieldNames.get(2));
-    assertEquals("field3", fieldNames.get(3));
   }
 }
