@@ -202,7 +202,7 @@ public class DocumentTest {
   public void testNullHandling() throws Exception {
     // set a field to null and confirm that we get back a null when we call getString(), not the string "null"
     Document document = new Document("doc");
-    document.setField("field1", (String)null);
+    document.setField("field1", (String) null);
     assertEquals(null, document.getString("field1"));
     assertFalse(document.isMultiValued("field1"));
 
@@ -336,9 +336,9 @@ public class DocumentTest {
     document.update("myBooleanField", UpdateMode.APPEND, true);
     document.update("myBooleanField", UpdateMode.SKIP, false);
     Map map = document.asMap();
-    assertEquals(false, ((List<Object>)map.get("myBooleanField")).get(0));
-    assertEquals(true, ((List<Object>)map.get("myBooleanField")).get(1));
-    assertEquals(2, ((List<Object>)map.get("myBooleanField")).size());
+    assertEquals(false, ((List<Object>) map.get("myBooleanField")).get(0));
+    assertEquals(true, ((List<Object>) map.get("myBooleanField")).get(1));
+    assertEquals(2, ((List<Object>) map.get("myBooleanField")).size());
   }
 
   @Test
@@ -378,7 +378,7 @@ public class DocumentTest {
   @Test(expected = Exception.class)
   public void testUpdateDocIdFails() {
     Document document = new Document("id1");
-    document.update(Document.ID_FIELD, UpdateMode.OVERWRITE,"id2");
+    document.update(Document.ID_FIELD, UpdateMode.OVERWRITE, "id2");
   }
 
   @Test(expected = Exception.class)
@@ -449,7 +449,7 @@ public class DocumentTest {
 
     Document expected = new Document("id1");
     expected.initializeRunId("run1");
-    for (int i=0; i<=3; i++) {
+    for (int i = 0; i <= 3; i++) {
       expected.setOrAdd("stringField", "val");
       expected.setOrAdd("intField", 1);
       expected.setOrAdd("boolField", true);
@@ -474,10 +474,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\":1, \"b\":3}");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d,d2);
+    assertNotEquals(d, d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d,d2);
+    assertEquals(d, d2);
   }
 
   @Test
@@ -494,10 +494,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 3}] }");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d,d2);
+    assertNotEquals(d, d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d,d2);
+    assertEquals(d, d2);
   }
 
   @Test
@@ -514,9 +514,26 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 3} }");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d,d2);
+    assertNotEquals(d, d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d,d2);
+    assertEquals(d, d2);
+  }
+
+  @Test
+  public void testGetAllFieldNames() throws Exception {
+    Document d = new Document("id");
+    d.setField("field1", 1);
+    d.setField("field2", 1);
+    d.setField("field3", 16);
+
+    List<String> fieldNames = d.getFieldNames();
+    // expect 4 fields : id, field1, field2, and field3
+    assertEquals(4, fieldNames.size());
+
+    assertEquals("id", fieldNames.get(0));
+    assertEquals("field1", fieldNames.get(1));
+    assertEquals("field2", fieldNames.get(2));
+    assertEquals("field3", fieldNames.get(3));
   }
 }
