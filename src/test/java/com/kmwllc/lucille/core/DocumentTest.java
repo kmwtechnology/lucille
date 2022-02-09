@@ -4,9 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.util.StageUtils;
-import org.apache.commons.lang3.time.StopWatch;
-import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -452,7 +449,7 @@ public class DocumentTest {
 
     Document expected = new Document("id1");
     expected.initializeRunId("run1");
-    for (int i = 0; i<=3; i++) {
+    for (int i=0; i<=3; i++) {
       expected.setOrAdd("stringField", "val");
       expected.setOrAdd("intField", 1);
       expected.setOrAdd("boolField", true);
