@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.util.StageUtils;
+import org.apache.commons.lang3.time.StopWatch;
+import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -202,7 +205,7 @@ public class DocumentTest {
   public void testNullHandling() throws Exception {
     // set a field to null and confirm that we get back a null when we call getString(), not the string "null"
     Document document = new Document("doc");
-    document.setField("field1", (String) null);
+    document.setField("field1", (String)null);
     assertEquals(null, document.getString("field1"));
     assertFalse(document.isMultiValued("field1"));
 
@@ -336,9 +339,9 @@ public class DocumentTest {
     document.update("myBooleanField", UpdateMode.APPEND, true);
     document.update("myBooleanField", UpdateMode.SKIP, false);
     Map map = document.asMap();
-    assertEquals(false, ((List<Object>) map.get("myBooleanField")).get(0));
-    assertEquals(true, ((List<Object>) map.get("myBooleanField")).get(1));
-    assertEquals(2, ((List<Object>) map.get("myBooleanField")).size());
+    assertEquals(false, ((List<Object>)map.get("myBooleanField")).get(0));
+    assertEquals(true, ((List<Object>)map.get("myBooleanField")).get(1));
+    assertEquals(2, ((List<Object>)map.get("myBooleanField")).size());
   }
 
   @Test
@@ -378,7 +381,7 @@ public class DocumentTest {
   @Test(expected = Exception.class)
   public void testUpdateDocIdFails() {
     Document document = new Document("id1");
-    document.update(Document.ID_FIELD, UpdateMode.OVERWRITE, "id2");
+    document.update(Document.ID_FIELD, UpdateMode.OVERWRITE,"id2");
   }
 
   @Test(expected = Exception.class)
@@ -449,7 +452,7 @@ public class DocumentTest {
 
     Document expected = new Document("id1");
     expected.initializeRunId("run1");
-    for (int i = 0; i <= 3; i++) {
+    for (int i = 0; i<=3; i++) {
       expected.setOrAdd("stringField", "val");
       expected.setOrAdd("intField", 1);
       expected.setOrAdd("boolField", true);
@@ -474,10 +477,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\":1, \"b\":3}");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d, d2);
+    assertNotEquals(d,d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d, d2);
+    assertEquals(d,d2);
   }
 
   @Test
@@ -494,10 +497,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 3}] }");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d, d2);
+    assertNotEquals(d,d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d, d2);
+    assertEquals(d,d2);
   }
 
   @Test
@@ -514,10 +517,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 3} }");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d, d2);
+    assertNotEquals(d,d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d, d2);
+    assertEquals(d,d2);
   }
 
   @Test

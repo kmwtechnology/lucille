@@ -21,6 +21,7 @@ import java.util.function.UnaryOperator;
 /**
  * A record from a source system to be passed through a Pipeline, enriched,
  * and sent to a destination system.
+ *
  */
 public class Document implements Cloneable {
 
@@ -32,8 +33,7 @@ public class Document implements Cloneable {
   public static final List<String> RESERVED_FIELDS = List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD);
 
   protected static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>() {
-  };
+  private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>() {};
   private static final Logger log = LoggerFactory.getLogger(Document.class);
 
   private final ObjectNode data;
@@ -53,7 +53,7 @@ public class Document implements Cloneable {
   }
 
   public Document(String id) {
-    if (id == null) {
+    if (id==null) {
       throw new NullPointerException("ID cannot be null");
     }
     this.data = MAPPER.createObjectNode();
@@ -66,7 +66,7 @@ public class Document implements Cloneable {
   }
 
   public static Document fromJsonString(String json) throws DocumentException, JsonProcessingException {
-    return new Document((ObjectNode) MAPPER.readTree(json));
+    return new Document((ObjectNode)MAPPER.readTree(json));
   }
 
   public static Document fromJsonString(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
@@ -87,11 +87,11 @@ public class Document implements Cloneable {
 
   /**
    * Updates the designated field according to the provided UpdateMode.
-   * <p>
+   *
    * APPEND: the provided values will be appended to the field.
    * OVERWRITE: the provided values will overwrite any current field values
    * SKIP: the provided values will populate the field if the field didn't previously exist; otherwise no change will be made.
-   * <p>
+   *
    * In all cases the field will be created if it doesn't already exist.
    */
   public void update(String name, UpdateMode mode, String... values) {
@@ -103,47 +103,47 @@ public class Document implements Cloneable {
   }
 
   public void update(String name, UpdateMode mode, Long... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Long) v);
-    }, (v) -> {
-      setOrAdd(name, (Long) v);
+    update(name, mode, (v)->{
+      setField(name, (Long)v);
+    }, (v)->{
+      setOrAdd(name, (Long)v);
     }, values);
   }
 
   public void update(String name, UpdateMode mode, Integer... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Integer) v);
-    }, (v) -> {
-      setOrAdd(name, (Integer) v);
+    update(name, mode, (v)->{
+      setField(name, (Integer)v);
+    }, (v)->{
+      setOrAdd(name, (Integer)v);
     }, values);
   }
 
   public void update(String name, UpdateMode mode, Boolean... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Boolean) v);
-    }, (v) -> {
-      setOrAdd(name, (Boolean) v);
+    update(name, mode, (v)->{
+      setField(name, (Boolean)v);
+    }, (v)->{
+      setOrAdd(name, (Boolean)v);
     }, values);
   }
 
   public void update(String name, UpdateMode mode, Double... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Double) v);
-    }, (v) -> {
-      setOrAdd(name, (Double) v);
+    update(name, mode, (v)->{
+      setField(name, (Double)v);
+    }, (v)->{
+      setOrAdd(name, (Double)v);
     }, values);
   }
 
   public void update(String name, UpdateMode mode, Date... values) {
-    update(name, mode, (v) -> setField(name, (Date) v), (v) -> setOrAdd(name, (Date) v), values);
+    update(name, mode, (v)->setField(name, (Date) v), (v) ->setOrAdd(name, (Date) v), values);
   }
 
   /**
    * Private helper method used by different public versions of the overloaded update method.
-   * <p>
+   *
    * Expects two Consumers that invoke setField and addToField respectively on the named field, passing in
    * a provided value.
-   * <p>
+   *
    * The Consumer / Lambda Expression approach is used here to avoid code duplication between the various
    * update methods. It is not possible to make update() a generic method because ultimately it would need to call
    * one of the specific setField or addToField methods which in turn call data.put(String, String),
@@ -241,7 +241,7 @@ public class Document implements Cloneable {
       }
     }
 
-    data.set(newName, oldValues);
+    data.set(newName,oldValues);
   }
 
   // This will return null in two cases : 1) If the field is absent 2) IF the field is present but contains a null.
@@ -310,7 +310,7 @@ public class Document implements Cloneable {
   }
 
   public boolean equals(Object other) {
-    return data.equals(((Document) other).data);
+    return data.equals(((Document)other).data);
   }
 
   private void convertToList(String name) {
@@ -374,10 +374,11 @@ public class Document implements Cloneable {
 
   /**
    * Sets the field to the given value if the field is not already present; otherwise adds it to the field.
-   * <p>
+   *
    * If the field does not already exist and this method is called once, the field will be created as single-valued;
    * if the field already exists and/or this method is called more than once, the field will converted to a list
    * of values.
+   *
    */
   public void setOrAdd(String name, String value) {
     if (has(name)) {
@@ -463,6 +464,7 @@ public class Document implements Cloneable {
    * Adds all the fields of the designated "other" document to the current document, excluding reserved fields
    * like id. If a field is already present on the current document, the field is converted to a list
    * and the new value is appended.
+   *
    */
   public void setOrAddAll(Document other) {
     for (Iterator<String> it = other.data.fieldNames(); it.hasNext(); ) {
@@ -478,7 +480,7 @@ public class Document implements Cloneable {
     addToField(ERROR_FIELD, description);
   }
 
-  public Map<String, Object> asMap() {
+  public Map<String,Object> asMap() {
     Map<String, Object> result = MAPPER.convertValue(data, TYPE);
     return result;
   }
