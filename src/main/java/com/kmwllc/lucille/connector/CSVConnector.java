@@ -40,6 +40,7 @@ public class CSVConnector extends AbstractConnector {
   private final boolean lowercaseFields;
   private final List<String> ignoredTerms;
   private final String moveToAfterProcessing;
+  private static final String UTF8_BOM = "\uFEFF";
 
   public CSVConnector(Config config) {
     super(config);
@@ -228,7 +229,6 @@ public class CSVConnector extends AbstractConnector {
   }
 
   public String removeBOM(String s) {
-    String UTF8_BOM = "\uFEFF";
     if (s.startsWith(UTF8_BOM)) {
       s = s.substring(1);
     }
