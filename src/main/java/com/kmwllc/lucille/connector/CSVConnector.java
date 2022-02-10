@@ -40,6 +40,7 @@ public class CSVConnector extends AbstractConnector {
   private final boolean lowercaseFields;
   private final List<String> ignoredTerms;
   private final String moveToAfterProcessing;
+  private static final String UTF8_BOM = "\uFEFF";
 
   public CSVConnector(Config config) {
     super(config);
@@ -124,6 +125,11 @@ public class CSVConnector extends AbstractConnector {
       // Index the column names
       HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();
       for (int i = 0; i < header.length; i++) {
+        // check for BOM
+        if (i == 0) {
+          header[i] = removeBOM(header[i]);
+        }
+
         if (columnIndexMap.containsKey(header[i])) {
           log.warn("Multiple columns with the name {} were discovered in the source csv file.",  header[i]);
           continue;
@@ -220,5 +226,12 @@ public class CSVConnector extends AbstractConnector {
 
   public String toString() {
     return "CSVConnector: " + path;
+  }
+
+  public String removeBOM(String s) {
+    if (s.startsWith(UTF8_BOM)) {
+      s = s.substring(1);
+    }
+    return s;
   }
 }
