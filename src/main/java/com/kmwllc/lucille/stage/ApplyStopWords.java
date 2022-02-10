@@ -60,7 +60,7 @@ public class ApplyStopWords extends Stage {
   private PayloadTrie<String> buildTrie(List<String> dictionaries) throws StageException {
     PayloadTrie.PayloadTrieBuilder<String> trieBuilder = PayloadTrie.builder();
     trieBuilder = trieBuilder.ignoreCase();
-    trieBuilder = trieBuilder.onlyWholeWords();
+    trieBuilder = trieBuilder.onlyWholeWordsWhiteSpaceSeparated();
     trieBuilder = trieBuilder.ignoreOverlaps();
 
     for (String dictFile : dictionaries) {
@@ -100,6 +100,10 @@ public class ApplyStopWords extends Stage {
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
+    if (fieldNames == null || fieldNames.size() == 0 ) {
+      log.warn("No field names to remove stop words from supplied.");
+    }
+
     List<String> fields = fieldNames != null ? fieldNames : new ArrayList<>(doc.getFieldNames());
     fields.removeAll(Document.RESERVED_FIELDS);
 
