@@ -179,7 +179,7 @@ public class DatabaseConnector extends AbstractConnector {
     // the post sql.
     runSql(postSql);
     flush();
-    this.stop();
+    setState(ConnectorState.STOPPED);
     } catch (Exception e) {
       setState(ConnectorState.ERROR);
       throw new ConnectorException("Exception caught during connector execution", e);
