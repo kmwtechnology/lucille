@@ -12,6 +12,7 @@ import org.junit.Test;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class CSVConnectorTest {
 
@@ -66,6 +67,30 @@ public class CSVConnectorTest {
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
     connector.execute(publisher);
+  }
+
+  @Test
+  public void testBOMHandling() throws Exception {
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/bom.conf"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    Connector connector = new CSVConnector(config);
+    connector.execute(publisher);
+
+    // contents of bom.csv
+    // name, price, country
+    // Carbonara, 30, Italy
+    // Pizza, 10, Italy
+    // Tofu Soup, 12, Korea
+
+    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(3, docs.size());
+
+    // retrieve a document from the list and ensure that the correct first column is contained
+    assertTrue(docs.get(0).getFieldNames().contains("name"));
+
+    // there should be no issues searching on the first column
+    assertEquals("Carbonara", docs.get(0).getString("name"));
   }
 
 }

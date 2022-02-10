@@ -124,6 +124,11 @@ public class CSVConnector extends AbstractConnector {
       // Index the column names
       HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();
       for (int i = 0; i < header.length; i++) {
+        // check for BOM
+        if (i == 0) {
+          header[i] = removeBOM(header[i]);
+        }
+
         if (columnIndexMap.containsKey(header[i])) {
           log.warn("Multiple columns with the name {} were discovered in the source csv file.",  header[i]);
           continue;
@@ -220,5 +225,13 @@ public class CSVConnector extends AbstractConnector {
 
   public String toString() {
     return "CSVConnector: " + path;
+  }
+
+  public String removeBOM(String s) {
+    String UTF8_BOM = "\uFEFF";
+    if (s.startsWith(UTF8_BOM)) {
+      s = s.substring(1);
+    }
+    return s;
   }
 }
