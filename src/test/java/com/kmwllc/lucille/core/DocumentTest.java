@@ -519,4 +519,20 @@ public class DocumentTest {
     d2.setField("myField", node.deepCopy());
     assertEquals(d,d2);
   }
+
+  @Test
+  public void testGetAllFieldNames() throws Exception {
+    Document d = new Document("id");
+    d.setField("field1", 1);
+    d.setField("field2", 1);
+    d.setField("field3", 16);
+
+    Set<String> fieldNames = d.getFieldNames();
+    // expect 4 fields : id, field1, field2, and field3
+    assertEquals(4, fieldNames.size());
+    assertTrue(fieldNames.contains("id"));
+    assertTrue(fieldNames.contains("field1"));
+    assertTrue(fieldNames.contains("field2"));
+    assertTrue(fieldNames.contains("field3"));
+  }
 }

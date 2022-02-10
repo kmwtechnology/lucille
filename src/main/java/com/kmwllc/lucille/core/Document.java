@@ -524,4 +524,14 @@ public class Document implements Cloneable {
       throw new IllegalArgumentException();
     }
   }
+
+  public Set<String> getFieldNames() {
+    Set<String> fieldNames = new HashSet<String>();
+    Iterator<String> it = data.fieldNames();
+    while (it.hasNext()) {
+      String fieldName = it.next();
+      fieldNames.add(fieldName);
+    }
+    return fieldNames;
+  }
 }

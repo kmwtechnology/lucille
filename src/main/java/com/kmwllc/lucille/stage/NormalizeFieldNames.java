@@ -21,7 +21,7 @@ public class NormalizeFieldNames extends Stage {
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    for (String field : doc.asMap().keySet()) {
+    for (String field : doc.getFieldNames()) {
       if (Document.RESERVED_FIELDS.contains(field)) {
         continue;
       }
