@@ -349,8 +349,8 @@ public class DatabaseConnector extends AbstractConnector {
     }
   }
 
-  // getConnection method, not public/private
-  // mock database connector, then get connection from it
-  // then call close explicitly on database connector
-  // verify connection inside connector via get connection method is actually closed
+  // for testing purposes
+  Connection getConnection() {
+    return this.connection;
+  }
 }

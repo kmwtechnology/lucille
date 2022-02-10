@@ -1,11 +1,10 @@
 package com.kmwllc.lucille.connector.jdbc;
 
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.*;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,7 +13,6 @@ import com.kmwllc.lucille.core.*;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -201,7 +199,7 @@ public class DatabaseConnectorTest {
   }
 
   @Test
-  public void testClose() throws ConnectorException {
+  public void testClose() throws ConnectorException, SQLException {
     // Create a test config
     HashMap<String,Object> configValues = new HashMap<String,Object>();
     configValues.put("name", connectorName);
@@ -217,12 +215,15 @@ public class DatabaseConnectorTest {
     Config config = ConfigFactory.parseMap(configValues);
 
     // create the connector with the config
-    DatabaseConnector connector = mock(DatabaseConnector.class);
+    DatabaseConnector connector = new DatabaseConnector(config);
 
-    // call the execute method
+    // call the execute method, then close the connection
     connector.execute(publisher);
+    connector.close();
 
-    // check to see if close has been called (line 226 doesn't work at the moment)
-     verify(connector, times(1)).close();
+    Connection connection = connector.getConnection();
+
+    // verify that the connection is actually closed
+    assertTrue(connection.isClosed());
   }
 }
