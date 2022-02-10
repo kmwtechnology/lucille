@@ -223,6 +223,6 @@ public class DatabaseConnectorTest {
     connector.execute(publisher);
 
     // check to see if close has been called (line 226 doesn't work at the moment)
-    // verify(connector, times(1)).close();
+     verify(connector, times(1)).close();
   }
 }

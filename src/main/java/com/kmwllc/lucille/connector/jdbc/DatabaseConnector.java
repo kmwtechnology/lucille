@@ -179,11 +179,9 @@ public class DatabaseConnector extends AbstractConnector {
     // the post sql.
     runSql(postSql);
     flush();
-    this.close();
     this.stop();
     } catch (Exception e) {
       setState(ConnectorState.ERROR);
-      this.close();
       throw new ConnectorException("Exception caught during connector execution", e);
     }
   }
@@ -350,4 +348,9 @@ public class DatabaseConnector extends AbstractConnector {
       throw new ConnectorException("Error closing the connection", e);
     }
   }
+
+  // getConnection method, not public/private
+  // mock database connector, then get connection from it
+  // then call close explicitly on database connector
+  // verify connection inside connector via get connection method is actually closed
 }
