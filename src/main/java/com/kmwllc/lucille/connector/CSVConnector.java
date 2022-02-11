@@ -100,7 +100,12 @@ public class CSVConnector extends AbstractConnector {
     if (pathFile.isDirectory()) {
       // no recursion supported
       for (File f: pathFile.listFiles()) {
-        processFile(f.getAbsolutePath(), publisher);
+        try {
+          processFile(f.getAbsolutePath(), publisher);
+        } catch (ConnectorException e) {
+          log.warn("Error Processing CSV File. {}", f.getAbsolutePath(), e);
+          // TODO: move the csv file to an error directory.
+        }
       }
     }
   }
