@@ -46,6 +46,10 @@ public class ApplyStopWords extends Stage {
 
   @Override
   public void start() throws StageException {
+    if (fieldNames == null || fieldNames.size() == 0 ) {
+      log.warn("No field names to remove stop words from supplied.");
+    }
+
     if (dictionaries.isEmpty())
       throw new StageException("Must provide at least one dictionary containing stop words to the ApplyStopWords Stage.");
     dictTrie = buildTrie(dictionaries);
@@ -101,7 +105,7 @@ public class ApplyStopWords extends Stage {
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     if (fieldNames == null || fieldNames.size() == 0 ) {
-      log.warn("No field names to remove stop words from supplied.");
+      return null;
     }
 
     List<String> fields = fieldNames != null ? fieldNames : new ArrayList<>(doc.getFieldNames());

@@ -19,8 +19,9 @@ public class ApplyStopWordsTest {
     doc.setField("stopwords2", "I am a politician not a librarian");
     doc.setField("nostopwords", "there are no stopwords");
     stage.processDocument(doc);
-    assertEquals("this best part i know", doc.getString("stopwords1"));
-    assertEquals("I am a not a", doc.getString("stopwords2"));
+    // output should not be changed because no fields were specified
+    assertEquals("this is the best part and i know it", doc.getString("stopwords1"));
+    assertEquals("I am a politician not a librarian", doc.getString("stopwords2"));
     assertEquals("there are no stopwords", doc.getString("nostopwords"));
 
     Document doc2 = new Document("doc2");
@@ -28,15 +29,15 @@ public class ApplyStopWordsTest {
     doc2.addToField("multivalued", "the historian, hates stopwords!");
     doc2.addToField("multivalued", "the is of and librarian");
     stage.processDocument(doc2);
-    assertEquals("stopwords are here", doc2.getStringList("multivalued").get(0));
-    assertEquals("historian, hates stopwords!", doc2.getStringList("multivalued").get(1));
-    assertEquals("", doc2.getStringList("multivalued").get(2));
+    assertEquals("the stopwords are here", doc2.getStringList("multivalued").get(0));
+    assertEquals("the historian, hates stopwords!", doc2.getStringList("multivalued").get(1));
+    assertEquals("the is of and librarian", doc2.getStringList("multivalued").get(2));
 
     Document doc3 = new Document("is a stopword");
     doc3.setField("only", "is the librarian ready?");
     stage.processDocument(doc3);
     assertEquals("is a stopword", doc3.getId());
-    assertEquals("ready?", doc3.getString("only"));
+    assertEquals("is the librarian ready?", doc3.getString("only"));
   }
 
   @Test
