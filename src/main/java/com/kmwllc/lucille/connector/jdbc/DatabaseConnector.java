@@ -343,7 +343,8 @@ public class DatabaseConnector extends AbstractConnector {
   @Override
   public void close() throws ConnectorException {
     if (connection == null) {
-      throw new ConnectorException("Connection is null");
+      // no-op
+      return;
     }
     try {
       connection.close();
