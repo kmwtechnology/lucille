@@ -342,6 +342,9 @@ public class DatabaseConnector extends AbstractConnector {
 
   @Override
   public void close() throws ConnectorException {
+    if (connection == null) {
+      throw new ConnectorException("Connection is null");
+    }
     try {
       connection.close();
     } catch (SQLException e) {
