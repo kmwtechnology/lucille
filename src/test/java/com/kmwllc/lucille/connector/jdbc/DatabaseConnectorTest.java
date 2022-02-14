@@ -1,24 +1,22 @@
 package com.kmwllc.lucille.connector.jdbc;
 
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.*;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import com.kmwllc.lucille.core.ConnectorException;
+import com.kmwllc.lucille.core.*;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
-import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
@@ -200,7 +198,36 @@ public class DatabaseConnectorTest {
 
   }
 
-  
-  
+  @Test
+  public void testClose() throws ConnectorException, SQLException {
+    // Create a test config
+    HashMap<String,Object> configValues = new HashMap<String,Object>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select id,name,type from animal order by id");
+    configValues.put("idField", "id");
 
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // create the connector with the config
+    DatabaseConnector connector = new DatabaseConnector(config);
+
+    // call the execute method, then close the connection
+    connector.execute(publisher);
+
+    Connection connection = connector.getConnection();
+
+    // verify that the connection has opened
+    assertFalse(connection.isClosed());
+
+    connector.close();
+
+    // verify that the connection is actually closed
+    assertTrue(connection.isClosed());
+  }
 }

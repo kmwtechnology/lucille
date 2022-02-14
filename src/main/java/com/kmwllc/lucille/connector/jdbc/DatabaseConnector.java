@@ -179,7 +179,6 @@ public class DatabaseConnector extends AbstractConnector {
     // the post sql.
     runSql(postSql);
     flush();
-    connection.close();
     setState(ConnectorState.STOPPED);
     } catch (Exception e) {
       setState(ConnectorState.ERROR);
@@ -341,4 +340,21 @@ public class DatabaseConnector extends AbstractConnector {
     this.idField = idField;
   }
 
+  @Override
+  public void close() throws ConnectorException {
+    if (connection == null) {
+      // no-op
+      return;
+    }
+    try {
+      connection.close();
+    } catch (SQLException e) {
+      throw new ConnectorException("Error closing the connection", e);
+    }
+  }
+
+  // for testing purposes
+  Connection getConnection() {
+    return this.connection;
+  }
 }
