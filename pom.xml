@@ -185,6 +185,11 @@
   <dependencies>
 
     <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-analyzers-common</artifactId>
+      <version>8.9.0</version>
+    </dependency>
+    <dependency>
       <groupId>org.opensearch.client</groupId>
       <artifactId>opensearch-rest-high-level-client</artifactId>
       <version>${opensearch-rest-high-level-client.version}</version>

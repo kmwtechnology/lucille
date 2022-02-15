@@ -68,7 +68,7 @@ public class ApplyStopWords extends Stage {
     trieBuilder = trieBuilder.ignoreOverlaps();
 
     for (String dictFile : dictionaries) {
-
+      System.out.println(dictFile);
       try (CSVReader reader = new CSVReader(FileUtils.getReader(dictFile))) {
         // For each line of the dictionary file, add a keyword/payload pair to the Trie
         String[] line;
