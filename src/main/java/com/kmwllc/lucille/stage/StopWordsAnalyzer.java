@@ -3,6 +3,8 @@ package com.kmwllc.lucille.stage;
 import org.apache.lucene.analysis.*;
 import org.apache.lucene.analysis.core.WhitespaceTokenizer;
 
+import java.io.IOException;
+
 /**
  * Custom StopWordsAnalyzer for AlternateApplyStopWords stage.
  */
@@ -19,7 +21,13 @@ class StopWordsAnalyzer extends Analyzer {
     // use whitespace tokenizer to preserve punctuation
     final Tokenizer source = new WhitespaceTokenizer();
 
-    TokenStream result = new LowerCaseFilter(source);
+    // using a filtering token filter instead of a lowercase filter
+    TokenStream result = new FilteringTokenFilter(source) {
+      @Override
+      protected boolean accept() throws IOException {
+        return true;
+      }
+    };
 
     // use a stop filter for stop words
     StopFilter stopFilter = new StopFilter(result, stopWords);

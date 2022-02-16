@@ -15,7 +15,11 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
+/**
+ * An alternative implementation of the ApplyStopWords stage.
+ */
 public class AlternateApplyStopWords extends Stage {
 
   private final List<String> dictionaries;
@@ -27,8 +31,7 @@ public class AlternateApplyStopWords extends Stage {
 
     this.dictionaries = config.getStringList("dictionaries");
     this.fieldNames = config.hasPath("fields") ? config.getStringList("fields") : null;
-    stopWords = new ArrayList<>();
-    readStopWords(this.dictionaries);
+    this.stopWords = readStopWords(this.dictionaries);
   }
 
   @Override
@@ -47,16 +50,6 @@ public class AlternateApplyStopWords extends Stage {
       // get value of field
       String val = (String) doc.asMap().get(field);
 
-      // add spaces between all punctuation
-      for (int i = val.length(); i > 0; i--) {
-        String single = val.substring(i - 1, i);
-        if (single.equals("!") || single.equals(",") || single.equals(";") || single.equals(".") || single.equals("?") || single.equals("-")) {
-          //str.charAt(i) == '\'' || str.charAt(i) == '\"' || str.charAt(i) == ':') {
-          val = val.replace(single, " " + single + " ");
-          i = i - 2;
-        }
-      }
-
       StringReader reader = new StringReader(val);
 
       CharArraySet stopSet = StopFilter.makeStopSet(stopWords, true);
@@ -72,9 +65,7 @@ public class AlternateApplyStopWords extends Stage {
 
       try {
         while (stream.incrementToken()) {
-          String term = charTermAttribute.toString();
-
-          System.out.println(term);
+          String term = postProcess(charTermAttribute.toString());
           stringBuffer.append(term + " ");
         }
       } catch (IOException e) {
@@ -88,12 +79,18 @@ public class AlternateApplyStopWords extends Stage {
       }
       doc.update(field, UpdateMode.OVERWRITE, stringBuffer.toString().trim());
     }
-
-
     return null;
   }
 
-  public void readStopWords(List<String> dictionaries) throws StageException {
+  /**
+   * Read all the stop words from their paths.
+   *
+   * @param dictionaries
+   * @return
+   * @throws StageException
+   */
+  public List<String> readStopWords(List<String> dictionaries) throws StageException {
+    List<String> stopWords = new ArrayList<>();
     for (String dictFile : dictionaries) {
       try (CSVReader reader = new CSVReader(FileUtils.getReader(dictFile))) {
 
@@ -124,5 +121,51 @@ public class AlternateApplyStopWords extends Stage {
         throw new StageException("Failed to read from the given file.", e);
       }
     }
+    return stopWords;
+  }
+
+  /**
+   * Process a string which has punctuation so the punctuation is tokenized separately.
+   *
+   * @param s the string
+   * @return the modified string
+   */
+  public static String preProcess(String s) {
+
+    for (int i = 0; i < s.length(); i++) {
+      String single = s.substring(i, i + 1);
+      if (single.equals("!") || single.equals(",") || single.equals(";") || single.equals(".") || single.equals("?") || single.equals("-")) {
+        int count = 1;
+        String replace = "";
+        // only need to add on left side
+        if (s.substring(i - 1, i).matches("[a-zA-Z]+")) {
+          replace = replace + " L";
+          count++;
+        }
+
+        replace = replace + single;
+
+        if (s.substring(i, i + 1).matches("[a-zA-Z]+")) {
+          replace = replace + "R ";
+          count++;
+        }
+        System.out.println(replace);
+        s = s.substring(0, i) + replace + s.substring(i + 1);
+        i = i + count + 1;
+      }
+    }
+    return s;
+  }
+
+  public String postProcess(String s) {
+    for (String stopWord : stopWords) {
+      if (s.contains(stopWord)) {
+        String temp = s.replace(stopWord, "");
+        if (temp.equals("?") || temp.equals(".")) {
+          s = s.replace(stopWord, "");
+        }
+      }
+    }
+    return s;
   }
 }

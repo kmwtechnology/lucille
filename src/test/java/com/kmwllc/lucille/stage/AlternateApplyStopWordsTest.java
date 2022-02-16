@@ -50,7 +50,7 @@ public class AlternateApplyStopWordsTest {
     doc1.setField("input2", "is historian a librarian?");
     doc1.setField("reserved", "and these stopwords is reserved");
     stage.processDocument(doc1);
-    //assertEquals("there a stopword", doc1.getString("input1"));
+    assertEquals("there a stopword", doc1.getString("input1"));
     assertEquals("a ?", doc1.getString("input2"));
     assertEquals("and these stopwords is reserved", doc1.getString("reserved"));
   }
@@ -70,5 +70,28 @@ public class AlternateApplyStopWordsTest {
     // verify stop words do not split on white space
     assertEquals("off123", doc1.getString("input2"));
     assertEquals("0off0", doc1.getString("input3"));
+  }
+
+  @Test
+  public void capitalizationTest() throws StageException {
+    Stage stage = factory.get("AlternateApplyStopWordsTest/caps.conf");
+
+    Document doc1 = new Document("doc1");
+    doc1.setField("input1", "Look at this sentence. It contains several stopwords.");
+    doc1.setField("input2", "Where at?");
+
+    stage.processDocument(doc1);
+
+    assertEquals("Look sentence. contains several stopwords.", doc1.getString("input1"));
+    assertEquals("Where ?", doc1.getString("input2"));
+  }
+
+  @Test
+  public void preProcessTest() throws StageException {
+    String s1 = "Look at this sentence. It contains several stopwords.";
+    assertEquals(AlternateApplyStopWords.preProcess(s1), "Look at this sentence L. It contains several stopwords L.");
+
+    String s2 = "is historian a librarian?";
+    assertEquals(AlternateApplyStopWords.preProcess(s2), "is historian a librarian L?");
   }
 }
