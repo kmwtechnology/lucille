@@ -33,12 +33,9 @@ public class FilterDuplicateValues extends Stage {
           }
         }
 
-        List<String> updatedValues = new ArrayList<>(set);
-
-        doc.removeField(fieldName);
-        for (String updatedValue : updatedValues) {
-          doc.update(fieldName, UpdateMode.APPEND, updatedValue);
-        }
+        // use object
+        String[] updatedValues = set.toArray(new String[0]);
+        doc.update(fieldName, UpdateMode.OVERWRITE, updatedValues);
       }
     }
     return null;

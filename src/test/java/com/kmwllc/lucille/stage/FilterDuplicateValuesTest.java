@@ -23,9 +23,16 @@ public class FilterDuplicateValuesTest {
     doc.addToField("foo", "dog");
     doc.addToField("foo", "cat");
 
+    Document doc2 = new Document("doc2");
+    doc2.setField("foo", "bar");
+    doc2.addToField("foo", "cat");
+    doc2.addToField("foo", "dog");
+    doc2.addToField("foo", "cat");
+
     stage.processDocument(doc);
 
     assertEquals(3, doc.getStringList("foo").size());
+    assertEquals(4, doc2.getStringList("foo").size());
 
     List<String> values = doc.getStringList("foo");
     assertEquals("bar", values.get(0));
@@ -48,10 +55,15 @@ public class FilterDuplicateValuesTest {
 
     assertEquals(4, doc.getStringList("foo").size());
 
+
     List<String> values = doc.getStringList("foo");
     assertEquals("1", values.get(0));
     assertEquals("23", values.get(1));
     assertEquals("14", values.get(2));
     assertEquals("-32", values.get(3));
+
+    System.out.println(doc.toString());
+
+    assertEquals("{\"id\":\"doc\",\"foo\":[1,23,14,-32]}", doc.toString());
   }
 }
