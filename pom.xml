@@ -216,13 +216,6 @@
       <version>1.1-20120112</version>
     </dependency>
 
-    <!-- allows poi to produce thumbnails for pptx slides that contain svgs. -->
-    <dependency>
-      <groupId>org.apache.xmlgraphics</groupId>
-      <artifactId>batik-all</artifactId>
-      <version>1.13</version>
-    </dependency>
-
     <!-- configuration management library -->
     <dependency>
       <groupId>com.typesafe</groupId>
