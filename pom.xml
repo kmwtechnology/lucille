@@ -202,8 +202,8 @@
       <version>5.1.0</version>
       <exclusions>
         <exclusion>
-          <artifactId>com.google.guava</artifactId>
-          <groupId>guava</groupId>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
