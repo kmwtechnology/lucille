@@ -534,4 +534,25 @@ public class Document implements Cloneable {
     }
     return fieldNames;
   }
+
+  public void removeDuplicateValues(String fieldName) {
+    if (!isMultiValued(fieldName)) {
+      return;
+    }
+    ArrayNode arrayNode = data.withArray(fieldName);
+    LinkedHashSet<JsonNode> set = new LinkedHashSet<>();
+    int length = 0;
+    for (JsonNode jsonNode : arrayNode) {
+      length++;
+      set.add(jsonNode);
+    }
+    if (set.size()==length) {
+      return;
+    }
+    data.remove(fieldName);
+    arrayNode = data.withArray(fieldName);
+    for (JsonNode jsonNode : set) {
+      arrayNode.add(jsonNode);
+    }
+  }
 }

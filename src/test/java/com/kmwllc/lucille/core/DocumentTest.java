@@ -535,4 +535,38 @@ public class DocumentTest {
     assertTrue(fieldNames.contains("field2"));
     assertTrue(fieldNames.contains("field3"));
   }
+
+  @Test
+  public void testRemoveDuplicateValues() {
+    Document d = new Document("id");
+    d.setField("field1", 1);
+    d.addToField("field1", 1);
+    d.addToField("field1", 16);
+    d.addToField("field1", 129);
+
+    d.removeDuplicateValues("field1");
+
+    List<String> values1 = d.getStringList("field1");
+    assertEquals("1", values1.get(0));
+    assertEquals("16", values1.get(1));
+    assertEquals("129", values1.get(2));
+
+    // ensure that the numbers do not come out as Strings
+    assertEquals("{\"id\":\"id\",\"field1\":[1,16,129]}", d.toString());
+
+    d.setField("field2", "a");
+    d.addToField("field2", "b");
+    d.addToField("field2", "c");
+    d.addToField("field2", "b");
+
+    d.removeDuplicateValues("field2");
+
+    List<String> values2 = d.getStringList("field2");
+    assertEquals("a", values2.get(0));
+    assertEquals("b", values2.get(1));
+    assertEquals("c", values2.get(2));
+
+    // ensure that the Strings do come out as Strings
+    assertEquals("{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
+  }
 }

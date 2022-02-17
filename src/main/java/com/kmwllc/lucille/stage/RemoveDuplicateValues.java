@@ -44,9 +44,7 @@ public class RemoveDuplicateValues extends Stage {
       if (!doc.has(field) || !doc.isMultiValued(field)) {
         continue;
       }
-
-      List<String> uniqueValues = doc.getStringList(field).stream().distinct().collect(Collectors.toList());
-      doc.update((String) entry.getValue(), UpdateMode.DEFAULT, uniqueValues.toArray(new String[0]));
+      doc.removeDuplicateValues(field);
     }
 
     return null;
