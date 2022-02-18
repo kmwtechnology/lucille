@@ -62,9 +62,12 @@ public class XPathExtractor extends Stage {
       NodeList result = (NodeList) xPathExpression.evaluate(xmldoc, XPathConstants.NODESET);
 
       String fieldName = (String) xpaths.get(expressionString);
-
       for (int i = 0; i < result.getLength(); i++) {
-        doc.addToField(fieldName, result.item(i).getTextContent().trim());
+        if (i == 0) {
+          doc.setField(fieldName, result.item(i).getTextContent().trim());
+        } else {
+          doc.addToField(fieldName, result.item(i).getTextContent().trim());
+        }
       }
     }
   }

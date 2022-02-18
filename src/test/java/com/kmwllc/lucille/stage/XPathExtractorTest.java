@@ -5,6 +5,9 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.Assert.assertEquals;
 
 public class XPathExtractorTest {
@@ -34,12 +37,9 @@ public class XPathExtractorTest {
 
     stage.processDocument(doc1);
 
-    assertEquals("Harry Potter\n" +
-      "  29.99\n" +
-      "\n" +
-      "\n" +
-      "\n" +
-      "  Learning XML\n" +
-      "  39.95", doc1.getString("output1"));
+    List<String> results = doc1.getStringList("output1");
+
+    assertEquals("Harry Potter", results.get(0));
+    assertEquals("Learning XML", results.get(1));
   }
 }
