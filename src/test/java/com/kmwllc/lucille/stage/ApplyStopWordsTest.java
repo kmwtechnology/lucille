@@ -29,7 +29,7 @@ public class ApplyStopWordsTest {
     doc2.addToField("multivalued", "the is of and librarian");
     stage.processDocument(doc2);
     assertEquals("stopwords are here", doc2.getStringList("multivalued").get(0));
-    assertEquals("historian, hates stopwords!", doc2.getStringList("multivalued").get(1));
+    assertEquals(", hates stopwords!", doc2.getStringList("multivalued").get(1));
     assertEquals("", doc2.getStringList("multivalued").get(2));
 
     Document doc3 = new Document("is a stopword");
@@ -49,24 +49,8 @@ public class ApplyStopWordsTest {
     doc1.setField("reserved", "and these stopwords is reserved");
     stage.processDocument(doc1);
     assertEquals("there a stopword", doc1.getString("input1"));
-    assertEquals("a librarian?", doc1.getString("input2"));
+    assertEquals("a ?", doc1.getString("input2"));
     assertEquals("and these stopwords is reserved", doc1.getString("reserved"));
   }
 
-  @Test
-  public void splitOnWhiteSpaceTest() throws StageException {
-    Stage stage = factory.get("ApplyStopWordsTest/fields.conf");
-
-    Document doc1 = new Document("doc1");
-    doc1.setField("input1", "the faucet doesn't turn off");
-    doc1.setField("input2", "off123");
-    doc1.setField("input3", "0off0");
-
-    stage.processDocument(doc1);
-    // test normal stop word splitting
-    assertEquals("faucet doesn't", doc1.getString("input1"));
-    // verify stop words do not split on white space
-    assertEquals("off123", doc1.getString("input2"));
-    assertEquals("0off0", doc1.getString("input3"));
-  }
 }
