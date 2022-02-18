@@ -336,6 +336,12 @@
       <artifactId>vfs-s3</artifactId>
       <version>${vfs-s3.version}</version>
       <classifier>with-aws-sdk</classifier>
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-hdfs</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -363,7 +369,7 @@
       <artifactId>metrics-core</artifactId>
       <version>4.2.3</version>
     </dependency>
-  </dependencies>
 
+  </dependencies>
 
 </project>
