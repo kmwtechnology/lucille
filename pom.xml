@@ -209,6 +209,12 @@
       <type>pom</type>
     </dependency>
 
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>31.0.1-jre</version>
+    </dependency>
+
     <!-- language detection -->
     <dependency>
       <groupId>com.cybozu.labs</groupId>
