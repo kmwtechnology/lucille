@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 public class XPathExtractor extends Stage {
-  // xpaths to field
+  // fields to xpath
   protected Map<String, Object> xpaths;
   private DocumentBuilder builder;
   private DocumentBuilderFactory factory;
@@ -45,10 +45,10 @@ public class XPathExtractor extends Stage {
 
       builder = factory.newDocumentBuilder();
 
-      for (String expressionString : xpaths.keySet()) {
+      for (String field : xpaths.keySet()) {
+        String expressionString = (String) xpaths.get(field);
         XPathExpression xPathExpression = xpath.compile(expressionString);
-        String fieldName = (String) xpaths.get(expressionString);
-        expressionMapping.put(xPathExpression, fieldName);
+        expressionMapping.put(xPathExpression, field);
       }
 
     } catch (ParserConfigurationException | XPathExpressionException e) {
