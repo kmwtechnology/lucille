@@ -54,9 +54,9 @@ public class TextExtractor extends Stage {
     FileInputStream binaryData = null;
     try {
       binaryData = new FileInputStream(f);
-    } catch (FileNotFoundException e1) {
+    } catch (FileNotFoundException e) {
       // TODO Auto-generated catch block
-      e1.printStackTrace();
+      log.warn("File Exception: {}", e);
       // This should never happen.
     }
     // InputStream binaryData = null;
