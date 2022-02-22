@@ -1,8 +1,5 @@
 package com.kmwllc.lucille.util;
 
-import org.apache.commons.vfs2.FileObject;
-import org.apache.commons.vfs2.impl.StandardFileSystemManager;
-
 import java.io.*;
 import java.net.URI;
 import java.nio.file.Path;
@@ -22,17 +19,7 @@ public class FileUtils {
     InputStream is;
     if (!path.startsWith("classpath:")) {
       if (isValidURI(path)) {
-        StandardFileSystemManager manager = new StandardFileSystemManager();
-        manager.init();
-        FileObject file = manager.resolveFile(path);
-        is = new FilterInputStream(file.getContent().getInputStream()) {
-          @Override
-          public void close() throws IOException {
-            super.close();
-            file.close();
-            manager.close();
-          }
-        };
+        is = VfsInputStream.open(path);
       } else {
         is = new FileInputStream(path);
       }
