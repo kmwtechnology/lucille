@@ -24,7 +24,6 @@ public class XPathExtractor extends Stage {
   protected Map<String, Object> xpaths;
   private DocumentBuilder builder;
   private DocumentBuilderFactory factory;
-  private XPathFactory xpathFactory;
   private XPath xpath;
   private final String xmlField;
   private Map<XPathExpression, String> expressionMapping;
@@ -34,7 +33,7 @@ public class XPathExtractor extends Stage {
     super(config);
     xpaths = config.getConfig("fieldMapping").root().unwrapped();
     factory = DocumentBuilderFactory.newInstance();
-    xpathFactory = XPathFactory.newInstance();
+    XPathFactory xpathFactory = XPathFactory.newInstance();
     xpath = xpathFactory.newXPath();
     xmlField = config.hasPath("xmlField") ? config.getString("xmlField") : "xml";
     expressionMapping = new HashMap<>();
