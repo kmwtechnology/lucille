@@ -19,6 +19,8 @@ public class TextExtractorTest {
     doc.setField("path", "src/test/resources/TextExtractorTest/tika.txt");
     stage.processDocument(doc);
 
+    System.out.println(doc.toString());
+
     assertEquals("Hi There!\n", doc.getString("text"));
   }
 }

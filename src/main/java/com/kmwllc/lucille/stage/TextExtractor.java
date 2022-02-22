@@ -4,12 +4,15 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.Parser;
 import org.apache.tika.sax.BodyContentHandler;
+
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 
@@ -20,6 +23,7 @@ import java.util.List;
  * This stage uses Apache Tika to perform text and metadata extraction.
  */
 public class TextExtractor extends Stage {
+  private static final Logger log = LogManager.getLogger(TextExtractor.class);
   private String textField;
   private String filePathField;
   private Parser parser;
@@ -44,7 +48,7 @@ public class TextExtractor extends Stage {
 
     File f = new File(filePath);
     if (!f.exists()) {
-      System.out.println("File path not found " + filePath);
+      log.warn("File path not found ", filePath);
     }
 
     FileInputStream binaryData = null;
@@ -63,7 +67,7 @@ public class TextExtractor extends Stage {
     try {
       parser.parse(binaryData, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
-      System.out.println("Tika Exception: {}" + e);
+      log.warn("Tika Exception: {}", e);
     }
 
     doc.addToField(textField, textData.toString());
@@ -71,7 +75,7 @@ public class TextExtractor extends Stage {
       // clean the field name first.
       String cleanName = cleanFieldName(name);
       for (String value : metadata.getValues(name)) {
-        doc.addToField(cleanName, value);
+        doc.addToField("tika_" + cleanName, value);
       }
     }
     return null;
