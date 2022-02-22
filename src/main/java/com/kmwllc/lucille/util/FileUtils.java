@@ -39,7 +39,7 @@ public class FileUtils {
     } else {
       is = FileUtils.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":")+1));
     }
-    // This method of creating the Reader is used because it handles none UTF-8 characters by replacing them with UTF
+    // This method of creating the Reader is used because it handles non-UTF-8 characters by replacing them with UTF
     // chars, rather than throwing an Exception.
     // https://stackoverflow.com/questions/26268132/all-inclusive-charset-to-avoid-java-nio-charset-malformedinputexception-input
     // return Files.newBufferedReader(Paths.get(path), StandardCharsets.UTF_8);
