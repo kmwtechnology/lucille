@@ -4,6 +4,8 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.w3c.dom.NodeList;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -26,6 +28,7 @@ public class XPathExtractor extends Stage {
   private XPath xpath;
   private final String xmlField;
   private Map<XPathExpression, String> expressionMapping;
+  private static final Logger log = LogManager.getLogger(XPathExtractor.class);
 
   public XPathExtractor(Config config) {
     super(config);
@@ -85,7 +88,7 @@ public class XPathExtractor extends Stage {
         }
       }
     } catch (Exception e) {
-      System.out.println("XPath error process doc : ");
+      log.error("Error extracting xpath for doc {}.", doc.getId());
     }
   }
 }
