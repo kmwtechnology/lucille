@@ -92,4 +92,29 @@ public class CSVConnectorTest {
     // there should be no issues accessing the field value of the first column because BOM is removed
     assertEquals("Carbonara", docs.get(0).getString("name"));
   }
+
+  @Test
+  public void testErrorDirectory() throws Exception {
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/bom.conf"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    Connector connector = new CSVConnector(config);
+    connector.execute(publisher);
+
+
+    // contents of bom.csv (first character is the BOM character \uFEFF)
+    // name, price, country
+    // Carbonara, 30, Italy
+    // Pizza, 10, Italy
+    // Tofu Soup, 12, Korea
+
+    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(3, docs.size());
+
+    // retrieve a document from the list and ensure that the first column does not contain the BOM
+    assertTrue(docs.get(0).getFieldNames().contains("name"));
+
+    // there should be no issues accessing the field value of the first column because BOM is removed
+    assertEquals("Carbonara", docs.get(0).getString("name"));
+  }
 }

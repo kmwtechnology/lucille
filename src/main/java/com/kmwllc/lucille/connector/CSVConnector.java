@@ -38,6 +38,7 @@ public class CSVConnector extends AbstractConnector {
   private final char quoteChar;
   private final char escapeChar;
   private final boolean lowercaseFields;
+  private final String moveToErrorFolder;
   private final List<String> ignoredTerms;
   private final String moveToAfterProcessing;
   private static final String UTF8_BOM = "\uFEFF";
@@ -63,6 +64,7 @@ public class CSVConnector extends AbstractConnector {
     this.escapeChar = (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar")) ? 
         CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_ESCAPE_CHARACTER;
     this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
+    this.moveToErrorFolder = config.hasPath("moveToErrorFolder") ? config.getString("moveToErrorFolder") : null;
     this.ignoredTerms = config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : new ArrayList<>();
     // A directory to move the files to after they are doing being processed.
     this.moveToAfterProcessing = config.hasPath("moveToAfterProcessing") ? config.getString("moveToAfterProcessing") : null; 
@@ -89,6 +91,11 @@ public class CSVConnector extends AbstractConnector {
         } catch (ConnectorException e) {
           log.warn("Error Processing CSV File. {}", f.getAbsolutePath(), e);
           // TODO: move the csv file to an error directory.
+          if (moveToErrorFolder != null) {
+
+            File errorDir = new File(moveToErrorFolder);
+            errorDir.mkdirs();
+          }
         }
       }
     } else {
@@ -183,22 +190,14 @@ public class CSVConnector extends AbstractConnector {
       }
     } catch (Exception e) {
       log.error("Error during CSV processing", e);
-      throw new ConnectorException("Error processing CSV file", e);
+      moveFile(filePath, moveToErrorFolder);
     }
     // assuming we got here, we were successful processing the csv file
     if (moveToAfterProcessing != null) {
       if (filePath.startsWith("classpath:")) {
         log.warn("Skipping moving classpath file: {} to {}", filePath, moveToAfterProcessing);
       } else {
-        // Move the file
-        Path source = Paths.get(filePath);
-        String fileName = source.getFileName().toString();
-        Path dest = Paths.get(moveToAfterProcessing + File.separatorChar + fileName);
-        try {
-          Files.move(source, dest);
-        } catch (IOException e) {
-          throw new ConnectorException("Error moving file to destination directory after crawl.", e);
-        }
+        moveFile(filePath, moveToAfterProcessing);
       }
     }
   }
@@ -224,5 +223,16 @@ public class CSVConnector extends AbstractConnector {
       s = s.substring(1);
     }
     return s;
+  }
+
+  public void moveFile(String filePath, String option) throws ConnectorException {
+    Path source = Paths.get(filePath);
+    String fileName = source.getFileName().toString();
+    Path dest = Paths.get(option + File.separatorChar + fileName);
+    try {
+      Files.move(source, dest);
+    } catch (IOException e) {
+      throw new ConnectorException("Error moving file to destination directory", e);
+    }
   }
 }
