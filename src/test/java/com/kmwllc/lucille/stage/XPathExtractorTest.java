@@ -41,6 +41,11 @@ public class XPathExtractorTest {
 
     assertEquals("Harry Potter", results.get(0));
     assertEquals("Learning XML", results.get(1));
+
+    List<String> results2 = doc1.getStringList("output2");
+
+    assertEquals("Harry Potter", results2.get(0));
+    assertEquals("Learning XML", results2.get(1));
   }
 
   @Test

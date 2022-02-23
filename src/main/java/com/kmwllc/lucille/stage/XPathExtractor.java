@@ -26,7 +26,7 @@ public class XPathExtractor extends Stage {
   private DocumentBuilderFactory factory;
   private XPath xpath;
   private final String xmlField;
-  private Map<XPathExpression, String> expressionMapping;
+  private Map<XPathExpression, List<String>> expressionMapping;
   private static final Logger log = LogManager.getLogger(XPathExtractor.class);
 
   public XPathExtractor(Config config) {
@@ -45,10 +45,10 @@ public class XPathExtractor extends Stage {
 
       builder = factory.newDocumentBuilder();
 
-      for (String field : xpaths.keySet()) {
-        String expressionString = (String) xpaths.get(field);
+      for (String expressionString : xpaths.keySet()) {
         XPathExpression xPathExpression = xpath.compile(expressionString);
-        expressionMapping.put(xPathExpression, field);
+        List<String> fields = (List<String>) xpaths.get(expressionString);
+        expressionMapping.put(xPathExpression, fields);
       }
 
     } catch (ParserConfigurationException | XPathExpressionException e) {
@@ -76,13 +76,10 @@ public class XPathExtractor extends Stage {
 
       for (XPathExpression expression : expressionMapping.keySet()) {
         NodeList result = (NodeList) expression.evaluate(xmldoc, XPathConstants.NODESET);
-        String fieldName = expressionMapping.get(expression);
 
-        for (int i = 0; i < result.getLength(); i++) {
-          if (i == 0) {
-            doc.setField(fieldName, result.item(i).getTextContent().trim());
-          } else {
-            doc.addToField(fieldName, result.item(i).getTextContent().trim());
+        for (String field : expressionMapping.get(expression)) {
+          for (int i = 0 ; i < result.getLength() ; i++) {
+            doc.setOrAdd(field, result.item(i).getTextContent());
           }
         }
       }
