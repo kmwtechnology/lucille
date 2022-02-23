@@ -12,20 +12,23 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
 
-class VfsInputStream extends FilterInputStream {
+/**
+ * Opens an input stream to a VFS file, then closes the VFS resources when the stream is closed.
+ */
+class VFSInputStream extends FilterInputStream {
 
   private final FileSystemManager manager;
   private final FileObject file;
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  VfsInputStream(InputStream in, FileObject file, FileSystemManager manager) {
+  VFSInputStream(InputStream in, FileObject file, FileSystemManager manager) {
     super(in);
     this.manager = manager;
     this.file = file;
   }
 
-  static VfsInputStream open(String uri) throws FileSystemException {
+  static VFSInputStream open(String uri) throws FileSystemException {
     StandardFileSystemManager manager = new StandardFileSystemManager();
     FileObject file = null;
     InputStream in;
@@ -38,7 +41,7 @@ class VfsInputStream extends FilterInputStream {
       closeQuietly(manager);
       throw e;
     }
-    return new VfsInputStream(in, file, manager);
+    return new VFSInputStream(in, file, manager);
   }
 
   @Override

@@ -19,7 +19,7 @@ public class FileUtils {
     InputStream is;
     if (!path.startsWith("classpath:")) {
       if (isValidURI(path)) {
-        is = VfsInputStream.open(path);
+        is = VFSInputStream.open(path);
       } else {
         is = new FileInputStream(path);
       }
