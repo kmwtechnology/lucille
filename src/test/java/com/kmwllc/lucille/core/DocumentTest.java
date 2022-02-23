@@ -537,14 +537,14 @@ public class DocumentTest {
   }
 
   @Test
-  public void testRemoveDuplicateValues() {
+  public void testRemoveDuplicateValuesWithNullTarget() {
     Document d = new Document("id");
     d.setField("field1", 1);
     d.addToField("field1", 1);
     d.addToField("field1", 16);
     d.addToField("field1", 129);
 
-    d.removeDuplicateValues("field1");
+    d.removeDuplicateValues("field1", null);
 
     List<String> values1 = d.getStringList("field1");
     assertEquals("1", values1.get(0));
@@ -559,7 +559,7 @@ public class DocumentTest {
     d.addToField("field2", "c");
     d.addToField("field2", "b");
 
-    d.removeDuplicateValues("field2");
+    d.removeDuplicateValues("field2", null);
 
     List<String> values2 = d.getStringList("field2");
     assertEquals("a", values2.get(0));
@@ -568,5 +568,40 @@ public class DocumentTest {
 
     // ensure that the Strings do come out as Strings
     assertEquals("{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
+  }
+
+  @Test
+  public void testRemoveDuplicateValuesWithValidTarget() {
+    Document d = new Document("id");
+    d.setField("field1", 1);
+    d.addToField("field1", 1);
+    d.addToField("field1", 16);
+    d.addToField("field1", 129);
+
+    d.removeDuplicateValues("field1", "output");
+
+    List<String> values1 = d.getStringList("output");
+    assertEquals("1", values1.get(0));
+    assertEquals("16", values1.get(1));
+    assertEquals("129", values1.get(2));
+
+    // verify that the original field stays the same, while the output field contains the correct values
+    assertEquals("{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}", d.toString());
+
+    Document d2 = new Document("id2");
+    d2.setField("field2", "a");
+    d2.addToField("field2", "b");
+    d2.addToField("field2", "c");
+    d2.addToField("field2", "b");
+
+    d2.removeDuplicateValues("field2", "field2");
+
+    List<String> values2 = d2.getStringList("field2");
+    assertEquals("a", values2.get(0));
+    assertEquals("b", values2.get(1));
+    assertEquals("c", values2.get(2));
+
+    // verify in-place modification
+    assertEquals("{\"id\":\"id2\",\"field2\":[\"a\",\"b\",\"c\"]}", d2.toString());
   }
 }

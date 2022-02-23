@@ -116,4 +116,30 @@ public class RemoveDuplicateValuesTest {
     // ensure that the numbers do not come out as Strings
     assertEquals("{\"id\":\"doc\",\"field1\":[1,23,14,-32]}", doc.toString());
   }
+
+  @Test
+  public void testMappingToField() throws StageException {
+
+    Stage stage = factory.get("RemoveDuplicateValuesTest/mapping.conf");
+
+    Document doc = new Document("doc");
+    doc.setField("field1", 1);
+    doc.addToField("field1", 1);
+    doc.addToField("field1", 23);
+    doc.addToField("field1", 14);
+    doc.addToField("field1", -32);
+
+    stage.processDocument(doc);
+
+    assertEquals(4, doc.getStringList("fish").size());
+
+    List<String> values = doc.getStringList("fish");
+    assertEquals("1", values.get(0));
+    assertEquals("23", values.get(1));
+    assertEquals("14", values.get(2));
+    assertEquals("-32", values.get(3));
+
+    // verify original field stays, while new values without duplicates are placed into new field
+    assertEquals("{\"id\":\"doc\",\"field1\":[1,1,23,14,-32],\"fish\":[1,23,14,-32]}", doc.toString());
+  }
 }
