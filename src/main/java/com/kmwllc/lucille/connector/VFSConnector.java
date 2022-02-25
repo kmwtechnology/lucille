@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.filetraverser.FileTraverser;
 import com.kmwllc.lucille.filetraverser.data.producer.DefaultDocumentProducer;
+import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.vfs2.*;
@@ -13,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Base64;
@@ -36,7 +36,7 @@ public class VFSConnector extends AbstractConnector {
 
     // normalize vfsPath to convert to a URI even if they specified an absolute or relative local file path
     String rawPath = config.getString("vfsPath");
-    vfsPath = isValidURI(rawPath) ? rawPath : Path.of(rawPath).normalize().toUri().toString();
+    vfsPath = FileUtils.isValidURI(rawPath) ? rawPath : Path.of(rawPath).normalize().toUri().toString();
 
     // Compile include and exclude regex paths or set an empty list if none were provided (allow all files)
     List<String> includeRegex = config.hasPath("includes") ?
@@ -128,14 +128,4 @@ public class VFSConnector extends AbstractConnector {
     // everything else should be good
     return true;
   }
-
-  private static boolean isValidURI(String uriString) {
-    try {
-      URI rawURI = URI.create(uriString);
-      return rawURI.getScheme() != null && !rawURI.getScheme().trim().isEmpty();
-    } catch (Exception e) {
-      return false;
-    }
-  }
-
 }
