@@ -3,9 +3,11 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
@@ -17,6 +19,8 @@ import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.net.URI;
+import java.util.Base64;
 import java.util.List;
 
 /**
@@ -26,6 +30,8 @@ public class TextExtractor extends Stage {
   private static final Logger log = LogManager.getLogger(TextExtractor.class);
   private String textField;
   private String filePathField;
+  private String tikaConfigPath;
+  private String byteArrayField;
   private Parser parser;
   private ParseContext parseCtx;
 
@@ -33,39 +39,62 @@ public class TextExtractor extends Stage {
     super(config);
     textField = config.hasPath("textField") ? config.getString("textField") : "text";
     filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : "filepath";
-    parser = new AutoDetectParser();
+    byteArrayField = config.hasPath("byteArrayField") ? config.getString("byteArrayField") : "byteArray";
+    tikaConfigPath = config.hasPath("tikaConfigPath") ? config.getString("tikaConfigPath") : null;
     parseCtx = new ParseContext();
+  }
+
+  @Override
+  public void start() {
+    if (this.tikaConfigPath == null) {
+      parser = new AutoDetectParser();
+    } else {
+      try {
+        parser = new AutoDetectParser(new TikaConfig(this.tikaConfigPath));
+      } catch (Exception e) {
+        log.error("Error creating new AutoDetectParser", e);
+      }
+    }
     parseCtx.set(Parser.class, parser);
   }
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    if (!doc.has(filePathField)) {
-      return null;
+    // if the document has both a byteArray field and a filePathField, only byteArray will be processed.
+    if (doc.has(byteArrayField)) {
+      byte[] byteArray = null;
+      try {
+        byteArray = Base64.getDecoder().decode(new String(doc.getString(byteArrayField)).getBytes("UTF-8"));
+      } catch (UnsupportedEncodingException e) {
+        log.error("Field could not be base64 decoded.", e);
+      }
+
+      InputStream inputStream = new ByteArrayInputStream(byteArray);
+      parseInputStream(doc, inputStream);
+
+    } else if (doc.has(filePathField)) {
+
+      String filePath = doc.getString(filePathField);
+      InputStream inputStream = FileUtils.getInputStream(filePath);
+      parseInputStream(doc, inputStream);
     }
+    return null;
+  }
 
-    String filePath = doc.getString(filePathField);
+  private static String cleanFieldName(String name) {
+    String cleanName = name.trim().toLowerCase();
+    cleanName = cleanName.replaceAll(" ", "_");
+    cleanName = cleanName.replaceAll("-", "_");
+    cleanName = cleanName.replaceAll(":", "_");
+    return cleanName;
+  }
 
-    File f = new File(filePath);
-    if (!f.exists()) {
-      log.warn("File path not found ", filePath);
-    }
-
-    FileInputStream binaryData = null;
-    try {
-      binaryData = new FileInputStream(f);
-    } catch (FileNotFoundException e) {
-      // TODO Auto-generated catch block
-      log.warn("File Exception: {}", e);
-      // This should never happen.
-    }
-    // InputStream binaryData = null;
-
+  public void parseInputStream(Document doc, InputStream inputStream) {
     Metadata metadata = new Metadata();
     StringWriter textData = new StringWriter();
     ContentHandler bch = new BodyContentHandler(textData);
     try {
-      parser.parse(binaryData, bch, metadata, parseCtx);
+      parser.parse(inputStream, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
       log.warn("Tika Exception: {}", e);
     }
@@ -78,15 +107,14 @@ public class TextExtractor extends Stage {
         doc.addToField("tika_" + cleanName, value);
       }
     }
-    return null;
   }
 
-  // TODO: this should go on a common utility interface or something.
-  private static String cleanFieldName(String name) {
-    String cleanName = name.trim().toLowerCase();
-    cleanName = cleanName.replaceAll(" ", "_");
-    cleanName = cleanName.replaceAll("-", "_");
-    cleanName = cleanName.replaceAll(":", "_");
-    return cleanName;
+  private static boolean isValidURI(String uriString) {
+    try {
+      URI rawURI = URI.create(uriString);
+      return rawURI.getScheme() != null && !rawURI.getScheme().trim().isEmpty();
+    } catch (Exception e) {
+      return false;
+    }
   }
 }
