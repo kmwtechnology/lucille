@@ -72,13 +72,20 @@ public class CSVConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    
     if (moveToAfterProcessing != null) {
       // Create the destination directory if it doesn't exist.
       File destDir = new File(moveToAfterProcessing); 
       if (!destDir.exists()) {
         log.info("Creating archive directory {}", destDir.getAbsolutePath());
         destDir.mkdirs();
+      }
+    }
+
+    if (moveToErrorFolder != null) {
+      File errorDir = new File(moveToErrorFolder);
+      if (!errorDir.exists()) {
+        log.info("Creating error directory {}", errorDir.getAbsolutePath());
+        errorDir.mkdirs();
       }
     }
     
@@ -90,12 +97,6 @@ public class CSVConnector extends AbstractConnector {
           processFile(f.getAbsolutePath(), publisher);
         } catch (ConnectorException e) {
           log.warn("Error Processing CSV File. {}", f.getAbsolutePath(), e);
-          // TODO: move the csv file to an error directory.
-          if (moveToErrorFolder != null) {
-
-            File errorDir = new File(moveToErrorFolder);
-            errorDir.mkdirs();
-          }
         }
       }
     } else {
@@ -191,14 +192,11 @@ public class CSVConnector extends AbstractConnector {
     } catch (Exception e) {
       log.error("Error during CSV processing", e);
       moveFile(filePath, moveToErrorFolder);
+      System.out.println("Hi");
     }
     // assuming we got here, we were successful processing the csv file
     if (moveToAfterProcessing != null) {
-      if (filePath.startsWith("classpath:")) {
-        log.warn("Skipping moving classpath file: {} to {}", filePath, moveToAfterProcessing);
-      } else {
         moveFile(filePath, moveToAfterProcessing);
-      }
     }
   }
 
@@ -226,6 +224,11 @@ public class CSVConnector extends AbstractConnector {
   }
 
   public void moveFile(String filePath, String option) throws ConnectorException {
+    if (filePath.startsWith("classpath:")) {
+      log.warn("Skipping moving classpath file: {} to {}", filePath, moveToAfterProcessing);
+      return;
+    }
+
     Path source = Paths.get(filePath);
     String fileName = source.getFileName().toString();
     Path dest = Paths.get(option + File.separatorChar + fileName);

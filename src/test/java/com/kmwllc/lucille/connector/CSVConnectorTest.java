@@ -10,11 +10,14 @@ import com.typesafe.config.ConfigParseOptions;
 import com.typesafe.config.ConfigResolveOptions;
 import org.junit.Test;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class CSVConnectorTest {
 
@@ -103,6 +106,8 @@ public class CSVConnectorTest {
     Connector connector = new CSVConnector(config);
     connector.execute(publisher);
 
-    assertEquals(0, manager.getSavedDocumentsSentForProcessing().size());
+    // path is created
+    Path path = Paths.get("error");
+    assertTrue(Files.exists(path));
   }
 }
