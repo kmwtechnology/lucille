@@ -23,16 +23,21 @@ public class FileUtils {
   }
 
   public static Reader getReader(String path, String encoding) throws IOException {
+    InputStream is;
     if (!path.startsWith("classpath:")) {
-      // This method of creating the Reader is used because it handles none UTF-8 characters by replacing them with UTF
-      // chars, rather than throwing an Exception.
-      // https://stackoverflow.com/questions/26268132/all-inclusive-charset-to-avoid-java-nio-charset-malformedinputexception-input
-      // return Files.newBufferedReader(Paths.get(path), StandardCharsets.UTF_8);
-      return new BufferedReader(new InputStreamReader(new FileInputStream(path), encoding));
+      if (isValidURI(path)) {
+        is = VFSInputStream.open(path);
+      } else {
+        is = new FileInputStream(path);
+      }
     } else {
-      InputStream is = FileUtils.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
-      return new BufferedReader(new InputStreamReader(is, encoding));
+      is = FileUtils.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":")+1));
     }
+    // This method of creating the Reader is used because it handles non-UTF-8 characters by replacing them with UTF
+    // chars, rather than throwing an Exception.
+    // https://stackoverflow.com/questions/26268132/all-inclusive-charset-to-avoid-java-nio-charset-malformedinputexception-input
+    // return Files.newBufferedReader(Paths.get(path), StandardCharsets.UTF_8);
+    return new BufferedReader(new InputStreamReader(is, encoding));
   }
 
   // TODO : Potentially support setting home dir in config
@@ -70,4 +75,13 @@ public class FileUtils {
     return null;
   }
 
+
+  public static boolean isValidURI(String uriString) {
+    try {
+      URI rawURI = URI.create(uriString);
+      return rawURI.getScheme() != null && !rawURI.getScheme().trim().isEmpty();
+    } catch (Exception e) {
+      return false;
+    }
+  }
 }
