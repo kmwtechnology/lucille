@@ -1,11 +1,7 @@
 package com.kmwllc.lucille.util;
 
-
 import java.io.*;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.net.URLConnection;
 import java.nio.file.Path;
 
 public class FileUtils {
@@ -31,7 +27,7 @@ public class FileUtils {
         is = new FileInputStream(path);
       }
     } else {
-      is = FileUtils.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":")+1));
+      is = FileUtils.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
     }
     // This method of creating the Reader is used because it handles non-UTF-8 characters by replacing them with UTF
     // chars, rather than throwing an Exception.
@@ -57,24 +53,12 @@ public class FileUtils {
    * @param path the path as a String
    * @return the correct InputStream
    */
-  public static InputStream getInputStream(String path) {
-    try {
-      URI uri = new URI(path);
-      URL url = uri.toURL(); //get URL from your uri object
-      InputStream stream = url.openStream();
-      return stream;
-
-    } catch (Exception e) {
-      File f = new File(path);
-      try {
-        return new FileInputStream(f);
-      } catch (FileNotFoundException fileNotFoundException) {
-        fileNotFoundException.printStackTrace();
-      }
+  public static InputStream getInputStream(String path) throws IOException {
+    if (isValidURI(path)) {
+      return VFSInputStream.open(path);
     }
-    return null;
+    return new FileInputStream(path);
   }
-
 
   public static boolean isValidURI(String uriString) {
     try {

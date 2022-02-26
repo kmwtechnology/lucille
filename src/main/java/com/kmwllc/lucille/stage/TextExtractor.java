@@ -19,7 +19,6 @@ import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 
 import java.io.*;
-import java.net.URI;
 import java.util.Base64;
 import java.util.List;
 
@@ -75,8 +74,13 @@ public class TextExtractor extends Stage {
     } else if (doc.has(filePathField)) {
 
       String filePath = doc.getString(filePathField);
-      InputStream inputStream = FileUtils.getInputStream(filePath);
-      parseInputStream(doc, inputStream);
+
+      try {
+        InputStream inputStream = FileUtils.getInputStream(filePath);
+        parseInputStream(doc, inputStream);
+      } catch (IOException e) {
+        throw new StageException("InputStream cannot be parsed or created", e);
+      }
     }
     return null;
   }
@@ -106,15 +110,6 @@ public class TextExtractor extends Stage {
       for (String value : metadata.getValues(name)) {
         doc.addToField("tika_" + cleanName, value);
       }
-    }
-  }
-
-  private static boolean isValidURI(String uriString) {
-    try {
-      URI rawURI = URI.create(uriString);
-      return rawURI.getScheme() != null && !rawURI.getScheme().trim().isEmpty();
-    } catch (Exception e) {
-      return false;
     }
   }
 }

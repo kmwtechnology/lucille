@@ -55,5 +55,42 @@ public class TextExtractorTest {
     assertEquals("Hi There!\n", doc.getString("text"));
   }
 
+  /**
+   * Tests the TextExtractor on a config with a Docx file.
+   * @throws StageException
+   */
+  @Test
+  public void testDocx() throws StageException, IOException {
+    Stage stage = factory.get("TextExtractorTest/filepath.conf");
 
+    Document doc = new Document("doc1");
+    doc.setField("path", "src/test/resources/TextExtractorTest/tika.docx");
+    stage.processDocument(doc);
+
+    System.out.println(doc.toString());
+
+    assertEquals("Hi There!\n", doc.getString("text"));
+    assertEquals("Microsoft Office Word", doc.getString("tika_extended_properties_application"));
+  }
+
+  /**
+   * Tests the TextExtractor on a config with a Excel file.
+   * @throws StageException
+   */
+  @Test
+  public void testExcel() throws StageException, IOException {
+    Stage stage = factory.get("TextExtractorTest/filepath.conf");
+
+    Document doc = new Document("doc1");
+    doc.setField("path", "src/test/resources/TextExtractorTest/tika.xlsx");
+    stage.processDocument(doc);
+
+    System.out.println(doc.toString());
+
+    assertEquals("Sheet1\n" +
+      "\tHi There!\n" +
+      "\n" +
+      "\n", doc.getString("text"));
+    assertEquals("Microsoft Macintosh Excel", doc.getString("tika_extended_properties_application"));
+  }
 }
