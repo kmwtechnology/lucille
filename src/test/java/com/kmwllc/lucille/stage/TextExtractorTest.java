@@ -121,6 +121,7 @@ public class TextExtractorTest {
     stage.processDocument(doc);
 
     // verify that the open parser is what is used on pdfs
-    assertTrue(doc.getString("tika_x_tika_parsed_by").contains("org.apache.tika.parser.EmptyParser"));
+
+    assertTrue(doc.getStringList("tika_x_tika_parsed_by").contains("org.apache.tika.parser.EmptyParser"));
   }
 }
