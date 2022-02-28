@@ -47,5 +47,29 @@ public class ExtractEntitiesTest {
     assertEquals("North America", doc.getString("payload"));
     assertEquals("United States", doc.getString("entity"));
   }
+
+  @Test
+  public void testMemoryUsage() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesTest/test.conf");
+
+    // Ensure that keywords from the dictionary are correctly extracted
+    Document doc = new Document("doc");
+    doc.setField("input1", "My Arcroyal");
+    stage.processDocument(doc);
+    assertEquals("Country name should be extracted from input1", "My~435449630",
+      doc.getStringList("output").get(0));
+
+    // Ensure that several fields can be extracted and that payloads work as expected
+//    Document doc2 = new Document("doc2");
+//    doc2.setField("input1", "I live in China but am from taiwan");
+//    doc2.setField("input2", "I live in Canada");
+//    doc2.setField("input3", "I live in USSR");
+//    stage.processDocument(doc2);
+//    List<String> tokens = doc2.getStringList("output");
+//    assertEquals("Country names from input1 should be extracted to output", "China", tokens.get(0));
+//    assertEquals("Country names from input1 should be extracted to output", "Taiwan", tokens.get(1));
+//    assertEquals("Country names from input2 should be extracted to output", "Canada", tokens.get(2));
+//    assertEquals("Country names from input3 should be extracted to output", "Russia", tokens.get(3));
+  }
   
 }
