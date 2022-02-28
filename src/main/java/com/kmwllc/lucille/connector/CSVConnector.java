@@ -192,7 +192,6 @@ public class CSVConnector extends AbstractConnector {
     } catch (Exception e) {
       log.error("Error during CSV processing", e);
       moveFile(filePath, moveToErrorFolder);
-      System.out.println("Hi");
     }
     // assuming we got here, we were successful processing the csv file
     if (moveToAfterProcessing != null) {

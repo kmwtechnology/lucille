@@ -100,14 +100,23 @@ public class CSVConnectorTest {
 
   @Test
   public void testErrorDirectory() throws Exception {
+    // delete directory if it already exists
+    Path path = Paths.get("error");
+    if (Files.exists(path)) {
+      Files.delete(path);
+    }
+
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/faulty.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
+
     connector.execute(publisher);
 
-    // path is created
-    Path path = Paths.get("error");
+    path = Paths.get("error");
     assertTrue(Files.exists(path));
+
+    // delete directory again to remove clutter
+      Files.delete(path);
   }
 }
