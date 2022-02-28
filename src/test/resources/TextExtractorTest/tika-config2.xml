@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<properties>
+    <parsers>
+        <!-- Default Parser for most things, except for 1 mime type -->
+        <parser class="org.apache.tika.parser.DefaultParser">
+            <mime-exclude>application/pdf</mime-exclude>
+        </parser>
+        <!-- Use a different parser for txt -->
+        <parser class="org.apache.tika.parser.EmptyParser">
+            <mime>application/pdf</mime>
+        </parser>
+    </parsers>
+</properties>

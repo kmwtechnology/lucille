@@ -49,7 +49,9 @@ public class TextExtractor extends Stage {
       parser = new AutoDetectParser();
     } else {
       try {
-        parser = new AutoDetectParser(new TikaConfig(this.tikaConfigPath));
+        File f = new File(this.tikaConfigPath);
+        TikaConfig tc = new TikaConfig(f);
+        parser = new AutoDetectParser(tc);
       } catch (Exception e) {
         log.error("Error creating new AutoDetectParser", e);
       }

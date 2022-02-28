@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.util.Base64;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class TextExtractorTest {
 
@@ -18,6 +19,7 @@ public class TextExtractorTest {
 
   /**
    * Tests the TextExtractor on a config with a specified file path.
+   *
    * @throws StageException
    */
   @Test
@@ -28,13 +30,12 @@ public class TextExtractorTest {
     doc.setField("path", "src/test/resources/TextExtractorTest/tika.txt");
     stage.processDocument(doc);
 
-    System.out.println(doc.toString());
-
     assertEquals("Hi There!\n", doc.getString("text"));
   }
 
   /**
    * Tests the TextExtractor on a config with a specified byteArray.
+   *
    * @throws StageException
    */
   @Test
@@ -45,29 +46,26 @@ public class TextExtractorTest {
 
     File file = new File("src/test/resources/TextExtractorTest/tika.txt");
     byte[] fileContent = Files.readAllBytes(file.toPath());
-    String val =  Base64.getEncoder().encodeToString(fileContent);
+    String val = Base64.getEncoder().encodeToString(fileContent);
 
     doc.setField("byteArray", val);
     stage.processDocument(doc);
-
-    System.out.println(doc.toString());
 
     assertEquals("Hi There!\n", doc.getString("text"));
   }
 
   /**
    * Tests the TextExtractor on a config with a Docx file.
+   *
    * @throws StageException
    */
   @Test
-  public void testDocx() throws StageException, IOException {
+  public void testDocx() throws StageException {
     Stage stage = factory.get("TextExtractorTest/filepath.conf");
 
     Document doc = new Document("doc1");
     doc.setField("path", "src/test/resources/TextExtractorTest/tika.docx");
     stage.processDocument(doc);
-
-    System.out.println(doc.toString());
 
     assertEquals("Hi There!\n", doc.getString("text"));
     assertEquals("Microsoft Office Word", doc.getString("tika_extended_properties_application"));
@@ -75,22 +73,54 @@ public class TextExtractorTest {
 
   /**
    * Tests the TextExtractor on a config with a Excel file.
+   *
    * @throws StageException
    */
   @Test
-  public void testExcel() throws StageException, IOException {
+  public void testExcel() throws StageException {
     Stage stage = factory.get("TextExtractorTest/filepath.conf");
 
     Document doc = new Document("doc1");
     doc.setField("path", "src/test/resources/TextExtractorTest/tika.xlsx");
     stage.processDocument(doc);
 
-    System.out.println(doc.toString());
-
     assertEquals("Sheet1\n" +
       "\tHi There!\n" +
       "\n" +
       "\n", doc.getString("text"));
     assertEquals("Microsoft Macintosh Excel", doc.getString("tika_extended_properties_application"));
+  }
+
+  /**
+   * Tests the TextExtractor with a custom Tika config.
+   *
+   * @throws StageException
+   */
+  @Test
+  public void testCustomTikaConfig() throws StageException {
+    Stage stage = factory.get("TextExtractorTest/tika-config.conf");
+
+    Document doc = new Document("doc1");
+    doc.setField("path", "src/test/resources/TextExtractorTest/tika.txt");
+    stage.processDocument(doc);
+
+    assertEquals("Hi There!\n", doc.getString("text"));
+  }
+
+  /**
+   * Tests the TextExtractor with a custom Tika config.
+   *
+   * @throws StageException
+   */
+  @Test
+  public void testCustomTikaConfig2() throws StageException {
+    Stage stage = factory.get("TextExtractorTest/tika-config2.conf");
+
+    Document doc = new Document("doc1");
+    doc.setField("path", "src/test/resources/TextExtractorTest/tika.pdf");
+    stage.processDocument(doc);
+
+    // verify that the open parser is what is used on pdfs
+    assertTrue(doc.getString("tika_x_tika_parsed_by").contains("org.apache.tika.parser.EmptyParser"));
   }
 }
