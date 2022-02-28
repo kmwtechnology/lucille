@@ -7,8 +7,6 @@ import com.kmwllc.lucille.core.StageException;
 import org.junit.Rule;
 import org.junit.Test;
 
-import java.util.Arrays;
-
 import static org.junit.Assert.*;
 
 public class QueryDatabaseTest {
@@ -20,16 +18,43 @@ public class QueryDatabaseTest {
     "", "db-test-start.sql", "db-test-end.sql");
 
   @Test
-  public void testQueryDatabase() throws StageException {
-    Stage stage = factory.get("QueryDatabaseTest/config.conf");
+  public void testSingleKeyField() throws StageException {
+    Stage stage = factory.get("QueryDatabaseTest/animal.conf");
 
     Document d = new Document("id");
-    d.setField("input1", "");
-    d.setField("fish", "yes");
+    d.setField("fish", 3);
 
     stage.processDocument(d);
 
-    assertEquals("", d.getString("output1"));
+    assertEquals("Blaze", d.getString("output1"));
   }
 
+  @Test
+  public void testMultivaluedKeyField() throws StageException {
+    Stage stage = factory.get("QueryDatabaseTest/meal.conf");
+
+    Document d = new Document("id");
+    d.setField("fish", 2);
+    d.addToField("fish", 1);
+
+    stage.processDocument(d);
+
+    assertEquals("lunch", d.getString("output1"));
+  }
+
+  @Test
+  public void testMultipleResults() throws StageException {
+    Stage stage = factory.get("QueryDatabaseTest/data.conf");
+
+    Document d = new Document("id");
+    d.setField("input1", "");
+    d.setField("fish", 2);
+
+    stage.processDocument(d);
+
+    assertEquals("12", d.getStringList("output1").get(0));
+    assertEquals("2", d.getStringList("output2").get(0));
+    assertEquals("tiger", d.getStringList("output1").get(1));
+    assertEquals("2", d.getStringList("output2").get(1));
+  }
 }

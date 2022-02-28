@@ -56,31 +56,31 @@ public class QueryDatabase extends Stage {
 
     try {
       PreparedStatement preparedStatement = connection.prepareStatement(sql);
-
-      for (String s : doc.getStringList(keyField)) {
+      List<String> subs = doc.getStringList(keyField);
+      for (int i = 1; i < subs.size() + 1; i++) {
+        String s = subs.get(i - 1);
         if (StringUtils.isEmpty(s)) {
           continue;
         }
-
-        preparedStatement.setObject(1, s);
-        preparedStatement.setString(1, s);
-        ResultSet result = preparedStatement.executeQuery();
-
-        // now we need to iterate the results
-        while (result.next()) {
-          // Need the ID column from the RS.
-          for (String field : fieldMapping.keySet()) {
-            String value = result.getString(field);
-            doc.addToField(field, value);
-          }
-        }
-        result.close();
+        preparedStatement.setString(i, s);
       }
+      ResultSet result = preparedStatement.executeQuery();
+
+      // now we need to iterate the results
+      while (result.next()) {
+
+        // Need the ID column from the RS.
+        for (String key : fieldMapping.keySet()) {
+          String value = result.getString(key);
+          String field = (String) fieldMapping.get(key);
+          doc.addToField(field, value);
+        }
+      }
+      result.close();
       preparedStatement.close();
     } catch (SQLException e) {
       throw new StageException("Error handling SQL statements", e);
     }
     return null;
-
   }
 }
