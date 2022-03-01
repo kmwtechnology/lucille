@@ -115,8 +115,22 @@ public class CSVConnectorTest {
 
     path = Paths.get("error");
     assertTrue(Files.exists(path));
+    File f = new File("error/faulty.csv");
+    assertTrue(f.exists());
 
-    // delete directory again to remove clutter
+    // move file back to test directory
+    moveFileBackToTestDir("error/faulty.csv");
+    // delete error directory to remove clutter
       Files.delete(path);
+  }
+
+  public void moveFileBackToTestDir(String filePath) throws ConnectorException {
+    Path source = Paths.get(filePath);
+    Path dest = Paths.get("src/test/resources/CSVConnectorTest/faulty.csv");
+    try {
+      Files.move(source, dest);
+    } catch (IOException e) {
+      throw new ConnectorException("Error moving file to destination directory", e);
+    }
   }
 }
