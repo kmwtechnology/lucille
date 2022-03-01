@@ -1,20 +1,17 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.filetraverser.FileTraverser;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigParseOptions;
 import com.typesafe.config.ConfigResolveOptions;
+import org.junit.Before;
 import org.junit.Test;
 
+
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -100,11 +97,14 @@ public class CSVConnectorTest {
 
   @Test
   public void testErrorDirectory() throws Exception {
-    // delete directory if it already exists
-    Path path = Paths.get("error");
-    if (Files.exists(path)) {
-      Files.delete(path);
-    }
+
+    // create a temporary directory to hold a copy of the faulty csv
+    File tempDir = new File("temp");
+    tempDir.mkdirs();
+
+    // copy faulty csv into temp directory
+    File copy = new File("src/test/resources/CSVConnectorTest/faulty.csv");
+    org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/faulty.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
@@ -113,24 +113,55 @@ public class CSVConnectorTest {
 
     connector.execute(publisher);
 
-    path = Paths.get("error");
-    assertTrue(Files.exists(path));
+    // verify error directory is made
+    File errorDir = new File("error");
     File f = new File("error/faulty.csv");
-    assertTrue(f.exists());
 
-    // move file back to test directory
-    moveFileBackToTestDir("error/faulty.csv");
-    // delete error directory to remove clutter
-      Files.delete(path);
+    try {
+      // verify error directory is made
+      assertTrue(errorDir.exists());
+      // verify file is moved inside error directory
+      assertTrue(f.exists());
+    } finally {
+      // delete all created folders and files
+      f.delete();
+      errorDir.delete();
+      tempDir.delete();
+    }
   }
 
-  public void moveFileBackToTestDir(String filePath) throws ConnectorException {
-    Path source = Paths.get(filePath);
-    Path dest = Paths.get("src/test/resources/CSVConnectorTest/faulty.csv");
+  @Test
+  public void testSuccessfulDirectory() throws Exception {
+
+    // create a temporary directory to hold a copy of the successful csv
+    File tempDir = new File("temp");
+    tempDir.mkdirs();
+
+    // copy successful csv into temp directory
+    File copy = new File("src/test/resources/CSVConnectorTest/defaults.csv");
+    org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
+
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/success.conf"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    Connector connector = new CSVConnector(config);
+
+    connector.execute(publisher);
+
+    // verify error directory is made
+    File successDir = new File("success");
+    File f = new File("success/defaults.csv");
+
     try {
-      Files.move(source, dest);
-    } catch (IOException e) {
-      throw new ConnectorException("Error moving file to destination directory", e);
+      // verify error directory is made
+      assertTrue(successDir.exists());
+      // verify file is moved inside error directory
+      assertTrue(f.exists());
+    } finally {
+      // delete all created folders and files
+      f.delete();
+      successDir.delete();
+      tempDir.delete();
     }
   }
 }
