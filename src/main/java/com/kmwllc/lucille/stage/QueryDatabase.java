@@ -32,20 +32,11 @@ public class QueryDatabase extends Stage {
     keyField = config.getString("keyField");
     sql = config.hasPath("sql") ? config.getString("sql") : null;
     fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
-    createConnection();
   }
 
-  private void createConnection() {
-    try {
-      Class.forName(driver);
-    } catch (ClassNotFoundException e) {
-      log.error("Error creating connection", e);
-    }
-    try {
-      connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
-    } catch (SQLException e) {
-      log.error("Error creating connection", e);
-    }
+  @Override
+  public void start() throws StageException {
+    createConnection();
   }
 
   @Override
@@ -54,9 +45,15 @@ public class QueryDatabase extends Stage {
       return null;
     }
 
-    try {
-      PreparedStatement preparedStatement = connection.prepareStatement(sql);
+    // no need to close result as closing the statement automatically closes the ResultSet
+    try (PreparedStatement preparedStatement = connection.prepareStatement(sql);) {
+      int replacements = preparedStatement.getParameterMetaData().getParameterCount();
       List<String> subs = doc.getStringList(keyField);
+
+      if (replacements != subs.size()) {
+        throw new StageException("mismatch between replacements needed and provided");
+      }
+
       for (int i = 1; i < subs.size() + 1; i++) {
         String s = subs.get(i - 1);
         if (StringUtils.isEmpty(s)) {
@@ -64,6 +61,7 @@ public class QueryDatabase extends Stage {
         }
         preparedStatement.setString(i, s);
       }
+
       ResultSet result = preparedStatement.executeQuery();
 
       // now we need to iterate the results
@@ -76,11 +74,22 @@ public class QueryDatabase extends Stage {
           doc.addToField(field, value);
         }
       }
-      result.close();
-      preparedStatement.close();
     } catch (SQLException e) {
       throw new StageException("Error handling SQL statements", e);
     }
     return null;
+  }
+
+  private void createConnection() throws StageException {
+    try {
+      Class.forName(driver);
+    } catch (ClassNotFoundException e) {
+      throw new StageException("Error creating connection to database", e);
+    }
+    try {
+      connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
+    } catch (SQLException e) {
+      throw new StageException("Error creating connection to database", e);
+    }
   }
 }

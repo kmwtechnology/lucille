@@ -47,7 +47,6 @@ public class QueryDatabaseTest {
     Stage stage = factory.get("QueryDatabaseTest/data.conf");
 
     Document d = new Document("id");
-    d.setField("input1", "");
     d.setField("fish", 2);
 
     stage.processDocument(d);
@@ -56,5 +55,18 @@ public class QueryDatabaseTest {
     assertEquals("2", d.getStringList("output2").get(0));
     assertEquals("tiger", d.getStringList("output1").get(1));
     assertEquals("2", d.getStringList("output2").get(1));
+  }
+
+  @Test(expected = StageException.class)
+  public void testWrongNumberOfReplacements() throws StageException {
+    Stage stage = factory.get("QueryDatabaseTest/data.conf");
+
+    Document d = new Document("id");
+
+    // only one replacement needed, 2 provided
+    d.setField("fish", 2);
+    d.addToField("fish", 3);
+
+    stage.processDocument(d);
   }
 }
