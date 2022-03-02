@@ -8,6 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.IOException;
 import java.sql.*;
 import java.util.List;
 import java.util.Map;
@@ -84,12 +85,23 @@ public class QueryDatabase extends Stage {
     try {
       Class.forName(driver);
     } catch (ClassNotFoundException e) {
-      throw new StageException("Error creating connection to database", e);
+      throw new StageException("Database driver could not be loaded.", e);
     }
     try {
       connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
     } catch (SQLException e) {
       throw new StageException("Error creating connection to database", e);
+    }
+  }
+
+  @Override
+  public void stop() throws StageException {
+    if (connection != null) {
+      try {
+        connection.close();
+      } catch (SQLException e) {
+        throw new StageException("Error closing connection.", e);
+      }
     }
   }
 }
