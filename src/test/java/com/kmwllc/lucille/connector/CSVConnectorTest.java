@@ -7,6 +7,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigParseOptions;
 import com.typesafe.config.ConfigResolveOptions;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -17,6 +18,14 @@ import java.util.List;
 import static org.junit.Assert.*;
 
 public class CSVConnectorTest {
+
+  @Before
+  public void setUp() {
+    // create a temporary directory to hold copies of the csv
+    File tempDir = new File("temp");
+    tempDir.mkdirs();
+  }
+
 
   @Test
   public void testDefaults() throws Exception {
@@ -97,10 +106,7 @@ public class CSVConnectorTest {
 
   @Test
   public void testErrorDirectory() throws Exception {
-
-    // create a temporary directory to hold a copy of the faulty csv
     File tempDir = new File("temp");
-    tempDir.mkdirs();
 
     // copy faulty csv into temp directory
     File copy = new File("src/test/resources/CSVConnectorTest/faulty.csv");
@@ -126,16 +132,12 @@ public class CSVConnectorTest {
       // delete all created folders and files
       f.delete();
       errorDir.delete();
-      tempDir.delete();
     }
   }
 
   @Test
   public void testSuccessfulDirectory() throws Exception {
-
-    // create a temporary directory to hold a copy of the successful csv
     File tempDir = new File("temp");
-    tempDir.mkdirs();
 
     // copy successful csv into temp directory
     File copy = new File("src/test/resources/CSVConnectorTest/defaults.csv");
@@ -161,7 +163,12 @@ public class CSVConnectorTest {
       // delete all created folders and files
       f.delete();
       successDir.delete();
-      tempDir.delete();
     }
+  }
+
+  @After
+  public void tearDown() {
+    File tempDir = new File("temp");
+    tempDir.delete();
   }
 }
