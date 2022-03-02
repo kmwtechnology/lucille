@@ -44,7 +44,7 @@ public class TextExtractor extends Stage {
   }
 
   @Override
-  public void start() {
+  public void start() throws StageException {
     if (this.tikaConfigPath == null) {
       parser = new AutoDetectParser();
     } else {
@@ -53,7 +53,7 @@ public class TextExtractor extends Stage {
         TikaConfig tc = new TikaConfig(f);
         parser = new AutoDetectParser(tc);
       } catch (Exception e) {
-        log.error("Error creating new AutoDetectParser", e);
+        throw new StageException("Error starting TextExtractor stage.", e);
       }
     }
     parseCtx.set(Parser.class, parser);
