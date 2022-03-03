@@ -52,4 +52,59 @@ public class FileUtils {
       return false;
     }
   }
+
+  static public final String toString(File file) throws IOException {
+    byte[] bytes = toByteArray(file);
+    if (bytes == null) {
+      return null;
+    }
+    return new String(bytes);
+  }
+
+  /**
+   * simple file to byte array
+   *
+   * @param file - file to read
+   * @return byte array of contents
+   * @throws IOException
+   */
+  static public final byte[] toByteArray(File file) throws IOException {
+
+    FileInputStream fis = null;
+    byte[] data = null;
+
+    fis = new FileInputStream(file);
+    data = toByteArray(fis);
+
+    fis.close();
+
+    return data;
+  }
+
+  /**
+   * IntputStream to byte array
+   *
+   * @param is
+   * @return
+   */
+  static public final byte[] toByteArray(InputStream is) {
+
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    try {
+      int nRead;
+      byte[] data = new byte[16384];
+      while ((nRead = is.read(data, 0, data.length)) != -1) {
+        baos.write(data, 0, nRead);
+      }
+
+      baos.flush();
+      baos.close();
+      return baos.toByteArray();
+    } catch (Exception e) {
+      // TODO: proper log messages
+      e.printStackTrace();
+    }
+
+    return null;
+  }
 }
