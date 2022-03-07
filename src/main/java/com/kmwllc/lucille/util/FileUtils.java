@@ -1,7 +1,10 @@
 package com.kmwllc.lucille.util;
 
+import org.apache.commons.io.IOUtils;
+
 import java.io.*;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class FileUtils {
@@ -54,7 +57,8 @@ public class FileUtils {
   }
 
   static public final String toString(File file) throws IOException {
-    byte[] bytes = toByteArray(file);
+    InputStream is = new FileInputStream(file);
+    byte[] bytes = IOUtils.toByteArray(is);
     if (bytes == null) {
       return null;
     }
