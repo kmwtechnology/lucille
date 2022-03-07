@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector.xml;
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
@@ -30,7 +31,7 @@ public class XMLConnector extends AbstractConnector {
   private String docIDPrefix;
   private String fileRegex;
   private Pattern fileRegexPattern;
-  private String urlFile;
+  private List<String> urlFiles;
 
   public XMLConnector(Config config) {
     super(config);
@@ -39,7 +40,7 @@ public class XMLConnector extends AbstractConnector {
     xmlRootPath = config.hasPath("xmlRootPath") ? config.getString("xmlRootPath") : null;
     xmlIDPath = config.hasPath("xmlIDPath") ? config.getString("xmlIDPath") : null;
     docIDPrefix = config.hasPath("docIDPrefix") ? config.getString("docIDPrefix") : "doc_";
-    urlFile = config.hasPath("urlFile") ? config.getString("urlFile") : null;
+    urlFiles = config.hasPath("urlFiles") ? config.getStringList("urlFiles") : null;
   }
 
   @Override
@@ -66,14 +67,12 @@ public class XMLConnector extends AbstractConnector {
       xmlHandler.setDocIDPrefix(docIDPrefix);
       xmlReader.setContentHandler(xmlHandler);
 
-      if (urlFile != null) {
-        // We are going to process the file of urls instead of the file directory specification.
 
-        String[] lines = FileUtils.toString(new File(urlFile)).split("\n");
-        for (String line : lines) {
-          line = line.trim();
-          log.info("URL TO CRAWL: " + line);
-          InputStream in = new URL(line).openStream();
+      if (urlFiles != null) {
+        // We are going to process the file of urls instead of the file directory specification.
+        for (String file : urlFiles) {
+          log.info("URL TO CRAWL: " + file);
+          InputStream in = new URL(file).openStream();
           BufferedInputStream bis = new BufferedInputStream(in);
           RecordingInputStream ris = new RecordingInputStream(bis);
           InputSource xmlSource = new InputSource(ris);
@@ -81,7 +80,6 @@ public class XMLConnector extends AbstractConnector {
           xmlReader.parse(xmlSource);
           in.close();
         }
-
 
       } else {
         for (String file : filePaths) {
@@ -99,7 +97,7 @@ public class XMLConnector extends AbstractConnector {
         }
       }
     } catch (IOException | SAXException e) {
-      log.warn("SAX Parser Error {}", e);
+      throw new ConnectorException("SAX Parser Error {}", e);
     }
   }
 
