@@ -8,11 +8,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.IOException;
 import java.sql.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice.
+ * Currently, this stage treats all fields as Strings, so it may be important to support more types in the future.
+ */
 public class QueryDatabase extends Stage {
   private String driver;
   private String connectionString;
