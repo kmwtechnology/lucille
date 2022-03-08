@@ -12,6 +12,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -32,11 +33,13 @@ public class FSTDictionaryManagerTest {
 
   private FSTDictionaryManager dm;
   private InputStream in;
+  private InputStream in2;
 
   @Before
   public void before() throws FileNotFoundException {
     dm = FSTDictionaryManagerFactory.get().createDefault();
     in = new FileInputStream("src/test/resources/ExtractEntitiesTest/test-dict.csv");
+    in2 = new FileInputStream("src/test/resources/AlternateExtractEntitiesTest/dictionary.txt");
   }
 
   @Test
@@ -189,6 +192,27 @@ public class FSTDictionaryManagerTest {
     entities = dm.findEntityStrings(input, false, false);
     assertEquals(1, entities.size());
     //assertThat(entities).contains(INVENTOR);
+
+
+    input = "I live in the united states.";
+    entities = dm.findEntityStrings(input, false, false);
+    assertEquals(1, entities.size());
+    //assertThat(entities).contains(INVENTOR, GEORGE_WASHINGTON, CITY, STATE);
+  }
+
+
+  @Test
+  public void testMe() throws IOException {
+    dm.loadDictionary(in2);
+
+    String input = "United States";
+    List<String> entities = dm.findEntityStrings(input, false, false);
+    List<String> e = new ArrayList<>();
+    e.add("United States");
+    assertTrue(dm.hasTokens(e));
+    assertEquals(1, entities.size());
+    //assertThat(entities).contains(ATHLETE, AUTHOR);
+
   }
 }
 

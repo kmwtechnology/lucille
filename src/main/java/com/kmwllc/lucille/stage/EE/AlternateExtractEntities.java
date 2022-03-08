@@ -1,9 +1,6 @@
 package com.kmwllc.lucille.stage.EE;
 
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
-import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
@@ -30,6 +27,10 @@ public class AlternateExtractEntities extends Stage {
   private final List<String> dictionaries;
   private DictionaryManager dictMgr;
   private static Tokenizer tokenizer = SimpleTokenizer.INSTANCE;
+  private final boolean ignoreCase;
+  private final UpdateMode updateMode;
+  private final String entityField;
+
 
   public AlternateExtractEntities(Config config) {
     super(config);
@@ -37,14 +38,16 @@ public class AlternateExtractEntities extends Stage {
     this.destFields = config.getStringList("dest");
     this.dictionaries = config.getStringList("dictionaries");
     this.dictMgr = FSTDictionaryManagerFactory.get().createDefault();
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
+    this.updateMode = UpdateMode.fromConfig(config);
+    this.entityField = config.hasPath("entity_field") ? config.getString("entity_field") : null;
   }
 
   @Override
   public void start() {
     for (String dictFile : dictionaries) {
-      File d = new File(dictFile);
       try {
-        InputStream in = new FileInputStream(d);
+        InputStream in = new FileInputStream(dictFile);
         dictMgr.loadDictionary(in);
       } catch (Exception e) {
         log.info("dictionaries could not be loaded in.", e);
@@ -58,19 +61,31 @@ public class AlternateExtractEntities extends Stage {
     for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one source or dest, use it. Otherwise, use the current source/dest.
       String sourceField = sourceFields.get(i);
-      String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
       if (!doc.has(sourceField))
         continue;
 
+      String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
+
       List<String> entities = null;
       try {
+        System.out.println(doc.getString(sourceField));
         entities = dictMgr.findEntityStrings(doc.getString(sourceField), false, false);
+        System.out.println(entities.toString());
       } catch (IOException e) {
         throw new StageException("entities could not be extracted", e);
       }
-      doc.update(destField, UpdateMode.APPEND, entities.toArray(new String[0]));
+
+      for (String s : entities) {
+        doc.setOrAdd(destField, s);
+      }
+      if (entityField != null) {
+        doc.update(entityField, updateMode, entities.toArray(new String[0]));
+      }
+
+
     }
+
 
     return null;
   }

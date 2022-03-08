@@ -21,7 +21,7 @@ public class AlternateExtractEntitiesTest {
     Document doc = new Document("doc");
     doc.setField("input1", "I live in the United States.");
     stage.processDocument(doc);
-    assertEquals("Country name should be extracted from input1", "United States",
+    assertEquals("Country name should be extracted from input1", "united states",
         doc.getStringList("output").get(0));
 
     // Ensure that several fields can be extracted and that payloads work as expected
@@ -31,10 +31,10 @@ public class AlternateExtractEntitiesTest {
     doc2.setField("input3", "I live in USSR");
     stage.processDocument(doc2);
     List<String> tokens = doc2.getStringList("output");
-    assertEquals("Country names from input1 should be extracted to output", "China", tokens.get(0));
-    assertEquals("Country names from input1 should be extracted to output", "Taiwan", tokens.get(1));
-    assertEquals("Country names from input2 should be extracted to output", "Canada", tokens.get(2));
-    assertEquals("Country names from input3 should be extracted to output", "Russia", tokens.get(3));
+    assertEquals("Country names from input1 should be extracted to output", "taiwan", tokens.get(0));
+    assertEquals("Country names from input1 should be extracted to output", "china", tokens.get(1));
+    assertEquals("Country names from input2 should be extracted to output", "canada", tokens.get(2));
+    assertEquals("Country names from input3 should be extracted to output", "russia", tokens.get(3));
   }
   
   @Test
@@ -43,8 +43,8 @@ public class AlternateExtractEntitiesTest {
     doc.setField("input1", "I live in the United States.");
     Stage stage = factory.get("AlternateExtractEntitiesTest/configEntityAndPayload.conf");
     stage.processDocument(doc);
-    assertEquals("North America", doc.getString("payload"));
-    assertEquals("United States", doc.getString("entity"));
+    assertEquals("north america", doc.getString("payload"));
+    assertEquals("north america", doc.getString("entity"));
   }
 
   @Test
