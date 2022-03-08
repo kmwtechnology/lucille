@@ -56,14 +56,6 @@ public class FileUtils {
     }
   }
 
-  static public final String toString(File file) throws IOException {
-    InputStream is = new FileInputStream(file);
-    byte[] bytes = IOUtils.toByteArray(is);
-    if (bytes == null) {
-      return null;
-    }
-    return new String(bytes);
-  }
 
   /**
    * simple file to byte array
