@@ -58,12 +58,12 @@ public class QueryDatabase extends Stage {
         throw new StageException("mismatch between replacements needed and provided");
       }
 
-      for (int i = 1; i < subs.size() + 1; i++) {
-        String s = subs.get(i - 1);
+      for (int i = 0; i < subs.size(); i++) {
+        String s = subs.get(i);
         if (StringUtils.isEmpty(s)) {
           continue;
         }
-        preparedStatement.setString(i, s);
+        preparedStatement.setString(i + 1, s);
       }
 
       ResultSet result = preparedStatement.executeQuery();
