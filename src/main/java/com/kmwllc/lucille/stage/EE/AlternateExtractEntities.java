@@ -1,8 +1,6 @@
 package com.kmwllc.lucille.stage.EE;
 
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.util.FileUtils;
-import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
 import opennlp.tools.tokenize.SimpleTokenizer;
 import opennlp.tools.tokenize.Tokenizer;
@@ -10,13 +8,12 @@ import opennlp.tools.tokenize.Tokenizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
 import java.util.*;
-import java.util.stream.Collectors;
+
 
 public class AlternateExtractEntities extends Stage {
 
@@ -69,9 +66,7 @@ public class AlternateExtractEntities extends Stage {
 
       List<String> entities = null;
       try {
-        System.out.println(doc.getString(sourceField));
         entities = dictMgr.findEntityStrings(doc.getString(sourceField), false, false);
-        System.out.println(entities.toString());
       } catch (IOException e) {
         throw new StageException("entities could not be extracted", e);
       }
@@ -82,12 +77,7 @@ public class AlternateExtractEntities extends Stage {
       if (entityField != null) {
         doc.update(entityField, updateMode, entities.toArray(new String[0]));
       }
-
-
     }
-
-
     return null;
   }
-
 }

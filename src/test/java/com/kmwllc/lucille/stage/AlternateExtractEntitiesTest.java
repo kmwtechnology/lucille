@@ -3,6 +3,8 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.stage.EE.AlternateExtractEntities;
+
+import org.apache.commons.lang.time.StopWatch;
 import org.junit.Test;
 
 import java.util.List;
@@ -19,7 +21,7 @@ public class AlternateExtractEntitiesTest {
 
     // Ensure that keywords from the dictionary are correctly extracted
     Document doc = new Document("doc");
-    doc.setField("input1", "I live in the United States.");
+    doc.setField("input1", "I live in the united states.");
     stage.processDocument(doc);
     assertEquals("Country name should be extracted from input1", "united states",
         doc.getStringList("output").get(0));
@@ -53,22 +55,16 @@ public class AlternateExtractEntitiesTest {
 
     // Ensure that keywords from the dictionary are correctly extracted
     Document doc = new Document("doc");
-    doc.setField("input1", "My Arcroyal");
-    stage.processDocument(doc);
-    assertEquals("Country name should be extracted from input1", "My~435449630",
-      doc.getStringList("output").get(0));
+    doc.setField("input1", "This is a nice term zzzzzzzzzz");
 
-    // Ensure that several fields can be extracted and that payloads work as expected
-//    Document doc2 = new Document("doc2");
-//    doc2.setField("input1", "I live in China but am from taiwan");
-//    doc2.setField("input2", "I live in Canada");
-//    doc2.setField("input3", "I live in USSR");
-//    stage.processDocument(doc2);
-//    List<String> tokens = doc2.getStringList("output");
-//    assertEquals("Country names from input1 should be extracted to output", "China", tokens.get(0));
-//    assertEquals("Country names from input1 should be extracted to output", "Taiwan", tokens.get(1));
-//    assertEquals("Country names from input2 should be extracted to output", "Canada", tokens.get(2));
-//    assertEquals("Country names from input3 should be extracted to output", "Russia", tokens.get(3));
+    StopWatch watch = new StopWatch();
+    watch.start();
+
+    stage.processDocument(doc);
+
+    watch.stop();
+    System.out.println("Time Elapsed: " + watch.getTime());
+
+    assertEquals("aaaaaaaaaa", doc.getStringList("output").get(0));
   }
-  
 }

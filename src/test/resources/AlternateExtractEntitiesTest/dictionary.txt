@@ -1,5 +1,5 @@
-Canada
-China
-Taiwan
-United States
-Ussr,Russia
+canada
+china
+taiwan
+united states
+ussr,russia
