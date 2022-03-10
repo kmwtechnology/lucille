@@ -4,6 +4,7 @@ import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
+import com.kmwllc.lucille.connector.RunSummaryMessageConnector;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.kmwllc.lucille.stage.StartStopCaptureStage;
 import com.kmwllc.lucille.util.LogUtils;
@@ -373,6 +374,16 @@ public class RunnerTest {
     verify(connector, times(1)).execute(any());
     verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
+  }
+
+  /**
+   * If a connector sets a custom message, the message should be included in the run summary.
+   */
+  @Test
+  public void testCustomRunSummaryMessage() throws Exception {
+    RunResult result =
+      Runner.run(ConfigFactory.load("RunnerTest/runSummaryMessage.conf"), Runner.RunType.TEST);
+    assertTrue(result.toString().contains(RunSummaryMessageConnector.MESSAGE));
   }
 
   @Test
