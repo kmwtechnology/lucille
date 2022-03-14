@@ -31,5 +31,6 @@ public class XMLConnectorTest {
     assertEquals("doc_1001", docs.get(0).getString("id"));
     assertTrue(docs.get(1).has("xml"));
     assertEquals("doc_1002", docs.get(1).getString("id"));
+    System.out.println(docs.get(0).toString());
   }
 }

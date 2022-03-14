@@ -36,5 +36,6 @@ public class DOMConnectorTest {
     assertEquals("{\"id\":\"doc_1002\",\"#text\":\"\\n  " +
       "  \",\"name\":\"brian\",\"role\":\"admin\",\"salary\":\"8000\",\"bio\":" +
       "\"I enjoy reading\",\"run_id\":\"run1\"}", docs.get(1).toString());
+    System.out.println(docs.get(0).toString());
   }
 }
