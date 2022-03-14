@@ -534,4 +534,41 @@ public class Document implements Cloneable {
     }
     return fieldNames;
   }
+
+  /**
+   * A method to remove duplicate values from multivalued fields in a document and place the values into a target field.
+   * If the target field is null or the same as the original field, then modification will happen in place.
+   *
+   * @param fieldName the field to remove duplicate values from
+   * @param targetFieldName the field to copy to
+   */
+  public void removeDuplicateValues(String fieldName, String targetFieldName) {
+    if (!isMultiValued(fieldName)) {
+      return;
+    }
+
+    ArrayNode arrayNode = data.withArray(fieldName);
+    LinkedHashSet<JsonNode> set = new LinkedHashSet<>();
+    int length = 0;
+    for (JsonNode jsonNode : arrayNode) {
+      length++;
+      set.add(jsonNode);
+    }
+
+    if (targetFieldName == null || fieldName.equals(targetFieldName)) {
+      if (set.size() == length) {
+        return;
+      }
+      data.remove(fieldName);
+      arrayNode = data.withArray(fieldName);
+      for (JsonNode jsonNode : set) {
+        arrayNode.add(jsonNode);
+      }
+    } else {
+      arrayNode = data.withArray(targetFieldName);
+      for (JsonNode jsonNode : set) {
+        arrayNode.add(jsonNode);
+      }
+    }
+  }
 }
