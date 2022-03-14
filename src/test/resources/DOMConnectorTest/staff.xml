@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Company>
+    <staff id="1001">
+        <name>daniel</name>
+        <role>software engineer</role>
+        <salary currency="USD">3000</salary>
+        <bio>I am from San Diego</bio>
+    </staff>
+    <staff id="1002">
+        <name>brian</name>
+        <role>admin</role>
+        <salary currency="EUR">8000</salary>
+        <bio>I enjoy reading</bio>
+    </staff>
+</Company>
