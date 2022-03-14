@@ -222,7 +222,7 @@ public class CSVConnector extends AbstractConnector {
     return s;
   }
 
-  public void moveFile(String filePath, String option) throws ConnectorException {
+  public void moveFile(String filePath, String option) {
     if (filePath.startsWith("classpath:")) {
       log.warn("Skipping moving classpath file: {} to {}", filePath, moveToAfterProcessing);
       return;
@@ -234,7 +234,7 @@ public class CSVConnector extends AbstractConnector {
     try {
       Files.move(source, dest);
     } catch (IOException e) {
-      throw new ConnectorException("Error moving file to destination directory", e);
+      log.warn("Error moving file to destination directory", e);
     }
   }
 }
