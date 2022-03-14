@@ -18,9 +18,7 @@ import org.w3c.dom.NodeList;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.*;
 import java.io.*;
-
-import java.util.List;
-import java.util.regex.Pattern;
+import java.util.UUID;
 
 /**
  * A connector to parse XML and place all the characteristics of the elements as fields of the document.
@@ -35,7 +33,6 @@ public class DOMConnector extends AbstractConnector {
   // a boolean value to set whether the XML element contains the ID or not
   private boolean xmlIDAttribute;
   private String docIDPrefix;
-
 
   public DOMConnector(Config config) {
     super(config);
@@ -76,6 +73,8 @@ public class DOMConnector extends AbstractConnector {
         String id = null;
         if (xmlIDAttribute) {
           id = element.getAttribute("id");
+        } else {
+          id = UUID.randomUUID().toString();
         }
 
         NodeList list = element.getChildNodes();
