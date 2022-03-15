@@ -15,6 +15,7 @@ import java.util.Map;
 /**
  * This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice.
  * Currently, this stage treats all fields as Strings, so it may be important to support more types in the future.
+ * Additionally, this stage should try and reconnect to the database in the future.
  */
 public class QueryDatabase extends Stage {
   private String driver;
@@ -25,6 +26,7 @@ public class QueryDatabase extends Stage {
   private String keyField;
   private Map<String, Object> fieldMapping;
   protected Connection connection = null;
+  PreparedStatement preparedStatement;
   private static final Logger log = LogManager.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {
@@ -41,6 +43,11 @@ public class QueryDatabase extends Stage {
   @Override
   public void start() throws StageException {
     createConnection();
+    try {
+      preparedStatement = connection.prepareStatement(sql);
+    } catch (Exception e) {
+      throw new StageException("Not a valid SQL statement", e);
+    }
   }
 
   @Override
@@ -50,7 +57,7 @@ public class QueryDatabase extends Stage {
     }
 
     // no need to close result as closing the statement automatically closes the ResultSet
-    try (PreparedStatement preparedStatement = connection.prepareStatement(sql);) {
+    try {
       int replacements = preparedStatement.getParameterMetaData().getParameterCount();
       List<String> subs = doc.getStringList(keyField);
 
@@ -104,6 +111,13 @@ public class QueryDatabase extends Stage {
         connection.close();
       } catch (SQLException e) {
         throw new StageException("Error closing connection.", e);
+      }
+    }
+    if (preparedStatement != null) {
+      try {
+        preparedStatement.close();
+      } catch (SQLException e) {
+        throw new StageException("Error closing prepared statement", e);
       }
     }
   }
