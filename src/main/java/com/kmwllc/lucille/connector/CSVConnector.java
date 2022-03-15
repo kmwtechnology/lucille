@@ -90,6 +90,10 @@ public class CSVConnector extends AbstractConnector {
     }
     
     File pathFile = new File(path);
+    if (!path.startsWith("classpath:") && !pathFile.exists()) {
+      throw new ConnectorException("Path " + path + " does not exist");
+    }
+
     if (pathFile.isDirectory()) {
       // no recursion supported
       for (File f: pathFile.listFiles()) {
