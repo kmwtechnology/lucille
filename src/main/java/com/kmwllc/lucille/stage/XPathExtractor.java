@@ -14,6 +14,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.*;
 
 import java.io.*;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
@@ -70,7 +71,7 @@ public class XPathExtractor extends Stage {
   }
 
   private void processXml(String xml, Document doc) {
-    try (InputStream stream = new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8))) {
+    try (InputStream stream = new ByteArrayInputStream(xml.getBytes())) {
 
       org.w3c.dom.Document xmldoc = builder.parse(stream);
 
