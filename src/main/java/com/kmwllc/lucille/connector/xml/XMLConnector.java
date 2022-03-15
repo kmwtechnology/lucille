@@ -32,6 +32,8 @@ public class XMLConnector extends AbstractConnector {
   private String fileRegex;
   private Pattern fileRegexPattern;
   private List<String> urlFiles;
+  private String version;
+  private String encoding;
 
   public XMLConnector(Config config) {
     super(config);
@@ -41,6 +43,9 @@ public class XMLConnector extends AbstractConnector {
     xmlIDPath = config.hasPath("xmlIDPath") ? config.getString("xmlIDPath") : null;
     docIDPrefix = config.hasPath("docIDPrefix") ? config.getString("docIDPrefix") : "doc_";
     urlFiles = config.hasPath("urlFiles") ? config.getStringList("urlFiles") : null;
+    version = config.hasPath("version") ? config.getString("version") : "1.0";
+    encoding = config.hasPath("encoding") ? config.getString("encoding") : "utf-8";
+
   }
 
   @Override
@@ -65,6 +70,8 @@ public class XMLConnector extends AbstractConnector {
       xmlHandler.setDocumentRootPath(xmlRootPath);
       xmlHandler.setDocumentIDPath(xmlIDPath);
       xmlHandler.setDocIDPrefix(docIDPrefix);
+      xmlHandler.setEncoding(encoding);
+      xmlHandler.setVersion(version);
       xmlReader.setContentHandler(xmlHandler);
 
 
