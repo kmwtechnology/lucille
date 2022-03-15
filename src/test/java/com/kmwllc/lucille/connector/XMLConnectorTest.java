@@ -28,9 +28,7 @@ public class XMLConnectorTest {
     assertEquals(2, docs.size());
 
     assertTrue(docs.get(0).has("xml"));
-    assertEquals("doc_1001", docs.get(0).getString("id"));
-    assertTrue(docs.get(1).has("xml"));
-    assertEquals("doc_1002", docs.get(1).getString("id"));
-    System.out.println(docs.get(0).toString());
+    // ensure header is added to the xml
+    assertTrue(docs.get(0).getString("xml").startsWith("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"));
   }
 }
