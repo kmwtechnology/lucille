@@ -19,8 +19,7 @@ public class XPathExtractorTest {
     Stage stage = factory.get("XPathExtractorTest/config.conf");
 
     Document doc1 = new Document("doc1");
-    doc1.setField("xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-      "\n" +
+    doc1.setField("xml",
       "<bookstore>\n" +
       "\n" +
       "<book>\n" +
