@@ -6,12 +6,10 @@ import com.kmwllc.lucille.core.Publisher;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.xml.sax.Attributes;
-import org.xml.sax.ContentHandler;
-import org.xml.sax.Locator;
-import org.xml.sax.SAXException;
+import org.xml.sax.*;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Stack;
 import java.util.UUID;
@@ -194,8 +192,11 @@ public class ChunkingXMLHandler implements ContentHandler {
     this.publisher = publisher;
   }
 
-  public void setVersion(String version) { this.version = version; }
+  public void setVersion(String version) {
+    this.version = version;
+  }
 
-  public void setEncoding(String encoding) { this.encoding = encoding; }
-
+  public void setEncoding(String encoding) {
+    this.encoding = encoding;
+  }
 }

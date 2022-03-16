@@ -82,6 +82,7 @@ public class XMLConnector extends AbstractConnector {
           InputStream in = new URL(file).openStream();
           BufferedInputStream bis = new BufferedInputStream(in);
           RecordingInputStream ris = new RecordingInputStream(bis);
+          // used to take in ris
           InputSource xmlSource = new InputSource(ris);
           xmlHandler.setRis(ris);
           xmlReader.parse(xmlSource);
