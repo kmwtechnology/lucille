@@ -28,8 +28,6 @@ public class XMLConnectorTest {
     assertEquals(2, docs.size());
 
     assertTrue(docs.get(0).has("xml"));
-    // ensure header is added to the xml
-    assertTrue(docs.get(0).getString("xml").startsWith("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"));
   }
 
   @Test
@@ -46,7 +44,20 @@ public class XMLConnectorTest {
     assertEquals(2, docs.size());
 
     assertTrue(docs.get(0).has("xml"));
-    // ensure header is added to the xml
-    assertTrue(docs.get(0).getString("xml").startsWith("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"));
+  }
+
+  @Test
+  public void testDifferentEncoding() throws Exception {
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/non-utf8.conf"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    Connector connector = new XMLConnector(config);
+    connector.execute(publisher);
+
+    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+
+    assertEquals(2, docs.size());
+
+    assertTrue(docs.get(0).has("xml"));
   }
 }

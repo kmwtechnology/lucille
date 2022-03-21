@@ -21,6 +21,9 @@ import java.net.URL;
 import java.util.List;
 import java.util.regex.Pattern;
 
+/**
+ * Connector implementation that produces documents from a given XML file.
+ */
 public class XMLConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(XMLConnector.class);
@@ -29,23 +32,16 @@ public class XMLConnector extends AbstractConnector {
   private String xmlRootPath;
   private String xmlIDPath;
   private String docIDPrefix;
-  private String fileRegex;
-  private Pattern fileRegexPattern;
   private List<String> urlFiles;
-  private String version;
-  private String encoding;
+
 
   public XMLConnector(Config config) {
     super(config);
     filePaths = config.hasPath("filePaths") ? config.getStringList("filePaths") : null;
-    fileRegex = config.hasPath("fileRegex") ? config.getString("fileRegex") : null;
     xmlRootPath = config.hasPath("xmlRootPath") ? config.getString("xmlRootPath") : null;
     xmlIDPath = config.hasPath("xmlIDPath") ? config.getString("xmlIDPath") : null;
     docIDPrefix = config.hasPath("docIDPrefix") ? config.getString("docIDPrefix") : "doc_";
     urlFiles = config.hasPath("urlFiles") ? config.getStringList("urlFiles") : null;
-    version = config.hasPath("version") ? config.getString("version") : "1.0";
-    encoding = config.hasPath("encoding") ? config.getString("encoding") : "utf-8";
-
   }
 
   @Override
@@ -70,8 +66,6 @@ public class XMLConnector extends AbstractConnector {
       xmlHandler.setDocumentRootPath(xmlRootPath);
       xmlHandler.setDocumentIDPath(xmlIDPath);
       xmlHandler.setDocIDPrefix(docIDPrefix);
-      xmlHandler.setEncoding(encoding);
-      xmlHandler.setVersion(version);
       xmlReader.setContentHandler(xmlHandler);
 
 
@@ -82,7 +76,7 @@ public class XMLConnector extends AbstractConnector {
           InputStream in = new URL(file).openStream();
           BufferedInputStream bis = new BufferedInputStream(in);
           RecordingInputStream ris = new RecordingInputStream(bis);
-          // used to take in ris
+          // by taking the input stream as an argument, we automatically detect the encoding
           InputSource xmlSource = new InputSource(ris);
           xmlHandler.setRis(ris);
           xmlReader.parse(xmlSource);
@@ -106,12 +100,6 @@ public class XMLConnector extends AbstractConnector {
       }
     } catch (IOException | SAXException e) {
       throw new ConnectorException("SAX Parser Error {}", e);
-    }
-  }
-
-  public void initialize() {
-    if (fileRegex != null) {
-      fileRegexPattern = Pattern.compile(fileRegex);
     }
   }
 }

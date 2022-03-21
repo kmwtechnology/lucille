@@ -28,8 +28,6 @@ public class ChunkingXMLHandler implements ContentHandler {
   // private boolean inDoc = false;
   private StringBuilder docIDBuilder = new StringBuilder();
   private RecordingInputStream ris;
-  private String version;
-  private String encoding;
 
   @Override
   public void setDocumentLocator(Locator locator) {
@@ -92,9 +90,9 @@ public class ChunkingXMLHandler implements ContentHandler {
     if (documentRootPath.equals(path)) {
       // ok, now we want the buffer up to the close tag.
       String xml = "Malformed";
-      String header = String.format("<?xml version=\"%s\" encoding=\"%s\"?>\n", version, encoding);
+
       try {
-        xml = header + ris.returnUpTo("</" + qName + ">");
+        xml = ris.returnUpTo("</" + qName + ">");
       } catch (IOException e) {
         log.error("IOException caught", e);
       }
@@ -192,11 +190,4 @@ public class ChunkingXMLHandler implements ContentHandler {
     this.publisher = publisher;
   }
 
-  public void setVersion(String version) {
-    this.version = version;
-  }
-
-  public void setEncoding(String encoding) {
-    this.encoding = encoding;
-  }
 }
