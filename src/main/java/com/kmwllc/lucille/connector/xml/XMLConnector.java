@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.InputSource;
@@ -18,6 +19,8 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
 import java.net.URL;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -33,6 +36,7 @@ public class XMLConnector extends AbstractConnector {
   private String xmlIDPath;
   private String docIDPrefix;
   private List<String> urlFiles;
+  private String encoding;
 
 
   public XMLConnector(Config config) {
@@ -42,15 +46,14 @@ public class XMLConnector extends AbstractConnector {
     xmlIDPath = config.hasPath("xmlIDPath") ? config.getString("xmlIDPath") : null;
     docIDPrefix = config.hasPath("docIDPrefix") ? config.getString("docIDPrefix") : "doc_";
     urlFiles = config.hasPath("urlFiles") ? config.getStringList("urlFiles") : null;
+    encoding = config.hasPath("encoding") ? config.getString("encoding") : "utf-8";
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-
     SAXParserFactory spf = SAXParserFactory.newInstance();
     spf.setNamespaceAware(true);
     SAXParser saxParser = null;
-
     try {
       spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
       saxParser = spf.newSAXParser();
@@ -78,6 +81,7 @@ public class XMLConnector extends AbstractConnector {
           RecordingInputStream ris = new RecordingInputStream(bis);
           // by taking the input stream as an argument, we automatically detect the encoding
           InputSource xmlSource = new InputSource(ris);
+          xmlSource.setEncoding(encoding);
           xmlHandler.setRis(ris);
           xmlReader.parse(xmlSource);
           in.close();
@@ -92,10 +96,11 @@ public class XMLConnector extends AbstractConnector {
           log.info("Parsing file: {}", file);
           FileInputStream fis = new FileInputStream(file);
           RecordingInputStream ris = new RecordingInputStream(fis);
-          InputSource xmlSource = new InputSource(ris);
+          ris.setEncoding(encoding);
+          InputStreamReader inputStreamReader = new InputStreamReader(ris, encoding);
+          InputSource xmlSource = new InputSource(inputStreamReader);
           xmlHandler.setRis(ris);
           xmlReader.parse(xmlSource);
-          // xmlReader.parse(convertToFileURL(filename));
         }
       }
     } catch (IOException | SAXException e) {

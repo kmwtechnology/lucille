@@ -150,16 +150,9 @@ public class ChunkingXMLHandler implements ContentHandler {
     // TODO Auto-generated method stub
   }
 
-  public String getDocumentRootPath() {
-    return documentRootPath;
-  }
 
   public void setDocumentRootPath(String documentRootPath) {
     this.documentRootPath = documentRootPath;
-  }
-
-  public String getDocumentIDPath() {
-    return documentIDPath;
   }
 
   public void setDocumentIDPath(String documentIDPath) {

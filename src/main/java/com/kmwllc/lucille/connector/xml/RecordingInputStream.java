@@ -9,6 +9,7 @@ import java.io.InputStream;
 // https://bytes.com/topic/net/answers/818268-java-sax-parser-how-get-raw-xml-code-currently-parsingevent
 public class RecordingInputStream extends FilterInputStream {
   protected ByteArrayOutputStream sink;
+  private String encoding;
 
   public RecordingInputStream(InputStream in) {
     this(in, new ByteArrayOutputStream());
@@ -63,19 +64,21 @@ public class RecordingInputStream extends FilterInputStream {
   }
 
   public void clearUpTo(String string) throws IOException {
-
-    String tempStr = sink.toString();
+    String tempStr = sink.toString(this.encoding);
     sink.reset();
     int start = tempStr.indexOf(string);
     if (start != -1)
-      sink.write(tempStr.substring(start).getBytes());
+      sink.write(tempStr.substring(start).getBytes(this.encoding));
   }
 
   public String returnUpTo(String string) throws IOException {
-    //
-    String tmpStr = sink.toString();
+    String tmpStr = sink.toString(this.encoding);
     clearUpTo(string);
     int offset = tmpStr.indexOf(string) + string.length();
     return tmpStr.substring(0, offset);
+  }
+
+  public void setEncoding(String encoding) {
+    this.encoding = encoding;
   }
 }
