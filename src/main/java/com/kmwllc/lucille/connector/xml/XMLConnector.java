@@ -42,7 +42,7 @@ public class XMLConnector extends AbstractConnector {
     super(config);
     filePaths = config.hasPath("filePaths") ? config.getStringList("filePaths") : null;
     xmlRootPath = config.hasPath("xmlRootPath") ? config.getString("xmlRootPath") : null;
-    xmlIdPath = config.hasPath("xmlIDPath") ? config.getString("xmlIDPath") : null;
+    xmlIdPath = config.hasPath("xmlIdPath") ? config.getString("xmlIdPath") : null;
     urlFiles = config.hasPath("urlFiles") ? config.getStringList("urlFiles") : null;
     encoding = config.hasPath("encoding") ? config.getString("encoding") : "utf-8";
   }
@@ -77,7 +77,6 @@ public class XMLConnector extends AbstractConnector {
           BufferedInputStream bis = new BufferedInputStream(in);
           RecordingInputStream ris = new RecordingInputStream(bis);
           ris.setEncoding(encoding);
-          // by taking the input stream as an argument, we automatically detect the encoding
           InputSource xmlSource = new InputSource(ris);
           xmlHandler.setRis(ris);
           xmlReader.parse(xmlSource);
