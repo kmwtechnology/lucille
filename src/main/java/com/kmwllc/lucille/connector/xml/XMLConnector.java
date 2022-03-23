@@ -33,8 +33,7 @@ public class XMLConnector extends AbstractConnector {
 
   private List<String> filePaths;
   private String xmlRootPath;
-  private String xmlIDPath;
-  private String docIDPrefix;
+  private String xmlIdPath;
   private List<String> urlFiles;
   private String encoding;
 
@@ -43,8 +42,7 @@ public class XMLConnector extends AbstractConnector {
     super(config);
     filePaths = config.hasPath("filePaths") ? config.getStringList("filePaths") : null;
     xmlRootPath = config.hasPath("xmlRootPath") ? config.getString("xmlRootPath") : null;
-    xmlIDPath = config.hasPath("xmlIDPath") ? config.getString("xmlIDPath") : null;
-    docIDPrefix = config.hasPath("docIDPrefix") ? config.getString("docIDPrefix") : "doc_";
+    xmlIdPath = config.hasPath("xmlIDPath") ? config.getString("xmlIDPath") : null;
     urlFiles = config.hasPath("urlFiles") ? config.getStringList("urlFiles") : null;
     encoding = config.hasPath("encoding") ? config.getString("encoding") : "utf-8";
   }
@@ -58,7 +56,7 @@ public class XMLConnector extends AbstractConnector {
       spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
       saxParser = spf.newSAXParser();
     } catch (ParserConfigurationException | SAXException e) {
-      log.warn("SAX Parser Error {}", e);
+      throw new ConnectorException("SAX Parser Error {}", e);
     }
 
     try {
@@ -67,10 +65,9 @@ public class XMLConnector extends AbstractConnector {
       xmlHandler.setConnector(this);
       xmlHandler.setPublisher(publisher);
       xmlHandler.setDocumentRootPath(xmlRootPath);
-      xmlHandler.setDocumentIDPath(xmlIDPath);
-      xmlHandler.setDocIDPrefix(docIDPrefix);
+      xmlHandler.setDocumentIDPath(xmlIdPath);
+      xmlHandler.setDocIDPrefix(getDocIdPrefix());
       xmlReader.setContentHandler(xmlHandler);
-
 
       if (urlFiles != null) {
         // We are going to process the file of urls instead of the file directory specification.
@@ -93,6 +90,7 @@ public class XMLConnector extends AbstractConnector {
             log.info("File {} is not an XML file", file);
             continue;
           }
+
           log.info("Parsing file: {}", file);
           FileInputStream fis = new FileInputStream(file);
           RecordingInputStream ris = new RecordingInputStream(fis);
@@ -106,5 +104,10 @@ public class XMLConnector extends AbstractConnector {
     } catch (IOException | SAXException e) {
       throw new ConnectorException("SAX Parser Error {}", e);
     }
+  }
+
+  @Override
+  public void close() {
+
   }
 }

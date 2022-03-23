@@ -25,7 +25,6 @@ public class ChunkingXMLHandler implements ContentHandler {
   private String documentIDPath;
   private String docIDPrefix = "";
   private boolean inDocID = false;
-  // private boolean inDoc = false;
   private StringBuilder docIDBuilder = new StringBuilder();
   private RecordingInputStream ris;
 
@@ -63,8 +62,6 @@ public class ChunkingXMLHandler implements ContentHandler {
     if (documentRootPath.equals(path)) {
       // this is the start of our page.
       docIDBuilder = new StringBuilder();
-      // ok we should clear our input buffer up to the current offset for this
-      // start element.
       try {
         ris.clearUpTo("<" + qName);
       } catch (IOException e) {
@@ -91,8 +88,6 @@ public class ChunkingXMLHandler implements ContentHandler {
       } catch (IOException e) {
         log.error("IOException caught", e);
       }
-
-      // this is the end of our page send the buffer as a document
 
       // XPath not supported where id is in attribute (e.g. <field name="id">
       // Quick workaround is to use a UUID instead and assign ID elsewhere in workflow
@@ -130,18 +125,15 @@ public class ChunkingXMLHandler implements ContentHandler {
 
   @Override
   public void ignorableWhitespace(char[] ch, int start, int length) throws SAXException {
-
   }
 
   @Override
   public void processingInstruction(String target, String data) throws SAXException {
-
   }
 
   @Override
   public void skippedEntity(String name) throws SAXException {
   }
-
 
   public void setDocumentRootPath(String documentRootPath) {
     this.documentRootPath = documentRootPath;
