@@ -69,6 +69,7 @@ public class XMLConnector extends AbstractConnector {
       xmlHandler.setDocIDPrefix(getDocIdPrefix());
       xmlReader.setContentHandler(xmlHandler);
 
+
       if (urlFiles != null) {
         // We are going to process the file of urls instead of the file directory specification.
         for (String file : urlFiles) {
@@ -81,10 +82,15 @@ public class XMLConnector extends AbstractConnector {
           InputSource xmlSource = new InputSource(inputStreamReader);
           xmlHandler.setRis(ris);
           xmlReader.parse(xmlSource);
+          inputStreamReader.close();
+          ris.close();
+          bis.close();
+          in.close();
 
         }
 
       } else {
+
         for (String file : filePaths) {
           if (!file.endsWith(".xml")) {
             log.info("File {} is not an XML file", file);
@@ -99,6 +105,9 @@ public class XMLConnector extends AbstractConnector {
           InputSource xmlSource = new InputSource(inputStreamReader);
           xmlHandler.setRis(ris);
           xmlReader.parse(xmlSource);
+          inputStreamReader.close();
+          ris.close();
+          fis.close();
         }
       }
     } catch (IOException | SAXException e) {
