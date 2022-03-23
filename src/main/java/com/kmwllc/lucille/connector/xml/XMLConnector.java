@@ -79,9 +79,9 @@ public class XMLConnector extends AbstractConnector {
           InputStream in = new URL(file).openStream();
           BufferedInputStream bis = new BufferedInputStream(in);
           RecordingInputStream ris = new RecordingInputStream(bis);
+          ris.setEncoding(encoding);
           // by taking the input stream as an argument, we automatically detect the encoding
           InputSource xmlSource = new InputSource(ris);
-          xmlSource.setEncoding(encoding);
           xmlHandler.setRis(ris);
           xmlReader.parse(xmlSource);
           in.close();
