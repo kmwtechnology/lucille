@@ -77,10 +77,11 @@ public class XMLConnector extends AbstractConnector {
           BufferedInputStream bis = new BufferedInputStream(in);
           RecordingInputStream ris = new RecordingInputStream(bis);
           ris.setEncoding(encoding);
-          InputSource xmlSource = new InputSource(ris);
+          InputStreamReader inputStreamReader = new InputStreamReader(ris, encoding);
+          InputSource xmlSource = new InputSource(inputStreamReader);
           xmlHandler.setRis(ris);
           xmlReader.parse(xmlSource);
-          in.close();
+
         }
 
       } else {

@@ -56,9 +56,9 @@ public class ChunkingXMLHandler implements ContentHandler {
   public void startElement(String uri, String localName, String qName, Attributes atts) throws SAXException {
     // push on the stack.
     currentPath.push(qName);
-    // log.info("Start element: {}",qName);
+
     String path = "/" + StringUtils.join(currentPath.toArray(), "/");
-    // log.info("{} PATH: {}", documentRootPath, path);
+
     if (documentRootPath.equals(path)) {
       // this is the start of our page.
       docIDBuilder = new StringBuilder();
@@ -80,9 +80,7 @@ public class ChunkingXMLHandler implements ContentHandler {
     // we just finished a path. see if it's the doc root that we're looking for.
     String path = "/" + StringUtils.join(currentPath.toArray(), "/");
     if (documentRootPath.equals(path)) {
-      // ok, now we want the buffer up to the close tag.
       String xml = "Malformed";
-
       try {
         xml = ris.returnUpTo("</" + qName + ">");
       } catch (IOException e) {
@@ -104,7 +102,7 @@ public class ChunkingXMLHandler implements ContentHandler {
       // this is the end of the doc id tag.
       inDocID = false;
     }
-    // pop up..
+
     currentPath.pop();
   }
 

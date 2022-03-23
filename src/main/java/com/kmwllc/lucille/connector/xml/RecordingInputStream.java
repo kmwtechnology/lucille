@@ -55,14 +55,6 @@ public class RecordingInputStream extends FilterInputStream {
     return l;
   }
 
-  byte[] getBytes() {
-    return sink.toByteArray();
-  }
-
-  void resetSink() {
-    sink.reset();
-  }
-
   public void clearUpTo(String string) throws IOException {
     String tempStr = sink.toString(this.encoding);
     sink.reset();
@@ -72,10 +64,14 @@ public class RecordingInputStream extends FilterInputStream {
   }
 
   public String returnUpTo(String string) throws IOException {
-    String tmpStr = sink.toString(this.encoding);
-    clearUpTo(string);
-    int offset = tmpStr.indexOf(string) + string.length();
-    return tmpStr.substring(0, offset);
+    String tempStr = sink.toString(this.encoding);
+    sink.reset();
+    int start = tempStr.indexOf(string);
+    if (start != -1) {
+      sink.write(tempStr.substring(start).getBytes(this.encoding));
+    }
+    int offset = start + string.length();
+    return tempStr.substring(0, offset);
   }
 
   public void setEncoding(String encoding) {
