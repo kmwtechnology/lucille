@@ -1,9 +1,6 @@
 package com.kmwllc.lucille.connector.xml;
 
-import java.io.ByteArrayOutputStream;
-import java.io.FilterInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 
 // extended from example at:
 // https://bytes.com/topic/net/answers/818268-java-sax-parser-how-get-raw-xml-code-currently-parsingevent
@@ -57,19 +54,21 @@ public class RecordingInputStream extends FilterInputStream {
 
   public void clearUpTo(String string) throws IOException {
     String tempStr = sink.toString(this.encoding);
-    sink.reset();
-    int start = tempStr.indexOf(string);
-    if (start != -1)
-      sink.write(tempStr.substring(start).getBytes(this.encoding));
+    clearUpTo(string, tempStr);
   }
 
-  public String returnUpTo(String string) throws IOException {
-    String tempStr = sink.toString(this.encoding);
+  private int clearUpTo(String string, String tempStr) throws IOException {
     sink.reset();
     int start = tempStr.indexOf(string);
     if (start != -1) {
       sink.write(tempStr.substring(start).getBytes(this.encoding));
     }
+    return start;
+  }
+
+  public String returnUpTo(String string) throws IOException {
+    String tempStr = sink.toString(this.encoding);
+    int start = clearUpTo(string, tempStr);
     int offset = start + string.length();
     return tempStr.substring(0, offset);
   }

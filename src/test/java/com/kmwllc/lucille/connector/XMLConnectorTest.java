@@ -117,4 +117,35 @@ public class XMLConnectorTest {
       "        <bio>圣地亚哥</bio>\n" +
       "    </staff>", docs.get(0).getString("xml"));
   }
+
+  @Test
+  public void testURL() throws Exception {
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/url.conf"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    Connector connector = new XMLConnector(config);
+    connector.execute(publisher);
+
+    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+
+    assertEquals(2, docs.size());
+
+    assertTrue(docs.get(0).has("xml"));
+    assertEquals("<staff>\n" +
+      "        <id>1001</id>\n" +
+      "        <name>daniel</name>\n" +
+      "        <role>software engineer</role>\n" +
+      "        <salary currency=\"USD\">3000</salary>\n" +
+      "        <bio>I am from San Diego</bio>\n" +
+      "    </staff>", docs.get(0).getString("xml"));
+  }
+
+  @Test(expected = ConnectorException.class)
+  public void testEncodingError() throws Exception {
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/encodingError.conf"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    Connector connector = new XMLConnector(config);
+    connector.execute(publisher);
+  }
 }

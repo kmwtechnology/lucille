@@ -59,64 +59,64 @@ public class XMLConnector extends AbstractConnector {
       throw new ConnectorException("SAX Parser Error {}", e);
     }
 
+    XMLReader xmlReader = null;
     try {
-      XMLReader xmlReader = saxParser.getXMLReader();
-      ChunkingXMLHandler xmlHandler = new ChunkingXMLHandler();
-      xmlHandler.setConnector(this);
-      xmlHandler.setPublisher(publisher);
-      xmlHandler.setDocumentRootPath(xmlRootPath);
-      xmlHandler.setDocumentIDPath(xmlIdPath);
-      xmlHandler.setDocIDPrefix(getDocIdPrefix());
-      xmlReader.setContentHandler(xmlHandler);
+      xmlReader = saxParser.getXMLReader();
+    } catch (SAXException e) {
+      throw new ConnectorException("Error during SAX Processing {}", e);
+    }
 
+    ChunkingXMLHandler xmlHandler = new ChunkingXMLHandler();
+    xmlHandler.setConnector(this);
+    xmlHandler.setPublisher(publisher);
+    xmlHandler.setDocumentRootPath(xmlRootPath);
+    xmlHandler.setDocumentIDPath(xmlIdPath);
+    xmlHandler.setDocIDPrefix(getDocIdPrefix());
+    xmlReader.setContentHandler(xmlHandler);
 
-      if (urlFiles != null) {
-        // We are going to process the file of urls instead of the file directory specification.
-        for (String file : urlFiles) {
-          log.info("URL TO CRAWL: " + file);
-          InputStream in = new URL(file).openStream();
-          BufferedInputStream bis = new BufferedInputStream(in);
-          RecordingInputStream ris = new RecordingInputStream(bis);
-          ris.setEncoding(encoding);
-          InputStreamReader inputStreamReader = new InputStreamReader(ris, encoding);
-          InputSource xmlSource = new InputSource(inputStreamReader);
-          xmlHandler.setRis(ris);
-          xmlReader.parse(xmlSource);
-          inputStreamReader.close();
-          ris.close();
-          bis.close();
-          in.close();
-
+    if (urlFiles != null) {
+      // We are going to process the file of urls instead of the file directory specification.
+      for (String file : urlFiles) {
+        log.info("URL TO CRAWL: " + file);
+        if (file.startsWith("file://")) {
+          file = file.replaceFirst("file://", "");
         }
-
-      } else {
-
-        for (String file : filePaths) {
-          if (!file.endsWith(".xml")) {
-            log.info("File {} is not an XML file", file);
-            continue;
-          }
-
-          log.info("Parsing file: {}", file);
-          FileInputStream fis = new FileInputStream(file);
-          RecordingInputStream ris = new RecordingInputStream(fis);
-          ris.setEncoding(encoding);
-          InputStreamReader inputStreamReader = new InputStreamReader(ris, encoding);
-          InputSource xmlSource = new InputSource(inputStreamReader);
-          xmlHandler.setRis(ris);
-          xmlReader.parse(xmlSource);
-          inputStreamReader.close();
-          ris.close();
-          fis.close();
+        File f = new File(file);
+        try (InputStream in = new URL("file://" + f.getAbsolutePath()).openStream();
+             RecordingInputStream ris = new RecordingInputStream(in);) {
+          setUpAndParse(ris, xmlHandler, xmlReader);
+        } catch (Exception e) {
+          throw new ConnectorException("Error during XML parsing", e);
         }
       }
-    } catch (IOException | SAXException e) {
-      throw new ConnectorException("SAX Parser Error {}", e);
+
+    } else {
+      for (String file : filePaths) {
+        if (!file.endsWith(".xml")) {
+          log.info("File {} is not an XML file", file);
+          continue;
+        }
+        log.info("Parsing file: {}", file);
+        try (FileInputStream fis = new FileInputStream(file);
+             RecordingInputStream ris = new RecordingInputStream(fis)) {
+          setUpAndParse(ris, xmlHandler, xmlReader);
+        } catch (Exception e) {
+          throw new ConnectorException("Error during XML parsing", e);
+        }
+      }
     }
   }
 
-  @Override
-  public void close() {
-
+  public void setUpAndParse(RecordingInputStream ris, ChunkingXMLHandler xmlHandler, XMLReader xmlReader) throws ConnectorException {
+    ris.setEncoding(encoding);
+    try (InputStreamReader inputStreamReader = new InputStreamReader(ris, encoding)) {
+      InputSource xmlSource = new InputSource(inputStreamReader);
+      xmlHandler.setRis(ris);
+      xmlReader.parse(xmlSource);
+    } catch (UnsupportedEncodingException e) {
+      throw new ConnectorException(encoding + " is not supported as an encoding", e);
+    } catch (SAXException | IOException e) {
+      throw new ConnectorException("Unable to parse", e);
+    }
   }
 }
