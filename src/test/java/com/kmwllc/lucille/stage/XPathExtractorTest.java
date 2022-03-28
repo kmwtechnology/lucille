@@ -75,4 +75,33 @@ public class XPathExtractorTest {
     assertEquals("Harry Potter", results.get(0));
     assertEquals("Learning XML", results.get(1));
   }
+
+  @Test
+  public void testKorean() throws StageException {
+    Stage stage = factory.get("XPathExtractorTest/config.conf");
+
+    Document doc1 = new Document("doc1");
+    doc1.setField("xml",
+      "<bookstore>\n" +
+        "\n" +
+        "<book>\n" +
+        "  <title lang=\"en\">해리 포터</title>\n" +
+        "  <price>29.99</price>\n" +
+        "</book>\n" +
+        "\n" +
+        "<book>\n" +
+        "  <title lang=\"en\">" +
+        "XML 학습</title>\n" +
+        "  <price>39.95</price>\n" +
+        "</book>\n" +
+        "\n" +
+        "</bookstore>");
+
+    stage.processDocument(doc1);
+
+    List<String> results = doc1.getStringList("output1");
+
+    assertEquals("해리 포터", results.get(0));
+    assertEquals("XML 학습", results.get(1));
+  }
 }
