@@ -83,12 +83,11 @@ public class DictionaryLookup extends Stage {
         }
 
         // TODO : Add log messages for when encoding errors occur so that they can be fixed
-        // TODO : Multiple payloads (eventually)
         if (line.length == 1) {
           String word = line[0].trim();
           dict.put(word, new String[]{word});
         } else {
-          // grab the rest
+          // Handle multiple payload values here.
           String[] rest = Arrays.copyOfRange(line, 1, line.length);
           for (int i = 0; i < rest.length;i++) {
             rest[i] = rest[i].trim();
