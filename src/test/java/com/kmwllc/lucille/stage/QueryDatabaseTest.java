@@ -35,7 +35,7 @@ public class QueryDatabaseTest {
 
     Document d = new Document("id");
     d.setField("fish", 2);
-    d.addToField("fish", 1);
+    d.addToField("fish2", 1);
 
     stage.processDocument(d);
 
@@ -59,13 +59,13 @@ public class QueryDatabaseTest {
 
   @Test(expected = StageException.class)
   public void testWrongNumberOfReplacements() throws StageException {
-    Stage stage = factory.get("QueryDatabaseTest/data.conf");
+    Stage stage = factory.get("QueryDatabaseTest/mismatch.conf");
 
     Document d = new Document("id");
 
     // only one replacement needed, 2 provided
     d.setField("fish", 2);
-    d.addToField("fish", 3);
+    d.addToField("fish2", 3);
 
     stage.processDocument(d);
   }

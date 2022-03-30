@@ -9,6 +9,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -23,10 +24,11 @@ public class QueryDatabase extends Stage {
   private String jdbcUser;
   private String jdbcPassword;
   private String sql;
-  private String keyField;
+  private List<String> keyFields;
   private Map<String, Object> fieldMapping;
   protected Connection connection = null;
   PreparedStatement preparedStatement;
+  private int replacements;
   private static final Logger log = LogManager.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {
@@ -35,7 +37,7 @@ public class QueryDatabase extends Stage {
     connectionString = config.getString("connectionString");
     jdbcUser = config.getString("jdbcUser");
     jdbcPassword = config.getString("jdbcPassword");
-    keyField = config.getString("keyField");
+    keyFields = config.getStringList("keyFields");
     sql = config.hasPath("sql") ? config.getString("sql") : null;
     fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
   }
@@ -48,23 +50,30 @@ public class QueryDatabase extends Stage {
     } catch (Exception e) {
       throw new StageException("Not a valid SQL statement", e);
     }
+    try {
+      replacements = preparedStatement.getParameterMetaData().getParameterCount();
+    } catch (Exception e) {
+      throw new StageException("Parameter metadata could not be accessed", e);
+    }
   }
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    if (!doc.has(keyField)) {
-      return null;
+
+    List<String> subs = new ArrayList<String>();
+    for (String field : keyFields) {
+      if (!doc.has(field)) {
+        throw new StageException("document does not have field " + field);
+      }
+      subs.add(doc.getString(field));
+    }
+
+    if (replacements != subs.size()) {
+      throw new StageException("mismatch between replacements needed and provided");
     }
 
     // no need to close result as closing the statement automatically closes the ResultSet
     try {
-      int replacements = preparedStatement.getParameterMetaData().getParameterCount();
-      List<String> subs = doc.getStringList(keyField);
-
-      if (replacements != subs.size()) {
-        throw new StageException("mismatch between replacements needed and provided");
-      }
-
       for (int i = 0; i < subs.size(); i++) {
         String s = subs.get(i);
         if (StringUtils.isEmpty(s)) {
