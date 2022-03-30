@@ -294,6 +294,7 @@
       <groupId>net.mguenther.kafka</groupId>
       <artifactId>kafka-junit</artifactId>
       <version>3.1.0</version>
+      <scope>test</scope>
     </dependency>
 
     <!-- argument parsing -->
