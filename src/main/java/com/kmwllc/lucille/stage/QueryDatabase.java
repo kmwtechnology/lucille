@@ -74,6 +74,7 @@ public class QueryDatabase extends Stage {
 
     // no need to close result as closing the statement automatically closes the ResultSet
     try {
+      preparedStatement.clearParameters();
       for (int i = 0; i < subs.size(); i++) {
         String s = subs.get(i);
         if (StringUtils.isEmpty(s)) {
