@@ -14,16 +14,22 @@ public class RunResult {
   private final boolean status;
   private final String message;
   private Map<String, PersistingLocalMessageManager> history = null;
+  private final String runId;
 
-  public RunResult(boolean status, List<Connector> connectors, List<ConnectorResult> connectorResults) {
+  public RunResult(boolean status, List<Connector> connectors, List<ConnectorResult> connectorResults, String runId) {
+    this.runId = runId;
     this.status = status;
     this.message = formatMessage(status, connectors, connectorResults);
   }
 
   public RunResult(boolean status, List<Connector> connectors, List<ConnectorResult> connectorResults,
-                   Map<String, PersistingLocalMessageManager> history) {
-    this(status, connectors, connectorResults);
+                   Map<String, PersistingLocalMessageManager> history, String runId) {
+    this(status, connectors, connectorResults, runId);
     this.history = history;
+  }
+
+  public String getRunId() {
+    return runId;
   }
 
   public boolean getStatus() {
