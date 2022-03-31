@@ -1,8 +1,15 @@
 package com.kmwllc.lucille.util;
 
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
 import com.typesafe.config.Config;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
@@ -23,7 +30,14 @@ public class SolrUtils {
    * @return the solr client
    */
   public static SolrClient getSolrClient(Config config) {
-    if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
+    if (config.hasPath("userName") && config.hasPath("password")) {
+      String solrUrl = getSolrUrl(config);
+      CredentialsProvider provider = new BasicCredentialsProvider();
+      UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(config.getString("userName"), config.getString("password"));
+      provider.setCredentials(AuthScope.ANY, credentials);
+      HttpClient client = HttpClientBuilder.create().setDefaultCredentialsProvider(provider).build();
+      return new HttpSolrClient.Builder().withBaseSolrUrl(solrUrl).withHttpClient(client).build();
+    } else if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
       return new CloudSolrClient.Builder(getSolrUrls(config)).build();
     } else {
       return new HttpSolrClient.Builder(getSolrUrl(config)).build();
@@ -43,7 +57,7 @@ public class SolrUtils {
    * have a value in its id field in order to be converted.
    *
    * @param tuple a Tuple from Solr
-   * @return  a Document
+   * @return a Document
    */
   public static Document toDocument(Tuple tuple) throws DocumentException {
     Document d;
