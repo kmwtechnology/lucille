@@ -1,5 +1,9 @@
 package com.kmwllc.lucille.indexer;
 
+import com.github.vfss3.shaded.org.apache.http.auth.AuthScope;
+import com.github.vfss3.shaded.org.apache.http.auth.UsernamePasswordCredentials;
+import com.github.vfss3.shaded.org.apache.http.client.CredentialsProvider;
+import com.github.vfss3.shaded.org.apache.http.impl.client.BasicCredentialsProvider;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
@@ -8,8 +12,11 @@ import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
+import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
+import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.slf4j.Logger;
@@ -25,15 +32,6 @@ public class SolrIndexer extends Indexer {
   private static final Logger log = LoggerFactory.getLogger(SolrIndexer.class);
 
   private final SolrClient solrClient;
-  private final String userName;
-  private final String password;
-
-  public SolrIndexer(Config config, IndexerMessageManager manager, SolrClient solrClient, String metricsPrefix, String userName, String password) {
-    super(config, manager, metricsPrefix);
-    this.solrClient = solrClient;
-    this.userName = userName;
-    this.password = password;
-  }
 
   public SolrIndexer(Config config, IndexerMessageManager manager, SolrClient solrClient, String metricsPrefix) {
     super(config, manager, metricsPrefix);
@@ -121,13 +119,7 @@ public class SolrIndexer extends Indexer {
       addChildren(doc, solrDoc);
       solrDocs.add(solrDoc);
     }
-    if (userName != null && password != null) {
-      //
-      //req.setBasicAuthCredentials(userName, password);
-      //solrClient.request(req);
-    } else {
-      solrClient.add(solrDocs);
-    }
+    solrClient.add(solrDocs);
   }
 
   private void addChildren(Document doc, SolrInputDocument solrDoc) throws IndexerException {
