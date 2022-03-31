@@ -1,9 +1,5 @@
 package com.kmwllc.lucille.indexer;
 
-import com.github.vfss3.shaded.org.apache.http.auth.AuthScope;
-import com.github.vfss3.shaded.org.apache.http.auth.UsernamePasswordCredentials;
-import com.github.vfss3.shaded.org.apache.http.client.CredentialsProvider;
-import com.github.vfss3.shaded.org.apache.http.impl.client.BasicCredentialsProvider;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
@@ -12,11 +8,7 @@ import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
-import org.apache.http.client.HttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrRequest;
-import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.slf4j.Logger;
@@ -48,7 +40,7 @@ public class SolrIndexer extends Indexer {
 
   @Override
   public boolean validateConnection() {
-    if (solrClient == null) {
+    if (solrClient==null) {
       return true;
     }
     SolrPingResponse response;
@@ -58,11 +50,11 @@ public class SolrIndexer extends Indexer {
       log.error("Couldn't ping Solr ", e);
       return false;
     }
-    if (response == null) {
+    if (response==null) {
       log.error("Null response when pinging solr");
       return false;
     }
-    if (response.getStatus() != 0) {
+    if (response.getStatus()!=0) {
       log.error("Non zero response when pinging solr: " + response.getStatus());
       return false;
     }
@@ -71,7 +63,7 @@ public class SolrIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    if (solrClient != null) {
+    if (solrClient!=null) {
       try {
         solrClient.close();
       } catch (Exception e) {
@@ -83,7 +75,7 @@ public class SolrIndexer extends Indexer {
   @Override
   protected void sendToIndex(List<Document> documents) throws Exception {
 
-    if (solrClient == null) {
+    if (solrClient==null) {
       log.debug("sendToSolr bypassed for documents: " + documents);
       return;
     }
@@ -91,7 +83,7 @@ public class SolrIndexer extends Indexer {
     List<SolrInputDocument> solrDocs = new ArrayList();
     for (Document doc : documents) {
 
-      Map<String, Object> map = doc.asMap();
+      Map<String,Object> map = doc.asMap();
       SolrInputDocument solrDoc = new SolrInputDocument();
 
       // if an id override field has been specified, use its value as the id to send to solr, instead
@@ -104,31 +96,32 @@ public class SolrIndexer extends Indexer {
           continue;
         }
 
-        if (idOverride != null && Document.ID_FIELD.equals(key)) {
+        if (idOverride!=null && Document.ID_FIELD.equals(key)) {
           solrDoc.setField(Document.ID_FIELD, idOverride);
           continue;
         }
 
         Object value = map.get(key);
-        if (value instanceof Map) {
+        if(value instanceof Map) {
           throw new IndexerException(String.format("Object field '%s' on document id=%s is not supported by the SolrIndexer.", key, doc.getId()));
         }
-        solrDoc.setField(key, value);
+        solrDoc.setField(key,value);
       }
 
       addChildren(doc, solrDoc);
       solrDocs.add(solrDoc);
     }
+
     solrClient.add(solrDocs);
   }
 
   private void addChildren(Document doc, SolrInputDocument solrDoc) throws IndexerException {
     List<Document> children = doc.getChildren();
-    if (children == null || children.isEmpty()) {
+    if (children==null || children.isEmpty()) {
       return;
     }
     for (Document child : children) {
-      Map<String, Object> map = child.asMap();
+      Map<String,Object> map = child.asMap();
       SolrInputDocument solrChild = new SolrInputDocument();
       for (String key : map.keySet()) {
         // we don't support children that contain nested children
@@ -136,10 +129,10 @@ public class SolrIndexer extends Indexer {
           continue;
         }
         Object value = map.get(key);
-        if (value instanceof Map) {
+        if(value instanceof Map) {
           throw new IndexerException(String.format("Object field '%s' on child document id=%s of document id=%s is not supported by the SolrIndexer.", key, child.getId(), doc.getId()));
         }
-        solrChild.setField(key, value);
+        solrChild.setField(key,value);
       }
       solrDoc.addChildDocument(solrChild);
     }
