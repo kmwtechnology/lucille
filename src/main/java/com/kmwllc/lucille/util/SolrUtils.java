@@ -32,13 +32,10 @@ public class SolrUtils {
   public static SolrClient getSolrClient(Config config) {
     String solrUrl = getSolrUrl(config);
     CredentialsProvider provider = new BasicCredentialsProvider();
-    String userName = null;
-    String password = null;
-    UsernamePasswordCredentials credentials = null;
     if (requiresAuth(config)) {
-      userName = config.getString("userName");
-      password = config.getString("password");
-      credentials = new UsernamePasswordCredentials(userName, password);
+      String userName = config.getString("userName");
+      String password = config.getString("password");
+      UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(userName, password);
       provider.setCredentials(AuthScope.ANY, credentials);
     }
     HttpClient client = HttpClientBuilder.create().setDefaultCredentialsProvider(provider).build();
