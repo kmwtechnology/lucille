@@ -154,7 +154,7 @@ public class XMLConnectorTest {
   }
 
   @Test
-  public void jointTest() throws Exception {
+  public void WithXPathExtractorTest() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/staff.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
