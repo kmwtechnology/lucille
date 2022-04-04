@@ -19,7 +19,7 @@ public class IndexerFactory {
 
     if (bypass==false) {
       if (config.hasPath("indexer.sendEnabled") && !config.getBoolean("indexer.sendEnabled")) {
-        log.warn("indexer.sendEnabled present in configuration; indexer will be started in bypass mode");
+        log.warn("indexer.sendEnabled is set to false in the configuration; indexer will be started in bypass mode");
         bypass=true;
       }
     }
