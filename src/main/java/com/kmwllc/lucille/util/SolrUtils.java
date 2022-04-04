@@ -32,8 +32,15 @@ public class SolrUtils {
   public static SolrClient getSolrClient(Config config) {
     String solrUrl = getSolrUrl(config);
     CredentialsProvider provider = new BasicCredentialsProvider();
-    UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(config.getString("userName"), config.getString("password"));
-    provider.setCredentials(AuthScope.ANY, credentials);
+    String userName = null;
+    String password = null;
+    UsernamePasswordCredentials credentials = null;
+    if (requiresAuth(config)) {
+      userName = config.getString("userName");
+      password = config.getString("password");
+      credentials = new UsernamePasswordCredentials(userName, password);
+      provider.setCredentials(AuthScope.ANY, credentials);
+    }
     HttpClient client = HttpClientBuilder.create().setDefaultCredentialsProvider(provider).build();
     if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
       return requiresAuth(config) ? new CloudSolrClient.Builder(getSolrUrls(config)).withHttpClient(client).build() : new CloudSolrClient.Builder(getSolrUrls(config)).build();
