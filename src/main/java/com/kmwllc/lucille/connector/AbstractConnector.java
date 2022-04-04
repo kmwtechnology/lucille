@@ -15,6 +15,7 @@ public abstract class AbstractConnector implements Connector {
   private String pipelineName;
   private String docIdPrefix;
   private boolean collapse;
+  private String message = null;
 
   public AbstractConnector(Config config) {
     this.name = config.getString("name");
@@ -67,6 +68,15 @@ public abstract class AbstractConnector implements Connector {
    */
   public String createDocId(String id) {
     return docIdPrefix + id;
+  }
+
+  @Override
+  public String getMessage() {
+    return message;
+  }
+
+  protected void setMessage(String message) {
+    this.message = message;
   }
 
 }

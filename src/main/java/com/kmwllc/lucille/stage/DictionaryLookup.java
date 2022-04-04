@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
@@ -35,7 +36,7 @@ public class DictionaryLookup extends Stage {
 
   private final List<String> sourceFields;
   private final List<String> destFields;
-  private final HashMap<String, String> dict;
+  private final HashMap<String, String[]> dict;
   private final boolean usePayloads;
   private final UpdateMode updateMode;
 
@@ -57,8 +58,8 @@ public class DictionaryLookup extends Stage {
    * @param dictPath  the path of the dictionary file
    * @return  the populated HashMap
    */
-  private HashMap<String, String> buildHashMap(String dictPath) throws StageException {
-    HashMap<String, String> dict = new HashMap<>();
+  private HashMap<String, String[]> buildHashMap(String dictPath) throws StageException {
+    HashMap<String, String[]> dict = new HashMap<>();
     try (CSVReader reader = new CSVReader(FileUtils.getReader(dictPath))) {
       // For each line of the dictionary file, add a keyword/payload pair to the Trie
       String[] line;
@@ -82,12 +83,16 @@ public class DictionaryLookup extends Stage {
         }
 
         // TODO : Add log messages for when encoding errors occur so that they can be fixed
-        // TODO : Multiple payloads (eventually)
         if (line.length == 1) {
           String word = line[0].trim();
-          dict.put(word, word);
+          dict.put(word, new String[]{word});
         } else {
-          dict.put(line[0].trim(), line[1].trim());
+          // Handle multiple payload values here.
+          String[] rest = Arrays.copyOfRange(line, 1, line.length);
+          for (int i = 0; i < rest.length;i++) {
+            rest[i] = rest[i].trim();
+          }
+          dict.put(line[0].trim(), rest);
         }
       }
     } catch (IOException e) {
@@ -113,7 +118,9 @@ public class DictionaryLookup extends Stage {
       for (String value : doc.getStringList(sourceField)) {
         if (dict.containsKey(value)) {
           if (usePayloads) {
-            outputValues.add(dict.get(value));
+            for (String v : dict.get(value)) {
+              outputValues.add(v);
+            }
           } else {
             outputValues.add(value);
           }

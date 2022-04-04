@@ -16,10 +16,10 @@ import java.util.stream.Collectors;
 
 /**
  * This Stage removes duplicate values from the given list of fields.
- *
+ * <p>
  * Config Parameters -
- *
- *   fieldMapping (Map<String, String>) : A mapping of fields to remove duplicates from and the field to output the result to.
+ * <p>
+ * fieldMapping (Map<String, Object>) : A mapping of fields to remove duplicates from and the field to output the result to.
  */
 public class RemoveDuplicateValues extends Stage {
 
@@ -38,17 +38,13 @@ public class RemoveDuplicateValues extends Stage {
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    for (Entry<String, Object> entry : fieldMapping.entrySet()) {
-      String field = entry.getKey();
-
+    for (String field : fieldMapping.keySet()) {
       if (!doc.has(field) || !doc.isMultiValued(field)) {
         continue;
       }
-
-      List<String> uniqueValues = doc.getStringList(field).stream().distinct().collect(Collectors.toList());
-      doc.update((String) entry.getValue(), UpdateMode.DEFAULT, uniqueValues.toArray(new String[0]));
+      String targetField = (String) fieldMapping.get(field);
+      doc.removeDuplicateValues(field, targetField);
     }
-
     return null;
   }
 }

@@ -65,6 +65,11 @@ public class ConnectorResult {
     if (durationSecs != null) {
       msg = String.format("%s Time: %.2f secs.", msg, durationSecs);
     }
+
+    if (connector.getMessage() != null) {
+      msg += "\nMessage from " + connector.getName() + ": " + connector.getMessage();
+    }
+
     return msg;
   }
 }

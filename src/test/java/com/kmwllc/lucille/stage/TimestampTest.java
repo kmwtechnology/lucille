@@ -2,15 +2,12 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.chrono.ChronoLocalDate;
+import java.time.temporal.ChronoUnit;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
 public class TimestampTest {
 
@@ -25,7 +22,13 @@ public class TimestampTest {
 
     assertTrue(doc.has("timestamp"));
     Instant timestamp = Instant.parse(doc.getString("timestamp"));
-    assertTrue(timestamp.isBefore(Instant.now()));
+    Instant now = Instant.now();
+
+    // timestamp should be at most 2 seconds before now
+    assertTrue(ChronoUnit.SECONDS.between(timestamp, now) <= 2);
+
+    // timestamp should not be after now; but allow for it to be the same as now
+    assertTrue(ChronoUnit.SECONDS.between(timestamp, now) >= 0);
   }
 
 }
