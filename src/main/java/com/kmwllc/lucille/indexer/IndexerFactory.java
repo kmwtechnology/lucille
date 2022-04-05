@@ -17,6 +17,13 @@ public class IndexerFactory {
   public static Indexer fromConfig(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix)
     throws  IndexerException {
 
+    if (bypass==false) {
+      if (config.hasPath("indexer.sendEnabled") && !config.getBoolean("indexer.sendEnabled")) {
+        log.warn("indexer.sendEnabled is set to false in the configuration; indexer will be started in bypass mode");
+        bypass=true;
+      }
+    }
+
     String typeName;
 
     // fetch indexer type if specified

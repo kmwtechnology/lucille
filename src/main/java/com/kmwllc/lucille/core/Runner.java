@@ -201,11 +201,11 @@ public class Runner {
 
       if (!result.getStatus()) {
         log.error("Aborting run because " + connector.getName() + " failed.");
-        return new RunResult(false, connectors, connectorResults, history);
+        return new RunResult(false, connectors, connectorResults, history, runId);
       }
     }
 
-    return new RunResult(true, connectors, connectorResults, history);
+    return new RunResult(true, connectors, connectorResults, history, runId);
   }
   
   /**
