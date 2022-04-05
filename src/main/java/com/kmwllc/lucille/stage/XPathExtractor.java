@@ -14,14 +14,20 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.*;
 
 import java.io.*;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * A Stage which uses XPath to extract values out of XML document fields.
+ */
 public class XPathExtractor extends Stage {
-  // fields to xpath
+  /**
+   * Config Parameters -
+   * <p>
+   * fieldMapping (Map<String, List<String>>) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.
+   * xmlField (String) : The name of the document field which contains the XML field: defaults to "xml".
+   */
   protected Map<String, Object> xpaths;
   private DocumentBuilder builder;
   private DocumentBuilderFactory factory;
@@ -30,6 +36,11 @@ public class XPathExtractor extends Stage {
   private Map<XPathExpression, List<String>> expressionMapping;
   private static final Logger log = LogManager.getLogger(XPathExtractor.class);
 
+  /**
+   * Creates an instance of the XPathExtractor Stage with a given configuration.
+   *
+   * @param config
+   */
   public XPathExtractor(Config config) {
     super(config);
     xpaths = config.getConfig("fieldMapping").root().unwrapped();
@@ -79,7 +90,7 @@ public class XPathExtractor extends Stage {
         NodeList result = (NodeList) expression.evaluate(xmldoc, XPathConstants.NODESET);
 
         for (String field : expressionMapping.get(expression)) {
-          for (int i = 0 ; i < result.getLength() ; i++) {
+          for (int i = 0; i < result.getLength(); i++) {
             doc.setOrAdd(field, result.item(i).getTextContent());
           }
         }
