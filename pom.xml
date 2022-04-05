@@ -165,6 +165,9 @@
               <goal>jar</goal>
             </goals>
             <configuration>
+              <!-- The failOnError set to false ensures that JavaDoc is still created even if some comments have not been created.
+               Otherwise, the build will fail. https://stackoverflow.com/questions/15886209/maven-is-not-working-in-java-8-when-javadoc-tags-are-incomplete
+              !-->
               <failOnError>false</failOnError>
             </configuration>
           </execution>
