@@ -19,15 +19,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A Stage which uses XPath to extract values out of XML document fields.
+ * Extracts values out of XML document fields using XPath expressions.
+ * <br>
+ * Config Parameters -
+ * <br>
+ * fieldMapping (Map<String, List<String>>) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.
+ * <br>
+ * xmlField (String) : The name of the document field which contains the XML field: defaults to "xml".
  */
 public class XPathExtractor extends Stage {
-  /**
-   * Config Parameters -
-   * <p>
-   * fieldMapping (Map<String, List<String>>) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.
-   * xmlField (String) : The name of the document field which contains the XML field: defaults to "xml".
-   */
   protected Map<String, Object> xpaths;
   private DocumentBuilder builder;
   private DocumentBuilderFactory factory;
