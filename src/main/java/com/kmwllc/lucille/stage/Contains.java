@@ -12,8 +12,8 @@ import org.ahocorasick.trie.PayloadTrie;
 import java.util.List;
 
 /**
- * This Stage will check if any of the given fields contain any of the given values. If they do, they will tag the given
- * output field with the given value.
+ * Checks if any of the given fields contain any of the given values and tags the given
+ * output field with the value.
  *
  * Config Parameters:
  *

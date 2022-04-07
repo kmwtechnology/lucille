@@ -15,7 +15,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.List;
 
 /**
- * This Stage logs all received documents in JSON format and/or writes them to a designated file.
+ * Logs all received documents in JSON format and/or writes them to a designated file.
  * <p>
  * Config Parameters -
  * <p>

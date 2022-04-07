@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 /**
- * This stage parses a JSON string and sets fields on the processed document according to the configured mapping using
+ * Parses a JSON string and sets fields on the processed document according to the configured mapping using
  * JsonPath expressions.
  *
  * @see <a href="https://github.com/json-path/JsonPath">JsonPath</a>

@@ -12,7 +12,7 @@ import java.util.*;
 import java.util.Map.Entry;
 
 /**
- * This Stage renames a given set of source fields to a given set of destination fields. You must specify the same
+ * Renames a given set of source fields to a given set of destination fields. You must specify the same
  * number of source and destination fields.
  *
  * Config Parameters:
@@ -33,6 +33,10 @@ public class RenameFields extends Stage {
     this.updateMode = UpdateMode.fromConfig(config);
   }
 
+  /**
+   *
+   * @throws StageException if the field mapping is empty.
+   */
   @Override
   public void start() throws StageException {
     if (fieldMap.size() == 0)

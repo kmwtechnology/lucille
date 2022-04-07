@@ -11,10 +11,11 @@ import java.util.List;
 
 /**
  * Removes leading and trailing whitespace from every value in a given list of fields.
- * <br>
+ * <p>
  * Config Parameters -
- * <br>
- * fields (List<String>) : The list of fields to trim whitespace from.
+ * <ul>
+ * <li>fields (List<String>) : The list of fields to trim whitespace from.</li>
+ * </ul>
  */
 public class TrimWhitespace extends Stage {
 

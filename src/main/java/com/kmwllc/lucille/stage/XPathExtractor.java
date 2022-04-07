@@ -20,12 +20,12 @@ import java.util.Map;
 
 /**
  * Extracts values out of XML document fields using XPath expressions.
- * <br>
+ * <p>
  * Config Parameters -
- * <br>
- * fieldMapping (Map<String, List<String>>) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.
- * <br>
- * xmlField (String) : The name of the document field which contains the XML field: defaults to "xml".
+ * <ul>
+ * <li>fieldMapping (Map<String, List<String>>) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.</li>
+ * <li>xmlField (String) : The name of the document field which contains the XML field: defaults to "xml".</li>
+ * </ul>
  */
 public class XPathExtractor extends Stage {
   protected Map<String, Object> xpaths;
@@ -51,6 +51,9 @@ public class XPathExtractor extends Stage {
     expressionMapping = new HashMap<>();
   }
 
+  /**
+   * @throws StageException if XPath expression cannot be compiled.
+   */
   @Override
   public void start() throws StageException {
     try {

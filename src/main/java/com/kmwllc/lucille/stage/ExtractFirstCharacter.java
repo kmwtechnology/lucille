@@ -15,7 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * This Stage will extract the first character from each of the given input fields and set the associated output field
+ * Extracts the first character from each of the given input fields and set the associated output field
  * to contain the character. If the character is not alphanumeric, then 'nonaplha' will be placed in the destination field.
  *
  * Config Parameters -
