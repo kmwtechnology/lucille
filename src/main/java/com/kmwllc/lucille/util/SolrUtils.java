@@ -32,22 +32,28 @@ public class SolrUtils {
   public static SolrClient getSolrClient(Config config) {
     String solrUrl = getSolrUrl(config);
     CredentialsProvider provider = new BasicCredentialsProvider();
+    System.out.println(requiresAuth(config));
     if (requiresAuth(config)) {
-      String userName = config.getString("userName");
-      String password = config.getString("password");
+      String userName = config.getString("solr.userName");
+      String password = config.getString("solr.password");
       UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(userName, password);
       provider.setCredentials(AuthScope.ANY, credentials);
     }
-    HttpClient client = HttpClientBuilder.create().setDefaultCredentialsProvider(provider).build();
+    HttpClientBuilder clientBuilder = HttpClientBuilder.create().setDefaultCredentialsProvider(provider);
+    clientBuilder.addInterceptorFirst(new PreemptiveAuthInterceptor());
+    HttpClient client = clientBuilder.build();
     if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
       return requiresAuth(config) ? new CloudSolrClient.Builder(getSolrUrls(config)).withHttpClient(client).build() : new CloudSolrClient.Builder(getSolrUrls(config)).build();
     } else {
-      return requiresAuth(config) ? new HttpSolrClient.Builder().withBaseSolrUrl(solrUrl).withHttpClient(client).build() : new HttpSolrClient.Builder(getSolrUrl(config)).build();
+      return requiresAuth(config) ? new HttpSolrClient.Builder(solrUrl).withHttpClient(client).build() : new HttpSolrClient.Builder(solrUrl).build();
     }
   }
 
+
+
+
   public static boolean requiresAuth(Config config) {
-    return config.hasPath("userName") && config.hasPath("password");
+    return config.hasPath("solr.userName") && config.hasPath("solr.password");
   }
 
   public static String getSolrUrl(Config config) {
