@@ -3,7 +3,6 @@ package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
-import com.kmwllc.lucille.stage.XPathExtractor;
 import com.typesafe.config.Config;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -42,6 +41,12 @@ public class SolrUtils {
     }
   }
 
+  /**
+   * Generates a HttpClient with preemptive authentication if required.
+   *
+   * @param config The configuration file to generate the HttpClient from.
+   * @return the HttpClient
+   */
   public static HttpClient getHttpClient(Config config) {
     HttpClientBuilder clientBuilder = HttpClientBuilder.create();
 
@@ -58,7 +63,12 @@ public class SolrUtils {
     return clientBuilder.build();
   }
 
-
+  /**
+   * Determines whether the connection to Solr requires authentication.
+   *
+   * @param config
+   * @return
+   */
   public static boolean requiresAuth(Config config) {
     boolean hasUserName = config.hasPath("solr.userName");
     boolean hasPassword = config.hasPath("solr.password");
