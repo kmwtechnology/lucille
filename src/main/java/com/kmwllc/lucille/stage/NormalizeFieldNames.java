@@ -8,6 +8,15 @@ import com.typesafe.config.Config;
 
 import java.util.List;
 
+/**
+ * Normalizes a document's field values by replacing spaces and non-alphanumeric characters with given delimiters.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ * <li>delimiter (String) : A delimiter to replace spaces, defaults to "_".</li>
+ * <li>nonAlphanumReplacement (String) : A replacement for non-alphanumeric characters, defaults to "".</li>
+ * </ul>
+ */
 public class NormalizeFieldNames extends Stage {
 
   private final String delimeter;
