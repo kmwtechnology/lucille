@@ -162,6 +162,121 @@ public class DocumentTest {
   }
 
   @Test
+  public void testGetIntSingleValued() {
+    Document document = new Document("doc");
+    document.setField("number", 1);
+    assertFalse(document.isMultiValued("number"));
+    assertEquals(1, (int)document.getInt("number"));
+    assertEquals(Collections.singletonList(1), document.getIntList("number"));
+  }
+
+  @Test
+  public void testGetIntsMultiValued() {
+    Document document = new Document("doc");
+    document.setField("pets", 3);
+    assertFalse(document.isMultiValued("pets"));
+    document.addToField("pets", 2);
+    assertTrue(document.isMultiValued("pets"));
+    document.addToField("pets", 49);
+    assertEquals(Arrays.asList(3, 2, 49), document.getIntList("pets"));
+  }
+
+
+  @Test
+  public void testGetIntMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", 16);
+    document.addToField("field1", -38);
+    assertEquals(16, (int)document.getInt("field1"));
+  }
+
+  @Test
+  public void testGetDoubleSingleValued() {
+    Document document = new Document("doc");
+    document.setField("double", 1.455);
+    assertFalse(document.isMultiValued("double"));
+    assertEquals(1.455, document.getDouble("double"), 0);
+    assertEquals(Collections.singletonList(1.455), document.getDoubleList("double"));
+  }
+
+  @Test
+  public void testGetDoublesMultiValued() {
+    Document document = new Document("doc");
+    document.setField("gpa", 4.0);
+    assertFalse(document.isMultiValued("gpa"));
+    document.addToField("gpa", 2);
+    assertTrue(document.isMultiValued("gpa"));
+    document.addToField("gpa", 2.3);
+    assertEquals(Arrays.asList(4.0, 2.0, 2.3), document.getDoubleList("gpa"));
+  }
+
+
+  @Test
+  public void testGetDoubleMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", 16.44);
+    document.addToField("field1", -38.91);
+    assertEquals(16.44, document.getDouble("field1"), 0);
+  }
+
+  @Test
+  public void testGetBooleanSingleValued() {
+    Document document = new Document("doc");
+    document.setField("bool", true);
+    assertFalse(document.isMultiValued("bool"));
+    assertEquals(true, document.getBoolean("bool"));
+    assertEquals(Collections.singletonList(true), document.getBooleanList("bool"));
+  }
+
+  @Test
+  public void testGetBooleansMultiValued() {
+    Document document = new Document("doc");
+    document.setField("bools", true);
+    assertFalse(document.isMultiValued("bools"));
+    document.addToField("bools", false);
+    assertTrue(document.isMultiValued("bools"));
+    document.addToField("bools", false);
+    assertEquals(Arrays.asList(true, false, false), document.getBooleanList("bools"));
+  }
+
+
+  @Test
+  public void testGetBooleanMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", true);
+    document.addToField("field1", false);
+    assertEquals(true, document.getBoolean("field1"));
+  }
+
+  @Test
+  public void testGetLongSingleValued() {
+    Document document = new Document("doc");
+    document.setField("long", 1000000L);
+    assertFalse(document.isMultiValued("long"));
+    assertEquals(1000000L, (long)document.getLong("long"));
+    assertEquals(Collections.singletonList(1000000L), document.getLongList("long"));
+  }
+
+  @Test
+  public void testGetLongsMultiValued() {
+    Document document = new Document("doc");
+    document.setField("longs", 14L);
+    assertFalse(document.isMultiValued("longs"));
+    document.addToField("longs", 1234L);
+    assertTrue(document.isMultiValued("longs"));
+    document.addToField("longs", -3L);
+    assertEquals(Arrays.asList(14L, 1234L, -3L), document.getLongList("longs"));
+  }
+
+  @Test
+  public void testGetLongMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", 3L);
+    document.addToField("field1", 1933384L);
+    assertEquals(3L, (long)document.getLong("field1"));
+  }
+
+  @Test
   public void testChildren() throws Exception {
     Document parent = new Document("parent");
     assertFalse(parent.hasChildren());

@@ -11,7 +11,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -256,6 +259,173 @@ public class Document implements Cloneable {
     List<String> result = new ArrayList<>();
     for (JsonNode node : array) {
       result.add(node.isNull() ? null : node.asText());
+    }
+    return result;
+  }
+
+  public Integer getInt(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node;
+    if (isMultiValued(name)) {
+      node = data.withArray(name).get(0);
+    } else {
+      node = data.get(name);
+    }
+
+    return node.isNull() ? null : node.asInt();
+  }
+
+  public List<Integer> getIntList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getInt(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<Integer> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      result.add(node.isNull() ? null : node.asInt());
+    }
+    return result;
+  }
+
+  public Double getDouble(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node;
+    if (isMultiValued(name)) {
+      node = data.withArray(name).get(0);
+    } else {
+      node = data.get(name);
+    }
+
+    return node.isNull() ? null : node.asDouble();
+  }
+
+  public List<Double> getDoubleList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getDouble(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<Double> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      result.add(node.isNull() ? null : node.asDouble());
+    }
+    return result;
+  }
+
+  public Boolean getBoolean(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node;
+    if (isMultiValued(name)) {
+      node = data.withArray(name).get(0);
+    } else {
+      node = data.get(name);
+    }
+
+    return node.isNull() ? null : node.asBoolean();
+  }
+
+  public List<Boolean> getBooleanList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getBoolean(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<Boolean> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      result.add(node.isNull() ? null : node.asBoolean());
+    }
+    return result;
+  }
+
+  public Long getLong(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node;
+    if (isMultiValued(name)) {
+      node = data.withArray(name).get(0);
+    } else {
+      node = data.get(name);
+    }
+
+    return node.isNull() ? null : node.asLong();
+  }
+
+  public List<Long> getLongList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getLong(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<Long> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      result.add(node.isNull() ? null : node.asLong());
+    }
+    return result;
+  }
+
+  public Date getDate(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node;
+    if (isMultiValued(name)) {
+      node = data.withArray(name).get(0);
+    } else {
+      node = data.get(name);
+    }
+
+    String dateStr = node.asText();
+    DateTimeFormatter isoFormatter = DateTimeFormatter.ISO_INSTANT;
+    Instant dateInstant = Instant.from(isoFormatter.parse(dateStr));
+    return node.isNull() ? null : Date.from(dateInstant);
+  }
+
+  public List<Date> getDateList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getDate(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<Date> result = new ArrayList<>();
+    ObjectMapper om = new ObjectMapper();
+    for (JsonNode node : array) {
+      String dateStr = node.asText();
+      DateTimeFormatter isoFormatter = DateTimeFormatter.ISO_INSTANT;
+      Instant dateInstant = Instant.from(isoFormatter.parse(dateStr));
+      result.add(node.isNull() ? null : Date.from(dateInstant));
     }
     return result;
   }
