@@ -25,6 +25,7 @@ public class QueryDatabase extends Stage {
   private String jdbcPassword;
   private String sql;
   private List<String> keyFields;
+  private List<Class> types;
   private Map<String, Object> fieldMapping;
   protected Connection connection = null;
   PreparedStatement preparedStatement;
@@ -55,17 +56,38 @@ public class QueryDatabase extends Stage {
     } catch (Exception e) {
       throw new StageException("Parameter metadata could not be accessed", e);
     }
+
+    types = new ArrayList<Class>();
+    List<String> typeList = config.getStringList("types");
+
+    if (typeList.size() != keyFields.size()) {
+      throw new StageException("mismatch between types provided and keyfields provided");
+    }
+
+    for (String type : typeList) {
+      try {
+        types.add(Class.forName("java.lang." + type));
+      } catch (Exception e) {
+        throw new StageException("type not recognized", e);
+      }
+    }
   }
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
 
-    List<String> subs = new ArrayList<String>();
-    for (String field : keyFields) {
+    List<Object> subs = new ArrayList<Object>();
+
+    for (int i = 0; i < keyFields.size(); i++) {
+      String field = keyFields.get(i);
       if (!doc.has(field)) {
         throw new StageException("document does not have field " + field);
       }
-      subs.add(doc.getString(field));
+      try {
+        subs.add(doc.getObject(field, types.get(i)));
+      } catch (Exception e) {
+        throw new StageException("Type not recognized", e);
+      }
     }
 
     if (replacements != subs.size()) {
@@ -76,11 +98,8 @@ public class QueryDatabase extends Stage {
     try {
       preparedStatement.clearParameters();
       for (int i = 0; i < subs.size(); i++) {
-        String s = subs.get(i);
-        if (StringUtils.isEmpty(s)) {
-          continue;
-        }
-        preparedStatement.setString(i + 1, s);
+        Object s = subs.get(i);
+        preparedStatement.setObject(i + 1, s);
       }
 
       ResultSet result = preparedStatement.executeQuery();

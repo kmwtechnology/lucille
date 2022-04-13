@@ -22,7 +22,7 @@ public class QueryDatabaseTest {
     Stage stage = factory.get("QueryDatabaseTest/animal.conf");
 
     Document d = new Document("id");
-    d.setField("fish", 3);
+    d.setField("name", "Blaze");
 
     stage.processDocument(d);
 

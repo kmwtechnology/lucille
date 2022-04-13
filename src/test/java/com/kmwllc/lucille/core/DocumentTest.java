@@ -535,4 +535,22 @@ public class DocumentTest {
     assertTrue(fieldNames.contains("field2"));
     assertTrue(fieldNames.contains("field3"));
   }
+
+  @Test
+  public void testGetObject() throws Exception {
+    //{"id":"1", "string_field":"myString", "boolean_field":true, "integer_field":123, "double_field":1.5, "long_field":92147483647}
+    Document document = Document.fromJsonString("{\"id\":\"1\", \"string_field\":\"myString\", \"boolean_field\":true, \"integer_field\":123, \"double_field\":1.5, \"long_field\":92147483647}");
+
+    assertEquals("myString", document.getObject("string_field", String.class));
+    assertEquals(true, document.getObject("boolean_field", Boolean.class));
+    assertEquals(Integer.valueOf(123), document.getObject("integer_field", Integer.class));
+    assertEquals(Double.valueOf(1.5D), document.getObject("double_field" ,Double.class));
+    assertEquals(Long.valueOf(92147483647L), document.getObject("long_field", Long.class));
+  }
+
+  @Test(expected = DocumentException.class)
+  public void testGetObjectBadType() throws Exception {
+    Document document = Document.fromJsonString("{\"id\":\"1\", \"string_field\":\"myString\"}");
+    document.getObject("string_field", List.class);
+  }
 }

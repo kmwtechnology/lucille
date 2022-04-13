@@ -534,4 +534,39 @@ public class Document implements Cloneable {
     }
     return fieldNames;
   }
+
+  public <T> T getObject(String name, Class<T> clazz) throws DocumentException {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node;
+    if (isMultiValued(name)) {
+      node = data.withArray(name).get(0);
+    } else {
+      node = data.get(name);
+    }
+
+    if (node.isNull()) {
+      return null;
+    }
+
+    if (String.class.equals(clazz)) {
+      return (T) node.asText();
+    }
+    if (Boolean.class.equals(clazz)) {
+      return (T) Boolean.valueOf(node.asBoolean());
+    }
+    if (Integer.class.equals(clazz)) {
+      return (T) Integer.valueOf(node.asInt());
+    }
+    if (Double.class.equals(clazz)) {
+      return (T) Double.valueOf(node.asDouble());
+    }
+    if (Long.class.equals(clazz)) {
+      return (T) Long.valueOf(node.asLong());
+    }
+
+    throw new DocumentException("Unrecognized type: " + clazz);
+  }
 }
