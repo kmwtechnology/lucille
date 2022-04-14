@@ -26,6 +26,7 @@ public class QueryDatabase extends Stage {
   private String sql;
   private List<String> keyFields;
   private List<Class> types;
+  private List<Class> returnTypes;
   private Map<String, Object> fieldMapping;
   protected Connection connection = null;
   PreparedStatement preparedStatement;
@@ -64,13 +65,30 @@ public class QueryDatabase extends Stage {
       throw new StageException("mismatch between types provided and keyfields provided");
     }
 
-    for (String type : typeList) {
-      try {
+    try {
+      for (String type : typeList) {
         types.add(Class.forName("java.lang." + type));
-      } catch (Exception e) {
-        throw new StageException("type not recognized", e);
       }
+    } catch (Exception e) {
+      throw new StageException("type not recognized", e);
     }
+
+
+    returnTypes = new ArrayList<Class>();
+    List<String> returnTypeList = config.getStringList("returnTypes");
+
+    if (returnTypeList.size() != fieldMapping.size()) {
+      throw new StageException("mismatch between return types provided and field mapping provided");
+    }
+
+    try {
+      for (String type : returnTypeList) {
+        returnTypes.add(Class.forName("java.lang." + type));
+      }
+    } catch (Exception e) {
+      throw new StageException("type not recognized", e);
+    }
+
   }
 
   @Override
@@ -103,15 +121,20 @@ public class QueryDatabase extends Stage {
       }
 
       ResultSet result = preparedStatement.executeQuery();
-
       // now we need to iterate the results
       while (result.next()) {
 
         // Need the ID column from the RS.
+        int index = 0;
         for (String key : fieldMapping.keySet()) {
-          String value = result.getString(key);
+          Object value = result.getObject(key);
           String field = (String) fieldMapping.get(key);
-          doc.addToField(field, value);
+          try {
+            doc.addToField(field, value, returnTypes.get(index));
+          } catch (Exception e) {
+            throw new StageException("type not recognized", e);
+          }
+          index++;
         }
       }
     } catch (SQLException e) {

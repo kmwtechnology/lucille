@@ -352,6 +352,35 @@ public class Document implements Cloneable {
     array.add(dateStr);
   }
 
+  public void addToField(String name, Object value, Class clazz) throws DocumentException {
+    validateNotReservedField(name);
+    convertToList(name);
+    ArrayNode array = data.withArray(name);
+
+    if (String.class.equals(clazz)) {
+      array.add((String) value);
+      return;
+    }
+    if (Boolean.class.equals(clazz)) {
+      array.add((Boolean) value);
+      return;
+    }
+    if (Integer.class.equals(clazz)) {
+      array.add((Integer)value);
+      return;
+    }
+    if (Double.class.equals(clazz)) {
+      array.add((Double) value);
+      return;
+    }
+    if (Long.class.equals(clazz)) {
+      array.add((Long) value);
+      return;
+    }
+
+    throw new DocumentException("Unrecognized type: " + clazz);
+
+  }
 
   /**
    * Sets the field to the given value if the field is not already present; otherwise adds it to the field.
