@@ -34,22 +34,18 @@ public class ChunkingXMLHandler implements ContentHandler {
 
   @Override
   public void startDocument() throws SAXException {
-
   }
 
   @Override
   public void endDocument() throws SAXException {
-
   }
 
   @Override
   public void startPrefixMapping(String prefix, String uri) throws SAXException {
-
   }
 
   @Override
   public void endPrefixMapping(String prefix) throws SAXException {
-
   }
 
   @Override

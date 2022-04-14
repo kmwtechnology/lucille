@@ -89,22 +89,24 @@ public class XMLConnector extends AbstractConnector {
           throw new ConnectorException("Error during XML parsing", e);
         }
       }
+      return;
+    }
 
-    } else {
-      for (String file : filePaths) {
-        if (!file.endsWith(".xml")) {
-          log.info("File {} is not an XML file", file);
-          continue;
-        }
-        log.info("Parsing file: {}", file);
-        try (FileInputStream fis = new FileInputStream(file);
-             RecordingInputStream ris = new RecordingInputStream(fis)) {
-          setUpAndParse(ris, xmlHandler, xmlReader);
-        } catch (Exception e) {
-          throw new ConnectorException("Error during XML parsing", e);
-        }
+    // looking for filePaths because urlFiles is not specified
+    for (String file : filePaths) {
+      if (!file.endsWith(".xml")) {
+        log.info("File {} is not an XML file", file);
+        continue;
+      }
+      log.info("Parsing file: {}", file);
+      try (FileInputStream fis = new FileInputStream(file);
+           RecordingInputStream ris = new RecordingInputStream(fis)) {
+        setUpAndParse(ris, xmlHandler, xmlReader);
+      } catch (Exception e) {
+        throw new ConnectorException("Error during XML parsing", e);
       }
     }
+
   }
 
   public void setUpAndParse(RecordingInputStream ris, ChunkingXMLHandler xmlHandler, XMLReader xmlReader) throws ConnectorException {
