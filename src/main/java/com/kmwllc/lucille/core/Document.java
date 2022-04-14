@@ -358,11 +358,11 @@ public class Document implements Cloneable {
     ArrayNode array = data.withArray(name);
 
     if (String.class.equals(clazz)) {
-      array.add((String) value);
+      array.add(String.valueOf(value));
       return;
     }
     if (Boolean.class.equals(clazz)) {
-      array.add((Boolean) value);
+      array.add((Boolean)value);
       return;
     }
     if (Integer.class.equals(clazz)) {

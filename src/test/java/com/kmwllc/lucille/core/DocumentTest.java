@@ -1,14 +1,11 @@
 package com.kmwllc.lucille.core;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kmwllc.lucille.util.StageUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.time.Instant;
 import java.util.*;
 
 import static org.junit.Assert.*;
@@ -552,5 +549,73 @@ public class DocumentTest {
   public void testGetObjectBadType() throws Exception {
     Document document = Document.fromJsonString("{\"id\":\"1\", \"string_field\":\"myString\"}");
     document.getObject("string_field", List.class);
+  }
+
+  public void testRemoveDuplicateValuesWithNullTarget() {
+    Document d = new Document("id");
+    d.setField("field1", 1);
+    d.addToField("field1", 1);
+    d.addToField("field1", 16);
+    d.addToField("field1", 129);
+
+    d.removeDuplicateValues("field1", null);
+
+    List<String> values1 = d.getStringList("field1");
+    assertEquals("1", values1.get(0));
+    assertEquals("16", values1.get(1));
+    assertEquals("129", values1.get(2));
+
+    // ensure that the numbers do not come out as Strings
+    assertEquals("{\"id\":\"id\",\"field1\":[1,16,129]}", d.toString());
+
+    d.setField("field2", "a");
+    d.addToField("field2", "b");
+    d.addToField("field2", "c");
+    d.addToField("field2", "b");
+
+    d.removeDuplicateValues("field2", null);
+
+    List<String> values2 = d.getStringList("field2");
+    assertEquals("a", values2.get(0));
+    assertEquals("b", values2.get(1));
+    assertEquals("c", values2.get(2));
+
+    // ensure that the Strings do come out as Strings
+    assertEquals("{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
+  }
+
+  @Test
+  public void testRemoveDuplicateValuesWithValidTarget() {
+    Document d = new Document("id");
+    d.setField("field1", 1);
+    d.addToField("field1", 1);
+    d.addToField("field1", 16);
+    d.addToField("field1", 129);
+
+    d.removeDuplicateValues("field1", "output");
+
+    List<String> values1 = d.getStringList("output");
+    assertEquals("1", values1.get(0));
+    assertEquals("16", values1.get(1));
+    assertEquals("129", values1.get(2));
+
+    // verify that the original field stays the same, while the output field contains the correct values
+    assertEquals("{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}", d.toString());
+
+    Document d2 = new Document("id2");
+    d2.setField("field2", "a");
+    d2.addToField("field2", "b");
+    d2.addToField("field2", "c");
+    d2.addToField("field2", "b");
+
+    d2.removeDuplicateValues("field2", "field2");
+
+    List<String> values2 = d2.getStringList("field2");
+    assertEquals("a", values2.get(0));
+    assertEquals("b", values2.get(1));
+    assertEquals("c", values2.get(2));
+
+    // verify in-place modification
+    assertEquals("{\"id\":\"id2\",\"field2\":[\"a\",\"b\",\"c\"]}", d2.toString());
   }
 }
