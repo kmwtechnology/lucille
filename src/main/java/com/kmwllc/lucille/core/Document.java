@@ -236,12 +236,7 @@ public class Document implements Cloneable {
       return null;
     }
 
-    JsonNode node;
-    if (isMultiValued(name)) {
-      node = data.withArray(name).get(0);
-    } else {
-      node = data.get(name);
-    }
+    JsonNode node = getSingleNode(name);
 
     return node.isNull() ? null : node.asText();
   }
@@ -268,12 +263,7 @@ public class Document implements Cloneable {
       return null;
     }
 
-    JsonNode node;
-    if (isMultiValued(name)) {
-      node = data.withArray(name).get(0);
-    } else {
-      node = data.get(name);
-    }
+    JsonNode node = getSingleNode(name);
 
     return node.isNull() ? null : node.asInt();
   }
@@ -300,12 +290,7 @@ public class Document implements Cloneable {
       return null;
     }
 
-    JsonNode node;
-    if (isMultiValued(name)) {
-      node = data.withArray(name).get(0);
-    } else {
-      node = data.get(name);
-    }
+    JsonNode node = getSingleNode(name);
 
     return node.isNull() ? null : node.asDouble();
   }
@@ -332,12 +317,7 @@ public class Document implements Cloneable {
       return null;
     }
 
-    JsonNode node;
-    if (isMultiValued(name)) {
-      node = data.withArray(name).get(0);
-    } else {
-      node = data.get(name);
-    }
+    JsonNode node = getSingleNode(name);
 
     return node.isNull() ? null : node.asBoolean();
   }
@@ -364,12 +344,7 @@ public class Document implements Cloneable {
       return null;
     }
 
-    JsonNode node;
-    if (isMultiValued(name)) {
-      node = data.withArray(name).get(0);
-    } else {
-      node = data.get(name);
-    }
+    JsonNode node = getSingleNode(name);
 
     return node.isNull() ? null : node.asLong();
   }
@@ -396,12 +371,7 @@ public class Document implements Cloneable {
       return null;
     }
 
-    JsonNode node;
-    if (isMultiValued(name)) {
-      node = data.withArray(name).get(0);
-    } else {
-      node = data.get(name);
-    }
+    JsonNode node = getSingleNode(name);
 
     String dateStr = node.asText();
     DateTimeFormatter isoFormatter = DateTimeFormatter.ISO_INSTANT;
@@ -428,6 +398,10 @@ public class Document implements Cloneable {
       result.add(node.isNull() ? null : Date.from(dateInstant));
     }
     return result;
+  }
+
+  private JsonNode getSingleNode(String name) {
+    return isMultiValued(name) ? data.withArray(name).get(0) : data.get(name);
   }
 
   public int length(String name) {
