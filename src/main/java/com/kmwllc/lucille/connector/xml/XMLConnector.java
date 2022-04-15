@@ -24,8 +24,18 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.regex.Pattern;
 
+
 /**
  * Connector implementation that produces documents from a given XML file.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ * <li>filePaths (List<String>) : The list of file paths to parse through.</li>
+ * <li>xmlRootPath (String) : The path to the XML chunk to separate as a document.</li>
+ * <li>xmlIdPath (String) : The path to the id for each document.</li>
+ * <li>urlFiles (List<String>) : The list of URL file paths to parse. If specified along with filePaths, urlFiles takes precedence.</li>
+ * <li>encoding (String) : The encoding of the XML document to parse: defaults to utf-8.</li>
+ * </ul>
  */
 public class XMLConnector extends AbstractConnector {
 
