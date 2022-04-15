@@ -25,7 +25,7 @@ public class QueryDatabase extends Stage {
   private String jdbcPassword;
   private String sql;
   private List<String> keyFields;
-  private List<Class> types;
+  private List<Class> inputTypes;
   private List<Class> returnTypes;
   private Map<String, Object> fieldMapping;
   protected Connection connection = null;
@@ -58,8 +58,8 @@ public class QueryDatabase extends Stage {
       throw new StageException("Parameter metadata could not be accessed", e);
     }
 
-    types = new ArrayList<Class>();
-    List<String> typeList = config.getStringList("types");
+    inputTypes = new ArrayList<Class>();
+    List<String> typeList = config.getStringList("inputTypes");
 
     if (typeList.size() != keyFields.size()) {
       throw new StageException("mismatch between types provided and keyfields provided");
@@ -67,7 +67,7 @@ public class QueryDatabase extends Stage {
 
     try {
       for (String type : typeList) {
-        types.add(Class.forName("java.lang." + type));
+        inputTypes.add(Class.forName("java.lang." + type));
       }
     } catch (Exception e) {
       throw new StageException("type not recognized", e);
@@ -102,7 +102,7 @@ public class QueryDatabase extends Stage {
         throw new StageException("document does not have field " + field);
       }
       try {
-        subs.add(doc.getObject(field, types.get(i)));
+        subs.add(doc.getObject(field, inputTypes.get(i)));
       } catch (Exception e) {
         throw new StageException("Type not recognized", e);
       }
