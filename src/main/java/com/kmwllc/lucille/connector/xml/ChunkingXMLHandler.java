@@ -27,6 +27,7 @@ public class ChunkingXMLHandler implements ContentHandler {
   private boolean inDocID = false;
   private StringBuilder docIDBuilder = new StringBuilder();
   private RecordingInputStream ris;
+  private String outputField;
 
   @Override
   public void setDocumentLocator(Locator locator) {
@@ -91,7 +92,7 @@ public class ChunkingXMLHandler implements ContentHandler {
       }
 
       Document doc = new Document(docIDPrefix + id);
-      doc.setField("xml", xml);
+      doc.setField(outputField, xml);
       internalPublishDocument(doc);
     }
     if (documentIDPath.equals(path)) {
@@ -159,6 +160,10 @@ public class ChunkingXMLHandler implements ContentHandler {
 
   public void setPublisher(Publisher publisher) {
     this.publisher = publisher;
+  }
+
+  public void setOutputField(String outputField) {
+    this.outputField = outputField;
   }
 
 }
