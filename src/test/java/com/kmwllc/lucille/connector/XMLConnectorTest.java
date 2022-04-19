@@ -112,14 +112,14 @@ public class XMLConnectorTest {
 
     assertEquals(1, docs.size());
 
-    assertTrue(docs.get(0).has("xml"));
+    assertTrue(docs.get(0).has("xml_field"));
     assertEquals("<staff>\n" +
       "        <id>1001</id>\n" +
       "        <name>丹尼尔</name>\n" +
       "        <role>电脑科学家</role>\n" +
       "        <salary currency=\"USD\">3000</salary>\n" +
       "        <bio>圣地亚哥</bio>\n" +
-      "    </staff>", docs.get(0).getString("xml"));
+      "    </staff>", docs.get(0).getString("xml_field"));
   }
 
   @Test
