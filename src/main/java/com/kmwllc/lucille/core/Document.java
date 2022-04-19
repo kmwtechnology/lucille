@@ -11,11 +11,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
@@ -118,10 +114,6 @@ public class Document implements Cloneable {
     update(name, mode, (v)->{setField(name,(Double)v);}, (v)->{setOrAdd(name,(Double)v);}, values);
   }
 
-  public void update(String name, UpdateMode mode, Date... values) {
-    update(name, mode, (v)->setField(name, (Date) v), (v) ->setOrAdd(name, (Date) v), values);
-  }
-
   /**
    * Private helper method used by different public versions of the overloaded update method.
    *
@@ -192,16 +184,16 @@ public class Document implements Cloneable {
     data.put(name, value);
   }
 
-  public void setField(String name, Date value) {
-    validateNotReservedField(name);
-    LocalDateTime date = LocalDateTime.ofInstant(value.toInstant(), ZoneOffset.UTC);
-    String dateStr = DateTimeFormatter.ISO_INSTANT.format(date);
-    data.put(name, dateStr);
-  }
-
   public void setField(String name, JsonNode value) {
     validateNotReservedField(name);
     data.set(name, value);
+  }
+
+  public void setField(String name, Instant value) {
+    // take localdatetime, co
+    validateNotReservedField(name);
+    String dateStr = DateTimeFormatter.ISO_INSTANT.format(value);
+    data.put(name, dateStr);
   }
 
   public void renameField(String oldName, String newName, UpdateMode mode) {
@@ -366,7 +358,7 @@ public class Document implements Cloneable {
     return result;
   }
 
-  public Date getDate(String name) {
+  public Instant getInstant(String name) {
     if (!data.has(name)) {
       return null;
     }
@@ -374,28 +366,27 @@ public class Document implements Cloneable {
     JsonNode node = getSingleNode(name);
 
     String dateStr = node.asText();
-    DateTimeFormatter isoFormatter = DateTimeFormatter.ISO_INSTANT;
-    Instant dateInstant = Instant.from(isoFormatter.parse(dateStr));
-    return node.isNull() ? null : Date.from(dateInstant);
+    Instant dateInstant = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(dateStr));
+    return node.isNull() ? null : dateInstant;
   }
 
-  public List<Date> getDateList(String name) {
+  public List<Instant> getInstantList(String name) {
     if (!data.has(name)) {
       return null;
     }
 
     if (!isMultiValued(name)) {
-      return Collections.singletonList(getDate(name));
+      return Collections.singletonList(getInstant(name));
     }
 
     ArrayNode array = data.withArray(name);
-    List<Date> result = new ArrayList<>();
+    List<Instant> result = new ArrayList<>();
     ObjectMapper om = new ObjectMapper();
     for (JsonNode node : array) {
       String dateStr = node.asText();
       DateTimeFormatter isoFormatter = DateTimeFormatter.ISO_INSTANT;
       Instant dateInstant = Instant.from(isoFormatter.parse(dateStr));
-      result.add(node.isNull() ? null : Date.from(dateInstant));
+      result.add(node.isNull() ? null : dateInstant);
     }
     return result;
   }
@@ -487,12 +478,11 @@ public class Document implements Cloneable {
     array.add(value);
   }
 
-  public void addToField(String name, Date value) {
+  public void addToField(String name, Instant value) {
     validateNotReservedField(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
-    LocalDateTime date = LocalDateTime.ofInstant(value.toInstant(), ZoneOffset.UTC);
-    String dateStr = DateTimeFormatter.ISO_INSTANT.format(date);
+    String dateStr = DateTimeFormatter.ISO_INSTANT.format(value);
     array.add(dateStr);
   }
 
@@ -538,14 +528,6 @@ public class Document implements Cloneable {
   }
 
   public void setOrAdd(String name, Double value) {
-    if (has(name)) {
-      addToField(name, value);
-    } else {
-      setField(name, value);
-    }
-  }
-
-  public void setOrAdd(String name, Date value) {
     if (has(name)) {
       addToField(name, value);
     } else {

@@ -9,8 +9,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.*;
 
+import static java.time.LocalDateTime.of;
 import static org.junit.Assert.*;
 
 @RunWith(JUnit4.class)
@@ -166,7 +168,7 @@ public class DocumentTest {
     Document document = new Document("doc");
     document.setField("number", 1);
     assertFalse(document.isMultiValued("number"));
-    assertEquals(1, (int)document.getInt("number"));
+    assertEquals(1, document.getInt("number").intValue());
     assertEquals(Collections.singletonList(1), document.getIntList("number"));
   }
 
@@ -187,7 +189,7 @@ public class DocumentTest {
     Document document = new Document("doc");
     document.addToField("field1", 16);
     document.addToField("field1", -38);
-    assertEquals(16, (int)document.getInt("field1"));
+    assertEquals(16, document.getInt("field1").intValue());
   }
 
   @Test
@@ -253,7 +255,7 @@ public class DocumentTest {
     Document document = new Document("doc");
     document.setField("long", 1000000L);
     assertFalse(document.isMultiValued("long"));
-    assertEquals(1000000L, (long)document.getLong("long"));
+    assertEquals(1000000L, document.getLong("long").longValue());
     assertEquals(Collections.singletonList(1000000L), document.getLongList("long"));
   }
 
@@ -273,7 +275,36 @@ public class DocumentTest {
     Document document = new Document("doc");
     document.addToField("field1", 3L);
     document.addToField("field1", 1933384L);
-    assertEquals(3L, (long)document.getLong("field1"));
+    assertEquals(3L, document.getLong("field1").longValue());
+  }
+
+  @Test
+  public void testGetInstantSingleValued() {
+    Document document = new Document("doc");
+    document.setField("instant", Instant.ofEpochSecond(10000));
+    assertFalse(document.isMultiValued("instant"));
+    assertEquals(Instant.ofEpochSecond(10000), document.getInstant("instant"));
+    assertEquals(Collections.singletonList(Instant.ofEpochSecond(10000)), document.getInstantList("instant"));
+  }
+
+  @Test
+  public void testGetInstantsMultiValued() {
+    Document document = new Document("doc");
+    document.setField("instants", Instant.ofEpochSecond(44));
+    assertFalse(document.isMultiValued("instants"));
+    document.addToField("instants", Instant.ofEpochSecond(1033000));
+    assertTrue(document.isMultiValued("instants"));
+    document.addToField("instants", Instant.ofEpochSecond(143242));
+    assertEquals(Arrays.asList(Instant.ofEpochSecond(44), Instant.ofEpochSecond(1033000), Instant.ofEpochSecond(143242)),
+      document.getInstantList("instants"));
+  }
+
+  @Test
+  public void testGetInstantMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", Instant.ofEpochSecond(44));
+    document.addToField("field1", Instant.ofEpochSecond(94));
+    assertEquals(Instant.ofEpochSecond(44), document.getInstant("field1"));
   }
 
   @Test
@@ -317,7 +348,7 @@ public class DocumentTest {
   public void testNullHandling() throws Exception {
     // set a field to null and confirm that we get back a null when we call getString(), not the string "null"
     Document document = new Document("doc");
-    document.setField("field1", (String)null);
+    document.setField("field1", (String) null);
     assertEquals(null, document.getString("field1"));
     assertFalse(document.isMultiValued("field1"));
 
@@ -451,9 +482,9 @@ public class DocumentTest {
     document.update("myBooleanField", UpdateMode.APPEND, true);
     document.update("myBooleanField", UpdateMode.SKIP, false);
     Map map = document.asMap();
-    assertEquals(false, ((List<Object>)map.get("myBooleanField")).get(0));
-    assertEquals(true, ((List<Object>)map.get("myBooleanField")).get(1));
-    assertEquals(2, ((List<Object>)map.get("myBooleanField")).size());
+    assertEquals(false, ((List<Object>) map.get("myBooleanField")).get(0));
+    assertEquals(true, ((List<Object>) map.get("myBooleanField")).get(1));
+    assertEquals(2, ((List<Object>) map.get("myBooleanField")).size());
   }
 
   @Test
@@ -493,7 +524,7 @@ public class DocumentTest {
   @Test(expected = Exception.class)
   public void testUpdateDocIdFails() {
     Document document = new Document("id1");
-    document.update(Document.ID_FIELD, UpdateMode.OVERWRITE,"id2");
+    document.update(Document.ID_FIELD, UpdateMode.OVERWRITE, "id2");
   }
 
   @Test(expected = Exception.class)
@@ -564,7 +595,7 @@ public class DocumentTest {
 
     Document expected = new Document("id1");
     expected.initializeRunId("run1");
-    for (int i=0; i<=3; i++) {
+    for (int i = 0; i <= 3; i++) {
       expected.setOrAdd("stringField", "val");
       expected.setOrAdd("intField", 1);
       expected.setOrAdd("boolField", true);
@@ -589,10 +620,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\":1, \"b\":3}");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d,d2);
+    assertNotEquals(d, d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d,d2);
+    assertEquals(d, d2);
   }
 
   @Test
@@ -609,10 +640,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 3}] }");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d,d2);
+    assertNotEquals(d, d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d,d2);
+    assertEquals(d, d2);
   }
 
   @Test
@@ -629,10 +660,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 3} }");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d,d2);
+    assertNotEquals(d, d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d,d2);
+    assertEquals(d, d2);
   }
 
   @Test
