@@ -114,6 +114,10 @@ public class Document implements Cloneable {
     update(name, mode, (v)->{setField(name,(Double)v);}, (v)->{setOrAdd(name,(Double)v);}, values);
   }
 
+  public void update(String name, UpdateMode mode, Instant... values) {
+    update(name, mode, (v)->{setField(name,(Instant)v);}, (v)->{setOrAdd(name,(Instant)v);}, values);
+  }
+
   /**
    * Private helper method used by different public versions of the overloaded update method.
    *
