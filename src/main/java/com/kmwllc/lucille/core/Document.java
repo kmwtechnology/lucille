@@ -535,6 +535,14 @@ public class Document implements Cloneable {
     }
   }
 
+  public void setOrAdd(String name, Instant value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
   /**
    * Adds a given field from the designated "other" document to the current document.
    * If a field is already present on the current document, the field is converted to a list
