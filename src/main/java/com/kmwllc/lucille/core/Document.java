@@ -385,12 +385,10 @@ public class Document implements Cloneable {
 
     ArrayNode array = data.withArray(name);
     List<Instant> result = new ArrayList<>();
-    ObjectMapper om = new ObjectMapper();
     for (JsonNode node : array) {
-      String dateStr = node.asText();
-      DateTimeFormatter isoFormatter = DateTimeFormatter.ISO_INSTANT;
-      Instant dateInstant = Instant.from(isoFormatter.parse(dateStr));
-      result.add(node.isNull() ? null : dateInstant);
+      String instantStr = node.asText();
+      Instant instant = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(instantStr));
+      result.add(node.isNull() ? null : instant);
     }
     return result;
   }
@@ -482,6 +480,12 @@ public class Document implements Cloneable {
     array.add(value);
   }
 
+  /**
+   * Converts a given date in Instant form to a string according to DateTimeFormatter.ISO_INSTANT,
+   * it can then be accessed as a string via getString() or a converted back to an Instant via getInstant().
+   * @param name
+   * @param value
+   */
   public void addToField(String name, Instant value) {
     validateNotReservedField(name);
     convertToList(name);
@@ -539,6 +543,12 @@ public class Document implements Cloneable {
     }
   }
 
+  /**
+   * Adds a given date in Instant form to a document according to DateTimeFormatter.ISO_INSTANT,
+   * can then be accessed as a string via getString() or a converted back to an Instant via getInstant().
+   * @param name
+   * @param value
+   */
   public void setOrAdd(String name, Instant value) {
     if (has(name)) {
       addToField(name, value);
