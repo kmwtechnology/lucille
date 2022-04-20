@@ -53,12 +53,16 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
     String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
     RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
       new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    kafkaProducer.flush();
+    kafkaProducer.flush(); // TODO
   }
 
   @Override
   public void close() throws Exception {
     destConsumer.close();
+  }
+
+  @Override
+  public void batchComplete(List<Document> batch) throws Exception {
   }
 
 }

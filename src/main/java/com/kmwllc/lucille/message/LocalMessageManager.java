@@ -6,6 +6,7 @@ import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -107,5 +108,9 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
 
   @Override
   public void close() {
+  }
+
+  @Override
+  public void batchComplete(List<Document> batch) throws Exception {
   }
 }

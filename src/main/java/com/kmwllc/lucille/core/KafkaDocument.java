@@ -22,7 +22,7 @@ public class KafkaDocument extends Document {
     return topic;
   }
 
-  public int getParititon() {
+  public int getPartition() {
     return partition;
   }
 

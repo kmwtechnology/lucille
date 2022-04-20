@@ -3,6 +3,8 @@ package com.kmwllc.lucille.message;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Document;
 
+import java.util.List;
+
 /**
  * API that an Indexer uses to exchange messages with other Lucille components.
  *
@@ -32,4 +34,9 @@ public interface IndexerMessageManager {
    * Close any connections opened by this IndexerMessageManager.
    */
   void close() throws Exception;
+
+  /**
+   * Provides a way to communicate to other components that a batch of documents has been completed.
+   */
+  void batchComplete(List<Document> batch) throws Exception;
 }

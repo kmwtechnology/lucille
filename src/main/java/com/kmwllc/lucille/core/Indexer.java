@@ -163,6 +163,13 @@ public abstract class Indexer implements Runnable {
         }
       }
       return;
+    } finally {
+      try {
+        // for now we add offsets whether or not the batch was successfully indexed
+        manager.batchComplete(batchedDocs);
+      } catch (Exception e) {
+        log.error("Error marking batch complete.", e);
+      }
     }
 
     for (Document d : batchedDocs) {

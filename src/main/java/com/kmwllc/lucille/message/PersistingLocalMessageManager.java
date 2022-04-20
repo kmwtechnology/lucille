@@ -92,6 +92,11 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
     manager.close();
   }
 
+  @Override
+  public void batchComplete(List<Document> batch) throws Exception {
+    manager.batchComplete(batch);
+  }
+
   public List<Event> getSavedEvents() {
     return savedEventMessages;
   }
