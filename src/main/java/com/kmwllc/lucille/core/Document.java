@@ -194,10 +194,9 @@ public class Document implements Cloneable {
   }
 
   public void setField(String name, Instant value) {
-    // take localdatetime, co
     validateNotReservedField(name);
-    String dateStr = DateTimeFormatter.ISO_INSTANT.format(value);
-    data.put(name, dateStr);
+    String instantStr = DateTimeFormatter.ISO_INSTANT.format(value);
+    data.put(name, instantStr);
   }
 
   public void renameField(String oldName, String newName, UpdateMode mode) {

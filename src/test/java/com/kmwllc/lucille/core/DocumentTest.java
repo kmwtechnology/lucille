@@ -1,18 +1,15 @@
 package com.kmwllc.lucille.core;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kmwllc.lucille.util.StageUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
+
 import java.util.*;
 
-import static java.time.LocalDateTime.of;
 import static org.junit.Assert.*;
 
 @RunWith(JUnit4.class)
@@ -285,6 +282,7 @@ public class DocumentTest {
     assertFalse(document.isMultiValued("instant"));
     assertEquals(Instant.ofEpochSecond(10000), document.getInstant("instant"));
     assertEquals(Collections.singletonList(Instant.ofEpochSecond(10000)), document.getInstantList("instant"));
+    assertEquals("1970-01-01T02:46:40Z", document.getString("instant"));
   }
 
   @Test
