@@ -49,12 +49,7 @@ public class HybridKafkaTest {
     String sourceTopic = KafkaUtils.getSourceTopicName(pipelineName);
     kafka.createTopic(TopicConfig.withName(sourceTopic));
 
-    List<KeyValue<String, String>> records = new ArrayList<>();
-
-    Document doc1 = new Document("doc1");
-    records.add(new KeyValue<>("doc1", doc1.toString()));
-
-    kafka.send(SendKeyValues.to(sourceTopic, records));
+    sendDoc("doc1", sourceTopic);
 
     WorkerIndexer workerIndexer = new WorkerIndexer();
     Config config = ConfigFactory.load("HybridKafkaTest/config.conf");
@@ -65,8 +60,10 @@ public class HybridKafkaTest {
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
       new RecordingLinkedBlockingQueue<>();
 
+    workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true);
 
-    workerIndexer.start(config, "pipeline1", pipelineDest, offsets);
+    sendDoc("doc2", sourceTopic);
+    sendDoc("doc3", sourceTopic);
 
     Thread.sleep(6000);
 
@@ -75,8 +72,19 @@ public class HybridKafkaTest {
     assertEquals(0, pipelineDest.size());
     assertEquals(0, offsets.size());
 
-    assertEquals(1, pipelineDest.getHistory().size());
+    assertEquals(3, pipelineDest.getHistory().size());
     assertEquals(1, offsets.getHistory().size());
 
+    for (Map.Entry e : offsets.getHistory().get(0).entrySet()) {
+      System.out.println(e.getKey() + " | " + e.getValue());
+    }
+  }
+
+  private Document sendDoc(String id, String topic) throws Exception {
+    List<KeyValue<String, String>> records = new ArrayList<>();
+    Document doc = new Document(id);
+    records.add(new KeyValue<>(id, doc.toString()));
+    kafka.send(SendKeyValues.to(topic, records));
+    return doc;
   }
 }

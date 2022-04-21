@@ -24,7 +24,7 @@ public class RecordingLinkedBlockingQueue<E> extends LinkedBlockingQueue<E> {
     return super.offer(e);
   }
 
-  public ArrayList getHistory() {
+  public ArrayList<E> getHistory() {
     return history;
   }
 }

@@ -51,11 +51,12 @@ public class WorkerIndexer {
     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
       new LinkedBlockingQueue<>();
 
-    start(config, pipelineName, pipelineDest, offsets);
+    start(config, pipelineName, pipelineDest, offsets, false);
   }
 
   public void start(Config config, String pipelineName, LinkedBlockingQueue<KafkaDocument> pipelineDest,
-                    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) throws Exception {
+                    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
+                    boolean bypassSearchEngine) throws Exception {
 
     log.info("Starting WorkerIndexer for pipeline: " + pipelineName);
 
@@ -72,7 +73,7 @@ public class WorkerIndexer {
     workerThread =
       Worker.startThread(config, workerMessageManager, pipelineName,"workerprefix");
 
-    indexer = new SolrIndexer(config, indexerMessageManager, false, pipelineName);
+    indexer = new SolrIndexer(config, indexerMessageManager, bypassSearchEngine, pipelineName);
     //if (!indexer.validateConnection()) {
     //  log.error("Indexer could not connect");
     //  System.exit(1);
