@@ -136,6 +136,10 @@ class Worker implements Runnable {
       commitOffsetsAndRemoveCounter(doc);
     }
 
+
+    // commit any remaining offsets before termination
+    commitOffsetsAndRemoveCounter(null);
+
     try {
       manager.close();
     } catch (Exception e) {

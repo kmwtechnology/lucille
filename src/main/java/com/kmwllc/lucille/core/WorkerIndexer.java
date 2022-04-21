@@ -28,17 +28,40 @@ public class WorkerIndexer {
 
   private static final Logger log = LoggerFactory.getLogger(WorkerIndexer.class);
 
+  private Indexer indexer;
+  private Thread indexerThread;
+  private WorkerThread workerThread;
+
+
   public static void main(String[] args) throws Exception {
     Config config = ConfigUtils.loadConfig();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
-    log.debug("Starting WorkerIndexer for pipeline: " + pipelineName);
+    new WorkerIndexer().start(config, pipelineName);
 
-    // TODO: start a pool of worker-indexer pairs instead of just one pair
+    // TODO: add shutdown hook
+  }
+
+
+  public void start(Config config, String pipelineName) throws Exception {
 
     LinkedBlockingQueue<KafkaDocument> pipelineDest =
       new LinkedBlockingQueue<>(LocalMessageManager.DEFAULT_QUEUE_CAPACITY);
+
+    // TODO: should we place a capacity on the offsets queue?
     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
       new LinkedBlockingQueue<>();
+
+    start(config, pipelineName, pipelineDest, offsets);
+  }
+
+  public void start(Config config, String pipelineName, LinkedBlockingQueue<KafkaDocument> pipelineDest,
+                    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) throws Exception {
+
+    log.info("Starting WorkerIndexer for pipeline: " + pipelineName);
+
+    // TODO: start a pool of worker-indexer pairs instead of just one pair
+
+
 
     HybridWorkerMessageManager workerMessageManager =
       new HybridWorkerMessageManager(config, pipelineName, pipelineDest, offsets);
@@ -46,19 +69,38 @@ public class WorkerIndexer {
     HybridIndexerMessageManager indexerMessageManager =
       new HybridIndexerMessageManager(pipelineDest, offsets);
 
-    WorkerThread workerThread =
+    workerThread =
       Worker.startThread(config, workerMessageManager, pipelineName,"workerprefix");
 
-    Indexer indexer = new SolrIndexer(config, indexerMessageManager, false, pipelineName);
-    if (!indexer.validateConnection()) {
-      log.error("Indexer could not connect");
-      System.exit(1);
+    indexer = new SolrIndexer(config, indexerMessageManager, false, pipelineName);
+    //if (!indexer.validateConnection()) {
+    //  log.error("Indexer could not connect");
+    //  System.exit(1);
+    //}
+
+    indexerThread = new Thread(indexer);
+    indexerThread.start();
+  }
+
+  public void stop() throws Exception {
+
+    indexer.terminate();
+    log.info("Indexer shutting down");
+    try {
+      indexerThread.join();
+    } catch (InterruptedException e) {
+      log.error("Interrupted", e);
     }
 
-    Thread indexerThread = new Thread(indexer);
-    indexerThread.start();
+    workerThread.terminate();
+    try {
+      workerThread.join();
+    } catch (InterruptedException e) {
+      log.error("Interrupted", e);
+    }
 
-    // TODO: add shutdown hook
   }
+
+
 
 }

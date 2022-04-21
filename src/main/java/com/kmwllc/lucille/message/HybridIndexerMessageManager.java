@@ -40,7 +40,7 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
   public void close() throws Exception {
   }
 
-  // TODO
+  @Override
   public void batchComplete(List<Document> batch) throws InterruptedException {
     if (batch.isEmpty()) {
       return;
