@@ -9,6 +9,7 @@ import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import com.typesafe.config.Config;
+import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +58,7 @@ public class CSVConnector extends AbstractConnector {
       this.idFields = config.hasPath("idFields") ? config.getStringList("idFields") : new ArrayList<String>();
     }
     this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
-    this.separatorChar = (config.hasPath("useTabs") && config.getBoolean("useTabs")) ? '\t' : ',';
+    this.separatorChar = config.hasPath("separatorChar")  ? CharUtils.toChar(config.getString("separatorChar")) : ',';
     this.quoteChar = (config.hasPath("interpretQuotes") && !config.getBoolean("interpretQuotes")) ?
         CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;
     this.escapeChar = (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar")) ? 

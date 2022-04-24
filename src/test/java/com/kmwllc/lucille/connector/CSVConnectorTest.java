@@ -5,8 +5,6 @@ import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigParseOptions;
-import com.typesafe.config.ConfigResolveOptions;
 import org.junit.Test;
 
 import java.util.List;
@@ -92,4 +90,24 @@ public class CSVConnectorTest {
     // there should be no issues accessing the field value of the first column because BOM is removed
     assertEquals("Carbonara", docs.get(0).getString("name"));
   }
+
+  @Test
+  public void testSemicolonSeparator() throws Exception {
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/semicolons.conf"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    Connector connector = new CSVConnector(config);
+    connector.execute(publisher);
+
+    // contents of CSVConnectorTest/semicolons.conf
+    //  field1	field2	field3
+    //  a	b	c
+    //  d	f	g
+    //  x	y	z
+
+    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(3, docs.size());
+    assertEquals("a", docs.get(0).getString("field1"));
+  }
+
 }
