@@ -9,8 +9,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
+import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
@@ -21,6 +23,7 @@ class Worker implements Runnable {
   public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
+  private static final Logger threadLog = LoggerFactory.getLogger("com.kmwllc.lucille.core.Heartbeat");
   private final WorkerMessageManager manager;
 
   private final Pipeline pipeline;
@@ -169,10 +172,15 @@ class Worker implements Runnable {
     return pollInstant;
   }
 
-  private static void spawnWatcher(Worker worker, int maxProcessingSecs) {
+  public static void spawnWatcher(Worker worker, int maxProcessingSecs) {
+
     Executors.newSingleThreadExecutor().submit(new Runnable() {
       public void run() {
         while (true) {
+          threadLog.info("Issuing heartbeat");
+          threadLog.debug("Thread Dump:\n{}",
+            Arrays.toString(
+              ManagementFactory.getThreadMXBean().dumpAllThreads(true, true)));
           if (Duration.between(worker.getPreviousPollInstant().get(), Instant.now()).getSeconds() > maxProcessingSecs) {
             log.error("Shutting down because maximum allowed time between previous poll is exceeded.");
             System.exit(1);
@@ -193,7 +201,8 @@ class Worker implements Runnable {
       Exception {
     Worker worker = new Worker(config, manager, pipelineName, metricsPrefix);
     WorkerThread workerThread = new WorkerThread(worker);
-    workerThread.start();
+    // need to stop this thread
+    spawnWatcher(worker, 500);
     return workerThread;
   }
 
