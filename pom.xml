@@ -207,6 +207,17 @@
     </dependency>
 
     <dependency>
+      <groupId>org.elasticsearch</groupId>
+      <artifactId>elasticsearch</artifactId>
+      <version>7.4.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.elasticsearch.client</groupId>
+      <artifactId>elasticsearch-rest-high-level-client</artifactId>
+      <version>7.4.0</version>
+    </dependency>
+
+    <dependency>
       <groupId>org.apache.curator</groupId>
       <artifactId>curator-recipes</artifactId>
       <version>5.1.0</version>
@@ -407,6 +418,7 @@
       <artifactId>metrics-core</artifactId>
       <version>4.2.3</version>
     </dependency>
+
 
   </dependencies>
 
