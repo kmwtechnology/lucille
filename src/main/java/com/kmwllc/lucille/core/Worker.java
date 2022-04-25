@@ -172,6 +172,7 @@ class Worker implements Runnable {
     return pollInstant;
   }
 
+  // move this entire method into workerthread, update it to return the watcherthread
   public static void spawnWatcher(Worker worker, int maxProcessingSecs) {
 
     Executors.newSingleThreadExecutor().submit(new Runnable() {

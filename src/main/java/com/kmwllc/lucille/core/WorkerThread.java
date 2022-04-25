@@ -20,4 +20,12 @@ public class WorkerThread extends Thread {
   public void logMetrics() {
     worker.logMetrics();
   }
+
+  // updates: include watcher thread as an instance variable here
+  // terminate watch thread with worker
+
+
+  // in run, start watcher first
+  // in terminate, terminate watcher first
+
 }
