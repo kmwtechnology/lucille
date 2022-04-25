@@ -156,8 +156,7 @@ public abstract class Indexer implements Runnable {
 
       for (Document d : batchedDocs) {
         try {
-          manager.sendEvent(new Event(d.getId(), d.getRunId(),
-              "FAILED: " + e.getMessage(), Event.Type.FAIL));
+          manager.sendEvent(d,"FAILED: " + e.getMessage(), Event.Type.FAIL);
         } catch (Exception e2) {
           // TODO: The run won't be able to finish if this event isn't received; can we do something special here?
           log.error("Couldn't send failure event for doc " + d.getId(), e2);
@@ -174,9 +173,8 @@ public abstract class Indexer implements Runnable {
     }
 
     for (Document d : batchedDocs) {
-      Event event = new Event(d.getId(), d.getRunId(), "SUCCEEDED", Event.Type.FINISH);
       try {
-        manager.sendEvent(event);
+        manager.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
       } catch (Exception e) {
         // TODO: The run won't be able to finish if this event isn't received; can we do something special here?
         log.error("Error sending completion event for doc " + d.getId(), e);

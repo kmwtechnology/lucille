@@ -34,6 +34,12 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
 
   @Override
   public void sendEvent(Event event) throws Exception {
+    // no-op -- Events are not tracked in hybrid mode
+  }
+
+  @Override
+  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+    // no-op -- Events are not tracked in hybrid mode
   }
 
   @Override

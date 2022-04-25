@@ -75,6 +75,12 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
     kafkaProducer.flush();
   }
 
+  @Override
+  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+    Event event = new Event(document.getId(), document.getRunId(), message, type);
+    sendEvent(event);
+  }
+
   /**
    * Sends an Event relating to a Document to the appropriate location for Events.
    *

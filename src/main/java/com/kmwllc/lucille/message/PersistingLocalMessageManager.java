@@ -55,6 +55,12 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   }
 
   @Override
+  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+    Event event = new Event(document.getId(), document.getRunId(), message, type);
+    sendEvent(event);
+  }
+
+  @Override
   public void sendEvent(Event event) throws Exception {
     savedEventMessages.add(event);
     manager.sendEvent(event);

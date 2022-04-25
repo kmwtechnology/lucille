@@ -31,6 +31,12 @@ public interface IndexerMessageManager {
   void sendEvent(Event event) throws Exception;
 
   /**
+   * Create an Event from the given parameters and make it available to the Publisher or
+   * any other component that is listening for Document-related Events.
+   */
+  void sendEvent(Document document, String message, Event.Type type) throws Exception;
+
+  /**
    * Close any connections opened by this IndexerMessageManager.
    */
   void close() throws Exception;

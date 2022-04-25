@@ -83,8 +83,7 @@ class Worker implements Runnable {
         }
 
         try {
-          Event event = new Event(doc.getId(), doc.getRunId(), "SENT_TO_DLQ", Event.Type.FAIL);
-          manager.sendEvent(event);
+          manager.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
         } catch (Exception e) {
           log.error("Failed to send completion event for: " + doc.getId(), e);
         }
@@ -101,7 +100,7 @@ class Worker implements Runnable {
       } catch (Exception e) {
         log.error("Error processing document: " + doc.getId(), e);
         try {
-          manager.sendEvent(new Event(doc.getId(), doc.getRunId(), null, Event.Type.FAIL));
+          manager.sendEvent(doc, null, Event.Type.FAIL);
         } catch (Exception e2) {
           log.error("Error sending failure event for document: " + doc.getId(), e2);
         }
@@ -120,8 +119,7 @@ class Worker implements Runnable {
         for (Document result : results) {
           // a document is a child if it has a different ID from the initial document
           if (!doc.getId().equals(result.getId())) {
-            manager.sendEvent(new Event(result.getId(),
-              doc.getRunId(), null, Event.Type.CREATE));
+            manager.sendEvent(result, null, Event.Type.CREATE);
           }
         }
 
