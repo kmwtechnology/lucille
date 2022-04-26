@@ -58,7 +58,9 @@ public class CSVConnector extends AbstractConnector {
       this.idFields = config.hasPath("idFields") ? config.getStringList("idFields") : new ArrayList<String>();
     }
     this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
-    this.separatorChar = config.hasPath("separatorChar")  ? CharUtils.toChar(config.getString("separatorChar")) : ',';
+    // if both a separator char and useTabs is specified, useTabs takes precedence
+    char separator = config.hasPath("separatorChar")  ? CharUtils.toChar(config.getString("separatorChar")) : ',';
+    this.separatorChar = (config.hasPath("useTabs") && config.getBoolean("useTabs")) ? '\t' : separator;
     this.quoteChar = (config.hasPath("interpretQuotes") && !config.getBoolean("interpretQuotes")) ?
         CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;
     this.escapeChar = (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar")) ? 
