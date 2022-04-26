@@ -175,7 +175,8 @@ class Worker implements Runnable {
                                          String pipelineName, String metricsPrefix) throws
       Exception {
     Worker worker = new Worker(config, manager, pipelineName, metricsPrefix);
-    WorkerThread workerThread = new WorkerThread(worker);
+    WorkerThread workerThread = new WorkerThread(worker, config);
+    workerThread.start();
     return workerThread;
   }
 
