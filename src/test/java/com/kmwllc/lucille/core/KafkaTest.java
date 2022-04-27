@@ -47,7 +47,7 @@ public class KafkaTest {
     // connector1 will feed 3 documents to pipeline1, so there should be 3 messages in each of
     // the source, dest, and event topics after the run is complete
     assertEquals(3, kafka.read(ReadKeyValues
-      .from(KafkaUtils.getSourceTopicName("pipeline1"))
+      .from(KafkaUtils.getSourceTopicName("pipeline1", ConfigFactory.empty()))
       .seekTo(0, 0)).size());
 
     assertEquals(3, kafka.read(ReadKeyValues
@@ -61,7 +61,7 @@ public class KafkaTest {
     // connector2 will feed 1 documents to pipeline1, so there should be 1 messages in each of
     // the source, dest, and event topics after the run is complete
     assertEquals(1, kafka.read(ReadKeyValues
-      .from(KafkaUtils.getSourceTopicName("pipeline2"))
+      .from(KafkaUtils.getSourceTopicName("pipeline2", ConfigFactory.empty()))
       .seekTo(0, 0)).size());
 
     List<KeyValue<String, String>> records = kafka.read(ReadKeyValues

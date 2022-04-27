@@ -1,7 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.message.KafkaUtils;
-import com.kmwllc.lucille.message.LocalMessageManager;
 import com.kmwllc.lucille.util.RecordingLinkedBlockingQueue;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -20,7 +18,6 @@ import org.junit.runners.JUnit4;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import static net.mguenther.kafka.junit.EmbeddedKafkaCluster.provisionWith;
 import static net.mguenther.kafka.junit.EmbeddedKafkaClusterConfig.defaultClusterConfig;
@@ -44,15 +41,14 @@ public class HybridKafkaTest {
 
   @Test
   public void testRunInKafkaLocalMode() throws Exception {
+    Config config = ConfigFactory.load("HybridKafkaTest/config.conf");
 
-    String pipelineName = "pipeline1";
-    String sourceTopic = KafkaUtils.getSourceTopicName(pipelineName);
+    String sourceTopic = config.getString("kafka.sourceTopic");
     kafka.createTopic(TopicConfig.withName(sourceTopic));
 
     sendDoc("doc1", sourceTopic);
 
     WorkerIndexer workerIndexer = new WorkerIndexer();
-    Config config = ConfigFactory.load("HybridKafkaTest/config.conf");
 
     RecordingLinkedBlockingQueue<KafkaDocument> pipelineDest =
       new RecordingLinkedBlockingQueue<>();

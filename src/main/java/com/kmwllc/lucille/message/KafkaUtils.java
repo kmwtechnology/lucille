@@ -77,8 +77,10 @@ public class KafkaUtils {
     return pipelineName + "_event_" + runId;
   }
 
-  public static String getSourceTopicName(String pipelineName) {
-   return pipelineName + "_source";
+  public static String getSourceTopicName(String pipelineName, Config config) {
+    return config.hasPath("kafka.sourceTopic")
+            ? config.getString("kafka.sourceTopic")
+            : pipelineName + "_source";
   }
 
   public static String getDestTopicName(String pipelineName) {

@@ -32,7 +32,7 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
     // with the same client ID are started in separate worker threads
     String kafkaClientId = "lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
     this.sourceConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
-    this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName)));
+    this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName, config)));
   }
 
   /**
