@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 public class KafkaPublisherMessageManager implements PublisherMessageManager {
 
   private final Config config;
-  private KafkaProducer<String, String> kafkaProducer;
+  private KafkaProducer<String, Document> kafkaProducer;
   private Consumer<String, String> eventConsumer;
   private String runId;
   private Admin kafkaAdminClient;
@@ -37,15 +37,14 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
     }
     this.runId = runId;
     this.pipelineName = pipelineName;
-    Properties consumerProps = KafkaUtils.createConsumerProps(config);
-    consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-publisher-" + pipelineName);
+    String kafkaClientId = "lucille-publisher-" + pipelineName;
     // TODO: create event topic explicitly instead of relying on auto-create; delete topic when finished
-    this.eventConsumer = new KafkaConsumer(consumerProps);
+    this.eventConsumer = KafkaUtils.createEventConsumer(config, kafkaClientId);
     this.eventConsumer.subscribe(Collections.singletonList(KafkaUtils.getEventTopicName(pipelineName, runId)));
     Properties props = new Properties();
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     this.kafkaAdminClient = Admin.create(props);
-    this.kafkaProducer = KafkaUtils.createProducer(config);
+    this.kafkaProducer = KafkaUtils.createDocumentProducer(config);
   }
 
   @Override
@@ -55,7 +54,7 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
 
   public void sendForProcessing(Document document) throws Exception {
     RecordMetadata result = (RecordMetadata) kafkaProducer.send(
-      new ProducerRecord(KafkaUtils.getSourceTopicName(pipelineName), document.getId(), document.toString())).get();
+      new ProducerRecord(KafkaUtils.getSourceTopicName(pipelineName), document.getId(), document)).get();
     kafkaProducer.flush();
   }
 

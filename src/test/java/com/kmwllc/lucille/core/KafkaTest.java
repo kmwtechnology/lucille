@@ -3,12 +3,15 @@ package com.kmwllc.lucille.core;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.typesafe.config.ConfigFactory;
 import net.mguenther.kafka.junit.EmbeddedKafkaCluster;
+import net.mguenther.kafka.junit.KeyValue;
 import net.mguenther.kafka.junit.ReadKeyValues;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.util.List;
 
 import static net.mguenther.kafka.junit.EmbeddedKafkaCluster.provisionWith;
 import static net.mguenther.kafka.junit.EmbeddedKafkaClusterConfig.defaultClusterConfig;
@@ -61,9 +64,15 @@ public class KafkaTest {
       .from(KafkaUtils.getSourceTopicName("pipeline2"))
       .seekTo(0, 0)).size());
 
-    assertEquals(1, kafka.read(ReadKeyValues
+    List<KeyValue<String, String>> records = kafka.read(ReadKeyValues
       .from(KafkaUtils.getDestTopicName("pipeline2"))
-      .seekTo(0, 0)).size());
+      .seekTo(0, 0));
+    assertEquals(1, records.size());
+
+    // verify that the document was properly written to the destination topic
+    Document doc = Document.fromJsonString(records.get(0).getValue());
+    assertEquals("2", doc.getId());
+    assertEquals("apple", doc.getString("field1"));
 
     assertEquals(1, kafka.read(ReadKeyValues
       .from(KafkaUtils.getEventTopicName("pipeline2", result.getRunId()))

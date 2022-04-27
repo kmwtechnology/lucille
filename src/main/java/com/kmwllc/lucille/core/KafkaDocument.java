@@ -10,8 +10,11 @@ public class KafkaDocument extends Document {
   private long offset;
   private String key;
 
-  public KafkaDocument(ConsumerRecord<String, String> record) throws Exception {
-    super((ObjectNode)MAPPER.readTree(record.value()));
+  public KafkaDocument(ObjectNode data) throws DocumentException {
+    super(data);
+  }
+
+  public void setKafkaMetadata(ConsumerRecord<String, ?> record) {
     this.topic = record.topic();
     this.partition = record.partition();
     this.offset = record.offset();
