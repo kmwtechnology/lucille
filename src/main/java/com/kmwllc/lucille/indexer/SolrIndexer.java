@@ -25,6 +25,11 @@ public class SolrIndexer extends Indexer {
 
   private final SolrClient solrClient;
 
+  private static final String KEYSTORE_PASSWORD  = "javax.net.ssl.keyStorePassword";
+  private static final String KEYSTORE  = "javax.net.ssl.keyStore";
+  private static final String TRUSTSTORE  = "javax.net.ssl.trustStore";
+  private static final String TRUSTSTORE_PASSWORD  = "javax.net.ssl.trustStorePassword";
+
   public SolrIndexer(Config config, IndexerMessageManager manager, SolrClient solrClient, String metricsPrefix) {
     super(config, manager, metricsPrefix);
     this.solrClient = solrClient;
@@ -35,17 +40,17 @@ public class SolrIndexer extends Indexer {
   }
 
   private static SolrClient getSolrClient(Config config, boolean bypass) {
-    if (config.hasPath("solr.keyStorePassword")) {
-      System.setProperty("javax.net.ssl.keyStorePassword", config.getString("solr.keyStorePassword"));
+    if (System.getenv(KEYSTORE_PASSWORD) == null && config.hasPath("solr.keyStorePassword")) {
+      System.setProperty(KEYSTORE_PASSWORD, config.getString("solr.keyStorePassword"));
     }
-    if (config.hasPath("solr.keyStore")) {
-      System.setProperty("javax.net.ssl.keyStore", config.getString("solr.keyStore"));
+    if (System.getenv(KEYSTORE) == null && config.hasPath("solr.keyStore")) {
+      System.setProperty(KEYSTORE, config.getString("solr.keyStore"));
     }
-    if (config.hasPath("solr.trustStore")) {
-      System.setProperty("javax.net.ssl.trustStore", config.getString("solr.trustStore"));
+    if (System.getenv(TRUSTSTORE) == null && config.hasPath("solr.trustStore")) {
+      System.setProperty(TRUSTSTORE, config.getString("solr.trustStore"));
     }
-    if (config.hasPath("solr.trustStorePassword")) {
-      System.setProperty("javax.net.ssl.trustStorePassword", config.getString("solr.trustStorePassword"));
+    if (System.getenv(TRUSTSTORE_PASSWORD) == null && config.hasPath("solr.trustStorePassword")) {
+      System.setProperty(TRUSTSTORE_PASSWORD, config.getString("solr.trustStorePassword"));
     }
     return bypass ? null : SolrUtils.getSolrClient(config);
   }
