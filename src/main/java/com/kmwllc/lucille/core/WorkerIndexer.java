@@ -37,7 +37,7 @@ public class WorkerIndexer {
     Config config = ConfigUtils.loadConfig();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
     WorkerIndexer workerIndexer = new WorkerIndexer();
-    workerIndexer.start(config, pipelineName);
+    workerIndexer.start(config, pipelineName, false);
 
     Signal.handle(new Signal("INT"), signal -> {
       log.info("Workers shutting down");
@@ -56,7 +56,7 @@ public class WorkerIndexer {
   }
 
 
-  public void start(Config config, String pipelineName) throws Exception {
+  public void start(Config config, String pipelineName, boolean bypassSearchEngine) throws Exception {
 
     LinkedBlockingQueue<KafkaDocument> pipelineDest =
       new LinkedBlockingQueue<>(LocalMessageManager.DEFAULT_QUEUE_CAPACITY);
@@ -65,7 +65,7 @@ public class WorkerIndexer {
     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
       new LinkedBlockingQueue<>();
 
-    start(config, pipelineName, pipelineDest, offsets, false);
+    start(config, pipelineName, pipelineDest, offsets, bypassSearchEngine);
   }
 
   public void start(Config config, String pipelineName, LinkedBlockingQueue<KafkaDocument> pipelineDest,

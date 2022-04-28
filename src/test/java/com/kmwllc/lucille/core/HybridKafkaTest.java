@@ -25,6 +25,7 @@ import java.util.Properties;
 import static net.mguenther.kafka.junit.EmbeddedKafkaCluster.provisionWith;
 import static net.mguenther.kafka.junit.EmbeddedKafkaClusterConfig.defaultClusterConfig;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 @RunWith(JUnit4.class)
 public class HybridKafkaTest {
@@ -47,7 +48,7 @@ public class HybridKafkaTest {
     Config config = ConfigFactory.load("HybridKafkaTest/config.conf");
 
     String sourceTopic = config.getString("kafka.sourceTopic");
-    kafka.createTopic(TopicConfig.withName(sourceTopic));
+    kafka.createTopic(TopicConfig.withName(sourceTopic).withNumberOfPartitions(1));
 
     sendDoc("doc1", sourceTopic);
 
@@ -78,6 +79,7 @@ public class HybridKafkaTest {
       kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
         .partitionsToOffsetAndMetadata().get();
     TopicPartition sourceTopicPartition = new TopicPartition(sourceTopic,0);
+    assertNotNull(retrievedOffsets.get(sourceTopicPartition));
     assertEquals(3, retrievedOffsets.get(sourceTopicPartition).offset());
 
     // pipelineDest and offset queues should have been drained
@@ -92,6 +94,52 @@ public class HybridKafkaTest {
     assertEquals(1, offsets.getHistory().get(0).entrySet().size());
     assertEquals(3, offsets.getHistory().get(0).get(sourceTopicPartition).offset());
   }
+
+  @Test
+  public void testTwoWorkerIndexerPairs() throws Exception {
+    Config config = ConfigFactory.load("HybridKafkaTest/config.conf");
+
+    String sourceTopic = config.getString("kafka.sourceTopic");
+    kafka.createTopic(TopicConfig.withName(sourceTopic).withNumberOfPartitions(2));
+
+    for (int i=0;i<500;i++) {
+      sendDoc("doc"+i, sourceTopic);
+    }
+
+    WorkerIndexer workerIndexer1 = new WorkerIndexer();
+    workerIndexer1.start(config, "pipeline1",  true);
+
+    // TODO: can we make sure that worker1 does not "own" both
+    // partitions throughout the test simply because it was started first?
+
+    WorkerIndexer workerIndexer2 = new WorkerIndexer();
+    workerIndexer2.start(config, "pipeline1",  true);
+
+    for (int i=500;i<1000;i++) {
+      sendDoc("doc"+i, sourceTopic);
+    }
+
+    Thread.sleep(6000);
+
+    workerIndexer1.stop();
+    workerIndexer2.stop();
+
+    Properties props = new Properties();
+    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+    Admin kafkaAdminClient = Admin.create(props);
+    Map<TopicPartition, OffsetAndMetadata> retrievedOffsets =
+      kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
+        .partitionsToOffsetAndMetadata().get();
+    TopicPartition partition0 = new TopicPartition(sourceTopic,0);
+    TopicPartition partition1 = new TopicPartition(sourceTopic,1);
+
+    // the sum of offsets across the two partitions should be the same as the number of documents
+    // consumed. All 1000 documents we added to the source topic should have been consumed.
+    assertEquals(1000,
+      retrievedOffsets.get(partition0).offset() + retrievedOffsets.get(partition1).offset());
+
+  }
+
 
   private Document sendDoc(String id, String topic) throws Exception {
     List<KeyValue<String, String>> records = new ArrayList<>();
