@@ -41,11 +41,6 @@ public interface PublisherMessageManager {
   Event pollEvent() throws Exception;
 
   /**
-   * Indicates whether any Events are waiting to be processed.
-   */
-  boolean hasEvents() throws Exception;
-
-  /**
    * Closes any connections opened by this PublisherMessageManager.
    */
   void close();

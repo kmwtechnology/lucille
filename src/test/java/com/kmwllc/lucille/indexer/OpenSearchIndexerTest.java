@@ -60,7 +60,6 @@ public class OpenSearchIndexerTest {
     manager.sendCompleted(doc2);
     indexer.run(2);
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(2, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -142,7 +141,6 @@ public class OpenSearchIndexerTest {
 
     assertEquals(doc5.getId(), map.get("id"));
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(5, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -178,7 +176,6 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -213,8 +210,6 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -249,7 +244,6 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();

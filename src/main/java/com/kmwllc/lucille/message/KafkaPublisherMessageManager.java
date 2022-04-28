@@ -77,38 +77,6 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
     return null;
   }
 
-  /**
-   * Returns true if there are no events waiting to be consumed.
-   */
-  @Override
-  public boolean hasEvents() throws Exception {
-    return getLag(KafkaUtils.getEventTopicName(pipelineName, runId))>0;
-  }
-
-  private int getLag(String topic) throws Exception {
-
-    Map<TopicPartition, OffsetAndMetadata> offsets =
-      kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
-        .partitionsToOffsetAndMetadata().get();
-
-    // TODO: throw exception if no offsets found
-
-    Map<TopicPartition, Long> ends = new HashMap<>();
-    ends.putAll(kafkaAdminClient.listOffsets(offsets.entrySet().stream().collect(
-      Collectors.toMap(Map.Entry::getKey, o -> OffsetSpec.latest()))).all().get()
-      .entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, o -> o.getValue().offset())));
-
-    int total = 0;
-    for (Map.Entry<TopicPartition, OffsetAndMetadata> offset : offsets.entrySet()) {
-      if (offset.getKey().topic().equals(topic)) {
-//        System.out.println("ADDING: " + offset + " | " + ends.get(offset.getKey()));
-        total += (ends.get(offset.getKey()) - offset.getValue().offset());
-      }
-    }
-
-    return total;
-  }
-
   public void close() {
     if (kafkaProducer != null) {
       try {

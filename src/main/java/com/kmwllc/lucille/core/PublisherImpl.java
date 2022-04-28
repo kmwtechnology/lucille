@@ -204,7 +204,7 @@ public class PublisherImpl implements Publisher {
       // periodically even when there are no available events to process
       Event event = manager.pollEvent();
 
-      if (event !=null) {
+      if (event != null) {
         handleEvent(event);
       }
 
@@ -222,7 +222,10 @@ public class PublisherImpl implements Publisher {
       // We are done if 1) the Connector thread has terminated and therefore no more Documents will be generated,
       // 2) all published Documents and their children are accounted for (none are pending),
       // 3) there are no more Events relating to the current run to consume
-      if (!thread.isAlive() && !hasPending() && !manager.hasEvents()) {
+      // Regarding 3), we assume there are no more events if the previous call to manager.pollEvent() returned null
+      // In a Kafka deployment, the publisher should be the only consumer of the event topic, and the topic should
+      // have a single partition
+      if (!thread.isAlive() && !hasPending() && event==null) {
         if (timerContext!=null) {
           timerContext.stop();
         }

@@ -89,11 +89,6 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   @Override
-  public boolean hasEvents() throws Exception {
-    return !pipelineEvents.isEmpty();
-  }
-
-  @Override
   public void initialize(String runId, String pipelineName) throws Exception {
     if (this.runId!=null) {
       throw new Exception("Already initialized.");

@@ -72,11 +72,6 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   }
 
   @Override
-  public boolean hasEvents() throws Exception {
-    return manager.hasEvents();
-  }
-
-  @Override
   public void initialize(String runId, String pipelineName) throws Exception {
     manager.initialize(runId, pipelineName);
   }
