@@ -25,15 +25,21 @@ import java.util.Map;
  */
 public class SolrUtils {
 
+  private static final String KEYSTORE_PASSWORD = "javax.net.ssl.keyStorePassword";
+  private static final String KEYSTORE = "javax.net.ssl.keyStore";
+  private static final String TRUSTSTORE = "javax.net.ssl.trustStore";
+  private static final String TRUSTSTORE_PASSWORD = "javax.net.ssl.trustStorePassword";
+
   private static final Logger log = LogManager.getLogger(SolrUtils.class);
 
   /**
-   * Generate a SolrClient from the given config file. Supports both Cloud and Http SolrClients.
+   * Generate a SolrClient from the given config file. Supports both Cloud and Http SolrClients, and will set SSL properties if specified.
    *
    * @param config The configuration file to generate a client from
    * @return the solr client
    */
   public static SolrClient getSolrClient(Config config) {
+    setSSLSystemPropertiesFromEnvironment(config);
     if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
       return requiresAuth(config) ? new CloudSolrClient.Builder(getSolrUrls(config)).withHttpClient(getHttpClient(config)).build() : new CloudSolrClient.Builder(getSolrUrls(config)).build();
     } else {
@@ -108,4 +114,24 @@ public class SolrUtils {
     return d;
   }
 
+  /**
+   * Sets SSL system properties if they are specified from within the configuration file, via the terminal, or as an environmental variable.
+   * Setting SSL system properties as a system property will take precedence, if multiple options are specified.
+   *
+   * @param config
+   */
+  public static void setSSLSystemPropertiesFromEnvironment(Config config) {
+    if (config.hasPath(KEYSTORE_PASSWORD) && System.getProperty(KEYSTORE_PASSWORD) == null) {
+      System.setProperty(KEYSTORE_PASSWORD, config.getString(KEYSTORE_PASSWORD));
+    }
+    if (config.hasPath(KEYSTORE) && System.getProperty(KEYSTORE) == null) {
+      System.setProperty(KEYSTORE, config.getString(KEYSTORE));
+    }
+    if (config.hasPath(TRUSTSTORE_PASSWORD) && System.getProperty(TRUSTSTORE_PASSWORD) == null) {
+      System.setProperty(TRUSTSTORE_PASSWORD, config.getString(TRUSTSTORE_PASSWORD));
+    }
+    if (config.hasPath(TRUSTSTORE) && System.getProperty(TRUSTSTORE) == null) {
+      System.setProperty(TRUSTSTORE, config.getString(TRUSTSTORE));
+    }
+  }
 }
