@@ -24,8 +24,7 @@ import java.util.Properties;
 
 import static net.mguenther.kafka.junit.EmbeddedKafkaCluster.provisionWith;
 import static net.mguenther.kafka.junit.EmbeddedKafkaClusterConfig.defaultClusterConfig;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 @RunWith(JUnit4.class)
 public class HybridKafkaTest {
@@ -106,14 +105,19 @@ public class HybridKafkaTest {
       sendDoc("doc"+i, sourceTopic);
     }
 
+    RecordingLinkedBlockingQueue<KafkaDocument> pipelineDest1 =
+      new RecordingLinkedBlockingQueue<>();
+    RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets1 =
+      new RecordingLinkedBlockingQueue<>();
     WorkerIndexer workerIndexer1 = new WorkerIndexer();
-    workerIndexer1.start(config, "pipeline1",  true);
+    workerIndexer1.start(config, "pipeline1",  pipelineDest1, offsets1, true);
 
-    // TODO: can we make sure that worker1 does not "own" both
-    // partitions throughout the test simply because it was started first?
-
+    RecordingLinkedBlockingQueue<KafkaDocument> pipelineDest2 =
+      new RecordingLinkedBlockingQueue<>();
+    RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets2 =
+      new RecordingLinkedBlockingQueue<>();
     WorkerIndexer workerIndexer2 = new WorkerIndexer();
-    workerIndexer2.start(config, "pipeline1",  true);
+    workerIndexer2.start(config, "pipeline1", pipelineDest2, offsets2, true);
 
     for (int i=500;i<1000;i++) {
       sendDoc("doc"+i, sourceTopic);
@@ -138,6 +142,13 @@ public class HybridKafkaTest {
     assertEquals(1000,
       retrievedOffsets.get(partition0).offset() + retrievedOffsets.get(partition1).offset());
 
+    // make sure each WorkerIndexer received and processed some work
+    // TODO: can we always assume this will happen?
+    assertTrue(pipelineDest1.getHistory().size()>0);
+    assertTrue(pipelineDest2.getHistory().size()>0);
+
+    // total number of docs processed should be 1000
+    assertEquals(1000, pipelineDest1.getHistory().size() + pipelineDest2.getHistory().size());
   }
 
 
