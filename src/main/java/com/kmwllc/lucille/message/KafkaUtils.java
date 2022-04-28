@@ -16,6 +16,14 @@ import java.util.Properties;
 
 /**
  * Utilities for interacting with Kafka: creating Kafka clients, determining Kafka topic names, etc.
+ *
+ *
+ *  TODO: add config option for cleaning up kafka topics at end of run
+ *  prepend run id to each topic name
+ *  add separate config option to leave failure topic around
+ *  consider adding all failed documents to the failure topic
+ *  add ability to override names of any kafka topic in the config
+ *
  */
 public class KafkaUtils {
 

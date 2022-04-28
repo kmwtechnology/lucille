@@ -11,6 +11,8 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -19,6 +21,8 @@ import java.util.Properties;
 import java.util.stream.Collectors;
 
 public class KafkaPublisherMessageManager implements PublisherMessageManager {
+
+  public static final Logger log = LoggerFactory.getLogger(KafkaPublisherMessageManager.class);
 
   private final Config config;
   private KafkaProducer<String, Document> kafkaProducer;
@@ -106,8 +110,27 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
   }
 
   public void close() {
-    kafkaProducer.close();
-    eventConsumer.close();
+    if (kafkaProducer != null) {
+      try {
+        kafkaProducer.close();
+      } catch (Exception e) {
+        log.error("Couldn't close kafka producer", e);
+      }
+    }
+    if (eventConsumer != null) {
+      try {
+        eventConsumer.close();
+      } catch (Exception e) {
+        log.error("Couldn't close kafka event consumer", e);
+      }
+    }
+    if (kafkaAdminClient != null) {
+      try {
+        kafkaAdminClient.close();
+      } catch (Exception e) {
+        log.error("Couldn't close kafka admin client", e);
+      }
+    }
   }
 
 }
