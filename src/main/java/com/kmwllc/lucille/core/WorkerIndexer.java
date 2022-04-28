@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.indexer.SolrIndexer;
 import com.kmwllc.lucille.message.HybridIndexerMessageManager;
 import com.kmwllc.lucille.message.HybridWorkerMessageManager;
@@ -20,8 +21,8 @@ import java.util.concurrent.LinkedBlockingQueue;
  *  1) the Worker reads documents from a source kafka topic
  *  2) the Worker publishes documents to an in-memory queue
  *  3) the Indexer retrieves documents from an in-memory queue
- *  4) the Indexer adds offsets of indexed documents to an in-memory hashmap
- *  5) the Worker reads offsets from the in-memory hashmap and commits them
+ *  4) the Indexer adds offsets of indexed documents to an in-memory queue
+ *  5) the Worker reads offsets from the in-memory queue and commits them
  *  6) callbacks are disabled
  */
 public class WorkerIndexer {
@@ -32,13 +33,26 @@ public class WorkerIndexer {
   private Thread indexerThread;
   private WorkerThread workerThread;
 
-
   public static void main(String[] args) throws Exception {
     Config config = ConfigUtils.loadConfig();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
-    new WorkerIndexer().start(config, pipelineName);
+    WorkerIndexer workerIndexer = new WorkerIndexer();
+    workerIndexer.start(config, pipelineName);
 
-    // TODO: add shutdown hook
+    Signal.handle(new Signal("INT"), signal -> {
+      log.info("Workers shutting down");
+      try {
+        // stopping the WorkerIndexer should close the kafka client connection
+        // via workerThread.terminate() -> worker.terminate() which causes
+        // the worker's run method to break out of its while loop and
+        // eventually call manager.close()
+        workerIndexer.stop();
+      } catch (Exception e) {
+        log.error("Error stopping WorkerIndexer", e);
+        System.exit(1);
+      }
+      System.exit(0);
+    });
   }
 
 
@@ -62,42 +76,44 @@ public class WorkerIndexer {
 
     // TODO: start a pool of worker-indexer pairs instead of just one pair
 
-
-
     HybridWorkerMessageManager workerMessageManager =
       new HybridWorkerMessageManager(config, pipelineName, pipelineDest, offsets);
 
     HybridIndexerMessageManager indexerMessageManager =
       new HybridIndexerMessageManager(pipelineDest, offsets);
 
-    workerThread =
-      Worker.startThread(config, workerMessageManager, pipelineName,"workerprefix");
+    indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, "indexerprefix");
 
-    indexer = new SolrIndexer(config, indexerMessageManager, bypassSearchEngine, pipelineName);
-    //if (!indexer.validateConnection()) {
-    //  log.error("Indexer could not connect");
-    //  System.exit(1);
-    //}
+    if (!bypassSearchEngine && !indexer.validateConnection()) {
+      throw new IndexerException("Indexer could not connect");
+    }
 
     indexerThread = new Thread(indexer);
     indexerThread.start();
+
+    workerThread =
+      Worker.startThread(config, workerMessageManager, pipelineName,"workerprefix");
   }
 
   public void stop() throws Exception {
 
-    indexer.terminate();
-    log.info("Indexer shutting down");
-    try {
-      indexerThread.join();
-    } catch (InterruptedException e) {
-      log.error("Interrupted", e);
+    if (indexer != null) {
+      indexer.terminate();
+      log.info("Indexer shutting down");
+      try {
+        indexerThread.join();
+      } catch (InterruptedException e) {
+        log.error("Interrupted", e);
+      }
     }
 
-    workerThread.terminate();
-    try {
-      workerThread.join();
-    } catch (InterruptedException e) {
-      log.error("Interrupted", e);
+    if (workerThread != null) {
+      workerThread.terminate();
+      try {
+        workerThread.join();
+      } catch (InterruptedException e) {
+        log.error("Interrupted", e);
+      }
     }
 
   }
