@@ -40,7 +40,7 @@ public class HybridKafkaTest {
   }
 
   @Test
-  public void testRunInKafkaLocalMode() throws Exception {
+  public void testRunInKafkaHybridMode() throws Exception {
     Config config = ConfigFactory.load("HybridKafkaTest/config.conf");
 
     String sourceTopic = config.getString("kafka.sourceTopic");
