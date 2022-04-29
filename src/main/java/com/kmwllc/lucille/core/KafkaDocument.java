@@ -3,6 +3,8 @@ package com.kmwllc.lucille.core;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
+import java.util.Objects;
+
 public class KafkaDocument extends Document {
 
   private String topic;
@@ -16,6 +18,14 @@ public class KafkaDocument extends Document {
     this.partition = record.partition();
     this.offset = record.offset();
     this.key = record.key();
+  }
+
+  private KafkaDocument(ObjectNode data, String topic, int partition, long offset, String key) throws DocumentException {
+    super(data);
+    this.topic = topic;
+    this.partition = partition;
+    this.offset = offset;
+    this.key = key;
   }
 
   public String getTopic() {
@@ -32,5 +42,31 @@ public class KafkaDocument extends Document {
 
   public String getKey() {
     return key;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    KafkaDocument doc = (KafkaDocument)other;
+
+    return
+      Objects.equals(topic, doc.topic) &&
+      Objects.equals(partition, doc.partition) &&
+      Objects.equals(offset, doc.offset) &&
+      Objects.equals(key, doc.key) &&
+      data.equals(doc.data);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(data, topic, partition, offset, key);
+  }
+
+  @Override
+  public Document clone() {
+    try {
+      return new KafkaDocument(data.deepCopy(), topic, partition, offset, key);
+    } catch (DocumentException e) {
+      throw new IllegalStateException("Document not cloneable", e);
+    }
   }
 }
