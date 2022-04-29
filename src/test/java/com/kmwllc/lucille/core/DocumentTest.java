@@ -58,6 +58,10 @@ public class DocumentTest {
     assertEquals(doc1.hashCode(), doc1.clone().hashCode());
     assertTrue(doc1.clone().equals(doc1));
     assertTrue(doc1.equals(doc1.clone()));
+
+    // hashcodes of unequal objects are not required to be unequal, but if these turned out to be equal
+    // it would be a cause for concern
+    assertNotEquals(doc1.hashCode(), doc3.hashCode());
   }
 
   @Test

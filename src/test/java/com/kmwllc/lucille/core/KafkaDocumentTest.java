@@ -45,6 +45,15 @@ public class KafkaDocumentTest {
     assertFalse(doc1.equals(doc5));
     assertFalse(doc1.equals(doc6));
     assertFalse(doc1.equals(doc7));
+
+    // hashcodes of unequal objects are not required to be unequal, but if these turned out to be equal
+    // it would be a cause for concern
+    assertNotEquals(doc1.hashCode(), doc3.hashCode());
+    assertNotEquals(doc1.hashCode(), doc4.hashCode());
+    assertNotEquals(doc1.hashCode(), doc5.hashCode());
+    assertNotEquals(doc1.hashCode(), doc6.hashCode());
+    assertNotEquals(doc1.hashCode(), doc7.hashCode());
+
   }
 
 
