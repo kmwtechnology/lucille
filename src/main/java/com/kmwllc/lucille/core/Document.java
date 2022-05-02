@@ -428,7 +428,13 @@ public class Document implements Cloneable {
 
   @Override
   public boolean equals(Object other) {
-    return data.equals(((Document)other).data);
+    if (this == other) {
+      return true;
+    }
+    if (other instanceof Document) {
+      return data.equals(((Document)other).data);
+    }
+    return false;
   }
 
   @Override
