@@ -52,6 +52,7 @@ public class CSVConnectorTest {
     //  d	"e,f	g
     //  x	y	z
 
+    // verify that tabs takes precedence over specified separator character
     List<Document> docs = manager.getSavedDocumentsSentForProcessing();
     System.out.println(docs.get(1));
     assertEquals(3, docs.size());
