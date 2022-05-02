@@ -46,10 +46,10 @@ public class KafkaDocument extends Document {
 
   @Override
   public boolean equals(Object other) {
-    if(this == other) {
+    if (this == other) {
       return true;
     }
-    if(other instanceof KafkaDocument) {
+    if (other instanceof KafkaDocument) {
       KafkaDocument doc = (KafkaDocument)other;
 
       return
