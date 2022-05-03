@@ -27,10 +27,13 @@ public class OpenSearchIndexer extends Indexer {
   private final RestHighLevelClient client;
   private final String index;
 
+  private final String routingField;
+
   public OpenSearchIndexer(Config config, IndexerMessageManager manager, RestHighLevelClient client, String metricsPrefix) {
     super(config, manager, metricsPrefix);
     this.client = client;
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
+    this.routingField = config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
   }
 
   public OpenSearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
@@ -94,6 +97,9 @@ public class OpenSearchIndexer extends Indexer {
       // create new IndexRequest
       IndexRequest indexRequest = new IndexRequest(index);
       indexRequest.id(docId);
+      if (routingField != null) {
+        indexRequest.routing(doc.getString(routingField));
+      }
       indexRequest.source(indexerDoc);
 
       // add indexRequest to bulkRequest
