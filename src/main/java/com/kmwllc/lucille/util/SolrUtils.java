@@ -39,7 +39,7 @@ public class SolrUtils {
    * @return the solr client
    */
   public static SolrClient getSolrClient(Config config) {
-    setSSLSystemPropertiesFromEnvironment(config);
+    setSSLSystemProperties(config);
     if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
       return requiresAuth(config) ? new CloudSolrClient.Builder(getSolrUrls(config)).withHttpClient(getHttpClient(config)).build() : new CloudSolrClient.Builder(getSolrUrls(config)).build();
     } else {
@@ -115,12 +115,12 @@ public class SolrUtils {
   }
 
   /**
-   * Sets SSL system properties if they are specified from within the configuration file, via the terminal, or as an environmental variable.
-   * Setting SSL system properties as a system property will take precedence, if multiple options are specified.
+   * Sets SSL system properties if they are specified in the config.
+   * The config can read environment variables if lines like the following are included: javax.net.ssl.keyStorePassword = ${?KEYSTORE_PASSWORD}”
    *
    * @param config
    */
-  public static void setSSLSystemPropertiesFromEnvironment(Config config) {
+  public static void setSSLSystemProperties(Config config) {
     if (config.hasPath(KEYSTORE_PASSWORD) && System.getProperty(KEYSTORE_PASSWORD) == null) {
       System.setProperty(KEYSTORE_PASSWORD, config.getString(KEYSTORE_PASSWORD));
     }
