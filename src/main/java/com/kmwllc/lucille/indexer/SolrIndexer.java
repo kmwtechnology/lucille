@@ -83,7 +83,7 @@ public class SolrIndexer extends Indexer {
     List<SolrInputDocument> solrDocs = new ArrayList();
     for (Document doc : documents) {
 
-      Map<String,Object> map = doc.asMap();
+      Map<String,Object> map = getIndexerDoc(doc);
       SolrInputDocument solrDoc = new SolrInputDocument();
 
       // if an id override field has been specified, use its value as the id to send to solr, instead

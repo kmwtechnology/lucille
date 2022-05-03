@@ -80,14 +80,13 @@ public class OpenSearchIndexer extends Indexer {
 
     // determine what field to use as id field and iterate over the documents
     for (Document doc : documents) {
-      Map<String, Object> indexerDoc = doc.asMap();
+      Map<String, Object> indexerDoc = getIndexerDoc(doc);
 
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
       indexerDoc.remove(Document.CHILDREN_FIELD);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
       String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
-      indexerDoc.put(Document.ID_FIELD, docId);
 
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);

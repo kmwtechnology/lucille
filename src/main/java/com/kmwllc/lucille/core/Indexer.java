@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 
 public abstract class Indexer implements Runnable {
 
@@ -35,6 +36,8 @@ public abstract class Indexer implements Runnable {
 
   protected final String idOverrideField;
 
+  protected final List<String> ignoreFields;
+
   private Instant lastLog = Instant.now();
 
   public void terminate() {
@@ -45,6 +48,7 @@ public abstract class Indexer implements Runnable {
   public Indexer(Config config, IndexerMessageManager manager, String metricsPrefix) {
     this.manager = manager;
     this.idOverrideField = config.hasPath("indexer.idOverrideField") ? config.getString("indexer.idOverrideField") : null;
+    this.ignoreFields = config.hasPath("indexer.ignoreFields") ? config.getStringList("indexer.ignoreFields") : null;
     int batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : DEFAULT_BATCH_SIZE;
     int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
     this.batch = new Batch(batchSize, batchTimeout);
@@ -195,4 +199,11 @@ public abstract class Indexer implements Runnable {
     return null;
   }
 
+  protected Map<String, Object> getIndexerDoc(Document doc) {
+    Map<String, Object> indexerDoc = doc.asMap();
+    if (ignoreFields != null) {
+      ignoreFields.forEach(indexerDoc::remove);
+    }
+    return indexerDoc;
+  }
 }
