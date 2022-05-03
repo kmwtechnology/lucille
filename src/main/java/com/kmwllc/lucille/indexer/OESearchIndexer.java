@@ -5,8 +5,10 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
+import com.kmwllc.lucille.util.ElasticsearchUtils;
 import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
+import org.opensearch.client.RestHighLevelClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
@@ -20,23 +22,47 @@ public class OESearchIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(OESearchIndexer.class);
 
-  private final SearchProxy proxy;
-  private final String index;
+  private SearchProxy proxy;
+
+  public OESearchIndexer(Config config, IndexerMessageManager manager, String metricsPrefix) {
+    this(config, manager, createProxy(config), metricsPrefix);
+  }
 
   public OESearchIndexer(Config config, IndexerMessageManager manager, SearchProxy proxy, String metricsPrefix) {
     super(config, manager, metricsPrefix);
     this.proxy = proxy;
-    this.index = OpenSearchUtils.getOpenSearchIndex(config);
+  }
+
+  private static SearchProxy createProxy(Config config) {
+    if (config.hasPath("elasticsearch")) {
+      String index = ElasticsearchUtils.getElasticsearchIndex(config);
+      return new ElasticsearchProxy(ElasticsearchUtils.getElasticsearchRestClient(config), index);
+    } else if (config.hasPath("opensearch")) {
+      String index = OpenSearchUtils.getOpenSearchIndex(config);
+      return new OpenSearchProxy(OpenSearchUtils.getOpenSearchRestClient(config), index);
+    }
+
+    // probably throw exception
+    return null;
   }
 
   @Override
   public boolean validateConnection() {
-    return proxy.ping();
+    try {
+      return proxy.ping();
+    } catch (Exception e) {
+      log.error("Could not ping connection", e);
+      return false;
+    }
   }
 
   @Override
   public void closeConnection() {
-    proxy.close();
+    try {
+      proxy.close();
+    } catch (Exception e) {
+      log.error("Could not close connection to client", e);
+    }
   }
 
   @Override
@@ -89,8 +115,7 @@ public class OESearchIndexer extends Indexer {
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
     log.info("Starting Indexer for pipeline: " + pipelineName);
     IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);
-    // check which proxy
-    Indexer indexer = new OESearchIndexer(config, manager, false, pipelineName);
+    Indexer indexer = new OESearchIndexer(config, manager, pipelineName);
     if (!indexer.validateConnection()) {
       log.error("Indexer could not connect");
       System.exit(1);
