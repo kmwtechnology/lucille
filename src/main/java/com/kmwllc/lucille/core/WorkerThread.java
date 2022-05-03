@@ -20,11 +20,13 @@ public class WorkerThread extends Thread {
 
   private boolean enableHeartbeat;
   private int period;
+  private int maxProcessingSecs;
 
   public WorkerThread(Worker worker, Config config) {
     this.worker = worker;
     this.enableHeartbeat = config.hasPath("worker.heartbeat") ? config.getBoolean("worker.heartbeat") : false;
     this.period = config.hasPath("worker.period") ? config.getInt("worker.period") : 1000;
+    this.maxProcessingSecs = config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 50000;
   }
 
   @Override
