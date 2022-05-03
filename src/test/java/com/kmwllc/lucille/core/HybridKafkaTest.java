@@ -17,10 +17,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 import static net.mguenther.kafka.junit.EmbeddedKafkaCluster.provisionWith;
 import static net.mguenther.kafka.junit.EmbeddedKafkaClusterConfig.defaultClusterConfig;
@@ -142,13 +139,32 @@ public class HybridKafkaTest {
     assertEquals(1000,
       retrievedOffsets.get(partition0).offset() + retrievedOffsets.get(partition1).offset());
 
-    // make sure each WorkerIndexer received and processed some work
-    // TODO: can we always assume this will happen?
-    assertTrue(pipelineDest1.getHistory().size()>0);
-    assertTrue(pipelineDest2.getHistory().size()>0);
+    // we currently have no way to guarantee that each WorkerIndexer
+    // received and processed some work
+    // assertTrue(pipelineDest1.getHistory().size()>0);
+    // assertTrue(pipelineDest2.getHistory().size()>0);
 
-    // total number of docs processed should be 1000
-    assertEquals(1000, pipelineDest1.getHistory().size() + pipelineDest2.getHistory().size());
+    // total number of docs processed should be >= 1000
+    // some docs could have been reprocessed if a partition was reassigned from one
+    // worker to another via a rebalance at a time when there were uncommitted offsets;
+    // in this case, the new owner of the partition would begin reading from the last committed offset,
+    // reprocessing the uncommitted ones
+    assertTrue(pipelineDest1.getHistory().size() + pipelineDest2.getHistory().size() >= 1000);
+
+    // make sure each doc we generated is present in at least one of the destination queues,
+    // and there are no others
+    HashSet<String> idsProcessed = new HashSet<>();
+    for (Document d : pipelineDest1.getHistory()) {
+      idsProcessed.add(d.getId());
+    }
+    for (Document d : pipelineDest2.getHistory()) {
+      idsProcessed.add(d.getId());
+    }
+    assertEquals(1000, idsProcessed.size());
+    for (int i=0; i<1000; i++) {
+      assertTrue(idsProcessed.contains("doc"+i));
+    }
+
   }
 
 
