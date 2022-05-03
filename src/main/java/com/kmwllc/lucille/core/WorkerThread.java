@@ -26,21 +26,18 @@ public class WorkerThread extends Thread {
     this.worker = worker;
     this.enableHeartbeat = config.hasPath("worker.heartbeat") ? config.getBoolean("worker.heartbeat") : false;
     this.period = config.hasPath("worker.period") ? config.getInt("worker.period") : 1000;
-    this.maxProcessingSecs = config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 50000;
+    // maxProcessingSecs default should be at least 10 minutes
+    this.maxProcessingSecs = config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 10 * 60 * 1000;
   }
 
   @Override
   public void run() {
-    if (enableHeartbeat) {
-      timer = spawnWatcher(worker, 50000);
-    }
+    timer = spawnWatcher(worker, maxProcessingSecs);
     worker.run();
   }
 
   public void terminate() {
-    if (enableHeartbeat) {
-      timer.cancel();
-    }
+    timer.cancel();
     worker.terminate();
   }
 
@@ -53,10 +50,12 @@ public class WorkerThread extends Thread {
     TimerTask watcher = new TimerTask() {
       @Override
       public void run() {
-        threadLog.info("Issuing heartbeat");
-        threadLog.debug("Thread Dump:\n{}",
-          Arrays.toString(
-            ManagementFactory.getThreadMXBean().dumpAllThreads(true, true)));
+        if (enableHeartbeat) {
+          threadLog.info("Issuing heartbeat");
+          threadLog.debug("Thread Dump:\n{}",
+            Arrays.toString(
+              ManagementFactory.getThreadMXBean().dumpAllThreads(true, true)));
+        }
         if (Duration.between(worker.getPreviousPollInstant().get(), Instant.now()).getSeconds() > maxProcessingSecs) {
           log.error("Shutting down because maximum allowed time between previous poll is exceeded.");
           System.exit(1);
