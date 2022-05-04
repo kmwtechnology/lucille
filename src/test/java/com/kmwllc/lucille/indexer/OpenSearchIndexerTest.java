@@ -15,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
@@ -24,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -40,6 +42,9 @@ public class OpenSearchIndexerTest {
 
     // make first call to validateConnection succeed but subsequent calls to fail
     Mockito.when(mockClient.ping(RequestOptions.DEFAULT)).thenReturn(true, false);
+
+    BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(mockClient.bulk(any(), any())).thenReturn(mockResponse);
   }
 
   /**

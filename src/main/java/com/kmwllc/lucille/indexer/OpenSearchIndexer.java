@@ -8,6 +8,7 @@ import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
 import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
@@ -106,7 +107,10 @@ public class OpenSearchIndexer extends Indexer {
       bulkRequest.add(indexRequest);
     }
 
-    client.bulk(bulkRequest, RequestOptions.DEFAULT);
+    BulkResponse response = client.bulk(bulkRequest, RequestOptions.DEFAULT);
+    if (response.hasFailures()) {
+      log.error(response.buildFailureMessage());
+    }
   }
 
   private void addChildren(Document doc, Map<String, Object> indexerDoc) {
