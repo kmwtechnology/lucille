@@ -59,6 +59,7 @@ public class RecordingInputStream extends FilterInputStream {
 
   private int clearUpTo(String string, String tempStr) throws IOException {
     sink.reset();
+    // TODO: avoid the byte to string conversions or make this more efficient.
     int start = tempStr.indexOf(string);
     if (start != -1) {
       sink.write(tempStr.substring(start).getBytes(this.encoding));

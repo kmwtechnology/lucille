@@ -4,6 +4,7 @@ import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.InputSource;
@@ -63,14 +64,14 @@ public class XMLConnector extends AbstractConnector {
       spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
       saxParser = spf.newSAXParser();
     } catch (ParserConfigurationException | SAXException e) {
-      throw new ConnectorException("SAX Parser Error {}", e);
+      throw new ConnectorException("SAX Parser Error", e);
     }
 
     XMLReader xmlReader = null;
     try {
       xmlReader = saxParser.getXMLReader();
     } catch (SAXException e) {
-      throw new ConnectorException("Error during SAX Processing {}", e);
+      throw new ConnectorException("Error during SAX Processing", e);
     }
 
     ChunkingXMLHandler xmlHandler = new ChunkingXMLHandler();
@@ -85,7 +86,7 @@ public class XMLConnector extends AbstractConnector {
     if (urlFiles != null) {
       // We are going to process the file of urls instead of the file directory specification.
       for (String file : urlFiles) {
-        log.info("URL TO CRAWL: " + file);
+        log.info("URL TO CRAWL: {}", file);
         if (file.startsWith("file://")) {
           file = file.replaceFirst("file://", "");
         }
@@ -102,7 +103,7 @@ public class XMLConnector extends AbstractConnector {
 
     // looking for filePaths because urlFiles is not specified
     for (String file : filePaths) {
-      if (!file.endsWith(".xml")) {
+      if (!FilenameUtils.getExtension(file).equalsIgnoreCase("xml")) {
         log.info("File {} is not an XML file", file);
         continue;
       }
