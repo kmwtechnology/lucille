@@ -4,16 +4,20 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.CommonClientConfigs;
+import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Utilities for interacting with Kafka: creating Kafka clients, determining Kafka topic names, etc.
@@ -109,6 +113,23 @@ public class KafkaUtils {
   public static void validateAtMostOneRecord(ConsumerRecords<?, ?> consumerRecords) throws Exception {
     if (consumerRecords.count() > 1) {
       throw new Exception("Kafka poll returned more than 1 message but this shouldn't happen");
+    }
+  }
+
+  public static void createEventTopic(Config config, String pipelineName, String runId) throws ExecutionException, InterruptedException {
+    String eventTopicName = KafkaUtils.getEventTopicName(pipelineName, runId);
+
+    // create the event topic explicitly so we can guarantee that it will have 1 partition
+    // multiple partitions could lead to events being received out of order which
+    // could mean that child creation events arrive after parent completion events, which could
+    // interfere with the publisher's logic for determining when the run is complete
+    Properties props = new Properties();
+    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+    try (Admin kafkaAdminClient = Admin.create(props)) {
+      NewTopic eventTopic = new NewTopic(eventTopicName, 1, (short) 1);
+      CreateTopicsResult result = kafkaAdminClient.createTopics(List.of(eventTopic), new CreateTopicsOptions());
+      KafkaFuture<Void> future = result.values().get(eventTopicName);
+      future.get();
     }
   }
 }

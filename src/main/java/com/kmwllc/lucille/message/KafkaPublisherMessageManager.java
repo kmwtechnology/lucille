@@ -3,21 +3,17 @@ package com.kmwllc.lucille.message;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.typesafe.config.Config;
-import org.apache.kafka.clients.admin.Admin;
-import org.apache.kafka.clients.admin.AdminClientConfig;
-import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class KafkaPublisherMessageManager implements PublisherMessageManager {
@@ -28,7 +24,6 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
   private KafkaProducer<String, Document> kafkaProducer;
   private Consumer<String, String> eventConsumer;
   private String runId;
-  private Admin kafkaAdminClient;
   private String pipelineName;
 
   public KafkaPublisherMessageManager(Config config) {
@@ -41,13 +36,14 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
     }
     this.runId = runId;
     this.pipelineName = pipelineName;
+
+    // create event topic explicitly with one partition
+    KafkaUtils.createEventTopic(config, pipelineName, runId);
+
     String kafkaClientId = "lucille-publisher-" + pipelineName;
-    // TODO: create event topic explicitly instead of relying on auto-create; delete topic when finished
+    String eventTopicName = KafkaUtils.getEventTopicName(pipelineName, runId);
     this.eventConsumer = KafkaUtils.createEventConsumer(config, kafkaClientId);
-    this.eventConsumer.subscribe(Collections.singletonList(KafkaUtils.getEventTopicName(pipelineName, runId)));
-    Properties props = new Properties();
-    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
-    this.kafkaAdminClient = Admin.create(props);
+    this.eventConsumer.subscribe(Collections.singletonList(eventTopicName));
     this.kafkaProducer = KafkaUtils.createDocumentProducer(config);
   }
 
@@ -90,13 +86,6 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
         eventConsumer.close();
       } catch (Exception e) {
         log.error("Couldn't close kafka event consumer", e);
-      }
-    }
-    if (kafkaAdminClient != null) {
-      try {
-        kafkaAdminClient.close();
-      } catch (Exception e) {
-        log.error("Couldn't close kafka admin client", e);
       }
     }
   }
