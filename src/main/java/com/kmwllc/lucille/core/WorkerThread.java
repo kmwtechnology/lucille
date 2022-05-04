@@ -16,11 +16,14 @@ public class WorkerThread extends Thread {
   private final Worker worker;
   private Timer timer;
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
-  private static final Logger threadLog = LoggerFactory.getLogger("com.kmwllc.lucille.core.Heartbeat");
+
+  public static final String HEARTBEAT_LOG_NAME = "com.kmwllc.lucille.core.Heartbeat";
+  private static final Logger heartbeatLog = LoggerFactory.getLogger(HEARTBEAT_LOG_NAME);
 
   private boolean enableHeartbeat;
   private int period;
   private int maxProcessingSecs;
+  private boolean exitOnTimeout;
 
   public WorkerThread(Worker worker, Config config) {
     this.worker = worker;
@@ -28,6 +31,8 @@ public class WorkerThread extends Thread {
     this.period = config.hasPath("worker.period") ? config.getInt("worker.period") : 1000;
     // maxProcessingSecs default should be at least 10 minutes
     this.maxProcessingSecs = config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 10 * 60 * 1000;
+    this.exitOnTimeout = config.hasPath("worker.exitOnTimeout") ? config.getBoolean("worker.exitOnTimeout") : false;
+
   }
 
   @Override
@@ -51,14 +56,17 @@ public class WorkerThread extends Thread {
       @Override
       public void run() {
         if (enableHeartbeat) {
-          threadLog.info("Issuing heartbeat");
-          threadLog.debug("Thread Dump:\n{}",
+          heartbeatLog.info("Issuing heartbeat");
+          heartbeatLog.debug("Thread Dump:\n{}",
             Arrays.toString(
               ManagementFactory.getThreadMXBean().dumpAllThreads(true, true)));
         }
         if (Duration.between(worker.getPreviousPollInstant().get(), Instant.now()).getSeconds() > maxProcessingSecs) {
-          log.error("Shutting down because maximum allowed time between previous poll is exceeded.");
-          System.exit(1);
+          log.error("Worker has not polled in " + maxProcessingSecs + " seconds.");
+          if (exitOnTimeout) {
+            log.error("Shutting down because maximum allowed time between previous poll is exceeded.");
+            System.exit(1);
+          }
         }
       }
     };
