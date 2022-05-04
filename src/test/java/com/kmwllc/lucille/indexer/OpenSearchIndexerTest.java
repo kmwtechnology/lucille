@@ -29,6 +29,7 @@ import static org.mockito.Mockito.verify;
 
 public class OpenSearchIndexerTest {
   private RestHighLevelClient mockClient;
+  private SearchProxy proxy;
 
   @Before
   public void setup() throws IOException {
@@ -37,6 +38,8 @@ public class OpenSearchIndexerTest {
 
   private void setupOpenSearchClient() throws IOException {
     mockClient = Mockito.mock(RestHighLevelClient.class);
+    proxy = new OpenSearchProxy(mockClient, "lucille-default");
+
 
     // make first call to validateConnection succeed but subsequent calls to fail
     Mockito.when(mockClient.ping(RequestOptions.DEFAULT)).thenReturn(true, false);
@@ -55,7 +58,7 @@ public class OpenSearchIndexerTest {
     Document doc = new Document("doc1", "test_run");
     Document doc2 = new Document("doc2", "test_run");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     indexer.run(2);
@@ -81,7 +84,7 @@ public class OpenSearchIndexerTest {
     Document doc4 = new Document("doc4", "test_run");
     Document doc5 = new Document("doc5", "test_run");
 
-    OpenSearchIndexer indexer = new ErroringOpenSearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new ErroringOpenSearchIndexer(config, manager, proxy, "testing");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     manager.sendCompleted(doc3);
@@ -101,7 +104,7 @@ public class OpenSearchIndexerTest {
   public void testValidateConnection() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
     Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
@@ -112,7 +115,7 @@ public class OpenSearchIndexerTest {
   public void testMultipleBatches() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
 
     Document doc = new Document("doc1", "test_run");
     Document doc2 = new Document("doc2", "test_run");
@@ -161,7 +164,7 @@ public class OpenSearchIndexerTest {
     doc.setField("myJsonField", jsonNode);
 
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -196,7 +199,7 @@ public class OpenSearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -232,7 +235,7 @@ public class OpenSearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
     doc.setField("myJsonField", jsonNode);
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -257,11 +260,11 @@ public class OpenSearchIndexerTest {
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
-  private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
+  private static class ErroringOpenSearchIndexer extends OESearchIndexer {
 
     public ErroringOpenSearchIndexer(Config config, IndexerMessageManager manager,
-                                     RestHighLevelClient client, String metricsPrefix) {
-      super(config, manager, client, "testing");
+                                     SearchProxy proxy, String metricsPrefix) {
+      super(config, manager, proxy, "testing");
     }
 
     @Override

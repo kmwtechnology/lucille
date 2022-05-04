@@ -37,10 +37,8 @@ public class IndexerFactory {
     // handle type class instantiation or throw exception for unknown type
     if (typeName.equalsIgnoreCase("Solr")) {
       return new SolrIndexer(config, manager, bypass, metricsPrefix);
-    } else if (typeName.equalsIgnoreCase("OpenSearch")) {
-      return new OpenSearchIndexer(config, manager, bypass, metricsPrefix);
-    } else if (typeName.equalsIgnoreCase("Elasticsearch")) {
-        return new ElasticsearchIndexer(config, manager, bypass, metricsPrefix);
+    } else if (typeName.equalsIgnoreCase("OpenSearch") || typeName.equalsIgnoreCase("Elasticsearch")) {
+      return new OESearchIndexer(config, manager, metricsPrefix);
     } else {
       throw new IndexerException("Unknown indexer.type configuration of: '" + typeName + "'");
     }

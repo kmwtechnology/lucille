@@ -30,6 +30,7 @@ import static org.mockito.Mockito.verify;
 
 public class ElasticsearchIndexerTest {
   private RestHighLevelClient mockClient;
+  private SearchProxy proxy;
 
   @Before
   public void setup() throws IOException {
@@ -38,6 +39,7 @@ public class ElasticsearchIndexerTest {
 
   private void setupElasticsearchClient() throws IOException {
     mockClient = Mockito.mock(RestHighLevelClient.class);
+    proxy = new ElasticsearchProxy(mockClient, "lucille-default");
 
     // make first call to validateConnection succeed but subsequent calls to fail
     Mockito.when(mockClient.ping(RequestOptions.DEFAULT)).thenReturn(true, false);
@@ -56,7 +58,7 @@ public class ElasticsearchIndexerTest {
     Document doc = new Document("doc1", "test_run");
     Document doc2 = new Document("doc2", "test_run");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     indexer.run(2);
@@ -82,7 +84,7 @@ public class ElasticsearchIndexerTest {
     Document doc4 = new Document("doc4", "test_run");
     Document doc5 = new Document("doc5", "test_run");
 
-    ElasticsearchIndexer indexer = new ErroringElasticsearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new ErroringElasticsearchIndexer(config, manager, proxy, "testing");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     manager.sendCompleted(doc3);
@@ -102,7 +104,7 @@ public class ElasticsearchIndexerTest {
   public void testValidateConnection() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
     Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
@@ -113,7 +115,7 @@ public class ElasticsearchIndexerTest {
   public void testMultipleBatches() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
 
     Document doc = new Document("doc1", "test_run");
     Document doc2 = new Document("doc2", "test_run");
@@ -162,7 +164,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("myJsonField", jsonNode);
 
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -197,7 +199,7 @@ public class ElasticsearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -233,7 +235,7 @@ public class ElasticsearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
     doc.setField("myJsonField", jsonNode);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
+    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -258,11 +260,11 @@ public class ElasticsearchIndexerTest {
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
-  private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
+  private static class ErroringElasticsearchIndexer extends OESearchIndexer {
 
     public ErroringElasticsearchIndexer(Config config, IndexerMessageManager manager,
-                                     RestHighLevelClient client, String metricsPrefix) {
-      super(config, manager, client, "testing");
+                                     SearchProxy proxy, String metricsPrefix) {
+      super(config, manager, proxy, "testing");
     }
 
     @Override
