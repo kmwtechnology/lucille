@@ -128,12 +128,6 @@ public abstract class Indexer implements Runnable {
       return;
     }
 
-    if (!doc.has("run_id")) {
-      log.error("Received document without run_id. Doc ID: " + doc.getId());
-      // TODO: run_id should be required or not required depending on the run mode
-      //return;
-    }
-
     sendToIndexWithAccounting(batch.add(doc));
   }
 
