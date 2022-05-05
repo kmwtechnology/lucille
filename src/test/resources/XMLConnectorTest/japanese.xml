@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="ISO-2022-JP"?>
+<Company>
+    <staff>
+        <id>1001</id>
+        <name>ニエル</name>
+        <role>コンピュ</role>
+        <bio>サンディエゴ</bio>
+    </staff>
+</Company>
