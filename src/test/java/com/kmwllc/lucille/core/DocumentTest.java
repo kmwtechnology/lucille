@@ -43,6 +43,30 @@ public class DocumentTest {
   }
 
   @Test
+  public void testEqualsAndHashcode() throws Exception {
+
+    Document doc1 = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+    Document doc2 = Document.fromJsonString("{\"id\":\"123\", \"field2\":\"val2\", \"field1\":\"val1\" }");
+    Document doc3 = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val3\"}");
+
+    assertTrue(doc1.equals(doc1));
+    assertTrue(doc1.equals(doc2));
+    assertTrue(doc2.equals(doc1));
+    assertTrue(!doc3.equals(doc1));
+    assertTrue(!doc1.equals(doc3));
+    assertTrue(!doc1.equals(new Object()));
+    assertEquals(doc1.hashCode(), doc2.hashCode());
+
+    assertEquals(doc1.hashCode(), doc1.clone().hashCode());
+    assertTrue(doc1.clone().equals(doc1));
+    assertTrue(doc1.equals(doc1.clone()));
+
+    // hashcodes of unequal objects are not required to be unequal, but if these turned out to be equal
+    // it would be a cause for concern
+    assertNotEquals(doc1.hashCode(), doc3.hashCode());
+  }
+
+  @Test
   public void testLength() {
     Document d = new Document("id");
     d.setField("field1", 1);
