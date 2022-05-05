@@ -202,6 +202,56 @@ public class HybridKafkaTest {
     assertEquals(outputJson, pipelineDest.getHistory().get(0).toString());
   }
 
+  @Test
+  public void testWorkerIndexerPool() throws Exception {
+    Config config = ConfigFactory.load("HybridKafkaTest/poolConfig.conf");
+
+    String sourceTopic = config.getString("kafka.sourceTopic");
+    kafka.createTopic(TopicConfig.withName(sourceTopic).withNumberOfPartitions(5));
+
+    WorkerIndexerPool pool = new WorkerIndexerPool(config,"pipeline1", true);
+
+    assertEquals(5, pool.getNumWorkers());
+
+    for (int i=0;i<500;i++) {
+      sendDoc("doc"+i, sourceTopic);
+    }
+
+    pool.start();
+
+    for (int i=500;i<1000;i++) {
+      sendDoc("doc"+i, sourceTopic);
+    }
+
+    Thread.sleep(6000);
+
+    pool.stop();
+
+    Properties props = new Properties();
+    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+    Admin kafkaAdminClient = Admin.create(props);
+    Map<TopicPartition, OffsetAndMetadata> retrievedOffsets =
+      kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
+        .partitionsToOffsetAndMetadata().get();
+    TopicPartition partition0 = new TopicPartition(sourceTopic,0);
+    TopicPartition partition1 = new TopicPartition(sourceTopic,1);
+    TopicPartition partition2 = new TopicPartition(sourceTopic,2);
+    TopicPartition partition3 = new TopicPartition(sourceTopic,3);
+    TopicPartition partition4 = new TopicPartition(sourceTopic,4);
+
+    long sumOffsets = retrievedOffsets.get(partition0).offset() +
+      retrievedOffsets.get(partition1).offset() +
+      retrievedOffsets.get(partition2).offset() +
+      retrievedOffsets.get(partition3).offset() +
+      retrievedOffsets.get(partition4).offset();
+
+    // the sum of offsets across the two partitions should be the same as the number of documents
+    // consumed. All 1000 documents we added to the source topic should have been consumed.
+    assertEquals(1000, sumOffsets);
+
+  }
+
+
   private Document sendDoc(String id, String topic) throws Exception {
     List<KeyValue<String, String>> records = new ArrayList<>();
     Document doc = new Document(id);

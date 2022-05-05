@@ -36,8 +36,8 @@ public class WorkerIndexer {
   public static void main(String[] args) throws Exception {
     Config config = ConfigUtils.loadConfig();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
-    WorkerIndexer workerIndexer = new WorkerIndexer();
-    workerIndexer.start(config, pipelineName, false);
+    WorkerIndexerPool pool = new WorkerIndexerPool(config, pipelineName, false);
+    pool.start();
 
     Signal.handle(new Signal("INT"), signal -> {
       log.info("Workers shutting down");
@@ -46,7 +46,7 @@ public class WorkerIndexer {
         // via workerThread.terminate() -> worker.terminate() which causes
         // the worker's run method to break out of its while loop and
         // eventually call manager.close()
-        workerIndexer.stop();
+        pool.stop();
       } catch (Exception e) {
         log.error("Error stopping WorkerIndexer", e);
         System.exit(1);
@@ -58,6 +58,7 @@ public class WorkerIndexer {
 
   public void start(Config config, String pipelineName, boolean bypassSearchEngine) throws Exception {
 
+    // TODO: make queue capacity configurable
     LinkedBlockingQueue<KafkaDocument> pipelineDest =
       new LinkedBlockingQueue<>(LocalMessageManager.DEFAULT_QUEUE_CAPACITY);
 
@@ -74,15 +75,13 @@ public class WorkerIndexer {
 
     log.info("Starting WorkerIndexer for pipeline: " + pipelineName);
 
-    // TODO: start a pool of worker-indexer pairs instead of just one pair
-
     HybridWorkerMessageManager workerMessageManager =
       new HybridWorkerMessageManager(config, pipelineName, pipelineDest, offsets);
 
     HybridIndexerMessageManager indexerMessageManager =
       new HybridIndexerMessageManager(pipelineDest, offsets);
 
-    indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, "indexerprefix");
+    indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, pipelineName);
 
     if (!bypassSearchEngine && !indexer.validateConnection()) {
       throw new IndexerException("Indexer could not connect");
@@ -92,7 +91,7 @@ public class WorkerIndexer {
     indexerThread.start();
 
     workerThread =
-      Worker.startThread(config, workerMessageManager, pipelineName,"workerprefix");
+      Worker.startThread(config, workerMessageManager, pipelineName, pipelineName);
   }
 
   public void stop() throws Exception {
@@ -115,9 +114,47 @@ public class WorkerIndexer {
         log.error("Interrupted", e);
       }
     }
-
   }
 
+  public void terminate() throws Exception {
+
+    if (indexer != null) {
+      indexer.terminate();
+      log.info("Indexer shutting down");
+    }
+
+    if (workerThread != null) {
+      workerThread.terminate();
+    }
+  }
+
+  public void join() throws Exception {
+
+    if (indexer != null) {
+      try {
+        indexerThread.join();
+      } catch (InterruptedException e) {
+        log.error("Interrupted", e);
+      }
+    }
+
+    if (workerThread != null) {
+      try {
+        workerThread.join();
+      } catch (InterruptedException e) {
+        log.error("Interrupted", e);
+      }
+    }
+  }
+
+
+  public Indexer getIndexer() {
+    return indexer;
+  }
+
+  public WorkerThread getWorker() {
+    return workerThread;
+  }
 
 
 }
