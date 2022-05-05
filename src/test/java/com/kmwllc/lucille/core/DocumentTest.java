@@ -2,7 +2,6 @@ package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import com.kmwllc.lucille.stage.QueryDatabaseType;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -186,6 +185,150 @@ public class DocumentTest {
     assertEquals("val1", document.getString("field1"));
   }
 
+  @Test
+  public void testGetIntSingleValued() {
+    Document document = new Document("doc");
+    document.setField("number", 1);
+    assertFalse(document.isMultiValued("number"));
+    assertEquals(1, document.getInt("number").intValue());
+    assertEquals(Collections.singletonList(1), document.getIntList("number"));
+  }
+
+  @Test
+  public void testGetIntsMultiValued() {
+    Document document = new Document("doc");
+    document.setField("pets", 3);
+    assertFalse(document.isMultiValued("pets"));
+    document.addToField("pets", 2);
+    assertTrue(document.isMultiValued("pets"));
+    document.addToField("pets", 49);
+    assertEquals(Arrays.asList(3, 2, 49), document.getIntList("pets"));
+  }
+
+
+  @Test
+  public void testGetIntMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", 16);
+    document.addToField("field1", -38);
+    assertEquals(16, document.getInt("field1").intValue());
+  }
+
+  @Test
+  public void testGetDoubleSingleValued() {
+    Document document = new Document("doc");
+    document.setField("double", 1.455);
+    assertFalse(document.isMultiValued("double"));
+    assertEquals(1.455, document.getDouble("double"), 0);
+    assertEquals(Collections.singletonList(1.455), document.getDoubleList("double"));
+  }
+
+  @Test
+  public void testGetDoublesMultiValued() {
+    Document document = new Document("doc");
+    document.setField("gpa", 4.0);
+    assertFalse(document.isMultiValued("gpa"));
+    document.addToField("gpa", 2);
+    assertTrue(document.isMultiValued("gpa"));
+    document.addToField("gpa", 2.3);
+    assertEquals(Arrays.asList(4.0, 2.0, 2.3), document.getDoubleList("gpa"));
+  }
+
+
+  @Test
+  public void testGetDoubleMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", 16.44);
+    document.addToField("field1", -38.91);
+    assertEquals(16.44, document.getDouble("field1"), 0);
+  }
+
+  @Test
+  public void testGetBooleanSingleValued() {
+    Document document = new Document("doc");
+    document.setField("bool", true);
+    assertFalse(document.isMultiValued("bool"));
+    assertEquals(true, document.getBoolean("bool"));
+    assertEquals(Collections.singletonList(true), document.getBooleanList("bool"));
+  }
+
+  @Test
+  public void testGetBooleansMultiValued() {
+    Document document = new Document("doc");
+    document.setField("bools", true);
+    assertFalse(document.isMultiValued("bools"));
+    document.addToField("bools", false);
+    assertTrue(document.isMultiValued("bools"));
+    document.addToField("bools", false);
+    assertEquals(Arrays.asList(true, false, false), document.getBooleanList("bools"));
+  }
+
+
+  @Test
+  public void testGetBooleanMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", true);
+    document.addToField("field1", false);
+    assertEquals(true, document.getBoolean("field1"));
+  }
+
+  @Test
+  public void testGetLongSingleValued() {
+    Document document = new Document("doc");
+    document.setField("long", 1000000L);
+    assertFalse(document.isMultiValued("long"));
+    assertEquals(1000000L, document.getLong("long").longValue());
+    assertEquals(Collections.singletonList(1000000L), document.getLongList("long"));
+  }
+
+  @Test
+  public void testGetLongsMultiValued() {
+    Document document = new Document("doc");
+    document.setField("longs", 14L);
+    assertFalse(document.isMultiValued("longs"));
+    document.addToField("longs", 1234L);
+    assertTrue(document.isMultiValued("longs"));
+    document.addToField("longs", -3L);
+    assertEquals(Arrays.asList(14L, 1234L, -3L), document.getLongList("longs"));
+  }
+
+  @Test
+  public void testGetLongMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", 3L);
+    document.addToField("field1", 1933384L);
+    assertEquals(3L, document.getLong("field1").longValue());
+  }
+
+  @Test
+  public void testGetInstantSingleValued() {
+    Document document = new Document("doc");
+    document.setField("instant", Instant.ofEpochSecond(10000));
+    assertFalse(document.isMultiValued("instant"));
+    assertEquals(Instant.ofEpochSecond(10000), document.getInstant("instant"));
+    assertEquals(Collections.singletonList(Instant.ofEpochSecond(10000)), document.getInstantList("instant"));
+    assertEquals("1970-01-01T02:46:40Z", document.getString("instant"));
+  }
+
+  @Test
+  public void testGetInstantsMultiValued() {
+    Document document = new Document("doc");
+    document.setField("instants", Instant.ofEpochSecond(44));
+    assertFalse(document.isMultiValued("instants"));
+    document.addToField("instants", Instant.ofEpochSecond(1033000));
+    assertTrue(document.isMultiValued("instants"));
+    document.addToField("instants", Instant.ofEpochSecond(143242));
+    assertEquals(Arrays.asList(Instant.ofEpochSecond(44), Instant.ofEpochSecond(1033000), Instant.ofEpochSecond(143242)),
+      document.getInstantList("instants"));
+  }
+
+  @Test
+  public void testGetInstantMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", Instant.ofEpochSecond(44));
+    document.addToField("field1", Instant.ofEpochSecond(94));
+    assertEquals(Instant.ofEpochSecond(44), document.getInstant("field1"));
+  }
   @Test
   public void testChildren() throws Exception {
     Document parent = new Document("parent");
