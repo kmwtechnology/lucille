@@ -240,6 +240,7 @@ public class CSVConnector extends AbstractConnector {
     Path dest = Paths.get(option + File.separatorChar + fileName);
     try {
       Files.move(source, dest);
+      log.info("File {} was successfully moved from source {} to destination {}", fileName, source, dest);
     } catch (IOException e) {
       log.warn("Error moving file to destination directory", e);
     }
