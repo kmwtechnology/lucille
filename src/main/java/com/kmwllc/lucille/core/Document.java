@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import com.kmwllc.lucille.stage.QueryDatabaseType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -352,33 +353,30 @@ public class Document implements Cloneable {
     array.add(dateStr);
   }
 
-  public void addToField(String name, Object value, Class clazz) throws DocumentException {
+  public void addToField(String name, Object value, QueryDatabaseType type) throws DocumentException {
     validateNotReservedField(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
 
-    if (String.class.equals(clazz)) {
-      array.add(String.valueOf(value));
-      return;
-    }
-    if (Boolean.class.equals(clazz)) {
-      array.add((Boolean)value);
-      return;
-    }
-    if (Integer.class.equals(clazz)) {
-      array.add((Integer)value);
-      return;
-    }
-    if (Double.class.equals(clazz)) {
-      array.add((Double) value);
-      return;
-    }
-    if (Long.class.equals(clazz)) {
-      array.add((Long) value);
-      return;
+    switch(type) {
+      case INTEGER:
+        array.add((Integer)value);
+        return;
+      case DOUBLE:
+        array.add((Double) value);
+        return;
+      case LONG:
+        array.add((Long) value);
+        return;
+      case BOOLEAN:
+        array.add((Boolean)value);
+        return;
+      case STRING:
+        array.add(String.valueOf(value));
+        return;
     }
 
-    throw new DocumentException("Unrecognized type: " + clazz);
+    throw new DocumentException("Unrecognized type: " + type);
 
   }
 
@@ -601,7 +599,7 @@ public class Document implements Cloneable {
     }
   }
 
-  public <T> T getObject(String name, Class<T> clazz) throws DocumentException {
+  public <T> T getObject(String name, QueryDatabaseType type) throws DocumentException {
     if (!data.has(name)) {
       return null;
     }
@@ -617,22 +615,23 @@ public class Document implements Cloneable {
       return null;
     }
 
-    if (String.class.equals(clazz)) {
-      return (T) node.asText();
-    }
-    if (Boolean.class.equals(clazz)) {
-      return (T) Boolean.valueOf(node.asBoolean());
-    }
-    if (Integer.class.equals(clazz)) {
-      return (T) Integer.valueOf(node.asInt());
-    }
-    if (Double.class.equals(clazz)) {
-      return (T) Double.valueOf(node.asDouble());
-    }
-    if (Long.class.equals(clazz)) {
-      return (T) Long.valueOf(node.asLong());
+    if (type == null) {
+      throw new DocumentException("Unrecognized type");
     }
 
-    throw new DocumentException("Unrecognized type: " + clazz);
+    switch(type) {
+      case INTEGER:
+        return (T) Integer.valueOf(node.asInt());
+      case STRING:
+        return (T) node.asText();
+      case DOUBLE:
+        return (T) Double.valueOf(node.asDouble());
+      case LONG:
+        return (T) Long.valueOf(node.asLong());
+      case BOOLEAN:
+        return (T) Boolean.valueOf(node.asBoolean());
+      default:
+        return null;
+    }
   }
 }
