@@ -37,7 +37,7 @@ public class Document implements Cloneable {
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
   private static final Logger log = LoggerFactory.getLogger(Document.class);
 
-  private final ObjectNode data;
+  protected final ObjectNode data;
 
   public Document(ObjectNode data) throws DocumentException {
 
