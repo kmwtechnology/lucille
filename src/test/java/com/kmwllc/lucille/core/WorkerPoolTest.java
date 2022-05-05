@@ -1,26 +1,19 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.message.LocalMessageManager;
+import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
-import org.apache.log4j.AppenderSkeleton;
-import org.apache.log4j.Logger;
+import nl.altindag.log.LogCaptor;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.mockito.Mock;
-import org.slf4j.event.LoggingEvent;
-import org.slf
 
-import java.util.ArrayList;
+
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 @RunWith(JUnit4.class)
 public class WorkerPoolTest {
@@ -42,27 +35,29 @@ public class WorkerPoolTest {
 
   @Test
   public void testWatcher() throws Exception {
-    AppenderSkeleton appender = mock(AppenderSkeleton.class);
-    ArgumentCaptor<LoggingEvent> logCaptor = ArgumentCaptor.forClass(LoggingEvent.class);
+
+    LogCaptor logCaptor = LogCaptor.forClass(Worker.class);
 
     Config config = ConfigFactory.load("WorkerPoolTest/watcher.conf");
 
     // start a worker
-    WorkerPool pool1 = new WorkerPool(config, "pipeline1", null, "");
+    WorkerPool pool1 = new WorkerPool(config, "pipeline1", WorkerMessageManagerFactory.getConstantFactory(new LocalMessageManager()), "");
+
+    // here, we want to check both of the logs to find what they've written
+    // at least one info event, at least one error event in the worker log
+
 
     pool1.start();
 
     // sleep for more than one second (3 seconds)
     Thread.sleep(3000);
 
-    // here, we want to check both of the logs to find what they've written
-    // at least one info event, at least one error event in the worker log
 
-    Logger.getRootLogger().addAppender(appender);
+    List<String> infoLogs = logCaptor.getInfoLogs();
+    //assertTrue(logCaptor.getInfoLogs().contains("Keyboard not responding. Press any key to continue...");
+    //assertTrue(logCaptor.getWarnLogs()).containsExactly("Congratulations, you are pregnant!");
 
-    verify(appender).doAppend(logCaptor.capture());
-
-    assertEquals("Warning message should have been logged", "Caution!", logCaptor.getValue().getRenderedMessage());
+  System.out.println(infoLogs.get(0));
   }
 
 
