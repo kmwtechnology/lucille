@@ -167,6 +167,40 @@ public class HybridKafkaTest {
 
   }
 
+  @Test
+  public void testCustomDeserializer() throws Exception {
+    // documentDeserializer: "com.kmwllc.lucille.core.NonstandardDocumentDeserializer"
+    Config config = ConfigFactory.load("HybridKafkaTest/customDeserializer.conf");
+
+    String sourceTopic = config.getString("kafka.sourceTopic");
+    kafka.createTopic(TopicConfig.withName(sourceTopic).withNumberOfPartitions(1));
+
+    // inputJson does not have the "id" field required for creating a KafkaDocument
+    String inputJson = "{\"myId\":\"doc1\", \"field1\":\"value1\"}";
+
+    // we expect the custom deserializer to copy myId to id
+    String outputJson = "{\"myId\":\"doc1\",\"field1\":\"value1\",\"id\":\"doc1\"}";
+
+    List<KeyValue<String, String>> records = new ArrayList<>();
+    records.add(new KeyValue<>("doc1", inputJson));
+    kafka.send(SendKeyValues.to(sourceTopic, records));
+
+    WorkerIndexer workerIndexer = new WorkerIndexer();
+
+    RecordingLinkedBlockingQueue<KafkaDocument> pipelineDest =
+      new RecordingLinkedBlockingQueue<>();
+    RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
+      new RecordingLinkedBlockingQueue<>();
+
+    workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true);
+
+    Thread.sleep(3000);
+
+    workerIndexer.stop();
+
+    assertEquals(1, pipelineDest.getHistory().size());
+    assertEquals(outputJson, pipelineDest.getHistory().get(0).toString());
+  }
 
   private Document sendDoc(String id, String topic) throws Exception {
     List<KeyValue<String, String>> records = new ArrayList<>();
