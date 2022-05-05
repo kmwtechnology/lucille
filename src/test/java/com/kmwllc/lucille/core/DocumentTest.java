@@ -1,14 +1,14 @@
 package com.kmwllc.lucille.core;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kmwllc.lucille.util.StageUtils;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.time.Instant;
+
 import java.util.*;
 
 import static org.junit.Assert.*;
@@ -39,6 +39,30 @@ public class DocumentTest {
   @Test(expected = DocumentException.class)
   public void testNullIdJson() throws Exception {
     Document.fromJsonString("{\"id\":null}");
+  }
+
+  @Test
+  public void testEqualsAndHashcode() throws Exception {
+
+    Document doc1 = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+    Document doc2 = Document.fromJsonString("{\"id\":\"123\", \"field2\":\"val2\", \"field1\":\"val1\" }");
+    Document doc3 = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val3\"}");
+
+    assertTrue(doc1.equals(doc1));
+    assertTrue(doc1.equals(doc2));
+    assertTrue(doc2.equals(doc1));
+    assertTrue(!doc3.equals(doc1));
+    assertTrue(!doc1.equals(doc3));
+    assertTrue(!doc1.equals(new Object()));
+    assertEquals(doc1.hashCode(), doc2.hashCode());
+
+    assertEquals(doc1.hashCode(), doc1.clone().hashCode());
+    assertTrue(doc1.clone().equals(doc1));
+    assertTrue(doc1.equals(doc1.clone()));
+
+    // hashcodes of unequal objects are not required to be unequal, but if these turned out to be equal
+    // it would be a cause for concern
+    assertNotEquals(doc1.hashCode(), doc3.hashCode());
   }
 
   @Test
@@ -162,6 +186,151 @@ public class DocumentTest {
   }
 
   @Test
+  public void testGetIntSingleValued() {
+    Document document = new Document("doc");
+    document.setField("number", 1);
+    assertFalse(document.isMultiValued("number"));
+    assertEquals(1, document.getInt("number").intValue());
+    assertEquals(Collections.singletonList(1), document.getIntList("number"));
+  }
+
+  @Test
+  public void testGetIntsMultiValued() {
+    Document document = new Document("doc");
+    document.setField("pets", 3);
+    assertFalse(document.isMultiValued("pets"));
+    document.addToField("pets", 2);
+    assertTrue(document.isMultiValued("pets"));
+    document.addToField("pets", 49);
+    assertEquals(Arrays.asList(3, 2, 49), document.getIntList("pets"));
+  }
+
+
+  @Test
+  public void testGetIntMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", 16);
+    document.addToField("field1", -38);
+    assertEquals(16, document.getInt("field1").intValue());
+  }
+
+  @Test
+  public void testGetDoubleSingleValued() {
+    Document document = new Document("doc");
+    document.setField("double", 1.455);
+    assertFalse(document.isMultiValued("double"));
+    assertEquals(1.455, document.getDouble("double"), 0);
+    assertEquals(Collections.singletonList(1.455), document.getDoubleList("double"));
+  }
+
+  @Test
+  public void testGetDoublesMultiValued() {
+    Document document = new Document("doc");
+    document.setField("gpa", 4.0);
+    assertFalse(document.isMultiValued("gpa"));
+    document.addToField("gpa", 2);
+    assertTrue(document.isMultiValued("gpa"));
+    document.addToField("gpa", 2.3);
+    assertEquals(Arrays.asList(4.0, 2.0, 2.3), document.getDoubleList("gpa"));
+  }
+
+
+  @Test
+  public void testGetDoubleMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", 16.44);
+    document.addToField("field1", -38.91);
+    assertEquals(16.44, document.getDouble("field1"), 0);
+  }
+
+  @Test
+  public void testGetBooleanSingleValued() {
+    Document document = new Document("doc");
+    document.setField("bool", true);
+    assertFalse(document.isMultiValued("bool"));
+    assertEquals(true, document.getBoolean("bool"));
+    assertEquals(Collections.singletonList(true), document.getBooleanList("bool"));
+  }
+
+  @Test
+  public void testGetBooleansMultiValued() {
+    Document document = new Document("doc");
+    document.setField("bools", true);
+    assertFalse(document.isMultiValued("bools"));
+    document.addToField("bools", false);
+    assertTrue(document.isMultiValued("bools"));
+    document.addToField("bools", false);
+    assertEquals(Arrays.asList(true, false, false), document.getBooleanList("bools"));
+  }
+
+
+  @Test
+  public void testGetBooleanMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", true);
+    document.addToField("field1", false);
+    assertEquals(true, document.getBoolean("field1"));
+  }
+
+  @Test
+  public void testGetLongSingleValued() {
+    Document document = new Document("doc");
+    document.setField("long", 1000000L);
+    assertFalse(document.isMultiValued("long"));
+    assertEquals(1000000L, document.getLong("long").longValue());
+    assertEquals(Collections.singletonList(1000000L), document.getLongList("long"));
+  }
+
+  @Test
+  public void testGetLongsMultiValued() {
+    Document document = new Document("doc");
+    document.setField("longs", 14L);
+    assertFalse(document.isMultiValued("longs"));
+    document.addToField("longs", 1234L);
+    assertTrue(document.isMultiValued("longs"));
+    document.addToField("longs", -3L);
+    assertEquals(Arrays.asList(14L, 1234L, -3L), document.getLongList("longs"));
+  }
+
+  @Test
+  public void testGetLongMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", 3L);
+    document.addToField("field1", 1933384L);
+    assertEquals(3L, document.getLong("field1").longValue());
+  }
+
+  @Test
+  public void testGetInstantSingleValued() {
+    Document document = new Document("doc");
+    document.setField("instant", Instant.ofEpochSecond(10000));
+    assertFalse(document.isMultiValued("instant"));
+    assertEquals(Instant.ofEpochSecond(10000), document.getInstant("instant"));
+    assertEquals(Collections.singletonList(Instant.ofEpochSecond(10000)), document.getInstantList("instant"));
+    assertEquals("1970-01-01T02:46:40Z", document.getString("instant"));
+  }
+
+  @Test
+  public void testGetInstantsMultiValued() {
+    Document document = new Document("doc");
+    document.setField("instants", Instant.ofEpochSecond(44));
+    assertFalse(document.isMultiValued("instants"));
+    document.addToField("instants", Instant.ofEpochSecond(1033000));
+    assertTrue(document.isMultiValued("instants"));
+    document.addToField("instants", Instant.ofEpochSecond(143242));
+    assertEquals(Arrays.asList(Instant.ofEpochSecond(44), Instant.ofEpochSecond(1033000), Instant.ofEpochSecond(143242)),
+      document.getInstantList("instants"));
+  }
+
+  @Test
+  public void testGetInstantMultivalued() {
+    Document document = new Document("doc");
+    document.addToField("field1", Instant.ofEpochSecond(44));
+    document.addToField("field1", Instant.ofEpochSecond(94));
+    assertEquals(Instant.ofEpochSecond(44), document.getInstant("field1"));
+  }
+
+  @Test
   public void testChildren() throws Exception {
     Document parent = new Document("parent");
     assertFalse(parent.hasChildren());
@@ -202,7 +371,7 @@ public class DocumentTest {
   public void testNullHandling() throws Exception {
     // set a field to null and confirm that we get back a null when we call getString(), not the string "null"
     Document document = new Document("doc");
-    document.setField("field1", (String)null);
+    document.setField("field1", (String) null);
     assertEquals(null, document.getString("field1"));
     assertFalse(document.isMultiValued("field1"));
 
@@ -336,9 +505,9 @@ public class DocumentTest {
     document.update("myBooleanField", UpdateMode.APPEND, true);
     document.update("myBooleanField", UpdateMode.SKIP, false);
     Map map = document.asMap();
-    assertEquals(false, ((List<Object>)map.get("myBooleanField")).get(0));
-    assertEquals(true, ((List<Object>)map.get("myBooleanField")).get(1));
-    assertEquals(2, ((List<Object>)map.get("myBooleanField")).size());
+    assertEquals(false, ((List<Object>) map.get("myBooleanField")).get(0));
+    assertEquals(true, ((List<Object>) map.get("myBooleanField")).get(1));
+    assertEquals(2, ((List<Object>) map.get("myBooleanField")).size());
   }
 
   @Test
@@ -378,7 +547,7 @@ public class DocumentTest {
   @Test(expected = Exception.class)
   public void testUpdateDocIdFails() {
     Document document = new Document("id1");
-    document.update(Document.ID_FIELD, UpdateMode.OVERWRITE,"id2");
+    document.update(Document.ID_FIELD, UpdateMode.OVERWRITE, "id2");
   }
 
   @Test(expected = Exception.class)
@@ -449,7 +618,7 @@ public class DocumentTest {
 
     Document expected = new Document("id1");
     expected.initializeRunId("run1");
-    for (int i=0; i<=3; i++) {
+    for (int i = 0; i <= 3; i++) {
       expected.setOrAdd("stringField", "val");
       expected.setOrAdd("intField", 1);
       expected.setOrAdd("boolField", true);
@@ -474,10 +643,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\":1, \"b\":3}");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d,d2);
+    assertNotEquals(d, d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d,d2);
+    assertEquals(d, d2);
   }
 
   @Test
@@ -494,10 +663,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 3}] }");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d,d2);
+    assertNotEquals(d, d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d,d2);
+    assertEquals(d, d2);
   }
 
   @Test
@@ -514,10 +683,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 3} }");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d,d2);
+    assertNotEquals(d, d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d,d2);
+    assertEquals(d, d2);
   }
 
   @Test
@@ -534,5 +703,74 @@ public class DocumentTest {
     assertTrue(fieldNames.contains("field1"));
     assertTrue(fieldNames.contains("field2"));
     assertTrue(fieldNames.contains("field3"));
+  }
+
+  @Test
+  public void testRemoveDuplicateValuesWithNullTarget() {
+    Document d = new Document("id");
+    d.setField("field1", 1);
+    d.addToField("field1", 1);
+    d.addToField("field1", 16);
+    d.addToField("field1", 129);
+
+    d.removeDuplicateValues("field1", null);
+
+    List<String> values1 = d.getStringList("field1");
+    assertEquals("1", values1.get(0));
+    assertEquals("16", values1.get(1));
+    assertEquals("129", values1.get(2));
+
+    // ensure that the numbers do not come out as Strings
+    assertEquals("{\"id\":\"id\",\"field1\":[1,16,129]}", d.toString());
+
+    d.setField("field2", "a");
+    d.addToField("field2", "b");
+    d.addToField("field2", "c");
+    d.addToField("field2", "b");
+
+    d.removeDuplicateValues("field2", null);
+
+    List<String> values2 = d.getStringList("field2");
+    assertEquals("a", values2.get(0));
+    assertEquals("b", values2.get(1));
+    assertEquals("c", values2.get(2));
+
+    // ensure that the Strings do come out as Strings
+    assertEquals("{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
+  }
+
+  @Test
+  public void testRemoveDuplicateValuesWithValidTarget() {
+    Document d = new Document("id");
+    d.setField("field1", 1);
+    d.addToField("field1", 1);
+    d.addToField("field1", 16);
+    d.addToField("field1", 129);
+
+    d.removeDuplicateValues("field1", "output");
+
+    List<String> values1 = d.getStringList("output");
+    assertEquals("1", values1.get(0));
+    assertEquals("16", values1.get(1));
+    assertEquals("129", values1.get(2));
+
+    // verify that the original field stays the same, while the output field contains the correct values
+    assertEquals("{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}", d.toString());
+
+    Document d2 = new Document("id2");
+    d2.setField("field2", "a");
+    d2.addToField("field2", "b");
+    d2.addToField("field2", "c");
+    d2.addToField("field2", "b");
+
+    d2.removeDuplicateValues("field2", "field2");
+
+    List<String> values2 = d2.getStringList("field2");
+    assertEquals("a", values2.get(0));
+    assertEquals("b", values2.get(1));
+    assertEquals("c", values2.get(2));
+
+    // verify in-place modification
+    assertEquals("{\"id\":\"id2\",\"field2\":[\"a\",\"b\",\"c\"]}", d2.toString());
   }
 }

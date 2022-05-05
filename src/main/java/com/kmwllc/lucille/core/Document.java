@@ -11,8 +11,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
@@ -36,7 +35,7 @@ public class Document implements Cloneable {
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
   private static final Logger log = LoggerFactory.getLogger(Document.class);
 
-  private final ObjectNode data;
+  protected final ObjectNode data;
 
   public Document(ObjectNode data) throws DocumentException {
 
@@ -115,8 +114,8 @@ public class Document implements Cloneable {
     update(name, mode, (v)->{setField(name,(Double)v);}, (v)->{setOrAdd(name,(Double)v);}, values);
   }
 
-  public void update(String name, UpdateMode mode, Date... values) {
-    update(name, mode, (v)->setField(name, (Date) v), (v) ->setOrAdd(name, (Date) v), values);
+  public void update(String name, UpdateMode mode, Instant... values) {
+    update(name, mode, (v)->{setField(name,(Instant)v);}, (v)->{setOrAdd(name,(Instant)v);}, values);
   }
 
   /**
@@ -189,16 +188,15 @@ public class Document implements Cloneable {
     data.put(name, value);
   }
 
-  public void setField(String name, Date value) {
-    validateNotReservedField(name);
-    LocalDateTime date = LocalDateTime.ofInstant(value.toInstant(), ZoneOffset.UTC);
-    String dateStr = DateTimeFormatter.ISO_INSTANT.format(date);
-    data.put(name, dateStr);
-  }
-
   public void setField(String name, JsonNode value) {
     validateNotReservedField(name);
     data.set(name, value);
+  }
+
+  public void setField(String name, Instant value) {
+    validateNotReservedField(name);
+    String instantStr = DateTimeFormatter.ISO_INSTANT.format(value);
+    data.put(name, instantStr);
   }
 
   public void renameField(String oldName, String newName, UpdateMode mode) {
@@ -233,12 +231,7 @@ public class Document implements Cloneable {
       return null;
     }
 
-    JsonNode node;
-    if (isMultiValued(name)) {
-      node = data.withArray(name).get(0);
-    } else {
-      node = data.get(name);
-    }
+    JsonNode node = getSingleNode(name);
 
     return node.isNull() ? null : node.asText();
   }
@@ -258,6 +251,149 @@ public class Document implements Cloneable {
       result.add(node.isNull() ? null : node.asText());
     }
     return result;
+  }
+
+  public Integer getInt(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node = getSingleNode(name);
+
+    return node.isNull() ? null : node.asInt();
+  }
+
+  public List<Integer> getIntList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getInt(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<Integer> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      result.add(node.isNull() ? null : node.asInt());
+    }
+    return result;
+  }
+
+  public Double getDouble(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node = getSingleNode(name);
+
+    return node.isNull() ? null : node.asDouble();
+  }
+
+  public List<Double> getDoubleList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getDouble(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<Double> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      result.add(node.isNull() ? null : node.asDouble());
+    }
+    return result;
+  }
+
+  public Boolean getBoolean(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node = getSingleNode(name);
+
+    return node.isNull() ? null : node.asBoolean();
+  }
+
+  public List<Boolean> getBooleanList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getBoolean(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<Boolean> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      result.add(node.isNull() ? null : node.asBoolean());
+    }
+    return result;
+  }
+
+  public Long getLong(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node = getSingleNode(name);
+
+    return node.isNull() ? null : node.asLong();
+  }
+
+  public List<Long> getLongList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getLong(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<Long> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      result.add(node.isNull() ? null : node.asLong());
+    }
+    return result;
+  }
+
+  public Instant getInstant(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node = getSingleNode(name);
+
+    String dateStr = node.asText();
+    Instant dateInstant = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(dateStr));
+    return node.isNull() ? null : dateInstant;
+  }
+
+  public List<Instant> getInstantList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getInstant(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<Instant> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      String instantStr = node.asText();
+      Instant instant = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(instantStr));
+      result.add(node.isNull() ? null : instant);
+    }
+    return result;
+  }
+
+  private JsonNode getSingleNode(String name) {
+    return isMultiValued(name) ? data.withArray(name).get(0) : data.get(name);
   }
 
   public int length(String name) {
@@ -290,8 +426,20 @@ public class Document implements Cloneable {
     return data.has(name) && JsonNodeType.ARRAY.equals(data.get(name).getNodeType());
   }
 
+  @Override
   public boolean equals(Object other) {
-    return data.equals(((Document)other).data);
+    if (this == other) {
+      return true;
+    }
+    if (other instanceof Document) {
+      return data.equals(((Document)other).data);
+    }
+    return false;
+  }
+
+  @Override
+  public int hashCode() {
+    return data.hashCode();
   }
 
   private void convertToList(String name) {
@@ -343,12 +491,17 @@ public class Document implements Cloneable {
     array.add(value);
   }
 
-  public void addToField(String name, Date value) {
+  /**
+   * Converts a given date in Instant form to a string according to DateTimeFormatter.ISO_INSTANT,
+   * it can then be accessed as a string via getString() or a converted back to an Instant via getInstant().
+   * @param name
+   * @param value
+   */
+  public void addToField(String name, Instant value) {
     validateNotReservedField(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
-    LocalDateTime date = LocalDateTime.ofInstant(value.toInstant(), ZoneOffset.UTC);
-    String dateStr = DateTimeFormatter.ISO_INSTANT.format(date);
+    String dateStr = DateTimeFormatter.ISO_INSTANT.format(value);
     array.add(dateStr);
   }
 
@@ -401,7 +554,13 @@ public class Document implements Cloneable {
     }
   }
 
-  public void setOrAdd(String name, Date value) {
+  /**
+   * Adds a given date in Instant form to a document according to DateTimeFormatter.ISO_INSTANT,
+   * can then be accessed as a string via getString() or a converted back to an Instant via getInstant().
+   * @param name
+   * @param value
+   */
+  public void setOrAdd(String name, Instant value) {
     if (has(name)) {
       addToField(name, value);
     } else {
@@ -533,5 +692,42 @@ public class Document implements Cloneable {
       fieldNames.add(fieldName);
     }
     return fieldNames;
+  }
+
+  /**
+   * A method to remove duplicate values from multivalued fields in a document and place the values into a target field.
+   * If the target field is null or the same as the original field, then modification will happen in place.
+   *
+   * @param fieldName the field to remove duplicate values from
+   * @param targetFieldName the field to copy to
+   */
+  public void removeDuplicateValues(String fieldName, String targetFieldName) {
+    if (!isMultiValued(fieldName)) {
+      return;
+    }
+
+    ArrayNode arrayNode = data.withArray(fieldName);
+    LinkedHashSet<JsonNode> set = new LinkedHashSet<>();
+    int length = 0;
+    for (JsonNode jsonNode : arrayNode) {
+      length++;
+      set.add(jsonNode);
+    }
+
+    if (targetFieldName == null || fieldName.equals(targetFieldName)) {
+      if (set.size() == length) {
+        return;
+      }
+      data.remove(fieldName);
+      arrayNode = data.withArray(fieldName);
+      for (JsonNode jsonNode : set) {
+        arrayNode.add(jsonNode);
+      }
+    } else {
+      arrayNode = data.withArray(targetFieldName);
+      for (JsonNode jsonNode : set) {
+        arrayNode.add(jsonNode);
+      }
+    }
   }
 }
