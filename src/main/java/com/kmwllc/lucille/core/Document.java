@@ -8,13 +8,11 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import com.kmwllc.lucille.stage.QueryDatabaseType;
+import com.kmwllc.lucille.stage.FieldType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
@@ -508,7 +506,7 @@ public class Document implements Cloneable {
     array.add(dateStr);
   }
 
-  public void addToField(String name, Object value, QueryDatabaseType type) throws DocumentException {
+  public void addToField(String name, Object value, FieldType type) throws DocumentException {
     validateNotReservedField(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
@@ -760,7 +758,7 @@ public class Document implements Cloneable {
     }
   }
 
-  public <T> T getObject(String name, QueryDatabaseType type) throws DocumentException {
+  public <T> T getObject(String name, FieldType type) throws DocumentException {
     if (!data.has(name)) {
       return null;
     }

@@ -2,7 +2,7 @@ package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kmwllc.lucille.stage.QueryDatabaseType;
+import com.kmwllc.lucille.stage.FieldType;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -709,11 +709,11 @@ public class DocumentTest {
     //{"id":"1", "string_field":"myString", "boolean_field":true, "integer_field":123, "double_field":1.5, "long_field":92147483647}
     Document document = Document.fromJsonString("{\"id\":\"1\", \"string_field\":\"myString\", \"boolean_field\":true, \"integer_field\":123, \"double_field\":1.5, \"long_field\":92147483647}");
 
-    assertEquals("myString", document.getObject("string_field", QueryDatabaseType.STRING));
-    assertEquals(true, document.getObject("boolean_field", QueryDatabaseType.BOOLEAN));
-    assertEquals(Integer.valueOf(123), document.getObject("integer_field", QueryDatabaseType.INTEGER));
-    assertEquals(Double.valueOf(1.5D), document.getObject("double_field" ,QueryDatabaseType.DOUBLE));
-    assertEquals(Long.valueOf(92147483647L), document.getObject("long_field", QueryDatabaseType.LONG));
+    assertEquals("myString", document.getObject("string_field", FieldType.STRING));
+    assertEquals(true, document.getObject("boolean_field", FieldType.BOOLEAN));
+    assertEquals(Integer.valueOf(123), document.getObject("integer_field", FieldType.INTEGER));
+    assertEquals(Double.valueOf(1.5D), document.getObject("double_field" , FieldType.DOUBLE));
+    assertEquals(Long.valueOf(92147483647L), document.getObject("long_field", FieldType.LONG));
   }
 
   @Test(expected = DocumentException.class)

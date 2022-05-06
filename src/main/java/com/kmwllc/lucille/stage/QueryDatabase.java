@@ -25,9 +25,9 @@ public class QueryDatabase extends Stage {
   private String jdbcPassword;
   private String sql;
   private List<String> keyFields;
-  private List<QueryDatabaseType> inputTypes;
+  private List<FieldType> inputTypes;
   private List<String> inputTypeList;
-  private List<QueryDatabaseType> returnTypes;
+  private List<FieldType> returnTypes;
   private List<String> returnTypeList;
   private Map<String, Object> fieldMapping;
   protected Connection connection = null;
@@ -62,24 +62,24 @@ public class QueryDatabase extends Stage {
       throw new StageException("Parameter metadata could not be accessed", e);
     }
 
-    inputTypes = new ArrayList<QueryDatabaseType>();
+    inputTypes = new ArrayList<FieldType>();
 
     if (inputTypeList.size() != keyFields.size()) {
       throw new StageException("mismatch between types provided and keyfields provided");
     }
 
     for (String type : inputTypeList) {
-      inputTypes.add(QueryDatabaseType.getType(type));
+      inputTypes.add(FieldType.getType(type));
     }
 
-    returnTypes = new ArrayList<QueryDatabaseType>();
+    returnTypes = new ArrayList<FieldType>();
 
     if (returnTypeList.size() != fieldMapping.size()) {
       throw new StageException("mismatch between return types provided and field mapping provided");
     }
 
     for (String type : returnTypeList) {
-      returnTypes.add(QueryDatabaseType.getType(type));
+      returnTypes.add(FieldType.getType(type));
     }
   }
 

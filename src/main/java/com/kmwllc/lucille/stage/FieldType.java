@@ -1,9 +1,9 @@
 package com.kmwllc.lucille.stage;
 
-public enum QueryDatabaseType {
+public enum FieldType {
   STRING, INTEGER, LONG, DOUBLE, BOOLEAN;
 
-  public static QueryDatabaseType getType(String type) {
+  public static FieldType getType(String type) {
     if (type.equals("String")) {
       return STRING;
     } else if (type.equals("Integer")) {
