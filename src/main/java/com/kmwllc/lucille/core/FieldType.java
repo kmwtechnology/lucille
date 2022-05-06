@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.stage;
+package com.kmwllc.lucille.core;
 
 public enum FieldType {
   STRING, INTEGER, LONG, DOUBLE, BOOLEAN;

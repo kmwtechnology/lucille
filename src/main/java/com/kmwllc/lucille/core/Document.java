@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import com.kmwllc.lucille.stage.FieldType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
