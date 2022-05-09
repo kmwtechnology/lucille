@@ -2,15 +2,22 @@ package com.kmwllc.lucille.core;
 
 import com.kmwllc.lucille.message.LocalMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
+import com.kmwllc.lucille.stage.XPathExtractor;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 import nl.altindag.log.LogCaptor;
+
+import org.apache.log4j.AppenderSkeleton;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
+import org.apache.log4j.spi.LoggingEvent;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -36,7 +43,7 @@ public class WorkerPoolTest {
   @Test
   public void testWatcher() throws Exception {
 
-    LogCaptor logCaptor = LogCaptor.forClass(Worker.class);
+    LogCaptor logCaptor = LogCaptor.forClass(WorkerThread.class);
 
     Config config = ConfigFactory.load("WorkerPoolTest/watcher.conf");
 
@@ -50,32 +57,13 @@ public class WorkerPoolTest {
     pool1.start();
 
     // sleep for more than one second (3 seconds)
-    Thread.sleep(3000);
+    Thread.sleep(30000);
 
 
     List<String> infoLogs = logCaptor.getInfoLogs();
     //assertTrue(logCaptor.getInfoLogs().contains("Keyboard not responding. Press any key to continue...");
     //assertTrue(logCaptor.getWarnLogs()).containsExactly("Congratulations, you are pregnant!");
 
-  System.out.println(infoLogs.get(0));
+    System.out.println(infoLogs.get(0));
   }
-
-
-//  public static class TestAppender extends AppenderSkeleton {
-//    public List<String> messages = new ArrayList<String>();
-//
-//    @Override
-//    protected void append(org.apache.log4j.spi.LoggingEvent loggingEvent) {
-//      messages.add(loggingEvent.getMessage().toString());
-//    }
-//
-//    @Override
-//    public void close() {
-//    }
-//
-//    @Override
-//    public boolean requiresLayout() {
-//      return false;
-//    }
-//  }
 }
