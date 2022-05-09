@@ -2,25 +2,17 @@ package com.kmwllc.lucille.core;
 
 import com.kmwllc.lucille.message.LocalMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
-import com.kmwllc.lucille.stage.XPathExtractor;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
-import nl.altindag.log.LogCaptor;
 
-import org.apache.log4j.AppenderSkeleton;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
-import org.apache.log4j.spi.LoggingEvent;
+import nl.altindag.console.ConsoleCaptor;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(JUnit4.class)
 public class WorkerPoolTest {
@@ -42,28 +34,26 @@ public class WorkerPoolTest {
 
   @Test
   public void testWatcher() throws Exception {
-
-    LogCaptor logCaptor = LogCaptor.forClass(WorkerThread.class);
+    // use of console captor to capture the heartbeat logs
+    ConsoleCaptor consoleCaptor = new ConsoleCaptor();
 
     Config config = ConfigFactory.load("WorkerPoolTest/watcher.conf");
-
-    // start a worker
     WorkerPool pool1 = new WorkerPool(config, "pipeline1", WorkerMessageManagerFactory.getConstantFactory(new LocalMessageManager()), "");
-
-    // here, we want to check both of the logs to find what they've written
-    // at least one info event, at least one error event in the worker log
-
 
     pool1.start();
 
-    // sleep for more than one second (3 seconds)
-    Thread.sleep(30000);
+    // sleep for more than 1 second
+    Thread.sleep(3000);
 
+    pool1.stop();
 
-    List<String> infoLogs = logCaptor.getInfoLogs();
-    //assertTrue(logCaptor.getInfoLogs().contains("Keyboard not responding. Press any key to continue...");
-    //assertTrue(logCaptor.getWarnLogs()).containsExactly("Congratulations, you are pregnant!");
+    consoleCaptor.close();
 
-    System.out.println(infoLogs.get(0));
+    String workerLog = consoleCaptor.getStandardOutput().get(0);
+    String heartbeatLog = consoleCaptor.getStandardOutput().get(1);
+
+    assertTrue(workerLog.contains("Starting 1 worker threads for pipeline pipeline1"));
+    assertTrue(heartbeatLog.contains("Issuing heartbeat"));
   }
 }
+
