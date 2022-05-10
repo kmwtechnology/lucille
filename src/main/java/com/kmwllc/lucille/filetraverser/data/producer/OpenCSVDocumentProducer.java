@@ -47,7 +47,8 @@ public class OpenCSVDocumentProducer implements DocumentProducer {
         }
 
         // assume first column holds the ID
-        Document doc = parent.cloneWithNewId(line[0]);
+        Document doc = new Document(line[0]);
+        doc.setOrAddAll(parent);
 
         int maxIndex = Math.min(header.length,line.length);
         for (int i=1;i<maxIndex;i++) {

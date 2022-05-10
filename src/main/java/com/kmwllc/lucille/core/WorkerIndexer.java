@@ -24,6 +24,8 @@ import java.util.concurrent.LinkedBlockingQueue;
  *  4) the Indexer adds offsets of indexed documents to an in-memory queue
  *  5) the Worker reads offsets from the in-memory queue and commits them
  *  6) callbacks are disabled
+ *
+ *  TODO: document why pairing of one worker with one indexer is necessary for hybrid mode
  */
 public class WorkerIndexer {
 
@@ -59,7 +61,7 @@ public class WorkerIndexer {
   public void start(Config config, String pipelineName, boolean bypassSearchEngine) throws Exception {
 
     // TODO: make queue capacity configurable
-    LinkedBlockingQueue<KafkaDocument> pipelineDest =
+    LinkedBlockingQueue<Document> pipelineDest =
       new LinkedBlockingQueue<>(LocalMessageManager.DEFAULT_QUEUE_CAPACITY);
 
     // TODO: should we place a capacity on the offsets queue?
@@ -69,7 +71,7 @@ public class WorkerIndexer {
     start(config, pipelineName, pipelineDest, offsets, bypassSearchEngine);
   }
 
-  public void start(Config config, String pipelineName, LinkedBlockingQueue<KafkaDocument> pipelineDest,
+  public void start(Config config, String pipelineName, LinkedBlockingQueue<Document> pipelineDest,
                     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
                     boolean bypassSearchEngine) throws Exception {
 

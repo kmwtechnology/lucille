@@ -70,7 +70,7 @@ public class KafkaDocument extends Document {
   }
 
   @Override
-  public Document clone() {
+  public KafkaDocument clone() {
     try {
       return new KafkaDocument(data.deepCopy(), topic, partition, offset, key);
     } catch (DocumentException e) {

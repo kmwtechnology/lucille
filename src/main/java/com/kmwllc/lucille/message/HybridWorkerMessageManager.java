@@ -17,25 +17,36 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessageManager.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
-  private final LinkedBlockingQueue<KafkaDocument> pipelineDest;
+  private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
   private final Config config;
   private final String pipelineName;
 
   public HybridWorkerMessageManager(Config config, String pipelineName,
-                                    LinkedBlockingQueue<KafkaDocument> pipelineDest,
-                                    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
+                                    LinkedBlockingQueue<Document> pipelineDest,
+                                    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
+                                    KafkaConsumer sourceConsumer) {
     this.config = config;
     this.pipelineName = pipelineName;
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
+    this.sourceConsumer = sourceConsumer;
+  }
 
+  public HybridWorkerMessageManager(Config config, String pipelineName,
+                                    LinkedBlockingQueue<Document> pipelineDest,
+                                    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
+    this(config, pipelineName, pipelineDest, offsets, createSourceConsumer(config, pipelineName));
+  }
+
+  private static KafkaConsumer createSourceConsumer(Config config, String pipelineName) {
     // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
     // with the same client ID are started in separate worker threads
     String kafkaClientId = "lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
-    this.sourceConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
-    this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName, config)));
+    KafkaConsumer consumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
+    consumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName, config)));
+    return consumer;
   }
 
   /**
@@ -70,7 +81,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
    */
   @Override
   public void sendCompleted(Document document) throws Exception {
-    pipelineDest.put((KafkaDocument)document); //TODO
+    pipelineDest.put(document);
   }
 
   @Override

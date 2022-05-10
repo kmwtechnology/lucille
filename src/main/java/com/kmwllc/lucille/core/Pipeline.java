@@ -127,17 +127,29 @@ public class Pipeline {
    *
    */
   public List<Document> processDocument(Document document) throws StageException {
+
+    String runId = document.getRunId();
+
     ArrayList<Document> documents = new ArrayList();
     documents.add(document);
 
     for (Stage stage : stages) {
       List<Document> childrenFromCurrentStage = new ArrayList();
 
-      Instant stageStart = Instant.now();
       for (Document doc : documents) {
         List<Document> childrenOfCurrentDoc = stage.processConditional(doc);
 
         if (childrenOfCurrentDoc != null) {
+
+          // if parent has a run_id, copy it to all children that don't have one
+          if (runId != null) {
+            for (Document child : childrenOfCurrentDoc) {
+              if (!child.has(Document.RUNID_FIELD)) {
+                child.initializeRunId(runId);
+              }
+            }
+          }
+
           childrenFromCurrentStage.addAll(childrenOfCurrentDoc);
         }
       }
@@ -146,30 +158,6 @@ public class Pipeline {
     }
 
     return documents;
-  }
-
-  /**
-   * Creates a Document from a given Kafka ConsumerRecord and delegates to processDocument.
-   */
-  public List<Document> processKafkaJsonMessage(ConsumerRecord<String,String> record) throws Exception {
-    Document document = null;
-
-    try {
-      document = Document.fromJsonString(record.value());
-      log.info("Processing document " + document.getId());
-
-      if (!document.getId().equals(record.key())) {
-        log.warn("Kafka message key " + record.key() + " does not match document ID " + document.getId());
-      }
-
-      return processDocument(document);
-    } catch (OutOfMemoryError e) {
-      throw e;
-    } catch (Throwable t) {
-      log.error("Processing error", t);
-    }
-
-    return null;
   }
 
 }

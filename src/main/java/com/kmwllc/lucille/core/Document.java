@@ -668,12 +668,6 @@ public class Document implements Cloneable {
     }
   }
 
-  public Document cloneWithNewId(String newId) {
-    Document doc = clone();
-    doc.data.put(Document.ID_FIELD, newId);
-    return doc;
-  }
-
   private void validateNotReservedField(String name) throws IllegalArgumentException {
     if (RESERVED_FIELDS.contains(name)) {
       throw new IllegalArgumentException();

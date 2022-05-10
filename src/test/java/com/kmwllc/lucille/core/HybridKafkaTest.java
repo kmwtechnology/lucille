@@ -41,7 +41,9 @@ public class HybridKafkaTest {
 
   @Test
   public void testRunInKafkaHybridMode() throws Exception {
-    Config config = ConfigFactory.load("HybridKafkaTest/config.conf");
+    // use a pipeline that generates children documents to confirm they are handled properly in hybrid mode
+    // child docs do not originate in kafka so the logic for committing offsets should ignore them
+    Config config = ConfigFactory.load("HybridKafkaTest/childrenConfig.conf");
 
     String sourceTopic = config.getString("kafka.sourceTopic");
     kafka.createTopic(TopicConfig.withName(sourceTopic).withNumberOfPartitions(1));
@@ -50,7 +52,7 @@ public class HybridKafkaTest {
 
     WorkerIndexer workerIndexer = new WorkerIndexer();
 
-    RecordingLinkedBlockingQueue<KafkaDocument> pipelineDest =
+    RecordingLinkedBlockingQueue<Document> pipelineDest =
       new RecordingLinkedBlockingQueue<>();
 
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
@@ -82,8 +84,9 @@ public class HybridKafkaTest {
     assertEquals(0, pipelineDest.size());
     assertEquals(0, offsets.size());
 
-    // three docs should have been added to piptlineDest queue
-    assertEquals(3, pipelineDest.getHistory().size());
+    // three docs should have been added to pipelineDest queue
+    // each of the three docs we added should have generated two children
+    assertEquals(9, pipelineDest.getHistory().size());
 
     // one offset map should have been added to offset queue, containing offset 3 for partition 0
     assertEquals(1, offsets.getHistory().size());
@@ -93,7 +96,7 @@ public class HybridKafkaTest {
 
   @Test
   public void testTwoWorkerIndexerPairs() throws Exception {
-    Config config = ConfigFactory.load("HybridKafkaTest/config.conf");
+    Config config = ConfigFactory.load("HybridKafkaTest/noopConfig.conf");
 
     String sourceTopic = config.getString("kafka.sourceTopic");
     kafka.createTopic(TopicConfig.withName(sourceTopic).withNumberOfPartitions(2));
@@ -102,14 +105,14 @@ public class HybridKafkaTest {
       sendDoc("doc"+i, sourceTopic);
     }
 
-    RecordingLinkedBlockingQueue<KafkaDocument> pipelineDest1 =
+    RecordingLinkedBlockingQueue<Document> pipelineDest1 =
       new RecordingLinkedBlockingQueue<>();
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets1 =
       new RecordingLinkedBlockingQueue<>();
     WorkerIndexer workerIndexer1 = new WorkerIndexer();
     workerIndexer1.start(config, "pipeline1",  pipelineDest1, offsets1, true);
 
-    RecordingLinkedBlockingQueue<KafkaDocument> pipelineDest2 =
+    RecordingLinkedBlockingQueue<Document> pipelineDest2 =
       new RecordingLinkedBlockingQueue<>();
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets2 =
       new RecordingLinkedBlockingQueue<>();
@@ -187,7 +190,7 @@ public class HybridKafkaTest {
 
     WorkerIndexer workerIndexer = new WorkerIndexer();
 
-    RecordingLinkedBlockingQueue<KafkaDocument> pipelineDest =
+    RecordingLinkedBlockingQueue<Document> pipelineDest =
       new RecordingLinkedBlockingQueue<>();
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
       new RecordingLinkedBlockingQueue<>();

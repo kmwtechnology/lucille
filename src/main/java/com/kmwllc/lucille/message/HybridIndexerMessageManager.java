@@ -14,17 +14,17 @@ import java.util.concurrent.TimeUnit;
 
 public class HybridIndexerMessageManager implements IndexerMessageManager {
 
-  private final LinkedBlockingQueue<KafkaDocument> pipelineDest;
+  private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
-  public HybridIndexerMessageManager(LinkedBlockingQueue<KafkaDocument> pipelineDest,
+  public HybridIndexerMessageManager(LinkedBlockingQueue<Document> pipelineDest,
                                      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
   }
 
   @Override
-  public KafkaDocument pollCompleted() throws Exception {
+  public Document pollCompleted() throws Exception {
     return pipelineDest.poll(LocalMessageManager.POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
@@ -42,6 +42,7 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
   public void close() throws Exception {
   }
 
+  // TODO document assumptions about ordering of documents in batch
   @Override
   public void batchComplete(List<Document> batch) throws InterruptedException {
     if (batch.isEmpty()) {
@@ -49,6 +50,11 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
     }
     Map<TopicPartition,OffsetAndMetadata> batchOffsets = new HashMap<>();
     for (Document doc : batch) {
+
+      if (!(doc instanceof KafkaDocument)) {
+        continue;
+      }
+
       KafkaDocument kDoc = (KafkaDocument)doc;
       TopicPartition topicPartition = new TopicPartition(kDoc.getTopic(), kDoc.getPartition());
       // per the kafka docs:
@@ -57,6 +63,8 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
       OffsetAndMetadata offset = new OffsetAndMetadata(kDoc.getOffset()+1);
       batchOffsets.put(topicPartition,offset);
     }
-    offsets.put(batchOffsets);
+    if (!batchOffsets.isEmpty()) {
+      offsets.put(batchOffsets);
+    }
   }
 }
