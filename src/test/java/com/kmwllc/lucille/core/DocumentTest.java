@@ -53,6 +53,7 @@ public class DocumentTest {
     assertTrue(doc2.equals(doc1));
     assertTrue(!doc3.equals(doc1));
     assertTrue(!doc1.equals(doc3));
+    assertTrue(!doc1.equals(new Object()));
     assertEquals(doc1.hashCode(), doc2.hashCode());
 
     assertEquals(doc1.hashCode(), doc1.clone().hashCode());
