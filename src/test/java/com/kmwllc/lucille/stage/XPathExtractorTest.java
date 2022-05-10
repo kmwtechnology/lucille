@@ -1,8 +1,11 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
-import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.connector.xml.XMLConnector;
+import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.util.FileUtils;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -103,5 +106,28 @@ public class XPathExtractorTest {
 
     assertEquals("해리 포터", results.get(0));
     assertEquals("XML 학습", results.get(1));
+  }
+
+  @Test
+  public void withXMLConnectorTest() throws Exception {
+    // pass XML document through XMLConnector first
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/staff.conf"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    Connector connector = new XMLConnector(config);
+    connector.execute(publisher);
+
+    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+
+    Stage stage = factory.get("XMLConnectorTest/joint.conf");
+    stage.processDocument(docs.get(0));
+    stage.processDocument(docs.get(1));
+
+    assertEquals("daniel", docs.get(0).getString("name"));
+    assertEquals("software engineer", docs.get(0).getString("role"));
+    assertEquals("I am from San Diego", docs.get(0).getString("bio"));
+    assertEquals("brian", docs.get(1).getString("name"));
+    assertEquals("admin", docs.get(1).getString("role"));
+    assertEquals("I enjoy reading", docs.get(1).getString("bio"));
   }
 }
