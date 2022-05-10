@@ -38,6 +38,7 @@ public class CSVConnector extends AbstractConnector {
   private final char quoteChar;
   private final char escapeChar;
   private final boolean lowercaseFields;
+  private final String moveToErrorFolder;
   private final List<String> ignoredTerms;
   private final String moveToAfterProcessing;
   private static final String UTF8_BOM = "\uFEFF";
@@ -59,36 +60,47 @@ public class CSVConnector extends AbstractConnector {
     this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
     this.separatorChar = (config.hasPath("useTabs") && config.getBoolean("useTabs")) ? '\t' : ',';
     this.quoteChar = (config.hasPath("interpretQuotes") && !config.getBoolean("interpretQuotes")) ?
-        CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;
-    this.escapeChar = (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar")) ? 
-        CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_ESCAPE_CHARACTER;
+      CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;
+    this.escapeChar = (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar")) ?
+      CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_ESCAPE_CHARACTER;
     this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
+    this.moveToErrorFolder = config.hasPath("moveToErrorFolder") ? config.getString("moveToErrorFolder") : null;
     this.ignoredTerms = config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : new ArrayList<>();
     // A directory to move the files to after they are doing being processed.
-    this.moveToAfterProcessing = config.hasPath("moveToAfterProcessing") ? config.getString("moveToAfterProcessing") : null; 
+    this.moveToAfterProcessing = config.hasPath("moveToAfterProcessing") ? config.getString("moveToAfterProcessing") : null;
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    
     if (moveToAfterProcessing != null) {
       // Create the destination directory if it doesn't exist.
-      File destDir = new File(moveToAfterProcessing); 
+      File destDir = new File(moveToAfterProcessing);
       if (!destDir.exists()) {
         log.info("Creating archive directory {}", destDir.getAbsolutePath());
         destDir.mkdirs();
       }
     }
-    
+
+    if (moveToErrorFolder != null) {
+      File errorDir = new File(moveToErrorFolder);
+      if (!errorDir.exists()) {
+        log.info("Creating error directory {}", errorDir.getAbsolutePath());
+        errorDir.mkdirs();
+      }
+    }
+
     File pathFile = new File(path);
+    if (!path.startsWith("classpath:") && !pathFile.exists()) {
+      throw new ConnectorException("Path " + path + " does not exist");
+    }
+
     if (pathFile.isDirectory()) {
       // no recursion supported
-      for (File f: pathFile.listFiles()) {
+      for (File f : pathFile.listFiles()) {
         try {
           processFile(f.getAbsolutePath(), publisher);
         } catch (ConnectorException e) {
           log.warn("Error Processing CSV File. {}", f.getAbsolutePath(), e);
-          // TODO: move the csv file to an error directory.
         }
       }
     } else {
@@ -101,7 +113,7 @@ public class CSVConnector extends AbstractConnector {
     log.info("Beginning to process file {}", filePath);
     String filename = new File(filePath).getName();
     try (CSVReader csvReader = new CSVReaderBuilder(FileUtils.getReader(filePath)).
-        withCSVParser(new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build()).build()) {
+      withCSVParser(new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build()).build()) {
       // log.info("Processing linenumber: {}", lineNum);
       // Assume first line is header
       String[] header = csvReader.readNext();
@@ -122,10 +134,10 @@ public class CSVConnector extends AbstractConnector {
         }
 
         if (columnIndexMap.containsKey(header[i])) {
-          log.warn("Multiple columns with the name {} were discovered in the source csv file.",  header[i]);
+          log.warn("Multiple columns with the name {} were discovered in the source csv file.", header[i]);
           continue;
         }
-        columnIndexMap.put(header[i], i);  
+        columnIndexMap.put(header[i], i);
       }
       // create a lookup list for column indexes
       List<Integer> idColumns = new ArrayList<Integer>();
@@ -142,7 +154,7 @@ public class CSVConnector extends AbstractConnector {
       }
       // At this point we should have the list of column ids that map to the idFields 
       String[] line;
-      
+
       while ((line = csvReader.readNext()) != null) {
         lineNum++;
         // log.info("Processing linenumber: {}", lineNum);
@@ -158,10 +170,10 @@ public class CSVConnector extends AbstractConnector {
         if (idColumns.size() > 0) {
           // let's get the columns with the values for the id.
           ArrayList<String> idColumnData = new ArrayList<String>();
-          for (Integer idx: idColumns) {
+          for (Integer idx : idColumns) {
             idColumnData.add(line[idx]);
           }
-          docId = createDocId(idColumnData); 
+          docId = createDocId(idColumnData);
         } else {
           // a default unique id for a csv file is filename + line num
           docId = getDocIdPrefix() + filename + "-" + lineNum;
@@ -181,26 +193,17 @@ public class CSVConnector extends AbstractConnector {
 
         publisher.publish(doc);
       }
+      // assuming we got here, we were successful processing the csv file
+      if (moveToAfterProcessing != null) {
+        moveFile(filePath, moveToAfterProcessing);
+      }
     } catch (Exception e) {
       log.error("Error during CSV processing", e);
-      throw new ConnectorException("Error processing CSV file", e);
-    }
-    // assuming we got here, we were successful processing the csv file
-    if (moveToAfterProcessing != null) {
-      if (filePath.startsWith("classpath:")) {
-        log.warn("Skipping moving classpath file: {} to {}", filePath, moveToAfterProcessing);
-      } else {
-        // Move the file
-        Path source = Paths.get(filePath);
-        String fileName = source.getFileName().toString();
-        Path dest = Paths.get(moveToAfterProcessing + File.separatorChar + fileName);
-        try {
-          Files.move(source, dest);
-        } catch (IOException e) {
-          throw new ConnectorException("Error moving file to destination directory after crawl.", e);
-        }
+      if (moveToErrorFolder != null) {
+        moveFile(filePath, moveToErrorFolder);
       }
     }
+
   }
 
   private String createDocId(ArrayList<String> idColumnData) {
@@ -224,5 +227,22 @@ public class CSVConnector extends AbstractConnector {
       s = s.substring(1);
     }
     return s;
+  }
+
+  public void moveFile(String filePath, String option) {
+    if (filePath.startsWith("classpath:")) {
+      log.warn("Skipping moving classpath file: {} to {}", filePath, moveToAfterProcessing);
+      return;
+    }
+
+    Path source = Paths.get(filePath);
+    String fileName = source.getFileName().toString();
+    Path dest = Paths.get(option + File.separatorChar + fileName);
+    try {
+      Files.move(source, dest);
+      log.info("File {} was successfully moved from source {} to destination {}", fileName, source, dest);
+    } catch (IOException e) {
+      log.warn("Error moving file to destination directory", e);
+    }
   }
 }
