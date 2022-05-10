@@ -4,17 +4,20 @@ import com.kmwllc.lucille.message.LocalMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import nl.altindag.console.ConsoleCaptor;
 import org.junit.Test;
+
+import java.io.File;
+import java.util.Scanner;
 
 import static org.junit.Assert.assertTrue;
 
 public class HeartbeatTest {
   @Test
   public void testWatcher() throws Exception {
-    // use of console captor to capture the heartbeat logs
-    ConsoleCaptor consoleCaptor = new ConsoleCaptor();
-    consoleCaptor.clearOutput();
+    File heartbeatLog = new File("log/heartbeat.log");
+    if (heartbeatLog.exists()) {
+      heartbeatLog.delete();
+    }
 
     Config config = ConfigFactory.load("WorkerPoolTest/watcher.conf");
     WorkerPool pool1 = new WorkerPool(config, "pipeline1", WorkerMessageManagerFactory.getConstantFactory(new LocalMessageManager()), "");
@@ -26,12 +29,16 @@ public class HeartbeatTest {
 
     pool1.stop();
 
-    consoleCaptor.close();
+    assertTrue(heartbeatLog.exists());
 
-    String workerLog = consoleCaptor.getStandardOutput().get(0);
-    String heartbeatLog = consoleCaptor.getStandardOutput().get(1);
+    Scanner scanner = new Scanner(heartbeatLog);
+    while (scanner.hasNextLine()) {
+      String heartbeat = scanner.nextLine();
+      assertTrue(heartbeat.contains("INFO Heartbeat: Issuing heartbeat"));
+    }
 
-    assertTrue(workerLog.contains("Starting 1 worker threads for pipeline pipeline1"));
-    assertTrue(heartbeatLog.contains("Issuing heartbeat"));
+    if (heartbeatLog.exists()) {
+      heartbeatLog.delete();
+    }
   }
 }
