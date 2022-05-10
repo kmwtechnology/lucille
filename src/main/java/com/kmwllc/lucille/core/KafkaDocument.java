@@ -54,14 +54,20 @@ public class KafkaDocument extends Document {
 
   @Override
   public boolean equals(Object other) {
-    KafkaDocument doc = (KafkaDocument)other;
+    if (this == other) {
+      return true;
+    }
+    if (other instanceof KafkaDocument) {
+      KafkaDocument doc = (KafkaDocument)other;
 
-    return
-      Objects.equals(topic, doc.topic) &&
-      Objects.equals(partition, doc.partition) &&
-      Objects.equals(offset, doc.offset) &&
-      Objects.equals(key, doc.key) &&
-      data.equals(doc.data);
+      return
+        Objects.equals(topic, doc.topic) &&
+          Objects.equals(partition, doc.partition) &&
+          Objects.equals(offset, doc.offset) &&
+          Objects.equals(key, doc.key) &&
+          data.equals(doc.data);
+    }
+    return false;
   }
 
   @Override
