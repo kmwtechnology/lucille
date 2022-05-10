@@ -58,9 +58,11 @@ public class WorkerThread extends Thread {
       public void run() {
         if (enableHeartbeat) {
           heartbeatLog.info("Issuing heartbeat");
-          heartbeatLog.debug("Thread Dump:\n{}",
-            Arrays.toString(
-              ManagementFactory.getThreadMXBean().dumpAllThreads(true, true)));
+          if (heartbeatLog.isDebugEnabled()) {
+            heartbeatLog.debug("Thread Dump:\n{}",
+              Arrays.toString(
+                ManagementFactory.getThreadMXBean().dumpAllThreads(true, true)));
+          }
         }
         if (Duration.between(worker.getPreviousPollInstant().get(), Instant.now()).getSeconds() > maxProcessingSecs) {
           log.error("Worker has not polled in " + maxProcessingSecs + " seconds.");
