@@ -33,17 +33,18 @@ public class WorkerThread extends Thread {
     // maxProcessingSecs default should be at least 10 minutes
     this.maxProcessingSecs = config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 10 * 60 * 1000;
     this.exitOnTimeout = config.hasPath("worker.exitOnTimeout") ? config.getBoolean("worker.exitOnTimeout") : false;
-
   }
 
   @Override
   public void run() {
-    timer = spawnWatcher(worker, maxProcessingSecs);
+    timer = startTimer(worker, maxProcessingSecs);
     worker.run();
   }
 
   public void terminate() {
-    timer.cancel();
+    if (timer != null) {
+      timer.cancel();
+    }
     worker.terminate();
   }
 
@@ -51,7 +52,7 @@ public class WorkerThread extends Thread {
     worker.logMetrics();
   }
 
-  public Timer spawnWatcher(Worker worker, int maxProcessingSecs) {
+  private Timer startTimer(Worker worker, int maxProcessingSecs) {
 
     TimerTask watcher = new TimerTask() {
       @Override
