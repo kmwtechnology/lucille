@@ -11,11 +11,21 @@
             </Policies>
             <DefaultRolloverStrategy max="20" />
         </RollingFile>
+        <RollingFile name="heartbeat" fileName="./log/heartbeat.log" filePattern="./log/heartbeat-%i.log" immediateFlush="true">
+            <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="5 KB" />
+            </Policies>
+            <DefaultRolloverStrategy max="4" />
+        </RollingFile>
     </Appenders>
     <Loggers>
         <Root level="INFO">
             <AppenderRef ref="console" />
             <AppenderRef ref="file" />
         </Root>
+        <Logger name="com.kmwllc.lucille.core.Heartbeat" level="INFO" additivity="false">
+            <AppenderRef ref="heartbeat" />
+        </Logger>
     </Loggers>
 </Configuration>
