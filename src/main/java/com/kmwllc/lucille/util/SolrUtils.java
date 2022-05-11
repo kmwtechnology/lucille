@@ -28,7 +28,10 @@ public class SolrUtils {
   private static final Logger log = LogManager.getLogger(SolrUtils.class);
 
   /**
-   * Generate a SolrClient from the given config file. Supports both Cloud and Http SolrClients, and will set SSL properties if specified.
+   * Generate a SolrClient from the given config file. Supports both Cloud and Http SolrClients.
+   *
+   * This method has SIDE EFFECTS.  It will set SSL system properties if corresponding properties
+   * are found in the config.
    *
    * @param config The configuration file to generate a client from
    * @return the solr client
