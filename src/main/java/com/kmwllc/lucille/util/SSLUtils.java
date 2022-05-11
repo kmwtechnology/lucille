@@ -11,7 +11,12 @@ public class SSLUtils {
 
   /**
    * Sets SSL system properties if they are specified in the config.
-   * The config can read environment variables if lines like the following are included: javax.net.ssl.keyStorePassword = ${?KEYSTORE_PASSWORD}
+   * Looks for config settings: javax.net.ssl.keyStorePassword, javax.net.ssl.keyStore,
+   * javax.net.ssl.trustStore, javax.net.ssl.trustStorePassword and sets system
+   * properties with the same name.
+   * Does not override system properties that are already set via -D or otherwise.
+   * The config can read environment variables if lines like the following are included:
+   *      javax.net.ssl.keyStorePassword = ${?KEYSTORE_PASSWORD}
    *
    * @param config
    */
