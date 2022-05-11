@@ -15,10 +15,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * This Stage removes duplicate values from the given list of fields.
- * <p>
+ * Removes duplicate values from the given list of fields.
+ * <br>
  * Config Parameters -
- * <p>
+ * <br>
  * fieldMapping (Map<String, Object>) : A mapping of fields to remove duplicates from and the field to output the result to.
  */
 public class RemoveDuplicateValues extends Stage {

@@ -9,7 +9,7 @@ import com.typesafe.config.Config;
 import java.util.List;
 
 /**
- * This Stage will remove all occurrences of a given value from the source fields. Field values are not removed if
+ * Removes all occurrences of a given value from the source fields. Field values are not removed if
  * they contain a blacklisted value, only if it is an exact match between the two Strings.
  * Config Parameters:
  *

@@ -16,8 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 
 /**
- * This stage supports finding exact matches for given input values, and extracting the payloads for each match to a
- * given destination field. The dictionary file should have a term on each line, and can support providing payloads with
+ * Finds exact matches for given input values and extracts the payloads for each match to a given destination field.
+ * The dictionary file should have a term on each line, and can support providing payloads with
  * the syntax "term, payload". If any occurrences are found, they will be extracted and their associated payloads will
  * be appended to the destination field.
  *
