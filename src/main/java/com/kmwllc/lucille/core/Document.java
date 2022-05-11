@@ -35,7 +35,7 @@ public class Document implements Cloneable {
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
   private static final Logger log = LoggerFactory.getLogger(Document.class);
 
-  private final ObjectNode data;
+  protected final ObjectNode data;
 
   public Document(ObjectNode data) throws DocumentException {
 
@@ -426,8 +426,20 @@ public class Document implements Cloneable {
     return data.has(name) && JsonNodeType.ARRAY.equals(data.get(name).getNodeType());
   }
 
+  @Override
   public boolean equals(Object other) {
-    return data.equals(((Document)other).data);
+    if (this == other) {
+      return true;
+    }
+    if (other instanceof Document) {
+      return data.equals(((Document)other).data);
+    }
+    return false;
+  }
+
+  @Override
+  public int hashCode() {
+    return data.hashCode();
   }
 
   private void convertToList(String name) {
