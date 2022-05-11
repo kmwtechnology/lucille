@@ -27,9 +27,7 @@ public class QueryDatabase extends Stage {
   private String sql;
   private List<String> keyFields;
   private List<FieldType> inputTypes;
-  private List<String> inputTypeList;
   private List<FieldType> returnTypes;
-  private List<String> returnTypeList;
   private Map<String, Object> fieldMapping;
   protected Connection connection = null;
   PreparedStatement preparedStatement;
@@ -45,8 +43,16 @@ public class QueryDatabase extends Stage {
     keyFields = config.getStringList("keyFields");
     sql = config.hasPath("sql") ? config.getString("sql") : null;
     fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
-    inputTypeList = config.getStringList("inputTypes");
-    returnTypeList = config.getStringList("returnTypes");
+    List<String> inputTypeList = config.getStringList("inputTypes");
+    inputTypes = new ArrayList<>();
+    for (String type : inputTypeList) {
+      inputTypes.add(FieldType.getType(type));
+    }
+    List<String> returnTypeList = config.getStringList("returnTypes");
+    returnTypes = new ArrayList<>();
+    for (String type : returnTypeList) {
+      returnTypes.add(FieldType.getType(type));
+    }
   }
 
   @Override
@@ -63,24 +69,12 @@ public class QueryDatabase extends Stage {
       throw new StageException("Parameter metadata could not be accessed", e);
     }
 
-    inputTypes = new ArrayList<FieldType>();
-
-    if (inputTypeList.size() != keyFields.size()) {
+    if (inputTypes.size() != keyFields.size()) {
       throw new StageException("mismatch between types provided and keyfields provided");
     }
 
-    for (String type : inputTypeList) {
-      inputTypes.add(FieldType.getType(type));
-    }
-
-    returnTypes = new ArrayList<FieldType>();
-
-    if (returnTypeList.size() != fieldMapping.size()) {
+    if (returnTypes.size() != fieldMapping.size()) {
       throw new StageException("mismatch between return types provided and field mapping provided");
-    }
-
-    for (String type : returnTypeList) {
-      returnTypes.add(FieldType.getType(type));
     }
   }
 
