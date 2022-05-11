@@ -65,6 +65,7 @@ public class CSVConnectorTest {
     //  d	"e,f	g
     //  x	y	z
 
+    // verify that tabs takes precedence over specified separator character
     List<Document> docs = manager.getSavedDocumentsSentForProcessing();
     System.out.println(docs.get(1));
     assertEquals(3, docs.size());
@@ -164,6 +165,24 @@ public class CSVConnectorTest {
       f.delete();
       successDir.delete();
     }
+  }
+  @Test
+  public void testSemicolonSeparator() throws Exception {
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/semicolons.conf"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    Connector connector = new CSVConnector(config);
+    connector.execute(publisher);
+
+    // contents of CSVConnectorTest/semicolons.conf
+    //  field1	field2	field3
+    //  a	b	c
+    //  d	f	g
+    //  x	y	z
+
+    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(3, docs.size());
+    assertEquals("a", docs.get(0).getString("field1"));
   }
 
   @After
