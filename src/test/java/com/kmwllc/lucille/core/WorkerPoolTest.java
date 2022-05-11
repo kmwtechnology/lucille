@@ -4,13 +4,13 @@ import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -21,9 +21,9 @@ public class WorkerPoolTest {
   public void testParseConfig() throws Exception {
     Config config = ConfigFactory.load("WorkerPoolTest/config.conf");
 
-    WorkerPool pool1 = new WorkerPool(config,"pipeline1", null, "");
-    WorkerPool pool2 = new WorkerPool(config,"pipeline2", null, "");
-    WorkerPool pool3 = new WorkerPool(config,"pipeline3", null, "");
+    WorkerPool pool1 = new WorkerPool(config, "pipeline1", null, "");
+    WorkerPool pool2 = new WorkerPool(config, "pipeline2", null, "");
+    WorkerPool pool3 = new WorkerPool(config, "pipeline3", null, "");
     WorkerPool pool4 = new WorkerPool(ConfigFactory.empty(), "pipeline4", null, "");
 
     assertEquals(14, pool1.getNumWorkers());

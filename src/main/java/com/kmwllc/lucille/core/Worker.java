@@ -9,8 +9,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
+import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
@@ -172,30 +174,11 @@ class Worker implements Runnable {
     return pollInstant;
   }
 
-  private static void spawnWatcher(Worker worker, int maxProcessingSecs) {
-    Executors.newSingleThreadExecutor().submit(new Runnable() {
-      public void run() {
-        while (true) {
-          if (Duration.between(worker.getPreviousPollInstant().get(), Instant.now()).getSeconds() > maxProcessingSecs) {
-            log.error("Shutting down because maximum allowed time between previous poll is exceeded.");
-            System.exit(1);
-          }
-          try {
-            Thread.sleep(TIMEOUT_CHECK_MS);
-          } catch (InterruptedException e) {
-            log.error("Watcher thread interrupted");
-            return;
-          }
-        }
-      }
-    });
-  }
-
   public static WorkerThread startThread(Config config, WorkerMessageManager manager,
                                          String pipelineName, String metricsPrefix) throws
       Exception {
     Worker worker = new Worker(config, manager, pipelineName, metricsPrefix);
-    WorkerThread workerThread = new WorkerThread(worker);
+    WorkerThread workerThread = new WorkerThread(worker, config);
     workerThread.start();
     return workerThread;
   }

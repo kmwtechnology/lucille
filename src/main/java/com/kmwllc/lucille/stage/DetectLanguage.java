@@ -18,7 +18,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 /**
- * This Stage will detect the langauge of the text in each supplied source field, for each document and output the
+ * Detects the language of the text in each supplied source field and outputs the
  * language abbreviation associated with the text to the destination fields.
  * <p>
  * Config Parameters:

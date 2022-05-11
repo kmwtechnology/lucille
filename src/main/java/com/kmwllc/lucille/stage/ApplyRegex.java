@@ -11,22 +11,29 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * This stage supports performing text extraction based on a given Java regex expression. You can supply a comma
+ * Extracts text based on a given regular expression. You can supply a comma
  * separated list of fields to apply the text extraction to multiple fields. Extracted values are added to the field on
  * top of the existing field value.
- *
+ * <br>
  * Config Parameters:
- *
+ *<br>
  *   - source (List<String>) : List of source field names.
- *   - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields
+ *   <br>
+ *   - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields.
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
+ *   <br>
  *   - regex (String) : A regex expression to find matches for. Matches will be extracted and placed in the destination fields.
  *     If the regex includes capturing groups, the value of the first group will be used.
+ *   <br>
  *   - update_mode (String. Optional) : Determines how writing will be handling if the destination field is already populated.
+ *   <br>
  *     Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  *   - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.
+ *   <br>
  *   - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.
+ *   <br>
  *   - dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.
+ *   <br>
  *   - literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.
  */
 public class ApplyRegex extends Stage {

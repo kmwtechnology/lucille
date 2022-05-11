@@ -9,6 +9,13 @@ import com.typesafe.config.Config;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Determines the length of a field and places the value into a specified field.
+ * <br>
+ * Config Parameters -
+ * <br>
+ * fieldMapping (Map<String, String>) : A mapping of the field to check the size of to the name of the field to place the length into.
+ */
 public class Length extends Stage {
 
   private final Map<String, Object> fieldMap;

@@ -30,10 +30,14 @@ public class SolrUtils {
   /**
    * Generate a SolrClient from the given config file. Supports both Cloud and Http SolrClients.
    *
+   * This method has SIDE EFFECTS.  It will set SSL system properties if corresponding properties
+   * are found in the config.
+   *
    * @param config The configuration file to generate a client from
    * @return the solr client
    */
   public static SolrClient getSolrClient(Config config) {
+    SSLUtils.setSSLSystemProperties(config);
     if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
       return requiresAuth(config) ? new CloudSolrClient.Builder(getSolrUrls(config)).withHttpClient(getHttpClient(config)).build() : new CloudSolrClient.Builder(getSolrUrls(config)).build();
     } else {
@@ -107,5 +111,4 @@ public class SolrUtils {
 
     return d;
   }
-
 }
