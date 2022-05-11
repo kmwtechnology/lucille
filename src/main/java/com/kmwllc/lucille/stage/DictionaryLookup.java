@@ -39,6 +39,7 @@ public class DictionaryLookup extends Stage {
   private final HashMap<String, String[]> dict;
   private final boolean usePayloads;
   private final UpdateMode updateMode;
+  private final boolean ignoreCase; 
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -47,9 +48,10 @@ public class DictionaryLookup extends Stage {
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.dict = buildHashMap(config.getString("dict_path"));
     this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads" ,true);
     this.updateMode = UpdateMode.fromConfig(config);
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
+    this.dict = buildHashMap(config.getString("dict_path"));
   }
 
   /**
@@ -85,14 +87,22 @@ public class DictionaryLookup extends Stage {
         // TODO : Add log messages for when encoding errors occur so that they can be fixed
         if (line.length == 1) {
           String word = line[0].trim();
-          dict.put(word, new String[]{word});
+          if (ignoreCase) {
+            dict.put(word.toLowerCase(), new String[]{word});
+          } else {
+            dict.put(word, new String[]{word});
+          }
         } else {
           // Handle multiple payload values here.
           String[] rest = Arrays.copyOfRange(line, 1, line.length);
           for (int i = 0; i < rest.length;i++) {
             rest[i] = rest[i].trim();
           }
-          dict.put(line[0].trim(), rest);
+          if (ignoreCase) {
+            dict.put(line[0].trim().toLowerCase(), rest);
+          } else {
+            dict.put(line[0].trim(), rest);
+          }
         }
       }
     } catch (IOException e) {
@@ -116,6 +126,9 @@ public class DictionaryLookup extends Stage {
 
       List<String> outputValues = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {
+        if (ignoreCase) {
+          value = value.toLowerCase();
+        }
         if (dict.containsKey(value)) {
           if (usePayloads) {
             for (String v : dict.get(value)) {

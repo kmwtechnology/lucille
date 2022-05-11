@@ -1,7 +1,9 @@
 package com.kmwllc.lucille.util;
 
+
 import java.io.*;
 import java.net.URI;
+
 import java.nio.file.Path;
 
 public class FileUtils {
@@ -24,7 +26,7 @@ public class FileUtils {
         is = new FileInputStream(path);
       }
     } else {
-      is = FileUtils.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":")+1));
+      is = FileUtils.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
     }
     // This method of creating the Reader is used because it handles non-UTF-8 characters by replacing them with UTF
     // chars, rather than throwing an Exception.
@@ -32,7 +34,7 @@ public class FileUtils {
     // return Files.newBufferedReader(Paths.get(path), StandardCharsets.UTF_8);
     return new BufferedReader(new InputStreamReader(is, encoding));
   }
-  
+
   // TODO : Potentially support setting home dir in config
   public static String getLucilleHomeDirectory() {
     String homeDir = System.getProperty("LUCILLE_HOME");
@@ -52,4 +54,5 @@ public class FileUtils {
       return false;
     }
   }
+
 }

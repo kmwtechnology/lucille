@@ -41,7 +41,6 @@ public class DictionaryLookupTest {
     stage.processDocument(doc3);
     assertNull(doc3.getStringList("output2"));
     
-    
     // Ensure that if there are multiple payloads, that the payloads get mapped to the output as expected.
     Document doc4 = new Document("doc4");
     doc4.setField("input1", "foo");
@@ -52,8 +51,20 @@ public class DictionaryLookupTest {
     assertEquals(vals.get(0), "bar");
     assertEquals(vals.get(1), "baz");
     assertEquals(vals.get(2), "boom");
-    
-    
 
   }
+  
+  @Test
+  public void testDictionaryLookupIgnoreCase() throws StageException {
+    Stage stage = factory.get("DictionaryLookupTest/config_ignore_case.conf");
+    
+    Document doc = new Document("doc");
+    // lower case input
+    doc.setField("input1", "china");
+    stage.processDocument(doc);
+    // assert output is original case
+    assertEquals("China", doc.getStringList("output1").get(0));
+    
+  }
+  
 }
