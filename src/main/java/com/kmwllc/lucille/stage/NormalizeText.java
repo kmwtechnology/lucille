@@ -18,7 +18,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * This Stage provides 4 modes for normalizing the case of text: Lowercase, Uppercase, Title Case and Sentence Case.
+ * Provides 4 modes for normalizing the case of text: Lowercase, Uppercase, Title Case and Sentence Case.
  * The desired mode should be set in the configuration file. NOTE: This stage will not preserve any capitalization from
  * the original document. As such, proper nouns, abbreviations and acronyms may not be correctly capitalized after
  * normalization.

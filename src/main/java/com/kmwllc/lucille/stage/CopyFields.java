@@ -10,7 +10,7 @@ import com.typesafe.config.Config;
 import java.util.List;
 
 /**
- * This stage copies values from a given set of source fields to a given set of destination fields. If the same number
+ * Copies values from a given set of source fields to a given set of destination fields. If the same number
  * of fields are supplied for both sources and destinations, the fields will be copied from source_1 to dest_1 and
  * source_2 to dest_2. If either source or dest has only one field value, and the other has several, all of the
  * fields will be copied to/from the same field.

@@ -8,11 +8,11 @@ import com.typesafe.config.Config;
 import java.util.List;
 
 /**
- * This Stage deletes a list of given fields from each Document it processes
- *
+ * Deletes a list of given fields from each document it processes.
+ * <br>
  * Config Parameters -
- *
- *   fields (List<String>) : The list of fields to be deleted
+ * <br>
+ * fields (List<String>) : The list of fields to be deleted.
  */
 public class DeleteFields extends Stage {
 
