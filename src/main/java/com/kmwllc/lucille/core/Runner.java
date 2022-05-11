@@ -222,7 +222,26 @@ public class Runner {
         connector.close();
       } catch (Exception e) {
         log.error("Error closing connector", e);
+
+        if (publisher != null) {
+          try {
+            publisher.close();
+          } catch (Exception e2) {
+            log.error("Error closing publisher", e2);
+            return new ConnectorResult(connector, publisher, false, "Error closing connector and publisher");
+          }
+        }
+
         return new ConnectorResult(connector, publisher, false, "Error closing connector");
+      }
+
+      if (publisher != null) {
+        try {
+          publisher.close();
+        } catch (Exception e) {
+          log.error("Error closing publisher", e);
+          return new ConnectorResult(connector, publisher, false, "Error closing publisher");
+        }
       }
     }
   }
@@ -269,13 +288,6 @@ public class Runner {
       } catch (Exception e) {
         log.error("waitForCompletion failed", e);
         return new ConnectorResult(connector, publisher, false,"waitForCompletion failed");
-      } finally {
-        try {
-          publisher.close();
-        } catch (Exception e) {
-          log.error("Error closing publisher", e);
-          return new ConnectorResult(connector, publisher, false, "Error closing publisher");
-        }
       }
     }
 

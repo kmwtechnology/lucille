@@ -12,12 +12,20 @@ public class KafkaDocument extends Document {
   private long offset;
   private String key;
 
-  public KafkaDocument(ConsumerRecord<String, String> record) throws Exception {
-    super((ObjectNode)MAPPER.readTree(record.value()));
+  public KafkaDocument(ObjectNode data) throws DocumentException {
+    super(data);
+  }
+
+  public void setKafkaMetadata(ConsumerRecord<String, ?> record) {
     this.topic = record.topic();
     this.partition = record.partition();
     this.offset = record.offset();
     this.key = record.key();
+  }
+
+  public KafkaDocument(ConsumerRecord<String, String> record) throws Exception {
+    super((ObjectNode)MAPPER.readTree(record.value()));
+    setKafkaMetadata(record);
   }
 
   private KafkaDocument(ObjectNode data, String topic, int partition, long offset, String key) throws DocumentException {
@@ -32,7 +40,7 @@ public class KafkaDocument extends Document {
     return topic;
   }
 
-  public int getParititon() {
+  public int getPartition() {
     return partition;
   }
 
@@ -68,7 +76,7 @@ public class KafkaDocument extends Document {
   }
 
   @Override
-  public Document clone() {
+  public KafkaDocument clone() {
     try {
       return new KafkaDocument(data.deepCopy(), topic, partition, offset, key);
     } catch (DocumentException e) {

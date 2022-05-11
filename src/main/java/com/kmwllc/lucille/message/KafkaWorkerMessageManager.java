@@ -13,28 +13,26 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
-import java.util.Properties;
 
 public class KafkaWorkerMessageManager implements WorkerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessageManager.class);
-  private final Consumer<String, String> sourceConsumer;
-  private final KafkaProducer<String, String> kafkaProducer;
+  private final Consumer<String, KafkaDocument> sourceConsumer;
+  private final KafkaProducer<String, Document> kafkaDocumentProducer;
+  private final KafkaProducer<String, String> kafkaEventProducer;
   private final Config config;
   private final String pipelineName;
 
   public KafkaWorkerMessageManager(Config config, String pipelineName) {
     this.config = config;
     this.pipelineName = pipelineName;
-    this.kafkaProducer = KafkaUtils.createProducer(config);
-    Properties consumerProps = KafkaUtils.createConsumerProps(config);
-
+    this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
+    this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
     // with the same client ID are started in separate worker threads
     String kafkaClientId = "lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
-    consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, kafkaClientId);
-    this.sourceConsumer = new KafkaConsumer(consumerProps);
-    this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName)));
+    this.sourceConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
+    this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName, config)));
   }
 
   /**
@@ -43,11 +41,13 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
    */
   @Override
   public Document pollDocToProcess() throws Exception {
-    ConsumerRecords<String, String> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    ConsumerRecords<String, KafkaDocument> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
-      ConsumerRecord<String, String> record = consumerRecords.iterator().next();
-      return new KafkaDocument(record);
+      ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
+      KafkaDocument doc = record.value();
+      doc.setKafkaMetadata(record);
+      return doc;
     }
     return null;
   }
@@ -63,16 +63,22 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
    */
   @Override
   public void sendCompleted(Document document) throws Exception {
-    RecordMetadata result = (RecordMetadata) kafkaProducer.send(
-      new ProducerRecord(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document.toString())).get();
-    kafkaProducer.flush();
+    RecordMetadata result = kafkaDocumentProducer.send(
+      new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
+    kafkaDocumentProducer.flush();
   }
 
   public void sendFailed(Document document) throws Exception {
-    ProducerRecord<String, String> producerRecord =
-      new ProducerRecord(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document.toString());
-    RecordMetadata metadata = (RecordMetadata) kafkaProducer.send(producerRecord).get();
-    kafkaProducer.flush();
+    ProducerRecord<String, Document> producerRecord =
+      new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
+    RecordMetadata metadata = kafkaDocumentProducer.send(producerRecord).get();
+    kafkaDocumentProducer.flush();
+  }
+
+  @Override
+  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+    Event event = new Event(document.getId(), document.getRunId(), message, type);
+    sendEvent(event);
   }
 
   /**
@@ -82,15 +88,16 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
   @Override
   public void sendEvent(Event event) throws Exception {
     String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
-    RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
-      new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    kafkaProducer.flush();
+    RecordMetadata result = kafkaEventProducer.send(
+      new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    kafkaEventProducer.flush();
   }
 
   @Override
   public void close() throws Exception {
     sourceConsumer.close();
-    kafkaProducer.close();
+    kafkaDocumentProducer.close();
+    kafkaEventProducer.close();
   }
 
 }

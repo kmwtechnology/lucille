@@ -62,7 +62,6 @@ public class SolrIndexerTest {
     assertEquals(doc.getId(), ((SolrInputDocument)captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
     assertEquals(doc2.getId(), ((SolrInputDocument)captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
 
-    assertTrue(manager.hasEvents());
     assertEquals(2, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -104,7 +103,6 @@ public class SolrIndexerTest {
     assertEquals(doc2.getId(),
       ((SolrInputDocument)captor.getAllValues().get(0).toArray()[1]).getFieldValue(Document.ID_FIELD));
 
-    assertTrue(manager.hasEvents());
     assertEquals(2, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -154,7 +152,6 @@ public class SolrIndexerTest {
     assertEquals("doc3_overriden",
       ((SolrInputDocument)captor.getAllValues().get(2).toArray()[0]).getFieldValue("id"));
 
-    assertTrue(manager.hasEvents());
     assertEquals(3, manager.getSavedEvents().size());
 
     // confirm that events are sent using original doc IDs, not overriden ones
@@ -207,7 +204,6 @@ public class SolrIndexerTest {
     // the children should have been added via solrDoc.addChildDocument
     assertFalse(solrDoc.containsKey(Document.CHILDREN_FIELD));
 
-    assertTrue(manager.hasEvents());
     assertEquals(1, manager.getSavedEvents().size());
     List<Event> events = manager.getSavedEvents();
     assertEquals(1, events.size());

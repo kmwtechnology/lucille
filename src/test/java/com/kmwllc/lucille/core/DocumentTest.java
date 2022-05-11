@@ -611,7 +611,7 @@ public class DocumentTest {
     d1.setField("doubleField", 2.0);
     d1.setField("longField", 3L);
 
-    Document d2 = d1.cloneWithNewId("id2");
+    Document d2 = d1.clone();
     d1.setOrAddAll(d2);
     d1.setOrAddAll(d2);
     d1.setOrAddAll(d2);

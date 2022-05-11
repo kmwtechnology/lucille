@@ -13,6 +13,7 @@ import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -38,7 +39,6 @@ public class RunnerTest {
     assertEquals(0, manager.getSavedCompletedDocuments().size());
     assertEquals(0, manager.getSavedCompletedDocuments().size());
     assertEquals(0, manager.getSavedEvents().size());
-    assertFalse(manager.hasEvents());
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
@@ -79,7 +79,6 @@ public class RunnerTest {
     assertEquals(Event.Type.FINISH, events.get(0).getType());
 
     // confirm that topics are empty
-    assertFalse(manager.hasEvents());
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
@@ -128,7 +127,6 @@ public class RunnerTest {
     assertEquals(Event.Type.FINISH, events.get(2).getType());
 
     // confirm that topics are empty
-    assertFalse(manager.hasEvents());
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
@@ -188,7 +186,6 @@ public class RunnerTest {
     assertEquals(manager.getRunId(), events.get(2).getRunId());
 
     // confirm that topics are empty
-    assertFalse(manager.hasEvents());
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
@@ -238,12 +235,10 @@ public class RunnerTest {
     assertEquals(manager2.getRunId(), manager2.getSavedEvents().get(0).getRunId());
 
     // confirm that topics are empty
-    assertFalse(manager1.hasEvents());
     assertNull(manager1.pollCompleted());
     assertNull(manager1.pollDocToProcess());
     assertNull(manager1.pollEvent());
 
-    assertFalse(manager2.hasEvents());
     assertNull(manager2.pollCompleted());
     assertNull(manager2.pollDocToProcess());
     assertNull(manager2.pollEvent());
@@ -339,41 +334,70 @@ public class RunnerTest {
 
     // preExecute(), execute(), postExecute(), and close() should be called when running a connector
     NoOpConnector connector = mock(NoOpConnector.class);
-    Config config = ConfigFactory.empty();
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
-    assertTrue(Runner.runConnector(config, "run1", connector, publisher).getStatus());
+    PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
+    PublisherImpl publisher =
+      Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
+    assertTrue(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
     verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
+    verify(publisher, times(1)).close();
+    verify(manager, times(1)).close();
+  }
 
-    // if preExecute() throws an exception, execute() and postExecute() should not be called, but close() should be
-    connector = mock(NoOpConnector.class);
-    doThrow(new ConnectorException()).when(connector).preExecute(any());
-    assertFalse(Runner.runConnector(config, "run1", connector, publisher).getStatus());
-    verify(connector, times(1)).preExecute(any());
-    verify(connector, times(0)).execute(any());
-    verify(connector, times(0)).postExecute(any());
-    verify(connector, times(1)).close();
+    @Test
+    public void testLifecycleMethodsWithPreExecuteException() throws Exception {
+
+      // if preExecute() throws an exception, execute() and postExecute() should not be called, but close() should be
+      NoOpConnector connector = mock(NoOpConnector.class);
+      PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
+      PublisherImpl publisher =
+        Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
+      doThrow(new ConnectorException()).when(connector).preExecute(any());
+      assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
+      verify(connector, times(1)).preExecute(any());
+      verify(connector, times(0)).execute(any());
+      verify(connector, times(0)).postExecute(any());
+      verify(connector, times(1)).close();
+      verify(publisher, times(1)).close();
+      verify(manager, times(1)).close();
+    }
+
+  @Test
+  public void testLifecycleMethodsWithExecuteException() throws Exception {
 
     // if execute() throws an exception, postExecute() should not be called, but close() should be
-    connector = mock(NoOpConnector.class);
+    NoOpConnector connector = mock(NoOpConnector.class);
+    PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
+    PublisherImpl publisher =
+      Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
     doThrow(new ConnectorException()).when(connector).execute(any());
-    assertFalse(Runner.runConnector(config, "run1", connector, publisher).getStatus());
+    assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
     verify(connector, times(0)).postExecute(any());
     verify(connector, times(1)).close();
+    verify(publisher, times(1)).close();
+    verify(manager, times(1)).close();
+  }
+
+  @Test
+  public void testLifecycleMethodsWithPostExecuteException() throws Exception {
 
     // if postExecute() throws an exception, close() should still be called
-    connector = mock(NoOpConnector.class);
+    NoOpConnector connector = mock(NoOpConnector.class);
+    PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
+    PublisherImpl publisher =
+      Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
     doThrow(new ConnectorException()).when(connector).postExecute(any());
-    assertFalse(Runner.runConnector(config, "run1", connector, publisher).getStatus());
+    assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
     verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
+    verify(publisher, times(1)).close();
+    verify(manager, times(1)).close();
   }
 
   /**
@@ -417,13 +441,11 @@ public class RunnerTest {
     doThrow(new Exception()).when(publisher).close();
 
     // if the publisher throws an exception during close():
-    //  Connector.postExecute() should not be called
-    //  the connector should be closed
     //  runConnector should return false and not propagate the exception
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(publisher);
-    verify(connector, times(0)).postExecute(any());
+    verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
   }

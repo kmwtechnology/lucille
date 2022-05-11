@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -35,6 +36,7 @@ public class Document implements Cloneable {
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
   private static final Logger log = LoggerFactory.getLogger(Document.class);
 
+  @JsonValue
   protected final ObjectNode data;
 
   public Document(ObjectNode data) throws DocumentException {
@@ -670,12 +672,6 @@ public class Document implements Cloneable {
     } catch (DocumentException e) {
       throw new IllegalStateException("Document not cloneable", e);
     }
-  }
-
-  public Document cloneWithNewId(String newId) {
-    Document doc = clone();
-    doc.data.put(Document.ID_FIELD, newId);
-    return doc;
   }
 
   private void validateNotReservedField(String name) throws IllegalArgumentException {

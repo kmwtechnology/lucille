@@ -55,6 +55,12 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   }
 
   @Override
+  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+    Event event = new Event(document.getId(), document.getRunId(), message, type);
+    sendEvent(event);
+  }
+
+  @Override
   public void sendEvent(Event event) throws Exception {
     savedEventMessages.add(event);
     manager.sendEvent(event);
@@ -63,11 +69,6 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   @Override
   public Event pollEvent() throws Exception {
     return manager.pollEvent();
-  }
-
-  @Override
-  public boolean hasEvents() throws Exception {
-    return manager.hasEvents();
   }
 
   @Override
@@ -90,6 +91,11 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   @Override
   public void close() {
     manager.close();
+  }
+
+  @Override
+  public void batchComplete(List<Document> batch) throws Exception {
+    manager.batchComplete(batch);
   }
 
   public List<Event> getSavedEvents() {
