@@ -124,28 +124,22 @@ public class QueryDatabase extends Stage {
           PreparedStatementParameterType t = returnTypes.get(index);
           switch (t) {
             case STRING:
-              String str = result.getString(key);
-              doc.addToField(field, str);
+              doc.addToField(field, result.getString(key));
               break;
             case INTEGER:
-              int i = result.getInt(key);
-              doc.addToField(field, i);
+              doc.addToField(field, result.getInt(key));
               break;
             case LONG:
-              long l = result.getLong(key);
-              doc.addToField(field, l);
+              doc.addToField(field, result.getLong(key));
               break;
             case DOUBLE:
-              double d = result.getDouble(key);
-              doc.addToField(field, d);
+              doc.addToField(field, result.getDouble(key));
               break;
             case BOOLEAN:
-              boolean b = result.getBoolean(key);
-              doc.addToField(field, b);
+              doc.addToField(field, result.getBoolean(key));
               break;
             case DATE:
-              Date date = result.getDate(key);
-              doc.addToField(field, date.toInstant());
+              doc.addToField(field, result.getDate(key).toInstant());
               break;
             default:
               throw new StageException("Type " + t + " not recognized");
