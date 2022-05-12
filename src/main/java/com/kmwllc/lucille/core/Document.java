@@ -12,7 +12,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.*;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
@@ -506,7 +506,6 @@ public class Document implements Cloneable {
     String dateStr = DateTimeFormatter.ISO_INSTANT.format(value);
     array.add(dateStr);
   }
-
 
   /**
    * Sets the field to the given value if the field is not already present; otherwise adds it to the field.
