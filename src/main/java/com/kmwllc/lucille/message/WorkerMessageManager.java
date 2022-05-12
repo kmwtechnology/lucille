@@ -42,6 +42,12 @@ public interface WorkerMessageManager {
   void sendFailed(Document document) throws Exception;
 
   /**
+   * Create an Event from the given parameters and make it available to the Publisher or
+   * any other component that is listening for Document-related Events.
+   */
+  void sendEvent(Document document, String message, Event.Type type) throws Exception;
+
+  /**
    * Make the designated Event available to the Publisher or any other component that is listening for
    * Document-related Events.
    */

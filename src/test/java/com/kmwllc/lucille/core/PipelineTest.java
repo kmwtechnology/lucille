@@ -98,6 +98,31 @@ public class PipelineTest {
   }
 
   @Test
+  public void testRunIdCopiedToChildren() throws Exception {
+    // create a pipeline with Stages 1 through 4 in sequence
+    Pipeline pipeline = new Pipeline();
+    Config config = ConfigFactory.empty();
+    pipeline.addStage(new Stage1(config));
+    pipeline.addStage(new Stage2(config));
+    pipeline.addStage(new Stage3(config));
+    pipeline.addStage(new Stage4(config));
+
+    final String runId = "runId1";
+    Document doc = new Document("d1");
+    doc.initializeRunId(runId);
+
+    pipeline.startStages();
+    List<Document> results = pipeline.processDocument(doc);
+    pipeline.stopStages();
+
+    assertEquals(9, results.size());
+    for (Document result : results) {
+      assertEquals(runId, result.getRunId());
+    }
+
+  }
+
+  @Test
   public void testConditional() throws Exception {
     String s = "pipelines = [{name:\"pipeline1\", " +
         "stages: " +

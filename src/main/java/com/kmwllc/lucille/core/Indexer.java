@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 
 public abstract class Indexer implements Runnable {
 
@@ -35,6 +36,8 @@ public abstract class Indexer implements Runnable {
 
   protected final String idOverrideField;
 
+  protected final List<String> ignoreFields;
+
   private Instant lastLog = Instant.now();
 
   public void terminate() {
@@ -45,6 +48,7 @@ public abstract class Indexer implements Runnable {
   public Indexer(Config config, IndexerMessageManager manager, String metricsPrefix) {
     this.manager = manager;
     this.idOverrideField = config.hasPath("indexer.idOverrideField") ? config.getString("indexer.idOverrideField") : null;
+    this.ignoreFields = config.hasPath("indexer.ignoreFields") ? config.getStringList("indexer.ignoreFields") : null;
     int batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : DEFAULT_BATCH_SIZE;
     int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
     this.batch = new Batch(batchSize, batchTimeout);
@@ -124,11 +128,6 @@ public abstract class Indexer implements Runnable {
       return;
     }
 
-    if (!doc.has("run_id")) {
-      log.error("Received document without run_id. Doc ID: " + doc.getId());
-      return;
-    }
-
     sendToIndexWithAccounting(batch.add(doc));
   }
 
@@ -155,20 +154,25 @@ public abstract class Indexer implements Runnable {
 
       for (Document d : batchedDocs) {
         try {
-          manager.sendEvent(new Event(d.getId(), d.getRunId(),
-              "FAILED: " + e.getMessage(), Event.Type.FAIL));
+          manager.sendEvent(d,"FAILED: " + e.getMessage(), Event.Type.FAIL);
         } catch (Exception e2) {
           // TODO: The run won't be able to finish if this event isn't received; can we do something special here?
           log.error("Couldn't send failure event for doc " + d.getId(), e2);
         }
       }
       return;
+    } finally {
+      try {
+        // for now we add offsets whether or not the batch was successfully indexed
+        manager.batchComplete(batchedDocs);
+      } catch (Exception e) {
+        log.error("Error marking batch complete.", e);
+      }
     }
 
     for (Document d : batchedDocs) {
-      Event event = new Event(d.getId(), d.getRunId(), "SUCCEEDED", Event.Type.FINISH);
       try {
-        manager.sendEvent(event);
+        manager.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
       } catch (Exception e) {
         // TODO: The run won't be able to finish if this event isn't received; can we do something special here?
         log.error("Error sending completion event for doc " + d.getId(), e);
@@ -189,4 +193,11 @@ public abstract class Indexer implements Runnable {
     return null;
   }
 
+  protected Map<String, Object> getIndexerDoc(Document doc) {
+    Map<String, Object> indexerDoc = doc.asMap();
+    if (ignoreFields != null) {
+      ignoreFields.forEach(indexerDoc::remove);
+    }
+    return indexerDoc;
+  }
 }

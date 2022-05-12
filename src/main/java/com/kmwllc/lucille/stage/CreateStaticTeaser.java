@@ -11,7 +11,7 @@ import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import java.util.List;
 
 /**
- * This Stage will create teasers of a given length from the given source fields. If the character limit is reached in
+ * Create teasers of a given length from the given source fields. If the character limit is reached in
  * the middle of a word, the teaser will not be truncated until the end of the word. NOTE : If a given field is
  * multivalued, this Stage will only operate on the first value.
  *

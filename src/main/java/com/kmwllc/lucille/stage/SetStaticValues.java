@@ -10,6 +10,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Sets the value of given fields to a mapped value.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ * <li>static_values (Map<String, Object>) : A mapping from the field to the value.</li>
+ * <li>updateMode (UpdateMode) : The update mode to use when updating the fields.</li>
+ * </ul>
+ */
 public class SetStaticValues extends Stage {
 
   private final Map<String, Object> staticValues;

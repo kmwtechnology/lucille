@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.function.Function;
 
 /**
- * This Stage will parse dates into ISO_INSTANT format to be ingested by Solr. If a given date cannot be parsed, it
+ * Parses dates into ISO_INSTANT format to be ingested by Solr. If a given date cannot be parsed, it
  * will not be passed through to the destination field.
  * Config Parameters:
  * <p>

@@ -15,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
@@ -24,12 +25,12 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 public class OpenSearchIndexerTest {
   private RestHighLevelClient mockClient;
-  private SearchProxy proxy;
 
   @Before
   public void setup() throws IOException {
@@ -38,11 +39,12 @@ public class OpenSearchIndexerTest {
 
   private void setupOpenSearchClient() throws IOException {
     mockClient = Mockito.mock(RestHighLevelClient.class);
-    proxy = new OpenSearchProxy(mockClient, "lucille-default");
-
 
     // make first call to validateConnection succeed but subsequent calls to fail
     Mockito.when(mockClient.ping(RequestOptions.DEFAULT)).thenReturn(true, false);
+
+    BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(mockClient.bulk(any(), any())).thenReturn(mockResponse);
   }
 
   /**
@@ -58,12 +60,11 @@ public class OpenSearchIndexerTest {
     Document doc = new Document("doc1", "test_run");
     Document doc2 = new Document("doc2", "test_run");
 
-    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     indexer.run(2);
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(2, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -84,7 +85,7 @@ public class OpenSearchIndexerTest {
     Document doc4 = new Document("doc4", "test_run");
     Document doc5 = new Document("doc5", "test_run");
 
-    OESearchIndexer indexer = new ErroringOpenSearchIndexer(config, manager, proxy, "testing");
+    OpenSearchIndexer indexer = new ErroringOpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     manager.sendCompleted(doc3);
@@ -104,7 +105,7 @@ public class OpenSearchIndexerTest {
   public void testValidateConnection() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
-    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
     Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
@@ -115,7 +116,7 @@ public class OpenSearchIndexerTest {
   public void testMultipleBatches() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
-    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
 
     Document doc = new Document("doc1", "test_run");
     Document doc2 = new Document("doc2", "test_run");
@@ -145,7 +146,6 @@ public class OpenSearchIndexerTest {
 
     assertEquals(doc5.getId(), map.get("id"));
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(5, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -164,7 +164,7 @@ public class OpenSearchIndexerTest {
     doc.setField("myJsonField", jsonNode);
 
 
-    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -181,7 +181,6 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -199,7 +198,7 @@ public class OpenSearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -216,8 +215,6 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -235,7 +232,7 @@ public class OpenSearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
     doc.setField("myJsonField", jsonNode);
 
-    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -252,7 +249,6 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -260,11 +256,11 @@ public class OpenSearchIndexerTest {
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
-  private static class ErroringOpenSearchIndexer extends OESearchIndexer {
+  private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
 
     public ErroringOpenSearchIndexer(Config config, IndexerMessageManager manager,
-                                     SearchProxy proxy, String metricsPrefix) {
-      super(config, manager, proxy, "testing");
+                                     RestHighLevelClient client, String metricsPrefix) {
+      super(config, manager, client, "testing");
     }
 
     @Override

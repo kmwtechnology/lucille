@@ -10,7 +10,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * dest_field (String) : The field to place the timestamp into.
+ * Adds a timestamp into a given field.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ * <li>dest_field (String) : The field to place the timestamp into.</li>
+ * </ul>
  */
 public class Timestamp extends Stage {
 

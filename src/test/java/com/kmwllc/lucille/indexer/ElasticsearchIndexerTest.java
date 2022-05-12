@@ -10,6 +10,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -19,18 +20,17 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 public class ElasticsearchIndexerTest {
   private RestHighLevelClient mockClient;
-  private SearchProxy proxy;
 
   @Before
   public void setup() throws IOException {
@@ -39,10 +39,12 @@ public class ElasticsearchIndexerTest {
 
   private void setupElasticsearchClient() throws IOException {
     mockClient = Mockito.mock(RestHighLevelClient.class);
-    proxy = new ElasticsearchProxy(mockClient, "lucille-default");
 
     // make first call to validateConnection succeed but subsequent calls to fail
     Mockito.when(mockClient.ping(RequestOptions.DEFAULT)).thenReturn(true, false);
+
+    BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(mockClient.bulk(any(), any())).thenReturn(mockResponse);
   }
 
   /**
@@ -58,12 +60,11 @@ public class ElasticsearchIndexerTest {
     Document doc = new Document("doc1", "test_run");
     Document doc2 = new Document("doc2", "test_run");
 
-    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     indexer.run(2);
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(2, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -84,7 +85,7 @@ public class ElasticsearchIndexerTest {
     Document doc4 = new Document("doc4", "test_run");
     Document doc5 = new Document("doc5", "test_run");
 
-    OESearchIndexer indexer = new ErroringElasticsearchIndexer(config, manager, proxy, "testing");
+    ElasticsearchIndexer indexer = new ErroringElasticsearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     manager.sendCompleted(doc3);
@@ -104,7 +105,7 @@ public class ElasticsearchIndexerTest {
   public void testValidateConnection() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
-    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
     Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
@@ -115,7 +116,7 @@ public class ElasticsearchIndexerTest {
   public void testMultipleBatches() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");
-    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
 
     Document doc = new Document("doc1", "test_run");
     Document doc2 = new Document("doc2", "test_run");
@@ -145,7 +146,6 @@ public class ElasticsearchIndexerTest {
 
     assertEquals(doc5.getId(), map.get("id"));
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(5, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -164,7 +164,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("myJsonField", jsonNode);
 
 
-    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -181,7 +181,6 @@ public class ElasticsearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -199,7 +198,7 @@ public class ElasticsearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -216,8 +215,6 @@ public class ElasticsearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -235,7 +232,7 @@ public class ElasticsearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
     doc.setField("myJsonField", jsonNode);
 
-    OESearchIndexer indexer = new OESearchIndexer(config, manager, proxy, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
@@ -252,7 +249,6 @@ public class ElasticsearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -260,11 +256,11 @@ public class ElasticsearchIndexerTest {
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
-  private static class ErroringElasticsearchIndexer extends OESearchIndexer {
+  private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
 
     public ErroringElasticsearchIndexer(Config config, IndexerMessageManager manager,
-                                     SearchProxy proxy, String metricsPrefix) {
-      super(config, manager, proxy, "testing");
+                                     RestHighLevelClient client, String metricsPrefix) {
+      super(config, manager, client, "testing");
     }
 
     @Override

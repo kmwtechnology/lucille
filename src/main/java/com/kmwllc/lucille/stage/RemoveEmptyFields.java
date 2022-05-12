@@ -11,6 +11,9 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
+/**
+ * Removes empty fields from a document.
+ */
 public class RemoveEmptyFields extends Stage {
 
   public RemoveEmptyFields(Config config) {
