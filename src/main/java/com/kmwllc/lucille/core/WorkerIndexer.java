@@ -15,6 +15,7 @@ import sun.misc.Signal;
 
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Provides a way to launch a Worker-Indexer pair, where:
@@ -38,7 +39,7 @@ public class WorkerIndexer {
   public static void main(String[] args) throws Exception {
     Config config = ConfigUtils.loadConfig();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
-    WorkerIndexerPool pool = new WorkerIndexerPool(config, pipelineName, false);
+    WorkerIndexerPool pool = new WorkerIndexerPool(config, pipelineName, false, null);
     pool.start();
 
     Signal.handle(new Signal("INT"), signal -> {
@@ -58,7 +59,7 @@ public class WorkerIndexer {
   }
 
 
-  public void start(Config config, String pipelineName, boolean bypassSearchEngine) throws Exception {
+  public void start(Config config, String pipelineName, boolean bypassSearchEngine, AtomicLong indexEventCounter) throws Exception {
 
     // TODO: make queue capacity configurable
     LinkedBlockingQueue<Document> pipelineDest =
@@ -68,12 +69,13 @@ public class WorkerIndexer {
     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
       new LinkedBlockingQueue<>();
 
-    start(config, pipelineName, pipelineDest, offsets, bypassSearchEngine);
+    start(config, pipelineName, pipelineDest, offsets, bypassSearchEngine, indexEventCounter);
   }
 
   public void start(Config config, String pipelineName, LinkedBlockingQueue<Document> pipelineDest,
                     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
-                    boolean bypassSearchEngine) throws Exception {
+                    boolean bypassSearchEngine,
+                    AtomicLong indexEventCounter) throws Exception {
 
     log.info("Starting WorkerIndexer for pipeline: " + pipelineName);
 
@@ -81,7 +83,7 @@ public class WorkerIndexer {
       new HybridWorkerMessageManager(config, pipelineName, pipelineDest, offsets);
 
     HybridIndexerMessageManager indexerMessageManager =
-      new HybridIndexerMessageManager(pipelineDest, offsets);
+      new HybridIndexerMessageManager(pipelineDest, offsets, indexEventCounter);
 
     indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, pipelineName);
 

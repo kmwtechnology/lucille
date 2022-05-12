@@ -1,8 +1,10 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.util.CounterUtils;
 import com.kmwllc.lucille.util.RecordingLinkedBlockingQueue;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import net.mguenther.kafka.junit.EmbeddedKafkaCluster;
 import net.mguenther.kafka.junit.KeyValue;
 import net.mguenther.kafka.junit.SendKeyValues;
@@ -18,6 +20,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static net.mguenther.kafka.junit.EmbeddedKafkaCluster.provisionWith;
 import static net.mguenther.kafka.junit.EmbeddedKafkaClusterConfig.defaultClusterConfig;
@@ -58,12 +61,13 @@ public class HybridKafkaTest {
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
       new RecordingLinkedBlockingQueue<>();
 
-    workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true);
+    AtomicLong indexEventCounter = new AtomicLong();
+    workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true, indexEventCounter);
 
     sendDoc("doc2", sourceTopic);
     sendDoc("doc3", sourceTopic);
 
-    Thread.sleep(6000);
+    CounterUtils.wait(indexEventCounter, 3);
 
     workerIndexer.stop();
 
@@ -105,25 +109,27 @@ public class HybridKafkaTest {
       sendDoc("doc"+i, sourceTopic);
     }
 
+    AtomicLong indexEventCounter = new AtomicLong();
+
     RecordingLinkedBlockingQueue<Document> pipelineDest1 =
       new RecordingLinkedBlockingQueue<>();
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets1 =
       new RecordingLinkedBlockingQueue<>();
     WorkerIndexer workerIndexer1 = new WorkerIndexer();
-    workerIndexer1.start(config, "pipeline1",  pipelineDest1, offsets1, true);
+    workerIndexer1.start(config, "pipeline1",  pipelineDest1, offsets1, true, indexEventCounter);
 
     RecordingLinkedBlockingQueue<Document> pipelineDest2 =
       new RecordingLinkedBlockingQueue<>();
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets2 =
       new RecordingLinkedBlockingQueue<>();
     WorkerIndexer workerIndexer2 = new WorkerIndexer();
-    workerIndexer2.start(config, "pipeline1", pipelineDest2, offsets2, true);
+    workerIndexer2.start(config, "pipeline1", pipelineDest2, offsets2, true, indexEventCounter);
 
     for (int i=500;i<1000;i++) {
       sendDoc("doc"+i, sourceTopic);
     }
 
-    Thread.sleep(6000);
+    CounterUtils.wait(indexEventCounter, 1000);
 
     workerIndexer1.stop();
     workerIndexer2.stop();
@@ -195,9 +201,10 @@ public class HybridKafkaTest {
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
       new RecordingLinkedBlockingQueue<>();
 
-    workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true);
+    AtomicLong indexEventCounter = new AtomicLong();
+    workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true, indexEventCounter);
 
-    Thread.sleep(3000);
+    CounterUtils.wait(indexEventCounter, 1);
 
     workerIndexer.stop();
 
@@ -212,7 +219,9 @@ public class HybridKafkaTest {
     String sourceTopic = config.getString("kafka.sourceTopic");
     kafka.createTopic(TopicConfig.withName(sourceTopic).withNumberOfPartitions(5));
 
-    WorkerIndexerPool pool = new WorkerIndexerPool(config,"pipeline1", true);
+    AtomicLong indexEventCounter = new AtomicLong();
+    WorkerIndexerPool pool =
+      new WorkerIndexerPool(config,"pipeline1", true, indexEventCounter);
 
     assertEquals(5, pool.getNumWorkers());
 
@@ -226,7 +235,7 @@ public class HybridKafkaTest {
       sendDoc("doc"+i, sourceTopic);
     }
 
-    Thread.sleep(6000);
+    CounterUtils.wait(indexEventCounter, 1000);
 
     pool.stop();
 

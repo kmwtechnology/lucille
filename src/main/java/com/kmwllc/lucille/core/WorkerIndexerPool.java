@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class WorkerIndexerPool {
 
@@ -27,8 +28,10 @@ public class WorkerIndexerPool {
   private final int logSeconds;
   private final Timer logTimer = new Timer();
   private final boolean bypassSearchEngine;
+  private final AtomicLong indexEventCounter;
 
-  public WorkerIndexerPool(Config config, String pipelineName, boolean bypassSearchEngine) {
+  public WorkerIndexerPool(Config config, String pipelineName, boolean bypassSearchEngine,
+                           AtomicLong indexEventCounter) {
     this.config = config;
     this.pipelineName = pipelineName;
     this.bypassSearchEngine = bypassSearchEngine;
@@ -41,6 +44,7 @@ public class WorkerIndexerPool {
       this.numWorkers = config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
     }
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
+    this.indexEventCounter = indexEventCounter;
   }
 
   public void start() throws Exception {
@@ -51,7 +55,7 @@ public class WorkerIndexerPool {
     log.info("Starting " + numWorkers + " WorkerIndexer thread pairs for pipeline " + pipelineName);
     for (int i=0; i<numWorkers; i++) {
       WorkerIndexer workerIndexer = new WorkerIndexer();
-      workerIndexer.start(config, pipelineName, bypassSearchEngine);
+      workerIndexer.start(config, pipelineName, bypassSearchEngine, indexEventCounter);
       workerIndexers.add(workerIndexer);
     }
     // Timer to log a status message every minute
