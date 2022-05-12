@@ -505,33 +505,6 @@ public class Document implements Cloneable {
     array.add(dateStr);
   }
 
-  public void addToField(String name, Object value, FieldType type) throws DocumentException {
-    validateNotReservedField(name);
-    convertToList(name);
-    ArrayNode array = data.withArray(name);
-
-    switch(type) {
-      case INTEGER:
-        array.add((Integer)value);
-        return;
-      case DOUBLE:
-        array.add((Double) value);
-        return;
-      case LONG:
-        array.add((Long) value);
-        return;
-      case BOOLEAN:
-        array.add((Boolean)value);
-        return;
-      case STRING:
-        array.add(String.valueOf(value));
-        return;
-    }
-
-    throw new DocumentException("Unrecognized type: " + type);
-
-  }
-
   /**
    * Sets the field to the given value if the field is not already present; otherwise adds it to the field.
    *
@@ -754,42 +727,6 @@ public class Document implements Cloneable {
       for (JsonNode jsonNode : set) {
         arrayNode.add(jsonNode);
       }
-    }
-  }
-
-  public <T> T getObject(String name, FieldType type) throws DocumentException {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    JsonNode node;
-    if (isMultiValued(name)) {
-      node = data.withArray(name).get(0);
-    } else {
-      node = data.get(name);
-    }
-
-    if (node.isNull()) {
-      return null;
-    }
-
-    if (type == null) {
-      throw new DocumentException("Unrecognized type");
-    }
-
-    switch(type) {
-      case INTEGER:
-        return (T) Integer.valueOf(node.asInt());
-      case STRING:
-        return (T) node.asText();
-      case DOUBLE:
-        return (T) Double.valueOf(node.asDouble());
-      case LONG:
-        return (T) Long.valueOf(node.asLong());
-      case BOOLEAN:
-        return (T) Boolean.valueOf(node.asBoolean());
-      default:
-        return null;
     }
   }
 }

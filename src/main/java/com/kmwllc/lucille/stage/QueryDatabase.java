@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.FieldType;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
@@ -10,6 +9,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.sql.*;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -26,8 +26,8 @@ public class QueryDatabase extends Stage {
   private String jdbcPassword;
   private String sql;
   private List<String> keyFields;
-  private List<FieldType> inputTypes;
-  private List<FieldType> returnTypes;
+  private List<PreparedStatementParameterType> inputTypes;
+  private List<PreparedStatementParameterType> returnTypes;
   private Map<String, Object> fieldMapping;
   protected Connection connection = null;
   PreparedStatement preparedStatement;
@@ -46,12 +46,12 @@ public class QueryDatabase extends Stage {
     List<String> inputTypeList = config.getStringList("inputTypes");
     inputTypes = new ArrayList<>();
     for (String type : inputTypeList) {
-      inputTypes.add(FieldType.getType(type));
+      inputTypes.add(PreparedStatementParameterType.getType(type));
     }
     List<String> returnTypeList = config.getStringList("returnTypes");
     returnTypes = new ArrayList<>();
     for (String type : returnTypeList) {
-      returnTypes.add(FieldType.getType(type));
+      returnTypes.add(PreparedStatementParameterType.getType(type));
     }
   }
 
@@ -88,24 +88,70 @@ public class QueryDatabase extends Stage {
       if (!doc.has(field)) {
         throw new StageException("document does not have field " + field);
       }
-      try {
-        subs.add(doc.getObject(field, inputTypes.get(i)));
-      } catch (Exception e) {
-        throw new StageException("Type not recognized", e);
+
+      PreparedStatementParameterType t = inputTypes.get(i);
+      switch (t) {
+        case STRING:
+          subs.add(doc.getString(field));
+          break;
+        case INTEGER:
+          subs.add(doc.getInt(field));
+          break;
+        case LONG:
+          subs.add(doc.getLong(field));
+          break;
+        case DOUBLE:
+          subs.add(doc.getDouble(field));
+          break;
+        case BOOLEAN:
+          subs.add(doc.getBoolean(field));
+          break;
+        case DATE:
+          subs.add(doc.getInstant(field));
+        default:
+          throw new StageException("Type " + t + " not recognized");
       }
     }
 
     if (replacements != subs.size()) {
       throw new StageException("mismatch between replacements needed and provided");
     }
-
     // no need to close result as closing the statement automatically closes the ResultSet
     try {
       preparedStatement.clearParameters();
       for (int i = 0; i < subs.size(); i++) {
-        Object s = subs.get(i);
-        preparedStatement.setObject(i + 1, s);
+        PreparedStatementParameterType t = inputTypes.get(i);
+        switch (t) {
+          case STRING:
+            String str = (String) subs.get(i);
+            preparedStatement.setString(i + 1, str);
+            break;
+          case INTEGER:
+            int integer = (int) subs.get(i);
+            preparedStatement.setInt(i + 1, integer);
+            break;
+          case LONG:
+            long l = (long) subs.get(i);
+            preparedStatement.setLong(i + 1, l);
+            break;
+          case DOUBLE:
+            double d = (double) subs.get(i);
+            preparedStatement.setDouble(i + 1, d);
+            break;
+          case BOOLEAN:
+            boolean b = (boolean) subs.get(i);
+            preparedStatement.setBoolean(i + 1, b);
+            break;
+          case DATE:
+            Instant inst = (Instant) subs.get(i);
+            Date date = (Date) Date.from(inst);
+            preparedStatement.setDate(i + 1, date);
+            break;
+          default:
+            throw new StageException("Type " + t + " not recognized");
+        }
       }
+
 
       ResultSet result = preparedStatement.executeQuery();
       // now we need to iterate the results
@@ -114,12 +160,35 @@ public class QueryDatabase extends Stage {
         // Need the ID column from the RS.
         int index = 0;
         for (String key : fieldMapping.keySet()) {
-          Object value = result.getObject(key);
           String field = (String) fieldMapping.get(key);
-          try {
-            doc.addToField(field, value, returnTypes.get(index));
-          } catch (Exception e) {
-            throw new StageException("type not recognized", e);
+          PreparedStatementParameterType t = returnTypes.get(index);
+          switch (t) {
+            case STRING:
+              String str = result.getString(key);
+              doc.addToField(field, str);
+              break;
+            case INTEGER:
+              int i = result.getInt(key);
+              doc.addToField(field, i);
+              break;
+            case LONG:
+              long l = result.getLong(key);
+              doc.addToField(field, l);
+              break;
+            case DOUBLE:
+              double d = result.getDouble(key);
+              doc.addToField(field, d);
+              break;
+            case BOOLEAN:
+              boolean b = result.getBoolean(key);
+              doc.addToField(field, b);
+              break;
+            case DATE:
+              Date date = result.getDate(key);
+              doc.addToField(field, date.toInstant());
+              break;
+            default:
+              throw new StageException("Type " + t + " not recognized");
           }
           index++;
         }
@@ -129,6 +198,7 @@ public class QueryDatabase extends Stage {
     }
     return null;
   }
+
 
   private void createConnection() throws StageException {
     try {
