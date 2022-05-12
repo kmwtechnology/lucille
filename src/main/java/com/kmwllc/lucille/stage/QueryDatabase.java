@@ -30,8 +30,7 @@ public class QueryDatabase extends Stage {
   private List<PreparedStatementParameterType> returnTypes;
   private Map<String, Object> fieldMapping;
   protected Connection connection = null;
-  PreparedStatement preparedStatement;
-  private int replacements;
+  private PreparedStatement preparedStatement;
   private static final Logger log = LogManager.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {
@@ -63,11 +62,6 @@ public class QueryDatabase extends Stage {
     } catch (Exception e) {
       throw new StageException("Not a valid SQL statement", e);
     }
-    try {
-      replacements = preparedStatement.getParameterMetaData().getParameterCount();
-    } catch (Exception e) {
-      throw new StageException("Parameter metadata could not be accessed", e);
-    }
 
     if (inputTypes.size() != keyFields.size()) {
       throw new StageException("mismatch between types provided and keyfields provided");
@@ -80,78 +74,44 @@ public class QueryDatabase extends Stage {
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-
-    List<Object> subs = new ArrayList<Object>();
-
-    for (int i = 0; i < keyFields.size(); i++) {
-      String field = keyFields.get(i);
-      if (!doc.has(field)) {
-        throw new StageException("document does not have field " + field);
-      }
-
-      PreparedStatementParameterType t = inputTypes.get(i);
-      switch (t) {
-        case STRING:
-          subs.add(doc.getString(field));
-          break;
-        case INTEGER:
-          subs.add(doc.getInt(field));
-          break;
-        case LONG:
-          subs.add(doc.getLong(field));
-          break;
-        case DOUBLE:
-          subs.add(doc.getDouble(field));
-          break;
-        case BOOLEAN:
-          subs.add(doc.getBoolean(field));
-          break;
-        case DATE:
-          subs.add(doc.getInstant(field));
-        default:
-          throw new StageException("Type " + t + " not recognized");
-      }
-    }
-
-    if (replacements != subs.size()) {
-      throw new StageException("mismatch between replacements needed and provided");
-    }
-    // no need to close result as closing the statement automatically closes the ResultSet
     try {
       preparedStatement.clearParameters();
-      for (int i = 0; i < subs.size(); i++) {
+    } catch (SQLException e) {
+      throw new StageException("parameters in prepared statement cannot be cleared", e);
+    }
+    try {
+      for (int i = 0; i < keyFields.size(); i++) {
+        String field = keyFields.get(i);
+
+        if (!doc.has(field)) {
+          throw new StageException("document does not have field " + field);
+        }
+
         PreparedStatementParameterType t = inputTypes.get(i);
         switch (t) {
           case STRING:
-            String str = (String) subs.get(i);
-            preparedStatement.setString(i + 1, str);
+            preparedStatement.setString(i + 1, doc.getString(field));
             break;
           case INTEGER:
-            int integer = (int) subs.get(i);
-            preparedStatement.setInt(i + 1, integer);
+            preparedStatement.setInt(i + 1, doc.getInt(field));
             break;
           case LONG:
-            long l = (long) subs.get(i);
-            preparedStatement.setLong(i + 1, l);
+            preparedStatement.setLong(i + 1, doc.getLong(field));
             break;
           case DOUBLE:
-            double d = (double) subs.get(i);
-            preparedStatement.setDouble(i + 1, d);
+            preparedStatement.setDouble(i + 1, doc.getDouble(field));
             break;
           case BOOLEAN:
-            boolean b = (boolean) subs.get(i);
-            preparedStatement.setBoolean(i + 1, b);
+            preparedStatement.setBoolean(i + 1, doc.getBoolean(field));
             break;
           case DATE:
-            Instant inst = (Instant) subs.get(i);
+            Instant inst = doc.getInstant(field);
             Date date = (Date) Date.from(inst);
             preparedStatement.setDate(i + 1, date);
-            break;
           default:
             throw new StageException("Type " + t + " not recognized");
         }
       }
-
 
       ResultSet result = preparedStatement.executeQuery();
       // now we need to iterate the results
