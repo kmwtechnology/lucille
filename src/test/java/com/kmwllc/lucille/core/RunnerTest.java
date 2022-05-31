@@ -447,12 +447,15 @@ public class RunnerTest {
     doThrow(new Exception()).when(publisher).close();
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
 
-    // COMMENTED OUT DUE TO TRANSIENT FAILURES
-    // verify(connector, times(1)).preExecute(any());
-    // verify(connector, times(1)).execute(publisher);
-    // verify(connector, times(1)).postExecute(any());
-    // verify(connector, times(1)).close();
-    // verify(publisher, times(1)).close();
+    verify(connector, times(1)).preExecute(any());
+
+    // execute() is called in a separate thread so we verify it with a timeout;
+    // without the timeout we were seeing transient failures here
+    verify(connector, timeout(2000).times(1)).execute(publisher);
+
+    verify(connector, times(1)).postExecute(any());
+    verify(connector, times(1)).close();
+    verify(publisher, times(1)).close();
   }
 
   @Test
@@ -468,12 +471,15 @@ public class RunnerTest {
     doThrow(new ConnectorException()).when(connector).close();
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
 
-    // COMMENTED OUT DUE TO TRANSIENT FAILURES
-    // verify(connector, times(1)).preExecute(any());
-    // verify(connector, times(1)).execute(any());
-    // verify(connector, times(1)).postExecute(any());
-    // verify(connector, times(1)).close();
-    // verify(publisher, times(1)).close();
+    verify(connector, times(1)).preExecute(any());
+
+    // execute() is called in a separate thread so we verify it with a timeout;
+    // without the timeout we were seeing transient failures here
+    verify(connector, timeout(2000).times(1)).execute(any());
+
+    verify(connector, times(1)).postExecute(any());
+    verify(connector, times(1)).close();
+    verify(publisher, times(1)).close();
   }
 
   @Test
