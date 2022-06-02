@@ -438,13 +438,21 @@ public class RunnerTest {
   public void testPublisherCloseException() throws Exception {
     NoOpConnector connector = mock(NoOpConnector.class);
     PublisherImpl publisher = mock(PublisherImpl.class);
-    doThrow(new Exception()).when(publisher).close();
+    assertTrue(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
 
-    // if the publisher throws an exception during close():
-    //  runConnector should return false and not propagate the exception
+    // if the publisher throws an exception during close(),
+    // runConnector should return false and not propagate the exception
+    connector = mock(NoOpConnector.class);
+    publisher = mock(PublisherImpl.class);
+    doThrow(new Exception()).when(publisher).close();
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
+
     verify(connector, times(1)).preExecute(any());
-    verify(connector, times(1)).execute(publisher);
+
+    // execute() is called in a separate thread so we verify it with a timeout;
+    // without the timeout we were seeing transient failures here
+    verify(connector, timeout(2000).times(1)).execute(publisher);
+
     verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
@@ -453,12 +461,22 @@ public class RunnerTest {
   @Test
   public void testConnectorCloseException() throws Exception {
     NoOpConnector connector = mock(NoOpConnector.class);
-    doThrow(new ConnectorException()).when(connector).close();
     PublisherImpl publisher = mock(PublisherImpl.class);
+    assertTrue(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
 
+    // if the connector throws an exception during close(),
+    // runConnector should return false and not propagate the exception
+    connector = mock(NoOpConnector.class);
+    publisher = mock(PublisherImpl.class);
+    doThrow(new ConnectorException()).when(connector).close();
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
+
     verify(connector, times(1)).preExecute(any());
-    verify(connector, times(1)).execute(any());
+
+    // execute() is called in a separate thread so we verify it with a timeout;
+    // without the timeout we were seeing transient failures here
+    verify(connector, timeout(2000).times(1)).execute(any());
+
     verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
