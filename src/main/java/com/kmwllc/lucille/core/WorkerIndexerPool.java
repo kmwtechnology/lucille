@@ -71,10 +71,11 @@ public class WorkerIndexerPool {
     log.debug("Stopping " + workerIndexers.size() + " worker threads");
     logTimer.cancel();
     for (WorkerIndexer workerIndexer : workerIndexers) {
-      workerIndexer.terminate();
-    }
-    for (WorkerIndexer workerIndexer : workerIndexers) {
-      workerIndexer.join();
+      // stop each WorkerIndexer, one at a time;
+      // make sure the indexer is stopped before the worker, so that the
+      // worker has a chance to commit any final offsets that the indexer
+      // added to the offset queue right before it stopped
+      workerIndexer.stop();
     }
     // tell one of the threads to log its metrics;
     // the output should be the same for any thread;

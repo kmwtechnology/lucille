@@ -100,6 +100,10 @@ public class WorkerIndexer {
 
   public void stop() throws Exception {
 
+    // it is important to terminate the indexer wait for its thread to stop
+    // before we terminate the worker. This allows the worker to process
+    // any offsets that the indexer added to the offset queue upon termination
+
     if (indexer != null) {
       indexer.terminate();
       log.info("Indexer shutting down");
@@ -119,38 +123,6 @@ public class WorkerIndexer {
       }
     }
   }
-
-  public void terminate() throws Exception {
-
-    if (indexer != null) {
-      indexer.terminate();
-      log.info("Indexer shutting down");
-    }
-
-    if (workerThread != null) {
-      workerThread.terminate();
-    }
-  }
-
-  public void join() throws Exception {
-
-    if (indexer != null) {
-      try {
-        indexerThread.join();
-      } catch (InterruptedException e) {
-        log.error("Interrupted", e);
-      }
-    }
-
-    if (workerThread != null) {
-      try {
-        workerThread.join();
-      } catch (InterruptedException e) {
-        log.error("Interrupted", e);
-      }
-    }
-  }
-
 
   public Indexer getIndexer() {
     return indexer;

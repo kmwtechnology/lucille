@@ -12,8 +12,8 @@ public class CounterUtils {
   public static long DEFAULT_END_LAG_MS = 500;
 
   /**
-   * Returns a threadsafe Set that can be passed to multiple threads that process documents as a way
-   * of keeping track of the unique document IDs processed by all threads.
+   * Returns a threadsafe Set that can be used to track the unique document IDs processed
+   * by a group of threads.
    *
    * We use a set of IDs instead of an AtomicLong or other counter because we want to track the number
    * of _unique_ documents processed. If we simply counted the number of documents seen, the count
