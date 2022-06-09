@@ -7,11 +7,7 @@ import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.*;
 
 public class WorkerIndexerPool {
 
@@ -28,10 +24,10 @@ public class WorkerIndexerPool {
   private final int logSeconds;
   private final Timer logTimer = new Timer();
   private final boolean bypassSearchEngine;
-  private final AtomicLong indexEventCounter;
+  private final Set<String> idSet;
 
   public WorkerIndexerPool(Config config, String pipelineName, boolean bypassSearchEngine,
-                           AtomicLong indexEventCounter) {
+                           Set<String> idSet) {
     this.config = config;
     this.pipelineName = pipelineName;
     this.bypassSearchEngine = bypassSearchEngine;
@@ -44,7 +40,7 @@ public class WorkerIndexerPool {
       this.numWorkers = config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
     }
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
-    this.indexEventCounter = indexEventCounter;
+    this.idSet = idSet;
   }
 
   public void start() throws Exception {
@@ -55,7 +51,7 @@ public class WorkerIndexerPool {
     log.info("Starting " + numWorkers + " WorkerIndexer thread pairs for pipeline " + pipelineName);
     for (int i=0; i<numWorkers; i++) {
       WorkerIndexer workerIndexer = new WorkerIndexer();
-      workerIndexer.start(config, pipelineName, bypassSearchEngine, indexEventCounter);
+      workerIndexer.start(config, pipelineName, bypassSearchEngine, idSet);
       workerIndexers.add(workerIndexer);
     }
     // Timer to log a status message every minute
@@ -75,10 +71,11 @@ public class WorkerIndexerPool {
     log.debug("Stopping " + workerIndexers.size() + " worker threads");
     logTimer.cancel();
     for (WorkerIndexer workerIndexer : workerIndexers) {
-      workerIndexer.terminate();
-    }
-    for (WorkerIndexer workerIndexer : workerIndexers) {
-      workerIndexer.join();
+      // stop each WorkerIndexer, one at a time;
+      // make sure the indexer is stopped before the worker, so that the
+      // worker has a chance to commit any final offsets that the indexer
+      // added to the offset queue right before it stopped
+      workerIndexer.stop();
     }
     // tell one of the threads to log its metrics;
     // the output should be the same for any thread;

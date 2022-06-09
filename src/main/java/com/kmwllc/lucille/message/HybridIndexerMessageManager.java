@@ -9,34 +9,37 @@ import org.apache.kafka.common.TopicPartition;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+
 
 public class HybridIndexerMessageManager implements IndexerMessageManager {
 
   private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
-  // a counter that can be shared among all indexers running in a JVM
-  // to provide a mechanism for determining when a certain number of documents have been
+  // a thread-safe Set that can be shared among all indexers running in a JVM
+  // to provide a mechanism for determining when a certain number of unique documents have been
   // indexed, even though we can't predict how many documents any particular indexer instance
-  // will handle
-  private final AtomicLong indexEventCounter;
+  // will handle, and we can't know whether a document will be indexed more than once
+  // (reprocessing can happen when there's a kafka consumer group rebalance that happens
+  // before all offsets have been committed)
+  private final Set idSet;
 
   public HybridIndexerMessageManager(LinkedBlockingQueue<Document> pipelineDest,
                                      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
-    this.indexEventCounter = null;
+    this.idSet = null;
   }
 
   public HybridIndexerMessageManager(LinkedBlockingQueue<Document> pipelineDest,
                                      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
-                                     AtomicLong counter) {
+                                     Set<String> idSet) {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
-    this.indexEventCounter = counter;
+    this.idSet = idSet;
   }
 
   @Override
@@ -47,16 +50,16 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
   @Override
   public void sendEvent(Event event) throws Exception {
     // events are not sent anywhere in hybrid mode, but may be counted
-    if (indexEventCounter != null) {
-      indexEventCounter.getAndIncrement();
+    if (idSet != null) {
+      idSet.add(event.getDocumentId());
     }
   }
 
   @Override
   public void sendEvent(Document document, String message, Event.Type type) throws Exception {
     // events are not sent anywhere in hybrid mode, but may be counted
-    if (indexEventCounter != null) {
-      indexEventCounter.getAndIncrement();
+    if (idSet != null) {
+      idSet.add(document.getId());
     }
   }
 

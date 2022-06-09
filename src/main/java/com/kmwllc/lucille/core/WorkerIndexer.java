@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.core;
 
 import com.kmwllc.lucille.indexer.IndexerFactory;
-import com.kmwllc.lucille.indexer.SolrIndexer;
 import com.kmwllc.lucille.message.HybridIndexerMessageManager;
 import com.kmwllc.lucille.message.HybridWorkerMessageManager;
 import com.kmwllc.lucille.message.LocalMessageManager;
@@ -14,8 +13,9 @@ import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicLong;
+
 
 /**
  * Provides a way to launch a Worker-Indexer pair, where:
@@ -59,7 +59,7 @@ public class WorkerIndexer {
   }
 
 
-  public void start(Config config, String pipelineName, boolean bypassSearchEngine, AtomicLong indexEventCounter) throws Exception {
+  public void start(Config config, String pipelineName, boolean bypassSearchEngine, Set<String> idSet) throws Exception {
 
     // TODO: make queue capacity configurable
     LinkedBlockingQueue<Document> pipelineDest =
@@ -69,13 +69,13 @@ public class WorkerIndexer {
     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
       new LinkedBlockingQueue<>();
 
-    start(config, pipelineName, pipelineDest, offsets, bypassSearchEngine, indexEventCounter);
+    start(config, pipelineName, pipelineDest, offsets, bypassSearchEngine, idSet);
   }
 
   public void start(Config config, String pipelineName, LinkedBlockingQueue<Document> pipelineDest,
                     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
                     boolean bypassSearchEngine,
-                    AtomicLong indexEventCounter) throws Exception {
+                    Set<String> idSet) throws Exception {
 
     log.info("Starting WorkerIndexer for pipeline: " + pipelineName);
 
@@ -83,7 +83,7 @@ public class WorkerIndexer {
       new HybridWorkerMessageManager(config, pipelineName, pipelineDest, offsets);
 
     HybridIndexerMessageManager indexerMessageManager =
-      new HybridIndexerMessageManager(pipelineDest, offsets, indexEventCounter);
+      new HybridIndexerMessageManager(pipelineDest, offsets, idSet);
 
     indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, pipelineName);
 
@@ -100,6 +100,10 @@ public class WorkerIndexer {
 
   public void stop() throws Exception {
 
+    // it is important to terminate the indexer wait for its thread to stop
+    // before we terminate the worker. This allows the worker to process
+    // any offsets that the indexer added to the offset queue upon termination
+
     if (indexer != null) {
       indexer.terminate();
       log.info("Indexer shutting down");
@@ -119,38 +123,6 @@ public class WorkerIndexer {
       }
     }
   }
-
-  public void terminate() throws Exception {
-
-    if (indexer != null) {
-      indexer.terminate();
-      log.info("Indexer shutting down");
-    }
-
-    if (workerThread != null) {
-      workerThread.terminate();
-    }
-  }
-
-  public void join() throws Exception {
-
-    if (indexer != null) {
-      try {
-        indexerThread.join();
-      } catch (InterruptedException e) {
-        log.error("Interrupted", e);
-      }
-    }
-
-    if (workerThread != null) {
-      try {
-        workerThread.join();
-      } catch (InterruptedException e) {
-        log.error("Interrupted", e);
-      }
-    }
-  }
-
 
   public Indexer getIndexer() {
     return indexer;
