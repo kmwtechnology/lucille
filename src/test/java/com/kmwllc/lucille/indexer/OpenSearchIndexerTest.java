@@ -4,10 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -19,6 +21,7 @@ import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.index.VersionType;
 
 import java.io.IOException;
 import java.util.List;
@@ -254,6 +257,57 @@ public class OpenSearchIndexerTest {
     List<Event> events = manager.getSavedEvents();
     Assert.assertEquals("doc1", events.get(0).getDocumentId());
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  @Test
+  public void testRouting() throws Exception {
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/routing.conf");
+
+    Document doc = new Document("doc1");
+    doc.setField("routing", "routing1");
+    doc.setField("field1", "value1");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient).bulk(captor.capture(), any());
+
+    IndexRequest indexRequest = (IndexRequest) captor.getValue().requests().get(0);
+
+    assertEquals("doc1", indexRequest.id());
+    assertEquals("routing1", indexRequest.routing());
+    assertEquals(Map.of("field1", "value1"), indexRequest.sourceAsMap());
+  }
+
+  @Test
+  public void testDocumentVersioning() throws Exception {
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf");
+
+    KafkaDocument doc = new KafkaDocument(
+            new ObjectMapper().createObjectNode()
+                    .put("id", "doc1")
+                    .put("field1", "value1"));
+    doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient).bulk(captor.capture(), any());
+
+    IndexRequest indexRequest = (IndexRequest) captor.getValue().requests().get(0);
+
+    assertEquals("doc1", indexRequest.id());
+    assertEquals(100, indexRequest.version());
+    assertEquals(VersionType.EXTERNAL_GTE, indexRequest.versionType());
+    assertEquals(Map.of("id", "doc1", "field1", "value1"), indexRequest.sourceAsMap());
   }
 
   private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
