@@ -3,6 +3,8 @@ package com.kmwllc.lucille.core;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -11,6 +13,8 @@ import java.time.Instant;
 
 import java.util.*;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.Assert.*;
 
@@ -180,6 +184,7 @@ public class DocumentTest {
 
     // does nothing
     document.clearRunId();
+    assertNull(document.getRunId());
   }
 
   @Test
@@ -586,8 +591,9 @@ public class DocumentTest {
     assertEquals(List.of("first", "second", "val1"), document.getStringList("final"));
   }
 
-  // todo this is a temporary fix
+
   private static List<Object> toList(Object value) {
+    // todo this is a temporary fix, intellij suggests gentrifying
     return (List<Object>) value;
   }
 
@@ -616,8 +622,7 @@ public class DocumentTest {
     document.update("myStringField", UpdateMode.OVERWRITE, "val2");
     document.update("myStringField", UpdateMode.APPEND, "val3");
     document.update("myStringField", UpdateMode.SKIP, "val4");
-    List<Object> list = valueListFromDocument(document, "myStringField");
-    assertEquals(List.of("val2", "val3"), list);
+    assertEquals(List.of("val2", "val3"), valueListFromDocument(document, "myStringField"));
   }
 
   @Test
@@ -627,8 +632,7 @@ public class DocumentTest {
     document.update("myIntField", UpdateMode.OVERWRITE, 2);
     document.update("myIntField", UpdateMode.APPEND, 3);
     document.update("myIntField", UpdateMode.SKIP, 4);
-    List<Object> list = valueListFromDocument(document, "myIntField");
-    assertEquals(List.of(2, 3), list);
+    assertEquals(List.of(2, 3), valueListFromDocument(document, "myIntField"));
   }
 
   @Test
@@ -638,8 +642,7 @@ public class DocumentTest {
     document.update("myLongField", UpdateMode.OVERWRITE, 2L);
     document.update("myLongField", UpdateMode.APPEND, 3L);
     document.update("myLongField", UpdateMode.SKIP, 4L);
-    List<Object> list = valueListFromDocument(document, "myLongField");
-    assertEquals(List.of(2L, 3L), list);
+    assertEquals(List.of(2L, 3L), valueListFromDocument(document, "myLongField"));
   }
 
   @Test
@@ -649,8 +652,7 @@ public class DocumentTest {
     document.update("myDoubleField", UpdateMode.OVERWRITE, 2D);
     document.update("myDoubleField", UpdateMode.APPEND, 3D);
     document.update("myDoubleField", UpdateMode.SKIP, 4D);
-    List<Object> list = valueListFromDocument(document, "myDoubleField");
-    assertEquals(List.of(2D, 3D), list);
+    assertEquals(List.of(2D, 3D), valueListFromDocument(document, "myDoubleField"));
   }
 
   @Test
@@ -660,8 +662,22 @@ public class DocumentTest {
     document.update("myBooleanField", UpdateMode.OVERWRITE, false);
     document.update("myBooleanField", UpdateMode.APPEND, true);
     document.update("myBooleanField", UpdateMode.SKIP, false);
-    List<Object> list = valueListFromDocument(document, "myBooleanField");
-    assertEquals(List.of(false, true), list);
+    assertEquals(List.of(false, true), valueListFromDocument(document, "myBooleanField"));
+  }
+
+  @Test
+  public void testUpdateInstant() {
+
+    Document document = new Document("id1");
+    document.update("myInstantField", UpdateMode.OVERWRITE, Instant.ofEpochSecond(1));
+    document.update("myInstantField", UpdateMode.OVERWRITE, Instant.ofEpochSecond(2));
+    document.update("myInstantField", UpdateMode.APPEND, Instant.ofEpochSecond(3));
+    document.update("myInstantField", UpdateMode.SKIP, Instant.ofEpochSecond(4));
+
+    assertEquals(Stream.of(Instant.ofEpochSecond(2), Instant.ofEpochSecond(3))
+            .map(Instant::toString)
+            .collect(Collectors.toList()),
+        valueListFromDocument(document, "myInstantField"));
   }
 
   @Test
@@ -767,21 +783,28 @@ public class DocumentTest {
   }
 
   @Test
-  public void testSetOrAddDocument() {
+  public void testSetOrAddDocumentSingleValued() {
 
-    // single valued
     Document document = new Document("id1");
     Document otherDoc = new Document("id2");
-    document.setOrAdd("document", otherDoc);
-    assertFalse(document.has("document"));
 
-    otherDoc.setOrAdd("document", "sample");
-    document.setOrAdd("document", otherDoc);
-    assertTrue(document.has("document"));
-    assertTrue(otherDoc.has("document"));
+    document.setOrAdd("newField", otherDoc);
+    assertFalse(otherDoc.has("newField"));
+    assertFalse(document.has("newField"));
 
+    otherDoc.setOrAdd("newField", "sample");
+    document.setOrAdd("newField", otherDoc);
+    assertTrue(document.has("newField"));
+    assertTrue(otherDoc.has("newField"));
+    assertEquals("sample", document.getString("newField"));
+  }
 
-    // multi valued
+  @Test
+  public void testSetOrAddDocumentMultiValued() {
+
+    Document document = new Document("id1");
+    Document otherDoc = new Document("id2");
+
     document.setOrAdd("newField", "val0");
     assertFalse(document.isMultiValued("newField"));
     assertEquals("val0", document.getString("newField"));
@@ -981,5 +1004,34 @@ public class DocumentTest {
 
     d.logError("error2");
     assertEquals(List.of("error1", "error2"), d.getStringList(Document.ERROR_FIELD));
+  }
+
+  @Test
+  public void testGetChildrenException() throws DocumentException {
+
+    // todo instead of this test passing should maybe should change the implementation
+
+    Document parent = new Document("id");
+    ObjectNode node = JsonNodeFactory.instance.objectNode();
+    node.put("id", "child_id");
+    parent.addChild(new Document(node));
+
+    node.remove("id");
+    parent.getChildren();
+
+    // did not find an easy way to check if error message has been logged
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testClone() throws DocumentException {
+
+    // todo instead of this test passing should maybe should change the implementation
+
+    ObjectNode node = JsonNodeFactory.instance.objectNode();
+    node.put("id", "123");
+
+    Document document = new Document(node);
+    node.remove("id");
+    document.clone();
   }
 }
