@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Test;
@@ -9,6 +10,7 @@ import org.junit.runners.JUnit4;
 import java.time.Instant;
 
 import java.util.*;
+import java.util.function.UnaryOperator;
 
 import static org.junit.Assert.*;
 
@@ -102,10 +104,91 @@ public class DocumentTest {
   }
 
   @Test
+  public void testCreateFromJsonStringWithUpdater() throws Exception {
+    // {"id":"123", "field1":"val1", "field2":"val2"}
+    UnaryOperator<String> updater = s -> "id_" + s;
+    Document document = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}", updater);
+    assertEquals("id_123", document.getString("id"));
+    assertEquals("id_123", document.getId());
+    assertEquals("val1", document.getString("field1"));
+    assertEquals("val2", document.getString("field2"));
+  }
+
+  @Test
   public void testCreateFromID() {
     Document document = new Document("123");
     assertEquals("123", document.getString("id"));
     assertEquals("123", document.getId());
+  }
+
+  @Test
+  public void testCreateFromIdAndRunId() {
+    Document document = new Document("123", "456");
+    assertEquals("123", document.getString("id"));
+    assertEquals("123", document.getId());
+    assertEquals("456", document.getString("run_id"));
+    assertEquals("456", document.getRunId());
+  }
+
+  @Test
+  public void testRemoveReservedField() {
+    Document document = new Document("123");
+    for (String field : Document.RESERVED_FIELDS) {
+      try {
+        document.removeField(field);
+        fail();
+      } catch (IllegalArgumentException e) {
+        // expected
+      }
+    }
+  }
+
+  @Test
+  public void testRemoveField() throws DocumentException, JsonProcessingException {
+    // {"id":"123", "field1":"val1", "field2":"val2"}
+    Document document = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+    assertNotNull(document.getString("id"));
+    assertNotNull(document.getString("field1"));
+    assertNotNull(document.getString("field2"));
+
+    document.removeField("field1");
+
+    assertNotNull(document.getString("id"));
+    assertNull(document.getString("field1"));
+    assertNotNull(document.getString("field2"));
+  }
+
+  @Test
+  public void testRemoveFromArray() throws DocumentException, JsonProcessingException {
+    // {"id":"123", "field1":"val1", "field2":"val2"}
+    Document document = Document.fromJsonString("{\"id\":\"123\", \"array\":[\"val1\", \"val2\"]}");
+    assertEquals(List.of("val1", "val2"), document.getStringList("array"));
+
+    document.removeFromArray("array", 1);
+    assertEquals(List.of("val1"), document.getStringList("array"));
+
+    document.removeFromArray("array", 0);
+    assertEquals(List.of(), document.getStringList("array"));
+  }
+
+  @Test
+  public void testClearRunId() {
+    Document document = new Document("123", "456");
+    assertEquals("456", document.getRunId());
+    document.clearRunId();
+    assertNull(document.getRunId());
+
+    // does nothing
+    document.clearRunId();
+  }
+
+  @Test
+  public void testHasNonNull() throws DocumentException, JsonProcessingException {
+    // {"id":"123", "field1":"val1", "field2":null}
+    Document document = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":null}");
+    assertTrue(document.hasNonNull("id"));
+    assertTrue(document.hasNonNull("field1"));
+    assertFalse(document.hasNonNull("field2"));
   }
 
   @Test
@@ -185,12 +268,24 @@ public class DocumentTest {
   }
 
   @Test
+  public void testGetIntMissing() {
+    Document document = new Document("doc");
+    assertNull(document.getInt("field1"));
+  }
+
+  @Test
   public void testGetIntSingleValued() {
     Document document = new Document("doc");
     document.setField("number", 1);
     assertFalse(document.isMultiValued("number"));
     assertEquals(1, document.getInt("number").intValue());
     assertEquals(Collections.singletonList(1), document.getIntList("number"));
+  }
+
+  @Test
+  public void testGetIntListMissing() {
+    Document document = new Document("doc");
+    assertNull(document.getIntList("field1"));
   }
 
   @Test
@@ -214,12 +309,24 @@ public class DocumentTest {
   }
 
   @Test
+  public void testGetDoubleMissing() {
+    Document document = new Document("doc");
+    assertNull(document.getDouble("field1"));
+  }
+
+  @Test
   public void testGetDoubleSingleValued() {
     Document document = new Document("doc");
     document.setField("double", 1.455);
     assertFalse(document.isMultiValued("double"));
     assertEquals(1.455, document.getDouble("double"), 0);
     assertEquals(Collections.singletonList(1.455), document.getDoubleList("double"));
+  }
+
+  @Test
+  public void testGetDoubleListMissing() {
+    Document document = new Document("doc");
+    assertNull(document.getDoubleList("field1"));
   }
 
   @Test
@@ -243,12 +350,24 @@ public class DocumentTest {
   }
 
   @Test
+  public void testGetBooleanMissing() {
+    Document document = new Document("doc");
+    assertNull(document.getBoolean("field1"));
+  }
+
+  @Test
   public void testGetBooleanSingleValued() {
     Document document = new Document("doc");
     document.setField("bool", true);
     assertFalse(document.isMultiValued("bool"));
     assertEquals(true, document.getBoolean("bool"));
     assertEquals(Collections.singletonList(true), document.getBooleanList("bool"));
+  }
+
+  @Test
+  public void testGetBooleanListMissing() {
+    Document document = new Document("doc");
+    assertNull(document.getBooleanList("field1"));
   }
 
   @Test
@@ -272,12 +391,24 @@ public class DocumentTest {
   }
 
   @Test
+  public void testGetLongMissing() {
+    Document document = new Document("doc");
+    assertNull(document.getLong("field1"));
+  }
+
+  @Test
   public void testGetLongSingleValued() {
     Document document = new Document("doc");
     document.setField("long", 1000000L);
     assertFalse(document.isMultiValued("long"));
     assertEquals(1000000L, document.getLong("long").longValue());
     assertEquals(Collections.singletonList(1000000L), document.getLongList("long"));
+  }
+
+  @Test
+  public void testGetLongListMissing() {
+    Document document = new Document("doc");
+    assertNull(document.getLongList("field1"));
   }
 
   @Test
@@ -300,6 +431,12 @@ public class DocumentTest {
   }
 
   @Test
+  public void testGetInstantMissing() {
+    Document document = new Document("doc");
+    assertNull(document.getInstant("field1"));
+  }
+
+  @Test
   public void testGetInstantSingleValued() {
     Document document = new Document("doc");
     document.setField("instant", Instant.ofEpochSecond(10000));
@@ -307,6 +444,12 @@ public class DocumentTest {
     assertEquals(Instant.ofEpochSecond(10000), document.getInstant("instant"));
     assertEquals(Collections.singletonList(Instant.ofEpochSecond(10000)), document.getInstantList("instant"));
     assertEquals("1970-01-01T02:46:40Z", document.getString("instant"));
+  }
+
+  @Test
+  public void testGetInstantListMissing() {
+    Document document = new Document("doc");
+    assertNull(document.getInstantList("field1"));
   }
 
   @Test
@@ -398,10 +541,7 @@ public class DocumentTest {
     document.renameField("initial", "final", UpdateMode.SKIP);
     List<String> values = document.getStringList("final");
     assertFalse(document.has("initial"));
-    assertEquals(2, values.size());
-    assertEquals("first", values.get(0));
-    assertEquals("second", values.get(1));
-    assertFalse(document.has("initial"));
+    assertEquals(List.of("first", "second"), values);
   }
 
   @Test
@@ -427,6 +567,23 @@ public class DocumentTest {
     assertEquals("second", document.getStringList("final").get(1));
     assertEquals("third", document.getStringList("final").get(2));
     assertEquals("fourth", document.getStringList("final").get(3));
+  }
+
+  @Test
+  public void testRenameAppendNotArray() throws DocumentException, JsonProcessingException {
+
+    // {"id":"123", "field1":"val1"}
+    Document document = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\"}");
+    document.addToField("final", "first");
+    document.addToField("final", "second");
+
+    assertEquals("val1", document.getString("field1"));
+    assertEquals(List.of("first", "second"), document.getStringList("final"));
+
+    document.renameField("field1", "final", UpdateMode.APPEND);
+
+    assertFalse(document.has("field1"));
+    assertEquals(List.of("first", "second", "val1"), document.getStringList("final"));
   }
 
   // todo this is a temporary fix
@@ -594,6 +751,49 @@ public class DocumentTest {
     assertEquals("value1", document3.getStringList("field1").get(0));
     assertEquals("value2", document3.getStringList("field1").get(1));
     assertEquals(2, document3.getStringList("field1").size());
+  }
+
+  @Test
+  public void testSetOrAddInstant() {
+    Document document = new Document("id1");
+    assertFalse(document.has("instant"));
+
+    document.setOrAdd("instant", Instant.ofEpochSecond(10000));
+    assertTrue(document.has("instant"));
+    assertFalse(document.isMultiValued("instant"));
+
+    document.setOrAdd("instant", Instant.ofEpochSecond(20000));
+    assertTrue(document.isMultiValued("instant"));
+  }
+
+  @Test
+  public void testSetOrAddDocument() {
+
+    // single valued
+    Document document = new Document("id1");
+    Document otherDoc = new Document("id2");
+    document.setOrAdd("document", otherDoc);
+    assertFalse(document.has("document"));
+
+    otherDoc.setOrAdd("document", "sample");
+    document.setOrAdd("document", otherDoc);
+    assertTrue(document.has("document"));
+    assertTrue(otherDoc.has("document"));
+
+
+    // multi valued
+    document.setOrAdd("newField", "val0");
+    assertFalse(document.isMultiValued("newField"));
+    assertEquals("val0", document.getString("newField"));
+
+    otherDoc.setOrAdd("newField", "val1");
+    otherDoc.setOrAdd("newField", "val2");
+    assertTrue(otherDoc.isMultiValued("newField"));
+    assertEquals(List.of("val1", "val2"), otherDoc.getStringList("newField"));
+
+    document.setOrAdd("newField", otherDoc);
+    assertTrue(document.isMultiValued("newField"));
+    assertEquals(List.of("val0", "val1", "val2"), document.getStringList("newField"));
   }
 
   @Test
@@ -768,5 +968,18 @@ public class DocumentTest {
 
     // verify in-place modification
     assertEquals("{\"id\":\"id2\",\"field2\":[\"a\",\"b\",\"c\"]}", d2.toString());
+  }
+
+  @Test
+  public void testLogError() {
+    Document d = new Document("id");
+    assertFalse(d.has(Document.ERROR_FIELD));
+
+    d.logError("error1");
+    assertTrue(d.has(Document.ERROR_FIELD));
+    assertEquals("error1", d.getString(Document.ERROR_FIELD));
+
+    d.logError("error2");
+    assertEquals(List.of("error1", "error2"), d.getStringList(Document.ERROR_FIELD));
   }
 }
