@@ -16,7 +16,7 @@ import static org.junit.Assert.*;
 public class DocumentTest {
 
   @Test(expected = NullPointerException.class)
-  public void testCreateWithoutId1() throws Exception {
+  public void testCreateWithoutId1() {
     new Document((String) null);
   }
 
@@ -47,17 +47,17 @@ public class DocumentTest {
     Document doc2 = Document.fromJsonString("{\"id\":\"123\", \"field2\":\"val2\", \"field1\":\"val1\" }");
     Document doc3 = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val3\"}");
 
-    assertTrue(doc1.equals(doc1));
-    assertTrue(doc1.equals(doc2));
-    assertTrue(doc2.equals(doc1));
-    assertTrue(!doc3.equals(doc1));
-    assertTrue(!doc1.equals(doc3));
-    assertTrue(!doc1.equals(new Object()));
+    assertEquals(doc1, doc1);
+    assertEquals(doc1, doc2);
+    assertEquals(doc2, doc1);
+    assertNotEquals(doc3, doc1);
+    assertNotEquals(doc1, doc3);
+    assertNotEquals(doc1, new Object());
     assertEquals(doc1.hashCode(), doc2.hashCode());
 
     assertEquals(doc1.hashCode(), doc1.clone().hashCode());
-    assertTrue(doc1.clone().equals(doc1));
-    assertTrue(doc1.equals(doc1.clone()));
+    assertEquals(doc1.clone(), doc1);
+    assertEquals(doc1, doc1.clone());
 
     // hashcodes of unequal objects are not required to be unequal, but if these turned out to be equal
     // it would be a cause for concern
@@ -102,14 +102,14 @@ public class DocumentTest {
   }
 
   @Test
-  public void testCreateFromID() throws Exception {
+  public void testCreateFromID() {
     Document document = new Document("123");
     assertEquals("123", document.getString("id"));
     assertEquals("123", document.getId());
   }
 
   @Test
-  public void testSetAndGetField() throws Exception {
+  public void testSetAndGetField() {
     Document document = new Document("123");
     assertFalse(document.has("field1"));
     document.setField("field1", "val1");
@@ -126,7 +126,7 @@ public class DocumentTest {
   }
 
   @Test
-  public void testAddToField() throws Exception {
+  public void testAddToField() {
     Document document = new Document("123");
     assertFalse(document.has("field1"));
     document.addToField("field1", "val1");
@@ -137,7 +137,7 @@ public class DocumentTest {
   }
 
   @Test
-  public void testWriteToField() throws Exception {
+  public void testWriteToField() {
     Document document = new Document("doc");
     assertFalse(document.has("field"));
     document.update("field", UpdateMode.APPEND, "hello there");
@@ -370,22 +370,22 @@ public class DocumentTest {
     // set a field to null and confirm that we get back a null when we call getString(), not the string "null"
     Document document = new Document("doc");
     document.setField("field1", (String)null);
-    assertEquals(null, document.getString("field1"));
+    assertNull(document.getString("field1"));
     assertFalse(document.isMultiValued("field1"));
 
     // convert the field to a list, add another null, and confirm that getStringList returns an array with two nulls
     document.addToField("field1", (String) null);
     List<String> field1 = document.getStringList("field1");
-    assertEquals(null, field1.get(0));
-    assertEquals(null, field1.get(1));
+    assertNull(field1.get(0));
+    assertNull(field1.get(1));
     assertEquals(2, field1.size());
 
     // stringify the document and recreate it from the string; confirm getStringList still returns array with two nulls
     assertEquals("{\"id\":\"doc\",\"field1\":[null,null]}", document.toString());
     document = Document.fromJsonString(document.toString());
     field1 = document.getStringList("field1");
-    assertEquals(null, field1.get(0));
-    assertEquals(null, field1.get(1));
+    assertNull(field1.get(0));
+    assertNull(field1.get(1));
     assertEquals(2, field1.size());
     assertTrue(document.isMultiValued("field1"));
   }
@@ -429,6 +429,15 @@ public class DocumentTest {
     assertEquals("fourth", document.getStringList("final").get(3));
   }
 
+  // todo this is a temporary fix
+  private static List<Object> toList(Object value) {
+    return (List<Object>) value;
+  }
+
+  private static List<Object> valueListFromDocument(Document document, String field) {
+    return toList(document.asMap().get(field));
+  }
+
   @Test
   public void testRenamePreservesTypes() {
     Document document = new Document("document");
@@ -436,11 +445,11 @@ public class DocumentTest {
     document.addToField("initial", 22);
     document.renameField("initial", "final", UpdateMode.OVERWRITE);
     Map<String, Object> map = document.asMap();
-    List<Object> finalVals = (List<Object>) map.get("final");
-    assertEquals(5, finalVals.get(0));
-    assertNotEquals(5.0, finalVals.get(0));
-    assertNotEquals("5", finalVals.get(0));
-    assertEquals(22, finalVals.get(1));
+    List<Object> finalValues = toList(map.get("final"));
+    assertEquals(5, finalValues.get(0));
+    assertNotEquals(5.0, finalValues.get(0));
+    assertNotEquals("5", finalValues.get(0));
+    assertEquals(22, finalValues.get(1));
   }
 
   @Test
@@ -450,10 +459,8 @@ public class DocumentTest {
     document.update("myStringField", UpdateMode.OVERWRITE, "val2");
     document.update("myStringField", UpdateMode.APPEND, "val3");
     document.update("myStringField", UpdateMode.SKIP, "val4");
-    Map map = document.asMap();
-    assertEquals("val2", ((List<Object>) map.get("myStringField")).get(0));
-    assertEquals("val3", ((List<Object>) map.get("myStringField")).get(1));
-    assertEquals(2, ((List<Object>) map.get("myStringField")).size());
+    List<Object> list = valueListFromDocument(document, "myStringField");
+    assertEquals(List.of("val2", "val3"), list);
   }
 
   @Test
@@ -463,10 +470,8 @@ public class DocumentTest {
     document.update("myIntField", UpdateMode.OVERWRITE, 2);
     document.update("myIntField", UpdateMode.APPEND, 3);
     document.update("myIntField", UpdateMode.SKIP, 4);
-    Map map = document.asMap();
-    assertEquals(2, ((List<Object>) map.get("myIntField")).get(0));
-    assertEquals(3, ((List<Object>) map.get("myIntField")).get(1));
-    assertEquals(2, ((List<Object>) map.get("myIntField")).size());
+    List<Object> list = valueListFromDocument(document, "myIntField");
+    assertEquals(List.of(2, 3), list);
   }
 
   @Test
@@ -476,10 +481,8 @@ public class DocumentTest {
     document.update("myLongField", UpdateMode.OVERWRITE, 2L);
     document.update("myLongField", UpdateMode.APPEND, 3L);
     document.update("myLongField", UpdateMode.SKIP, 4L);
-    Map map = document.asMap();
-    assertEquals(2L, ((List<Object>) map.get("myLongField")).get(0));
-    assertEquals(3L, ((List<Object>) map.get("myLongField")).get(1));
-    assertEquals(2, ((List<Object>) map.get("myLongField")).size());
+    List<Object> list = valueListFromDocument(document, "myLongField");
+    assertEquals(List.of(2L, 3L), list);
   }
 
   @Test
@@ -489,10 +492,8 @@ public class DocumentTest {
     document.update("myDoubleField", UpdateMode.OVERWRITE, 2D);
     document.update("myDoubleField", UpdateMode.APPEND, 3D);
     document.update("myDoubleField", UpdateMode.SKIP, 4D);
-    Map map = document.asMap();
-    assertEquals(2D, ((List<Object>) map.get("myDoubleField")).get(0));
-    assertEquals(3D, ((List<Object>) map.get("myDoubleField")).get(1));
-    assertEquals(2, ((List<Object>) map.get("myDoubleField")).size());
+    List<Object> list = valueListFromDocument(document, "myDoubleField");
+    assertEquals(List.of(2D, 3D), list);
   }
 
   @Test
@@ -502,10 +503,8 @@ public class DocumentTest {
     document.update("myBooleanField", UpdateMode.OVERWRITE, false);
     document.update("myBooleanField", UpdateMode.APPEND, true);
     document.update("myBooleanField", UpdateMode.SKIP, false);
-    Map map = document.asMap();
-    assertEquals(false, ((List<Object>)map.get("myBooleanField")).get(0));
-    assertEquals(true, ((List<Object>)map.get("myBooleanField")).get(1));
-    assertEquals(2, ((List<Object>)map.get("myBooleanField")).size());
+    List<Object> list = valueListFromDocument(document, "myBooleanField");
+    assertEquals(List.of(false, true), list);
   }
 
   @Test
@@ -600,7 +599,6 @@ public class DocumentTest {
   @Test
   public void testSetOrAddWithOtherDocument() {
 
-    Date d = new Date();
     Document d1 = new Document("id1");
     d1.initializeRunId("run1");
     d1.setField("stringField", "val");
@@ -688,7 +686,7 @@ public class DocumentTest {
   }
 
   @Test
-  public void testGetAllFieldNames() throws Exception {
+  public void testGetAllFieldNames() {
     Document d = new Document("id");
     d.setField("field1", 1);
     d.setField("field2", 1);
@@ -703,6 +701,7 @@ public class DocumentTest {
     assertTrue(fieldNames.contains("field3"));
   }
 
+  @Test
   public void testRemoveDuplicateValuesWithNullTarget() {
     Document d = new Document("id");
     d.setField("field1", 1);
