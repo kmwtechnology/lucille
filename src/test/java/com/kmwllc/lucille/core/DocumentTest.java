@@ -135,6 +135,27 @@ public class DocumentTest {
   }
 
   @Test
+  public void testIsMultiValued() throws DocumentException, JsonProcessingException {
+    Document document = Document.fromJsonString("" +
+        "{\"id\":\"123\", " +
+        "\"null\":null," +
+        "\"single\":\"val1\", " +
+        "\"empty_arr\":[]," +
+        "\"arr1\":[\"val1\"]," +
+        "\"arr2\":[\"val1\", \"val2\"]}");
+
+    assertFalse(document.isMultiValued("id"));
+    assertFalse(document.isMultiValued("null"));
+    assertFalse(document.isMultiValued("single"));
+    assertTrue(document.isMultiValued("empty_arr"));
+    assertTrue(document.isMultiValued("arr1"));
+    assertTrue(document.isMultiValued("arr2"));
+
+    // not present field
+    assertFalse(document.isMultiValued("not_present"));
+  }
+
+  @Test
   public void testRemoveReservedField() {
     Document document = new Document("123");
     for (String field : Document.RESERVED_FIELDS) {
@@ -270,6 +291,52 @@ public class DocumentTest {
     document.addToField("field1", "val1");
     document.addToField("field1", "val2");
     assertEquals("val1", document.getString("field1"));
+  }
+
+  @Test
+  public void testGetNullField() throws DocumentException, JsonProcessingException {
+
+    Document document = Document.fromJsonString("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
+
+    List<Object> nullList = new ArrayList<>();
+    nullList.add(null);
+
+    // todo do lists need to return null ?
+    assertNull(document.getInt("field1"));
+    assertEquals(nullList, document.getIntList("field1"));
+    assertEquals(nullList, document.getIntList("field2"));
+
+    assertNull(document.getDouble("field1"));
+    assertEquals(nullList, document.getDoubleList("field1"));
+    assertEquals(nullList, document.getDoubleList("field2"));
+
+    assertNull(document.getBoolean("field1"));
+    assertEquals(nullList, document.getBooleanList("field1"));
+    assertEquals(nullList, document.getBooleanList("field2"));
+
+    assertNull(document.getLong("field1"));
+    assertEquals(nullList, document.getLongList("field1"));
+    assertEquals(nullList, document.getLongList("field2"));
+
+    // todo this fails because tries to parse date from null
+		try {
+			assertNull(document.getInstant("field1"));
+			fail();
+		} catch (java.time.format.DateTimeParseException e) {
+			// cant parse null
+		}
+		try {
+			assertEquals(nullList, document.getInstantList("field1"));
+			fail();
+		} catch (java.time.format.DateTimeParseException e) {
+			// cant parse null
+		}
+		try {
+			assertEquals(nullList, document.getInstantList("field2"));
+			fail();
+		} catch (java.time.format.DateTimeParseException e) {
+			// cant parse null
+		}
   }
 
   @Test
@@ -572,6 +639,21 @@ public class DocumentTest {
     assertEquals("second", document.getStringList("final").get(1));
     assertEquals("third", document.getStringList("final").get(2));
     assertEquals("fourth", document.getStringList("final").get(3));
+  }
+
+  @Test
+  public void testRenameFieldSkip() {
+    Document document = new Document("doc");
+    document.addToField("initial", "first");
+    document.addToField("final", "second");
+    assertEquals("first", document.getString("initial"));
+    assertEquals("second", document.getString("final"));
+
+    document.renameField("initial", "final", UpdateMode.SKIP);
+
+    assertEquals("second", document.getString("final"));
+    // todo this does not really make sense
+    assertFalse(document.has("initial"));
   }
 
   @Test
@@ -991,6 +1073,18 @@ public class DocumentTest {
 
     // verify in-place modification
     assertEquals("{\"id\":\"id2\",\"field2\":[\"a\",\"b\",\"c\"]}", d2.toString());
+  }
+
+  @Test
+  public void testRemoveDuplicates() throws DocumentException, JsonProcessingException {
+    Document d = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":[\"1\"]}");
+
+    // single valued
+    d.removeDuplicateValues("field1", null);
+
+    // set with no duplicates
+    d.removeDuplicateValues("field2", null);
+
   }
 
   @Test
