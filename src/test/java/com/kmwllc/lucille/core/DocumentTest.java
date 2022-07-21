@@ -1134,12 +1134,22 @@ public class DocumentTest {
     // logged) when trying to retrieve children
 
     Document parent = new Document("id");
-    ObjectNode node = JsonNodeFactory.instance.objectNode();
-    node.put("id", "child_id");
-    parent.addChild(new Document(node));
 
-    node.remove("id");
-    parent.getChildren();
+    ObjectNode child1Node = JsonNodeFactory.instance.objectNode();
+    child1Node.put("id", "child1");
+    Document child1 = new Document(child1Node);
+    parent.addChild(child1);
+
+    Document child2 = new Document("child2");
+    parent.addChild(child2);
+
+    // both children are present
+    assertEquals(List.of(child1, child2), parent.getChildren());
+
+    // after removing the id from child1 only child2 is returned when getting children
+    child1Node.remove("id");
+    assertEquals(List.of(child2), parent.getChildren());
+
     // did not find an easy way to check if error message has been logged
   }
 
