@@ -13,8 +13,6 @@ import java.time.Instant;
 
 import java.util.*;
 import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.junit.Assert.*;
 
@@ -49,9 +47,12 @@ public class DocumentTest {
   @Test
   public void testEqualsAndHashcode() throws Exception {
 
-    Document doc1 = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
-    Document doc2 = Document.fromJsonString("{\"id\":\"123\", \"field2\":\"val2\", \"field1\":\"val1\" }");
-    Document doc3 = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val3\"}");
+    Document doc1 =
+        Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+    Document doc2 =
+        Document.fromJsonString("{\"id\":\"123\", \"field2\":\"val2\", \"field1\":\"val1\" }");
+    Document doc3 =
+        Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val3\"}");
 
     assertEquals(doc1, doc1);
     assertEquals(doc1, doc2);
@@ -65,7 +66,8 @@ public class DocumentTest {
     assertEquals(doc1.clone(), doc1);
     assertEquals(doc1, doc1.clone());
 
-    // hashcodes of unequal objects are not required to be unequal, but if these turned out to be equal
+    // hashcodes of unequal objects are not required to be unequal, but if these turned out to be
+    // equal
     // it would be a cause for concern
     assertNotEquals(doc1.hashCode(), doc3.hashCode());
   }
@@ -100,7 +102,8 @@ public class DocumentTest {
   @Test
   public void testCreateFromJsonString() throws Exception {
     // {"id":"123", "field1":"val1", "field2":"val2"}
-    Document document = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+    Document document =
+        Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
     assertEquals("123", document.getString("id"));
     assertEquals("123", document.getId());
     assertEquals("val1", document.getString("field1"));
@@ -111,7 +114,9 @@ public class DocumentTest {
   public void testCreateFromJsonStringWithUpdater() throws Exception {
     // {"id":"123", "field1":"val1", "field2":"val2"}
     UnaryOperator<String> updater = s -> "id_" + s;
-    Document document = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}", updater);
+    Document document =
+        Document.fromJsonString(
+            "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}", updater);
     assertEquals("id_123", document.getString("id"));
     assertEquals("id_123", document.getId());
     assertEquals("val1", document.getString("field1"));
@@ -136,13 +141,15 @@ public class DocumentTest {
 
   @Test
   public void testIsMultiValued() throws DocumentException, JsonProcessingException {
-    Document document = Document.fromJsonString("" +
-        "{\"id\":\"123\", " +
-        "\"null\":null," +
-        "\"single\":\"val1\", " +
-        "\"empty_arr\":[]," +
-        "\"arr1\":[\"val1\"]," +
-        "\"arr2\":[\"val1\", \"val2\"]}");
+    Document document =
+        Document.fromJsonString(
+            ""
+                + "{\"id\":\"123\", "
+                + "\"null\":null,"
+                + "\"single\":\"val1\", "
+                + "\"empty_arr\":[],"
+                + "\"arr1\":[\"val1\"],"
+                + "\"arr2\":[\"val1\", \"val2\"]}");
 
     assertFalse(document.isMultiValued("id"));
     assertFalse(document.isMultiValued("null"));
@@ -171,7 +178,8 @@ public class DocumentTest {
   @Test
   public void testRemoveField() throws DocumentException, JsonProcessingException {
     // {"id":"123", "field1":"val1", "field2":"val2"}
-    Document document = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+    Document document =
+        Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
     assertNotNull(document.getString("id"));
     assertNotNull(document.getString("field1"));
     assertNotNull(document.getString("field2"));
@@ -211,7 +219,8 @@ public class DocumentTest {
   @Test
   public void testHasNonNull() throws DocumentException, JsonProcessingException {
     // {"id":"123", "field1":"val1", "field2":null}
-    Document document = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":null}");
+    Document document =
+        Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":null}");
     assertTrue(document.hasNonNull("id"));
     assertTrue(document.hasNonNull("field1"));
     assertFalse(document.hasNonNull("field2"));
@@ -284,7 +293,6 @@ public class DocumentTest {
     assertEquals(Arrays.asList("dog", "cat", "fish"), document.getStringList("pets"));
   }
 
-
   @Test
   public void testGetStringMultivalued() {
     Document document = new Document("doc");
@@ -296,12 +304,12 @@ public class DocumentTest {
   @Test
   public void testGetNullField() throws DocumentException, JsonProcessingException {
 
-    Document document = Document.fromJsonString("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
+    Document document =
+        Document.fromJsonString("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
 
     List<Object> nullList = new ArrayList<>();
     nullList.add(null);
 
-    // todo do lists need to return null ?
     assertNull(document.getInt("field1"));
     assertEquals(nullList, document.getIntList("field1"));
     assertEquals(nullList, document.getIntList("field2"));
@@ -318,25 +326,25 @@ public class DocumentTest {
     assertEquals(nullList, document.getLongList("field1"));
     assertEquals(nullList, document.getLongList("field2"));
 
-    // todo this fails because tries to parse date from null
-		try {
-			assertNull(document.getInstant("field1"));
-			fail();
-		} catch (java.time.format.DateTimeParseException e) {
-			// cant parse null
-		}
-		try {
-			assertEquals(nullList, document.getInstantList("field1"));
-			fail();
-		} catch (java.time.format.DateTimeParseException e) {
-			// cant parse null
-		}
-		try {
-			assertEquals(nullList, document.getInstantList("field2"));
-			fail();
-		} catch (java.time.format.DateTimeParseException e) {
-			// cant parse null
-		}
+    // this fails because tries to parse date from null
+    try {
+      assertNull(document.getInstant("field1"));
+      fail();
+    } catch (java.time.format.DateTimeParseException e) {
+      // cant parse null
+    }
+    try {
+      assertEquals(nullList, document.getInstantList("field1"));
+      fail();
+    } catch (java.time.format.DateTimeParseException e) {
+      // cant parse null
+    }
+    try {
+      assertEquals(nullList, document.getInstantList("field2"));
+      fail();
+    } catch (java.time.format.DateTimeParseException e) {
+      // cant parse null
+    }
   }
 
   @Test
@@ -370,7 +378,6 @@ public class DocumentTest {
     document.addToField("pets", 49);
     assertEquals(Arrays.asList(3, 2, 49), document.getIntList("pets"));
   }
-
 
   @Test
   public void testGetIntMultivalued() {
@@ -412,7 +419,6 @@ public class DocumentTest {
     assertEquals(Arrays.asList(4.0, 2.0, 2.3), document.getDoubleList("gpa"));
   }
 
-
   @Test
   public void testGetDoubleMultivalued() {
     Document document = new Document("doc");
@@ -452,7 +458,6 @@ public class DocumentTest {
     document.addToField("bools", false);
     assertEquals(Arrays.asList(true, false, false), document.getBooleanList("bools"));
   }
-
 
   @Test
   public void testGetBooleanMultivalued() {
@@ -514,7 +519,9 @@ public class DocumentTest {
     document.setField("instant", Instant.ofEpochSecond(10000));
     assertFalse(document.isMultiValued("instant"));
     assertEquals(Instant.ofEpochSecond(10000), document.getInstant("instant"));
-    assertEquals(Collections.singletonList(Instant.ofEpochSecond(10000)), document.getInstantList("instant"));
+    assertEquals(
+        Collections.singletonList(Instant.ofEpochSecond(10000)),
+        document.getInstantList("instant"));
     assertEquals("1970-01-01T02:46:40Z", document.getString("instant"));
   }
 
@@ -532,8 +539,12 @@ public class DocumentTest {
     document.addToField("instants", Instant.ofEpochSecond(1033000));
     assertTrue(document.isMultiValued("instants"));
     document.addToField("instants", Instant.ofEpochSecond(143242));
-    assertEquals(Arrays.asList(Instant.ofEpochSecond(44), Instant.ofEpochSecond(1033000), Instant.ofEpochSecond(143242)),
-      document.getInstantList("instants"));
+    assertEquals(
+        Arrays.asList(
+            Instant.ofEpochSecond(44),
+            Instant.ofEpochSecond(1033000),
+            Instant.ofEpochSecond(143242)),
+        document.getInstantList("instants"));
   }
 
   @Test
@@ -543,6 +554,7 @@ public class DocumentTest {
     document.addToField("field1", Instant.ofEpochSecond(94));
     assertEquals(Instant.ofEpochSecond(44), document.getInstant("field1"));
   }
+
   @Test
   public void testChildren() throws Exception {
     Document parent = new Document("parent");
@@ -582,20 +594,23 @@ public class DocumentTest {
 
   @Test
   public void testNullHandling() throws Exception {
-    // set a field to null and confirm that we get back a null when we call getString(), not the string "null"
+    // set a field to null and confirm that we get back a null when we call getString(), not the
+    // string "null"
     Document document = new Document("doc");
-    document.setField("field1", (String)null);
+    document.setField("field1", (String) null);
     assertNull(document.getString("field1"));
     assertFalse(document.isMultiValued("field1"));
 
-    // convert the field to a list, add another null, and confirm that getStringList returns an array with two nulls
+    // convert the field to a list, add another null, and confirm that getStringList returns an
+    // array with two nulls
     document.addToField("field1", (String) null);
     List<String> field1 = document.getStringList("field1");
     assertNull(field1.get(0));
     assertNull(field1.get(1));
     assertEquals(2, field1.size());
 
-    // stringify the document and recreate it from the string; confirm getStringList still returns array with two nulls
+    // stringify the document and recreate it from the string; confirm getStringList still returns
+    // array with two nulls
     assertEquals("{\"id\":\"doc\",\"field1\":[null,null]}", document.toString());
     document = Document.fromJsonString(document.toString());
     field1 = document.getStringList("field1");
@@ -652,7 +667,8 @@ public class DocumentTest {
     document.renameField("initial", "final", UpdateMode.SKIP);
 
     assertEquals("second", document.getString("final"));
-    // todo this does not really make sense
+    // in this case, “skip” means “don’t overwrite the destination field, if that field already
+    // exists”
     assertFalse(document.has("initial"));
   }
 
@@ -672,7 +688,6 @@ public class DocumentTest {
     assertFalse(document.has("field1"));
     assertEquals(List.of("first", "second", "val1"), document.getStringList("final"));
   }
-
 
   private static List<Object> toList(Object value) {
     // todo this is a temporary fix, intellij suggests gentrifying
@@ -756,10 +771,16 @@ public class DocumentTest {
     document.update("myInstantField", UpdateMode.APPEND, Instant.ofEpochSecond(3));
     document.update("myInstantField", UpdateMode.SKIP, Instant.ofEpochSecond(4));
 
-    assertEquals(Stream.of(Instant.ofEpochSecond(2), Instant.ofEpochSecond(3))
-            .map(Instant::toString)
-            .collect(Collectors.toList()),
-        valueListFromDocument(document, "myInstantField"));
+    assertEquals(
+        List.of(Instant.ofEpochSecond(2), Instant.ofEpochSecond(3)),
+        document.getInstantList("myInstantField"));
+
+    // previous version of the test compares strings rather than instances
+    //    assertEquals(
+    //        Stream.of(Instant.ofEpochSecond(2), Instant.ofEpochSecond(3))
+    //            .map(Instant::toString)
+    //            .collect(Collectors.toList()),
+    //        valueListFromDocument(document, "myInstantField"));
   }
 
   @Test
@@ -777,7 +798,8 @@ public class DocumentTest {
     // when we call APPEND on a field that doesn't exist, it gets created as a single-valued field
     document.update("myStringField2", UpdateMode.APPEND, "val1");
     assertFalse(document.isMultiValued("myStringField2"));
-    // when we call APPEND on a field that already exists, now it becomes multi-valued if it wasn't already
+    // when we call APPEND on a field that already exists, now it becomes multi-valued if it wasn't
+    // already
     document.update("myStringField2", UpdateMode.APPEND, "val2");
     assertTrue(document.isMultiValued("myStringField2"));
     document.update("myStringField2", UpdateMode.OVERWRITE, "val3");
@@ -799,7 +821,7 @@ public class DocumentTest {
   @Test(expected = Exception.class)
   public void testUpdateDocIdFails() {
     Document document = new Document("id1");
-    document.update(Document.ID_FIELD, UpdateMode.OVERWRITE,"id2");
+    document.update(Document.ID_FIELD, UpdateMode.OVERWRITE, "id2");
   }
 
   @Test(expected = Exception.class)
@@ -919,7 +941,7 @@ public class DocumentTest {
 
     Document expected = new Document("id1");
     expected.initializeRunId("run1");
-    for (int i=0; i<=3; i++) {
+    for (int i = 0; i <= 3; i++) {
       expected.setOrAdd("stringField", "val");
       expected.setOrAdd("intField", 1);
       expected.setOrAdd("boolField", true);
@@ -928,7 +950,6 @@ public class DocumentTest {
     }
 
     assertEquals(expected, d1);
-
   }
 
   @Test
@@ -944,10 +965,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\":1, \"b\":3}");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d,d2);
+    assertNotEquals(d, d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d,d2);
+    assertEquals(d, d2);
   }
 
   @Test
@@ -964,10 +985,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 3}] }");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d,d2);
+    assertNotEquals(d, d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d,d2);
+    assertEquals(d, d2);
   }
 
   @Test
@@ -984,10 +1005,10 @@ public class DocumentTest {
     JsonNode node2 = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 3} }");
     Document d2 = new Document("id1");
     d2.setField("myField", node2);
-    assertNotEquals(d,d2);
+    assertNotEquals(d, d2);
 
     d2.setField("myField", node.deepCopy());
-    assertEquals(d,d2);
+    assertEquals(d, d2);
   }
 
   @Test
@@ -1037,7 +1058,8 @@ public class DocumentTest {
     assertEquals("c", values2.get(2));
 
     // ensure that the Strings do come out as Strings
-    assertEquals("{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
+    assertEquals(
+        "{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
   }
 
   @Test
@@ -1055,7 +1077,8 @@ public class DocumentTest {
     assertEquals("16", values1.get(1));
     assertEquals("129", values1.get(2));
 
-    // verify that the original field stays the same, while the output field contains the correct values
+    // verify that the original field stays the same, while the output field contains the correct
+    // values
     assertEquals("{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}", d.toString());
 
     Document d2 = new Document("id2");
@@ -1076,15 +1099,17 @@ public class DocumentTest {
   }
 
   @Test
-  public void testRemoveDuplicates() throws DocumentException, JsonProcessingException {
-    Document d = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":[\"1\"]}");
+  public void testRemoveDuplicatesSameField() throws DocumentException, JsonProcessingException {
+    Document d =
+        Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":[\"1\"]}");
 
     // single valued
     d.removeDuplicateValues("field1", null);
+    assertEquals(List.of("val1"), d.getStringList("field1"));
 
     // set with no duplicates
     d.removeDuplicateValues("field2", null);
-
+    assertEquals(List.of(1), d.getIntList("field2"));
   }
 
   @Test
@@ -1103,7 +1128,10 @@ public class DocumentTest {
   @Test
   public void testGetChildrenException() throws DocumentException {
 
-    // todo instead of this test passing should maybe should change the implementation
+    // demonstrates the consequences of not copying the object given to the constructor
+
+    // here the child is changed after being added to the parent and throws an error (that is
+    // logged) when trying to retrieve children
 
     Document parent = new Document("id");
     ObjectNode node = JsonNodeFactory.instance.objectNode();
@@ -1112,14 +1140,16 @@ public class DocumentTest {
 
     node.remove("id");
     parent.getChildren();
-
     // did not find an easy way to check if error message has been logged
   }
 
   @Test(expected = IllegalStateException.class)
   public void testClone() throws DocumentException {
 
-    // todo instead of this test passing should maybe should change the implementation
+    // demonstrates the consequences of not copying the object given to the constructor
+
+    // here the node used to create the document is changed after document construction and throws
+    // an error when trying to clone the document
 
     ObjectNode node = JsonNodeFactory.instance.objectNode();
     node.put("id", "123");
