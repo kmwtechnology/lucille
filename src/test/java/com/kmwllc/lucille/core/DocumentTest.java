@@ -48,6 +48,34 @@ public abstract class DocumentTest {
     }
   }
 
+  public static class BetterJsonDocumentTest extends DocumentTest {
+
+    @Override
+    public Document createDocument(ObjectNode node) throws DocumentException {
+      return new BetterJsonDocument(node);
+    }
+
+    @Override
+    public Document createDocument(String id) {
+      return new BetterJsonDocument(id);
+    }
+
+    @Override
+    public Document createDocument(String id, String runId) {
+      return new BetterJsonDocument(id, runId);
+    }
+
+    @Override
+    public Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException {
+      return BetterJsonDocument.fromJsonString(json);
+    }
+
+    @Override
+    public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
+      return BetterJsonDocument.fromJsonString(json, idUpdater);
+    }
+  }
+
   public abstract Document createDocument(ObjectNode node) throws DocumentException;
 
   public abstract Document createDocument(String id);
@@ -57,7 +85,6 @@ public abstract class DocumentTest {
   public abstract Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException;
 
   public abstract Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException;
-
 
   @Test(expected = NullPointerException.class)
   public void testCreateWithoutId1() {
