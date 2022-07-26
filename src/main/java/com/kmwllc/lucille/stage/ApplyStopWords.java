@@ -18,6 +18,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.kmwllc.lucille.core.Document.RESERVED_FIELDS;
+
 /**
  * Removes stop words supplied in the dictionaries from a given list of fields. Multi term stop "phrases"
  * are allowed and will be completely removed from the output String. NOTE : This Stage will only remove whole words and
@@ -102,7 +104,7 @@ public class ApplyStopWords extends Stage {
   @Override
   public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
     List<String> fields = fieldNames != null ? fieldNames : new ArrayList<>(doc.getFieldNames());
-    fields.removeAll(JsonDocument.RESERVED_FIELDS);
+    fields.removeAll(RESERVED_FIELDS);
 
     for (String field : fields) {
       if (!doc.has(field))

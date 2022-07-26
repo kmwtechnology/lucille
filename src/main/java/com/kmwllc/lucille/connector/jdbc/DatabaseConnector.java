@@ -1,9 +1,7 @@
 package com.kmwllc.lucille.connector.jdbc;
 
 import com.kmwllc.lucille.connector.AbstractConnector;
-import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.core.JsonDocument;
 import com.typesafe.config.Config;
 
@@ -144,7 +142,7 @@ public class DatabaseConnector extends AbstractConnector {
         // TODO: how do we normalize our column names?  (lowercase is probably ok and likely desirable as 
         // sometimes databases return columns in upper/lower case depending on which db you talk to.)
         String fieldName = columns[i-1].toLowerCase();
-        if (i == idColumn && JsonDocument.ID_FIELD.equals(fieldName)) {
+        if (i == idColumn && Document.ID_FIELD.equals(fieldName)) {
           // we already have this column because it's the id column.
           continue;
         }

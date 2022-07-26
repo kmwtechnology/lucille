@@ -144,7 +144,7 @@ public class Pipeline {
           // if parent has a run_id, copy it to all children that don't have one
           if (runId != null) {
             for (JsonDocument child : childrenOfCurrentDoc) {
-              if (!child.has(JsonDocument.RUNID_FIELD)) {
+              if (!child.has(Document.RUNID_FIELD)) {
                 child.initializeRunId(runId);
               }
             }

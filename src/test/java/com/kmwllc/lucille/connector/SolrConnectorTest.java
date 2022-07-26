@@ -36,7 +36,7 @@ public class SolrConnectorTest {
         SolrQuery q = invocationOnMock.getArgument(0);
 
         SolrDocument doc = new SolrDocument();
-        doc.setField(JsonDocument.ID_FIELD, "doc");
+        doc.setField(Document.ID_FIELD, "doc");
         for (String param : q.getParameterNames()) {
           if (param.equals("cursorMark"))
             continue;

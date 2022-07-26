@@ -84,7 +84,7 @@ public interface DocumentProducer {
 
   /**
    * Creates a tombstone of the provided document if an error occurs, logging the error in the
-   * {@link JsonDocument#ERROR_FIELD} and ensuring the {@link JsonDocument#ID_FIELD} and {@link FileTraverser#FILE_PATH} fields
+   * {@link Document.ERROR_FIELD} and ensuring the {@link Document.ID_FIELD} and {@link FileTraverser#FILE_PATH} fields
    * are set.
    *
    * @param file The file to create a tombstone for

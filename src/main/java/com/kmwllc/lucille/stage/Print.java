@@ -1,9 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.Stage;
-import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +56,7 @@ public class Print extends Stage {
     if (excludeFields!=null) {
       doc = doc.clone();
       for (String field : excludeFields) {
-        if (JsonDocument.RUNID_FIELD.equals(field)) {
+        if (Document.RUNID_FIELD.equals(field)) {
           doc.clearRunId();
         } else {
           doc.removeField(field);

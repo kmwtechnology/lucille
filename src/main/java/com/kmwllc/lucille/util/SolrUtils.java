@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.util;
 
 
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.JsonDocument;
@@ -100,8 +101,8 @@ public class SolrUtils {
    */
   public static JsonDocument toDocument(Tuple tuple) throws DocumentException {
     JsonDocument d;
-    if (tuple.getString(JsonDocument.ID_FIELD) != null) {
-      d = new JsonDocument(tuple.getString(JsonDocument.ID_FIELD));
+    if (tuple.getString(Document.ID_FIELD) != null) {
+      d = new JsonDocument(tuple.getString(Document.ID_FIELD));
     } else {
       throw new DocumentException("Unable to create Document from Tuple. No id field present.");
     }

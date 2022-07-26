@@ -1,9 +1,6 @@
 package com.kmwllc.lucille.indexer;
 
-import com.kmwllc.lucille.core.ConfigUtils;
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.Indexer;
-import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
@@ -93,12 +90,12 @@ public class SolrIndexer extends Indexer {
 
       for (String key : map.keySet()) {
 
-        if (JsonDocument.CHILDREN_FIELD.equals(key)) {
+        if (Document.CHILDREN_FIELD.equals(key)) {
           continue;
         }
 
-        if (idOverride!=null && JsonDocument.ID_FIELD.equals(key)) {
-          solrDoc.setField(JsonDocument.ID_FIELD, idOverride);
+        if (idOverride!=null && Document.ID_FIELD.equals(key)) {
+          solrDoc.setField(Document.ID_FIELD, idOverride);
           continue;
         }
 
@@ -117,16 +114,16 @@ public class SolrIndexer extends Indexer {
   }
 
   private void addChildren(JsonDocument doc, SolrInputDocument solrDoc) throws IndexerException {
-    List<JsonDocument> children = doc.getChildren();
+    List<Document> children = doc.getChildren();
     if (children==null || children.isEmpty()) {
       return;
     }
-    for (JsonDocument child : children) {
+    for (Document child : children) {
       Map<String,Object> map = child.asMap();
       SolrInputDocument solrChild = new SolrInputDocument();
       for (String key : map.keySet()) {
         // we don't support children that contain nested children
-        if (JsonDocument.CHILDREN_FIELD.equals(key)) {
+        if (Document.CHILDREN_FIELD.equals(key)) {
           continue;
         }
         Object value = map.get(key);

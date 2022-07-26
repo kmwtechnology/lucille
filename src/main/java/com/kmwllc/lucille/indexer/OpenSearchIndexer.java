@@ -1,8 +1,6 @@
 package com.kmwllc.lucille.indexer;
 
-import com.kmwllc.lucille.core.ConfigUtils;
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
@@ -88,7 +86,7 @@ public class OpenSearchIndexer extends Indexer {
       Map<String, Object> indexerDoc = getIndexerDoc(doc);
 
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
-      indexerDoc.remove(JsonDocument.CHILDREN_FIELD);
+      indexerDoc.remove(Document.CHILDREN_FIELD);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
       String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
@@ -115,16 +113,16 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   private void addChildren(JsonDocument doc, Map<String, Object> indexerDoc) {
-    List<JsonDocument> children = doc.getChildren();
+    List<Document> children = doc.getChildren();
     if (children == null || children.isEmpty()) {
       return;
     }
-    for (JsonDocument child : children) {
+    for (Document child : children) {
       Map<String, Object> map = child.asMap();
       Map<String, Object> indexerChildDoc = new HashMap<>();
       for (String key : map.keySet()) {
         // we don't support children that contain nested children
-        if (JsonDocument.CHILDREN_FIELD.equals(key)) {
+        if (Document.CHILDREN_FIELD.equals(key)) {
           continue;
         }
         Object value = map.get(key);

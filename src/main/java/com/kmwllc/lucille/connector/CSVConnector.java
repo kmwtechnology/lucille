@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import static com.kmwllc.lucille.core.Document.RESERVED_FIELDS;
+
 /**
  * Connector implementation that produces documents from the rows in a given CSV file.
  */
@@ -188,7 +190,7 @@ public class CSVConnector extends AbstractConnector {
         // log.info("DOC ID: {}", docId);
         int maxIndex = Math.min(header.length, line.length);
         for (int i = 0; i < maxIndex; i++) {
-          if (line[i] != null && !ignoredTerms.contains(line[i]) && !JsonDocument.RESERVED_FIELDS.contains(header[i])) {
+          if (line[i] != null && !ignoredTerms.contains(line[i]) && !RESERVED_FIELDS.contains(header[i])) {
             doc.setField(header[i], line[i]);
           }
         }

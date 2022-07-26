@@ -63,7 +63,7 @@ public class SolrConnector extends AbstractConnector {
 
     // These parameters should only be set when a pipeline is also supplied
     Set<Map.Entry<String, ConfigValue>> paramSet = config.hasPath("pipeline") ? config.getConfig("solrParams").entrySet() : new HashSet<>();
-    this.idField = config.hasPath("pipeline") ? config.getString("idField") : JsonDocument.ID_FIELD;
+    this.idField = config.hasPath("pipeline") ? config.getString("idField") : Document.ID_FIELD;
     this.replacedPreActions = new ArrayList<>();
     this.replacedPostActions = new ArrayList<>();
 
@@ -122,7 +122,7 @@ public class SolrConnector extends AbstractConnector {
           // TODO : we might want an option to preserve the id under its original field name
           // TODO : Add configurable field blacklist (not necessarily here)
           fieldName = fieldName.toLowerCase();
-          if (fieldName.equals(idField) || fieldName.equals(JsonDocument.ID_FIELD)) {
+          if (fieldName.equals(idField) || fieldName.equals(Document.ID_FIELD)) {
             continue;
           }
 

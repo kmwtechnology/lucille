@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.function.UnaryOperator;
 
+import static com.kmwllc.lucille.core.Document.RESERVED_FIELDS;
 import static org.junit.Assert.*;
 
 @RunWith(JUnit4.class)
@@ -165,7 +166,7 @@ public class JsonDocumentTest {
   @Test
   public void testRemoveReservedField() {
     JsonDocument document = new JsonDocument("123");
-    for (String field : JsonDocument.RESERVED_FIELDS) {
+    for (String field : RESERVED_FIELDS) {
       try {
         document.removeField(field);
         fail();
@@ -567,14 +568,14 @@ public class JsonDocumentTest {
     parent.addChild(child1);
     assertTrue(parent.hasChildren());
     parent.addChild(child2);
-    List<JsonDocument> children = parent.getChildren();
+    List<Document> children = parent.getChildren();
     assertEquals(2, children.size());
     assertEquals(child1, children.get(0));
     assertEquals(child2, children.get(1));
     JsonDocument deserializedParent = JsonDocument.fromJsonString(parent.toString());
     assertEquals(parent, JsonDocument.fromJsonString(parent.toString()));
     assertTrue(deserializedParent.hasChildren());
-    List<JsonDocument> deserializedChildren = deserializedParent.getChildren();
+    List<Document> deserializedChildren = deserializedParent.getChildren();
     assertEquals(child1, deserializedChildren.get(0));
     assertEquals(child2, deserializedChildren.get(1));
   }
@@ -583,7 +584,7 @@ public class JsonDocumentTest {
   public void testEmptyChildren() throws Exception {
     JsonDocument parent = new JsonDocument("parent");
     String beforeString = parent.toString();
-    List<JsonDocument> children = parent.getChildren();
+    List<Document> children = parent.getChildren();
     String afterString = parent.toString();
     // getChildren() should not create a .children field if it didn't already exist,
     // so the json-stringified form of the document should not change after calling getChildren()
@@ -809,26 +810,26 @@ public class JsonDocumentTest {
   @Test(expected = Exception.class)
   public void testSetDocIdFails() {
     JsonDocument document = new JsonDocument("id1");
-    document.setField(JsonDocument.ID_FIELD, "id2");
+    document.setField(Document.ID_FIELD, "id2");
   }
 
   @Test(expected = Exception.class)
   public void testAddToDocIdFails() {
     JsonDocument document = new JsonDocument("id1");
-    document.addToField(JsonDocument.ID_FIELD, "id2");
+    document.addToField(Document.ID_FIELD, "id2");
   }
 
   @Test(expected = Exception.class)
   public void testUpdateDocIdFails() {
     JsonDocument document = new JsonDocument("id1");
-    document.update(JsonDocument.ID_FIELD, UpdateMode.OVERWRITE, "id2");
+    document.update(Document.ID_FIELD, UpdateMode.OVERWRITE, "id2");
   }
 
   @Test(expected = Exception.class)
   public void testSetRunIdFails() {
     JsonDocument document = new JsonDocument("id1");
     document.initializeRunId("run_id1");
-    document.setField(JsonDocument.RUNID_FIELD, "id2");
+    document.setField(Document.RUNID_FIELD, "id2");
   }
 
   @Test(expected = Exception.class)
@@ -1115,14 +1116,14 @@ public class JsonDocumentTest {
   @Test
   public void testLogError() {
     JsonDocument d = new JsonDocument("id");
-    assertFalse(d.has(JsonDocument.ERROR_FIELD));
+    assertFalse(d.has(Document.ERROR_FIELD));
 
     d.logError("error1");
-    assertTrue(d.has(JsonDocument.ERROR_FIELD));
-    assertEquals("error1", d.getString(JsonDocument.ERROR_FIELD));
+    assertTrue(d.has(Document.ERROR_FIELD));
+    assertEquals("error1", d.getString(Document.ERROR_FIELD));
 
     d.logError("error2");
-    assertEquals(List.of("error1", "error2"), d.getStringList(JsonDocument.ERROR_FIELD));
+    assertEquals(List.of("error1", "error2"), d.getStringList(Document.ERROR_FIELD));
   }
 
   @Test

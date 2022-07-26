@@ -1,13 +1,14 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
 import java.util.List;
+
+import static com.kmwllc.lucille.core.Document.RESERVED_FIELDS;
 
 /**
  * Normalizes a document's field values by replacing spaces and non-alphanumeric characters with given delimiters.
@@ -32,7 +33,7 @@ public class NormalizeFieldNames extends Stage {
   @Override
   public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
     for (String field : doc.getFieldNames()) {
-      if (JsonDocument.RESERVED_FIELDS.contains(field)) {
+      if (RESERVED_FIELDS.contains(field)) {
         continue;
       }
 

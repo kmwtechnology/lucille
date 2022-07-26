@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.filetraverser.data.producer;
 
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.JsonDocument;
@@ -31,7 +32,7 @@ public class FastCSVDocumentProducer implements DocumentProducer {
       String idColumnName = csv.getHeader().stream().findFirst().get();
       for (NamedCsvRow row : csv) {
         JsonDocument doc = parent.clone();
-        doc.setField(JsonDocument.ID_FIELD, row.getField(idColumnName));
+        doc.setField(Document.ID_FIELD, row.getField(idColumnName));
         Map<String,String> fields = row.getFields();
         fields.forEach(doc::setField);
         doc.setField("originalLineNumber",row.getOriginalLineNumber());

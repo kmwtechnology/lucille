@@ -1,11 +1,8 @@
 package com.kmwllc.lucille.indexer;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
@@ -100,9 +97,9 @@ public class SolrIndexerTest {
     verify(solrClient, times(1)).close();
     assertEquals(1, captor.getAllValues().size());
     assertEquals(doc.getId(),
-      ((SolrInputDocument)captor.getAllValues().get(0).toArray()[0]).getFieldValue(JsonDocument.ID_FIELD));
+      ((SolrInputDocument)captor.getAllValues().get(0).toArray()[0]).getFieldValue(Document.ID_FIELD));
     assertEquals(doc2.getId(),
-      ((SolrInputDocument)captor.getAllValues().get(0).toArray()[1]).getFieldValue(JsonDocument.ID_FIELD));
+      ((SolrInputDocument)captor.getAllValues().get(0).toArray()[1]).getFieldValue(Document.ID_FIELD));
 
     assertEquals(2, manager.getSavedEvents().size());
 
@@ -180,7 +177,7 @@ public class SolrIndexerTest {
     JsonDocument doc3 = new JsonDocument("doc3", "test_run");
     doc.addChild(doc2);
     doc.addChild(doc3);
-    assertTrue(doc.has(JsonDocument.CHILDREN_FIELD));
+    assertTrue(doc.has(Document.CHILDREN_FIELD));
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
@@ -193,17 +190,17 @@ public class SolrIndexerTest {
     verify(solrClient, times(1)).close();
     assertEquals(1, captor.getAllValues().size());
     SolrInputDocument solrDoc = (SolrInputDocument)captor.getAllValues().get(0).toArray()[0];
-    assertEquals(doc.getId(), solrDoc.getFieldValue(JsonDocument.ID_FIELD));
+    assertEquals(doc.getId(), solrDoc.getFieldValue(Document.ID_FIELD));
     assertEquals(2, solrDoc.getChildDocuments().size());
-    assertEquals(doc2.getId(), solrDoc.getChildDocuments().get(0).getFieldValue(JsonDocument.ID_FIELD));
+    assertEquals(doc2.getId(), solrDoc.getChildDocuments().get(0).getFieldValue(Document.ID_FIELD));
     Collection<Object> myListField = solrDoc.getChildDocuments().get(0).getFieldValues("myListField");
     assertEquals(2, myListField.size());
     assertEquals("val1", myListField.toArray()[0]);
     assertEquals("val2", myListField.toArray()[1]);
-    assertEquals(doc3.getId(), solrDoc.getChildDocuments().get(1).getFieldValue(JsonDocument.ID_FIELD));
+    assertEquals(doc3.getId(), solrDoc.getChildDocuments().get(1).getFieldValue(Document.ID_FIELD));
     // the solr doc should not have Document.CHILDREN_FIELD;
     // the children should have been added via solrDoc.addChildDocument
-    assertFalse(solrDoc.containsKey(JsonDocument.CHILDREN_FIELD));
+    assertFalse(solrDoc.containsKey(Document.CHILDREN_FIELD));
 
     assertEquals(1, manager.getSavedEvents().size());
     List<Event> events = manager.getSavedEvents();
