@@ -196,7 +196,7 @@ public interface Document extends Cloneable {
 
   // todo had to add this because clone has protected access access in Object
   // todo what is the difference between this and clone?
-//  Document copy();
+  Document copy();
 
 //  static Document create(ObjectNode node) throws DocumentException {
 //    return new JsonDocument(node);

@@ -681,6 +681,15 @@ public class JsonDocument implements Document {
     }
   }
 
+  @Override
+  public Document copy() {
+    try {
+      return new JsonDocument(data.deepCopy());
+    } catch (DocumentException e) {
+      throw new IllegalStateException("Document not cloneable", e);
+    }
+  }
+
   private void validateNotReservedField(String name) throws IllegalArgumentException {
     if (RESERVED_FIELDS.contains(name)) {
       throw new IllegalArgumentException();
