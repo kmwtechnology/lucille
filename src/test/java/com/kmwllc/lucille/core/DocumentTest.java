@@ -66,33 +66,33 @@ public abstract class DocumentTest {
 
   @Test(expected = DocumentException.class)
   public void testCreateWithoutId2() throws Exception {
-    JsonDocument.fromJsonString("{\"field1\":\"val1\"}");
+    createDocumentFromJson("{\"field1\":\"val1\"}");
   }
 
   @Test(expected = DocumentException.class)
   public void testCreateWithoutId3() throws Exception {
-    JsonDocument.fromJsonString("{\"id\":\"\"}");
+    createDocumentFromJson("{\"id\":\"\"}");
   }
 
   @Test(expected = DocumentException.class)
   public void testIntIdJson() throws Exception {
-    JsonDocument.fromJsonString("{\"id\":1}");
+    createDocumentFromJson("{\"id\":1}");
   }
 
   @Test(expected = DocumentException.class)
   public void testNullIdJson() throws Exception {
-    JsonDocument.fromJsonString("{\"id\":null}");
+    createDocumentFromJson("{\"id\":null}");
   }
 
   @Test
   public void testEqualsAndHashcode() throws Exception {
 
-    JsonDocument doc1 =
-        JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
-    JsonDocument doc2 =
-        JsonDocument.fromJsonString("{\"id\":\"123\", \"field2\":\"val2\", \"field1\":\"val1\" }");
-    JsonDocument doc3 =
-        JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val3\"}");
+    Document doc1 =
+        createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+    Document doc2 =
+        createDocumentFromJson("{\"id\":\"123\", \"field2\":\"val2\", \"field1\":\"val1\" }");
+    Document doc3 =
+        createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val3\"}");
 
     assertEquals(doc1, doc1);
     assertEquals(doc1, doc2);
@@ -102,9 +102,12 @@ public abstract class DocumentTest {
     assertNotEquals(doc1, new Object());
     assertEquals(doc1.hashCode(), doc2.hashCode());
 
-    assertEquals(doc1.hashCode(), doc1.clone().hashCode());
-    assertEquals(doc1.clone(), doc1);
-    assertEquals(doc1, doc1.clone());
+//    assertEquals(doc1.hashCode(), doc1.clone().hashCode());
+//    assertEquals(doc1.clone(), doc1);
+//    assertEquals(doc1, doc1.clone());
+    assertEquals(doc1.hashCode(), doc1.copy().hashCode());
+    assertEquals(doc1.copy(), doc1);
+    assertEquals(doc1, doc1.copy());
 
     // hashcodes of unequal objects are not required to be unequal, but if these turned out to be
     // equal
@@ -126,12 +129,12 @@ public abstract class DocumentTest {
 
   @Test(expected = DocumentException.class)
   public void testCreateWithoutId4() throws Exception {
-    JsonDocument.fromJsonString("{\"id\":null}");
+    createDocumentFromJson("{\"id\":null}");
   }
 
   @Test(expected = DocumentException.class)
   public void testCreateWithoutId5() throws Exception {
-    JsonDocument.fromJsonString("{\"id\":1}");
+    createDocumentFromJson("{\"id\":1}");
   }
 
   @Test(expected = DocumentException.class)
@@ -143,7 +146,7 @@ public abstract class DocumentTest {
   public void testCreateFromJsonString() throws Exception {
     // {"id":"123", "field1":"val1", "field2":"val2"}
     Document document =
-        JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+        createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
     assertEquals("123", document.getString("id"));
     assertEquals("123", document.getId());
     assertEquals("val1", document.getString("field1"));
@@ -155,7 +158,7 @@ public abstract class DocumentTest {
     // {"id":"123", "field1":"val1", "field2":"val2"}
     UnaryOperator<String> updater = s -> "id_" + s;
     Document document =
-        JsonDocument.fromJsonString(
+        createDocumentFromJson(
             "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}", updater);
     assertEquals("id_123", document.getString("id"));
     assertEquals("id_123", document.getId());
@@ -182,7 +185,7 @@ public abstract class DocumentTest {
   @Test
   public void testIsMultiValued() throws DocumentException, JsonProcessingException {
     Document document =
-        JsonDocument.fromJsonString(
+        createDocumentFromJson(
             ""
                 + "{\"id\":\"123\", "
                 + "\"null\":null,"
@@ -219,7 +222,7 @@ public abstract class DocumentTest {
   public void testRemoveField() throws DocumentException, JsonProcessingException {
     // {"id":"123", "field1":"val1", "field2":"val2"}
     Document document =
-        JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+        createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
     assertNotNull(document.getString("id"));
     assertNotNull(document.getString("field1"));
     assertNotNull(document.getString("field2"));
@@ -234,7 +237,7 @@ public abstract class DocumentTest {
   @Test
   public void testRemoveFromArray() throws DocumentException, JsonProcessingException {
     // {"id":"123", "field1":"val1", "field2":"val2"}
-    Document document = JsonDocument.fromJsonString("{\"id\":\"123\", \"array\":[\"val1\", \"val2\"]}");
+    Document document = createDocumentFromJson("{\"id\":\"123\", \"array\":[\"val1\", \"val2\"]}");
     assertEquals(List.of("val1", "val2"), document.getStringList("array"));
 
     document.removeFromArray("array", 1);
@@ -260,7 +263,7 @@ public abstract class DocumentTest {
   public void testHasNonNull() throws DocumentException, JsonProcessingException {
     // {"id":"123", "field1":"val1", "field2":null}
     Document document =
-        JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":null}");
+        createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":null}");
     assertTrue(document.hasNonNull("id"));
     assertTrue(document.hasNonNull("field1"));
     assertFalse(document.hasNonNull("field2"));
@@ -345,7 +348,7 @@ public abstract class DocumentTest {
   public void testGetNullField() throws DocumentException, JsonProcessingException {
 
     Document document =
-        JsonDocument.fromJsonString("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
+        createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
 
     List<Object> nullList = new ArrayList<>();
     nullList.add(null);
@@ -611,8 +614,8 @@ public abstract class DocumentTest {
     assertEquals(2, children.size());
     assertEquals(child1, children.get(0));
     assertEquals(child2, children.get(1));
-    JsonDocument deserializedParent = JsonDocument.fromJsonString(parent.toString());
-    assertEquals(parent, JsonDocument.fromJsonString(parent.toString()));
+    Document deserializedParent = createDocumentFromJson(parent.toString());
+    assertEquals(parent, createDocumentFromJson(parent.toString()));
     assertTrue(deserializedParent.hasChildren());
     List<Document> deserializedChildren = deserializedParent.getChildren();
     assertEquals(child1, deserializedChildren.get(0));
@@ -629,7 +632,7 @@ public abstract class DocumentTest {
     // so the json-stringified form of the document should not change after calling getChildren()
     assertEquals(beforeString, afterString);
     assertEquals(0, children.size());
-    assertEquals(parent, JsonDocument.fromJsonString(parent.toString()));
+    assertEquals(parent, createDocumentFromJson(parent.toString()));
   }
 
   @Test
@@ -652,7 +655,7 @@ public abstract class DocumentTest {
     // stringify the document and recreate it from the string; confirm getStringList still returns
     // array with two nulls
     assertEquals("{\"id\":\"doc\",\"field1\":[null,null]}", document.toString());
-    document = JsonDocument.fromJsonString(document.toString());
+    document = createDocumentFromJson(document.toString());
     field1 = document.getStringList("field1");
     assertNull(field1.get(0));
     assertNull(field1.get(1));
@@ -716,7 +719,7 @@ public abstract class DocumentTest {
   public void testRenameAppendNotArray() throws DocumentException, JsonProcessingException {
 
     // {"id":"123", "field1":"val1"}
-    Document document = JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\"}");
+    Document document = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\"}");
     document.addToField("final", "first");
     document.addToField("final", "second");
 
@@ -1000,8 +1003,8 @@ public abstract class DocumentTest {
     Document d = createDocument("id1");
     d.setField("myField", node);
 
-    assertEquals(d, JsonDocument.fromJsonString(d.toString()));
-    assertEquals(d.toString(), JsonDocument.fromJsonString(d.toString()).toString());
+    assertEquals(d, createDocumentFromJson(d.toString()));
+    assertEquals(d.toString(), createDocumentFromJson(d.toString()).toString());
 
     JsonNode node2 = mapper.readTree("{\"a\":1, \"b\":3}");
     Document d2 = createDocument("id1");
@@ -1020,8 +1023,8 @@ public abstract class DocumentTest {
     Document d = createDocument("id1");
     d.setField("myField", node);
 
-    assertEquals(d, JsonDocument.fromJsonString(d.toString()));
-    assertEquals(d.toString(), JsonDocument.fromJsonString(d.toString()).toString());
+    assertEquals(d, createDocumentFromJson(d.toString()));
+    assertEquals(d.toString(), createDocumentFromJson(d.toString()).toString());
 
     JsonNode node2 = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 3}] }");
     Document d2 = createDocument("id1");
@@ -1040,8 +1043,8 @@ public abstract class DocumentTest {
     Document d = createDocument("id1");
     d.setField("myField", node);
 
-    assertEquals(d, JsonDocument.fromJsonString(d.toString()));
-    assertEquals(d.toString(), JsonDocument.fromJsonString(d.toString()).toString());
+    assertEquals(d, createDocumentFromJson(d.toString()));
+    assertEquals(d.toString(), createDocumentFromJson(d.toString()).toString());
 
     JsonNode node2 = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 3} }");
     Document d2 = createDocument("id1");
@@ -1142,7 +1145,7 @@ public abstract class DocumentTest {
   @Test
   public void testRemoveDuplicatesSameField() throws DocumentException, JsonProcessingException {
     Document d =
-        JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":[\"1\"]}");
+        createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":[\"1\"]}");
 
     // single valued
     d.removeDuplicateValues("field1", null);
