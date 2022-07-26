@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.message;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.KafkaDocument;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -16,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 public class HybridIndexerMessageManager implements IndexerMessageManager {
 
-  private final LinkedBlockingQueue<Document> pipelineDest;
+  private final LinkedBlockingQueue<JsonDocument> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
   // a thread-safe Set that can be shared among all indexers running in a JVM
@@ -27,14 +28,14 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
   // before all offsets have been committed)
   private final Set idSet;
 
-  public HybridIndexerMessageManager(LinkedBlockingQueue<Document> pipelineDest,
+  public HybridIndexerMessageManager(LinkedBlockingQueue<JsonDocument> pipelineDest,
                                      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
     this.idSet = null;
   }
 
-  public HybridIndexerMessageManager(LinkedBlockingQueue<Document> pipelineDest,
+  public HybridIndexerMessageManager(LinkedBlockingQueue<JsonDocument> pipelineDest,
                                      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
                                      Set<String> idSet) {
     this.pipelineDest = pipelineDest;
@@ -43,7 +44,7 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
   }
 
   @Override
-  public Document pollCompleted() throws Exception {
+  public JsonDocument pollCompleted() throws Exception {
     return pipelineDest.poll(LocalMessageManager.POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
@@ -56,7 +57,7 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+  public void sendEvent(JsonDocument document, String message, Event.Type type) throws Exception {
     // events are not sent anywhere in hybrid mode, but may be counted
     if (idSet != null) {
       idSet.add(document.getId());
@@ -69,12 +70,12 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
 
   // TODO document assumptions about ordering of documents in batch
   @Override
-  public void batchComplete(List<Document> batch) throws InterruptedException {
+  public void batchComplete(List<JsonDocument> batch) throws InterruptedException {
     if (batch.isEmpty()) {
       return;
     }
     Map<TopicPartition,OffsetAndMetadata> batchOffsets = new HashMap<>();
-    for (Document doc : batch) {
+    for (JsonDocument doc : batch) {
 
       if (!(doc instanceof KafkaDocument)) {
         continue;

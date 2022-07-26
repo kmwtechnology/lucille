@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.filetraverser;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.DocumentException;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.filetraverser.data.DocumentProducer;
 import com.kmwllc.lucille.filetraverser.data.kafkaserde.DocumentSerializer;
 import org.apache.commons.cli.CommandLine;
@@ -48,7 +49,7 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
   private final List<Path> paths;
   private final List<Pattern> includes;
   private final List<Pattern> excludes;
-  private final Producer<String, Document> producer;
+  private final Producer<String, JsonDocument> producer;
   private final Integer maxDepth;
   private final String topic;
   private final DocumentProducer docProducer;
@@ -186,7 +187,7 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
     log.debug("Visiting file {}", file);
 
     final String id = docProducer.createId(file.toString());
-    final Document baseDoc = new Document(id);
+    final JsonDocument baseDoc = new JsonDocument(id);
 
     // Set up basic file properties on the doc
     baseDoc.setField(FILE_PATH, fileName);
@@ -220,15 +221,15 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
   }
 
   /**
-   * Send a tombstone for the given file. Calls {@link DocumentProducer#createTombstone(Path, Document, Throwable)} to
-   * update the given {@link Document} with error info or create a new document if it's null. After the {@code Document}
+   * Send a tombstone for the given file. Calls {@link DocumentProducer#createTombstone(Path, JsonDocument, Throwable)} to
+   * update the given {@link JsonDocument} with error info or create a new document if it's null. After the {@code Document}
    * has been updated, {@link this#sendDocumentsToTopic(List)} sends the document.
    *
    * @param file The file the error occurred on
    * @param doc A null document if no information has been extracted yet, or an existing doc to add error information to
    * @param exception The exception that occurred
    */
-  private void handleFailure(Path file, Document doc, Throwable exception) {
+  private void handleFailure(Path file, JsonDocument doc, Throwable exception) {
     log.error("Error occurred while visiting file {}", file, exception);
 
     try {
@@ -238,13 +239,13 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
     }
   }
 
-  private void sendDocumentToTopic(Document doc) {
-    ProducerRecord<String, Document> record = new ProducerRecord<>(topic, doc.getId(), doc);
+  private void sendDocumentToTopic(JsonDocument doc) {
+    ProducerRecord<String, JsonDocument> record = new ProducerRecord<>(topic, doc.getId(), doc);
     producer.send(record);
   }
 
-  private void sendDocumentsToTopic(List<Document> docs) {
-    for (Document doc : docs) {
+  private void sendDocumentsToTopic(List<JsonDocument> docs) {
+    for (JsonDocument doc : docs) {
       sendDocumentToTopic(doc);
     }
   }

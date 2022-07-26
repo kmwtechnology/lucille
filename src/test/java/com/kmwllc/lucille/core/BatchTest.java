@@ -15,8 +15,8 @@ public class BatchTest {
   @Test
   public void testSimpleAdd() {
     Batch batch = new Batch(100, 100);
-    Document doc = new Document("doc");
-    List<Document> docs = batch.add(doc);
+    JsonDocument doc = new JsonDocument("doc");
+    List<JsonDocument> docs = batch.add(doc);
     assertTrue(docs.isEmpty());
     docs = batch.flush();
     assertEquals(1, docs.size());
@@ -29,11 +29,11 @@ public class BatchTest {
   @Test
   public void testSeveralAdd() {
     Batch batch = new Batch(100, 1000);
-    Document doc1 = new Document("doc1");
-    Document doc2 = new Document("doc2");
-    Document doc3 = new Document("doc3");
+    JsonDocument doc1 = new JsonDocument("doc1");
+    JsonDocument doc2 = new JsonDocument("doc2");
+    JsonDocument doc3 = new JsonDocument("doc3");
 
-    List<Document> docs = batch.add(doc1);
+    List<JsonDocument> docs = batch.add(doc1);
     assertTrue(docs.isEmpty());
     docs = batch.add(doc2);
     assertTrue(docs.isEmpty());
@@ -53,10 +53,10 @@ public class BatchTest {
   @Test
   public void testFullBatch() {
     Batch batch = new Batch(1, 1000);
-    Document doc1 = new Document("doc1");
-    Document doc2 = new Document("doc2");
+    JsonDocument doc1 = new JsonDocument("doc1");
+    JsonDocument doc2 = new JsonDocument("doc2");
 
-    List<Document> docs = batch.add(doc1);
+    List<JsonDocument> docs = batch.add(doc1);
     assertTrue(docs.isEmpty());
     docs = batch.add(doc2);
     assertEquals(1, docs.size());
@@ -83,11 +83,11 @@ public class BatchTest {
   @Test
   public void testTimeout() throws InterruptedException {
     Batch batch = new Batch(100, 10);
-    Document doc1 = new Document("doc1");
-    Document doc2 = new Document("doc2");
-    Document doc3 = new Document("doc3");
+    JsonDocument doc1 = new JsonDocument("doc1");
+    JsonDocument doc2 = new JsonDocument("doc2");
+    JsonDocument doc3 = new JsonDocument("doc3");
 
-    List<Document> docs = batch.add(doc1);
+    List<JsonDocument> docs = batch.add(doc1);
     assertTrue(docs.isEmpty());
     TimeUnit.MILLISECONDS.sleep(15);
     docs = batch.flushIfExpired();
@@ -111,9 +111,9 @@ public class BatchTest {
   @Test
   public void testNonTimeout() throws InterruptedException {
     Batch batch = new Batch(100, 100000);
-    Document doc1 = new Document("doc1");
-    Document doc2 = new Document("doc2");
-    Document doc3 = new Document("doc3");
+    JsonDocument doc1 = new JsonDocument("doc1");
+    JsonDocument doc2 = new JsonDocument("doc2");
+    JsonDocument doc3 = new JsonDocument("doc3");
 
     assertTrue(batch.add(doc1).isEmpty());
     assertTrue(batch.flushIfExpired().isEmpty());

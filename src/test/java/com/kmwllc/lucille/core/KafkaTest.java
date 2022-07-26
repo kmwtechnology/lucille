@@ -70,7 +70,7 @@ public class KafkaTest {
     assertEquals(1, records.size());
 
     // verify that the document was properly written to the destination topic
-    Document doc = Document.fromJsonString(records.get(0).getValue());
+    JsonDocument doc = JsonDocument.fromJsonString(records.get(0).getValue());
     assertEquals("2", doc.getId());
     assertEquals("apple", doc.getString("field1"));
 

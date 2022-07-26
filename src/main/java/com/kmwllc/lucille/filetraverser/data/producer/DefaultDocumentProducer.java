@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.filetraverser.data.producer;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.filetraverser.data.DocumentProducer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -23,7 +23,7 @@ public class DefaultDocumentProducer implements DocumentProducer {
   public DefaultDocumentProducer(boolean childCopyParentMetadata) {}
 
   @Override
-  public List<Document> produceDocuments(Path file, Document doc) {
+  public List<JsonDocument> produceDocuments(Path file, JsonDocument doc) {
     try {
       doc.setField(CONTENT, ENCODER.encodeToString(Files.readAllBytes(file)));
     } catch (IOException e) {
@@ -36,14 +36,14 @@ public class DefaultDocumentProducer implements DocumentProducer {
   }
 
   /**
-   * Decodes file contents sent by this {@link DocumentProducer} type from the provided {@link Document}.
+   * Decodes file contents sent by this {@link DocumentProducer} type from the provided {@link JsonDocument}.
    *
    * @param doc The document to extract binary data from
    * @return The byte[] binary data contained within the doc
    * @throws NullPointerException if the document doesn't contain the Content {@link this#CONTENT} field or the
    *                              field is null
    */
-  public static byte[] decodeFileContents(Document doc) throws NullPointerException {
+  public static byte[] decodeFileContents(JsonDocument doc) throws NullPointerException {
     if (!doc.hasNonNull(CONTENT)) {
       // TODO: what do we actually want to do here?
       throw new NullPointerException("Document does not contain CONTENT field \"" + CONTENT + "\"");

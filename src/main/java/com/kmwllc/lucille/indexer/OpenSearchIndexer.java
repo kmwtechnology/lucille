@@ -1,8 +1,9 @@
 package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.ConfigUtils;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.OpenSearchUtils;
@@ -76,18 +77,18 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected void sendToIndex(List<JsonDocument> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) return;
 
     BulkRequest bulkRequest = new BulkRequest(index);
 
     // determine what field to use as id field and iterate over the documents
-    for (Document doc : documents) {
+    for (JsonDocument doc : documents) {
       Map<String, Object> indexerDoc = getIndexerDoc(doc);
 
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
-      indexerDoc.remove(Document.CHILDREN_FIELD);
+      indexerDoc.remove(JsonDocument.CHILDREN_FIELD);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
       String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
@@ -113,17 +114,17 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private void addChildren(Document doc, Map<String, Object> indexerDoc) {
-    List<Document> children = doc.getChildren();
+  private void addChildren(JsonDocument doc, Map<String, Object> indexerDoc) {
+    List<JsonDocument> children = doc.getChildren();
     if (children == null || children.isEmpty()) {
       return;
     }
-    for (Document child : children) {
+    for (JsonDocument child : children) {
       Map<String, Object> map = child.asMap();
       Map<String, Object> indexerChildDoc = new HashMap<>();
       for (String key : map.keySet()) {
         // we don't support children that contain nested children
-        if (Document.CHILDREN_FIELD.equals(key)) {
+        if (JsonDocument.CHILDREN_FIELD.equals(key)) {
           continue;
         }
         Object value = map.get(key);

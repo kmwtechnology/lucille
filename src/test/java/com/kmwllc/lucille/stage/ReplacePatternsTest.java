@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Stage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -15,18 +16,18 @@ public class ReplacePatternsTest {
   public void testReplacePatterns() throws Exception {
     Stage stage = factory.get("ReplacePatternsTest/config.conf");
 
-    Document doc = new Document("doc");
+    JsonDocument doc = new JsonDocument("doc");
     doc.setField("input1", "The term false should be replaced.");
     stage.processDocument(doc);
     assertEquals("The term REPLACED should be replaced.", doc.getStringList("output1").get(0));
 
-    Document doc2 = new Document("doc2");
+    JsonDocument doc2 = new JsonDocument("doc2");
     doc2.setField("input2", "false should be replaced wherever false is found, there should be no false left.");
     stage.processDocument(doc2);
     assertEquals("REPLACED should be replaced wherever REPLACED is found, there should be no REPLACED left.",
         doc2.getStringList("output2").get(0));
 
-    Document doc3 = new Document("doc3");
+    JsonDocument doc3 = new JsonDocument("doc3");
     doc3.setField("input1", "false remove this should be kept false");
     doc3.setField("input2", "remove remove remove");
     doc3.setField("input3", "This should be untouched");

@@ -1,9 +1,10 @@
 package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.ConfigUtils;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.SolrUtils;
@@ -73,7 +74,7 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected void sendToIndex(List<JsonDocument> documents) throws Exception {
 
     if (solrClient==null) {
       log.debug("sendToSolr bypassed for documents: " + documents);
@@ -81,7 +82,7 @@ public class SolrIndexer extends Indexer {
     }
 
     List<SolrInputDocument> solrDocs = new ArrayList();
-    for (Document doc : documents) {
+    for (JsonDocument doc : documents) {
 
       Map<String,Object> map = getIndexerDoc(doc);
       SolrInputDocument solrDoc = new SolrInputDocument();
@@ -92,12 +93,12 @@ public class SolrIndexer extends Indexer {
 
       for (String key : map.keySet()) {
 
-        if (Document.CHILDREN_FIELD.equals(key)) {
+        if (JsonDocument.CHILDREN_FIELD.equals(key)) {
           continue;
         }
 
-        if (idOverride!=null && Document.ID_FIELD.equals(key)) {
-          solrDoc.setField(Document.ID_FIELD, idOverride);
+        if (idOverride!=null && JsonDocument.ID_FIELD.equals(key)) {
+          solrDoc.setField(JsonDocument.ID_FIELD, idOverride);
           continue;
         }
 
@@ -115,17 +116,17 @@ public class SolrIndexer extends Indexer {
     solrClient.add(solrDocs);
   }
 
-  private void addChildren(Document doc, SolrInputDocument solrDoc) throws IndexerException {
-    List<Document> children = doc.getChildren();
+  private void addChildren(JsonDocument doc, SolrInputDocument solrDoc) throws IndexerException {
+    List<JsonDocument> children = doc.getChildren();
     if (children==null || children.isEmpty()) {
       return;
     }
-    for (Document child : children) {
+    for (JsonDocument child : children) {
       Map<String,Object> map = child.asMap();
       SolrInputDocument solrChild = new SolrInputDocument();
       for (String key : map.keySet()) {
         // we don't support children that contain nested children
-        if (Document.CHILDREN_FIELD.equals(key)) {
+        if (JsonDocument.CHILDREN_FIELD.equals(key)) {
           continue;
         }
         Object value = map.get(key);

@@ -59,7 +59,7 @@ class Worker implements Runnable {
     Timer timer = metrics.timer(metricsPrefix + METRICS_SUFFIX);
 
     while (running) {
-      Document doc;
+      JsonDocument doc;
       try {
         pollInstant.set(Instant.now());
         // blocking poll with a timeout which we assume to be in the range of
@@ -94,7 +94,7 @@ class Worker implements Runnable {
         continue;
       }
 
-      List<Document> results = null;
+      List<JsonDocument> results = null;
       try {
         Timer.Context context = timer.time();
         results = pipeline.processDocument(doc);
@@ -118,7 +118,7 @@ class Worker implements Runnable {
         // BEFORE the parent document is completed. This prevents a situation where the Runner
         // assumes the run is complete because the parent is complete and the Publisher didn't know
         // about the children.
-        for (Document result : results) {
+        for (JsonDocument result : results) {
           // a document is a child if it has a different ID from the initial document
           if (!doc.getId().equals(result.getId())) {
             manager.sendEvent(result, null, Event.Type.CREATE);
@@ -126,7 +126,7 @@ class Worker implements Runnable {
         }
 
         // send the initial document and any children to the topic for processed documents
-        for (Document result : results) {
+        for (JsonDocument result : results) {
           manager.sendCompleted(result);
         }
       } catch (Exception e) {
@@ -159,7 +159,7 @@ class Worker implements Runnable {
     pipeline.logMetrics();
   }
 
-  private void commitOffsetsAndRemoveCounter(Document doc) {
+  private void commitOffsetsAndRemoveCounter(JsonDocument doc) {
     try {
       manager.commitPendingDocOffsets();
       if (trackRetries && doc!=null) {

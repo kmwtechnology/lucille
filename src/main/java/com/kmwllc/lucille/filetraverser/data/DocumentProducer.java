@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.filetraverser.data;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.DocumentException;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.filetraverser.FileTraverser;
 import com.kmwllc.lucille.filetraverser.data.producer.DefaultDocumentProducer;
 import com.kmwllc.lucille.filetraverser.data.producer.OpenCSVDocumentProducer;
@@ -18,7 +19,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * An interface for classes that handle the production of {@link Document}s by traversing a file tree.
+ * An interface for classes that handle the production of {@link JsonDocument}s by traversing a file tree.
  * These {@code Documents} can be sent to Kafka using a {@link org.apache.kafka.clients.producer.Producer} set up
  * with a {@link com.kmwllc.lucille.filetraverser.data.kafkaserde.DocumentSerializer}, and consumed using a
  * {@link org.apache.kafka.clients.consumer.Consumer} set up with a
@@ -26,7 +27,7 @@ import java.util.Locale;
  * <p>
  * Several methods are defined as
  * {@code default} for convenience and may be overridden in the implementing class, but the only required method
- * is the {@link this#produceDocuments(Path, Document)} method, which handles the creation of the documents from the
+ * is the {@link this#produceDocuments(Path, JsonDocument)} method, which handles the creation of the documents from the
  * given file.
  */
 public interface DocumentProducer {
@@ -51,7 +52,7 @@ public interface DocumentProducer {
    * @return A list of documents produced from the file, or an empty list if there are none
    * @throws DocumentException If a non-recoverable error occurs while processing the file
    */
-  List<Document> produceDocuments(Path file, Document doc) throws DocumentException, IOException;
+  List<JsonDocument> produceDocuments(Path file, JsonDocument doc) throws DocumentException, IOException;
 
   /**
    * Returns true if the file's size should be checked before running document producer on file, otherwise, no check
@@ -83,7 +84,7 @@ public interface DocumentProducer {
 
   /**
    * Creates a tombstone of the provided document if an error occurs, logging the error in the
-   * {@link Document#ERROR_FIELD} and ensuring the {@link Document#ID_FIELD} and {@link FileTraverser#FILE_PATH} fields
+   * {@link JsonDocument#ERROR_FIELD} and ensuring the {@link JsonDocument#ID_FIELD} and {@link FileTraverser#FILE_PATH} fields
    * are set.
    *
    * @param file The file to create a tombstone for
@@ -92,9 +93,9 @@ public interface DocumentProducer {
    * @return A tombstone document
    * @throws DocumentException If an error occurred while creating a new tombstone document
    */
-  default Document createTombstone(Path file, Document doc, Throwable e) throws DocumentException {
+  default JsonDocument createTombstone(Path file, JsonDocument doc, Throwable e) throws DocumentException {
     if (doc == null) {
-      doc = new Document(createId(file.toString()));
+      doc = new JsonDocument(createId(file.toString()));
     }
     doc.setField(FileTraverser.FILE_PATH, file.toString());
     doc.logError("Error occurred while loading document with id " + doc.getId() + ": " + e.getMessage());

@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,8 +24,8 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   public static final int DEFAULT_QUEUE_CAPACITY = 100;
 
   private final BlockingQueue<Event> pipelineEvents = new LinkedBlockingQueue<>();
-  private final BlockingQueue<Document> pipelineSource;
-  private final BlockingQueue<Document> pipelineDest;
+  private final BlockingQueue<JsonDocument> pipelineSource;
+  private final BlockingQueue<JsonDocument> pipelineDest;
 
   public LocalMessageManager() {
     this.pipelineSource = new LinkedBlockingQueue<>();
@@ -49,12 +50,12 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   private String pipelineName;
 
   @Override
-  public Document pollCompleted() throws Exception {
+  public JsonDocument pollCompleted() throws Exception {
     return pipelineDest.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
   @Override
-  public Document pollDocToProcess() throws Exception {
+  public JsonDocument pollDocToProcess() throws Exception {
     return pipelineSource.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
@@ -63,17 +64,17 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   @Override
-  public void sendCompleted(Document document) throws Exception {
+  public void sendCompleted(JsonDocument document) throws Exception {
     pipelineDest.put(document);
   }
 
   @Override
-  public void sendFailed(Document document) throws Exception {
+  public void sendFailed(JsonDocument document) throws Exception {
 
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+  public void sendEvent(JsonDocument document, String message, Event.Type type) throws Exception {
     Event event = new Event(document.getId(), document.getRunId(), message, type);
     sendEvent(event);
   }
@@ -103,7 +104,7 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   @Override
-  public void sendForProcessing(Document document) throws Exception {
+  public void sendForProcessing(JsonDocument document) throws Exception {
     pipelineSource.put(document);
   }
 
@@ -112,6 +113,6 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   @Override
-  public void batchComplete(List<Document> batch) throws Exception {
+  public void batchComplete(List<JsonDocument> batch) throws Exception {
   }
 }

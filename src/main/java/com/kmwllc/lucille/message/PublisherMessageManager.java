@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.message;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Event;
 
 /**
@@ -26,7 +26,7 @@ public interface PublisherMessageManager {
   /**
    * Submits a Document for processing by a configured pipeline.
    */
-  void sendForProcessing(Document document) throws Exception;
+  void sendForProcessing(JsonDocument document) throws Exception;
 
   /**
    * Retrieves and removes an Event waiting to be processed.

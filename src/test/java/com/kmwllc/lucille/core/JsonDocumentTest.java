@@ -17,42 +17,42 @@ import java.util.function.UnaryOperator;
 import static org.junit.Assert.*;
 
 @RunWith(JUnit4.class)
-public class DocumentTest {
+public class JsonDocumentTest {
 
   @Test(expected = NullPointerException.class)
   public void testCreateWithoutId1() {
-    new Document((String) null);
+    new JsonDocument((String) null);
   }
 
   @Test(expected = DocumentException.class)
   public void testCreateWithoutId2() throws Exception {
-    Document.fromJsonString("{\"field1\":\"val1\"}");
+    JsonDocument.fromJsonString("{\"field1\":\"val1\"}");
   }
 
   @Test(expected = DocumentException.class)
   public void testCreateWithoutId3() throws Exception {
-    Document.fromJsonString("{\"id\":\"\"}");
+    JsonDocument.fromJsonString("{\"id\":\"\"}");
   }
 
   @Test(expected = DocumentException.class)
   public void testIntIdJson() throws Exception {
-    Document.fromJsonString("{\"id\":1}");
+    JsonDocument.fromJsonString("{\"id\":1}");
   }
 
   @Test(expected = DocumentException.class)
   public void testNullIdJson() throws Exception {
-    Document.fromJsonString("{\"id\":null}");
+    JsonDocument.fromJsonString("{\"id\":null}");
   }
 
   @Test
   public void testEqualsAndHashcode() throws Exception {
 
-    Document doc1 =
-        Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
-    Document doc2 =
-        Document.fromJsonString("{\"id\":\"123\", \"field2\":\"val2\", \"field1\":\"val1\" }");
-    Document doc3 =
-        Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val3\"}");
+    JsonDocument doc1 =
+        JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+    JsonDocument doc2 =
+        JsonDocument.fromJsonString("{\"id\":\"123\", \"field2\":\"val2\", \"field1\":\"val1\" }");
+    JsonDocument doc3 =
+        JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val3\"}");
 
     assertEquals(doc1, doc1);
     assertEquals(doc1, doc2);
@@ -74,7 +74,7 @@ public class DocumentTest {
 
   @Test
   public void testLength() {
-    Document d = new Document("id");
+    JsonDocument d = new JsonDocument("id");
     d.setField("field1", 1);
     d.setField("field2", 1);
     d.addToField("field2", 2);
@@ -86,24 +86,24 @@ public class DocumentTest {
 
   @Test(expected = DocumentException.class)
   public void testCreateWithoutId4() throws Exception {
-    Document.fromJsonString("{\"id\":null}");
+    JsonDocument.fromJsonString("{\"id\":null}");
   }
 
   @Test(expected = DocumentException.class)
   public void testCreateWithoutId5() throws Exception {
-    Document.fromJsonString("{\"id\":1}");
+    JsonDocument.fromJsonString("{\"id\":1}");
   }
 
   @Test(expected = DocumentException.class)
   public void testCreateWithoutId6() throws Exception {
-    new Document(new ObjectMapper().createObjectNode());
+    new JsonDocument(new ObjectMapper().createObjectNode());
   }
 
   @Test
   public void testCreateFromJsonString() throws Exception {
     // {"id":"123", "field1":"val1", "field2":"val2"}
-    Document document =
-        Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+    JsonDocument document =
+        JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
     assertEquals("123", document.getString("id"));
     assertEquals("123", document.getId());
     assertEquals("val1", document.getString("field1"));
@@ -114,8 +114,8 @@ public class DocumentTest {
   public void testCreateFromJsonStringWithUpdater() throws Exception {
     // {"id":"123", "field1":"val1", "field2":"val2"}
     UnaryOperator<String> updater = s -> "id_" + s;
-    Document document =
-        Document.fromJsonString(
+    JsonDocument document =
+        JsonDocument.fromJsonString(
             "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}", updater);
     assertEquals("id_123", document.getString("id"));
     assertEquals("id_123", document.getId());
@@ -125,14 +125,14 @@ public class DocumentTest {
 
   @Test
   public void testCreateFromID() {
-    Document document = new Document("123");
+    JsonDocument document = new JsonDocument("123");
     assertEquals("123", document.getString("id"));
     assertEquals("123", document.getId());
   }
 
   @Test
   public void testCreateFromIdAndRunId() {
-    Document document = new Document("123", "456");
+    JsonDocument document = new JsonDocument("123", "456");
     assertEquals("123", document.getString("id"));
     assertEquals("123", document.getId());
     assertEquals("456", document.getString("run_id"));
@@ -141,8 +141,8 @@ public class DocumentTest {
 
   @Test
   public void testIsMultiValued() throws DocumentException, JsonProcessingException {
-    Document document =
-        Document.fromJsonString(
+    JsonDocument document =
+        JsonDocument.fromJsonString(
             ""
                 + "{\"id\":\"123\", "
                 + "\"null\":null,"
@@ -164,8 +164,8 @@ public class DocumentTest {
 
   @Test
   public void testRemoveReservedField() {
-    Document document = new Document("123");
-    for (String field : Document.RESERVED_FIELDS) {
+    JsonDocument document = new JsonDocument("123");
+    for (String field : JsonDocument.RESERVED_FIELDS) {
       try {
         document.removeField(field);
         fail();
@@ -178,8 +178,8 @@ public class DocumentTest {
   @Test
   public void testRemoveField() throws DocumentException, JsonProcessingException {
     // {"id":"123", "field1":"val1", "field2":"val2"}
-    Document document =
-        Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+    JsonDocument document =
+        JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
     assertNotNull(document.getString("id"));
     assertNotNull(document.getString("field1"));
     assertNotNull(document.getString("field2"));
@@ -194,7 +194,7 @@ public class DocumentTest {
   @Test
   public void testRemoveFromArray() throws DocumentException, JsonProcessingException {
     // {"id":"123", "field1":"val1", "field2":"val2"}
-    Document document = Document.fromJsonString("{\"id\":\"123\", \"array\":[\"val1\", \"val2\"]}");
+    JsonDocument document = JsonDocument.fromJsonString("{\"id\":\"123\", \"array\":[\"val1\", \"val2\"]}");
     assertEquals(List.of("val1", "val2"), document.getStringList("array"));
 
     document.removeFromArray("array", 1);
@@ -206,7 +206,7 @@ public class DocumentTest {
 
   @Test
   public void testClearRunId() {
-    Document document = new Document("123", "456");
+    JsonDocument document = new JsonDocument("123", "456");
     assertEquals("456", document.getRunId());
     document.clearRunId();
     assertNull(document.getRunId());
@@ -219,8 +219,8 @@ public class DocumentTest {
   @Test
   public void testHasNonNull() throws DocumentException, JsonProcessingException {
     // {"id":"123", "field1":"val1", "field2":null}
-    Document document =
-        Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":null}");
+    JsonDocument document =
+        JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":null}");
     assertTrue(document.hasNonNull("id"));
     assertTrue(document.hasNonNull("field1"));
     assertFalse(document.hasNonNull("field2"));
@@ -228,7 +228,7 @@ public class DocumentTest {
 
   @Test
   public void testSetAndGetField() {
-    Document document = new Document("123");
+    JsonDocument document = new JsonDocument("123");
     assertFalse(document.has("field1"));
     document.setField("field1", "val1");
     assertTrue(document.has("field1"));
@@ -237,7 +237,7 @@ public class DocumentTest {
 
   @Test
   public void testGetUnsetField() {
-    Document document = new Document("id");
+    JsonDocument document = new JsonDocument("id");
     assertFalse(document.has("test_field"));
     assertNull(document.getString("test_field"));
     assertNull(document.getStringList("test_field"));
@@ -245,7 +245,7 @@ public class DocumentTest {
 
   @Test
   public void testAddToField() {
-    Document document = new Document("123");
+    JsonDocument document = new JsonDocument("123");
     assertFalse(document.has("field1"));
     document.addToField("field1", "val1");
     document.addToField("field1", "val2");
@@ -256,7 +256,7 @@ public class DocumentTest {
 
   @Test
   public void testWriteToField() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     assertFalse(document.has("field"));
     document.update("field", UpdateMode.APPEND, "hello there");
     assertEquals("hello there", document.getStringList("field").get(0));
@@ -275,7 +275,7 @@ public class DocumentTest {
 
   @Test
   public void testGetStringsSingleValued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.setField("pets", "dog");
     assertFalse(document.isMultiValued("pets"));
     assertEquals("dog", document.getString("pets"));
@@ -284,7 +284,7 @@ public class DocumentTest {
 
   @Test
   public void testGetStringsMultiValued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.setField("pets", "dog");
     assertFalse(document.isMultiValued("pets"));
     document.addToField("pets", "cat");
@@ -295,7 +295,7 @@ public class DocumentTest {
 
   @Test
   public void testGetStringMultivalued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.addToField("field1", "val1");
     document.addToField("field1", "val2");
     assertEquals("val1", document.getString("field1"));
@@ -304,8 +304,8 @@ public class DocumentTest {
   @Test
   public void testGetNullField() throws DocumentException, JsonProcessingException {
 
-    Document document =
-        Document.fromJsonString("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
+    JsonDocument document =
+        JsonDocument.fromJsonString("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
 
     List<Object> nullList = new ArrayList<>();
     nullList.add(null);
@@ -349,13 +349,13 @@ public class DocumentTest {
 
   @Test
   public void testGetIntMissing() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     assertNull(document.getInt("field1"));
   }
 
   @Test
   public void testGetIntSingleValued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.setField("number", 1);
     assertFalse(document.isMultiValued("number"));
     assertEquals(1, document.getInt("number").intValue());
@@ -364,13 +364,13 @@ public class DocumentTest {
 
   @Test
   public void testGetIntListMissing() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     assertNull(document.getIntList("field1"));
   }
 
   @Test
   public void testGetIntsMultiValued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.setField("pets", 3);
     assertFalse(document.isMultiValued("pets"));
     document.addToField("pets", 2);
@@ -381,7 +381,7 @@ public class DocumentTest {
 
   @Test
   public void testGetIntMultivalued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.addToField("field1", 16);
     document.addToField("field1", -38);
     assertEquals(16, document.getInt("field1").intValue());
@@ -389,13 +389,13 @@ public class DocumentTest {
 
   @Test
   public void testGetDoubleMissing() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     assertNull(document.getDouble("field1"));
   }
 
   @Test
   public void testGetDoubleSingleValued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.setField("double", 1.455);
     assertFalse(document.isMultiValued("double"));
     assertEquals(1.455, document.getDouble("double"), 0);
@@ -404,13 +404,13 @@ public class DocumentTest {
 
   @Test
   public void testGetDoubleListMissing() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     assertNull(document.getDoubleList("field1"));
   }
 
   @Test
   public void testGetDoublesMultiValued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.setField("gpa", 4.0);
     assertFalse(document.isMultiValued("gpa"));
     document.addToField("gpa", 2);
@@ -421,7 +421,7 @@ public class DocumentTest {
 
   @Test
   public void testGetDoubleMultivalued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.addToField("field1", 16.44);
     document.addToField("field1", -38.91);
     assertEquals(16.44, document.getDouble("field1"), 0);
@@ -429,13 +429,13 @@ public class DocumentTest {
 
   @Test
   public void testGetBooleanMissing() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     assertNull(document.getBoolean("field1"));
   }
 
   @Test
   public void testGetBooleanSingleValued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.setField("bool", true);
     assertFalse(document.isMultiValued("bool"));
     assertEquals(true, document.getBoolean("bool"));
@@ -444,13 +444,13 @@ public class DocumentTest {
 
   @Test
   public void testGetBooleanListMissing() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     assertNull(document.getBooleanList("field1"));
   }
 
   @Test
   public void testGetBooleansMultiValued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.setField("bools", true);
     assertFalse(document.isMultiValued("bools"));
     document.addToField("bools", false);
@@ -461,7 +461,7 @@ public class DocumentTest {
 
   @Test
   public void testGetBooleanMultivalued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.addToField("field1", true);
     document.addToField("field1", false);
     assertEquals(true, document.getBoolean("field1"));
@@ -469,13 +469,13 @@ public class DocumentTest {
 
   @Test
   public void testGetLongMissing() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     assertNull(document.getLong("field1"));
   }
 
   @Test
   public void testGetLongSingleValued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.setField("long", 1000000L);
     assertFalse(document.isMultiValued("long"));
     assertEquals(1000000L, document.getLong("long").longValue());
@@ -484,13 +484,13 @@ public class DocumentTest {
 
   @Test
   public void testGetLongListMissing() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     assertNull(document.getLongList("field1"));
   }
 
   @Test
   public void testGetLongsMultiValued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.setField("longs", 14L);
     assertFalse(document.isMultiValued("longs"));
     document.addToField("longs", 1234L);
@@ -501,7 +501,7 @@ public class DocumentTest {
 
   @Test
   public void testGetLongMultivalued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.addToField("field1", 3L);
     document.addToField("field1", 1933384L);
     assertEquals(3L, document.getLong("field1").longValue());
@@ -509,13 +509,13 @@ public class DocumentTest {
 
   @Test
   public void testGetInstantMissing() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     assertNull(document.getInstant("field1"));
   }
 
   @Test
   public void testGetInstantSingleValued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.setField("instant", Instant.ofEpochSecond(10000));
     assertFalse(document.isMultiValued("instant"));
     assertEquals(Instant.ofEpochSecond(10000), document.getInstant("instant"));
@@ -527,13 +527,13 @@ public class DocumentTest {
 
   @Test
   public void testGetInstantListMissing() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     assertNull(document.getInstantList("field1"));
   }
 
   @Test
   public void testGetInstantsMultiValued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.setField("instants", Instant.ofEpochSecond(44));
     assertFalse(document.isMultiValued("instants"));
     document.addToField("instants", Instant.ofEpochSecond(1033000));
@@ -549,7 +549,7 @@ public class DocumentTest {
 
   @Test
   public void testGetInstantMultivalued() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.addToField("field1", Instant.ofEpochSecond(44));
     document.addToField("field1", Instant.ofEpochSecond(94));
     assertEquals(Instant.ofEpochSecond(44), document.getInstant("field1"));
@@ -557,46 +557,46 @@ public class DocumentTest {
 
   @Test
   public void testChildren() throws Exception {
-    Document parent = new Document("parent");
+    JsonDocument parent = new JsonDocument("parent");
     assertFalse(parent.hasChildren());
-    Document child1 = new Document("child1");
+    JsonDocument child1 = new JsonDocument("child1");
     child1.setField("field1", "val1");
-    Document child2 = new Document("child2");
+    JsonDocument child2 = new JsonDocument("child2");
     child2.setField("field1", "val1b");
     child1.setField("field2", "val2");
     parent.addChild(child1);
     assertTrue(parent.hasChildren());
     parent.addChild(child2);
-    List<Document> children = parent.getChildren();
+    List<JsonDocument> children = parent.getChildren();
     assertEquals(2, children.size());
     assertEquals(child1, children.get(0));
     assertEquals(child2, children.get(1));
-    Document deserializedParent = Document.fromJsonString(parent.toString());
-    assertEquals(parent, Document.fromJsonString(parent.toString()));
+    JsonDocument deserializedParent = JsonDocument.fromJsonString(parent.toString());
+    assertEquals(parent, JsonDocument.fromJsonString(parent.toString()));
     assertTrue(deserializedParent.hasChildren());
-    List<Document> deserializedChildren = deserializedParent.getChildren();
+    List<JsonDocument> deserializedChildren = deserializedParent.getChildren();
     assertEquals(child1, deserializedChildren.get(0));
     assertEquals(child2, deserializedChildren.get(1));
   }
 
   @Test
   public void testEmptyChildren() throws Exception {
-    Document parent = new Document("parent");
+    JsonDocument parent = new JsonDocument("parent");
     String beforeString = parent.toString();
-    List<Document> children = parent.getChildren();
+    List<JsonDocument> children = parent.getChildren();
     String afterString = parent.toString();
     // getChildren() should not create a .children field if it didn't already exist,
     // so the json-stringified form of the document should not change after calling getChildren()
     assertEquals(beforeString, afterString);
     assertEquals(0, children.size());
-    assertEquals(parent, Document.fromJsonString(parent.toString()));
+    assertEquals(parent, JsonDocument.fromJsonString(parent.toString()));
   }
 
   @Test
   public void testNullHandling() throws Exception {
     // set a field to null and confirm that we get back a null when we call getString(), not the
     // string "null"
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.setField("field1", (String) null);
     assertNull(document.getString("field1"));
     assertFalse(document.isMultiValued("field1"));
@@ -612,7 +612,7 @@ public class DocumentTest {
     // stringify the document and recreate it from the string; confirm getStringList still returns
     // array with two nulls
     assertEquals("{\"id\":\"doc\",\"field1\":[null,null]}", document.toString());
-    document = Document.fromJsonString(document.toString());
+    document = JsonDocument.fromJsonString(document.toString());
     field1 = document.getStringList("field1");
     assertNull(field1.get(0));
     assertNull(field1.get(1));
@@ -622,7 +622,7 @@ public class DocumentTest {
 
   @Test
   public void testRenameField() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.addToField("initial", "first");
     document.addToField("initial", "second");
     document.renameField("initial", "final", UpdateMode.SKIP);
@@ -633,7 +633,7 @@ public class DocumentTest {
 
   @Test
   public void testRenameOverwrite() {
-    Document document = new Document("document");
+    JsonDocument document = new JsonDocument("document");
     document.setField("initial", "first");
     document.setField("final", "will be repalced");
     assertTrue(document.has("final"));
@@ -643,7 +643,7 @@ public class DocumentTest {
 
   @Test
   public void testRenameAppend() {
-    Document document = new Document("document");
+    JsonDocument document = new JsonDocument("document");
     document.addToField("final", "first");
     document.addToField("final", "second");
     document.addToField("initial", "third");
@@ -658,7 +658,7 @@ public class DocumentTest {
 
   @Test
   public void testRenameFieldSkip() {
-    Document document = new Document("doc");
+    JsonDocument document = new JsonDocument("doc");
     document.addToField("initial", "first");
     document.addToField("final", "second");
     assertEquals("first", document.getString("initial"));
@@ -676,7 +676,7 @@ public class DocumentTest {
   public void testRenameAppendNotArray() throws DocumentException, JsonProcessingException {
 
     // {"id":"123", "field1":"val1"}
-    Document document = Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\"}");
+    JsonDocument document = JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\"}");
     document.addToField("final", "first");
     document.addToField("final", "second");
 
@@ -694,13 +694,13 @@ public class DocumentTest {
     return (List<Object>) value;
   }
 
-  private static List<Object> valueListFromDocument(Document document, String field) {
+  private static List<Object> valueListFromDocument(JsonDocument document, String field) {
     return toList(document.asMap().get(field));
   }
 
   @Test
   public void testRenamePreservesTypes() {
-    Document document = new Document("document");
+    JsonDocument document = new JsonDocument("document");
     document.setField("initial", 5);
     document.addToField("initial", 22);
     document.renameField("initial", "final", UpdateMode.OVERWRITE);
@@ -714,7 +714,7 @@ public class DocumentTest {
 
   @Test
   public void testUpdateString() {
-    Document document = new Document("id1");
+    JsonDocument document = new JsonDocument("id1");
     document.update("myStringField", UpdateMode.OVERWRITE, "val1");
     document.update("myStringField", UpdateMode.OVERWRITE, "val2");
     document.update("myStringField", UpdateMode.APPEND, "val3");
@@ -724,7 +724,7 @@ public class DocumentTest {
 
   @Test
   public void testUpdateInt() {
-    Document document = new Document("id1");
+    JsonDocument document = new JsonDocument("id1");
     document.update("myIntField", UpdateMode.OVERWRITE, 1);
     document.update("myIntField", UpdateMode.OVERWRITE, 2);
     document.update("myIntField", UpdateMode.APPEND, 3);
@@ -734,7 +734,7 @@ public class DocumentTest {
 
   @Test
   public void testUpdateLong() {
-    Document document = new Document("id1");
+    JsonDocument document = new JsonDocument("id1");
     document.update("myLongField", UpdateMode.OVERWRITE, 1L);
     document.update("myLongField", UpdateMode.OVERWRITE, 2L);
     document.update("myLongField", UpdateMode.APPEND, 3L);
@@ -744,7 +744,7 @@ public class DocumentTest {
 
   @Test
   public void testUpdateDouble() {
-    Document document = new Document("id1");
+    JsonDocument document = new JsonDocument("id1");
     document.update("myDoubleField", UpdateMode.OVERWRITE, 1D);
     document.update("myDoubleField", UpdateMode.OVERWRITE, 2D);
     document.update("myDoubleField", UpdateMode.APPEND, 3D);
@@ -754,7 +754,7 @@ public class DocumentTest {
 
   @Test
   public void testUpdateBoolean() {
-    Document document = new Document("id1");
+    JsonDocument document = new JsonDocument("id1");
     document.update("myBooleanField", UpdateMode.OVERWRITE, true);
     document.update("myBooleanField", UpdateMode.OVERWRITE, false);
     document.update("myBooleanField", UpdateMode.APPEND, true);
@@ -765,7 +765,7 @@ public class DocumentTest {
   @Test
   public void testUpdateInstant() {
 
-    Document document = new Document("id1");
+    JsonDocument document = new JsonDocument("id1");
     document.update("myInstantField", UpdateMode.OVERWRITE, Instant.ofEpochSecond(1));
     document.update("myInstantField", UpdateMode.OVERWRITE, Instant.ofEpochSecond(2));
     document.update("myInstantField", UpdateMode.APPEND, Instant.ofEpochSecond(3));
@@ -785,7 +785,7 @@ public class DocumentTest {
 
   @Test
   public void testUpdateSingleVersusMultiValued() {
-    Document document = new Document("id1");
+    JsonDocument document = new JsonDocument("id1");
     document.update("myStringField1", UpdateMode.OVERWRITE, "val1");
     assertFalse(document.isMultiValued("myStringField1"));
     document.update("myStringField1", UpdateMode.OVERWRITE, "val2");
@@ -808,32 +808,32 @@ public class DocumentTest {
 
   @Test(expected = Exception.class)
   public void testSetDocIdFails() {
-    Document document = new Document("id1");
-    document.setField(Document.ID_FIELD, "id2");
+    JsonDocument document = new JsonDocument("id1");
+    document.setField(JsonDocument.ID_FIELD, "id2");
   }
 
   @Test(expected = Exception.class)
   public void testAddToDocIdFails() {
-    Document document = new Document("id1");
-    document.addToField(Document.ID_FIELD, "id2");
+    JsonDocument document = new JsonDocument("id1");
+    document.addToField(JsonDocument.ID_FIELD, "id2");
   }
 
   @Test(expected = Exception.class)
   public void testUpdateDocIdFails() {
-    Document document = new Document("id1");
-    document.update(Document.ID_FIELD, UpdateMode.OVERWRITE, "id2");
+    JsonDocument document = new JsonDocument("id1");
+    document.update(JsonDocument.ID_FIELD, UpdateMode.OVERWRITE, "id2");
   }
 
   @Test(expected = Exception.class)
   public void testSetRunIdFails() {
-    Document document = new Document("id1");
+    JsonDocument document = new JsonDocument("id1");
     document.initializeRunId("run_id1");
-    document.setField(Document.RUNID_FIELD, "id2");
+    document.setField(JsonDocument.RUNID_FIELD, "id2");
   }
 
   @Test(expected = Exception.class)
   public void testReInitializeRunIdFails() {
-    Document document = new Document("id1");
+    JsonDocument document = new JsonDocument("id1");
     document.initializeRunId("run_id1");
     document.initializeRunId("run_id2");
   }
@@ -842,7 +842,7 @@ public class DocumentTest {
   public void testSetOrAdd() {
 
     // confirm setOrAdd behaves as expected
-    Document document = new Document("id1");
+    JsonDocument document = new JsonDocument("id1");
     document.setOrAdd("field1", "value1");
     assertFalse(document.isMultiValued("field1"));
     assertEquals("value1", document.getString("field1"));
@@ -853,7 +853,7 @@ public class DocumentTest {
     assertEquals(2, document.getStringList("field1").size());
 
     // compare with setField behavior
-    Document document2 = new Document("id2");
+    JsonDocument document2 = new JsonDocument("id2");
     document2.setField("field1", "value1");
     assertFalse(document2.isMultiValued("field1"));
     assertEquals("value1", document2.getString("field1"));
@@ -862,7 +862,7 @@ public class DocumentTest {
     assertEquals("value2", document2.getString("field1"));
 
     // compare with addToField behavior
-    Document document3 = new Document("id1");
+    JsonDocument document3 = new JsonDocument("id1");
     document3.addToField("field1", "value1");
     assertTrue(document3.isMultiValued("field1"));
     assertEquals("value1", document3.getString("field1"));
@@ -875,7 +875,7 @@ public class DocumentTest {
 
   @Test
   public void testSetOrAddInstant() {
-    Document document = new Document("id1");
+    JsonDocument document = new JsonDocument("id1");
     assertFalse(document.has("instant"));
 
     document.setOrAdd("instant", Instant.ofEpochSecond(10000));
@@ -889,8 +889,8 @@ public class DocumentTest {
   @Test
   public void testSetOrAddDocumentSingleValued() {
 
-    Document document = new Document("id1");
-    Document otherDoc = new Document("id2");
+    JsonDocument document = new JsonDocument("id1");
+    JsonDocument otherDoc = new JsonDocument("id2");
 
     document.setOrAdd("newField", otherDoc);
     assertFalse(otherDoc.has("newField"));
@@ -906,8 +906,8 @@ public class DocumentTest {
   @Test
   public void testSetOrAddDocumentMultiValued() {
 
-    Document document = new Document("id1");
-    Document otherDoc = new Document("id2");
+    JsonDocument document = new JsonDocument("id1");
+    JsonDocument otherDoc = new JsonDocument("id2");
 
     document.setOrAdd("newField", "val0");
     assertFalse(document.isMultiValued("newField"));
@@ -926,7 +926,7 @@ public class DocumentTest {
   @Test
   public void testSetOrAddWithOtherDocument() {
 
-    Document d1 = new Document("id1");
+    JsonDocument d1 = new JsonDocument("id1");
     d1.initializeRunId("run1");
     d1.setField("stringField", "val");
     d1.setField("intField", 1);
@@ -934,12 +934,12 @@ public class DocumentTest {
     d1.setField("doubleField", 2.0);
     d1.setField("longField", 3L);
 
-    Document d2 = d1.clone();
+    JsonDocument d2 = d1.clone();
     d1.setOrAddAll(d2);
     d1.setOrAddAll(d2);
     d1.setOrAddAll(d2);
 
-    Document expected = new Document("id1");
+    JsonDocument expected = new JsonDocument("id1");
     expected.initializeRunId("run1");
     for (int i = 0; i <= 3; i++) {
       expected.setOrAdd("stringField", "val");
@@ -956,14 +956,14 @@ public class DocumentTest {
   public void testJsonField() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
     JsonNode node = mapper.readTree("{\"a\":1, \"b\":2}");
-    Document d = new Document("id1");
+    JsonDocument d = new JsonDocument("id1");
     d.setField("myField", node);
 
-    assertEquals(d, Document.fromJsonString(d.toString()));
-    assertEquals(d.toString(), Document.fromJsonString(d.toString()).toString());
+    assertEquals(d, JsonDocument.fromJsonString(d.toString()));
+    assertEquals(d.toString(), JsonDocument.fromJsonString(d.toString()).toString());
 
     JsonNode node2 = mapper.readTree("{\"a\":1, \"b\":3}");
-    Document d2 = new Document("id1");
+    JsonDocument d2 = new JsonDocument("id1");
     d2.setField("myField", node2);
     assertNotEquals(d, d2);
 
@@ -976,14 +976,14 @@ public class DocumentTest {
     ObjectMapper mapper = new ObjectMapper();
 
     JsonNode node = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
-    Document d = new Document("id1");
+    JsonDocument d = new JsonDocument("id1");
     d.setField("myField", node);
 
-    assertEquals(d, Document.fromJsonString(d.toString()));
-    assertEquals(d.toString(), Document.fromJsonString(d.toString()).toString());
+    assertEquals(d, JsonDocument.fromJsonString(d.toString()));
+    assertEquals(d.toString(), JsonDocument.fromJsonString(d.toString()).toString());
 
     JsonNode node2 = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 3}] }");
-    Document d2 = new Document("id1");
+    JsonDocument d2 = new JsonDocument("id1");
     d2.setField("myField", node2);
     assertNotEquals(d, d2);
 
@@ -996,14 +996,14 @@ public class DocumentTest {
     ObjectMapper mapper = new ObjectMapper();
 
     JsonNode node = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
-    Document d = new Document("id1");
+    JsonDocument d = new JsonDocument("id1");
     d.setField("myField", node);
 
-    assertEquals(d, Document.fromJsonString(d.toString()));
-    assertEquals(d.toString(), Document.fromJsonString(d.toString()).toString());
+    assertEquals(d, JsonDocument.fromJsonString(d.toString()));
+    assertEquals(d.toString(), JsonDocument.fromJsonString(d.toString()).toString());
 
     JsonNode node2 = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 3} }");
-    Document d2 = new Document("id1");
+    JsonDocument d2 = new JsonDocument("id1");
     d2.setField("myField", node2);
     assertNotEquals(d, d2);
 
@@ -1013,7 +1013,7 @@ public class DocumentTest {
 
   @Test
   public void testGetAllFieldNames() {
-    Document d = new Document("id");
+    JsonDocument d = new JsonDocument("id");
     d.setField("field1", 1);
     d.setField("field2", 1);
     d.setField("field3", 16);
@@ -1029,7 +1029,7 @@ public class DocumentTest {
 
   @Test
   public void testRemoveDuplicateValuesWithNullTarget() {
-    Document d = new Document("id");
+    JsonDocument d = new JsonDocument("id");
     d.setField("field1", 1);
     d.addToField("field1", 1);
     d.addToField("field1", 16);
@@ -1064,7 +1064,7 @@ public class DocumentTest {
 
   @Test
   public void testRemoveDuplicateValuesWithValidTarget() {
-    Document d = new Document("id");
+    JsonDocument d = new JsonDocument("id");
     d.setField("field1", 1);
     d.addToField("field1", 1);
     d.addToField("field1", 16);
@@ -1081,7 +1081,7 @@ public class DocumentTest {
     // values
     assertEquals("{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}", d.toString());
 
-    Document d2 = new Document("id2");
+    JsonDocument d2 = new JsonDocument("id2");
     d2.setField("field2", "a");
     d2.addToField("field2", "b");
     d2.addToField("field2", "c");
@@ -1100,8 +1100,8 @@ public class DocumentTest {
 
   @Test
   public void testRemoveDuplicatesSameField() throws DocumentException, JsonProcessingException {
-    Document d =
-        Document.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":[\"1\"]}");
+    JsonDocument d =
+        JsonDocument.fromJsonString("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":[\"1\"]}");
 
     // single valued
     d.removeDuplicateValues("field1", null);
@@ -1114,15 +1114,15 @@ public class DocumentTest {
 
   @Test
   public void testLogError() {
-    Document d = new Document("id");
-    assertFalse(d.has(Document.ERROR_FIELD));
+    JsonDocument d = new JsonDocument("id");
+    assertFalse(d.has(JsonDocument.ERROR_FIELD));
 
     d.logError("error1");
-    assertTrue(d.has(Document.ERROR_FIELD));
-    assertEquals("error1", d.getString(Document.ERROR_FIELD));
+    assertTrue(d.has(JsonDocument.ERROR_FIELD));
+    assertEquals("error1", d.getString(JsonDocument.ERROR_FIELD));
 
     d.logError("error2");
-    assertEquals(List.of("error1", "error2"), d.getStringList(Document.ERROR_FIELD));
+    assertEquals(List.of("error1", "error2"), d.getStringList(JsonDocument.ERROR_FIELD));
   }
 
   @Test
@@ -1133,14 +1133,14 @@ public class DocumentTest {
     // here the child is changed after being added to the parent and throws an error (that is
     // logged) when trying to retrieve children
 
-    Document parent = new Document("id");
+    JsonDocument parent = new JsonDocument("id");
 
     ObjectNode child1Node = JsonNodeFactory.instance.objectNode();
     child1Node.put("id", "child1");
-    Document child1 = new Document(child1Node);
+    JsonDocument child1 = new JsonDocument(child1Node);
     parent.addChild(child1);
 
-    Document child2 = new Document("child2");
+    JsonDocument child2 = new JsonDocument("child2");
     parent.addChild(child2);
 
     // both children are present
@@ -1164,7 +1164,7 @@ public class DocumentTest {
     ObjectNode node = JsonNodeFactory.instance.objectNode();
     node.put("id", "123");
 
-    Document document = new Document(node);
+    JsonDocument document = new JsonDocument(node);
     node.remove("id");
     document.clone();
   }

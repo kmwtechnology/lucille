@@ -2,7 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -182,13 +182,13 @@ public class CSVConnector extends AbstractConnector {
           docId = getDocIdPrefix() + filename + "-" + lineNum;
         }
 
-        Document doc = new Document(docId);
+        JsonDocument doc = new JsonDocument(docId);
         doc.setField(filePathField, path);
         doc.setField(filenameField, filename);
         // log.info("DOC ID: {}", docId);
         int maxIndex = Math.min(header.length, line.length);
         for (int i = 0; i < maxIndex; i++) {
-          if (line[i] != null && !ignoredTerms.contains(line[i]) && !Document.RESERVED_FIELDS.contains(header[i])) {
+          if (line[i] != null && !ignoredTerms.contains(line[i]) && !JsonDocument.RESERVED_FIELDS.contains(header[i])) {
             doc.setField(header[i], line[i]);
           }
         }

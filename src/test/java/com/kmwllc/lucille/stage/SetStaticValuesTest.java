@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Stage;
 import org.junit.Test;
 
@@ -14,7 +14,7 @@ public class SetStaticValuesTest {
   public void test() throws Exception {
     Stage stage = factory.get("SetStaticValuesTest/config.conf");
 
-    Document doc = new Document("doc");
+    JsonDocument doc = new JsonDocument("doc");
     stage.processDocument(doc);
 
     assertEquals("File", doc.getString("type"));

@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.connector.xml;
 
 import com.kmwllc.lucille.connector.AbstractConnector;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Publisher;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
@@ -91,7 +92,7 @@ public class ChunkingXMLHandler implements ContentHandler {
         id = UUID.randomUUID().toString();
       }
 
-      Document doc = new Document(docIDPrefix + id);
+      JsonDocument doc = new JsonDocument(docIDPrefix + id);
       doc.setField(outputField, xml);
       internalPublishDocument(doc);
     }
@@ -103,7 +104,7 @@ public class ChunkingXMLHandler implements ContentHandler {
     currentPath.pop();
   }
 
-  private void internalPublishDocument(Document doc) {
+  private void internalPublishDocument(JsonDocument doc) {
     try {
       publisher.publish(doc);
     } catch (Exception e) {

@@ -2,9 +2,10 @@ package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.assertEquals;
 
+import com.kmwllc.lucille.core.JsonDocument;
 import org.junit.Test;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Stage;
 
 public class SplitFieldValuesTest {
@@ -14,7 +15,7 @@ public class SplitFieldValuesTest {
   public void test() throws Exception {
     Stage stage = factory.get("SplitFieldValuesTest/config.conf");
 
-    Document doc = new Document("doc");
+    JsonDocument doc = new JsonDocument("doc");
     doc.setField("data", "this,that, the ,other");
     stage.processDocument(doc);
 

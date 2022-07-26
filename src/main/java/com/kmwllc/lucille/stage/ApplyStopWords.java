@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
@@ -99,9 +100,9 @@ public class ApplyStopWords extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
     List<String> fields = fieldNames != null ? fieldNames : new ArrayList<>(doc.getFieldNames());
-    fields.removeAll(Document.RESERVED_FIELDS);
+    fields.removeAll(JsonDocument.RESERVED_FIELDS);
 
     for (String field : fields) {
       if (!doc.has(field))

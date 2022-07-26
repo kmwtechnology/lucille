@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
@@ -42,7 +42,7 @@ public class ExtractFirstCharacter extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
     for (Map.Entry<String, Object> entry : fieldMapping.entrySet()) {
 
       if (!doc.has(entry.getKey()))

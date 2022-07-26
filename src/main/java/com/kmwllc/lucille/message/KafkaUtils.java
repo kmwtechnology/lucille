@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.message;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.CommonClientConfigs;
@@ -77,7 +78,7 @@ public class KafkaUtils {
     return producerProps;
   }
 
-  public static KafkaProducer<String, Document> createDocumentProducer(Config config) {
+  public static KafkaProducer<String, JsonDocument> createDocumentProducer(Config config) {
     Properties producerProps = createProducerProps(config);
     String serializerClass = config.hasPath("kafka.documentSerializer")
             ? config.getString("kafka.documentSerializer")

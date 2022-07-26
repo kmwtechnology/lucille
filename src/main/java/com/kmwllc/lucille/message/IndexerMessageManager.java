@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 
 import java.util.List;
 
@@ -22,7 +23,7 @@ public interface IndexerMessageManager {
    * to several seconds so that this method can be called from within a polling loop that
    * periodically checks other conditions even when no Documents are available.
    */
-  Document pollCompleted() throws Exception;
+  JsonDocument pollCompleted() throws Exception;
 
   /**
    * Make the designated Event available to the Publisher or any other component that is listening for
@@ -34,7 +35,7 @@ public interface IndexerMessageManager {
    * Create an Event from the given parameters and make it available to the Publisher or
    * any other component that is listening for Document-related Events.
    */
-  void sendEvent(Document document, String message, Event.Type type) throws Exception;
+  void sendEvent(JsonDocument document, String message, Event.Type type) throws Exception;
 
   /**
    * Close any connections opened by this IndexerMessageManager.
@@ -44,5 +45,5 @@ public interface IndexerMessageManager {
   /**
    * Provides a way to communicate to other components that a batch of documents has been completed.
    */
-  void batchComplete(List<Document> batch) throws Exception;
+  void batchComplete(List<JsonDocument> batch) throws Exception;
 }

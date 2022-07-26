@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
@@ -72,7 +73,7 @@ public class XPathExtractor extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) {
+  public List<JsonDocument> processDocument(JsonDocument doc) {
     if (!doc.has(xmlField)) {
       // no xml on this document to process for this stage .. skipping
       return null;
@@ -84,7 +85,7 @@ public class XPathExtractor extends Stage {
     return null;
   }
 
-  private void processXml(String xml, Document doc) {
+  private void processXml(String xml, JsonDocument doc) {
     try (InputStream stream = new ByteArrayInputStream(xml.getBytes())) {
 
       org.w3c.dom.Document xmldoc = builder.parse(stream);

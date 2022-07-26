@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Stage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -16,13 +17,13 @@ public class ParseDateTest {
     Stage stage = factory.get("ParseDateTest/config.conf");
 
     // Ensure that dates are correctly extracted
-    Document doc = new Document("doc");
+    JsonDocument doc = new JsonDocument("doc");
     doc.setField("date1", "February 2, 2021");
     stage.processDocument(doc);
     assertEquals("2021-02-02T00:00:00Z", doc.getStringList("output1").get(0));
 
     // Ensure that several dates can be extracted in one pass, in different formats.
-    Document doc2 = new Document("doc2");
+    JsonDocument doc2 = new JsonDocument("doc2");
     doc2.setField("date1", "2003|10|25");
     doc2.setField("date2", "2020-2050");
     stage.processDocument(doc2);
@@ -30,7 +31,7 @@ public class ParseDateTest {
     assertEquals("2020-01-01T00:00:00Z", doc2.getStringList("output2").get(0));
 
     // Test parsing dates from a format String
-    Document doc3 = new Document("doc3");
+    JsonDocument doc3 = new JsonDocument("doc3");
     doc3.setField("date1", "90/Jul/17");
     doc3.setField("date2", "2023-06-21");
     stage.processDocument(doc3);

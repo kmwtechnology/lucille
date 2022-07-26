@@ -3,7 +3,8 @@ package com.kmwllc.lucille.stage;
 import com.cybozu.labs.langdetect.Detector;
 import com.cybozu.labs.langdetect.DetectorFactory;
 import com.cybozu.labs.langdetect.Language;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
@@ -109,7 +110,7 @@ public class DetectLanguage extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
     try {
       detector = DetectorFactory.create();
       detector.setMaxTextLength(maxLength);

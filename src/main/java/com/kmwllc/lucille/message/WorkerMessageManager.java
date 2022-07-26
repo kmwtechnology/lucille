@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 
 /**
  * API that a Worker uses to exchange messages with other components.
@@ -22,7 +23,7 @@ public interface WorkerMessageManager {
    * A Documents retrieved by pollDocToProcess() may not be "removed" or made invisible to subsequent calls
    * until commitPendingDocOffsets() has been called.
    */
-  Document pollDocToProcess() throws Exception;
+  JsonDocument pollDocToProcess() throws Exception;
 
   /**
    * Indicates that Documents previously retrieved by pollDocToProcess() have been processed and should
@@ -34,18 +35,18 @@ public interface WorkerMessageManager {
    * Submit a given Document so that it can be received by an Indexer component that
    * would call IndexerMessageManager.pollCompleted()
    */
-  void sendCompleted(Document document) throws Exception;
+  void sendCompleted(JsonDocument document) throws Exception;
 
   /**
    * Submit a given Document to a "Dead Letter Queue" for Documents that cannot be processed.
    */
-  void sendFailed(Document document) throws Exception;
+  void sendFailed(JsonDocument document) throws Exception;
 
   /**
    * Create an Event from the given parameters and make it available to the Publisher or
    * any other component that is listening for Document-related Events.
    */
-  void sendEvent(Document document, String message, Event.Type type) throws Exception;
+  void sendEvent(JsonDocument document, String message, Event.Type type) throws Exception;
 
   /**
    * Make the designated Event available to the Publisher or any other component that is listening for

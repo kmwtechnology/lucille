@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.*;
@@ -33,7 +34,7 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
    * Polls for a document that has been processed by the pipeine and is waiting to be indexed.
    */
   @Override
-  public Document pollCompleted() throws Exception {
+  public JsonDocument pollCompleted() throws Exception {
     ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
@@ -45,7 +46,7 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+  public void sendEvent(JsonDocument document, String message, Event.Type type) throws Exception {
     Event event = new Event(document.getId(), document.getRunId(), message, type);
     sendEvent(event);
   }
@@ -69,7 +70,7 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
   }
 
   @Override
-  public void batchComplete(List<Document> batch) throws Exception {
+  public void batchComplete(List<JsonDocument> batch) throws Exception {
   }
 
 }

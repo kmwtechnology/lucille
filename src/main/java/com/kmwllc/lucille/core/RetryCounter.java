@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.core;
 
 public interface RetryCounter {
-  boolean add(Document document);
+  boolean add(JsonDocument document);
 
-  void remove(Document document);
+  void remove(JsonDocument document);
 }

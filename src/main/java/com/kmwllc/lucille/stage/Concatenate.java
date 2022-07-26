@@ -54,7 +54,7 @@ public class Concatenate extends Stage {
 
   // NOTE : If a given field is multivalued, this Stage will only operate on the first value
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
     HashMap<String, String> replacements = new HashMap<>();
     for (String source : fields) {
       String value;

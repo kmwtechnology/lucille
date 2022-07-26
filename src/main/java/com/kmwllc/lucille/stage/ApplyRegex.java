@@ -108,7 +108,7 @@ public class ApplyRegex extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
     for (int i = 0; i < sourceFields.size(); i++) {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);

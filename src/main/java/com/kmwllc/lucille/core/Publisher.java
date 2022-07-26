@@ -21,7 +21,7 @@ public interface Publisher {
    *
    * Stamps the current Run ID on the document and begins "tracking" events relating the document.
    */
-  void publish(Document document) throws Exception;
+  void publish(JsonDocument document) throws Exception;
 
   /**
    * Returns the number of documents published so far.

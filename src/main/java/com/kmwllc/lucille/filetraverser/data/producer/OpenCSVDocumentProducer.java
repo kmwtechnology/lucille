@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.filetraverser.data.producer;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.DocumentException;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.filetraverser.data.DocumentProducer;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvValidationException;
@@ -23,9 +24,9 @@ public class OpenCSVDocumentProducer implements DocumentProducer {
   }
 
   @Override
-  public List<Document> produceDocuments(Path file, Document parent) throws DocumentException, IOException {
+  public List<JsonDocument> produceDocuments(Path file, JsonDocument parent) throws DocumentException, IOException {
 
-    List<Document> docs = new ArrayList<>();
+    List<JsonDocument> docs = new ArrayList<>();
 
     try (Reader fileReader = Files.newBufferedReader(file);
          CSVReader csvReader = new CSVReader(fileReader)) {
@@ -47,7 +48,7 @@ public class OpenCSVDocumentProducer implements DocumentProducer {
         }
 
         // assume first column holds the ID
-        Document doc = new Document(line[0]);
+        JsonDocument doc = new JsonDocument(line[0]);
         doc.setOrAddAll(parent);
 
         int maxIndex = Math.min(header.length,line.length);
@@ -69,8 +70,8 @@ public class OpenCSVDocumentProducer implements DocumentProducer {
 
   public static void main(String[] args) throws Exception {
     OpenCSVDocumentProducer producer = new OpenCSVDocumentProducer(false);
-    List<Document> docs = producer.produceDocuments(Path.of("/Volumes/Work/lucille/test.csv"), new Document("test"));
-    for (Document doc : docs) {
+    List<JsonDocument> docs = producer.produceDocuments(Path.of("/Volumes/Work/lucille/test.csv"), new JsonDocument("test"));
+    for (JsonDocument doc : docs) {
       System.out.println(doc);
     }
   }

@@ -23,7 +23,7 @@ import java.util.function.UnaryOperator;
  * and sent to a destination system.
  *
  */
-public class Document implements Cloneable {
+public class JsonDocument implements Cloneable {
 
   public static final String ID_FIELD = "id";
   public static final String RUNID_FIELD = "run_id";
@@ -34,12 +34,12 @@ public class Document implements Cloneable {
 
   protected static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
-  private static final Logger log = LoggerFactory.getLogger(Document.class);
+  private static final Logger log = LoggerFactory.getLogger(JsonDocument.class);
 
   @JsonValue
   protected final ObjectNode data;
 
-  public Document(ObjectNode data) throws DocumentException {
+  public JsonDocument(ObjectNode data) throws DocumentException {
 
     if (!data.hasNonNull(ID_FIELD)) {
       throw new DocumentException("id is missing");
@@ -53,7 +53,7 @@ public class Document implements Cloneable {
     this.data = data;
   }
 
-  public Document(String id) {
+  public JsonDocument(String id) {
     if (id==null) {
       throw new NullPointerException("ID cannot be null");
     }
@@ -61,17 +61,17 @@ public class Document implements Cloneable {
     this.data.put(ID_FIELD, id);
   }
 
-  public Document(String id, String runId) {
+  public JsonDocument(String id, String runId) {
     this(id);
     this.data.put(RUNID_FIELD, runId);
   }
 
-  public static Document fromJsonString(String json) throws DocumentException, JsonProcessingException {
-    return new Document((ObjectNode)MAPPER.readTree(json));
+  public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
+    return new JsonDocument((ObjectNode)MAPPER.readTree(json));
   }
 
-  public static Document fromJsonString(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
-    Document doc = fromJsonString(json);
+  public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
+    JsonDocument doc = fromJsonString(json);
     doc.data.put(ID_FIELD, idUpdater.apply(doc.getId()));
     return doc;
   }
@@ -433,8 +433,8 @@ public class Document implements Cloneable {
     if (this == other) {
       return true;
     }
-    if (other instanceof Document) {
-      return data.equals(((Document)other).data);
+    if (other instanceof JsonDocument) {
+      return data.equals(((JsonDocument)other).data);
     }
     return false;
   }
@@ -575,7 +575,7 @@ public class Document implements Cloneable {
    * IllegalArgumentException is thrown if this method is called with a reserved field like id.
    *
    */
-  public void setOrAdd(String name, Document other) throws IllegalArgumentException {
+  public void setOrAdd(String name, JsonDocument other) throws IllegalArgumentException {
     validateNotReservedField(name);
 
     if (!has(name)) {
@@ -608,7 +608,7 @@ public class Document implements Cloneable {
    * and the new value is appended.
    *
    */
-  public void setOrAddAll(Document other) {
+  public void setOrAddAll(JsonDocument other) {
     for (Iterator<String> it = other.data.fieldNames(); it.hasNext(); ) {
       String name = it.next();
       if (RESERVED_FIELDS.contains(name)) {
@@ -627,7 +627,7 @@ public class Document implements Cloneable {
     return result;
   }
 
-  public void addChild(Document document) {
+  public void addChild(JsonDocument document) {
     ArrayNode node = data.withArray(CHILDREN_FIELD);
     node.add(document.data);
   }
@@ -642,16 +642,16 @@ public class Document implements Cloneable {
     return true;
   }
 
-  public List<Document> getChildren() {
+  public List<JsonDocument> getChildren() {
     if (!data.has(CHILDREN_FIELD)) {
       return new ArrayList();
     }
     ArrayNode node = data.withArray(CHILDREN_FIELD);
-    ArrayList<Document> children = new ArrayList();
+    ArrayList<JsonDocument> children = new ArrayList();
     for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
       JsonNode element = it.next();
       try {
-        children.add(new Document(element.deepCopy()));
+        children.add(new JsonDocument(element.deepCopy()));
       } catch (DocumentException e) {
         log.error("Unable to instantiate child Document", e);
       }
@@ -665,9 +665,9 @@ public class Document implements Cloneable {
   }
 
   @Override
-  public Document clone() {
+  public JsonDocument clone() {
     try {
-      return new Document(data.deepCopy());
+      return new JsonDocument(data.deepCopy());
     } catch (DocumentException e) {
       throw new IllegalStateException("Document not cloneable", e);
     }

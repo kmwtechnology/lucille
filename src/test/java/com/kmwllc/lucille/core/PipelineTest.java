@@ -25,8 +25,8 @@ public class PipelineTest {
     assertEquals(stages.get(0).getClass(), Stage1.class);
     assertEquals(stages.get(1).getClass(), Stage4.class);
     assertTrue(((Stage4)stages.get(1)).isStarted());
-    Document doc = new Document("d1");
-    List<Document> results = pipeline.processDocument(doc);
+    JsonDocument doc = new JsonDocument("d1");
+    List<JsonDocument> results = pipeline.processDocument(doc);
     assertEquals("v1", doc.getString("s1"));
     assertEquals("v4", doc.getString("s4"));
   }
@@ -76,22 +76,22 @@ public class PipelineTest {
     pipeline.addStage(new Stage3(config));
     pipeline.addStage(new Stage4(config));
 
-    Document doc = new Document("d1");
+    JsonDocument doc = new JsonDocument("d1");
 
     pipeline.startStages();
-    List<Document> results = pipeline.processDocument(doc);
+    List<JsonDocument> results = pipeline.processDocument(doc);
     pipeline.stopStages();
 
-    ArrayList<Document> expected = new ArrayList<>();
-    expected.add(Document.fromJsonString("{\"id\":\"d1\",\"s1\":\"v1\",\"s2\":\"v2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s2c1\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s2c2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s3c1\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s3c2\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s2c1-s3c1\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s2c1-s3c2\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s2c2-s3c1\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s2c2-s3c2\",\"s4\":\"v4\"}"));
+    ArrayList<JsonDocument> expected = new ArrayList<>();
+    expected.add(JsonDocument.fromJsonString("{\"id\":\"d1\",\"s1\":\"v1\",\"s2\":\"v2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
+    expected.add(JsonDocument.fromJsonString("{\"id\":\"d1-s2c1\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
+    expected.add(JsonDocument.fromJsonString("{\"id\":\"d1-s2c2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
+    expected.add(JsonDocument.fromJsonString("{\"id\":\"d1-s3c1\",\"s4\":\"v4\"}"));
+    expected.add(JsonDocument.fromJsonString("{\"id\":\"d1-s3c2\",\"s4\":\"v4\"}"));
+    expected.add(JsonDocument.fromJsonString("{\"id\":\"d1-s2c1-s3c1\",\"s4\":\"v4\"}"));
+    expected.add(JsonDocument.fromJsonString("{\"id\":\"d1-s2c1-s3c2\",\"s4\":\"v4\"}"));
+    expected.add(JsonDocument.fromJsonString("{\"id\":\"d1-s2c2-s3c1\",\"s4\":\"v4\"}"));
+    expected.add(JsonDocument.fromJsonString("{\"id\":\"d1-s2c2-s3c2\",\"s4\":\"v4\"}"));
 
     assertEquals(expected.size(), results.size());
     assertTrue(results.containsAll(expected));
@@ -108,15 +108,15 @@ public class PipelineTest {
     pipeline.addStage(new Stage4(config));
 
     final String runId = "runId1";
-    Document doc = new Document("d1");
+    JsonDocument doc = new JsonDocument("d1");
     doc.initializeRunId(runId);
 
     pipeline.startStages();
-    List<Document> results = pipeline.processDocument(doc);
+    List<JsonDocument> results = pipeline.processDocument(doc);
     pipeline.stopStages();
 
     assertEquals(9, results.size());
-    for (Document result : results) {
+    for (JsonDocument result : results) {
       assertEquals(runId, result.getRunId());
     }
 
@@ -131,7 +131,7 @@ public class PipelineTest {
     Config config = ConfigFactory.parseString(s);
     Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1", "");
 
-    Document doc = new Document("doc");
+    JsonDocument doc = new JsonDocument("doc");
     doc.setField("cond", "123");
     pipeline.processDocument(doc);
 
@@ -167,7 +167,7 @@ public class PipelineTest {
     }
 
     @Override
-    public List<Document> processDocument(Document doc) throws StageException {
+    public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
       doc.setField("s1", "v1");
       return null;
     }
@@ -180,11 +180,11 @@ public class PipelineTest {
     }
 
     @Override
-    public List<Document> processDocument(Document doc) throws StageException {
+    public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
       doc.setField("s2", "v2");
-      Document c1 = new Document(doc.getId() + "-" + "s2c1");
-      Document c2 = new Document(doc.getId() + "-" + "s2c2");
-      ArrayList<Document> result = new ArrayList<>();
+      JsonDocument c1 = new JsonDocument(doc.getId() + "-" + "s2c1");
+      JsonDocument c2 = new JsonDocument(doc.getId() + "-" + "s2c2");
+      ArrayList<JsonDocument> result = new ArrayList<>();
       result.add(c1);
       result.add(c2);
       return result;
@@ -198,11 +198,11 @@ public class PipelineTest {
     }
 
     @Override
-    public List<Document> processDocument(Document doc) {
+    public List<JsonDocument> processDocument(JsonDocument doc) {
       doc.setField("s3", "v3");
-      Document c1 = new Document(doc.getId() + "-" + "s3c1");
-      Document c2 = new Document(doc.getId() + "-" + "s3c2");
-      ArrayList<Document> result = new ArrayList<>();
+      JsonDocument c1 = new JsonDocument(doc.getId() + "-" + "s3c1");
+      JsonDocument c2 = new JsonDocument(doc.getId() + "-" + "s3c2");
+      ArrayList<JsonDocument> result = new ArrayList<>();
       result.add(c1);
       result.add(c2);
       return result;
@@ -227,7 +227,7 @@ public class PipelineTest {
     }
 
     @Override
-    public List<Document> processDocument(Document doc) throws StageException {
+    public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
       doc.setField("s4", "v4");
       return null;
     }

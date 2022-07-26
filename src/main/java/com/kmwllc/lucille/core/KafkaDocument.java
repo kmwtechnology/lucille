@@ -5,7 +5,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import java.util.Objects;
 
-public class KafkaDocument extends Document {
+public class KafkaDocument extends JsonDocument {
 
   private String topic;
   private int partition;

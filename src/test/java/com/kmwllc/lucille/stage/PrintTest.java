@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
@@ -14,7 +15,7 @@ public class PrintTest {
   public void testBasic() throws StageException {
     Stage stage = factory.get("PrintTest/config.conf");
 
-    Document doc1 = new Document("doc1");
+    JsonDocument doc1 = new JsonDocument("doc1");
     doc1.setField("test", "this is a test");
     doc1.initializeRunId("runID1");
     stage.processDocument(doc1);

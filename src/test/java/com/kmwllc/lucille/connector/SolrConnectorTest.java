@@ -36,7 +36,7 @@ public class SolrConnectorTest {
         SolrQuery q = invocationOnMock.getArgument(0);
 
         SolrDocument doc = new SolrDocument();
-        doc.setField(Document.ID_FIELD, "doc");
+        doc.setField(JsonDocument.ID_FIELD, "doc");
         for (String param : q.getParameterNames()) {
           if (param.equals("cursorMark"))
             continue;
@@ -53,7 +53,7 @@ public class SolrConnectorTest {
     Connector connector = new SolrConnector(config, mockClient);
     connector.execute(publisher);
 
-    Document testDoc = new Document("doc", "run");
+    JsonDocument testDoc = new JsonDocument("doc", "run");
     testDoc.update("q", UpdateMode.DEFAULT, "type:product");
     testDoc.update("fq", UpdateMode.DEFAULT, "devId:[5 TO 20]", "date:today");
     testDoc.update("fl", UpdateMode.DEFAULT, "date", "devId", "id", "name", "category");
@@ -63,7 +63,7 @@ public class SolrConnectorTest {
     //verify(mockPublisher, times(2)).publish(testDoc);
 
     assertEquals(2, manager.getSavedDocumentsSentForProcessing().size());
-    for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
+    for (JsonDocument doc : manager.getSavedDocumentsSentForProcessing()) {
       assertEquals(testDoc, doc);
     }
   }

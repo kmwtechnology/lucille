@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.message;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.clients.consumer.*;
@@ -21,7 +22,7 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
   public static final Logger log = LoggerFactory.getLogger(KafkaPublisherMessageManager.class);
 
   private final Config config;
-  private KafkaProducer<String, Document> kafkaProducer;
+  private KafkaProducer<String, JsonDocument> kafkaProducer;
   private Consumer<String, String> eventConsumer;
   private String runId;
   private String pipelineName;
@@ -52,7 +53,7 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
     return runId;
   }
 
-  public void sendForProcessing(Document document) throws Exception {
+  public void sendForProcessing(JsonDocument document) throws Exception {
     RecordMetadata result = (RecordMetadata) kafkaProducer.send(
       new ProducerRecord(KafkaUtils.getSourceTopicName(pipelineName, config), document.getId(), document)).get();
     kafkaProducer.flush();

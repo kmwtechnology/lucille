@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Stage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -21,20 +22,20 @@ public class MatchQueryTest {
     Stage matchQueryStage = factory.get("MatchQueryTest/config.conf");
     String matchedQueriesField = matchQueryStage.getConfig().getString(MatchQuery.MATCHEDQUERIES_PARAM);
 
-    Document d1 = new Document("d1");
+    JsonDocument d1 = new JsonDocument("d1");
     d1.setField("content", "giraffe");
     matchQueryStage.processDocument(d1);
     assertTrue("One query should have matched document d1. ", d1.has(matchedQueriesField) && d1.getStringList(matchedQueriesField).size() == 1);
     assertTrue("d1 should match only query2", d1.getStringList(matchedQueriesField).contains("query2"));
 
-    Document d2 = new Document("d2");
+    JsonDocument d2 = new JsonDocument("d2");
     d2.setField("content", "giraffe test foo");
     matchQueryStage.processDocument(d2);
     assertTrue("Two queries should have matched document d2. ", d2.has(matchedQueriesField) && d2.getStringList(matchedQueriesField).size() == 2);
     assertTrue("d2 should match query1", d2.getStringList(matchedQueriesField).contains("query1"));
     assertTrue("d2 should match query2", d2.getStringList(matchedQueriesField).contains("query2"));
 
-    Document d3 = new Document("d3");
+    JsonDocument d3 = new JsonDocument("d3");
     d3.setField("content", "test");
     d3.setField("table", "geotrans");
     matchQueryStage.processDocument(d3);
@@ -42,12 +43,12 @@ public class MatchQueryTest {
     assertTrue("d3 should match query2", d3.getStringList(matchedQueriesField).contains("query2"));
     assertTrue("d3 should match not_asia", d3.getStringList(matchedQueriesField).contains("not_asia"));
 
-    Document d4 = new Document("d4");
+    JsonDocument d4 = new JsonDocument("d4");
     d4.setField("content", "foobar");
     matchQueryStage.processDocument(d4);
     assertFalse("No queries should have matched document d4. ", d4.has(matchedQueriesField));
 
-    Document d5 = new Document("d5");
+    JsonDocument d5 = new JsonDocument("d5");
     d5.setField("table", "geotrans");
     d5.setField("country", "japan");
     matchQueryStage.processDocument(d5);

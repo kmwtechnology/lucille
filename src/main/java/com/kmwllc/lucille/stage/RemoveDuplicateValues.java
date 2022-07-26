@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
@@ -37,7 +37,7 @@ public class RemoveDuplicateValues extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
     for (String field : fieldMapping.keySet()) {
       if (!doc.has(field) || !doc.isMultiValued(field)) {
         continue;

@@ -4,7 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.jayway.jsonpath.*;
 import com.jayway.jsonpath.spi.json.JacksonJsonProvider;
 import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
@@ -62,7 +63,7 @@ public class ParseJson extends Stage {
    * @return
    */
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
     DocumentContext ctx;
     if (this.sourceIsBase64) {
       try (InputStream stream = new ByteArrayInputStream(DECODER.decode(doc.getString(this.src)))) {

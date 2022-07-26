@@ -5,7 +5,7 @@ import java.util.function.Predicate;
 
 import com.typesafe.config.Config;
 
-public class Condition implements Predicate<Document> {
+public class Condition implements Predicate<JsonDocument> {
 
   private final List<String> fields;
   private final List<String> values;
@@ -28,7 +28,7 @@ public class Condition implements Predicate<Document> {
   }
 
   @Override
-  public boolean test(Document doc) {
+  public boolean test(JsonDocument doc) {
     boolean resultWhenValueFound = operator.equalsIgnoreCase("must");
 
     if (fields.isEmpty()) {

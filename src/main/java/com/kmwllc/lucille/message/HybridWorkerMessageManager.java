@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -17,14 +18,14 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessageManager.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
-  private final LinkedBlockingQueue<Document> pipelineDest;
+  private final LinkedBlockingQueue<JsonDocument> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
   private final Config config;
   private final String pipelineName;
 
   public HybridWorkerMessageManager(Config config, String pipelineName,
-                                    LinkedBlockingQueue<Document> pipelineDest,
+                                    LinkedBlockingQueue<JsonDocument> pipelineDest,
                                     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
                                     KafkaConsumer sourceConsumer) {
     this.config = config;
@@ -35,7 +36,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
   }
 
   public HybridWorkerMessageManager(Config config, String pipelineName,
-                                    LinkedBlockingQueue<Document> pipelineDest,
+                                    LinkedBlockingQueue<JsonDocument> pipelineDest,
                                     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
     this(config, pipelineName, pipelineDest, offsets, createSourceConsumer(config, pipelineName));
   }
@@ -80,12 +81,12 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
    *
    */
   @Override
-  public void sendCompleted(Document document) throws Exception {
+  public void sendCompleted(JsonDocument document) throws Exception {
     pipelineDest.put(document);
   }
 
   @Override
-  public void sendFailed(Document document) throws Exception {
+  public void sendFailed(JsonDocument document) throws Exception {
   }
 
   @Override
@@ -94,7 +95,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+  public void sendEvent(JsonDocument document, String message, Event.Type type) throws Exception {
     // no-op -- Events are not tracked in hybrid mode
   }
 

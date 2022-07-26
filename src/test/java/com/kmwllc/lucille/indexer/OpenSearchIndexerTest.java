@@ -2,8 +2,9 @@ package com.kmwllc.lucille.indexer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
@@ -57,8 +58,8 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
-    Document doc = new Document("doc1", "test_run");
-    Document doc2 = new Document("doc2", "test_run");
+    JsonDocument doc = new JsonDocument("doc1", "test_run");
+    JsonDocument doc2 = new JsonDocument("doc2", "test_run");
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
@@ -79,11 +80,11 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/exception.conf");
 
-    Document doc = new Document("doc1", "test_run");
-    Document doc2 = new Document("doc2", "test_run");
-    Document doc3 = new Document("doc3", "test_run");
-    Document doc4 = new Document("doc4", "test_run");
-    Document doc5 = new Document("doc5", "test_run");
+    JsonDocument doc = new JsonDocument("doc1", "test_run");
+    JsonDocument doc2 = new JsonDocument("doc2", "test_run");
+    JsonDocument doc3 = new JsonDocument("doc3", "test_run");
+    JsonDocument doc4 = new JsonDocument("doc4", "test_run");
+    JsonDocument doc5 = new JsonDocument("doc5", "test_run");
 
     OpenSearchIndexer indexer = new ErroringOpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
@@ -118,11 +119,11 @@ public class OpenSearchIndexerTest {
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
 
-    Document doc = new Document("doc1", "test_run");
-    Document doc2 = new Document("doc2", "test_run");
-    Document doc3 = new Document("doc3", "test_run");
-    Document doc4 = new Document("doc4", "test_run");
-    Document doc5 = new Document("doc5", "test_run");
+    JsonDocument doc = new JsonDocument("doc1", "test_run");
+    JsonDocument doc2 = new JsonDocument("doc2", "test_run");
+    JsonDocument doc3 = new JsonDocument("doc3", "test_run");
+    JsonDocument doc4 = new JsonDocument("doc4", "test_run");
+    JsonDocument doc5 = new JsonDocument("doc5", "test_run");
 
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
@@ -158,7 +159,7 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
-    Document doc = new Document("doc1", "test_run");
+    JsonDocument doc = new JsonDocument("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
@@ -193,7 +194,7 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
-    Document doc = new Document("doc1", "test_run");
+    JsonDocument doc = new JsonDocument("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
@@ -227,7 +228,7 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
-    Document doc = new Document("doc1", "test_run");
+    JsonDocument doc = new JsonDocument("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
     doc.setField("myJsonField", jsonNode);
@@ -264,7 +265,7 @@ public class OpenSearchIndexerTest {
     }
 
     @Override
-    public void sendToIndex(List<Document> docs) throws Exception {
+    public void sendToIndex(List<JsonDocument> docs) throws Exception {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
   }
