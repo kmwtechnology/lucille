@@ -20,62 +20,6 @@ import static org.junit.Assert.*;
 @RunWith(JUnit4.class)
 public abstract class DocumentTest {
 
-  public static class JsonDocumentTest extends DocumentTest {
-
-    @Override
-    public Document createDocument(ObjectNode node) throws DocumentException {
-      return new JsonDocument(node);
-    }
-
-    @Override
-    public Document createDocument(String id) {
-      return new JsonDocument(id);
-    }
-
-    @Override
-    public Document createDocument(String id, String runId) {
-      return new JsonDocument(id, runId);
-    }
-
-    @Override
-    public Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException {
-      return JsonDocument.fromJsonString(json);
-    }
-
-    @Override
-    public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
-      return JsonDocument.fromJsonString(json, idUpdater);
-    }
-  }
-
-  public static class BetterJsonDocumentTest extends DocumentTest {
-
-    @Override
-    public Document createDocument(ObjectNode node) throws DocumentException {
-      return new BetterJsonDocument(node);
-    }
-
-    @Override
-    public Document createDocument(String id) {
-      return new BetterJsonDocument(id);
-    }
-
-    @Override
-    public Document createDocument(String id, String runId) {
-      return new BetterJsonDocument(id, runId);
-    }
-
-    @Override
-    public Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException {
-      return BetterJsonDocument.fromJsonString(json);
-    }
-
-    @Override
-    public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
-      return BetterJsonDocument.fromJsonString(json, idUpdater);
-    }
-  }
-
   public abstract Document createDocument(ObjectNode node) throws DocumentException;
 
   public abstract Document createDocument(String id);
