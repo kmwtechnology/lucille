@@ -2,7 +2,7 @@ package com.kmwllc.lucille.stage;
 
 import java.util.List;
 
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
@@ -36,7 +36,7 @@ public class SplitFieldValues extends Stage {
   }
 
   @Override
-  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
+  public List<Document> processDocument(Document doc) throws StageException {
     // operates only on the first value in the field at the moment?
     if (doc.has(inputField)) {
       String[] values = doc.getString(inputField).split(delimiter);

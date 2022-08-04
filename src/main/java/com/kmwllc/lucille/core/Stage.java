@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 public abstract class Stage {
 
   protected Config config;
-  private final Predicate<JsonDocument> condition;
+  private final Predicate<Document> condition;
   private String name;
 
   private Timer timer;
@@ -41,7 +41,7 @@ public abstract class Stage {
   public Stage(Config config) {
     this.config = config;
     this.name = ConfigUtils.getOrDefault(config, "name", null);
-    List<Predicate<JsonDocument>> conditions = config.hasPath("conditions") ?
+    List<Predicate<Document>> conditions = config.hasPath("conditions") ?
         config.getConfigList("conditions").stream().map(Condition::fromConfig).collect(Collectors.toList())
         : new ArrayList<>();
     this.condition = conditions.stream().reduce((d) -> true, Predicate::and);
@@ -71,7 +71,7 @@ public abstract class Stage {
    * @param doc the doc to determine processing for
    * @return  boolean representing - should we process this doc according to its conditionals?
    */
-  public boolean shouldProcess(JsonDocument doc) {
+  public boolean shouldProcess(Document doc) {
     return condition.test(doc);
   }
 
@@ -82,13 +82,13 @@ public abstract class Stage {
    * @return  a list of child documents resulting from this Stages processing
    * @throws StageException
    */
-  public List<JsonDocument> processConditional(JsonDocument doc) throws StageException {
+  public List<Document> processConditional(Document doc) throws StageException {
     if (shouldProcess(doc)) {
       if (timer!=null) {
         context = timer.time();
       }
       try {
-        List<JsonDocument> children = processDocument(doc);
+        List<Document> children = processDocument(doc);
         if (children!=null && children.size()>0) {
           childCounter.inc(children.size());
         }
@@ -116,7 +116,7 @@ public abstract class Stage {
    * an unbounded number of child documents, this method would need to return an Iterator (or something similar)
    * instead of a List.
    */
-  public abstract List<JsonDocument> processDocument(JsonDocument doc) throws StageException;
+  public abstract List<Document> processDocument(Document doc) throws StageException;
 
   public String getName() {
     return name;

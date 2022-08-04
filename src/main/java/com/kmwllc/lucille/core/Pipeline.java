@@ -126,24 +126,24 @@ public class Pipeline {
    * S1, S2, S3, and if S2 generates a child document, the child document will be passed through S3 only.
    *
    */
-  public List<JsonDocument> processDocument(JsonDocument document) throws StageException {
+  public List<Document> processDocument(Document document) throws StageException {
 
     String runId = document.getRunId();
 
-    ArrayList<JsonDocument> documents = new ArrayList();
+    ArrayList<Document> documents = new ArrayList();
     documents.add(document);
 
     for (Stage stage : stages) {
-      List<JsonDocument> childrenFromCurrentStage = new ArrayList();
+      List<Document> childrenFromCurrentStage = new ArrayList();
 
-      for (JsonDocument doc : documents) {
-        List<JsonDocument> childrenOfCurrentDoc = stage.processConditional(doc);
+      for (Document doc : documents) {
+        List<Document> childrenOfCurrentDoc = stage.processConditional(doc);
 
         if (childrenOfCurrentDoc != null) {
 
           // if parent has a run_id, copy it to all children that don't have one
           if (runId != null) {
-            for (JsonDocument child : childrenOfCurrentDoc) {
+            for (Document child : childrenOfCurrentDoc) {
               if (!child.has(Document.RUNID_FIELD)) {
                 child.initializeRunId(runId);
               }

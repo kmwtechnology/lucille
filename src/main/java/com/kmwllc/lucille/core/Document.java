@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -8,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 public interface Document extends Cloneable {
 
@@ -198,24 +200,24 @@ public interface Document extends Cloneable {
   // todo what is the difference between this and clone?
   Document copy();
 
-//  static Document create(ObjectNode node) throws DocumentException {
-//    return new JsonDocument(node);
-//  }
-//
-//  static Document create(String id) {
-//    return new JsonDocument(id);
-//  }
-//
-//  static Document create(String id, String runId) {
-//    return new JsonDocument(id, runId);
-//  }
-//
-//  static Document createFromJson(String json) throws DocumentException, JsonProcessingException {
-//    return JsonDocument.fromJsonString(json);
-//  }
-//
-//  static Document createFromJson(String json, UnaryOperator<String> idUpdater)
-//      throws DocumentException, JsonProcessingException {
-//    return JsonDocument.fromJsonString(json, idUpdater);
-//  }
+  static Document create(ObjectNode node) throws DocumentException {
+    return new JsonDocument(node);
+  }
+
+  static Document create(String id) {
+    return new JsonDocument(id);
+  }
+
+  static Document create(String id, String runId) {
+    return new JsonDocument(id, runId);
+  }
+
+  static Document createFromJson(String json) throws DocumentException, JsonProcessingException {
+    return JsonDocument.fromJsonString(json);
+  }
+
+  static Document createFromJson(String json, UnaryOperator<String> idUpdater)
+      throws DocumentException, JsonProcessingException {
+    return JsonDocument.fromJsonString(json, idUpdater);
+  }
 }

@@ -1,8 +1,9 @@
 package com.kmwllc.lucille.connector.jdbc;
 
 import com.kmwllc.lucille.connector.AbstractConnector;
-import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.ConnectorException;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 
 import org.apache.commons.lang3.StringUtils;
@@ -135,7 +136,7 @@ public class DatabaseConnector extends AbstractConnector {
       // Need the ID column from the RS.
       String id = createDocId(rs.getString(idColumn));
       
-      JsonDocument doc = new JsonDocument(id);
+      Document doc = Document.create(id);
       
       // Add each column / field name to the doc
       for (int i = 1; i <= columns.length; i++) {
@@ -192,7 +193,7 @@ public class DatabaseConnector extends AbstractConnector {
     // System.err.println("No Op flush for now.");
   }
 
-  private void iterateOtherSQL(ResultSet rs2, String[] columns2, JsonDocument doc, Integer joinId, int childId, String joinField) throws SQLException {
+  private void iterateOtherSQL(ResultSet rs2, String[] columns2, Document doc, Integer joinId, int childId, String joinField) throws SQLException {
     while (rs2.next()) {
       // TODO: support non INT primary key
       Integer otherJoinId = rs2.getInt(joinField);
@@ -207,7 +208,7 @@ public class DatabaseConnector extends AbstractConnector {
         break;
       }
       childId++;
-      JsonDocument child = new JsonDocument(Integer.toString(childId));
+      Document child = Document.create(Integer.toString(childId));
       for (String c : columns2) {
         String fieldName = c.trim().toLowerCase();
         String fieldValue = rs2.getString(c);

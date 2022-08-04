@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import org.junit.Test;
 
@@ -17,7 +17,7 @@ public class TimestampTest {
   public void testTimestamp() throws Exception {
     Stage stage = factory.get("TimestampTest/config.conf");
 
-    JsonDocument doc = new JsonDocument("doc1");
+    Document doc = Document.create("doc1");
     stage.processDocument(doc);
 
     assertTrue(doc.has("timestamp"));

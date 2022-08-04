@@ -3,8 +3,7 @@ package com.kmwllc.lucille.connector;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.github.vfss3.S3FileSystemConfigBuilder;
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.filetraverser.FileTraverser;
 import com.kmwllc.lucille.filetraverser.data.producer.DefaultDocumentProducer;
@@ -63,7 +62,7 @@ public class VFSConnector extends AbstractConnector {
 
       // locate all valid files within the provided VFS path
       traverseFiles(fsManager, vfsPath).forEach(fo -> {
-        final JsonDocument doc = buildDocument(fo);
+        final Document doc = buildDocument(fo);
         try {
           publisher.publish(doc);
         } catch (Exception e) {
@@ -76,9 +75,9 @@ public class VFSConnector extends AbstractConnector {
     }
   }
 
-  private JsonDocument buildDocument(FileObject fo) {
+  private Document buildDocument(FileObject fo) {
     final String docId = DigestUtils.md5Hex(fo.getName().getPath());
-    final JsonDocument doc = new JsonDocument(createDocId(docId));
+    final Document doc = Document.create(createDocId(docId));
 
     // Set up basic file properties on the doc
     doc.setField(FileTraverser.FILE_PATH, fo.getName().getURI());

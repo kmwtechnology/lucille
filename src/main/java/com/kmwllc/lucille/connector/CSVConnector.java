@@ -3,7 +3,6 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -184,7 +183,7 @@ public class CSVConnector extends AbstractConnector {
           docId = getDocIdPrefix() + filename + "-" + lineNum;
         }
 
-        JsonDocument doc = new JsonDocument(docId);
+        Document doc = Document.create(docId);
         doc.setField(filePathField, path);
         doc.setField(filenameField, filename);
         // log.info("DOC ID: {}", docId);

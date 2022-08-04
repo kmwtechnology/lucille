@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
@@ -34,7 +34,7 @@ public class DropValues extends Stage {
   }
 
   @Override
-  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
+  public List<Document> processDocument(Document doc) throws StageException {
     for (String source : sourceFields) {
       if (!doc.has(source))
         continue;

@@ -66,7 +66,7 @@ public class DatabaseConnectorTest {
     connector.execute(publisher);
 
     // Confirm there were 3 results.
-    List<JsonDocument> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
     assertEquals(3, docsSentForProcessing.size());
     
     // System.out.println(docsSentForProcessing.get(0));
@@ -105,7 +105,7 @@ public class DatabaseConnectorTest {
 
     connector.execute(publisher);
 
-    List<JsonDocument> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
     assertEquals(2, docsSentForProcessing.size());
 
     // The doc ID should have the 'company-' prefix
@@ -148,7 +148,7 @@ public class DatabaseConnectorTest {
     // run the connector
     connector.execute(publisher);
     
-    List<JsonDocument> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
     assertEquals(3, docs.size());
 
     // TODO: better verification / edge cases.. also formalize the "children" docs.
@@ -181,10 +181,10 @@ public class DatabaseConnectorTest {
     
     connector.execute(publisher);
     
-    List<JsonDocument> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
     assertEquals(3, docs.size());
 
-    for (JsonDocument d: docs) {
+    for (Document d: docs) {
       System.err.println(d);
     }
     

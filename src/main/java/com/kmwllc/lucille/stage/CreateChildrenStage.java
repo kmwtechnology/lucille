@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
@@ -21,10 +20,10 @@ public class CreateChildrenStage extends Stage {
   private int numChildren = 3;
 
   @Override
-  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
-    ArrayList<JsonDocument> children = new ArrayList();
+  public List<Document> processDocument(Document doc) throws StageException {
+    ArrayList<Document> children = new ArrayList();
     for (int i=0; i<numChildren; i++) {
-      JsonDocument child = new JsonDocument(doc.getId()+ "_child" +i);
+      Document child = Document.create(doc.getId()+ "_child" +i);
       children.add(child);
     }
 

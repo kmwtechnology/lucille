@@ -23,12 +23,14 @@ public class BetterJsonDocumentTest extends DocumentTest {
   }
 
   @Override
-  public Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException {
+  public Document createDocumentFromJson(String json)
+      throws DocumentException, JsonProcessingException {
     return BetterJsonDocument.fromJsonString(json);
   }
 
   @Override
-  public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
+  public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater)
+      throws DocumentException, JsonProcessingException {
     return BetterJsonDocument.fromJsonString(json, idUpdater);
   }
 }

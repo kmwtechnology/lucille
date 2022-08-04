@@ -2,9 +2,7 @@ package com.kmwllc.lucille.util;
 
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.DocumentException;
-import com.kmwllc.lucille.core.JsonDocument;
 import com.typesafe.config.Config;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -99,10 +97,10 @@ public class SolrUtils {
    * @param tuple a Tuple from Solr
    * @return a Document
    */
-  public static JsonDocument toDocument(Tuple tuple) throws DocumentException {
-    JsonDocument d;
+  public static Document toDocument(Tuple tuple) throws DocumentException {
+    Document d;
     if (tuple.getString(Document.ID_FIELD) != null) {
-      d = new JsonDocument(tuple.getString(Document.ID_FIELD));
+      d = Document.create(tuple.getString(Document.ID_FIELD));
     } else {
       throw new DocumentException("Unable to create Document from Tuple. No id field present.");
     }

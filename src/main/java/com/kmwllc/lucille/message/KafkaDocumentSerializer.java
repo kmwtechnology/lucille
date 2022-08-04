@@ -1,16 +1,16 @@
 package com.kmwllc.lucille.message;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.Serializer;
 
-public class KafkaDocumentSerializer implements Serializer<JsonDocument> {
+public class KafkaDocumentSerializer implements Serializer<Document> {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @Override
-  public byte[] serialize(String topic, JsonDocument doc) {
+  public byte[] serialize(String topic, Document doc) {
     if (doc == null) {
       return null;
     }

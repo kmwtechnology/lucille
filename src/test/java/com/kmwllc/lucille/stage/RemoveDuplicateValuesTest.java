@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
@@ -19,7 +18,7 @@ public class RemoveDuplicateValuesTest {
   public void testRemoveDuplicateValues() throws StageException {
     Stage stage = factory.get("RemoveDuplicateValuesTest/config.conf");
 
-    JsonDocument doc1 = new JsonDocument("doc1");
+    Document doc1 = Document.create("doc1");
     doc1.setField("field1", "regular");
     doc1.addToField("field1", "different");
     doc1.addToField("field1", "regular");
@@ -31,7 +30,7 @@ public class RemoveDuplicateValuesTest {
     assertEquals("different", doc1.getStringList("field1").get(1));
     assertEquals("ahem", doc1.getStringList("field1").get(2));
 
-    JsonDocument doc2 = new JsonDocument("doc2");
+    Document doc2 = Document.create("doc2");
     doc2.setField("field1", "same");
     doc2.addToField("field1", "different");
     doc2.addToField("field1", "same");
@@ -50,7 +49,7 @@ public class RemoveDuplicateValuesTest {
     assertEquals(Arrays.asList("1", "2", "3"), doc2.getStringList("field2"));
     assertEquals(Arrays.asList("duplicates", "allowed", "allowed"), doc2.getStringList("field3"));
 
-    JsonDocument doc3 = new JsonDocument("doc3");
+    Document doc3 = Document.create("doc3");
     doc3.setField("field1", "single");
     stage.processDocument(doc3);
     assertEquals("single", doc3.getString("field1"));
@@ -62,7 +61,7 @@ public class RemoveDuplicateValuesTest {
   public void testNoFields() throws StageException {
     Stage stage = factory.get("RemoveDuplicateValuesTest/nofields.conf");
 
-    JsonDocument doc = new JsonDocument("doc");
+    Document doc = Document.create("doc");
     stage.processDocument(doc);
   }
 
@@ -70,13 +69,13 @@ public class RemoveDuplicateValuesTest {
   public void testMultivaluedStrings() throws StageException {
     Stage stage = factory.get("RemoveDuplicateValuesTest/config.conf");
 
-    JsonDocument doc = new JsonDocument("doc");
+    Document doc = Document.create("doc");
     doc.setField("field1", "bar");
     doc.addToField("field1", "cat");
     doc.addToField("field1", "dog");
     doc.addToField("field1", "cat");
 
-    JsonDocument doc2 = new JsonDocument("doc2");
+    Document doc2 = Document.create("doc2");
     doc2.setField("field1", "bar");
     doc2.addToField("field1", "cat");
     doc2.addToField("field1", "dog");
@@ -97,7 +96,7 @@ public class RemoveDuplicateValuesTest {
   public void testMultivaluedNumbers() throws StageException {
     Stage stage = factory.get("RemoveDuplicateValuesTest/config.conf");
 
-    JsonDocument doc = new JsonDocument("doc");
+    Document doc = Document.create("doc");
     doc.setField("field1", 1);
     doc.addToField("field1", 1);
     doc.addToField("field1", 23);
@@ -123,7 +122,7 @@ public class RemoveDuplicateValuesTest {
 
     Stage stage = factory.get("RemoveDuplicateValuesTest/mapping.conf");
 
-    JsonDocument doc = new JsonDocument("doc");
+    Document doc = Document.create("doc");
     doc.setField("field1", 1);
     doc.addToField("field1", 1);
     doc.addToField("field1", 23);

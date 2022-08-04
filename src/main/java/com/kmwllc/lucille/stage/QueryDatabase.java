@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
@@ -74,7 +73,7 @@ public class QueryDatabase extends Stage {
   }
 
   @Override
-  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
+  public List<Document> processDocument(Document doc) throws StageException {
     try {
       preparedStatement.clearParameters();
     } catch (SQLException e) {

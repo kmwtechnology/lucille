@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import org.apache.commons.io.IOUtils;
 import org.hamcrest.CoreMatchers;
@@ -22,7 +22,7 @@ public class ParseJsonTest {
   @Test
   public void testJsonString() throws Exception {
     Stage stage = factory.get("ParseJson/config.conf");
-    JsonDocument doc = new JsonDocument("doc");
+    Document doc = Document.create("doc");
     try (InputStream in = ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/test.json")) {
       doc.setField("json", IOUtils.toString(in, StandardCharsets.UTF_8));
       stage.processDocument(doc);
@@ -116,7 +116,7 @@ public class ParseJsonTest {
   @Test
   public void testJsonFileContent() throws Exception {
     Stage stage = factory.get("ParseJson/base64_config.conf");
-    JsonDocument doc = new JsonDocument("doc");
+    Document doc = Document.create("doc");
     try (InputStream in = ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/test.json")) {
       doc.setField("file_content", Base64.getEncoder().encodeToString(IOUtils.toByteArray(in)));
       stage.processDocument(doc);

@@ -1,8 +1,7 @@
 package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -19,7 +18,7 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessageManager.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
-  private final KafkaProducer<String, JsonDocument> kafkaDocumentProducer;
+  private final KafkaProducer<String, Document> kafkaDocumentProducer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final Config config;
   private final String pipelineName;
@@ -41,7 +40,7 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
    *
    */
   @Override
-  public JsonDocument pollDocToProcess() throws Exception {
+  public Document pollDocToProcess() throws Exception {
     ConsumerRecords<String, KafkaDocument> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
@@ -63,21 +62,21 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
    *
    */
   @Override
-  public void sendCompleted(JsonDocument document) throws Exception {
+  public void sendCompleted(Document document) throws Exception {
     RecordMetadata result = kafkaDocumentProducer.send(
       new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
     kafkaDocumentProducer.flush();
   }
 
-  public void sendFailed(JsonDocument document) throws Exception {
-    ProducerRecord<String, JsonDocument> producerRecord =
+  public void sendFailed(Document document) throws Exception {
+    ProducerRecord<String, Document> producerRecord =
       new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
     RecordMetadata metadata = kafkaDocumentProducer.send(producerRecord).get();
     kafkaDocumentProducer.flush();
   }
 
   @Override
-  public void sendEvent(JsonDocument document, String message, Event.Type type) throws Exception {
+  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
     Event event = new Event(document.getId(), document.getRunId(), message, type);
     sendEvent(event);
   }

@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.filetraverser;
 
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.filetraverser.data.kafkaserde.DocumentDeserializer;
 import com.kmwllc.lucille.filetraverser.data.producer.DefaultDocumentProducer;
 import org.apache.commons.cli.CommandLine;
@@ -33,7 +32,7 @@ public class ConsoleFileCopier implements AutoCloseable {
   private static final Logger log = LogManager.getLogger(ConsoleFileCopier.class);
   private final Path path;
   private final boolean fromBeginning;
-  private final Consumer<String, JsonDocument> consumer;
+  private final Consumer<String, Document> consumer;
   private final Duration pollTimeout = Duration.ofMillis(1000);
 
   public ConsoleFileCopier(String path, String topic, String location, boolean fromBeginning) {
@@ -101,10 +100,10 @@ public class ConsoleFileCopier implements AutoCloseable {
     }
 
     while (true) {
-      ConsumerRecords<String, JsonDocument> records = consumer.poll(pollTimeout);
+      ConsumerRecords<String, Document> records = consumer.poll(pollTimeout);
       if (!records.isEmpty()) {
         log.info("{} records received", records.count());
-        for (ConsumerRecord<String, JsonDocument> record : records) {
+        for (ConsumerRecord<String, Document> record : records) {
           log.info("Info received [{}]", record.value().toString());
           if (path != null && record.value().has(DefaultDocumentProducer.CONTENT)) {
             log.debug("Writing file to disk");

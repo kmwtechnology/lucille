@@ -1,7 +1,9 @@
 package com.kmwllc.lucille.indexer;
 
-import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.SolrUtils;
@@ -71,7 +73,7 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<JsonDocument> documents) throws Exception {
+  protected void sendToIndex(List<Document> documents) throws Exception {
 
     if (solrClient==null) {
       log.debug("sendToSolr bypassed for documents: " + documents);
@@ -79,7 +81,7 @@ public class SolrIndexer extends Indexer {
     }
 
     List<SolrInputDocument> solrDocs = new ArrayList();
-    for (JsonDocument doc : documents) {
+    for (Document doc : documents) {
 
       Map<String,Object> map = getIndexerDoc(doc);
       SolrInputDocument solrDoc = new SolrInputDocument();
@@ -113,7 +115,7 @@ public class SolrIndexer extends Indexer {
     solrClient.add(solrDocs);
   }
 
-  private void addChildren(JsonDocument doc, SolrInputDocument solrDoc) throws IndexerException {
+  private void addChildren(Document doc, SolrInputDocument solrDoc) throws IndexerException {
     List<Document> children = doc.getChildren();
     if (children==null || children.isEmpty()) {
       return;

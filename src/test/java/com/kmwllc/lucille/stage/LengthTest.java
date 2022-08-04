@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
@@ -15,7 +14,7 @@ public class LengthTest {
   public void testLength() throws StageException {
     Stage stage = factory.get("LengthTest/config.conf");
 
-    JsonDocument doc1 = new JsonDocument("doc1");
+    Document doc1 = Document.create("doc1");
     doc1.setField("singleton", "one value");
     doc1.setField("customers", "Ace Hardware");
     doc1.setOrAdd("customers", "Home Depot");

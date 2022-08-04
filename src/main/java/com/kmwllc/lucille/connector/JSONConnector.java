@@ -1,8 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
@@ -32,7 +31,7 @@ public class JSONConnector extends AbstractConnector {
       LineIterator it = IOUtils.lineIterator(reader);
       while (it.hasNext()) {
         String line = it.nextLine();
-        publisher.publish(JsonDocument.fromJsonString(line, idUpdater));
+        publisher.publish(Document.createFromJson(line, idUpdater));
       }
     } catch (IOException e) {
       throw new ConnectorException("Error reading file: ", e);

@@ -54,7 +54,7 @@ public class PublisherImpl implements Publisher {
   private final Timer timer;
   private Timer.Context timerContext = null;
   private boolean isCollapsing;
-  private JsonDocument previousDoc = null;
+  private Document previousDoc = null;
   private StopWatch firstDocStopWatch;
 
   // List of published documents that have not reached a terminal state. Also includes children of published documents.
@@ -90,7 +90,7 @@ public class PublisherImpl implements Publisher {
   }
 
   @Override
-  public void publish(JsonDocument document) throws Exception {
+  public void publish(Document document) throws Exception {
     if (firstDocStopWatch.isStarted()) {
       firstDocStopWatch.stop();
       log.info("First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
@@ -108,7 +108,7 @@ public class PublisherImpl implements Publisher {
     }
   }
 
-  private void publishInternal(JsonDocument document) throws Exception {
+  private void publishInternal(Document document) throws Exception {
     if (!isCollapsing) {
       sendForProcessing(document);
       return;
@@ -127,7 +127,7 @@ public class PublisherImpl implements Publisher {
     }
   }
 
-  public void sendForProcessing(JsonDocument document) throws Exception {
+  public void sendForProcessing(Document document) throws Exception {
     document.initializeRunId(runId);
     // capture the docId before we make the document available for update by other threads
     String docId = document.getId();

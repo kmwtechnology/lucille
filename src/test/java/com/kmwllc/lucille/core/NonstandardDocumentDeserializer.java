@@ -10,12 +10,12 @@ import org.apache.kafka.common.serialization.Deserializer;
  * Deserializes json containing "myId" into KafkaDocuments which require "id"
  * For testing purposes only
  */
-public class NonstandardDocumentDeserializer implements Deserializer<JsonDocument> {
+public class NonstandardDocumentDeserializer implements Deserializer<Document> {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @Override
-  public JsonDocument deserialize(String topic, byte[] data) {
+  public Document deserialize(String topic, byte[] data) {
     if (data == null) {
       return null;
     }

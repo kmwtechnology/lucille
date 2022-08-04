@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
@@ -21,14 +20,14 @@ public class CopyFieldsTest {
     Stage stage = factory.get("CopyFieldsTest/replace.conf");
 
     // Ensure that one field is correctly copied over
-    JsonDocument doc = new JsonDocument("doc");
+    Document doc = Document.create("doc");
     String inputVal = "This will be copied to output1";
     doc.setField("input1", inputVal);
     stage.processDocument(doc);
     assertEquals("Value from input1 should be copied to output1", inputVal, doc.getStringList("output1").get(0));
 
     // Ensure that field 2 in the source list is copied to output2
-    JsonDocument doc2 = new JsonDocument("doc2");
+    Document doc2 = Document.create("doc2");
     inputVal = "This will be copied to output2";
     doc2.setField("input2", inputVal);
     doc2.setField("output2", "here's some junk data.");
@@ -36,7 +35,7 @@ public class CopyFieldsTest {
     assertEquals("Value from input2 should be copied to output2", inputVal, doc2.getStringList("output2").get(0));
 
     // Ensure that several fields can be copied at the same time.
-    JsonDocument doc3 = new JsonDocument("doc3");
+    Document doc3 = Document.create("doc3");
     String inputVal1 = "This will be copied to output1";
     String inputVal2 = "This will be copied to output2";
     String inputVal3 = "This will be copied to output3";
@@ -53,7 +52,7 @@ public class CopyFieldsTest {
   public void testCopyFieldsSkip() throws Exception {
     Stage stage = factory.get("CopyFieldsTest/skip.conf");
 
-    JsonDocument doc = new JsonDocument("doc");
+    Document doc = Document.create("doc");
     doc.setField("input1", "Here is some input.");
     doc.setField("input2", "Here is another input.");
     doc.setField("input3", "This will be skipped along with input 1.");

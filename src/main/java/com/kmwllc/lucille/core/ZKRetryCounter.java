@@ -27,7 +27,7 @@ public class ZKRetryCounter implements RetryCounter {
   }
 
   @Override
-  public boolean add(JsonDocument document) {
+  public boolean add(Document document) {
     String counterPath = getCounterPath(document);
     int retryCount = 0;
     try (SharedCount counter = new SharedCount(curatorFramework, counterPath, 0)) {
@@ -43,7 +43,7 @@ public class ZKRetryCounter implements RetryCounter {
   }
 
   @Override
-  public void remove(JsonDocument document) {
+  public void remove(Document document) {
     String counterPath = getCounterPath(document);
     try {
       curatorFramework.delete().quietly().deletingChildrenIfNeeded().forPath(counterPath);
@@ -52,7 +52,7 @@ public class ZKRetryCounter implements RetryCounter {
     }
   }
 
-  private String getCounterPath(JsonDocument document) {
+  private String getCounterPath(Document document) {
     if (document instanceof KafkaDocument) {
       KafkaDocument doc = (KafkaDocument) document;
       return retryCounterPrefix + doc.getTopic() + "/" + doc.getRunId() + "/" + doc.getKey() + "___" + doc.getPartition() + "_" + doc.getOffset();

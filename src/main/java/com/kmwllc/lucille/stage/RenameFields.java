@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
@@ -45,7 +44,7 @@ public class RenameFields extends Stage {
   }
 
   @Override
-  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
+  public List<Document> processDocument(Document doc) throws StageException {
     // For each field, if this document has the source field, rename it to the destination field
     for (Entry<String, Object> fieldPair : fieldMap.entrySet()) {
       if (!doc.has(fieldPair.getKey()))

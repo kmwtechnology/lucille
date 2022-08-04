@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.core.JsonDocument;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,9 +51,9 @@ public class Print extends Stage {
   }
 
   @Override
-  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
+  public List<Document> processDocument(Document doc) throws StageException {
     if (excludeFields!=null) {
-      doc = doc.clone();
+      doc = doc.copy(); // todo changed to copy
       for (String field : excludeFields) {
         if (Document.RUNID_FIELD.equals(field)) {
           doc.clearRunId();

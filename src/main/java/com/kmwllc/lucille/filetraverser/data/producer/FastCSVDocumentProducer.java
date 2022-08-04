@@ -1,9 +1,7 @@
 package com.kmwllc.lucille.filetraverser.data.producer;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.DocumentException;
-import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.filetraverser.data.DocumentProducer;
 import de.siegmar.fastcsv.reader.NamedCsvReader;
 import de.siegmar.fastcsv.reader.NamedCsvRow;
@@ -22,16 +20,16 @@ public class FastCSVDocumentProducer implements DocumentProducer {
   }
 
   @Override
-  public List<JsonDocument> produceDocuments(Path file, JsonDocument parent) throws DocumentException, IOException {
+  public List<Document> produceDocuments(Path file, Document parent) throws DocumentException, IOException {
 
-    List<JsonDocument> docs = new ArrayList<>();
+    List<Document> docs = new ArrayList<>();
     try (NamedCsvReader csv = NamedCsvReader.builder().build(file, Charset.defaultCharset())) {
       // Assume the first column is the ID column
       // Note that csv.getHeader() returns a Set but we assume
       // it's going to be a LinkedHashSet with predictable iteration order
       String idColumnName = csv.getHeader().stream().findFirst().get();
       for (NamedCsvRow row : csv) {
-        JsonDocument doc = parent.clone();
+        Document doc = parent.copy(); // todo changed to copy
         doc.setField(Document.ID_FIELD, row.getField(idColumnName));
         Map<String,String> fields = row.getFields();
         fields.forEach(doc::setField);

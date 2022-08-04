@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.indexer;
 
-import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
@@ -72,14 +73,14 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<JsonDocument> documents) throws Exception {
+  protected void sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) return;
 
     BulkRequest bulkRequest = new BulkRequest(index);
 
     // determine what field to use as id field and iterate over the documents
-    for (JsonDocument doc : documents) {
+    for (Document doc : documents) {
       Map<String, Object> indexerDoc = doc.asMap();
 
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
@@ -104,7 +105,7 @@ public class ElasticsearchIndexer extends Indexer {
     client.bulk(bulkRequest, RequestOptions.DEFAULT);
   }
 
-  private void addChildren(JsonDocument doc, Map<String, Object> indexerDoc) {
+  private void addChildren(Document doc, Map<String, Object> indexerDoc) {
     List<Document> children = doc.getChildren();
     if (children == null || children.isEmpty()) {
       return;

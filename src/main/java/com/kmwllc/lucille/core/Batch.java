@@ -20,7 +20,7 @@ import java.util.concurrent.LinkedBlockingQueue;
  */
 public class Batch {
 
-  private final LinkedBlockingQueue<JsonDocument> queue;
+  private final LinkedBlockingQueue<Document> queue;
   private final int timeout;
   private Instant lastAddOrFlushInstant;
 
@@ -43,8 +43,8 @@ public class Batch {
    * and all of its contents will be returned. The newly added document will not
    * be returned but will be stored as the first element of the current batch.
    */
-  public List<JsonDocument> add(JsonDocument doc) {
-    List<JsonDocument> docs = new ArrayList<>();
+  public List<Document> add(Document doc) {
+    List<Document> docs = new ArrayList<>();
 
     if (isExpired()) {
       queue.drainTo(docs);
@@ -64,7 +64,7 @@ public class Batch {
    * (i.e. if the configured timeout has been reached since the last add or flush).
    * Returns an empty list otherwise.
    */
-  public List<JsonDocument> flushIfExpired() {
+  public List<Document> flushIfExpired() {
     return isExpired() ? flush() : new ArrayList();
   }
 
@@ -72,8 +72,8 @@ public class Batch {
    * Removes and returns all Documents in the current batch,
    * regardless of whether the batch is expired.
    */
-  public List<JsonDocument> flush() {
-    List<JsonDocument> docs = new ArrayList<>();
+  public List<Document> flush() {
+    List<Document> docs = new ArrayList<>();
     queue.drainTo(docs);
     lastAddOrFlushInstant = Instant.now();
     return docs;

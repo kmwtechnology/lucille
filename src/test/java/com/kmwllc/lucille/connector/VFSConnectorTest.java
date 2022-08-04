@@ -1,8 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.Connector;
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.filetraverser.FileTraverser;
@@ -29,7 +28,7 @@ public class VFSConnectorTest {
     String[] fileNames = {"a.json", "b.json", "c.json", "d.json",
         "subdir1/e.json", "subdir1/e.json.gz", "subdir1/e.yaml", "subdir1/f.jsonl"};
     int docCount = 0;
-    for (JsonDocument doc : manager.getSavedDocumentsSentForProcessing()) {
+    for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
       String docId = doc.getId();
       String filePath = doc.getString(FileTraverser.FILE_PATH);
       // skip if it's an automatically generated Finder file because the directory was opened
@@ -58,7 +57,7 @@ public class VFSConnectorTest {
     connector.execute(publisher);
     Assert.assertEquals(3, manager.getSavedDocumentsSentForProcessing().size());
     String[] fileNames = {"a.json", "b.json", "c.json"};
-    for (JsonDocument doc : manager.getSavedDocumentsSentForProcessing()) {
+    for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
       String docId = doc.getId();
       String filePath = doc.getString(FileTraverser.FILE_PATH);
       String content = new String(Base64.getDecoder().decode(doc.getString(DefaultDocumentProducer.CONTENT)));

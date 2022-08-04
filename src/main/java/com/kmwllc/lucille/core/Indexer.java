@@ -70,7 +70,7 @@ public abstract class Indexer implements Runnable {
    * use a single call to the batch API provided by the search engine client, if available,
    * as opposed to sending each document individually.
    */
-  abstract protected void sendToIndex(List<JsonDocument> documents) throws Exception;
+  abstract protected void sendToIndex(List<Document> documents) throws Exception;
 
   /**
    * Close the client or connection to the destination search engine.
@@ -112,7 +112,7 @@ public abstract class Indexer implements Runnable {
   }
 
   private void checkForDoc() {
-    JsonDocument doc;
+    Document doc;
     try {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
@@ -131,7 +131,7 @@ public abstract class Indexer implements Runnable {
     sendToIndexWithAccounting(batch.add(doc));
   }
 
-  private void sendToIndexWithAccounting(List<JsonDocument> batchedDocs) {
+  private void sendToIndexWithAccounting(List<Document> batchedDocs) {
     if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
       log.info(String.format("%d docs indexed. One minute rate: %.2f docs/sec. Mean backend latency: %.2f ms/doc.",
         meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()/1000000));
@@ -152,7 +152,7 @@ public abstract class Indexer implements Runnable {
     } catch (Exception e) {
       log.error("Error sending documents to index: " + e.getMessage(), e);
 
-      for (JsonDocument d : batchedDocs) {
+      for (Document d : batchedDocs) {
         try {
           manager.sendEvent(d,"FAILED: " + e.getMessage(), Event.Type.FAIL);
         } catch (Exception e2) {
@@ -170,7 +170,7 @@ public abstract class Indexer implements Runnable {
       }
     }
 
-    for (JsonDocument d : batchedDocs) {
+    for (Document d : batchedDocs) {
       try {
         manager.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
       } catch (Exception e) {
@@ -186,14 +186,14 @@ public abstract class Indexer implements Runnable {
    * be applied for the given document.
    *
    */
-  protected String getDocIdOverride(JsonDocument doc) {
+  protected String getDocIdOverride(Document doc) {
     if (idOverrideField!=null && doc.has(idOverrideField)) {
       return doc.getString(idOverrideField);
     }
     return null;
   }
 
-  protected Map<String, Object> getIndexerDoc(JsonDocument doc) {
+  protected Map<String, Object> getIndexerDoc(Document doc) {
     Map<String, Object> indexerDoc = doc.asMap();
     if (ignoreFields != null) {
       ignoreFields.forEach(indexerDoc::remove);

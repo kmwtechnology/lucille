@@ -59,15 +59,15 @@ public class BetterJsonDocument implements Document {
     // todo what if runId is null ? or either is empty
   }
 
-  public static BetterJsonDocument fromJsonString(String json)
+  public static Document fromJsonString(String json)
       throws DocumentException, JsonProcessingException {
     return new BetterJsonDocument((ObjectNode) MAPPER.readTree(json));
   }
 
   public static Document fromJsonString(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
-    BetterJsonDocument doc = fromJsonString(json);
-    doc.data.put(ID_FIELD, idUpdater.apply(doc.getId()));
+    Document doc = fromJsonString(json);
+    doc.getData().put(ID_FIELD, idUpdater.apply(doc.getId()));
     return doc;
   }
 
@@ -138,12 +138,12 @@ public class BetterJsonDocument implements Document {
 
     validateNotReservedField(name);
 
-    if (values.length == 0 || has(name) && mode.equals(UpdateMode.SKIP)) {
+    if (values.length == 0 || has(name) && mode == UpdateMode.SKIP) {
       return;
     }
 
     int i = 0;
-    if (mode.equals(UpdateMode.OVERWRITE)) {
+    if (mode == UpdateMode.OVERWRITE) {
       setter.accept(values[0]);
       i = 1;
     }
@@ -611,4 +611,18 @@ public class BetterJsonDocument implements Document {
       throw new IllegalStateException("Document not cloneable", e);
     }
   }
+
+  // todo
+//  public void addDate(String fieldName, Date date) {
+//    data.putPOJO(fieldName, date);
+//  }
+//
+//  public Date getDate(String fieldName) throws JsonProcessingException {
+//
+//    JsonNode node = data.get(fieldName);
+//
+//    Date date = MAPPER.treeToValue(node, Date.class);
+//
+//    return date;
+//  }
 }

@@ -56,12 +56,12 @@ public class RunnerTest {
       Runner.runInTestMode("RunnerTest/singleDoc.conf").get("connector1");
 
     // confirm doc 1 sent for processing
-    List<JsonDocument> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
     assertEquals(1, docsSentForProcessing.size());
     assertEquals("1", docsSentForProcessing.get(0).getId());
 
     // confirm doc 1 was processed by the pipeline and sent to the destination topic
-    List<JsonDocument> docsCompleted = manager.getSavedCompletedDocuments();
+    List<Document> docsCompleted = manager.getSavedCompletedDocuments();
     assertEquals(1, docsCompleted.size());
     assertEquals("1", docsCompleted.get(0).getId());
 
@@ -98,7 +98,7 @@ public class RunnerTest {
       Runner.runInTestMode("RunnerTest/threeDocsOneFailure.conf").get("connector1");
 
     // confirm doc 3 docs sent for processing but only 2 docs completed
-    List<JsonDocument> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
     assertEquals(3, docsSentForProcessing.size());
     assertEquals("1", docsSentForProcessing.get(0).getId());
     assertEquals("2", docsSentForProcessing.get(1).getId());
@@ -162,12 +162,12 @@ public class RunnerTest {
       Runner.runInTestMode("RunnerTest/singleDocSingleChild.conf").get("connector1");;
 
     // confirm doc 1 sent for processing
-    List<JsonDocument> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
     assertEquals(1, docsSentForProcessing.size());
     assertEquals("1", docsSentForProcessing.get(0).getId());
 
     // confirm doc 1 and its child were processed by the pipeline and sent to the destination topic
-    List<JsonDocument> docsCompleted = manager.getSavedCompletedDocuments();
+    List<Document> docsCompleted = manager.getSavedCompletedDocuments();
     assertEquals(2, docsCompleted.size());
 
     // confirm doc 1 and its child were sent to solr
@@ -294,7 +294,7 @@ public class RunnerTest {
     PostCompletionCSVConnector.reset();
     PersistingLocalMessageManager manager = Runner.runInTestMode("RunnerTest/postCompletionActions.conf").get("connector1");
     assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
-    List<JsonDocument> docs = manager.getSavedCompletedDocuments();
+    List<Document> docs = manager.getSavedCompletedDocuments();
     Instant stageInstant = Instant.parse(docs.get(0).getString("timestamp"));
     Instant postCompletionInstant = PostCompletionCSVConnector.getPostCompletionInstant();
     assertTrue(postCompletionInstant.isAfter(stageInstant));

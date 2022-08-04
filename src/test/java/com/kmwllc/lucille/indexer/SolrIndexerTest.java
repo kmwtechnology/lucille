@@ -3,7 +3,7 @@ package com.kmwllc.lucille.indexer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
@@ -41,8 +41,8 @@ public class SolrIndexerTest {
     Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
-    JsonDocument doc = new JsonDocument("doc1", "test_run");
-    JsonDocument doc2 = new JsonDocument("doc2", "test_run");
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
@@ -80,8 +80,8 @@ public class SolrIndexerTest {
     Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
-    JsonDocument doc = new JsonDocument("doc1", "test_run");
-    JsonDocument doc2 = new JsonDocument("doc2", "test_run");
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
@@ -124,10 +124,10 @@ public class SolrIndexerTest {
 
     // idOverrideField is set to id_temp
     // doc1 and doc2 have a value for id_temp, doc2 doesn't
-    JsonDocument doc = new JsonDocument("doc1", "test_run");
+    Document doc = Document.create("doc1", "test_run");
     doc.setField("id_temp", "doc1_overriden");
-    JsonDocument doc2 = new JsonDocument("doc2", "test_run");
-    JsonDocument doc3 = new JsonDocument("doc3", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+    Document doc3 = Document.create("doc3", "test_run");
     doc3.setField("id_temp", "doc3_overriden");
 
     SolrClient solrClient = mock(SolrClient.class);
@@ -170,11 +170,11 @@ public class SolrIndexerTest {
     Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
-    JsonDocument doc = new JsonDocument("doc1", "test_run");
-    JsonDocument doc2 = new JsonDocument("doc2", "test_run");
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
     doc2.addToField("myListField", "val1");
     doc2.addToField("myListField", "val2");
-    JsonDocument doc3 = new JsonDocument("doc3", "test_run");
+    Document doc3 = Document.create("doc3", "test_run");
     doc.addChild(doc2);
     doc.addChild(doc3);
     assertTrue(doc.has(Document.CHILDREN_FIELD));
@@ -214,11 +214,11 @@ public class SolrIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("SolrIndexerTest/exception.conf");
 
-    JsonDocument doc = new JsonDocument("doc1", "test_run");
-    JsonDocument doc2 = new JsonDocument("doc2", "test_run");
-    JsonDocument doc3 = new JsonDocument("doc3", "test_run");
-    JsonDocument doc4 = new JsonDocument("doc4", "test_run");
-    JsonDocument doc5 = new JsonDocument("doc5", "test_run");
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+    Document doc3 = Document.create("doc3", "test_run");
+    Document doc4 = Document.create("doc4", "test_run");
+    Document doc5 = Document.create("doc5", "test_run");
 
     Indexer indexer = new ErroringIndexer(config, manager, true);
     manager.sendCompleted(doc);
@@ -241,7 +241,7 @@ public class SolrIndexerTest {
     Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
-    JsonDocument doc = new JsonDocument("doc1", "test_run");
+    Document doc = Document.create("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\":1, \"b\":2}");
     doc.setField("myJsonField", jsonNode);
@@ -265,8 +265,8 @@ public class SolrIndexerTest {
     Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
-    JsonDocument doc = new JsonDocument("doc1", "test_run");
-    JsonDocument childDoc = new JsonDocument("child1");
+    Document doc = Document.create("doc1", "test_run");
+    Document childDoc = Document.create("child1");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\":1, \"b\":2}");
     childDoc.setField("myJsonField", jsonNode);
@@ -291,7 +291,7 @@ public class SolrIndexerTest {
     Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
-    JsonDocument doc = new JsonDocument("doc1", "test_run");
+    Document doc = Document.create("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
@@ -315,8 +315,8 @@ public class SolrIndexerTest {
     Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
-    JsonDocument doc = new JsonDocument("doc1", "test_run");
-    JsonDocument childDoc = new JsonDocument("child1");
+    Document doc = Document.create("doc1", "test_run");
+    Document childDoc = Document.create("child1");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     childDoc.setField("myJsonField", jsonNode);
@@ -341,7 +341,7 @@ public class SolrIndexerTest {
     Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
-    JsonDocument doc = new JsonDocument("doc1", "test_run");
+    Document doc = Document.create("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
     doc.setField("myJsonField", jsonNode);
@@ -365,8 +365,8 @@ public class SolrIndexerTest {
     Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
-    JsonDocument doc = new JsonDocument("doc1", "test_run");
-    JsonDocument childDoc = new JsonDocument("child1");
+    Document doc = Document.create("doc1", "test_run");
+    Document childDoc = Document.create("child1");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
     childDoc.setField("myJsonField", jsonNode);
@@ -393,7 +393,7 @@ public class SolrIndexerTest {
     }
 
     @Override
-    public void sendToIndex(List<JsonDocument> docs) throws Exception {
+    public void sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to Solr are correctly handled");
     }
   }

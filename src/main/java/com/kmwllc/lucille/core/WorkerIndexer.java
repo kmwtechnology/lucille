@@ -62,7 +62,7 @@ public class WorkerIndexer {
   public void start(Config config, String pipelineName, boolean bypassSearchEngine, Set<String> idSet) throws Exception {
 
     // TODO: make queue capacity configurable
-    LinkedBlockingQueue<JsonDocument> pipelineDest =
+    LinkedBlockingQueue<Document> pipelineDest =
       new LinkedBlockingQueue<>(LocalMessageManager.DEFAULT_QUEUE_CAPACITY);
 
     // TODO: should we place a capacity on the offsets queue?
@@ -72,7 +72,7 @@ public class WorkerIndexer {
     start(config, pipelineName, pipelineDest, offsets, bypassSearchEngine, idSet);
   }
 
-  public void start(Config config, String pipelineName, LinkedBlockingQueue<JsonDocument> pipelineDest,
+  public void start(Config config, String pipelineName, LinkedBlockingQueue<Document> pipelineDest,
                     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
                     boolean bypassSearchEngine,
                     Set<String> idSet) throws Exception {

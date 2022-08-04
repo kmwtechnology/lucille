@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -17,7 +16,7 @@ public class DropValuesTest {
     Stage stage = factory.get("DropValuesTest/config.conf");
 
     // Ensure that only exact matches are dropped
-    JsonDocument doc = new JsonDocument("doc");
+    Document doc = Document.create("doc");
     doc.addToField("input", "don't drop this");
     doc.addToField("input", "drop");
     stage.processDocument(doc);
@@ -25,7 +24,7 @@ public class DropValuesTest {
     assertEquals("don't drop this", doc.getStringList("input").get(0));
 
     // Ensure that the correct values are dropped from a complex multivalued field
-    JsonDocument doc2 = new JsonDocument("doc2");
+    Document doc2 = Document.create("doc2");
     doc2.addToField("input", "keep this");
     doc2.addToField("input", "drop");
     doc2.addToField("input", "keep this as well");

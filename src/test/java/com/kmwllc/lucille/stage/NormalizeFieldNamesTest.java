@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
@@ -15,7 +15,7 @@ public class NormalizeFieldNamesTest {
   public void testNormalizeFieldNames() throws StageException {
     Stage stage = factory.get("FieldNormalizerTest/config.conf");
 
-    JsonDocument doc1 = new JsonDocument("doc1");
+    Document doc1 = Document.create("doc1");
     doc1.setField("input1", "test1");
     doc1.setField("input 2", "test2");
     doc1.setField("input 3 (test123)", "test3");

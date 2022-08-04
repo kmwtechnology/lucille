@@ -1,8 +1,7 @@
 package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,9 +16,9 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
 
   private final LocalMessageManager manager;
 
-  private List<Event> savedEventMessages = Collections.synchronizedList(new ArrayList<Event>());
-  private List<JsonDocument> savedSourceMessages = Collections.synchronizedList(new ArrayList<JsonDocument>());
-  private List<JsonDocument> savedDestMessages = Collections.synchronizedList(new ArrayList<JsonDocument>());
+  private List<Event> savedEventMessages = Collections.synchronizedList(new ArrayList<>());
+  private List<Document> savedSourceMessages = Collections.synchronizedList(new ArrayList<>());
+  private List<Document> savedDestMessages = Collections.synchronizedList(new ArrayList<>());
 
   public PersistingLocalMessageManager() {
     this.manager = new LocalMessageManager();
@@ -30,12 +29,12 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   }
 
   @Override
-  public JsonDocument pollCompleted() throws Exception {
+  public Document pollCompleted() throws Exception {
     return manager.pollCompleted();
   }
 
   @Override
-  public JsonDocument pollDocToProcess() throws Exception {
+  public Document pollDocToProcess() throws Exception {
     return manager.pollDocToProcess();
   }
 
@@ -45,18 +44,18 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   }
 
   @Override
-  public void sendCompleted(JsonDocument document) throws Exception {
+  public void sendCompleted(Document document) throws Exception {
     savedDestMessages.add(document);
     manager.sendCompleted(document);
   }
 
   @Override
-  public void sendFailed(JsonDocument document) throws Exception {
+  public void sendFailed(Document document) throws Exception {
     manager.sendFailed(document);
   }
 
   @Override
-  public void sendEvent(JsonDocument document, String message, Event.Type type) throws Exception {
+  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
     Event event = new Event(document.getId(), document.getRunId(), message, type);
     sendEvent(event);
   }
@@ -84,7 +83,7 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
 
 
   @Override
-  public void sendForProcessing(JsonDocument document) throws Exception {
+  public void sendForProcessing(Document document) throws Exception {
     savedSourceMessages.add(document);
     manager.sendForProcessing(document);
   }
@@ -95,7 +94,7 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   }
 
   @Override
-  public void batchComplete(List<JsonDocument> batch) throws Exception {
+  public void batchComplete(List<Document> batch) throws Exception {
     manager.batchComplete(batch);
   }
 
@@ -103,11 +102,11 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
     return savedEventMessages;
   }
 
-  public List<JsonDocument> getSavedDocumentsSentForProcessing() {
+  public List<Document> getSavedDocumentsSentForProcessing() {
     return savedSourceMessages;
   }
 
-  public List<JsonDocument> getSavedCompletedDocuments() {
+  public List<Document> getSavedCompletedDocuments() {
     return savedDestMessages;
   }
 

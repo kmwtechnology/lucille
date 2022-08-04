@@ -53,7 +53,7 @@ public class HybridKafkaTest {
 
     WorkerIndexer workerIndexer = new WorkerIndexer();
 
-    RecordingLinkedBlockingQueue<JsonDocument> pipelineDest =
+    RecordingLinkedBlockingQueue<Document> pipelineDest =
       new RecordingLinkedBlockingQueue<>();
 
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
@@ -109,14 +109,14 @@ public class HybridKafkaTest {
 
     Set<String> idSet = CounterUtils.getThreadSafeSet();
 
-    RecordingLinkedBlockingQueue<JsonDocument> pipelineDest1 =
+    RecordingLinkedBlockingQueue<Document> pipelineDest1 =
       new RecordingLinkedBlockingQueue<>();
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets1 =
       new RecordingLinkedBlockingQueue<>();
     WorkerIndexer workerIndexer1 = new WorkerIndexer();
     workerIndexer1.start(config, "pipeline1",  pipelineDest1, offsets1, true, idSet);
 
-    RecordingLinkedBlockingQueue<JsonDocument> pipelineDest2 =
+    RecordingLinkedBlockingQueue<Document> pipelineDest2 =
       new RecordingLinkedBlockingQueue<>();
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets2 =
       new RecordingLinkedBlockingQueue<>();
@@ -161,10 +161,10 @@ public class HybridKafkaTest {
     // make sure each doc we generated is present in at least one of the destination queues,
     // and there are no others
     HashSet<String> idsProcessed = new HashSet<>();
-    for (JsonDocument d : pipelineDest1.getHistory()) {
+    for (Document d : pipelineDest1.getHistory()) {
       idsProcessed.add(d.getId());
     }
-    for (JsonDocument d : pipelineDest2.getHistory()) {
+    for (Document d : pipelineDest2.getHistory()) {
       idsProcessed.add(d.getId());
     }
     assertEquals(1000, idsProcessed.size());
@@ -194,7 +194,7 @@ public class HybridKafkaTest {
 
     WorkerIndexer workerIndexer = new WorkerIndexer();
 
-    RecordingLinkedBlockingQueue<JsonDocument> pipelineDest =
+    RecordingLinkedBlockingQueue<Document> pipelineDest =
       new RecordingLinkedBlockingQueue<>();
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
       new RecordingLinkedBlockingQueue<>();
@@ -262,9 +262,9 @@ public class HybridKafkaTest {
   }
 
 
-  private JsonDocument sendDoc(String id, String topic) throws Exception {
+  private Document sendDoc(String id, String topic) throws Exception {
     List<KeyValue<String, String>> records = new ArrayList<>();
-    JsonDocument doc = new JsonDocument(id);
+    Document doc = Document.create(id);
     records.add(new KeyValue<>(id, doc.toString()));
     kafka.send(SendKeyValues.to(topic, records));
     return doc;

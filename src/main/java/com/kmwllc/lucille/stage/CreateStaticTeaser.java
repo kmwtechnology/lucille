@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.JsonDocument;
-import com.kmwllc.lucille.core.JsonDocument;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
@@ -52,7 +51,7 @@ public class CreateStaticTeaser extends Stage {
 
   // NOTE : If a given field is multivalued, this Stage will only operate on the first value
   @Override
-  public List<JsonDocument> processDocument(JsonDocument doc) throws StageException {
+  public List<Document> processDocument(Document doc) throws StageException {
     for (int i = 0; i < sourceFields.size(); i++) {
       String source = sourceFields.get(i);
       String dest = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
