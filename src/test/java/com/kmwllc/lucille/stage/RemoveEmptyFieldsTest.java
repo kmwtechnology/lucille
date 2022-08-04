@@ -3,9 +3,9 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-import com.kmwllc.lucille.core.Document;
 import org.junit.Test;
 
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 
 public class RemoveEmptyFieldsTest {

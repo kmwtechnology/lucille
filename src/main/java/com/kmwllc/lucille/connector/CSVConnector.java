@@ -1,8 +1,8 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -20,7 +20,6 @@ import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-
 
 /**
  * Connector implementation that produces documents from the rows in a given CSV file.
