@@ -612,16 +612,17 @@ public class BetterJsonDocument implements Document {
     }
   }
 
-  public void addDate(String fieldName, Date date) {
-    data.putPOJO(fieldName, date);
-  }
-
-  public Date getDate(String fieldName) throws JsonProcessingException {
-
-    JsonNode node = data.get(fieldName);
-
-    Date date = MAPPER.treeToValue(node, Date.class);
-
-    return date;
-  }
+  // todo
+//  public void addDate(String fieldName, Date date) {
+//    data.putPOJO(fieldName, date);
+//  }
+//
+//  public Date getDate(String fieldName) throws JsonProcessingException {
+//
+//    JsonNode node = data.get(fieldName);
+//
+//    Date date = MAPPER.treeToValue(node, Date.class);
+//
+//    return date;
+//  }
 }
