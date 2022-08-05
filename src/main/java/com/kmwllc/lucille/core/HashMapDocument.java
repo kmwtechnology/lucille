@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -18,20 +17,25 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
-public class BetterJsonDocument implements Document {
+public class HashMapDocument implements Document {
 
   private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_INSTANT;
   private static final Function<String, Instant> DATE_PARSER =
-      str -> Instant.from(DATE_TIME_FORMATTER.parse(str));
+    str -> Instant.from(DATE_TIME_FORMATTER.parse(str));
   private static final Function<Instant, String> INSTANT_FORMATTER = DATE_TIME_FORMATTER::format;
 
   protected static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<>() {};
   private static final Logger log = LoggerFactory.getLogger(Document.class);
 
-  @JsonValue protected final ObjectNode data;
+  protected final Map<String, List<Object>> data;
 
-  public BetterJsonDocument(ObjectNode data) throws DocumentException {
+  protected final String id;
+  protected String runId;
+  protected List<String> errors;
+  protected List<Document> children;
+
+  public HashMapDocument(ObjectNode data) throws DocumentException {
 
     if (!data.hasNonNull(ID_FIELD)) {
       throw new DocumentException("id is missing");
@@ -42,33 +46,44 @@ public class BetterJsonDocument implements Document {
       throw new DocumentException("id is present but null or empty or not a string");
     }
 
-    this.data = data;
+    // todo consider whether should keep it
+    throw new UnsupportedOperationException("Not implemented yet");
+//    this.data = data;
   }
 
-  public BetterJsonDocument(String id) {
+  public HashMapDocument(String id) {
     if (id == null) {
       throw new NullPointerException("ID cannot be null");
     }
-    this.data = MAPPER.createObjectNode();
-    this.data.put(ID_FIELD, id);
+    this.data = new HashMap<>();
+    this.id = id;
   }
 
-  public BetterJsonDocument(String id, String runId) {
+  public HashMapDocument(String id, String runId) {
     this(id);
-    this.data.put(RUNID_FIELD, runId);
-    // todo what if runId is null ? or either is empty
+
+    if (runId == null) {
+      throw new NullPointerException("Run ID cannot be null");
+    }
+
+    this.runId = runId;
   }
 
+
+  // todo implement these
   public static Document fromJsonString(String json)
-      throws DocumentException, JsonProcessingException {
-    return new BetterJsonDocument((ObjectNode) MAPPER.readTree(json));
+    throws DocumentException, JsonProcessingException {
+    return new HashMapDocument((ObjectNode) MAPPER.readTree(json));
   }
 
   public static Document fromJsonString(String json, UnaryOperator<String> idUpdater)
-      throws DocumentException, JsonProcessingException {
-    Document doc = fromJsonString(json);
-    doc.getData().put(ID_FIELD, idUpdater.apply(doc.getId()));
-    return doc;
+    throws DocumentException, JsonProcessingException {
+
+    throw new UnsupportedOperationException("Not implemented yet");
+//
+//    GenericDocument doc = fromJsonString(json);
+//    doc.getData().put(ID_FIELD, idUpdater.apply(doc.getId()));
+//    return doc;
   }
 
   private void validateNotReservedField(String name) throws IllegalArgumentException {
@@ -76,6 +91,8 @@ public class BetterJsonDocument implements Document {
       throw new IllegalArgumentException();
     }
   }
+
+
 
   @Override
   public void removeField(String name) {
@@ -88,7 +105,7 @@ public class BetterJsonDocument implements Document {
   public void removeFromArray(String name, int index) {
     // todo should return value?
     validateNotReservedField(name);
-    data.withArray(name).remove(index);
+    data.get(name).remove(index);
   }
 
   @Override
@@ -134,7 +151,7 @@ public class BetterJsonDocument implements Document {
    */
   @SafeVarargs
   private <T> void update(
-      String name, UpdateMode mode, Consumer<T> setter, Consumer<T> adder, T... values) {
+    String name, UpdateMode mode, Consumer<T> setter, Consumer<T> adder, T... values) {
 
     validateNotReservedField(name);
 
@@ -154,80 +171,75 @@ public class BetterJsonDocument implements Document {
 
   @Override
   public void initializeRunId(String value) {
-    if (data.has(RUNID_FIELD)) {
+    if (runId != null) {
       throw new IllegalStateException();
     }
-    data.put(RUNID_FIELD, value);
+    runId = value;
   }
 
   @Override
   public void clearRunId() {
-    if (data.has(RUNID_FIELD)) {
+    if (runId != null) {
       data.remove(RUNID_FIELD);
     }
   }
 
+  private <T> void setGenericField(String name, T value) {
+    validateNotReservedField(name);
+    data.put(name, Collections.singletonList(value));
+  }
+
   @Override
   public void setField(String name, String value) {
-    validateNotReservedField(name);
-    data.put(name, value);
+    setGenericField(name, value);
   }
 
   @Override
   public void setField(String name, Long value) {
-    validateNotReservedField(name);
-    data.put(name, value);
+    setGenericField(name, value);
   }
 
   @Override
   public void setField(String name, Integer value) {
-    validateNotReservedField(name);
-    data.put(name, value);
+    setGenericField(name, value);
   }
 
   @Override
   public void setField(String name, Boolean value) {
-    validateNotReservedField(name);
-    data.put(name, value);
+    setGenericField(name, value);
   }
 
   @Override
   public void setField(String name, Double value) {
-    validateNotReservedField(name);
-    data.put(name, value);
+    setGenericField(name, value);
   }
 
   @Override
   public void setField(String name, JsonNode value) {
-    validateNotReservedField(name);
-    data.set(name, value);
+    setGenericField(name, value);
   }
 
   @Override
   public void setField(String name, Instant value) {
-    validateNotReservedField(name);
-    data.put(name, INSTANT_FORMATTER.apply(value));
+    setGenericField(name, value);
   }
 
   @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
     validateNotReservedField(oldName);
     validateNotReservedField(newName);
-    JsonNode oldValues = data.get(oldName);
+    List<Object> oldValues = data.get(oldName);
     data.remove(oldName);
+
+    // todo consider what happens if the fields have different types
 
     if (has(newName)) {
       switch (mode) {
         case OVERWRITE:
           break; // todo why is there no overwrite?
         case APPEND:
-          convertToList(newName);
-
-          if (oldValues.getNodeType() == JsonNodeType.ARRAY) {
-            data.withArray(newName).addAll((ArrayNode) oldValues);
-          } else {
-            data.withArray(newName).add(oldValues);
-          }
+          data.putIfAbsent(newName, new ArrayList<>());
+          data.get(newName).addAll(oldValues);
           // fall through
         case SKIP:
           return;
@@ -236,43 +248,30 @@ public class BetterJsonDocument implements Document {
       }
     }
 
-    data.set(newName, oldValues);
+    data.put(newName, oldValues);
   }
 
   @Override
   public ObjectNode getData() {
-    return data;
+    throw new UnsupportedOperationException();
   }
 
-  private void convertToList(String name) {
-    if (!data.has(name)) {
-      data.set(name, MAPPER.createArrayNode());
-      return;
-    }
-    JsonNode field = data.get(name);
-    if (field.isArray()) {
-      return;
-    }
-    ArrayNode array = MAPPER.createArrayNode();
-    array.add(field);
-    data.set(name, array);
+  private Object getSingleNode(String name) {
+    // todo what iff list is empty ? is it be possible?
+    return data.get(name).get(0);
   }
 
-  private JsonNode getSingleNode(String name) {
-    return isMultiValued(name) ? data.withArray(name).get(0) : data.get(name);
-  }
-
-  private <T> T getSingleValue(String name, Function<JsonNode, T> converter) {
-    if (!data.has(name)) {
+  private <T> T getSingleValue(String name, Function<Object, T> converter) {
+    if (!has(name)) {
       return null;
     }
-    JsonNode node = getSingleNode(name);
+    Object node = getSingleNode(name);
     T applied = converter.apply(node); // todo this is not necessary
-    return node.isNull() ? null : applied;
+    return node == null ? null : applied;
   }
 
-  private <T> List<T> getValueList(String name, Function<JsonNode, T> converter) {
-    if (!data.has(name)) {
+  private <T> List<T> getValueList(String name, Function<Object, T> converter) {
+    if (!has(name)) {
       return null;
     }
 
@@ -280,348 +279,262 @@ public class BetterJsonDocument implements Document {
       return Collections.singletonList(getSingleValue(name, converter));
     }
 
-    ArrayNode array = data.withArray(name);
     List<T> result = new ArrayList<>();
-    for (JsonNode node : array) {
-      T applied = converter.apply(node); // todo this is not necessary
-      result.add(node.isNull() ? null : applied);
+    for (Object node : data.get(name)) {
+      T applied = converter.apply(node);
+      result.add(node == null ? null : applied);
     }
     return result;
   }
 
+  // todo might negatively impact performance, can create static fields for each type
   @Override
   public String getString(String name) {
-    return getSingleValue(name, JsonNode::asText);
+    return getSingleValue(name, value -> (String) value);
   }
 
   @Override
   public List<String> getStringList(String name) {
-    return getValueList(name, JsonNode::asText);
+    return getValueList(name, value -> (String) value);
   }
 
   @Override
   public Integer getInt(String name) {
-    return getSingleValue(name, JsonNode::asInt);
+    return getSingleValue(name, value -> (Integer) value);
   }
 
   @Override
   public List<Integer> getIntList(String name) {
-    return getValueList(name, JsonNode::asInt);
+    return getValueList(name, value -> (Integer) value);
   }
 
   @Override
   public Double getDouble(String name) {
-    return getSingleValue(name, JsonNode::asDouble);
+    return getSingleValue(name, value -> (Double) value);
   }
 
   @Override
   public List<Double> getDoubleList(String name) {
-    return getValueList(name, JsonNode::asDouble);
+    return getValueList(name, value -> (Double) value);
   }
 
   @Override
   public Boolean getBoolean(String name) {
-    return getSingleValue(name, JsonNode::asBoolean);
+    return getSingleValue(name, value -> (Boolean) value);
   }
 
   @Override
   public List<Boolean> getBooleanList(String name) {
-    return getValueList(name, JsonNode::asBoolean);
+    return getValueList(name, value -> (Boolean) value);
   }
 
   @Override
   public Long getLong(String name) {
-    return getSingleValue(name, JsonNode::asLong);
+    return getSingleValue(name, value -> (Long) value);
   }
 
   @Override
   public List<Long> getLongList(String name) {
-    return getValueList(name, JsonNode::asLong);
+    return getValueList(name, value -> (Long) value);
   }
 
   @Override
   public Instant getInstant(String name) {
-    return getSingleValue(name, node -> DATE_PARSER.apply(node.asText()));
+    return getSingleValue(name, value -> (Instant) value);
   }
 
   @Override
   public List<Instant> getInstantList(String name) {
-    return getValueList(name, node -> DATE_PARSER.apply(node.asText()));
+    return getValueList(name, value -> (Instant) value);
   }
 
   @Override
   public int length(String name) {
     if (!has(name)) {
       return 0;
-    } else if (!isMultiValued(name)) {
-      return 1;
-    } else {
-      return data.get(name).size();
     }
+
+    // todo again here can ever be an empty list?
+
+    return data.get(name).size();
   }
 
   @Override
   public String getId() {
-    return getString(ID_FIELD);
+    return id;
   }
 
   @Override
   public String getRunId() {
-    return getString(RUNID_FIELD);
+    return runId;
   }
 
   @Override
   public boolean has(String name) {
-    return data.has(name);
+    return data.containsKey(name);
   }
 
   @Override
   public boolean hasNonNull(String name) {
-    return data.hasNonNull(name);
+    return data.get(name) != null;
   }
 
   @Override
   public boolean isMultiValued(String name) {
-    return data.has(name) && JsonNodeType.ARRAY.equals(data.get(name).getNodeType());
+    // todo check this
+    return has(name); // && data.get(name).size() > 1;
   }
 
-  private ArrayNode getFieldArray(String name) {
+  private <T> void addToFieldList(String name, T value) {
     validateNotReservedField(name);
-    convertToList(name);
-    return data.withArray(name);
+    data.putIfAbsent(name, new ArrayList<>());
+    data.get(name).add(value);
   }
 
   @Override
   public void addToField(String name, String value) {
-    getFieldArray(name).add(value);
+    addToFieldList(name, value);
   }
 
   @Override
   public void addToField(String name, Long value) {
-    getFieldArray(name).add(value);
+    addToFieldList(name, value);
   }
 
   @Override
   public void addToField(String name, Integer value) {
-    getFieldArray(name).add(value);
+    addToFieldList(name, value);
   }
 
   @Override
   public void addToField(String name, Boolean value) {
-    getFieldArray(name).add(value);
+    addToFieldList(name, value);
   }
 
   @Override
   public void addToField(String name, Double value) {
-    getFieldArray(name).add(value);
+    addToFieldList(name, value);
   }
 
   @Override
   public void addToField(String name, Instant value) {
-    getFieldArray(name).add(INSTANT_FORMATTER.apply(value));
+    addToFieldList(name, value);
   }
 
-  // todo might negatively impact performance
-  private <T> void setOrAdd(String name, T value, Consumer<T> add, Consumer<T> set) {
+  private <T> void setOrAddToList(String name, T value) {
     if (has(name)) {
-      add.accept(value);
+      addToFieldList(name, value);
     } else {
-      set.accept(value);
+      setGenericField(name, value);
     }
   }
 
   @Override
   public void setOrAdd(String name, String value) {
-    setOrAdd(name, value, x -> addToField(name, x), x -> setField(name, x));
+    setOrAddToList(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Long value) {
-    setOrAdd(name, value, x -> addToField(name, x), x -> setField(name, x));
+    setOrAddToList(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Integer value) {
-    setOrAdd(name, value, x -> addToField(name, x), x -> setField(name, x));
+    setOrAddToList(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Boolean value) {
-    setOrAdd(name, value, x -> addToField(name, x), x -> setField(name, x));
+    setOrAddToList(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Double value) {
-    setOrAdd(name, value, x -> addToField(name, x), x -> setField(name, x));
+    setOrAddToList(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Instant value) {
-    setOrAdd(name, value, x -> addToField(name, x), x -> setField(name, x));
+    setOrAddToList(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Document other) throws IllegalArgumentException {
 
-    validateNotReservedField(name);
+    throw new UnsupportedOperationException();
 
-    if (!has(name)) {
-      if (other.has(name)) {
-        data.set(name, other.getData().get(name));
-      }
-    } else {
-
-      convertToList(name);
-      ArrayNode currentValues = (ArrayNode) data.get(name);
-      JsonNode otherValue = other.getData().get(name);
-
-      if (otherValue.getNodeType() == JsonNodeType.ARRAY) {
-        currentValues.addAll((ArrayNode) otherValue);
-      } else {
-        currentValues.add(otherValue);
-      }
-    }
+//    validateNotReservedField(name);
+//
+//    if (!has(name)) {
+//      if (other.has(name)) {
+//        setField(name, other.getField(name));
+//        data.set(name, other.getData().get(name));
+//      }
+//    } else {
+//
+//      // todo potentially can get the type of data from other and
+//
+//
+//
+//      data.get(name).addAll(other.getData().get(name));
+//    }
   }
 
   @Override
   public void setOrAddAll(Document other) {
-    for (Iterator<String> it = other.getData().fieldNames(); it.hasNext(); ) {
-      String name = it.next();
-      if (RESERVED_FIELDS.contains(name)) {
-        continue;
-      }
-      setOrAdd(name, other);
-    }
+
+    throw new UnsupportedOperationException();
+
+
+//    for (Iterator<String> it = other.getData().fieldNames(); it.hasNext(); ) {
+//      String name = it.next();
+//      if (RESERVED_FIELDS.contains(name)) {
+//        continue;
+//      }
+//      setOrAdd(name, other);
+//    }
   }
 
   @Override
   public void logError(String description) {
+
+    // todo shouldn't this error
     addToField(ERROR_FIELD, description);
   }
 
   @Override
   public Map<String, Object> asMap() {
-    return MAPPER.convertValue(data, TYPE);
+    return null;
   }
 
   @Override
   public void addChild(Document document) {
-    ArrayNode node = data.withArray(CHILDREN_FIELD);
-    node.add(document.getData());
+
   }
 
   @Override
   public boolean hasChildren() {
-    return data.has(CHILDREN_FIELD);
-    //    return !getChildren().isEmpty(); // todo this is always true
-  }
-
-  @Override
-  public List<Document> getChildren() {
-    if (!data.has(CHILDREN_FIELD)) {
-      return new ArrayList<>();
-    }
-    ArrayNode node = data.withArray(CHILDREN_FIELD);
-    List<Document> children = new ArrayList<>();
-    for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
-      JsonNode element = it.next();
-      try {
-        children.add(new BetterJsonDocument(element.deepCopy()));
-      } catch (DocumentException e) {
-        log.error("Unable to instantiate child Document", e);
-      }
-    }
-    return children;
-  }
-
-  @Override
-  public Set<String> getFieldNames() {
-    Set<String> fieldNames = new HashSet<>();
-    Iterator<String> it = data.fieldNames();
-    while (it.hasNext()) {
-      String fieldName = it.next();
-      fieldNames.add(fieldName);
-    }
-    return fieldNames;
-  }
-
-  @Override
-  public void removeDuplicateValues(String fieldName, String targetFieldName) {
-    if (!isMultiValued(fieldName)) {
-      return;
-    }
-
-    ArrayNode arrayNode = data.withArray(fieldName);
-    LinkedHashSet<JsonNode> set = new LinkedHashSet<>();
-    int length = 0;
-    for (JsonNode jsonNode : arrayNode) {
-      length++;
-      set.add(jsonNode);
-    }
-
-    if (targetFieldName == null || fieldName.equals(targetFieldName)) {
-      if (set.size() == length) {
-        return;
-      }
-      data.remove(fieldName);
-      arrayNode = data.withArray(fieldName);
-      for (JsonNode jsonNode : set) {
-        arrayNode.add(jsonNode);
-      }
-    } else {
-      arrayNode = data.withArray(targetFieldName);
-      for (JsonNode jsonNode : set) {
-        arrayNode.add(jsonNode);
-      }
-    }
-  }
-
-  @Override
-  public boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (other instanceof BetterJsonDocument) {
-      return data.equals(((BetterJsonDocument) other).data);
-    }
     return false;
   }
 
   @Override
-  public int hashCode() {
-    return data.hashCode();
+  public List<Document> getChildren() {
+    return null;
   }
 
   @Override
-  public String toString() {
-    return data.toString();
+  public Set<String> getFieldNames() {
+    return null;
   }
 
   @Override
-  protected Object clone() throws CloneNotSupportedException {
-    Object clone = super.clone();
-    return copy(); // todo what should this do
+  public void removeDuplicateValues(String fieldName, String targetFieldName) {
+
   }
 
   @Override
   public Document copy() {
-    try {
-      return new BetterJsonDocument(data.deepCopy());
-    } catch (DocumentException e) {
-      throw new IllegalStateException("Document not cloneable", e);
-    }
-  }
-
-  public void addDate(String fieldName, Date date) {
-    data.putPOJO(fieldName, date);
-  }
-
-  public Date getDate(String fieldName) throws JsonProcessingException {
-
-    JsonNode node = data.get(fieldName);
-
-    Date date = MAPPER.treeToValue(node, Date.class);
-
-    return date;
+    return null;
   }
 }
