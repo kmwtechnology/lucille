@@ -2,8 +2,8 @@ package com.kmwllc.lucille.connector.jdbc;
 
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 
 import org.apache.commons.lang3.StringUtils;

@@ -16,9 +16,9 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
 
   private final LocalMessageManager manager;
 
-  private List<Event> savedEventMessages = Collections.synchronizedList(new ArrayList<Event>());
-  private List<Document> savedSourceMessages = Collections.synchronizedList(new ArrayList<Document>());
-  private List<Document> savedDestMessages = Collections.synchronizedList(new ArrayList<Document>());
+  private List<Event> savedEventMessages = Collections.synchronizedList(new ArrayList<>());
+  private List<Document> savedSourceMessages = Collections.synchronizedList(new ArrayList<>());
+  private List<Document> savedDestMessages = Collections.synchronizedList(new ArrayList<>());
 
   public PersistingLocalMessageManager() {
     this.manager = new LocalMessageManager();
