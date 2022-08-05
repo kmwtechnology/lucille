@@ -8,7 +8,6 @@ import com.typesafe.config.Config;
 
 import java.util.List;
 
-import static com.kmwllc.lucille.core.Document.RESERVED_FIELDS;
 
 /**
  * Normalizes a document's field values by replacing spaces and non-alphanumeric characters with given delimiters.
@@ -33,7 +32,7 @@ public class NormalizeFieldNames extends Stage {
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     for (String field : doc.getFieldNames()) {
-      if (RESERVED_FIELDS.contains(field)) {
+      if (Document.RESERVED_FIELDS.contains(field)) {
         continue;
       }
 
