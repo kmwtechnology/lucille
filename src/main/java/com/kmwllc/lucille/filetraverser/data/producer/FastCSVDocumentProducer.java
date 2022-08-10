@@ -2,7 +2,6 @@ package com.kmwllc.lucille.filetraverser.data.producer;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
-import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.filetraverser.data.DocumentProducer;
 import de.siegmar.fastcsv.reader.NamedCsvReader;
 import de.siegmar.fastcsv.reader.NamedCsvRow;
