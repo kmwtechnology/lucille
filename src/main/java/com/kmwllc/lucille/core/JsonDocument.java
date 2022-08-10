@@ -32,17 +32,14 @@ public class JsonDocument implements Document {
   @JsonValue
   protected final ObjectNode data;
 
+  public JsonDocument(Document document) throws DocumentException {
+    ObjectNode node = document.getData();
+    verifyJsonNode(node);
+    this.data = node.deepCopy();
+  }
+
   public JsonDocument(ObjectNode data) throws DocumentException {
-
-    if (!data.hasNonNull(ID_FIELD)) {
-      throw new DocumentException("id is missing");
-    }
-
-    JsonNode id = data.get(ID_FIELD);
-    if (!id.isTextual() || id.asText().isEmpty()) {
-      throw new DocumentException("id is present but null or empty or not a string");
-    }
-
+    verifyJsonNode(data);
     this.data = data;
   }
 
@@ -67,6 +64,22 @@ public class JsonDocument implements Document {
     JsonDocument doc = fromJsonString(json);
     doc.data.put(ID_FIELD, idUpdater.apply(doc.getId()));
     return doc;
+  }
+
+  private static void verifyJsonNode(JsonNode node) throws DocumentException {
+    if (! (node instanceof ObjectNode)) {
+      throw new DocumentException("node must be an object node");
+    }
+
+    ObjectNode oNode = (ObjectNode) node;
+    if (!oNode.hasNonNull(ID_FIELD)) {
+      throw new DocumentException("id is missing");
+    }
+
+    JsonNode id = oNode.get(ID_FIELD);
+    if (!id.isTextual() || id.asText().isEmpty()) {
+      throw new DocumentException("id is present but null or empty or not a string");
+    }
   }
 
   @Override
@@ -661,7 +674,9 @@ public class JsonDocument implements Document {
     for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
       JsonNode element = it.next();
       try {
-        children.add(new JsonDocument(element.deepCopy()));
+        // todo check that it is fine to cast / why did the need to do it arose?
+//        children.add(new JsonDocument(element.deepCopy()));
+        children.add(new JsonDocument((ObjectNode) element.deepCopy()));
       } catch (DocumentException e) {
         log.error("Unable to instantiate child Document", e);
       }
@@ -677,7 +692,7 @@ public class JsonDocument implements Document {
   @Override
   public Document deepCopy() {
     try {
-      return new JsonDocument(data.deepCopy());
+      return new JsonDocument(this);
     } catch (DocumentException e) {
       throw new IllegalStateException("Document not copyable", e);
     }
