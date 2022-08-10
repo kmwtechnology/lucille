@@ -12,9 +12,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -91,6 +89,7 @@ public class ParseDate extends Stage {
       for (String value : doc.getStringList(sourceField)) {
         for (DateFormat format : formats) {
           format.setLenient(false);
+          format.setCalendar(new GregorianCalendar(TimeZone.getTimeZone("EST")));
           Date candidate = format.parse(value, new ParsePosition(0));
 
           if (candidate != null) {
