@@ -46,7 +46,7 @@ public class ParseDate extends Stage {
     this.formatters = new ArrayList<>();
     this.formats = ConfigUtils.getOrDefault(config, "format_strs", new ArrayList<String>())
       .stream()
-      .map(formatString -> new SimpleDateFormat(formatString))
+      .map(SimpleDateFormat::new)
       .collect(Collectors.toUnmodifiableList());
 
     this.sourceFields = config.getStringList("source");
