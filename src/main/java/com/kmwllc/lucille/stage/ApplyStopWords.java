@@ -17,7 +17,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-
 /**
  * Removes stop words supplied in the dictionaries from a given list of fields. Multi term stop "phrases"
  * are allowed and will be completely removed from the output String. NOTE : This Stage will only remove whole words and
