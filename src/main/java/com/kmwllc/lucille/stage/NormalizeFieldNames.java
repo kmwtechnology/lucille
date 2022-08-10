@@ -8,7 +8,6 @@ import com.typesafe.config.Config;
 
 import java.util.List;
 
-
 /**
  * Normalizes a document's field values by replacing spaces and non-alphanumeric characters with given delimiters.
  * <p>
