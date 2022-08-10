@@ -7,7 +7,7 @@ import static org.junit.Assert.*;
 
 public class ParseDateTest {
 
-  private StageFactory factory = StageFactory.of(ParseDate.class);
+  private final StageFactory factory = StageFactory.of(ParseDate.class);
 
   @Test
   public void testParseDate() throws Exception {
