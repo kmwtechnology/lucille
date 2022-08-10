@@ -2,6 +2,7 @@ package com.kmwllc.lucille.filetraverser.data.producer;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.filetraverser.data.DocumentProducer;
 import de.siegmar.fastcsv.reader.NamedCsvReader;
 import de.siegmar.fastcsv.reader.NamedCsvRow;
@@ -29,7 +30,7 @@ public class FastCSVDocumentProducer implements DocumentProducer {
       // it's going to be a LinkedHashSet with predictable iteration order
       String idColumnName = csv.getHeader().stream().findFirst().get();
       for (NamedCsvRow row : csv) {
-        Document doc = parent.copy(); // todo changed to copy
+        Document doc = parent.deepCopy();
         doc.setField(Document.ID_FIELD, row.getField(idColumnName));
         Map<String,String> fields = row.getFields();
         fields.forEach(doc::setField);

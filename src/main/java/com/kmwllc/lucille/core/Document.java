@@ -11,14 +11,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
-public interface Document extends Cloneable {
+public interface Document {
 
   String ID_FIELD = "id";
   String RUNID_FIELD = "run_id";
   String ERROR_FIELD = "errors";
   String CHILDREN_FIELD = ".children";
 
-  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD));
+  Set<String> RESERVED_FIELDS =
+      new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, ERROR_FIELD, CHILDREN_FIELD));
 
   void removeField(String name);
 
@@ -196,9 +197,7 @@ public interface Document extends Cloneable {
    */
   void removeDuplicateValues(String fieldName, String targetFieldName);
 
-  // todo had to add this because clone has protected access access in Object
-  // todo what is the difference between this and clone?
-  Document copy();
+  Document deepCopy();
 
   static Document create(ObjectNode node) throws DocumentException {
     return new JsonDocument(node);

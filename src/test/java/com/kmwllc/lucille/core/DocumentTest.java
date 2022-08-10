@@ -73,12 +73,9 @@ public abstract class DocumentTest {
     assertNotEquals(doc1, new Object());
     assertEquals(doc1.hashCode(), doc2.hashCode());
 
-//    assertEquals(doc1.hashCode(), doc1.clone().hashCode());
-//    assertEquals(doc1.clone(), doc1);
-//    assertEquals(doc1, doc1.clone());
-    assertEquals(doc1.hashCode(), doc1.copy().hashCode());
-    assertEquals(doc1.copy(), doc1);
-    assertEquals(doc1, doc1.copy());
+    assertEquals(doc1.hashCode(), doc1.deepCopy().hashCode());
+    assertEquals(doc1.deepCopy(), doc1);
+    assertEquals(doc1, doc1.deepCopy());
 
     // hashcodes of unequal objects are not required to be unequal, but if these turned out to be
     // equal
@@ -948,8 +945,7 @@ public abstract class DocumentTest {
     d1.setField("doubleField", 2.0);
     d1.setField("longField", 3L);
 
-//    JsonDocument d2 = d1.clone(); todo
-    Document d2 = d1.copy();
+    Document d2 = d1.deepCopy();
     d1.setOrAddAll(d2);
     d1.setOrAddAll(d2);
     d1.setOrAddAll(d2);
@@ -1181,8 +1177,6 @@ public abstract class DocumentTest {
 
     Document document = createDocument(node);
     node.remove("id");
-    document.copy();
-
-    // todo changed this from clone
+    document.deepCopy();
   }
 }

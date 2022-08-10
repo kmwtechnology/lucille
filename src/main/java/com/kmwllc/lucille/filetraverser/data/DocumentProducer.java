@@ -85,7 +85,7 @@ public interface DocumentProducer {
    *
    * todo why is this not recognized
    * Creates a tombstone of the provided document if an error occurs, logging the error in the
-   * {@link Document . ERROR_FIELD} and ensuring the {@link Document . ID_FIELD} and {@link FileTraverser#FILE_PATH} fields
+   * {@link Document#ERROR_FIELD} and ensuring the {@link Document#ID_FIELD} and {@link FileTraverser#FILE_PATH} fields
    * are set.
    *
    * @param file The file to create a tombstone for

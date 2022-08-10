@@ -673,20 +673,11 @@ public class JsonDocument implements Document {
   }
 
   @Override
-  public JsonDocument clone() {
+  public Document deepCopy() {
     try {
       return new JsonDocument(data.deepCopy());
     } catch (DocumentException e) {
-      throw new IllegalStateException("Document not cloneable", e);
-    }
-  }
-
-  @Override
-  public Document copy() {
-    try {
-      return new JsonDocument(data.deepCopy());
-    } catch (DocumentException e) {
-      throw new IllegalStateException("Document not cloneable", e);
+      throw new IllegalStateException("Document not copyable", e);
     }
   }
 
