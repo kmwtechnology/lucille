@@ -623,7 +623,9 @@ public class JsonDocument implements Document {
 
   @Override
   public void logError(String description) {
-    addToField(ERROR_FIELD, description);
+    convertToList(ERROR_FIELD);
+    ArrayNode array = data.withArray(ERROR_FIELD);
+    array.add(description);
   }
 
   @Override
