@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import org.apache.commons.io.IOUtils;
 import org.hamcrest.CoreMatchers;
