@@ -651,15 +651,13 @@ public class JsonDocument implements Document {
   @Override
   public List<Document> getChildren() {
     if (!data.has(CHILDREN_FIELD)) {
-      return new ArrayList();
+      return new ArrayList<>();
     }
     ArrayNode node = data.withArray(CHILDREN_FIELD);
-    ArrayList<Document> children = new ArrayList();
+    ArrayList<Document> children = new ArrayList<>();
     for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
       JsonNode element = it.next();
       try {
-        // todo check that it is fine to cast / why did the need to do it arose?
-//        children.add(new JsonDocument(element.deepCopy()));
         children.add(new JsonDocument((ObjectNode) element.deepCopy()));
       } catch (DocumentException e) {
         log.error("Unable to instantiate child Document", e);
