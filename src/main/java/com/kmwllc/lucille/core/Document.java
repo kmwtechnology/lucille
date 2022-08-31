@@ -15,11 +15,9 @@ public interface Document {
 
   String ID_FIELD = "id";
   String RUNID_FIELD = "run_id";
-  String ERROR_FIELD = "errors";
   String CHILDREN_FIELD = ".children";
 
-  Set<String> RESERVED_FIELDS =
-      new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, ERROR_FIELD, CHILDREN_FIELD));
+  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD));
 
   void removeField(String name);
 
@@ -174,8 +172,6 @@ public interface Document {
    * converted to a list and the new value is appended.
    */
   void setOrAddAll(Document other);
-
-  void logError(String description);
 
   Map<String, Object> asMap();
 

@@ -1124,19 +1124,6 @@ public abstract class DocumentTest {
   }
 
   @Test
-  public void testLogError() {
-    Document d = createDocument("id");
-    assertFalse(d.has(Document.ERROR_FIELD));
-
-    d.logError("error1");
-    assertTrue(d.has(Document.ERROR_FIELD));
-    assertEquals("error1", d.getString(Document.ERROR_FIELD));
-
-    d.logError("error2");
-    assertEquals(List.of("error1", "error2"), d.getStringList(Document.ERROR_FIELD));
-  }
-
-  @Test
   public void testGetChildrenException() throws DocumentException {
 
     // demonstrates the consequences of not copying the object given to the constructor

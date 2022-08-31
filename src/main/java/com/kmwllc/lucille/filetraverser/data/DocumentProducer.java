@@ -83,7 +83,7 @@ public interface DocumentProducer {
 
   /**
    * Creates a tombstone of the provided document if an error occurs, logging the error in the
-   * {@link Document#ERROR_FIELD} and ensuring the {@link Document#ID_FIELD} and {@link FileTraverser#FILE_PATH} fields
+   * "errors" field and ensuring the {@link Document#ID_FIELD} and {@link FileTraverser#FILE_PATH} fields
    * are set.
    *
    * @param file The file to create a tombstone for
@@ -97,7 +97,7 @@ public interface DocumentProducer {
       doc = Document.create(createId(file.toString()));
     }
     doc.setField(FileTraverser.FILE_PATH, file.toString());
-    doc.logError("Error occurred while loading document with id " + doc.getId() + ": " + e.getMessage());
+    doc.addToField("errors", "Error occurred while loading document with id " + doc.getId() + ": " + e.getMessage());
     return doc;
   }
 
