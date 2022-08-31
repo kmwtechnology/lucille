@@ -33,13 +33,20 @@ public class JsonDocument implements Document {
   protected final ObjectNode data;
 
   public JsonDocument(Document document) throws DocumentException {
-    ObjectNode node = document.getData();
-    verifyJsonNode(node);
-    this.data = node.deepCopy();
+    this.data = document.getData().deepCopy();
   }
 
   public JsonDocument(ObjectNode data) throws DocumentException {
-    verifyJsonNode(data);
+
+    if (!data.hasNonNull(ID_FIELD)) {
+      throw new DocumentException("id is missing");
+    }
+
+    JsonNode id = data.get(ID_FIELD);
+    if (!id.isTextual() || id.asText().isEmpty()) {
+      throw new DocumentException("id is present but null or empty or not a string");
+    }
+
     this.data = data;
   }
 
@@ -64,22 +71,6 @@ public class JsonDocument implements Document {
     JsonDocument doc = fromJsonString(json);
     doc.data.put(ID_FIELD, idUpdater.apply(doc.getId()));
     return doc;
-  }
-
-  private static void verifyJsonNode(JsonNode node) throws DocumentException {
-    if (! (node instanceof ObjectNode)) {
-      throw new DocumentException("node must be an object node");
-    }
-
-    ObjectNode oNode = (ObjectNode) node;
-    if (!oNode.hasNonNull(ID_FIELD)) {
-      throw new DocumentException("id is missing");
-    }
-
-    JsonNode id = oNode.get(ID_FIELD);
-    if (!id.isTextual() || id.asText().isEmpty()) {
-      throw new DocumentException("id is present but null or empty or not a string");
-    }
   }
 
   @Override
