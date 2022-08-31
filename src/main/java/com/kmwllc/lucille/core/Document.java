@@ -67,11 +67,17 @@ public interface Document {
   // todo had to add for concrete implementation
   ObjectNode getData();
 
-  // This will return null in two cases : 1) If the field is absent 2) IF the field is present but
-  // contains a null.
-  // To distinguish between these, you can call has().
-  // Calling getString for a field which is multivalued will return the first value in the list of
-  // Strings.
+  /**
+   * This will return null in two cases
+   * <ol>
+   *   <li>If the field is absent</li>
+   *   <li>IF the field is present but contains a null</li>
+   * </ol>
+   * To distinguish between these, you can call has(). Calling getString for a field which is
+   * multivalued will return the first value in the list of Strings.
+   * @param name The name of the field to get.
+   * @return The value of the field, or null if the field is absent or contains a null.
+   */
   String getString(String name);
 
   List<String> getStringList(String name);
@@ -123,8 +129,8 @@ public interface Document {
    * it can then be accessed as a string via getString() or a converted back to an Instant via
    * getInstant().
    *
-   * @param name
-   * @param value
+   * @param name The name of the field to add to
+   * @param value The value to add to the field
    */
   void addToField(String name, Instant value);
 
@@ -134,7 +140,7 @@ public interface Document {
    *
    * <p>If the field does not already exist and this method is called once, the field will be
    * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will converted to a list of values.
+   * once, the field will be converted to a list of values.
    */
   void setOrAdd(String name, String value);
 
@@ -151,8 +157,8 @@ public interface Document {
    * then be accessed as a string via getString() or a converted back to an Instant via
    * getInstant().
    *
-   * @param name
-   * @param value
+   * @param name The name of the field set or add to
+   * @param value The value to set or add to the field
    */
   void setOrAdd(String name, Instant value);
 
