@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -45,6 +46,9 @@ public abstract class Stage {
         config.getConfigList("conditions").stream().map(Condition::fromConfig).collect(Collectors.toList())
         : new ArrayList<>();
     this.condition = conditions.stream().reduce((d) -> true, Predicate::and);
+
+    // todo check this
+    validateConfig();
   }
 
   public void start() throws StageException {
@@ -138,6 +142,12 @@ public abstract class Stage {
 
   public Config getConfig() {
     return config;
+  }
+
+  public abstract Set<String> getPropertyList();
+
+  public void validateConfig() {
+    // todo keep empty for now?
   }
 
 }
