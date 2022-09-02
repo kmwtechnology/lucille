@@ -32,10 +32,24 @@ public class JsonDocument implements Document {
   @JsonValue
   protected final ObjectNode data;
 
+  /**
+   * A copy constructor for {@link Document} that deep copies the ObjectNode and verifies the
+   * validity of the document.
+   *
+   * @param document document to copy
+   * @throws DocumentException if document is missing a nonempty {@link Document#ID_FIELD}
+   */
   public JsonDocument(Document document) throws DocumentException {
-    this.data = document.getData().deepCopy();
+    this(document.getData().deepCopy());
   }
 
+  /**
+   * Creates a new {@link JsonDocument} from a {@link ObjectNode} of key/value pairs. Note: does
+   * not defensively copy the given ObjectNode, so it must not be modified after creation.
+   *
+   * @param data the data to be stored in the document
+   * @throws DocumentException if document is missing a nonempty {@link Document#ID_FIELD}
+   */
   public JsonDocument(ObjectNode data) throws DocumentException {
 
     if (!data.hasNonNull(ID_FIELD)) {
