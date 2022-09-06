@@ -8,7 +8,6 @@ import com.typesafe.config.Config;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Determines the length of a field and places the value into a specified field.

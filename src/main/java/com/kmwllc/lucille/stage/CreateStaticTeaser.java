@@ -6,11 +6,8 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Create teasers of a given length from the given source fields. If the character limit is reached in

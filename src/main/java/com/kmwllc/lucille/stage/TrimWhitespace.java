@@ -8,7 +8,6 @@ import com.typesafe.config.Config;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Removes leading and trailing whitespace from every value in a given list of fields.

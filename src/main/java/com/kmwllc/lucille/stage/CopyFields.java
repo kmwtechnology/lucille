@@ -7,9 +7,7 @@ import com.kmwllc.lucille.util.StageUtils;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Copies values from a given set of source fields to a given set of destination fields. If the same number

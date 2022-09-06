@@ -6,7 +6,6 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
 import java.util.List;
-import java.util.Set;
 
 /**
  * Deletes a list of given fields from each document it processes.

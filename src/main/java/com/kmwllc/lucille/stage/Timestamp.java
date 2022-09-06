@@ -8,7 +8,6 @@ import com.typesafe.config.Config;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Adds a timestamp into a given field.

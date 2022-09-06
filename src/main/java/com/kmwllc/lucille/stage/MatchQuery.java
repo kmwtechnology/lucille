@@ -16,7 +16,6 @@ import org.apache.lucene.queryparser.classic.QueryParser;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Set;
 
 
 public class MatchQuery extends Stage {

@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.stage;
 
 import java.util.List;
-import java.util.Set;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;

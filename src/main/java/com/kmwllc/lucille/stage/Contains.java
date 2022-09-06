@@ -4,14 +4,10 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
-import com.kmwllc.lucille.util.FileUtils;
-import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
 import org.ahocorasick.trie.PayloadTrie;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Checks if any of the given fields contain any of the given values and tags the given

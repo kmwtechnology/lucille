@@ -13,7 +13,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice.

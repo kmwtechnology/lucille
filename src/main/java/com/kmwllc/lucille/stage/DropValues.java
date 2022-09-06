@@ -7,7 +7,6 @@ import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
 import java.util.List;
-import java.util.Set;
 
 /**
  * Removes all occurrences of a given value from the source fields. Field values are not removed if

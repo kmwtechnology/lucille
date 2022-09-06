@@ -8,8 +8,6 @@ import com.typesafe.config.Config;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Sets the value of given fields to a mapped value.
