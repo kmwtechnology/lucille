@@ -1,4 +1,5 @@
 package com.kmwllc.lucille.core;
+import com.kmwllc.lucille.stage.AbstractStage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
@@ -8,6 +9,7 @@ import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
@@ -160,7 +162,7 @@ public class PipelineTest {
     pipeline.addStage(new Stage2(config));
   }
 
-  private static class Stage1 extends Stage {
+  private static class Stage1 extends AbstractStage {
 
     public Stage1(Config conf) {
       super(conf);
@@ -173,7 +175,7 @@ public class PipelineTest {
     }
   }
 
-  private static class Stage2 extends Stage {
+  private static class Stage2 extends AbstractStage {
 
     public Stage2(Config conf) {
       super(conf);
@@ -191,7 +193,7 @@ public class PipelineTest {
     }
   }
 
-  private static class Stage3 extends Stage {
+  private static class Stage3 extends AbstractStage {
 
     public Stage3(Config conf) {
       super(conf);
@@ -209,7 +211,7 @@ public class PipelineTest {
     }
   }
 
-  private static class Stage4 extends Stage {
+  private static class Stage4 extends AbstractStage {
 
     private boolean started = false;
 

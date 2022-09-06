@@ -7,7 +7,7 @@ import com.typesafe.config.Config;
 
 import java.util.List;
 
-public class ErrorStage extends Stage {
+public class ErrorStage extends AbstractStage {
 
   private boolean exceptionOnStart = false;
 

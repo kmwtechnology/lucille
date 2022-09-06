@@ -6,6 +6,7 @@ import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -136,6 +137,7 @@ public class ApplyRegex extends Stage {
 
   @Override
   public Set<String> getPropertyList() {
-    return null;
+//    return new HashSet<>(List.of("source", "dest", "regex", "ignore_case", "multiline", "dotall", "literal"));
+    return new HashSet<>(List.of("source", "dest", "regex"));
   }
 }

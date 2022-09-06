@@ -1,13 +1,12 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
 import java.util.List;
 
-public class StartStopCaptureStage extends Stage {
+public class StartStopCaptureStage extends AbstractStage {
 
   public static boolean startCalled = false;
   public static boolean stopCalled = false;

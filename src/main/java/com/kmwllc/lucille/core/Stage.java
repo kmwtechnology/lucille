@@ -41,14 +41,13 @@ public abstract class Stage {
 
   public Stage(Config config) {
     this.config = config;
+    validateConfig(); // todo should take a parameter or verify after setting ?
+
     this.name = ConfigUtils.getOrDefault(config, "name", null);
     List<Predicate<Document>> conditions = config.hasPath("conditions") ?
         config.getConfigList("conditions").stream().map(Condition::fromConfig).collect(Collectors.toList())
         : new ArrayList<>();
     this.condition = conditions.stream().reduce((d) -> true, Predicate::and);
-
-    // todo check this
-    validateConfig();
   }
 
   public void start() throws StageException {
@@ -146,8 +145,18 @@ public abstract class Stage {
 
   public abstract Set<String> getPropertyList();
 
-  public void validateConfig() {
-    // todo keep empty for now?
+  public void validateConfig() throws IllegalArgumentException {
+
+    Set<String> properties = getPropertyList();
+    if (properties == null) {
+      return;
+    }
+
+    for (String property : properties) {
+      if (!config.hasPath(property)) {
+        throw new IllegalArgumentException("Missing required property: " + property);
+      }
+    }
   }
 
 }
