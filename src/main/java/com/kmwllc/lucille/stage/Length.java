@@ -8,6 +8,7 @@ import com.typesafe.config.Config;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Determines the length of a field and places the value into a specified field.
@@ -31,6 +32,11 @@ public class Length extends Stage {
       doc.setField((String) e.getValue(), doc.length(e.getKey()));
     }
 
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 }

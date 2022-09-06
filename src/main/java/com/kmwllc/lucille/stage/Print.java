@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.lang.invoke.MethodHandles;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Logs all received documents in JSON format and/or writes them to a designated file.
@@ -77,6 +78,11 @@ public class Print extends Stage {
       }
     }
 
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 

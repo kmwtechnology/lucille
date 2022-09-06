@@ -8,6 +8,7 @@ import com.typesafe.config.Config;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class CreateChildrenStage extends Stage {
   public CreateChildrenStage(Config config) {
@@ -28,5 +29,10 @@ public class CreateChildrenStage extends Stage {
     }
 
     return children;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
+    return null;
   }
 }

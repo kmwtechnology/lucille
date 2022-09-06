@@ -11,6 +11,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.ahocorasick.trie.PayloadEmit;
@@ -198,6 +199,11 @@ public class ExtractEntities extends Stage {
       }
     }
 
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 }

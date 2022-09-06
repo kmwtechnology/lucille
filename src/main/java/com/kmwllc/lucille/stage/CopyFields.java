@@ -8,6 +8,7 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Copies values from a given set of source fields to a given set of destination fields. If the same number
@@ -56,6 +57,11 @@ public class CopyFields extends Stage {
       doc.update(destField, updateMode, doc.getStringList(sourceField).toArray(new String[0]));
     }
 
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 }

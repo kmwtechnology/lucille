@@ -127,4 +127,9 @@ public class ApplyStopWords extends Stage {
 
     return null;
   }
+
+  @Override
+  public Set<String> getPropertyList() {
+    return null;
+  }
 }

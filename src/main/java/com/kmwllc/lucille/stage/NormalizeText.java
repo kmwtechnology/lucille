@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -100,6 +101,11 @@ public class NormalizeText extends Stage {
       doc.update(destField, updateMode, outputValues.toArray(new String[0]));
     }
 
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 

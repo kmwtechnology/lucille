@@ -10,6 +10,7 @@ import com.typesafe.config.Config;
 import org.ahocorasick.trie.PayloadTrie;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Checks if any of the given fields contain any of the given values and tags the given
@@ -82,6 +83,11 @@ public class Contains extends Stage {
       }
     }
 
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 }

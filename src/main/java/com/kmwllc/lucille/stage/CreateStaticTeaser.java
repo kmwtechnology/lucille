@@ -9,6 +9,7 @@ import com.typesafe.config.Config;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Create teasers of a given length from the given source fields. If the character limit is reached in
@@ -82,6 +83,11 @@ public class CreateStaticTeaser extends Stage {
       }
     }
 
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 }

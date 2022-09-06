@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import java.util.List;
+import java.util.Set;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -50,6 +51,11 @@ public class SplitFieldValues extends Stage {
         doc.addToField(outputField, val);
       }
     }
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 

@@ -80,4 +80,9 @@ public class Concatenate extends Stage {
 
     return null;
   }
+
+  @Override
+  public Set<String> getPropertyList() {
+    return null;
+  }
 }

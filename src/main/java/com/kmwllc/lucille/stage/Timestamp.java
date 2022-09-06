@@ -8,6 +8,7 @@ import com.typesafe.config.Config;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Adds a timestamp into a given field.
@@ -32,6 +33,11 @@ public class Timestamp extends Stage {
     String dateStr = DateTimeFormatter.ISO_INSTANT.format(now);
     doc.setField(destField, dateStr);
 
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 }

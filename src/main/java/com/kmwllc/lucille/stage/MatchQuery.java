@@ -16,6 +16,7 @@ import org.apache.lucene.queryparser.classic.QueryParser;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 
 public class MatchQuery extends Stage {
@@ -94,6 +95,11 @@ public class MatchQuery extends Stage {
       throw new StageException("processDocument failed", e);
     }
 
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 }

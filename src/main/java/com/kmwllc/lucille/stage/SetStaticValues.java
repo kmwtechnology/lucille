@@ -8,6 +8,7 @@ import com.typesafe.config.Config;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -33,6 +34,11 @@ public class SetStaticValues extends Stage {
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     staticValues.forEach((fieldName, staticValue) -> doc.update(fieldName, updateMode, (String) staticValue));
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 }

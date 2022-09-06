@@ -68,4 +68,9 @@ public class ExtractFirstCharacter extends Stage {
     return null;
 
   }
+
+  @Override
+  public Set<String> getPropertyList() {
+    return null;
+  }
 }

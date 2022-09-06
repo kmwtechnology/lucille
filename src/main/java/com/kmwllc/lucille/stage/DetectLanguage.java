@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Detects the language of the text in each supplied source field and outputs the
@@ -147,6 +148,11 @@ public class DetectLanguage extends Stage {
       throw new StageException("Unable to detect language", e);
     }
 
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 }

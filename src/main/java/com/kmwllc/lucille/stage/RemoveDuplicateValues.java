@@ -47,4 +47,9 @@ public class RemoveDuplicateValues extends Stage {
     }
     return null;
   }
+
+  @Override
+  public Set<String> getPropertyList() {
+    return null;
+  }
 }

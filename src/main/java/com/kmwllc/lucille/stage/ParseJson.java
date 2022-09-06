@@ -16,6 +16,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  * Parses a JSON string and sets fields on the processed document according to the configured mapping using
@@ -81,6 +82,11 @@ public class ParseJson extends Stage {
       doc.setField(entry.getKey(), val);
     }
     doc.removeField(this.src);
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 }

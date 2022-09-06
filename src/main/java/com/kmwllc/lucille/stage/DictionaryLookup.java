@@ -10,10 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 /**
  * Finds exact matches for given input values and extracts the payloads for each match to a given destination field.
@@ -143,6 +140,11 @@ public class DictionaryLookup extends Stage {
       doc.update(destField, updateMode, outputValues.toArray(new String[0]));
     }
 
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 }

@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Normalizes a document's field values by replacing spaces and non-alphanumeric characters with given delimiters.
@@ -39,6 +40,11 @@ public class NormalizeFieldNames extends Stage {
       doc.renameField(field, normalizedField, UpdateMode.DEFAULT);
     }
 
+    return null;
+  }
+
+  @Override
+  public Set<String> getPropertyList() {
     return null;
   }
 }
