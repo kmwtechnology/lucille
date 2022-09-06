@@ -82,7 +82,7 @@ public class Print extends Stage {
   }
 
   @Override
-  public Set<String> getPropertyList() {
+  public List<String> getPropertyList() {
     return null;
   }
 

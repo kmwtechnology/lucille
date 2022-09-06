@@ -55,8 +55,8 @@ public class SplitFieldValues extends Stage {
   }
 
   @Override
-  public Set<String> getPropertyList() {
-    return null;
+  public List<String> getPropertyList() {
+    return List.of("inputField", "outputField", "delimiter", "trimWhitespace");
   }
 
 }

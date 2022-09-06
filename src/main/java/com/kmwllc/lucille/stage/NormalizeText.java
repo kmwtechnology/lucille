@@ -105,8 +105,8 @@ public class NormalizeText extends Stage {
   }
 
   @Override
-  public Set<String> getPropertyList() {
-    return null;
+  public List<String> getPropertyList() {
+    return List.of("source", "dest", "mode");
   }
 
   /**

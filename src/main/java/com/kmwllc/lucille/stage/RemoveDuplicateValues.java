@@ -49,7 +49,7 @@ public class RemoveDuplicateValues extends Stage {
   }
 
   @Override
-  public Set<String> getPropertyList() {
-    return null;
+  public List<String> getPropertyList() {
+    return List.of("fieldMapping");
   }
 }

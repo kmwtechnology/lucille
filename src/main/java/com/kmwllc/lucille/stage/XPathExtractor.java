@@ -86,8 +86,8 @@ public class XPathExtractor extends Stage {
   }
 
   @Override
-  public Set<String> getPropertyList() {
-    return null;
+  public List<String> getPropertyList() {
+    return List.of("fieldMapping");
   }
 
   private void processXml(String xml, Document doc) {

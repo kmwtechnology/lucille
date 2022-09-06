@@ -143,11 +143,11 @@ public abstract class Stage {
     return config;
   }
 
-  public abstract Set<String> getPropertyList();
+  public abstract List<String> getPropertyList();
 
   public void validateConfig() throws IllegalArgumentException {
 
-    Set<String> properties = getPropertyList();
+    List<String> properties = getPropertyList();
     if (properties == null) {
       return;
     }

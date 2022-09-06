@@ -3,7 +3,7 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Stage;
 import com.typesafe.config.Config;
 
-import java.util.Set;
+import java.util.List;
 
 public abstract class AbstractStage extends Stage {
 
@@ -12,7 +12,7 @@ public abstract class AbstractStage extends Stage {
   }
 
   @Override
-  public Set<String> getPropertyList() {
+  public List<String> getPropertyList() {
     return null;
   }
 }

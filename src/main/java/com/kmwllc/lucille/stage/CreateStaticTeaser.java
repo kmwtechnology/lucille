@@ -8,6 +8,7 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -87,7 +88,7 @@ public class CreateStaticTeaser extends Stage {
   }
 
   @Override
-  public Set<String> getPropertyList() {
-    return null;
+  public List<String> getPropertyList() {
+    return List.of("source", "dest", "maxLength");
   }
 }

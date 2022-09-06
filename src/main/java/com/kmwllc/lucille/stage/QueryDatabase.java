@@ -155,8 +155,9 @@ public class QueryDatabase extends Stage {
   }
 
   @Override
-  public Set<String> getPropertyList() {
-    return null;
+  public List<String> getPropertyList() {
+    return List.of("driver", "connectionString", "jdbcUser", "jdbcPassword", "keyFields", "inputTypes",
+        "returnTypes", "fieldMapping");
   }
 
 

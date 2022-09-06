@@ -136,8 +136,7 @@ public class ApplyRegex extends Stage {
   }
 
   @Override
-  public Set<String> getPropertyList() {
-//    return new HashSet<>(List.of("source", "dest", "regex", "ignore_case", "multiline", "dotall", "literal"));
-    return new HashSet<>(List.of("source", "dest", "regex"));
+  public List<String> getPropertyList() {
+    return List.of("source", "dest", "regex");
   }
 }

@@ -7,6 +7,7 @@ import com.kmwllc.lucille.util.StageUtils;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -61,7 +62,7 @@ public class CopyFields extends Stage {
   }
 
   @Override
-  public Set<String> getPropertyList() {
-    return null;
+  public List<String> getPropertyList() {
+    return List.of("source", "dest");
   }
 }

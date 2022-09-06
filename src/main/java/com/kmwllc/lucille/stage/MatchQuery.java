@@ -99,7 +99,7 @@ public class MatchQuery extends Stage {
   }
 
   @Override
-  public Set<String> getPropertyList() {
-    return null;
+  public List<String> getPropertyList() {
+    return List.of(FIELDS_PARAM, QUERIES_PARAM, MATCHEDQUERIES_PARAM);
   }
 }
