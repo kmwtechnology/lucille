@@ -34,13 +34,14 @@ public class QueryDatabase extends Stage {
   private static final Logger log = LogManager.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {
-    super(config);
+    super(config, makeSet("driver", "connectionString", "jdbcUser", "jdbcPassword", "keyFields", "inputTypes",
+      "returnTypes", "fieldMapping"), makeSet("sql"));
+
     driver = config.getString("driver");
     connectionString = config.getString("connectionString");
     jdbcUser = config.getString("jdbcUser");
     jdbcPassword = config.getString("jdbcPassword");
     keyFields = config.getStringList("keyFields");
-    sql = config.hasPath("sql") ? config.getString("sql") : null;
     fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     List<String> inputTypeList = config.getStringList("inputTypes");
     inputTypes = new ArrayList<>();
@@ -52,6 +53,8 @@ public class QueryDatabase extends Stage {
     for (String type : returnTypeList) {
       returnTypes.add(PreparedStatementParameterType.getType(type));
     }
+
+    sql = config.hasPath("sql") ? config.getString("sql") : null;
   }
 
   @Override
@@ -152,13 +155,6 @@ public class QueryDatabase extends Stage {
     }
     return null;
   }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("driver", "connectionString", "jdbcUser", "jdbcPassword", "keyFields", "inputTypes",
-        "returnTypes", "fieldMapping");
-  }
-
 
   private void createConnection() throws StageException {
     try {

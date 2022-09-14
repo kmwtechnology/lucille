@@ -48,7 +48,7 @@ public class NormalizeText extends Stage {
    * @param config
    */
   public NormalizeText(Config config) {
-    super(config);
+    super(config, makeSet("source", "dest", "mode"), makeSet("update_mode"));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
@@ -103,10 +103,6 @@ public class NormalizeText extends Stage {
     return null;
   }
 
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("source", "dest", "mode");
-  }
 
   /**
    * Transform the given String to all lowercase

@@ -15,7 +15,7 @@ public class StageTest {
 
   private StageFactory factory = StageFactory.of(MockStage.class);
 
-  private static class MockStage extends AbstractStage {
+  private static class MockStage extends Stage {
 
     public MockStage(Config config) {
       super(config);

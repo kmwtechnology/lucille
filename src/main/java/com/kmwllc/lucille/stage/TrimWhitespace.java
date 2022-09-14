@@ -22,7 +22,7 @@ public class TrimWhitespace extends Stage {
   private final List<String> fields;
 
   public TrimWhitespace(Config config) {
-    super(config);
+    super(config, makeSet("fields"));
     this.fields = config.getStringList("fields");
   }
 
@@ -48,10 +48,5 @@ public class TrimWhitespace extends Stage {
 
 
     return null;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("fields");
   }
 }

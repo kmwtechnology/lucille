@@ -24,7 +24,7 @@ public class SetStaticValues extends Stage {
   private final UpdateMode updateMode;
 
   public SetStaticValues(Config config) {
-    super(config);
+    super(config, makeSet("static_values"), makeSet("updateMode"));
     staticValues = config.getConfig("static_values").root().unwrapped();
     updateMode = UpdateMode.fromConfig(config);
   }
@@ -33,10 +33,5 @@ public class SetStaticValues extends Stage {
   public List<Document> processDocument(Document doc) throws StageException {
     staticValues.forEach((fieldName, staticValue) -> doc.update(fieldName, updateMode, (String) staticValue));
     return null;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("static_values");
   }
 }

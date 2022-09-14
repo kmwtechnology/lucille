@@ -26,7 +26,7 @@ public class ExtractFirstCharacter extends Stage {
   private final String replacement;
 
   public ExtractFirstCharacter(Config config) {
-    super(config);
+    super(config, makeSet("fieldMapping"), makeSet("replacement"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";
   }
@@ -63,10 +63,5 @@ public class ExtractFirstCharacter extends Stage {
 
     return null;
 
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("fieldMapping");
   }
 }

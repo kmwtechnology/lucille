@@ -39,7 +39,7 @@ public class ApplyStopWords extends Stage {
   private PayloadTrie<String> dictTrie;
 
   public ApplyStopWords(Config config) {
-    super(config);
+    super(config, makeSet("dictionaries"), makeSet("fields"));
     this.dictionaries = config.getStringList("dictionaries");
     this.fieldNames = config.hasPath("fields") ? config.getStringList("fields") : null;
   }
@@ -126,10 +126,5 @@ public class ApplyStopWords extends Stage {
     }
 
     return null;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("dictionaries");
   }
 }

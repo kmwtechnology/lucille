@@ -32,14 +32,16 @@ public class Concatenate extends Stage {
   private final List<String> fields;
 
   public Concatenate(Config config) {
-    super(config);
+    super(config, makeSet("dest", "format_string"), makeSet("default_inputs", "update_mode"));
 
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");
+
+    this.updateMode = UpdateMode.fromConfig(config);
     this.defaultInputs = config.hasPath("default_inputs") ?
         config.getConfig("default_inputs").root().unwrapped() : new HashMap<>();
     // defaultInputs = set.stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-    this.updateMode = UpdateMode.fromConfig(config);
+
     this.fields = new ArrayList<>();
   }
 
@@ -78,10 +80,5 @@ public class Concatenate extends Stage {
     doc.update(destField, updateMode, sub.replace(formatStr));
 
     return null;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("dest", "format_string");
   }
 }

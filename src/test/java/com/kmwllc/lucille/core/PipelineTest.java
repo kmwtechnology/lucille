@@ -1,5 +1,4 @@
 package com.kmwllc.lucille.core;
-import com.kmwllc.lucille.stage.AbstractStage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
@@ -9,7 +8,6 @@ import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
@@ -68,7 +66,7 @@ public class PipelineTest {
     // create a pipeline with Stages 1 through 4 in sequence
     // d1 should flow through all stages and should get fields created by stages 1 through 4
     // d1-s2c1 and d1-s2c2 should be created by stage 2;
-    //     these docs should should have fields created by downstream stages (stage 3, stage 4)
+    //     these docs should have fields created by downstream stages (stage 3, stage 4)
     // d1-s3c1, d1-s3c2, d1-s2c1-s3c1, d1-s2c1-s3c2, d1-s2c2-s3c1, d1-s2c2-s3c2 should be created by stage 3
     //     and should only have fields created by stage 4
     Pipeline pipeline = new Pipeline();
@@ -162,7 +160,7 @@ public class PipelineTest {
     pipeline.addStage(new Stage2(config));
   }
 
-  private static class Stage1 extends AbstractStage {
+  private static class Stage1 extends Stage {
 
     public Stage1(Config conf) {
       super(conf);
@@ -175,7 +173,7 @@ public class PipelineTest {
     }
   }
 
-  private static class Stage2 extends AbstractStage {
+  private static class Stage2 extends Stage {
 
     public Stage2(Config conf) {
       super(conf);
@@ -193,7 +191,7 @@ public class PipelineTest {
     }
   }
 
-  private static class Stage3 extends AbstractStage {
+  private static class Stage3 extends Stage {
 
     public Stage3(Config conf) {
       super(conf);
@@ -211,7 +209,7 @@ public class PipelineTest {
     }
   }
 
-  private static class Stage4 extends AbstractStage {
+  private static class Stage4 extends Stage {
 
     private boolean started = false;
 

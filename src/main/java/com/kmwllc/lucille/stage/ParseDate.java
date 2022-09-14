@@ -41,7 +41,7 @@ public class ParseDate extends Stage {
   private final UpdateMode updateMode;
 
   public ParseDate(Config config) {
-    super(config);
+    super(config, makeSet("source", "dest"), makeSet("update_mode", "formatters", "format_strs"));
 
     this.formatters = new ArrayList<>();
     this.formats = ConfigUtils.getOrDefault(config, "format_strs", new ArrayList<String>())
@@ -126,10 +126,5 @@ public class ParseDate extends Stage {
       doc.update(destField, updateMode, outputValues.toArray(new String[0]));
     }
     return null;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("source", "dest");
   }
 }

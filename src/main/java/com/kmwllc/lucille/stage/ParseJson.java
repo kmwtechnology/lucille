@@ -42,7 +42,7 @@ public class ParseJson extends Stage {
   private ParseContext jsonParseCtx;
 
   public ParseJson(Config config) {
-    super(config);
+    super(config, makeSet("src", "jsonFieldPaths"), makeSet("sourceIsBase64"));
     this.src = config.getString("src");
     this.jsonFieldPaths = config.getConfig("jsonFieldPaths").root().unwrapped();
     this.sourceIsBase64 = config.hasPath("sourceIsBase64") && config.getBoolean("sourceIsBase64");
@@ -82,10 +82,5 @@ public class ParseJson extends Stage {
     }
     doc.removeField(this.src);
     return null;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("src", "jsonFieldPaths");
   }
 }

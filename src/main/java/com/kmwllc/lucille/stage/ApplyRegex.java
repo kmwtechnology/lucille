@@ -50,12 +50,15 @@ public class ApplyRegex extends Stage {
   private Pattern pattern;
 
   public ApplyRegex(Config config) {
-    super(config);
+    super(config,
+      makeSet("source", "dest", "regex"),
+      makeSet("update_mode", "ignore_case", "multiline", "dotall", "literal"));
+
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.regexExpr = config.getString("regex");
-    this.updateMode = UpdateMode.fromConfig(config);
 
+    this.updateMode = UpdateMode.fromConfig(config);
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
     this.multiline = ConfigUtils.getOrDefault(config, "multiline", false);
     this.dotall = ConfigUtils.getOrDefault(config, "dotall", false);
@@ -131,10 +134,5 @@ public class ApplyRegex extends Stage {
     }
 
     return null;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("source", "dest", "regex");
   }
 }

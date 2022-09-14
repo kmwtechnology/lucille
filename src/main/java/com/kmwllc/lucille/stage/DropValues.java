@@ -22,7 +22,7 @@ public class DropValues extends Stage {
   private final List<String> values;
 
   public DropValues(Config config) {
-    super(config);
+    super(config, makeSet("source", "values"));
 
     this.sourceFields = config.getStringList("source");
     this.values = config.getStringList("values");
@@ -49,10 +49,5 @@ public class DropValues extends Stage {
     }
 
     return null;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("source", "values");
   }
 }

@@ -22,7 +22,7 @@ public class Timestamp extends Stage {
   private final String destField;
 
   public Timestamp(Config config) {
-    super(config);
+    super(config, makeSet("dest_field"));
     this.destField = config.getString("dest_field");
   }
 
@@ -33,10 +33,5 @@ public class Timestamp extends Stage {
     doc.setField(destField, dateStr);
 
     return null;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("dest_field");
   }
 }

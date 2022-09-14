@@ -10,7 +10,7 @@ import java.util.List;
 
 public class CreateChildrenStage extends Stage {
   public CreateChildrenStage(Config config) {
-    super(config);
+    super(config, makeSet(), makeSet("numChildren"));
     if (config.hasPath("numChildren")) {
       numChildren = config.getInt("numChildren");
     }
@@ -20,17 +20,12 @@ public class CreateChildrenStage extends Stage {
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    ArrayList<Document> children = new ArrayList();
+    ArrayList<Document> children = new ArrayList<>();
     for (int i=0; i<numChildren; i++) {
       Document child = new Document(doc.getId()+ "_child" +i);
       children.add(child);
     }
 
     return children;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return null;
   }
 }

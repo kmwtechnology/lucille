@@ -35,7 +35,7 @@ public class MatchQuery extends Stage {
   
   
   public MatchQuery(Config config) {
-    super(config);
+    super(config, makeSet(FIELDS_PARAM, QUERIES_PARAM, MATCHEDQUERIES_PARAM));
     fieldsList = config.getStringList(FIELDS_PARAM);
     queryList = config.getObjectList(QUERIES_PARAM);
     matchedQueriesField = config.getString(MATCHEDQUERIES_PARAM);
@@ -95,10 +95,5 @@ public class MatchQuery extends Stage {
     }
 
     return null;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of(FIELDS_PARAM, QUERIES_PARAM, MATCHEDQUERIES_PARAM);
   }
 }

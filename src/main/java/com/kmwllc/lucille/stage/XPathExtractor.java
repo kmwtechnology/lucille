@@ -42,7 +42,7 @@ public class XPathExtractor extends Stage {
    * @param config
    */
   public XPathExtractor(Config config) {
-    super(config);
+    super(config, makeSet("fieldMapping"), makeSet("xmlField"));
     xpaths = config.getConfig("fieldMapping").root().unwrapped();
     factory = DocumentBuilderFactory.newInstance();
     XPathFactory xpathFactory = XPathFactory.newInstance();
@@ -82,11 +82,6 @@ public class XPathExtractor extends Stage {
     processXml(xml, doc);
 
     return null;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("fieldMapping");
   }
 
   private void processXml(String xml, Document doc) {

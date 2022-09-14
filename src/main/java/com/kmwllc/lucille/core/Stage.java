@@ -6,10 +6,10 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigValue;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -38,15 +38,46 @@ public abstract class Stage {
   private Counter errorCounter;
   private Counter childCounter;
 
+  private final static Set<String> RESERVED_PROPERTIES = makeSet("class");
+  private final static Set<String> THIS_OPTIONAL_PROPERTIES = makeSet("name", "conditions");
+
+  private final Set<String> optionalProperties;
+  private final Set<String> requiredProperties;
+
   public Stage(Config config) {
+    this(config, makeSet(), makeSet());
+  }
+
+  protected Stage(Config config, Set<String> requiredProperties) {
+    this(config, requiredProperties, makeSet());
+  }
+
+  protected Stage (Config config, Set<String> requiredProperties, Set<String> optionalProperties) {
+
     this.config = config;
-    validateConfig(); // todo should take a parameter or verify after setting ?
+    this.requiredProperties = new HashSet<>(requiredProperties);
+    this.optionalProperties = new HashSet<>(optionalProperties);
+
+    // todo verify this
+    this.optionalProperties.addAll(RESERVED_PROPERTIES);
+//    this.requiredProperties.addAll(RESERVED_PROPERTIES);
+    this.optionalProperties.addAll(THIS_OPTIONAL_PROPERTIES);
+
+    // verifies that set intersection is empty
+    if (!Collections.disjoint(this.requiredProperties, this.optionalProperties))
+      throw new IllegalArgumentException("Required and optional properties must be disjoint.");
+
+    validateConfig();
 
     this.name = ConfigUtils.getOrDefault(config, "name", null);
     List<Predicate<Document>> conditions = config.hasPath("conditions") ?
-        config.getConfigList("conditions").stream().map(Condition::fromConfig).collect(Collectors.toList())
-        : new ArrayList<>();
+      config.getConfigList("conditions").stream().map(Condition::fromConfig).collect(Collectors.toList())
+      : new ArrayList<>();
     this.condition = conditions.stream().reduce((d) -> true, Predicate::and);
+  }
+
+  protected static Set<String> makeSet(String... args) {
+    return new HashSet<>(Arrays.asList(args));
   }
 
   public void start() throws StageException {
@@ -142,20 +173,26 @@ public abstract class Stage {
     return config;
   }
 
-  public abstract List<String> getPropertyList();
+  public Set<String> getLegalProperties() {
+    Set<String> legalProperties = new HashSet<>(requiredProperties);
+    legalProperties.addAll(optionalProperties);
+    return legalProperties;
+  }
 
   public void validateConfig() throws IllegalArgumentException {
-
-    List<String> properties = getPropertyList();
-    if (properties == null) {
-      return;
+    // verifies all required properties are present
+    for (String property: this.requiredProperties) {
+      if (!config.hasPath(property)) {
+        throw new IllegalArgumentException("Stage config must contain property " + property);
+      }
     }
 
-    for (String property : properties) {
-      if (!config.hasPath(property)) {
-        throw new IllegalArgumentException("Missing required property: " + property);
+    // verifies that all remaining properties are in the optional set
+    Set<String> legalProperties = getLegalProperties();
+    for (Map.Entry<String, ConfigValue> entry: config.entrySet()) {
+      if (!legalProperties.contains(entry.getKey())) {
+        throw new IllegalArgumentException("Stage config contains unknown property " + entry.getKey());
       }
     }
   }
-
 }

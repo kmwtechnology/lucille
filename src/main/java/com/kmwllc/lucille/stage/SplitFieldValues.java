@@ -26,8 +26,8 @@ public class SplitFieldValues extends Stage {
   private String delimiter;
 
   public SplitFieldValues(Config config) {
-    super(config);
-    // 
+    super(config, makeSet("inputField", "outputField", "delimiter", "trimWhitespace"));
+
     inputField = config.getString("inputField");
     outputField = config.getString("outputField");
     delimiter = config.getString("delimiter");
@@ -52,10 +52,4 @@ public class SplitFieldValues extends Stage {
     }
     return null;
   }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("inputField", "outputField", "delimiter", "trimWhitespace");
-  }
-
 }

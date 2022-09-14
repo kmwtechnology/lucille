@@ -25,7 +25,7 @@ public class RenameFields extends Stage {
   private final UpdateMode updateMode;
 
   public RenameFields (Config config) {
-    super(config);
+    super(config, makeSet("fieldMapping"), makeSet("update_mode"));
 
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
@@ -53,10 +53,5 @@ public class RenameFields extends Stage {
     }
 
     return null;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
-    return List.of("fieldMapping");
   }
 }

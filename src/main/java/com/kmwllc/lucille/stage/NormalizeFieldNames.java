@@ -23,7 +23,7 @@ public class NormalizeFieldNames extends Stage {
   private final String nonAlphanumReplacement;
 
   public NormalizeFieldNames(Config config) {
-    super(config);
+    super(config, makeSet(), makeSet("delimiter", "nonAlphanumReplacement"));
     this.delimeter = config.hasPath("delimeter") ? config.getString("delimeter") : "_";
     this.nonAlphanumReplacement = config.hasPath("nonAlphaNumReplacement") ? config.getString("nonAlphanumReplacement") : "";
   }
@@ -39,11 +39,6 @@ public class NormalizeFieldNames extends Stage {
       doc.renameField(field, normalizedField, UpdateMode.DEFAULT);
     }
 
-    return null;
-  }
-
-  @Override
-  public List<String> getPropertyList() {
     return null;
   }
 }

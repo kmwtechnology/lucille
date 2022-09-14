@@ -33,10 +33,4 @@ public class RemoveEmptyFields extends Stage {
     }
     return null;
   }
-
-  @Override
-  public List<String> getPropertyList() {
-    return null;
-  }
-
 }
