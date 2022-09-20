@@ -24,7 +24,7 @@ public class SetStaticValues extends Stage {
   private final UpdateMode updateMode;
 
   public SetStaticValues(Config config) {
-    super(config, makeSet("static_values"), makeSet("updateMode"));
+    super(config, makeSet(), makeSet("update_mode"), makeSet("static_values"));
     staticValues = config.getConfig("static_values").root().unwrapped();
     updateMode = UpdateMode.fromConfig(config);
   }

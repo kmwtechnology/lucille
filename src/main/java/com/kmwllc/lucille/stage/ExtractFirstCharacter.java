@@ -26,7 +26,7 @@ public class ExtractFirstCharacter extends Stage {
   private final String replacement;
 
   public ExtractFirstCharacter(Config config) {
-    super(config, makeSet("fieldMapping"), makeSet("replacement"));
+    super(config, makeSet(), makeSet("replacement"), makeSet("fieldMapping"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";
   }

@@ -35,7 +35,7 @@ public class QueryDatabase extends Stage {
 
   public QueryDatabase(Config config) {
     super(config, makeSet("driver", "connectionString", "jdbcUser", "jdbcPassword", "keyFields", "inputTypes",
-      "returnTypes", "fieldMapping"), makeSet("sql"));
+      "returnTypes"), makeSet("sql"), makeSet("fieldMapping"));
 
     driver = config.getString("driver");
     connectionString = config.getString("connectionString");

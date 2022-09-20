@@ -43,29 +43,32 @@ public abstract class Stage {
 
   private final Set<String> optionalProperties;
   private final Set<String> requiredProperties;
+  private final Set<String> nestedProperties;
 
   public Stage(Config config) {
-    this(config, makeSet(), makeSet());
+    this(config, makeSet(), makeSet(), makeSet());
   }
 
   protected Stage(Config config, Set<String> requiredProperties) {
-    this(config, requiredProperties, makeSet());
+    this(config, requiredProperties, makeSet(), makeSet());
   }
 
-  protected Stage (Config config, Set<String> requiredProperties, Set<String> optionalProperties) {
+  protected Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties) {
+    this(config, requiredProperties, optionalProperties, makeSet());
+  }
+
+  protected Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties,
+                  Set<String> nestedProperties) {
 
     this.config = config;
     this.requiredProperties = new HashSet<>(requiredProperties);
     this.optionalProperties = new HashSet<>(optionalProperties);
+    this.nestedProperties = new HashSet<>(nestedProperties);
 
     // todo verify this
     this.optionalProperties.addAll(RESERVED_PROPERTIES);
 //    this.requiredProperties.addAll(RESERVED_PROPERTIES);
     this.optionalProperties.addAll(THIS_OPTIONAL_PROPERTIES);
-
-    // verifies that set intersection is empty
-    if (!Collections.disjoint(this.requiredProperties, this.optionalProperties))
-      throw new IllegalArgumentException("Required and optional properties must be disjoint.");
 
     validateConfig();
 
@@ -74,10 +77,6 @@ public abstract class Stage {
       config.getConfigList("conditions").stream().map(Condition::fromConfig).collect(Collectors.toList())
       : new ArrayList<>();
     this.condition = conditions.stream().reduce((d) -> true, Predicate::and);
-  }
-
-  protected static Set<String> makeSet(String... args) {
-    return new HashSet<>(Arrays.asList(args));
   }
 
   public void start() throws StageException {
@@ -180,6 +179,13 @@ public abstract class Stage {
   }
 
   public void validateConfig() throws IllegalArgumentException {
+
+    // todo are nested properties required?
+
+    // verifies that set intersection is empty
+    if (!disjoint(this.requiredProperties, this.optionalProperties, this.nestedProperties))
+      throw new IllegalArgumentException("Required, optional and nested properties must be disjoint.");
+
     // verifies all required properties are present
     for (String property: this.requiredProperties) {
       if (!config.hasPath(property)) {
@@ -187,12 +193,44 @@ public abstract class Stage {
       }
     }
 
-    // verifies that all remaining properties are in the optional set
+    // verifies that all remaining properties are in the optional set or are nested
     Set<String> legalProperties = getLegalProperties();
     for (Map.Entry<String, ConfigValue> entry: config.entrySet()) {
-      if (!legalProperties.contains(entry.getKey())) {
+      if (!legalProperties.contains(entry.getKey()) && !isNestedProperty(entry.getKey())) {
         throw new IllegalArgumentException("Stage config contains unknown property " + entry.getKey());
       }
     }
+  }
+
+  @SafeVarargs
+  private static boolean disjoint(Set<String>... sets) {
+
+    if (sets == null) {
+      throw new IllegalArgumentException("Sets must not be null");
+    }
+
+    for (int i = 0; i < sets.length; i++) {
+
+      if (sets[i] == null) {
+        throw new IllegalArgumentException("All sets must not be null");
+      }
+
+      for (int j = i + 1; j < sets.length; j++) {
+        if (!Collections.disjoint(sets[i], sets[j])) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  protected static Set<String> makeSet(String... args) {
+    return new HashSet<>(Arrays.asList(args));
+  }
+
+  private boolean isNestedProperty(String property) {
+    int dotIndex = property.indexOf('.');
+    return dotIndex > 0 && this.nestedProperties.contains(property.substring(0, dotIndex));
   }
 }

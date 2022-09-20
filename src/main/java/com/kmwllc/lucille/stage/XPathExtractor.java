@@ -42,7 +42,7 @@ public class XPathExtractor extends Stage {
    * @param config
    */
   public XPathExtractor(Config config) {
-    super(config, makeSet("fieldMapping"), makeSet("xmlField"));
+    super(config, makeSet(), makeSet("xmlField"), makeSet("fieldMapping"));
     xpaths = config.getConfig("fieldMapping").root().unwrapped();
     factory = DocumentBuilderFactory.newInstance();
     XPathFactory xpathFactory = XPathFactory.newInstance();

@@ -20,7 +20,7 @@ public class RemoveDuplicateValues extends Stage {
   private final Map<String, Object> fieldMapping;
 
   public RemoveDuplicateValues(Config config) {
-    super(config, makeSet("fieldMapping"));
+    super(config, makeSet(), makeSet(), makeSet("fieldMapping"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
   }
 
