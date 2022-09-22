@@ -221,4 +221,8 @@ public interface Document {
       throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
+
+ String toString();
+
+  boolean equals(Object o);
 }

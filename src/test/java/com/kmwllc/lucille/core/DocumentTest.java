@@ -1073,6 +1073,15 @@ public abstract class DocumentTest {
         "{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
   }
 
+  private void assertEqualsFromString(Document document, String string) {
+    try {
+      Document created = createDocumentFromJson(string);
+      assertEquals(document, created);
+    } catch (DocumentException | JsonProcessingException e) {
+      fail();
+    }
+  }
+
   @Test
   public void testRemoveDuplicateValuesWithValidTarget() {
     Document d = createDocument("id");
@@ -1090,7 +1099,9 @@ public abstract class DocumentTest {
 
     // verify that the original field stays the same, while the output field contains the correct
     // values
-    assertEquals("{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}", d.toString());
+    // todo does the order matter here?
+//    assertEquals("{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}", d.toString());
+    assertEqualsFromString(d, "{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}");
 
     Document d2 = createDocument("id2");
     d2.setField("field2", "a");

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
@@ -16,6 +15,8 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
+
+// TODO should children be in the map ?
 
 public class HashMapDocument implements Document {
 
@@ -29,37 +30,105 @@ public class HashMapDocument implements Document {
   private static final Logger log = LoggerFactory.getLogger(Document.class);
 
   protected final Map<String, List<Object>> data;
+  protected final Map<String, Class<?>> types;
 
   protected final String id;
   protected String runId;
   protected List<String> errors;
   protected List<Document> children;
 
+  private static String requireString(JsonNode node) throws DocumentException {
+    if (!node.isTextual() || node.asText().isEmpty()) {
+      throw new DocumentException("Expected non-empty string, got " + node);
+    }
+    return node.asText();
+  }
+
+  private static String updateString(String toUpdate, UnaryOperator<String> updater) {
+    return updater == null ? toUpdate : updater.apply(toUpdate);
+  }
+
   private HashMapDocument(ObjectNode data, UnaryOperator<String> idUpdater) throws DocumentException {
+
+    if (data.getNodeType() != JsonNodeType.OBJECT) {
+      throw new DocumentException("data is not an object");
+    }
+
     if (!data.hasNonNull(ID_FIELD)) {
       throw new DocumentException("id is missing");
     }
 
-    JsonNode id = data.get(ID_FIELD);
-    if (!id.isTextual() || id.asText().isEmpty()) {
-      throw new DocumentException("id is present but null or empty or not a string");
-    }
-
-    // todo review
-//    if (idUpdater != null) {
-//      this.id = idUpdater.apply(id.asText());
-//    } else {
-//      this.id = id.asText();
-//    }
-
+    this.id = updateString(requireString(data.get(ID_FIELD)), idUpdater);
     this.data = new HashMap<>();
+    this.types = new HashMap<>();
 
 
+    Map<String, Object> result = MAPPER.convertValue(data, TYPE);
+    System.out.println(result);
 
-    // todo consider whether should keep it
-    throw new UnsupportedOperationException("Not implemented yet");
-//    this.data = data;
+    for(Iterator<Map.Entry<String, JsonNode>> it = data.fields(); it.hasNext();) {
+      Map.Entry<String, JsonNode> entry = it.next();
+      String key = entry.getKey();
+      JsonNode node = entry.getValue();
 
+      switch (key) {
+        case ID_FIELD:
+          break;
+        case RUNID_FIELD:
+          this.runId = requireString(node);
+          break;
+        case CHILDREN_FIELD:
+
+          // todo review if checks are necessary
+
+          if (node.getNodeType() != JsonNodeType.ARRAY) {
+            throw new IllegalArgumentException();
+          }
+          if (children != null) {
+            throw new RuntimeException();
+          }
+
+          for (JsonNode child: node) {
+            addChild(new HashMapDocument((ObjectNode) child, idUpdater));
+          }
+
+          break;
+        default:
+          addNodeValueToField(key, node);
+      }
+    }
+  }
+
+  public void addNodeValueToField(String name, JsonNode node) {
+    switch (node.getNodeType()) {
+      case STRING:
+        addToField(name, node.asText());
+        break;
+        case NUMBER:
+          if (node.isInt()) {
+            addToField(name, node.asInt());
+          }
+          else if (node.isDouble()) {
+            addToField(name, node.asDouble());
+          }
+          else {
+            throw new UnsupportedOperationException("Unsupported number type: " + node);
+          }
+          break;
+      case NULL:
+        addToFieldList(name, null);
+        break;
+      case OBJECT:
+        addToFieldList(name, node);
+        break;
+      case ARRAY:
+        for (JsonNode item: node) {
+          addNodeValueToField(name, item);
+        }
+        break;
+      default:
+        throw new UnsupportedOperationException("Unsupported type " + node.getNodeType());
+    }
   }
 
   public HashMapDocument(ObjectNode data) throws DocumentException {
@@ -70,18 +139,38 @@ public class HashMapDocument implements Document {
     if (id == null) {
       throw new NullPointerException("ID cannot be null");
     }
-    this.data = new HashMap<>();
     this.id = id;
+    this.data = new HashMap<>();
+    this.types = new HashMap<>();
   }
 
   public HashMapDocument(String id, String runId) {
     this(id);
-
     if (runId == null) {
       throw new NullPointerException("Run ID cannot be null");
     }
-
     this.runId = runId;
+  }
+
+  // todo verify this !
+//  public HashMapDocument(Document document) {
+//    this(document.getId(), document.getRunId(), document.getChildren(), null, document.(), new HashMap<>());
+//  }
+
+//   todo review parameters / interface methods
+  private HashMapDocument(String id, String runId, List<Document> children, List<String> errors,
+                          Map<String, List<Object>> data, Map<String, Class<?>> types) {
+
+    this.id = id;
+    this.runId = runId;
+    this.children = children;
+    this.errors = errors;
+    this.types = types;
+    this.data = new HashMap<>();
+
+    for (Map.Entry<String, List<Object>> entry: data.entrySet()) {
+      this.data.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+    }
   }
 
 
@@ -100,7 +189,7 @@ public class HashMapDocument implements Document {
 
   private void validateNotReservedField(String name) throws IllegalArgumentException {
     if (RESERVED_FIELDS.contains(name)) {
-      throw new IllegalArgumentException();
+      throw new IllegalArgumentException(name + " is a reserved field");
     }
   }
 
@@ -191,13 +280,22 @@ public class HashMapDocument implements Document {
   @Override
   public void clearRunId() {
     if (runId != null) {
-      data.remove(RUNID_FIELD);
+      runId = null;
     }
   }
 
   private <T> void setGenericField(String name, T value) {
     validateNotReservedField(name);
-    data.put(name, Collections.singletonList(value));
+
+    if (value != null) {
+      types.putIfAbsent(name, value.getClass());
+
+      if (types.get(name) != value.getClass()) {
+        throw new UnsupportedOperationException();
+      }
+    }
+
+    data.put(name, new ArrayList<>(List.of(value)));
   }
 
   @Override
@@ -235,6 +333,15 @@ public class HashMapDocument implements Document {
     setGenericField(name, value);
   }
 
+  private void addAll(String name, List<Object> values) {
+    validateNotReservedField(name);
+    if (values == null) {
+      throw new IllegalArgumentException("values cannot be null");
+    }
+    data.putIfAbsent(name, new ArrayList<>());
+    data.get(name).addAll(values);
+  }
+
   @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
     validateNotReservedField(oldName);
@@ -249,8 +356,7 @@ public class HashMapDocument implements Document {
         case OVERWRITE:
           break; // todo why is there no overwrite?
         case APPEND:
-          data.putIfAbsent(newName, new ArrayList<>());
-          data.get(newName).addAll(oldValues);
+          addAll(newName, oldValues);
           // fall through
         case SKIP:
           return;
@@ -273,12 +379,19 @@ public class HashMapDocument implements Document {
   }
 
   private <T> T getSingleValue(String name, Function<Object, T> converter) {
-    if (!has(name)) {
-      return null;
+    switch (name) {
+      case ID_FIELD:
+        return converter.apply(id);
+      case RUNID_FIELD:
+        return converter.apply(runId);
+      default:
+        if (!has(name)) {
+          return null;
+        }
+        Object node = getSingleNode(name);
+        T applied = converter.apply(node); // todo this is not necessary
+        return node == null ? null : applied;
     }
-    Object node = getSingleNode(name);
-    T applied = converter.apply(node); // todo this is not necessary
-    return node == null ? null : applied;
   }
 
   private <T> List<T> getValueList(String name, Function<Object, T> converter) {
@@ -286,9 +399,10 @@ public class HashMapDocument implements Document {
       return null;
     }
 
-    if (!isMultiValued(name)) {
-      return Collections.singletonList(getSingleValue(name, converter));
-    }
+    // todo what was the purpose here?
+    //    if (!isMultiValued(name)) {
+    //      return Collections.singletonList(getSingleValue(name, converter));
+    //    }
 
     List<T> result = new ArrayList<>();
     for (Object node : data.get(name)) {
@@ -301,12 +415,20 @@ public class HashMapDocument implements Document {
   // todo might negatively impact performance, can create static fields for each type
   @Override
   public String getString(String name) {
-    return getSingleValue(name, value -> (String) value);
+    return getSingleValue(name, String::valueOf);
   }
 
   @Override
   public List<String> getStringList(String name) {
-    return getValueList(name, value -> (String) value);
+//    return getValueList(name, value -> (String) value);
+
+    // todo review this
+    return getValueList(name, value -> {
+      if (value.getClass() == Integer.class) {
+        return String.valueOf(value);
+      }
+      return (String) value;
+    });
   }
 
   @Override
@@ -382,24 +504,74 @@ public class HashMapDocument implements Document {
 
   @Override
   public boolean has(String name) {
-    return data.containsKey(name);
+    switch (name) {
+      case ID_FIELD:
+        return id != null;
+      case RUNID_FIELD:
+        return runId != null;
+      case CHILDREN_FIELD:
+        return children != null;
+      default:
+        return data.containsKey(name);
+    }
   }
 
   @Override
   public boolean hasNonNull(String name) {
-    return data.get(name) != null;
+
+    switch (name) {
+      case ID_FIELD:
+        return id != null;
+      case RUNID_FIELD:
+        return runId != null;
+      case CHILDREN_FIELD:
+        return children != null && children.stream().anyMatch(Objects::nonNull);
+      default:
+        return data.containsKey(name) && data.get(name) != null;
+    }
   }
 
   @Override
   public boolean isMultiValued(String name) {
-    // todo check this
-    return has(name); // && data.get(name).size() > 1;
+
+    if (!RESERVED_FIELDS.contains(name) && !has(name)) {
+      return false;
+    }
+
+    List<Object> values = data.get(name);
+    if (values == null) {
+      return false;
+    }
+
+    return values.size() > 1;
   }
 
   private <T> void addToFieldList(String name, T value) {
     validateNotReservedField(name);
+
+    // todo review this
+    if (value == null) {
+      data.put(name, null);
+      return;
+    }
+
     data.putIfAbsent(name, new ArrayList<>());
-    data.get(name).add(value);
+
+
+    // todo is there a better way to do this? testGetDoublesMultiValued fails otherwise
+
+    if (types.containsKey(name) && types.get(name) != value.getClass()) {
+
+      if (value.getClass() == Integer.class && types.get(name) == Double.class) {
+        data.get(name).add(((Integer) value).doubleValue());
+      }
+      else {
+        throw new UnsupportedOperationException();
+      }
+
+    } else {
+      data.get(name).add(value);
+    }
   }
 
   @Override
@@ -473,72 +645,197 @@ public class HashMapDocument implements Document {
   @Override
   public void setOrAdd(String name, Document other) throws IllegalArgumentException {
 
-    throw new UnsupportedOperationException();
+    validateNotReservedField(name);
 
-//    validateNotReservedField(name);
-//
-//    if (!has(name)) {
-//      if (other.has(name)) {
-//        setField(name, other.getField(name));
-//        data.set(name, other.getData().get(name));
-//      }
-//    } else {
-//
-//      // todo potentially can get the type of data from other and
-//
-//
-//
-//      data.get(name).addAll(other.getData().get(name));
-//    }
+    if (!(other instanceof HashMapDocument)) {
+      throw new UnsupportedOperationException();
+    }
+
+    if (!has(name)) {
+      if (other.has(name)) {
+        for (Object value : ((HashMapDocument) other).data.get(name)) {
+          addToFieldList(name, value);
+        }
+      }
+    } else {
+      addAll(name, ((HashMapDocument) other).data.get(name));
+    }
   }
 
   @Override
   public void setOrAddAll(Document other) {
-
-    throw new UnsupportedOperationException();
-
-
-//    for (Iterator<String> it = other.getData().fieldNames(); it.hasNext(); ) {
-//      String name = it.next();
-//      if (RESERVED_FIELDS.contains(name)) {
-//        continue;
-//      }
-//      setOrAdd(name, other);
-//    }
+    if (!(other instanceof HashMapDocument)) {
+      throw new UnsupportedOperationException();
+    }
+    HashMapDocument otherDocument = (HashMapDocument) other;
+    for (Map.Entry<String, List<Object>> entry : otherDocument.data.entrySet()) {
+      addAll(entry.getKey(), entry.getValue());
+    }
   }
 
   @Override
   public Map<String, Object> asMap() {
-    return null;
+
+    // todo note that this is not defensive
+
+    Map<String, Object> map = new HashMap<>();
+    for (String name : data.keySet()) {
+      map.put(name, data.get(name));
+    }
+
+    if (id != null) {
+      map.put(ID_FIELD, id);
+    }
+
+    if (runId != null) {
+      map.put(RUNID_FIELD, runId);
+    }
+
+    if (children != null) {
+      map.put(CHILDREN_FIELD, children);
+    }
+
+    return map;
   }
 
   @Override
   public void addChild(Document document) {
-
+    if (children == null) {
+      children = new ArrayList<>();
+    }
+    children.add(document);
   }
 
   @Override
   public boolean hasChildren() {
-    return false;
+    return children != null;
   }
 
   @Override
   public List<Document> getChildren() {
-    return null;
+
+    // todo note that it is not defensive
+
+    return children;
   }
 
   @Override
   public Set<String> getFieldNames() {
-    return null;
+    Set<String> fieldNames = new HashSet<>(data.keySet());
+    if (id != null) {
+      fieldNames.add(ID_FIELD);
+    }
+    if (runId != null) {
+      fieldNames.add(RUNID_FIELD);
+    }
+    return fieldNames;
   }
 
   @Override
   public void removeDuplicateValues(String fieldName, String targetFieldName) {
 
+    if (!has(fieldName)) {
+      throw new IllegalArgumentException("Field " + fieldName + " does not exist");
+    }
+
+    if (!isMultiValued(fieldName)) {
+      return;
+    }
+
+    List<Object> values = data.get(fieldName);
+    Set<Object> set = new LinkedHashSet<>(values);
+
+    if (targetFieldName == null || fieldName.equals(targetFieldName)) {
+      if (set.size() == values.size()) {
+        return;
+      }
+      data.remove(fieldName);
+      data.put(fieldName, new ArrayList<>(set));
+    } else {
+      data.put(targetFieldName, new ArrayList<>(set));
+    }
   }
 
   @Override
   public Document deepCopy() {
-    return null;
+//    return new HashMapDocument(this);
+    return new HashMapDocument(id, runId, children, null, data, types);
+  }
+
+  private static String wrap(String s) {
+    return "\"" + s + "\"";
+  }
+
+  private static String jsonEntry(String key, String value) {
+    return wrap(key) + ":" + wrap(value);
+  }
+
+  @Override
+  public String toString() {
+
+    StringBuilder out = new StringBuilder("{");
+
+    if (id != null) {
+      out.append(jsonEntry(ID_FIELD, id));
+    }
+
+    if (runId != null) {
+      out.append(",").append(jsonEntry(RUNID_FIELD, runId));
+    }
+
+    if (children != null) {
+      out.append(",").append(wrap(CHILDREN_FIELD)).append(":").append("[");
+      for (Document child : children) {
+        out.append(child.toString()).append(",");
+      }
+      out.delete(out.length() - 1, out.length()).append("]");
+    }
+
+    if (!this.data.isEmpty()) {
+      try {
+        String json = MAPPER.writeValueAsString(this.data);
+        return out.append(",").append(json.substring(1)).toString();
+      } catch (JsonProcessingException e) {
+
+        // todo check the instant to string -> testUpdateInstant
+
+        throw new RuntimeException(e);
+      }
+    }
+
+    return out.append("}").toString();
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+
+    if (obj == this) {
+      return true;
+    }
+
+    if (!(obj instanceof HashMapDocument)) {
+      return false;
+    }
+
+    HashMapDocument other = (HashMapDocument) obj;
+
+    if (id != null && !id.equals(other.id)) {
+      return false;
+    }
+
+    if (runId != null && !runId.equals(other.runId)) {
+      return false;
+    }
+
+    if (children != null && !children.equals(other.children)) {
+      return false;
+    }
+
+    return data.equals(other.data);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(data, types, id, runId, errors, children);
   }
 }
