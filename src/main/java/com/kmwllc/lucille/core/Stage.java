@@ -14,18 +14,28 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
- * An operation that can be performed on a Document.
- *
- * This abstract class provides some base functionality which should be applicable to all Stages.
- *
+ * An operation that can be performed on a Document.<br/>
+ * This abstract class provides some base functionality which should be applicable to all Stages.<br/>
+ * <br/>
  * Config Parameters:
+ * <ul>
+ *   <li>conditional_fields (List<String>, Optional) : The fields which will be used to determine
+ *   if this stage should be applied. Turns off conditional execution by default.</li>
+ *   <li>conditional_values (List<String>, Optional) : The values which we will search the
+ *   conditional fields for. Should be set iff conditional_fields is set.</li>
+ *   <li> conditional_operator (String, Optional) : The operator to determine conditional execution.
+ *   Can be 'must' or 'must_not'. Defaults to must.</li>
+ * </ul>
  *
- * - conditional_fields (List<String>, Optional) : The fields which will be used to determine if this stage should be applied.
- * Turns off conditional execution by default.
- * - conditional_values (List<String>, Optional) : The values which we will search the conditional fields for.
- * Should be set iff conditional_fields is set.
- * - conditional_operator (String, Optional) : The operator to determine conditional execution.
- * Can be 'must' or 'must_not'. Defaults to must.
+ * Config validation:<br/>
+ * The config validation will happen based on {@link Stage#optionalProperties},
+ * {@link Stage#requiredProperties}, and {@link Stage#nestedProperties}. Note that all of these
+ * properties are stored as sets and are disjoint from each other. As the name suggests
+ * {@link Stage#requiredProperties} are required while {@link Stage#optionalProperties} are
+ * optional. {@link Stage#nestedProperties} are currently implemented as optional and allow
+ * properties to be passed as an object and have to start with name of the property followed by a
+ * period and the nested name (ex. "property.nested")
+ *
  */
 public abstract class Stage {
 
@@ -65,9 +75,7 @@ public abstract class Stage {
     this.optionalProperties = new HashSet<>(optionalProperties);
     this.nestedProperties = new HashSet<>(nestedProperties);
 
-    // todo verify this
     this.optionalProperties.addAll(RESERVED_PROPERTIES);
-//    this.requiredProperties.addAll(RESERVED_PROPERTIES);
     this.optionalProperties.addAll(THIS_OPTIONAL_PROPERTIES);
 
     validateConfig();
@@ -204,24 +212,20 @@ public abstract class Stage {
 
   @SafeVarargs
   private static boolean disjoint(Set<String>... sets) {
-
     if (sets == null) {
       throw new IllegalArgumentException("Sets must not be null");
     }
-
     for (int i = 0; i < sets.length; i++) {
-
-      if (sets[i] == null) {
+      if (sets[i] == null){
         throw new IllegalArgumentException("All sets must not be null");
       }
-
       for (int j = i + 1; j < sets.length; j++) {
-        if (!Collections.disjoint(sets[i], sets[j])) {
+        // this is more efficient than checking that the intersection is not empty
+        if (!Collections.disjoint(sets[i], sets[j])){
           return false;
         }
       }
     }
-
     return true;
   }
 
