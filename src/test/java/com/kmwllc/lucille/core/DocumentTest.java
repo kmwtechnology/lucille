@@ -1134,47 +1134,50 @@ public abstract class DocumentTest {
     assertEquals(List.of(1), d.getIntList("field2"));
   }
 
-  @Test
-  public void testGetChildrenException() throws DocumentException {
+  abstract static class NodeDocumentTest extends DocumentTest {
 
-    // demonstrates the consequences of not copying the object given to the constructor
+    @Test
+    public void testGetChildrenException() throws DocumentException {
 
-    // here the child is changed after being added to the parent and throws an error (that is
-    // logged) when trying to retrieve children
+      // demonstrates the consequences of not copying the object given to the constructor
 
-    Document parent = createDocument("id");
+      // here the child is changed after being added to the parent and throws an error (that is
+      // logged) when trying to retrieve children
 
-    ObjectNode child1Node = JsonNodeFactory.instance.objectNode();
-    child1Node.put("id", "child1");
-    Document child1 = createDocument(child1Node);
-    parent.addChild(child1);
+      Document parent = createDocument("id");
 
-    Document child2 = createDocument("child2");
-    parent.addChild(child2);
+      ObjectNode child1Node = JsonNodeFactory.instance.objectNode();
+      child1Node.put("id", "child1");
+      Document child1 = createDocument(child1Node);
+      parent.addChild(child1);
 
-    // both children are present
-    assertEquals(List.of(child1, child2), parent.getChildren());
+      Document child2 = createDocument("child2");
+      parent.addChild(child2);
 
-    // after removing the id from child1 only child2 is returned when getting children
-    child1Node.remove("id");
-    assertEquals(List.of(child2), parent.getChildren());
+      // both children are present
+      assertEquals(List.of(child1, child2), parent.getChildren());
 
-    // did not find an easy way to check if error message has been logged
-  }
+      // after removing the id from child1 only child2 is returned when getting children
+      child1Node.remove("id");
+      assertEquals(List.of(child2), parent.getChildren());
 
-  @Test(expected = IllegalStateException.class)
-  public void testClone() throws DocumentException {
+      // did not find an easy way to check if error message has been logged
+    }
 
-    // demonstrates the consequences of not copying the object given to the constructor
+    @Test(expected = IllegalStateException.class)
+    public void testClone() throws DocumentException {
 
-    // here the node used to create the document is changed after document construction and throws
-    // an error when trying to clone the document
+      // demonstrates the consequences of not copying the object given to the constructor
 
-    ObjectNode node = JsonNodeFactory.instance.objectNode();
-    node.put("id", "123");
+      // here the node used to create the document is changed after document construction and throws
+      // an error when trying to clone the document
 
-    Document document = createDocument(node);
-    node.remove("id");
-    document.deepCopy();
+      ObjectNode node = JsonNodeFactory.instance.objectNode();
+      node.put("id", "123");
+
+      Document document = createDocument(node);
+      node.remove("id");
+      document.deepCopy();
+    }
   }
 }

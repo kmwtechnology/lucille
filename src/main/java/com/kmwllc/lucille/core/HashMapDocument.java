@@ -75,7 +75,7 @@ public class HashMapDocument implements Document {
         case ID_FIELD:
           break;
         case RUNID_FIELD:
-          this.runId = requireString(node);
+          this.runId = requireString(node); // todo MOVE ?
           break;
         case CHILDREN_FIELD:
 

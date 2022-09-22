@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.function.UnaryOperator;
 
-public class BetterJsonDocumentTest extends DocumentTest {
+public class BetterJsonDocumentTest extends DocumentTest.NodeDocumentTest {
 
   @Override
   public Document createDocument(ObjectNode node) throws DocumentException {
