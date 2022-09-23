@@ -83,7 +83,7 @@ public class JsonDocument extends AbstractDocument {
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
     JsonDocument doc = fromJsonString(json);
-    doc.data.put(ID_FIELD, idUpdater.apply(doc.getId()));
+    doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
     return doc;
   }
 

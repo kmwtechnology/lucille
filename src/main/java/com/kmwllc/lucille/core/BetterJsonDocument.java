@@ -67,7 +67,7 @@ public class BetterJsonDocument extends AbstractDocument {
   public static Document fromJsonString(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
     Document doc = fromJsonString(json);
-    doc.getData().put(ID_FIELD, idUpdater.apply(doc.getId()));
+    doc.getData().put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
     return doc;
   }
 
