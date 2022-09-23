@@ -531,6 +531,29 @@ public class HashMapDocument extends AbstractDocument {
       return false;
     }
     return values.size() > 1;
+
+    /* todo review this
+
+    if (name == null) {
+      throw new IllegalArgumentException("name cannot be null");
+    }
+
+    switch (name) {
+      case ID_FIELD:
+        return false;
+      case RUNID_FIELD:
+        return runId != null;
+      case CHILDREN_FIELD:
+        return children != null;
+    }
+
+    if (RESERVED_FIELDS.contains(name)) {
+      throw new UnsupportedOperationException("switch not implemented for reserved field: " + name);
+    }
+
+    return data.containsKey(name) && data.get(name) != null;
+
+     */
   }
 
   private <T> void addToFieldList(String name, T value) {
