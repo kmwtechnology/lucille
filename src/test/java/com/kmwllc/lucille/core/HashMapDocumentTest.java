@@ -26,11 +26,6 @@ public class HashMapDocumentTest extends DocumentTest {
   }
 
   @Override
-  public Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException {
-    return HashMapDocument.fromJsonString(json);
-  }
-
-  @Override
   public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
     return HashMapDocument.fromJsonString(json, idUpdater);
   }

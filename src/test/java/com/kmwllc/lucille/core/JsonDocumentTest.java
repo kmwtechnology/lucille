@@ -23,11 +23,6 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   }
 
   @Override
-  public Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException {
-    return JsonDocument.fromJsonString(json);
-  }
-
-  @Override
   public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
   }

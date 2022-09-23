@@ -214,7 +214,7 @@ public interface Document {
   }
 
   static Document createFromJson(String json) throws DocumentException, JsonProcessingException {
-    return JsonDocument.fromJsonString(json);
+    return createFromJson(json, null);
   }
 
   static Document createFromJson(String json, UnaryOperator<String> idUpdater)

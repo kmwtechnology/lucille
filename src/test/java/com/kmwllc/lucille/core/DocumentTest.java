@@ -26,7 +26,9 @@ public abstract class DocumentTest {
 
   public abstract Document createDocument(String id, String runId);
 
-  public abstract Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException;
+  public Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException {
+    return createDocumentFromJson(json, null);
+  }
 
   public abstract Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException;
 
