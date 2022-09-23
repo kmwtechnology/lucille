@@ -23,7 +23,7 @@ import java.util.function.UnaryOperator;
  * and sent to a destination system.
  *
  */
-public class JsonDocument implements Document {
+public class JsonDocument extends AbstractDocument {
 
   protected static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};

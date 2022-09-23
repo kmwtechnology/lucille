@@ -18,7 +18,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
-public class BetterJsonDocument implements Document {
+public class BetterJsonDocument extends AbstractDocument {
 
   private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_INSTANT;
   private static final Function<String, Instant> DATE_PARSER =

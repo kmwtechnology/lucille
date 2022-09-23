@@ -221,8 +221,16 @@ public interface Document {
       throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
+}
 
- String toString();
+abstract class AbstractDocument implements Document {
 
-  boolean equals(Object o);
+  @Override
+  public abstract String toString();
+
+  @Override
+  public abstract boolean equals(Object obj);
+
+  @Override
+  public abstract int hashCode();
 }
