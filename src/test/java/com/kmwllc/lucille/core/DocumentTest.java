@@ -151,29 +151,6 @@ public abstract class DocumentTest {
   }
 
   @Test
-  public void testIsMultiValued() throws DocumentException, JsonProcessingException {
-    Document document =
-        createDocumentFromJson(
-            ""
-                + "{\"id\":\"123\", "
-                + "\"null\":null,"
-                + "\"single\":\"val1\", "
-                + "\"empty_arr\":[],"
-                + "\"arr1\":[\"val1\"],"
-                + "\"arr2\":[\"val1\", \"val2\"]}");
-
-    assertFalse(document.isMultiValued("id"));
-    assertFalse(document.isMultiValued("null"));
-    assertFalse(document.isMultiValued("single"));
-    assertTrue(document.isMultiValued("empty_arr"));
-    assertTrue(document.isMultiValued("arr1"));
-    assertTrue(document.isMultiValued("arr2"));
-
-    // not present field
-    assertFalse(document.isMultiValued("not_present"));
-  }
-
-  @Test
   public void testRemoveReservedField() {
     Document document = createDocument("123");
     for (String field : RESERVED_FIELDS) {
@@ -321,6 +298,8 @@ public abstract class DocumentTest {
     List<Object> nullList = new ArrayList<>();
     nullList.add(null);
 
+    // todo this test does not really make sense.
+    //  why asking for a list from a null field return a list with a null value?
     assertNull(document.getInt("field1"));
     assertEquals(nullList, document.getIntList("field1"));
     assertEquals(nullList, document.getIntList("field2"));
@@ -336,26 +315,6 @@ public abstract class DocumentTest {
     assertNull(document.getLong("field1"));
     assertEquals(nullList, document.getLongList("field1"));
     assertEquals(nullList, document.getLongList("field2"));
-
-    // this fails because tries to parse date from null
-    try {
-      assertNull(document.getInstant("field1"));
-      fail();
-    } catch (java.time.format.DateTimeParseException e) {
-      // cant parse null
-    }
-    try {
-      assertEquals(nullList, document.getInstantList("field1"));
-      fail();
-    } catch (java.time.format.DateTimeParseException e) {
-      // cant parse null
-    }
-    try {
-      assertEquals(nullList, document.getInstantList("field2"));
-      fail();
-    } catch (java.time.format.DateTimeParseException e) {
-      // cant parse null
-    }
   }
 
   @Test
@@ -850,41 +809,6 @@ public abstract class DocumentTest {
   }
 
   @Test
-  public void testSetOrAdd() {
-
-    // confirm setOrAdd behaves as expected
-    Document document = createDocument("id1");
-    document.setOrAdd("field1", "value1");
-    assertFalse(document.isMultiValued("field1"));
-    assertEquals("value1", document.getString("field1"));
-    document.setOrAdd("field1", "value2");
-    assertTrue(document.isMultiValued("field1"));
-    assertEquals("value1", document.getStringList("field1").get(0));
-    assertEquals("value2", document.getStringList("field1").get(1));
-    assertEquals(2, document.getStringList("field1").size());
-
-    // compare with setField behavior
-    Document document2 = createDocument("id2");
-    document2.setField("field1", "value1");
-    assertFalse(document2.isMultiValued("field1"));
-    assertEquals("value1", document2.getString("field1"));
-    document2.setField("field1", "value2");
-    assertFalse(document2.isMultiValued("field1"));
-    assertEquals("value2", document2.getString("field1"));
-
-    // compare with addToField behavior
-    Document document3 = createDocument("id1");
-    document3.addToField("field1", "value1");
-    assertTrue(document3.isMultiValued("field1"));
-    assertEquals("value1", document3.getString("field1"));
-    document3.addToField("field1", "value2");
-    assertTrue(document3.isMultiValued("field1"));
-    assertEquals("value1", document3.getStringList("field1").get(0));
-    assertEquals("value2", document3.getStringList("field1").get(1));
-    assertEquals(2, document3.getStringList("field1").size());
-  }
-
-  @Test
   public void testSetOrAddInstant() {
     Document document = createDocument("id1");
     assertFalse(document.has("instant"));
@@ -1135,6 +1059,94 @@ public abstract class DocumentTest {
   }
 
   abstract static class NodeDocumentTest extends DocumentTest {
+
+    @Test
+    public void testIsMultiValued() throws DocumentException, JsonProcessingException {
+      Document document =
+        createDocumentFromJson(
+          ""
+            + "{\"id\":\"123\", "
+            + "\"null\":null,"
+            + "\"single\":\"val1\", "
+            + "\"empty_arr\":[],"
+            + "\"arr1\":[\"val1\"],"
+            + "\"arr2\":[\"val1\", \"val2\"]}");
+
+      assertFalse(document.isMultiValued("id"));
+      assertFalse(document.isMultiValued("null"));
+      assertFalse(document.isMultiValued("single"));
+      assertTrue(document.isMultiValued("empty_arr"));
+      assertTrue(document.isMultiValued("arr1"));
+      assertTrue(document.isMultiValued("arr2"));
+
+      // not present field
+      assertFalse(document.isMultiValued("not_present"));
+    }
+
+    @Test
+    public void testGetNullField() throws DocumentException, JsonProcessingException {
+
+      Document document =
+        createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
+
+      List<Object> nullList = new ArrayList<>();
+      nullList.add(null);
+
+      // this fails because tries to parse date from null
+      try {
+        assertNull(document.getInstant("field1"));
+        fail();
+      } catch (java.time.format.DateTimeParseException e) {
+        // cant parse null
+      }
+      try {
+        assertEquals(nullList, document.getInstantList("field1"));
+        fail();
+      } catch (java.time.format.DateTimeParseException e) {
+        // cant parse null
+      }
+      try {
+        assertEquals(nullList, document.getInstantList("field2"));
+        fail();
+      } catch (java.time.format.DateTimeParseException e) {
+        // cant parse null
+      }
+    }
+
+    @Test
+    public void testSetOrAdd() {
+
+      // confirm setOrAdd behaves as expected
+      Document document = createDocument("id1");
+      document.setOrAdd("field1", "value1");
+      assertFalse(document.isMultiValued("field1"));
+      assertEquals("value1", document.getString("field1"));
+      document.setOrAdd("field1", "value2");
+      assertTrue(document.isMultiValued("field1"));
+      assertEquals("value1", document.getStringList("field1").get(0));
+      assertEquals("value2", document.getStringList("field1").get(1));
+      assertEquals(2, document.getStringList("field1").size());
+
+      // compare with setField behavior
+      Document document2 = createDocument("id2");
+      document2.setField("field1", "value1");
+      assertFalse(document2.isMultiValued("field1"));
+      assertEquals("value1", document2.getString("field1"));
+      document2.setField("field1", "value2");
+      assertFalse(document2.isMultiValued("field1"));
+      assertEquals("value2", document2.getString("field1"));
+
+      // compare with addToField behavior
+      Document document3 = createDocument("id1");
+      document3.addToField("field1", "value1");
+      assertTrue(document3.isMultiValued("field1"));
+      assertEquals("value1", document3.getString("field1"));
+      document3.addToField("field1", "value2");
+      assertTrue(document3.isMultiValued("field1"));
+      assertEquals("value1", document3.getStringList("field1").get(0));
+      assertEquals("value2", document3.getStringList("field1").get(1));
+      assertEquals(2, document3.getStringList("field1").size());
+    }
 
     @Test
     public void testGetChildrenException() throws DocumentException {

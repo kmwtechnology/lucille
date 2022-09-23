@@ -16,7 +16,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
-// TODO should children be in the map ?
 
 public class HashMapDocument implements Document {
 
@@ -63,6 +62,7 @@ public class HashMapDocument implements Document {
     this.types = new HashMap<>();
 
 
+    // todo remove
     Map<String, Object> result = MAPPER.convertValue(data, TYPE);
     System.out.println(result);
 
@@ -75,23 +75,15 @@ public class HashMapDocument implements Document {
         case ID_FIELD:
           break;
         case RUNID_FIELD:
-          this.runId = requireString(node); // todo MOVE ?
+          this.runId = requireString(node);
           break;
         case CHILDREN_FIELD:
-
-          // todo review if checks are necessary
-
           if (node.getNodeType() != JsonNodeType.ARRAY) {
             throw new IllegalArgumentException();
           }
-          if (children != null) {
-            throw new RuntimeException();
-          }
-
           for (JsonNode child: node) {
             addChild(new HashMapDocument((ObjectNode) child, idUpdater));
           }
-
           break;
         default:
           addNodeValueToField(key, node);
@@ -122,6 +114,7 @@ public class HashMapDocument implements Document {
         addToFieldList(name, node);
         break;
       case ARRAY:
+        data.putIfAbsent(name, new ArrayList<>());
         for (JsonNode item: node) {
           addNodeValueToField(name, item);
         }
@@ -152,11 +145,6 @@ public class HashMapDocument implements Document {
     this.runId = runId;
   }
 
-  // todo verify this !
-//  public HashMapDocument(Document document) {
-//    this(document.getId(), document.getRunId(), document.getChildren(), null, document.(), new HashMap<>());
-//  }
-
 //   todo review parameters / interface methods
   private HashMapDocument(String id, String runId, List<Document> children, List<String> errors,
                           Map<String, List<Object>> data, Map<String, Class<?>> types) {
@@ -173,37 +161,35 @@ public class HashMapDocument implements Document {
     }
   }
 
-
-
-
-  // todo implement these
   public static Document fromJsonString(String json)
     throws DocumentException, JsonProcessingException {
-    return new HashMapDocument((ObjectNode) MAPPER.readTree(json));
+    return fromJsonString(json, null);
   }
 
   public static Document fromJsonString(String json, UnaryOperator<String> idUpdater)
     throws DocumentException, JsonProcessingException {
-    return new HashMapDocument(fromJsonString(json).getData(), idUpdater);
+    return new HashMapDocument((ObjectNode) MAPPER.readTree(json), idUpdater);
   }
 
   private void validateNotReservedField(String name) throws IllegalArgumentException {
+
+    if (name == null) {
+      throw new IllegalArgumentException("Field name cannot be null");
+    }
+
     if (RESERVED_FIELDS.contains(name)) {
       throw new IllegalArgumentException(name + " is a reserved field");
     }
   }
 
-
   @Override
   public void removeField(String name) {
-    // todo should return value ?
     validateNotReservedField(name);
     data.remove(name);
   }
 
   @Override
   public void removeFromArray(String name, int index) {
-    // todo should return value?
     validateNotReservedField(name);
     data.get(name).remove(index);
   }
@@ -250,8 +236,8 @@ public class HashMapDocument implements Document {
    * data.put(String, String), data.put(String, Long), data.put(String Boolean)
    */
   @SafeVarargs
-  private <T> void update(
-    String name, UpdateMode mode, Consumer<T> setter, Consumer<T> adder, T... values) {
+  private <T> void update(String name, UpdateMode mode,
+                          Consumer<T> setter, Consumer<T> adder, T... values) {
 
     validateNotReservedField(name);
 
@@ -295,7 +281,10 @@ public class HashMapDocument implements Document {
       }
     }
 
-    data.put(name, new ArrayList<>(List.of(value)));
+    // need to do it explicitly to handle adding null
+    List<Object> list = new ArrayList<>();
+    list.add(value);
+    data.put(name, list);
   }
 
   @Override
@@ -375,7 +364,16 @@ public class HashMapDocument implements Document {
 
   private Object getSingleNode(String name) {
     // todo what iff list is empty ? is it be possible?
-    return data.get(name).get(0);
+
+    if (data.get(name) == null) {
+      return null;
+    }
+
+    List<Object> list = data.get(name);
+    if (list.isEmpty()) {
+      throw new UnsupportedOperationException();
+    }
+    return list.get(0);
   }
 
   private <T> T getSingleValue(String name, Function<Object, T> converter) {
@@ -385,12 +383,8 @@ public class HashMapDocument implements Document {
       case RUNID_FIELD:
         return converter.apply(runId);
       default:
-        if (!has(name)) {
-          return null;
-        }
         Object node = getSingleNode(name);
-        T applied = converter.apply(node); // todo this is not necessary
-        return node == null ? null : applied;
+        return node == null ? null : converter.apply(node);
     }
   }
 
@@ -399,15 +393,16 @@ public class HashMapDocument implements Document {
       return null;
     }
 
-    // todo what was the purpose here?
-    //    if (!isMultiValued(name)) {
-    //      return Collections.singletonList(getSingleValue(name, converter));
-    //    }
-
     List<T> result = new ArrayList<>();
+
+    if (data.get(name) == null) {
+      result.add(null);
+      return result;
+    }
+
+
     for (Object node : data.get(name)) {
-      T applied = converter.apply(node);
-      result.add(node == null ? null : applied);
+      result.add(node == null ? null : converter.apply(node));
     }
     return result;
   }
@@ -438,7 +433,12 @@ public class HashMapDocument implements Document {
 
   @Override
   public List<Integer> getIntList(String name) {
-    return getValueList(name, value -> (Integer) value);
+    return getValueList(name, value -> {
+      if (value.getClass() == String.class) {
+        return Integer.valueOf((String) value);
+      }
+      return (Integer) value;
+    });
   }
 
   @Override
@@ -537,12 +537,10 @@ public class HashMapDocument implements Document {
     if (!RESERVED_FIELDS.contains(name) && !has(name)) {
       return false;
     }
-
     List<Object> values = data.get(name);
     if (values == null) {
       return false;
     }
-
     return values.size() > 1;
   }
 
@@ -551,7 +549,11 @@ public class HashMapDocument implements Document {
 
     // todo review this
     if (value == null) {
-      data.put(name, null);
+      if (data.containsKey(name)) {
+        data.get(name).add(null);
+      } else {
+        data.put(name, null);
+      }
       return;
     }
 
@@ -713,10 +715,10 @@ public class HashMapDocument implements Document {
 
   @Override
   public List<Document> getChildren() {
-
-    // todo note that it is not defensive
-
-    return children;
+    if (children == null) {
+      return new ArrayList<>();
+    }
+    return new ArrayList<>(children);
   }
 
   @Override
@@ -759,6 +761,7 @@ public class HashMapDocument implements Document {
   @Override
   public Document deepCopy() {
 //    return new HashMapDocument(this);
+    // todo review this
     return new HashMapDocument(id, runId, children, null, data, types);
   }
 
