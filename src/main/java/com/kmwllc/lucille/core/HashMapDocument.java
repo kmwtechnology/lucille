@@ -1,16 +1,12 @@
 package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -19,14 +15,7 @@ import java.util.function.UnaryOperator;
 
 public class HashMapDocument extends AbstractDocument {
 
-  private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_INSTANT;
-  private static final Function<String, Instant> DATE_PARSER =
-    str -> Instant.from(DATE_TIME_FORMATTER.parse(str));
-  private static final Function<Instant, String> INSTANT_FORMATTER = DATE_TIME_FORMATTER::format;
-
   protected static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<>() {};
-  private static final Logger log = LoggerFactory.getLogger(Document.class);
 
   protected final Map<String, List<Object>> data;
   protected final Map<String, Class<?>> types;
@@ -60,11 +49,6 @@ public class HashMapDocument extends AbstractDocument {
     this.id = updateString(requireString(data.get(ID_FIELD)), idUpdater);
     this.data = new HashMap<>();
     this.types = new HashMap<>();
-
-
-    // todo remove
-    Map<String, Object> result = MAPPER.convertValue(data, TYPE);
-    System.out.println(result);
 
     for(Iterator<Map.Entry<String, JsonNode>> it = data.fields(); it.hasNext();) {
       Map.Entry<String, JsonNode> entry = it.next();
@@ -171,14 +155,20 @@ public class HashMapDocument extends AbstractDocument {
     return new HashMapDocument((ObjectNode) MAPPER.readTree(json), idUpdater);
   }
 
-  private void validateNotReservedField(String name) throws IllegalArgumentException {
+  private void validateNotReservedField(String... names) throws IllegalArgumentException {
 
-    if (name == null) {
-      throw new IllegalArgumentException("Field name cannot be null");
+    if (names == null) {
+      throw new IllegalArgumentException("expecting string parameters");
     }
 
-    if (RESERVED_FIELDS.contains(name)) {
-      throw new IllegalArgumentException(name + " is a reserved field");
+    for (String name: names) {
+      if (name == null) {
+        throw new IllegalArgumentException("Field name cannot be null");
+      }
+
+      if (RESERVED_FIELDS.contains(name)) {
+        throw new IllegalArgumentException(name + " is a reserved field");
+      }
     }
   }
 
@@ -333,17 +323,14 @@ public class HashMapDocument extends AbstractDocument {
 
   @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
-    validateNotReservedField(oldName);
-    validateNotReservedField(newName);
+    validateNotReservedField(oldName, newName);
     List<Object> oldValues = data.get(oldName);
     data.remove(oldName);
-
-    // todo consider what happens if the fields have different types
 
     if (has(newName)) {
       switch (mode) {
         case OVERWRITE:
-          break; // todo why is there no overwrite?
+          break;
         case APPEND:
           addAll(newName, oldValues);
           // fall through
@@ -363,7 +350,6 @@ public class HashMapDocument extends AbstractDocument {
   }
 
   private Object getSingleNode(String name) {
-    // todo what iff list is empty ? is it be possible?
 
     if (data.get(name) == null) {
       return null;
@@ -487,7 +473,10 @@ public class HashMapDocument extends AbstractDocument {
       return 0;
     }
 
-    // todo again here can ever be an empty list?
+
+    if (data.get(name) == null) {
+      throw new UnsupportedOperationException();
+    }
 
     return data.get(name).size();
   }
