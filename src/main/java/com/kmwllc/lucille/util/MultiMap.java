@@ -8,11 +8,10 @@ import java.util.stream.Stream;
 
 public class MultiMap implements IMultiMap {
 
-  private final Set<String> keys;
   private final Set<Class<?>> supportedTypes;
   private final Map<String, Class<?>> types;
-  private final Map<String, Object> singleValued;
-  private final Map<String, List<Object>> multiValued;
+  private final Map<String, Object> single;
+  private final Map<String, List<Object>> multi;
 
   public MultiMap(Set<Class<?>> supportedTypes) {
 
@@ -21,10 +20,9 @@ public class MultiMap implements IMultiMap {
     }
 
     this.supportedTypes = new HashSet<>(supportedTypes);
-    keys = new HashSet<>();
     types = new HashMap<>();
-    singleValued = new HashMap<>();
-    multiValued = new HashMap<>();
+    single = new HashMap<>();
+    multi = new HashMap<>();
 
 //    if (singleValued == null || multiValued == null || types == null) {
 //      throw new IllegalArgumentException("constructor parameters must not be null");
@@ -48,7 +46,7 @@ public class MultiMap implements IMultiMap {
 
   @Override
   public boolean isEmpty() {
-    return keys.isEmpty();
+    return single.isEmpty() && multi.isEmpty();
   }
 
   @Override
@@ -56,18 +54,18 @@ public class MultiMap implements IMultiMap {
     if (key == null) {
       throw new IllegalArgumentException("key must not be null");
     }
-    return keys.contains(key);
+    return single.containsKey(key) || multi.containsKey(key);
   }
 
   @Override
   public boolean isMultiValued(String key) {
     checkKey(key);
-    return multiValued.containsKey(key);
+    return multi.containsKey(key);
   }
 
   @Override
   public int size() {
-    return singleValued.size() + multiValued.size();
+    return single.size() + multi.size();
   }
 
   @Override
@@ -77,7 +75,7 @@ public class MultiMap implements IMultiMap {
       return 1;
     }
 
-    List<Object> list = multiValued.get(name);
+    List<Object> list = multi.get(name);
     if (list == null) {
       throw new IllegalStateException("name " + name + " is multi-valued but has no values");
     }
@@ -86,27 +84,28 @@ public class MultiMap implements IMultiMap {
 
   @Override
   public Set<String> getKeys() {
-    return new HashSet<>(keys);
+    return Stream.concat(single.keySet().stream(), multi.keySet().stream())
+      .collect(Collectors.toSet());
   }
 
   @Override
   public Set<String> getSingleKeys() {
-    return new HashSet<>(singleValued.keySet());
+    return new HashSet<>(single.keySet());
   }
 
   @Override
   public Set<String> getMultiKeys() {
-    return new HashSet<>(multiValued.keySet());
+    return new HashSet<>(multi.keySet());
   }
 
   @Override
   public Map<String, Object> getSingleValued() {
-    return new HashMap<>(singleValued);
+    return new HashMap<>(single);
   }
 
   @Override
   public Map<String, List<Object>> getMultiValued() {
-    return new HashMap<>(multiValued);
+    return new HashMap<>(multi);
   }
 
   @Override
@@ -124,33 +123,40 @@ public class MultiMap implements IMultiMap {
   public Object getOne(String name) {
 
     if (isMultiValued(name)) {
-      List<Object> list = multiValued.get(name);
+      List<Object> list = multi.get(name);
       if (list.isEmpty()) {
         throw new IllegalArgumentException("name " + name + " is multi-valued but has no values");
       }
       return list.get(0);
     }
 
-    return singleValued.get(name);
+    return single.get(name);
   }
 
   @Override
   public List<Object> getMany(String name) {
-    return isMultiValued(name) ? new ArrayList<>(multiValued.get(name)) : Collections.singletonList(singleValued.get(name));
+    return isMultiValued(name) ? new ArrayList<>(multi.get(name)) : Collections.singletonList(single.get(name));
   }
 
   @Override
   public void putOne(String key, Object value) throws IllegalArgumentException {
 
-    checkAdd(key, value);
-
-    keys.add(key);
-    singleValued.put(key, value);
-    multiValued.remove(key);
-
-    if (value != null) {
-      types.put(key, value.getClass());
+    if (key == null) {
+      throw new IllegalArgumentException("key must not be null");
     }
+
+    if (value == null) {
+      types.remove(key);
+    } else {
+      Class<?> type = value.getClass();
+      if (!supportedTypes.contains(type)) {
+        throw new IllegalArgumentException("value must be one of " + supportedTypes + " but was " + type);
+      }
+      types.put(key, type);
+    }
+
+    multi.remove(key);
+    single.put(key, value);
   }
 
   @Override
@@ -166,89 +172,94 @@ public class MultiMap implements IMultiMap {
       types.put(name, c);
     }
 
-    keys.add(name);
-    multiValued.put(name, new ArrayList<>(values));
-    singleValued.remove(name);
+    single.remove(name);
+    multi.put(name, new ArrayList<>(values));
   }
 
   @Override
   public void add(String name, Object value) {
 
+    addValueType(name, value);
+
+    if (!contains(name)) {
+      multi.put(name, Collections.singletonList(value));
+      return;
+    }
+
+    if (isMultiValued(name)) {
+      multi.get(name).add(value);
+    } else {
+      multi.put(name, Arrays.asList(single.remove(name), value));
+    }
+  }
+
+  private void addValueType(String name, Object value) {
     if (name == null) {
       throw new IllegalArgumentException("name must not be null");
     }
-
-    Class<?> type = value == null ? null : value.getClass();
-
-    if (contains(name)) {
-
-      if (types.containsKey(name) && !types.get(name).equals(type)) {
-        throw new IllegalArgumentException("value type does not match existing type for name " + name);
+    if (value != null) {
+      Class<?> type = value.getClass();
+      if (!supportedTypes.contains(type)) {
+        throw new IllegalArgumentException("value must be one of " + supportedTypes + " but was " + type);
       }
-
-      if (isMultiValued(name)) {
-        multiValued.get(name).add(value);
-        // todo if used to be an empty list need to add type, write a test
-        types.put(name, type);
+      if (types.containsKey(name)) {
+        if (!types.get(name).equals(type)) {
+          throw new IllegalArgumentException("value must be of type " + types.get(name) + " but was " + type);
+        }
       } else {
-        multiValued.put(name, Arrays.asList(singleValued.remove(name), value));
+        types.put(name, type);
       }
-    } else {
+    }
+  }
+
+  @Override
+  public void setOrAdd(String name, Object value) { // todo if used to be an empty list need to add type, write a test
+    if (!contains(name)) {
       putOne(name, value);
+    } else {
+      add(name, value);
     }
   }
 
 
   @Override
   public void clear() {
-    keys.clear();
     types.clear();
-    singleValued.clear();
-    multiValued.clear();
+    single.clear();
+    multi.clear();
   }
 
   @Override
   public void rename(String oldName, String newName) {
     checkKey(oldName);
-
-    if (newName == null) {
-      throw new IllegalArgumentException("newName must not be null");
+    if (newName == null || contains(newName)) {
+      throw new IllegalArgumentException("newName must not be null or already exist");
     }
-
-    if (contains(newName)) {
-      throw new IllegalArgumentException("newName must not already exist");
-    }
-
     if (isMultiValued(oldName)) {
-      multiValued.put(newName, multiValued.remove(oldName));
+      multi.put(newName, multi.remove(oldName));
     } else {
-      singleValued.put(newName, singleValued.remove(oldName));
+      single.put(newName, single.remove(oldName));
     }
-
-    keys.remove(oldName);
-    keys.add(newName);
     types.put(newName, types.remove(oldName));
   }
 
   @Override
   public void remove(String name) {
     checkKey(name);
-    keys.remove(name);
     types.remove(name);
-    singleValued.remove(name);
-    multiValued.remove(name);
+    single.remove(name);
+    multi.remove(name);
   }
 
   @Override
   public void removeFromArray(String name, int index) {
-
     if (!isMultiValued(name)) {
       throw new IllegalArgumentException("name must be multi-valued");
     }
-
-    List<Object> list = multiValued.get(name);
+    List<Object> list = multi.get(name);
     if (index < 0 || index >= list.size()) {
-      throw new IllegalArgumentException("index must be in range");
+      throw new IllegalArgumentException("given index " + index +
+        " is out of bounds for list of size " + list.size());
     }
     list.remove(index);
   }
@@ -258,10 +269,8 @@ public class MultiMap implements IMultiMap {
     if (!isMultiValued(name)) {
       throw new IllegalArgumentException("name must be multi-valued");
     }
-    multiValued.put(name, new ArrayList<>(new LinkedHashSet<>(multiValued.get(name))));
+    multi.put(name, new ArrayList<>(new LinkedHashSet<>(multi.get(name))));
   }
-
-
 
 
 //  void addValue(String key, Object value){
@@ -301,7 +310,7 @@ public class MultiMap implements IMultiMap {
 //      return null;
 //    }
 //    if (list.isEmpty()) {
-//      throw new IllegalArgumentException("key " + key + " is multi-valued but has no values");
+//      throw new IllegalArgumentException("key " + key + " is multivalued but has no values");
 //    }
 //    return list.get(0);
 //  }
@@ -317,7 +326,7 @@ public class MultiMap implements IMultiMap {
 
   @Override
   public String toString() {
-    return Stream.concat(singleValued.entrySet().stream(), multiValued.entrySet().stream())
+    return Stream.concat(single.entrySet().stream(), multi.entrySet().stream())
       .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)).toString();
   }
 
@@ -326,15 +335,14 @@ public class MultiMap implements IMultiMap {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     MultiMap multiMap = (MultiMap) o;
-    return Objects.equals(keys, multiMap.keys)
-      && Objects.equals(types, multiMap.types)
-      && Objects.equals(singleValued, multiMap.singleValued)
-      && Objects.equals(multiValued, multiMap.multiValued);
+    return Objects.equals(types, multiMap.types)
+      && Objects.equals(single, multiMap.single)
+      && Objects.equals(multi, multiMap.multi);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(keys, types, singleValued, multiValued);
+    return Objects.hash(types, single, multi);
   }
 
   private void checkKey(String key) {
@@ -343,41 +351,22 @@ public class MultiMap implements IMultiMap {
     }
   }
 
-  private void checkAdd(String key, Object value) {
-
-    // todo move if only one use case
-
-    if (key == null) {
-      throw new IllegalArgumentException();
-    }
-    if (value != null && !supportedTypes.contains(value.getClass())) {
-      throw new IllegalArgumentException("value must be one of " + supportedTypes + " but was " + value.getClass());
-    }
-  }
-
   private Class<?> getClassFromList(List<Object> list) {
-    Class<?> c = null;
+    Class<?> type = null;
     for (Object o : list) {
       if (o != null) {
-        if (c == null) {
-          c = o.getClass();
-          if (!supportedTypes.contains(c)) {
-            throw new IllegalArgumentException("unsupported type " + c);
+        if (type == null) {
+          type = o.getClass();
+          if (!supportedTypes.contains(type)) {
+            throw new IllegalArgumentException("unsupported type " + type);
           }
         } else {
-          if (!o.getClass().equals(c)) {
+          if (!o.getClass().equals(type)) {
             throw new IllegalArgumentException("values must all be of the same type");
           }
         }
       }
     }
-    return c;
-  }
-
-  // this is needed to be able to return null
-  public static List<Object> makeList(Object value) {
-    List<Object> list = new ArrayList<>();
-    list.add(value);
-    return list;
+    return type;
   }
 }

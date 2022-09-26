@@ -41,6 +41,8 @@ public interface IMultiMap {
 
   void add(String name, Object value);
 
+  void setOrAdd(String name, Object value);
+
   void clear();
 
   void rename(String oldName, String newName);
