@@ -18,7 +18,6 @@ public class HashMapDocumentV2 extends AbstractDocument {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-
   private final IMultiMap data;
 
   //  public HashMapDocumentV2(Document document) {
@@ -30,7 +29,10 @@ public class HashMapDocumentV2 extends AbstractDocument {
       throw new NullPointerException("ID cannot be null");
     }
 
-    data = new MultiMap(SUPPORTED_TYPES);
+    // todo add to the set ?
+    Set<Class<?>> supported = new HashSet<>(SUPPORTED_TYPES);
+    supported.add(this.getClass());
+    data = new MultiMap(supported);
     data.putOne(ID_FIELD, id);
   }
 
@@ -56,7 +58,9 @@ public class HashMapDocumentV2 extends AbstractDocument {
       throw new DocumentException("id is missing");
     }
 
-    this.data = new MultiMap(SUPPORTED_TYPES);
+    Set<Class<?>> supported = new HashSet<>(SUPPORTED_TYPES);
+    supported.add(this.getClass());
+    data = new MultiMap(supported);
     data.putOne(ID_FIELD, updateString(requireString(node.get(ID_FIELD)), idUpdater));
 
     for(Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext();) {
@@ -87,17 +91,20 @@ public class HashMapDocumentV2 extends AbstractDocument {
   // todo consider what happens for nested arrays
   // todo need long here and other types?
   public void addNodeValueToField(String name, JsonNode node) {
+
+    validateNotReservedField(name);
+
     switch (node.getNodeType()) {
       case STRING:
-        addGeneric(name, node.asText());
+        setOrAdd(name, node.asText());
         break;
       case NUMBER:
         if (node.isInt()) {
-          addGeneric(name, node.asInt());
+          setOrAdd(name, node.asInt());
         } else if (node.isDouble()) {
-          addGeneric(name, node.asDouble());
+          setOrAdd(name, node.asDouble());
         } else if (node.isLong()) {
-          addGeneric(name, node.asLong());
+          setOrAdd(name, node.asLong());
         } else {
           throw new IllegalArgumentException("Unsupported number type: " + node);
         }
@@ -105,8 +112,9 @@ public class HashMapDocumentV2 extends AbstractDocument {
       case NULL:
         // fall through
       case OBJECT:
-        addGeneric(name, node);
-        break;
+        throw new UnsupportedOperationException();
+//        addGeneric(name, node); // todo does this have to be parsed?
+//        break;
       case ARRAY:
         data.putMany(name, new ArrayList<>()); // initialize because may be empty
         for (JsonNode item: node) {
@@ -128,55 +136,28 @@ public class HashMapDocumentV2 extends AbstractDocument {
     return new HashMapDocumentV2((ObjectNode) MAPPER.readTree(json), idUpdater);
   }
 
-  private <T> void addGeneric(String name, T value) {
-    validateNotReservedField(name);
-
-    // todo preprocess value to match the field type
-
-    data.add(name, value);
-
-//    // todo review this
-//    if (types.containsKey(name) && types.get(name) != value.getClass()) {
-//
-//      if (value.getClass() == Integer.class && types.get(name) == Double.class) {
-//        data.get(name).add(((Integer) value).doubleValue());
-//      }
-//      else {
-//        throw new UnsupportedOperationException();
-//      }
-//
-//    } else {
-//      data.get(name).add(value);
-//    }
-  }
-
   private void validateNotReservedField(String... names) throws IllegalArgumentException {
-
     if (names == null) {
       throw new IllegalArgumentException("expecting string parameters");
     }
-
     for (String name: names) {
       if (name == null) {
         throw new IllegalArgumentException("Field name cannot be null");
       }
-
       if (RESERVED_FIELDS.contains(name)) {
         throw new IllegalArgumentException(name + " is a reserved field");
       }
     }
   }
 
-
-
   @Override
   public void removeField(String name) {
-
+    data.remove(name);
   }
 
   @Override
   public void removeFromArray(String name, int index) {
-
+    data.removeFromArray(name, index);
   }
 
   @Override
@@ -211,47 +192,52 @@ public class HashMapDocumentV2 extends AbstractDocument {
 
   @Override
   public void initializeRunId(String value) {
-
+    data.putOne(RUNID_FIELD, value);
   }
 
   @Override
   public void clearRunId() {
+    data.remove(RUNID_FIELD);
+  }
 
+  private void setFieldGeneric(String name, Object value) {
+    validateNotReservedField(name);
+    data.putOne(name, value);
   }
 
   @Override
   public void setField(String name, String value) {
-
+   setFieldGeneric(name, value);
   }
 
   @Override
   public void setField(String name, Long value) {
-
+    setFieldGeneric(name, value);
   }
 
   @Override
   public void setField(String name, Integer value) {
-
+    setFieldGeneric(name, value);
   }
 
   @Override
   public void setField(String name, Boolean value) {
-
+    setFieldGeneric(name, value);
   }
 
   @Override
   public void setField(String name, Double value) {
-
+    setFieldGeneric(name, value);
   }
 
   @Override
   public void setField(String name, JsonNode value) {
-
+    setFieldGeneric(name, value);
   }
 
   @Override
   public void setField(String name, Instant value) {
-
+    setFieldGeneric(name, value);
   }
 
   @Override
@@ -326,92 +312,103 @@ public class HashMapDocumentV2 extends AbstractDocument {
 
   @Override
   public int length(String name) {
-    return 0;
+    return data.length(name);
   }
 
   @Override
   public String getId() {
-    return null;
+    return (String) data.getOne(ID_FIELD);
   }
 
   @Override
   public String getRunId() {
-    return null;
+    return (String) data.getOne(RUNID_FIELD);
   }
 
   @Override
   public boolean has(String name) {
-    return false;
+    return data.contains(name);
   }
 
   @Override
   public boolean hasNonNull(String name) {
-    return false;
+    // todo check if need to check multiple items for non null
+    return data.contains(name) && data.getOne(name) != null;
   }
 
   @Override
   public boolean isMultiValued(String name) {
-    return false;
+    return data.isMultiValued(name);
+  }
+
+  private <T> void addGeneric(String name, T value) {
+    validateNotReservedField(name);
+
+    // todo preprocess value to match the field type
+
+    // todo verify that this method is either setting or making a list
+
+    data.setOrAdd(name, value);
   }
 
   @Override
   public void addToField(String name, String value) {
-
+    addGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Long value) {
-
+    addGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Integer value) {
-
+    addGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Boolean value) {
-
+    addGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Double value) {
-
+    addGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Instant value) {
-
+    addGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, String value) {
-
+    addGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Long value) {
-
+    addGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Integer value) {
-
+    addGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Boolean value) {
-
+    addGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Double value) {
-
+    addGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Instant value) {
-
+    addGeneric(name, value);
   }
 
   @Override
@@ -426,27 +423,34 @@ public class HashMapDocumentV2 extends AbstractDocument {
 
   @Override
   public Map<String, Object> asMap() {
-    return null;
+    Map<String, Object> map = new HashMap<>();
+    map.putAll(data.getSingleValued());
+    map.putAll(data.getMultiValued());
+    return map;
   }
 
   @Override
   public void addChild(Document document) {
-
+    data.add(CHILDREN_FIELD, document);
   }
 
   @Override
   public boolean hasChildren() {
-    return false;
+    return data.contains(CHILDREN_FIELD) && data.getMany(CHILDREN_FIELD).size() > 0;
   }
 
   @Override
   public List<Document> getChildren() {
-    return null;
+    List<Document> children = new ArrayList<>();
+    for (Object child : data.getMany(CHILDREN_FIELD)) {
+      children.add((Document) child);
+    }
+    return children;
   }
 
   @Override
   public Set<String> getFieldNames() {
-    return null;
+    return data.getKeys();
   }
 
   @Override
@@ -456,22 +460,29 @@ public class HashMapDocumentV2 extends AbstractDocument {
 
   @Override
   public Document deepCopy() {
-    return null;
+    return null; // todo deep copy children?
   }
 
   @Override
   public String toString() {
-    return data.toString();
+    try {
+      return MAPPER.writeValueAsString(asMap());
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
-  public boolean equals(Object obj) {
-    return false;
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    HashMapDocumentV2 that = (HashMapDocumentV2) o;
+    return data.equals(that.data);
   }
 
   @Override
   public int hashCode() {
-    return 0;
+    return data.hashCode();
   }
 
   private static String requireString(JsonNode node) throws DocumentException {
