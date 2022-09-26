@@ -15,6 +15,16 @@ import java.util.function.UnaryOperator;
 
 public class HashMapDocument extends AbstractDocument {
 
+  public final static Set<Class<?>> SUPPORTED_TYPES = new HashSet<>(Arrays.asList(
+    String.class,
+    Integer.class,
+    Double.class,
+    Long.class,
+    Boolean.class,
+    ObjectNode.class,
+    Instant.class
+  ));
+
   protected static final ObjectMapper MAPPER = new ObjectMapper();
 
   protected final Map<String, List<Object>> data;

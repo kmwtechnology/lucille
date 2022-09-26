@@ -9,6 +9,7 @@ import org.junit.Test;
 import java.time.Instant;
 import java.util.*;
 
+import static com.kmwllc.lucille.core.HashMapDocument.SUPPORTED_TYPES;
 import static org.junit.Assert.*;
 
 
@@ -23,9 +24,9 @@ public class MultiMapTest {
 
   @Before
   public void setup() throws JsonProcessingException {
-    empty = new MultiMap();
+    empty = new MultiMap(SUPPORTED_TYPES);
 
-    map = new MultiMap();
+    map = new MultiMap(SUPPORTED_TYPES);
     map.putOne("string", "a");
     map.putOne("null", null);
     map.putOne("integer", 1);
@@ -255,6 +256,11 @@ public class MultiMapTest {
     empty.putMany("arr", Arrays.asList(null, null, 2, null, null));
     assertEquals(Integer.class, empty.getType("arr"));
 
+  }
+
+  @Test
+  public void testAdd() {
+    // todo
   }
 
   @Test

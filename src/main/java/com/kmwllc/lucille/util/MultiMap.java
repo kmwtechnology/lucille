@@ -1,9 +1,6 @@
 package com.kmwllc.lucille.util;
 
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -11,24 +8,19 @@ import java.util.stream.Stream;
 
 public class MultiMap implements IMultiMap {
 
-  private final static Set<Class<?>> SUPPORTED_TYPES = new HashSet<>(Arrays.asList(
-    String.class,
-    Integer.class,
-    Double.class,
-    Long.class,
-    Boolean.class,
-    ObjectNode.class,
-    Instant.class
-  ));
-
-
   private final Set<String> keys;
+  private final Set<Class<?>> supportedTypes;
   private final Map<String, Class<?>> types;
   private final Map<String, Object> singleValued;
   private final Map<String, List<Object>> multiValued;
 
-  public MultiMap() {
+  public MultiMap(Set<Class<?>> supportedTypes) {
 
+    if (supportedTypes == null || supportedTypes.isEmpty()) {
+      throw new IllegalArgumentException("supportedTypes cannot be null or empty");
+    }
+
+    this.supportedTypes = new HashSet<>(supportedTypes);
     keys = new HashSet<>();
     types = new HashMap<>();
     singleValued = new HashMap<>();
@@ -179,6 +171,33 @@ public class MultiMap implements IMultiMap {
     singleValued.remove(name);
   }
 
+  @Override
+  public void add(String name, Object value) {
+
+    if (name == null) {
+      throw new IllegalArgumentException("name must not be null");
+    }
+
+    Class<?> type = value == null ? null : value.getClass();
+
+    if (contains(name)) {
+
+      if (types.containsKey(name) && !types.get(name).equals(type)) {
+        throw new IllegalArgumentException("value type does not match existing type for name " + name);
+      }
+
+      if (isMultiValued(name)) {
+        multiValued.get(name).add(value);
+        // todo if used to be an empty list need to add type, write a test
+        types.put(name, type);
+      } else {
+        multiValued.put(name, Arrays.asList(singleValued.remove(name), value));
+      }
+    } else {
+      putOne(name, value);
+    }
+  }
+
 
   @Override
   public void clear() {
@@ -324,25 +343,25 @@ public class MultiMap implements IMultiMap {
     }
   }
 
-  public static void checkAdd(String key, Object value) {
+  private void checkAdd(String key, Object value) {
 
     // todo move if only one use case
 
     if (key == null) {
       throw new IllegalArgumentException();
     }
-    if (value != null && !SUPPORTED_TYPES.contains(value.getClass())) {
-      throw new IllegalArgumentException("value must be one of " + SUPPORTED_TYPES + " but was " + value.getClass());
+    if (value != null && !supportedTypes.contains(value.getClass())) {
+      throw new IllegalArgumentException("value must be one of " + supportedTypes + " but was " + value.getClass());
     }
   }
 
-  public static Class<?> getClassFromList(List<Object> list) {
+  private Class<?> getClassFromList(List<Object> list) {
     Class<?> c = null;
     for (Object o : list) {
       if (o != null) {
         if (c == null) {
           c = o.getClass();
-          if (!SUPPORTED_TYPES.contains(c)) {
+          if (!supportedTypes.contains(c)) {
             throw new IllegalArgumentException("unsupported type " + c);
           }
         } else {
