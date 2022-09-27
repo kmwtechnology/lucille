@@ -64,9 +64,6 @@ public interface Document {
 
   void renameField(String oldName, String newName, UpdateMode mode);
 
-  // todo had to add for concrete implementation
-  ObjectNode getData();
-
   /**
    * This will return null in two cases
    * <ol>
