@@ -177,15 +177,9 @@ public abstract class Stage {
     return config;
   }
 
-  public Set<String> getLegalProperties() {
-    Set<String> legalProperties = new HashSet<>(requiredProperties);
-    legalProperties.addAll(optionalProperties);
-    return legalProperties;
-  }
-
   public void validateConfig() throws IllegalArgumentException {
 
-    // todo are nested properties required?
+    // todo consider the difference between required and optional nested properties
 
     // verifies that set intersection is empty
     if (!disjoint(this.requiredProperties, this.optionalProperties, this.nestedProperties))
@@ -207,6 +201,19 @@ public abstract class Stage {
     }
   }
 
+  public Set<String> getLegalProperties() {
+    Set<String> legalProperties = new HashSet<>(requiredProperties);
+    legalProperties.addAll(optionalProperties);
+    return legalProperties;
+  }
+
+  private boolean isNestedProperty(String property) {
+    int dotIndex = property.indexOf('.');
+    return dotIndex > 0
+      && dotIndex < property.length() - 1
+      && this.nestedProperties.contains(property.substring(0, dotIndex));
+  }
+
   @SafeVarargs
   private static boolean disjoint(Set<String>... sets) {
     if (sets == null) {
@@ -224,11 +231,6 @@ public abstract class Stage {
       }
     }
     return true;
-  }
-
-  private boolean isNestedProperty(String property) {
-    int dotIndex = property.indexOf('.');
-    return dotIndex > 0 && this.nestedProperties.contains(property.substring(0, dotIndex));
   }
 
   // todo check access modifiers
