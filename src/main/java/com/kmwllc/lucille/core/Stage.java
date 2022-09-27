@@ -39,6 +39,9 @@ import java.util.stream.Collectors;
  */
 public abstract class Stage {
 
+  private final static Set<String> RESERVED_PROPERTIES = Set.of("class");
+  private final static Set<String> OPTIONAL_PROPERTIES = Set.of("name", "conditions");
+
   protected Config config;
   private final Predicate<Document> condition;
   private String name;
@@ -48,26 +51,20 @@ public abstract class Stage {
   private Counter errorCounter;
   private Counter childCounter;
 
-  private final static Set<String> RESERVED_PROPERTIES = makeSet("class");
-  private final static Set<String> THIS_OPTIONAL_PROPERTIES = makeSet("name", "conditions");
-
   private final Set<String> optionalProperties;
   private final Set<String> requiredProperties;
   private final Set<String> nestedProperties;
 
   public Stage(Config config) {
-    this(config, makeSet(), makeSet(), makeSet());
+    this(new StageBuilder(config));
   }
 
-  protected Stage(Config config, Set<String> requiredProperties) {
-    this(config, requiredProperties, makeSet(), makeSet());
+  protected Stage(StageBuilder builder) {
+    this(builder.config, builder.requiredProperties,
+      builder.optionalProperties, builder.nestedProperties);
   }
 
-  protected Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties) {
-    this(config, requiredProperties, optionalProperties, makeSet());
-  }
-
-  protected Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties,
+  private Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties,
                   Set<String> nestedProperties) {
 
     this.config = config;
@@ -76,7 +73,7 @@ public abstract class Stage {
     this.nestedProperties = new HashSet<>(nestedProperties);
 
     this.optionalProperties.addAll(RESERVED_PROPERTIES);
-    this.optionalProperties.addAll(THIS_OPTIONAL_PROPERTIES);
+    this.optionalProperties.addAll(OPTIONAL_PROPERTIES);
 
     validateConfig();
 
@@ -229,12 +226,39 @@ public abstract class Stage {
     return true;
   }
 
-  protected static Set<String> makeSet(String... args) {
-    return new HashSet<>(Arrays.asList(args));
-  }
-
   private boolean isNestedProperty(String property) {
     int dotIndex = property.indexOf('.');
     return dotIndex > 0 && this.nestedProperties.contains(property.substring(0, dotIndex));
+  }
+
+  // todo check access modifiers
+  public static class StageBuilder {
+
+    private final Config config;
+    private final Set<String> requiredProperties;
+    private final Set<String> optionalProperties;
+    private final Set<String> nestedProperties;
+
+    public StageBuilder(Config config) {
+      this.config = config;
+      requiredProperties = new HashSet<>();
+      optionalProperties = new HashSet<>();
+      nestedProperties = new HashSet<>();
+    }
+
+    public StageBuilder withRequiredProperties(String... properties) {
+      requiredProperties.addAll(Arrays.asList(properties));
+      return this;
+    }
+
+    public StageBuilder withOptionalProperties(String... properties) {
+      optionalProperties.addAll(Arrays.asList(properties));
+      return this;
+    }
+
+    public StageBuilder withNestedProperties(String... properties) {
+      nestedProperties.addAll(Arrays.asList(properties));
+      return this;
+    }
   }
 }

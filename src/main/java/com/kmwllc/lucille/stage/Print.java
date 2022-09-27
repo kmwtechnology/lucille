@@ -35,7 +35,8 @@ public class Print extends Stage {
   private List<String> excludeFields;
 
   public Print(Config config) {
-    super(config, makeSet(), makeSet("outputFile", "shouldLog", "overwriteFile", "excludeFields"));
+    super(new StageBuilder(config)
+      .withOptionalProperties("shouldLog", "outputFile", "overwriteFile", "excludeFields"));
     this.outputFile = config.hasPath("outputFile") ? config.getString("outputFile") : null;
     this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;
     this.excludeFields = config.hasPath("excludeFields") ? config.getStringList("excludeFields") : null;

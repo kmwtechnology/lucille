@@ -30,7 +30,9 @@ public class CopyFields extends Stage {
   private final UpdateMode updateMode;
 
   public CopyFields(Config config) {
-    super(config, makeSet("source", "dest"), makeSet("update_mode"));
+    super(new StageBuilder(config)
+      .withRequiredProperties("source", "dest")
+      .withOptionalProperties("update_mode"));
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.updateMode = UpdateMode.fromConfig(config);

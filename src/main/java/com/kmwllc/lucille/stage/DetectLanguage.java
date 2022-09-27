@@ -51,8 +51,10 @@ public class DetectLanguage extends Stage {
   private Detector detector;
 
   public DetectLanguage(Config config) {
-    super(config, makeSet("source", "language_field"), makeSet("language_confidence_field", "min_length",
-        "max_length", "min_probability", "update_mode"));
+    super(new StageBuilder(config)
+      .withRequiredProperties("source", "language_field")
+      .withOptionalProperties("language_confidence_field", "min_length", "max_length",
+        "min_probability", "update_mode"));
 
     this.sourceFields = config.getStringList("source");
     this.languageField = config.getString("language_field");

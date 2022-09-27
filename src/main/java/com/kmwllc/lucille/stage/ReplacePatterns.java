@@ -49,7 +49,9 @@ public class ReplacePatterns extends Stage {
   private List<Pattern> patterns;
 
   public ReplacePatterns(Config config) {
-    super(config, makeSet("source", "dest", "regex", "replacement"), makeSet("update_mode", "ignore_case", "multiline", "dotall", "literal"));
+    super(new StageBuilder(config)
+      .withRequiredProperties("source", "dest", "regex", "replacement")
+      .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
 
     this.patterns = new ArrayList<>();
 

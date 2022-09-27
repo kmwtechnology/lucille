@@ -26,7 +26,8 @@ public class SplitFieldValues extends Stage {
   private String delimiter;
 
   public SplitFieldValues(Config config) {
-    super(config, makeSet("inputField", "outputField", "delimiter", "trimWhitespace"));
+    super(new StageBuilder(config)
+      .withRequiredProperties("inputField", "outputField", "delimiter", "trimWhitespace"));
 
     inputField = config.getString("inputField");
     outputField = config.getString("outputField");

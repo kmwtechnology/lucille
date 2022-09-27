@@ -19,8 +19,7 @@ public class DeleteFields extends Stage {
   private final List<String> fields;
 
   public DeleteFields(Config config) {
-    super(config, makeSet("fields"));
-
+    super(new StageBuilder(config).withRequiredProperties("fields"));
     this.fields = config.getStringList("fields");
   }
 

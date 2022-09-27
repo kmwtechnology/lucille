@@ -63,8 +63,10 @@ public class ExtractEntities extends Stage {
   private final String entityField;
 
   public ExtractEntities(Config config) {
-    super(config, makeSet("source", "dest", "dictionaries"),
-      makeSet("ignore_case", "only_whitespace_separated", "stop_on_hit", "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field"));
+    super(new StageBuilder(config)
+      .withRequiredProperties("source", "dest", "dictionaries")
+      .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
+        "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field"));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");

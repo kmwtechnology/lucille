@@ -48,8 +48,9 @@ public class NormalizeText extends Stage {
    * @param config
    */
   public NormalizeText(Config config) {
-    super(config, makeSet("source", "dest", "mode"), makeSet("update_mode"));
-
+    super(new StageBuilder(config)
+      .withRequiredProperties("source", "dest", "mode")
+      .withOptionalProperties("update_mode"));
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.mode = config.getString("mode");

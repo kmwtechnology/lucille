@@ -21,7 +21,7 @@ public class Length extends Stage {
   private final Map<String, Object> fieldMap;
 
   public Length(Config config) {
-    super(config, makeSet(), makeSet(), makeSet("fieldMapping"));
+    super(new StageBuilder(config).withNestedProperties("fieldMapping"));
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
   }
 

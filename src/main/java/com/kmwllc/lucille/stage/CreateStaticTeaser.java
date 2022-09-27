@@ -31,7 +31,9 @@ public class CreateStaticTeaser extends Stage {
   private final UpdateMode updateMode;
 
   public CreateStaticTeaser(Config config) {
-    super(config, makeSet("source", "dest", "maxLength"), makeSet("update_mode"));
+    super(new StageBuilder(config)
+      .withRequiredProperties("source", "dest", "maxLength")
+      .withOptionalProperties("update_mode"));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");

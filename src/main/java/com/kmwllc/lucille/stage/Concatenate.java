@@ -32,7 +32,10 @@ public class Concatenate extends Stage {
   private final List<String> fields;
 
   public Concatenate(Config config) {
-    super(config, makeSet("dest", "format_string"), makeSet("update_mode"), makeSet("default_inputs"));
+    super(new StageBuilder(config)
+      .withRequiredProperties("dest", "format_string")
+      .withOptionalProperties("update_mode")
+      .withNestedProperties("default_inputs"));
 
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");

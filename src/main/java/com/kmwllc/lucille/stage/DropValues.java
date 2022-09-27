@@ -22,8 +22,7 @@ public class DropValues extends Stage {
   private final List<String> values;
 
   public DropValues(Config config) {
-    super(config, makeSet("source", "values"));
-
+    super(new StageBuilder(config).withRequiredProperties("source", "values"));
     this.sourceFields = config.getStringList("source");
     this.values = config.getStringList("values");
   }
