@@ -222,15 +222,3 @@ public interface Document {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 }
-
-abstract class AbstractDocument implements Document {
-
-  @Override
-  public abstract String toString();
-
-  @Override
-  public abstract boolean equals(Object obj);
-
-  @Override
-  public abstract int hashCode();
-}

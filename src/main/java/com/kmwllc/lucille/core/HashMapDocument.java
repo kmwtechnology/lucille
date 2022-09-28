@@ -13,7 +13,7 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 
-public class HashMapDocument extends AbstractDocument {
+public class HashMapDocument implements Document {
 
   protected static final ObjectMapper MAPPER = new ObjectMapper();
 
