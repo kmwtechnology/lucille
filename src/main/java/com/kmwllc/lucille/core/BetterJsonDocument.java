@@ -264,10 +264,6 @@ public class BetterJsonDocument implements Document {
     data.set(name, array);
   }
 
-  private JsonNode getSingleNode(String name) {
-    return isMultiValued(name) ? data.withArray(name).get(0) : data.get(name);
-  }
-
   private <T> T getSingleValue(String name, Function<JsonNode, T> converter) {
     if (!data.has(name)) {
       return null;
