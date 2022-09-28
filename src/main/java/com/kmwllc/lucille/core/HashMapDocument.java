@@ -13,7 +13,7 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 
-public class HashMapDocument extends AbstractDocument {
+public class HashMapDocument implements Document {
 
   public final static Set<Class<?>> SUPPORTED_TYPES = new HashSet<>(Arrays.asList(
     String.class,
@@ -123,7 +123,7 @@ public class HashMapDocument extends AbstractDocument {
   }
 
   public HashMapDocument(String id) {
-    if (id == null) {
+    if (id == null || id.isEmpty()) {
       throw new NullPointerException("ID cannot be null");
     }
     this.id = id;
@@ -133,8 +133,8 @@ public class HashMapDocument extends AbstractDocument {
 
   public HashMapDocument(String id, String runId) {
     this(id);
-    if (runId == null) {
-      throw new NullPointerException("Run ID cannot be null");
+    if (runId == null || runId.isEmpty()) {
+      throw new IllegalArgumentException("Run ID cannot be null");
     }
     this.runId = runId;
   }
@@ -166,16 +166,13 @@ public class HashMapDocument extends AbstractDocument {
   }
 
   private void validateNotReservedField(String... names) throws IllegalArgumentException {
-
     if (names == null) {
       throw new IllegalArgumentException("expecting string parameters");
     }
-
     for (String name: names) {
       if (name == null) {
         throw new IllegalArgumentException("Field name cannot be null");
       }
-
       if (RESERVED_FIELDS.contains(name)) {
         throw new IllegalArgumentException(name + " is a reserved field");
       }
@@ -352,11 +349,6 @@ public class HashMapDocument extends AbstractDocument {
     }
 
     data.put(newName, oldValues);
-  }
-
-  @Override
-  public ObjectNode getData() {
-    throw new UnsupportedOperationException();
   }
 
   private Object getSingleNode(String name) {

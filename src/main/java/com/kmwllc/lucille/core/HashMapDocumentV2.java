@@ -14,7 +14,7 @@ import java.util.function.UnaryOperator;
 
 import static com.kmwllc.lucille.core.HashMapDocument.SUPPORTED_TYPES;
 
-public class HashMapDocumentV2 extends AbstractDocument {
+public class HashMapDocumentV2 implements Document {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -243,11 +243,6 @@ public class HashMapDocumentV2 extends AbstractDocument {
   @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
 
-  }
-
-  @Override
-  public ObjectNode getData() {
-    return null;
   }
 
   @Override

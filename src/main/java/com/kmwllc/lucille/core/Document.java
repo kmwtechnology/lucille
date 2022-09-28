@@ -64,9 +64,6 @@ public interface Document {
 
   void renameField(String oldName, String newName, UpdateMode mode);
 
-  // todo had to add for concrete implementation
-  ObjectNode getData();
-
   /**
    * This will return null in two cases
    * <ol>
@@ -221,16 +218,4 @@ public interface Document {
       throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
-}
-
-abstract class AbstractDocument implements Document {
-
-  @Override
-  public abstract String toString();
-
-  @Override
-  public abstract boolean equals(Object obj);
-
-  @Override
-  public abstract int hashCode();
 }
