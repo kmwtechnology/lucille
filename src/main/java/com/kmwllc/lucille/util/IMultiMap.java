@@ -41,6 +41,8 @@ public interface IMultiMap {
 
   void add(String name, Object value);
 
+  void addAll(String name, List<Object> values);
+
   void setOrAdd(String name, Object value);
 
   void clear();

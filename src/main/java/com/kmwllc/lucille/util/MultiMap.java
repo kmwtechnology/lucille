@@ -193,6 +193,13 @@ public class MultiMap implements IMultiMap {
     }
   }
 
+  @Override
+  public void addAll(String name, List<Object> values) {
+    for (Object value : values) {
+      add(name, value);
+    }
+  }
+
   private void addValueType(String name, Object value) {
     if (name == null) {
       throw new IllegalArgumentException("name must not be null");
@@ -235,12 +242,16 @@ public class MultiMap implements IMultiMap {
     if (newName == null || contains(newName)) {
       throw new IllegalArgumentException("newName must not be null or already exist");
     }
+    // todo review which approach is better
+    types.remove(oldName);
     if (isMultiValued(oldName)) {
-      multi.put(newName, multi.remove(oldName));
+//      multi.put(newName, multi.remove(oldName));
+      putMany(newName, multi.remove(oldName));
     } else {
-      single.put(newName, single.remove(oldName));
+//      single.put(newName, single.remove(oldName));
+      putOne(newName, single.remove(oldName));
     }
-    types.put(newName, types.remove(oldName));
+//    types.put(newName, types.remove(oldName));
   }
 
   @Override

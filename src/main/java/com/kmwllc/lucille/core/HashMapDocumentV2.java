@@ -25,8 +25,8 @@ public class HashMapDocumentV2 implements Document {
 //  }
 
   public HashMapDocumentV2(String id) {
-    if (id == null) {
-      throw new NullPointerException("ID cannot be null");
+    if (id == null || id.isEmpty()) {
+      throw new NullPointerException("ID cannot be null or empty");
     }
 
     // todo add to the set ?
@@ -38,9 +38,8 @@ public class HashMapDocumentV2 implements Document {
 
   public HashMapDocumentV2(String id, String runId) {
     this(id);
-
-    if (runId == null) {
-      throw new IllegalArgumentException("runId cannot be null");
+    if (runId == null || runId.isEmpty()) {
+      throw new IllegalArgumentException("runId cannot be null or empty");
     }
     data.putOne(RUNID_FIELD, runId);
   }
@@ -152,46 +151,76 @@ public class HashMapDocumentV2 implements Document {
 
   @Override
   public void removeField(String name) {
+    validateNotReservedField(name);
     data.remove(name);
   }
 
   @Override
   public void removeFromArray(String name, int index) {
+    validateNotReservedField(name);
     data.removeFromArray(name, index);
   }
 
   @Override
   public void update(String name, UpdateMode mode, String... values) {
-
+    updateGeneric(name, mode, values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Long... values) {
-
+    updateGeneric(name, mode, values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Integer... values) {
-
+    updateGeneric(name, mode, values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Boolean... values) {
-
+    updateGeneric(name, mode, values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Double... values) {
-
+    updateGeneric(name, mode, values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Instant... values) {
+    updateGeneric(name, mode, values);
+  }
 
+  /**
+   * Private helper method used by different public versions of the overloaded update method.
+   *
+   * <p>Expects two Consumers that invoke setField and addToField respectively on the named field,
+   * passing in a provided value.
+   *
+   * <p>The Consumer / Lambda Expression approach is used here to avoid code duplication between the
+   * various update methods. It is not possible to make update() a generic method because ultimately
+   * it would need to call one of the specific setField or addToField methods which in turn call
+   * data.put(String, String), data.put(String, Long), data.put(String Boolean)
+   */
+  @SafeVarargs
+  private <T> void updateGeneric(String name, UpdateMode mode, T... values) {
+    validateNotReservedField(name);
+    if (values.length == 0 || has(name) && mode == UpdateMode.SKIP) {
+      return;
+    }
+    if (mode == UpdateMode.OVERWRITE) {
+      setFieldGeneric(name, values[0]);
+    }
+    for (int i = 1; i < values.length; i++) {
+      setOrAddGeneric(name, values[i]);
+    }
   }
 
   @Override
   public void initializeRunId(String value) {
+    if (value == null || value.isEmpty()) {
+      throw new IllegalArgumentException("RunId cannot be null or empty");
+    }
     data.putOne(RUNID_FIELD, value);
   }
 
@@ -242,7 +271,25 @@ public class HashMapDocumentV2 implements Document {
 
   @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
+    validateNotReservedField(oldName, newName);
 
+    if (has(newName)) {
+      switch(mode) {
+        case OVERWRITE:
+          // go to next step
+          break;
+        case APPEND:
+          data.addAll(newName, data.getMany(oldName));
+          data.remove(oldName);
+          // fall through
+        case SKIP:
+          return;
+        default:
+          throw new UnsupportedOperationException("Unsupported mode " + mode);
+      }
+    }
+
+    data.rename(oldName, newName);
   }
 
   @Override
@@ -336,7 +383,7 @@ public class HashMapDocumentV2 implements Document {
     return data.isMultiValued(name);
   }
 
-  private <T> void addGeneric(String name, T value) {
+  private <T> void setOrAddGeneric(String name, T value) {
     validateNotReservedField(name);
 
     // todo preprocess value to match the field type
@@ -348,62 +395,62 @@ public class HashMapDocumentV2 implements Document {
 
   @Override
   public void addToField(String name, String value) {
-    addGeneric(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Long value) {
-    addGeneric(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Integer value) {
-    addGeneric(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Boolean value) {
-    addGeneric(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Double value) {
-    addGeneric(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Instant value) {
-    addGeneric(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, String value) {
-    addGeneric(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Long value) {
-    addGeneric(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Integer value) {
-    addGeneric(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Boolean value) {
-    addGeneric(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Double value) {
-    addGeneric(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Instant value) {
-    addGeneric(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override

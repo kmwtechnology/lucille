@@ -35,15 +35,25 @@ public class HashMapDocument implements Document {
   protected List<String> errors;
   protected List<Document> children;
 
-  private static String requireString(JsonNode node) throws DocumentException {
-    if (!node.isTextual() || node.asText().isEmpty()) {
-      throw new DocumentException("Expected non-empty string, got " + node);
+  public HashMapDocument(String id) {
+    if (id == null || id.isEmpty()) {
+      throw new NullPointerException("ID cannot be null");
     }
-    return node.asText();
+    this.id = id;
+    this.data = new HashMap<>();
+    this.types = new HashMap<>();
   }
 
-  private static String updateString(String toUpdate, UnaryOperator<String> updater) {
-    return updater == null ? toUpdate : updater.apply(toUpdate);
+  public HashMapDocument(String id, String runId) {
+    this(id);
+    if (runId == null || runId.isEmpty()) {
+      throw new IllegalArgumentException("Run ID cannot be null");
+    }
+    this.runId = runId;
+  }
+
+  public HashMapDocument(ObjectNode data) throws DocumentException {
+    this(data, null);
   }
 
   private HashMapDocument(ObjectNode data, UnaryOperator<String> idUpdater) throws DocumentException {
@@ -85,22 +95,33 @@ public class HashMapDocument implements Document {
     }
   }
 
+  private static String requireString(JsonNode node) throws DocumentException {
+    if (!node.isTextual() || node.asText().isEmpty()) {
+      throw new DocumentException("Expected non-empty string, got " + node);
+    }
+    return node.asText();
+  }
+
+  private static String updateString(String toUpdate, UnaryOperator<String> updater) {
+    return updater == null ? toUpdate : updater.apply(toUpdate);
+  }
+
   public void addNodeValueToField(String name, JsonNode node) {
     switch (node.getNodeType()) {
       case STRING:
         addToField(name, node.asText());
         break;
-        case NUMBER:
-          if (node.isInt()) {
-            addToField(name, node.asInt());
-          }
-          else if (node.isDouble()) {
-            addToField(name, node.asDouble());
-          }
-          else {
-            throw new UnsupportedOperationException("Unsupported number type: " + node);
-          }
-          break;
+      case NUMBER:
+        if (node.isInt()) {
+          addToField(name, node.asInt());
+        }
+        else if (node.isDouble()) {
+          addToField(name, node.asDouble());
+        }
+        else {
+          throw new UnsupportedOperationException("Unsupported number type: " + node);
+        }
+        break;
       case NULL:
         addToFieldList(name, null);
         break;
@@ -116,27 +137,6 @@ public class HashMapDocument implements Document {
       default:
         throw new UnsupportedOperationException("Unsupported type " + node.getNodeType());
     }
-  }
-
-  public HashMapDocument(ObjectNode data) throws DocumentException {
-    this(data, null);
-  }
-
-  public HashMapDocument(String id) {
-    if (id == null || id.isEmpty()) {
-      throw new NullPointerException("ID cannot be null");
-    }
-    this.id = id;
-    this.data = new HashMap<>();
-    this.types = new HashMap<>();
-  }
-
-  public HashMapDocument(String id, String runId) {
-    this(id);
-    if (runId == null || runId.isEmpty()) {
-      throw new IllegalArgumentException("Run ID cannot be null");
-    }
-    this.runId = runId;
   }
 
 //   todo review parameters / interface methods
