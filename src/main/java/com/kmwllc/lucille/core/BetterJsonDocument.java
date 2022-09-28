@@ -18,6 +18,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
+/**
+ * A copy of the JsonDocument class, with a few code abstractions and additional parameter checks.
+ */
 public class BetterJsonDocument implements Document {
 
   private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_INSTANT;
@@ -29,24 +32,22 @@ public class BetterJsonDocument implements Document {
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<>() {};
   private static final Logger log = LoggerFactory.getLogger(Document.class);
 
-  @JsonValue protected final ObjectNode data;
+  @JsonValue
+  protected final ObjectNode data;
 
   public BetterJsonDocument(ObjectNode data) throws DocumentException {
-
     if (!data.hasNonNull(ID_FIELD)) {
       throw new DocumentException("id is missing");
     }
-
     JsonNode id = data.get(ID_FIELD);
     if (!id.isTextual() || id.asText().isEmpty()) {
       throw new DocumentException("id is present but null or empty or not a string");
     }
-
     this.data = data;
   }
 
   public BetterJsonDocument(String id) {
-    if (id == null) {
+    if (id == null || id.isEmpty()) {
       throw new NullPointerException("ID cannot be null");
     }
     this.data = MAPPER.createObjectNode();
@@ -55,38 +56,46 @@ public class BetterJsonDocument implements Document {
 
   public BetterJsonDocument(String id, String runId) {
     this(id);
+    if (runId == null || runId.isEmpty()) {
+      throw new IllegalStateException("runId cannot be null or empty");
+    }
     this.data.put(RUNID_FIELD, runId);
-    // todo what if runId is null ? or either is empty
   }
 
   public static Document fromJsonString(String json)
       throws DocumentException, JsonProcessingException {
-    return new BetterJsonDocument((ObjectNode) MAPPER.readTree(json));
+    return fromJsonString(json, null);
   }
 
   public static Document fromJsonString(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
-    Document doc = fromJsonString(json);
-    doc.getData().put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
+    Document doc = new BetterJsonDocument((ObjectNode) MAPPER.readTree(json));
+    getData(doc).put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
     return doc;
   }
 
-  private void validateNotReservedField(String name) throws IllegalArgumentException {
-    if (RESERVED_FIELDS.contains(name)) {
-      throw new IllegalArgumentException();
+  private void validateNotReservedField(String... names) throws IllegalArgumentException {
+    if (names == null) {
+      throw new IllegalArgumentException("expecting string parameters");
+    }
+    for (String name: names) {
+      if (name == null) {
+        throw new IllegalArgumentException("Field name cannot be null");
+      }
+      if (RESERVED_FIELDS.contains(name)) {
+        throw new IllegalArgumentException(name + " is a reserved field");
+      }
     }
   }
 
   @Override
   public void removeField(String name) {
-    // todo should return value ?
     validateNotReservedField(name);
     data.remove(name);
   }
 
   @Override
   public void removeFromArray(String name, int index) {
-    // todo should return value?
     validateNotReservedField(name);
     data.withArray(name).remove(index);
   }
@@ -133,8 +142,8 @@ public class BetterJsonDocument implements Document {
    * data.put(String, String), data.put(String, Long), data.put(String Boolean)
    */
   @SafeVarargs
-  private <T> void update(
-      String name, UpdateMode mode, Consumer<T> setter, Consumer<T> adder, T... values) {
+  private <T> void update(String name, UpdateMode mode,
+                          Consumer<T> setter, Consumer<T> adder, T... values) {
 
     validateNotReservedField(name);
 
@@ -156,6 +165,9 @@ public class BetterJsonDocument implements Document {
   public void initializeRunId(String value) {
     if (data.has(RUNID_FIELD)) {
       throw new IllegalStateException();
+    }
+    if(value == null || value.isEmpty()) {
+      throw new IllegalArgumentException();
     }
     data.put(RUNID_FIELD, value);
   }
@@ -211,8 +223,7 @@ public class BetterJsonDocument implements Document {
 
   @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
-    validateNotReservedField(oldName);
-    validateNotReservedField(newName);
+    validateNotReservedField(oldName, newName);
     JsonNode oldValues = data.get(oldName);
     data.remove(oldName);
 
@@ -239,11 +250,6 @@ public class BetterJsonDocument implements Document {
     data.set(newName, oldValues);
   }
 
-  @Override
-  public ObjectNode getData() {
-    return data;
-  }
-
   private void convertToList(String name) {
     if (!data.has(name)) {
       data.set(name, MAPPER.createArrayNode());
@@ -266,7 +272,17 @@ public class BetterJsonDocument implements Document {
     if (!data.has(name)) {
       return null;
     }
-    JsonNode node = getSingleNode(name);
+    JsonNode node;
+    if (!isMultiValued(name)) {
+      node = data.get(name);
+
+    } else {
+      ArrayNode arr = data.withArray(name);
+      if (arr.isEmpty()) {
+        throw new IllegalArgumentException("Field " + name + " is empty");
+      }
+      node = arr.get(0);
+    }
     T applied = converter.apply(node); // todo this is not necessary
     return node.isNull() ? null : applied;
   }
@@ -467,13 +483,13 @@ public class BetterJsonDocument implements Document {
 
     if (!has(name)) {
       if (other.has(name)) {
-        data.set(name, other.getData().get(name));
+        data.set(name, getData(other).get(name));
       }
     } else {
 
       convertToList(name);
       ArrayNode currentValues = (ArrayNode) data.get(name);
-      JsonNode otherValue = other.getData().get(name);
+      JsonNode otherValue = getData(other).get(name);
 
       if (otherValue.getNodeType() == JsonNodeType.ARRAY) {
         currentValues.addAll((ArrayNode) otherValue);
@@ -485,7 +501,7 @@ public class BetterJsonDocument implements Document {
 
   @Override
   public void setOrAddAll(Document other) {
-    for (Iterator<String> it = other.getData().fieldNames(); it.hasNext(); ) {
+    for (Iterator<String> it = getData(other).fieldNames(); it.hasNext(); ) {
       String name = it.next();
       if (RESERVED_FIELDS.contains(name)) {
         continue;
@@ -501,14 +517,12 @@ public class BetterJsonDocument implements Document {
 
   @Override
   public void addChild(Document document) {
-    ArrayNode node = data.withArray(CHILDREN_FIELD);
-    node.add(document.getData());
+    data.withArray(CHILDREN_FIELD).add(getData(document));
   }
 
   @Override
   public boolean hasChildren() {
-    return data.has(CHILDREN_FIELD);
-    //    return !getChildren().isEmpty(); // todo this is always true
+    return data.has(CHILDREN_FIELD) && !getChildren().isEmpty();
   }
 
   @Override
@@ -532,10 +546,8 @@ public class BetterJsonDocument implements Document {
   @Override
   public Set<String> getFieldNames() {
     Set<String> fieldNames = new HashSet<>();
-    Iterator<String> it = data.fieldNames();
-    while (it.hasNext()) {
-      String fieldName = it.next();
-      fieldNames.add(fieldName);
+    for(Iterator<String> it = data.fieldNames(); it.hasNext(); ) {
+      fieldNames.add(it.next());
     }
     return fieldNames;
   }
@@ -601,17 +613,13 @@ public class BetterJsonDocument implements Document {
     }
   }
 
-  // todo
-//  public void addDate(String fieldName, Date date) {
-//    data.putPOJO(fieldName, date);
-//  }
-//
-//  public Date getDate(String fieldName) throws JsonProcessingException {
-//
-//    JsonNode node = data.get(fieldName);
-//
-//    Date date = MAPPER.treeToValue(node, Date.class);
-//
-//    return date;
-//  }
+  private static ObjectNode getData(Document other) {
+    if (other == null) {
+      throw new IllegalStateException("Document is null");
+    }
+    if (!(other instanceof BetterJsonDocument)) {
+      throw new IllegalStateException("Documents are not of the same type");
+    }
+    return ((BetterJsonDocument) other).data;
+  }
 }
