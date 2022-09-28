@@ -14,7 +14,7 @@ public class SetStaticValuesTest {
   public void test() throws Exception {
     Stage stage = factory.get("SetStaticValuesTest/config.conf");
 
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     stage.processDocument(doc);
 
     assertEquals("File", doc.getString("type"));

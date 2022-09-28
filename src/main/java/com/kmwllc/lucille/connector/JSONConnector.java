@@ -31,7 +31,7 @@ public class JSONConnector extends AbstractConnector {
       LineIterator it = IOUtils.lineIterator(reader);
       while (it.hasNext()) {
         String line = it.nextLine();
-        publisher.publish(Document.fromJsonString(line, idUpdater));
+        publisher.publish(Document.createFromJson(line, idUpdater));
       }
     } catch (IOException e) {
       throw new ConnectorException("Error reading file: ", e);

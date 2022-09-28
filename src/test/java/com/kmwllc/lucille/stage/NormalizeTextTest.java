@@ -16,7 +16,7 @@ public class NormalizeTextTest {
   @Test
   public void testLowercase() throws StageException {
     Stage stage = factory.get("NormalizeTextTest/lowercase.conf");
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     doc.setField("input1", "ALL tHiS Is lowerCASED");
     stage.processDocument(doc);
     assertEquals("all this is lowercased", doc.getStringList("output1").get(0));
@@ -25,7 +25,7 @@ public class NormalizeTextTest {
   @Test
   public void testUppercase() throws Exception {
     Stage stage = factory.get("NormalizeTextTest/uppercase.conf");
-    Document doc2 = new Document("doc2");
+    Document doc2 = Document.create("doc2");
     doc2.setField("input1", "this WILL Be UppERCased");
     stage.processDocument(doc2);
     assertEquals("THIS WILL BE UPPERCASED", doc2.getStringList("output1").get(0));
@@ -34,7 +34,7 @@ public class NormalizeTextTest {
   @Test
   public void testSentenceCase() throws Exception {
     Stage stage = factory.get("NormalizeTextTest/sentencecase.conf");
-    Document doc4 = new Document("doc4");
+    Document doc4 = Document.create("doc4");
     doc4.setField("input2", "this is a sentence. and this! this too? test");
     stage.processDocument(doc4);
     assertEquals("This is a sentence. And this! This too? Test", doc4.getStringList("output2").get(0));
@@ -43,7 +43,7 @@ public class NormalizeTextTest {
   @Test
   public void testTitleCase() throws Exception {
     Stage stage = factory.get("NormalizeTextTest/titlecase.conf");
-    Document doc3 = new Document("doc3");
+    Document doc3 = Document.create("doc3");
     doc3.setField("input3", "this will be in title case");
     stage.processDocument(doc3);
     assertEquals("This Will Be In Title Case", doc3.getStringList("output3").get(0));

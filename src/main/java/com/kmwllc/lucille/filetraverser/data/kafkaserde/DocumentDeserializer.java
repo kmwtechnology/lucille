@@ -15,7 +15,7 @@ public class DocumentDeserializer implements Deserializer<Document> {
   @Override
   public Document deserialize(String topic, byte[] data) {
     try {
-      return Document.fromJsonString(new String(data, StandardCharsets.UTF_8));
+      return Document.createFromJson(new String(data, StandardCharsets.UTF_8));
     } catch (DocumentException | JsonProcessingException e) {
       log.error("Could not deserialize Document", e);
       return null;

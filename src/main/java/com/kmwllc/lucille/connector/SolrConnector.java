@@ -116,7 +116,7 @@ public class SolrConnector extends AbstractConnector {
     while (true) {
       for (SolrDocument solrDoc : resp.getResults()) {
         String id = createDocId((String) solrDoc.get(idField));
-        Document doc = new Document(id);
+        Document doc = Document.create(id);
 
         for (String fieldName : solrDoc.getFieldNames()) {
           // TODO : we might want an option to preserve the id under its original field name

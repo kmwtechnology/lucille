@@ -25,7 +25,7 @@ public class PipelineTest {
     assertEquals(stages.get(0).getClass(), Stage1.class);
     assertEquals(stages.get(1).getClass(), Stage4.class);
     assertTrue(((Stage4)stages.get(1)).isStarted());
-    Document doc = new Document("d1");
+    Document doc = Document.create("d1");
     List<Document> results = pipeline.processDocument(doc);
     assertEquals("v1", doc.getString("s1"));
     assertEquals("v4", doc.getString("s4"));
@@ -76,22 +76,22 @@ public class PipelineTest {
     pipeline.addStage(new Stage3(config));
     pipeline.addStage(new Stage4(config));
 
-    Document doc = new Document("d1");
+    Document doc = Document.create("d1");
 
     pipeline.startStages();
     List<Document> results = pipeline.processDocument(doc);
     pipeline.stopStages();
 
     ArrayList<Document> expected = new ArrayList<>();
-    expected.add(Document.fromJsonString("{\"id\":\"d1\",\"s1\":\"v1\",\"s2\":\"v2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s2c1\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s2c2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s3c1\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s3c2\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s2c1-s3c1\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s2c1-s3c2\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s2c2-s3c1\",\"s4\":\"v4\"}"));
-    expected.add(Document.fromJsonString("{\"id\":\"d1-s2c2-s3c2\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1\",\"s1\":\"v1\",\"s2\":\"v2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1-s2c1\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1-s2c2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1-s3c1\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1-s3c2\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1-s2c1-s3c1\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1-s2c1-s3c2\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1-s2c2-s3c1\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1-s2c2-s3c2\",\"s4\":\"v4\"}"));
 
     assertEquals(expected.size(), results.size());
     assertTrue(results.containsAll(expected));
@@ -108,7 +108,7 @@ public class PipelineTest {
     pipeline.addStage(new Stage4(config));
 
     final String runId = "runId1";
-    Document doc = new Document("d1");
+    Document doc = Document.create("d1");
     doc.initializeRunId(runId);
 
     pipeline.startStages();
@@ -131,7 +131,7 @@ public class PipelineTest {
     Config config = ConfigFactory.parseString(s);
     Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1", "");
 
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     doc.setField("cond", "123");
     pipeline.processDocument(doc);
 
@@ -182,8 +182,8 @@ public class PipelineTest {
     @Override
     public List<Document> processDocument(Document doc) throws StageException {
       doc.setField("s2", "v2");
-      Document c1 = new Document(doc.getId() + "-" + "s2c1");
-      Document c2 = new Document(doc.getId() + "-" + "s2c2");
+      Document c1 = Document.create(doc.getId() + "-" + "s2c1");
+      Document c2 = Document.create(doc.getId() + "-" + "s2c2");
       ArrayList<Document> result = new ArrayList<>();
       result.add(c1);
       result.add(c2);
@@ -200,8 +200,8 @@ public class PipelineTest {
     @Override
     public List<Document> processDocument(Document doc) {
       doc.setField("s3", "v3");
-      Document c1 = new Document(doc.getId() + "-" + "s3c1");
-      Document c2 = new Document(doc.getId() + "-" + "s3c2");
+      Document c1 = Document.create(doc.getId() + "-" + "s3c1");
+      Document c2 = Document.create(doc.getId() + "-" + "s3c2");
       ArrayList<Document> result = new ArrayList<>();
       result.add(c1);
       result.add(c2);

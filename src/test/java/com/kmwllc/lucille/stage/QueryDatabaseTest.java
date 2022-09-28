@@ -21,7 +21,7 @@ public class QueryDatabaseTest {
   public void testSingleKeyField() throws StageException {
     Stage stage = factory.get("QueryDatabaseTest/animal.conf");
 
-    Document d = new Document("id");
+    Document d = Document.create("id");
     d.setField("name", "Blaze");
 
     stage.processDocument(d);
@@ -33,7 +33,7 @@ public class QueryDatabaseTest {
   public void testMultivaluedKeyField() throws StageException {
     Stage stage = factory.get("QueryDatabaseTest/meal.conf");
 
-    Document d = new Document("id");
+    Document d = Document.create("id");
     d.setField("fish", 2);
     d.addToField("fish2", 1);
 
@@ -46,7 +46,7 @@ public class QueryDatabaseTest {
   public void testMultipleResults() throws StageException {
     Stage stage = factory.get("QueryDatabaseTest/data.conf");
 
-    Document d = new Document("id");
+    Document d = Document.create("id");
     d.setField("fish", 2);
 
     stage.processDocument(d);
@@ -64,8 +64,7 @@ public class QueryDatabaseTest {
   public void testWrongNumberOfReplacements() throws StageException {
     Stage stage = factory.get("QueryDatabaseTest/mismatch.conf");
 
-    Document d = new Document("id");
-
+    Document d = Document.create("id");
     // only one replacement needed, 2 provided
     d.setField("fish", 2);
     d.addToField("fish2", 3);

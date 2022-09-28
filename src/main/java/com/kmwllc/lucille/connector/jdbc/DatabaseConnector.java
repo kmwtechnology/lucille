@@ -136,7 +136,7 @@ public class DatabaseConnector extends AbstractConnector {
       // Need the ID column from the RS.
       String id = createDocId(rs.getString(idColumn));
       
-      Document doc = new Document(id);
+      Document doc = Document.create(id);
       
       // Add each column / field name to the doc
       for (int i = 1; i <= columns.length; i++) {
@@ -208,7 +208,7 @@ public class DatabaseConnector extends AbstractConnector {
         break;
       }
       childId++;
-      Document child = new Document(Integer.toString(childId));
+      Document child = Document.create(Integer.toString(childId));
       for (String c : columns2) {
         String fieldName = c.trim().toLowerCase();
         String fieldValue = rs2.getString(c);

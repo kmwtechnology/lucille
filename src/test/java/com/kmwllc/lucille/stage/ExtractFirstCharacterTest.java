@@ -14,12 +14,12 @@ public class ExtractFirstCharacterTest {
   public void testExtractFirstCharacter() throws StageException {
     Stage stage = factory.get("ExtractFirstCharacterTest/config.conf");
 
-    Document doc1 = new Document("doc1");
+    Document doc1 = Document.create("doc1");
     doc1.setField("input1", "this is an input");
     stage.processDocument(doc1);
     assertEquals("t", doc1.getString("output1"));
 
-    Document doc2 = new Document("doc2");
+    Document doc2 = Document.create("doc2");
     doc2.setField("input1", "1234567");
     doc2.setField("input2", "Hello, this is valid");
     stage.processDocument(doc2);
@@ -32,7 +32,7 @@ public class ExtractFirstCharacterTest {
   public void testReplacement() throws StageException {
    Stage stage = factory.get("ExtractFirstCharacterTest/replacement.conf");
 
-   Document doc = new Document("doc");
+   Document doc = Document.create("doc");
    doc.setField("input1", "12345");
    doc.setField("input2", "valid");
    stage.processDocument(doc);
@@ -44,7 +44,7 @@ public class ExtractFirstCharacterTest {
   public void testSkip() throws StageException {
     Stage stage = factory.get("ExtractFirstCharacterTest/skip.conf");
 
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     doc.setField("input1", "testing");
     doc.setField("input2", "500 bottles of beer on the wall");
     stage.processDocument(doc);

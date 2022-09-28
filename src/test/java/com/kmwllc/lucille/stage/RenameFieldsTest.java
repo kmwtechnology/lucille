@@ -16,14 +16,14 @@ public class RenameFieldsTest {
     Stage stage = factory.get("RenameFieldsTest/config.conf");
 
     // Ensure one field is correctly renamed
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     String fieldVal = "this will be renamed to output1";
     doc.setField("input1", fieldVal);
     stage.processDocument(doc);
     assertEquals("Field was not correctly renamed", doc.getStringList("output1").get(0), fieldVal);
 
     // Ensure several fields are correctly renamed
-    Document doc2 = new Document("doc2");
+    Document doc2 = Document.create("doc2");
     doc.setField("input1", "this will be output1");
     doc.setField("input2", "this will be output2");
     doc.setField("input3", "this will be output3");

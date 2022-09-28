@@ -264,7 +264,7 @@ public class HybridKafkaTest {
 
   private Document sendDoc(String id, String topic) throws Exception {
     List<KeyValue<String, String>> records = new ArrayList<>();
-    Document doc = new Document(id);
+    Document doc = Document.create(id);
     records.add(new KeyValue<>(id, doc.toString()));
     kafka.send(SendKeyValues.to(topic, records));
     return doc;

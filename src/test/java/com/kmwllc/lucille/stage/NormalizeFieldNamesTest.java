@@ -15,7 +15,7 @@ public class NormalizeFieldNamesTest {
   public void testNormalizeFieldNames() throws StageException {
     Stage stage = factory.get("FieldNormalizerTest/config.conf");
 
-    Document doc1 = new Document("doc1");
+    Document doc1 = Document.create("doc1");
     doc1.setField("input1", "test1");
     doc1.setField("input 2", "test2");
     doc1.setField("input 3 (test123)", "test3");

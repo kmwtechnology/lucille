@@ -15,7 +15,7 @@ public class BatchTest {
   @Test
   public void testSimpleAdd() {
     Batch batch = new Batch(100, 100);
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     List<Document> docs = batch.add(doc);
     assertTrue(docs.isEmpty());
     docs = batch.flush();
@@ -29,9 +29,9 @@ public class BatchTest {
   @Test
   public void testSeveralAdd() {
     Batch batch = new Batch(100, 1000);
-    Document doc1 = new Document("doc1");
-    Document doc2 = new Document("doc2");
-    Document doc3 = new Document("doc3");
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+    Document doc3 = Document.create("doc3");
 
     List<Document> docs = batch.add(doc1);
     assertTrue(docs.isEmpty());
@@ -53,8 +53,8 @@ public class BatchTest {
   @Test
   public void testFullBatch() {
     Batch batch = new Batch(1, 1000);
-    Document doc1 = new Document("doc1");
-    Document doc2 = new Document("doc2");
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
 
     List<Document> docs = batch.add(doc1);
     assertTrue(docs.isEmpty());
@@ -83,9 +83,9 @@ public class BatchTest {
   @Test
   public void testTimeout() throws InterruptedException {
     Batch batch = new Batch(100, 10);
-    Document doc1 = new Document("doc1");
-    Document doc2 = new Document("doc2");
-    Document doc3 = new Document("doc3");
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+    Document doc3 = Document.create("doc3");
 
     List<Document> docs = batch.add(doc1);
     assertTrue(docs.isEmpty());
@@ -111,9 +111,9 @@ public class BatchTest {
   @Test
   public void testNonTimeout() throws InterruptedException {
     Batch batch = new Batch(100, 100000);
-    Document doc1 = new Document("doc1");
-    Document doc2 = new Document("doc2");
-    Document doc3 = new Document("doc3");
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+    Document doc3 = Document.create("doc3");
 
     assertTrue(batch.add(doc1).isEmpty());
     assertTrue(batch.flushIfExpired().isEmpty());

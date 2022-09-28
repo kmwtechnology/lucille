@@ -19,14 +19,14 @@ public class ApplyRegexTest {
     Stage stage = factory.get("ApplyRegexTest/config.conf");
 
     // Test extracting a single pattern match
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     doc.setField("input1", "here is a number 12");
     stage.processDocument(doc);
     assertEquals("Regex pattern should extract numbers from the input", "12",
         doc.getStringList("output1").get(0));
 
     // Test extracting several pattern matches
-    Document doc2 = new Document("doc2");
+    Document doc2 = Document.create("doc2");
     doc2.setField("input1", "here are some numbers: 1, 2, 3, 4, 5");
     stage.processDocument(doc2);
     List<String> tokens = doc2.getStringList("output1");
@@ -35,14 +35,14 @@ public class ApplyRegexTest {
     }
 
     // Test inputting/outputting to the third field in the list
-    Document doc3 = new Document("doc3");
+    Document doc3 = Document.create("doc3");
     doc3.setField("input3", "this is field #3");
     stage.processDocument(doc3);
     assertEquals("Field output3 should contain the extracted values from input3",
         doc3.getStringList("output3").get(0), "3");
 
     // Test extracting from several source fields to several destination fields
-    Document doc4 = new Document("doc4");
+    Document doc4 = Document.create("doc4");
     doc4.setField("input1", "this is field input 1");
     doc4.setField("input2", "this is field input 2");
     doc4.setField("input3", "this is field input 3");
@@ -56,7 +56,7 @@ public class ApplyRegexTest {
   public void testCapturingGroup() throws Exception {
     Stage stage = factory.get("ApplyRegexTest/capturing.conf");
 
-    Document doc = new Document("1");
+    Document doc = Document.create("1");
     doc.setField("input", "test~123");
     stage.processDocument(doc);
     assertEquals("123", doc.getString("output"));

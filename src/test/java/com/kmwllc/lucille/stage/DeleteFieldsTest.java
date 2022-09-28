@@ -15,14 +15,14 @@ public class DeleteFieldsTest {
   public void testDeleteFields() throws StageException {
     Stage stage = factory.get("DeleteFieldsTest/config.conf");
 
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     doc.setField("save", "this will be kept");
     doc.setField("delete", "this will be removed");
     stage.processDocument(doc);
     assertFalse(doc.has("delete"));
     assertEquals("this will be kept", doc.getString("save"));
 
-    Document doc2 = new Document("doc2");
+    Document doc2 = Document.create("doc2");
     doc2.setField("delete", "delete this");
     doc2.addToField("delete", "this too");
     doc2.setField("remove", "remove this");
