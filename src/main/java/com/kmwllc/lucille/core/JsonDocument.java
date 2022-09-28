@@ -40,7 +40,7 @@ public class JsonDocument implements Document {
    * @throws DocumentException if document is missing a nonempty {@link Document#ID_FIELD}
    */
   public JsonDocument(Document document) throws DocumentException {
-    this(document.getData().deepCopy());
+    this(getData(document).deepCopy());
   }
 
   /**
@@ -242,11 +242,6 @@ public class JsonDocument implements Document {
     }
 
     data.set(newName,oldValues);
-  }
-
-  @Override
-  public ObjectNode getData() {
-    return data;
   }
 
   @Override
@@ -473,7 +468,7 @@ public class JsonDocument implements Document {
       return true;
     }
     if (other instanceof JsonDocument) {
-      return data.equals(((JsonDocument)other).data);
+      return data.equals(((JsonDocument) other).data);
     }
     return false;
   }
@@ -609,7 +604,7 @@ public class JsonDocument implements Document {
       if (!other.has(name)) {
         return;
       } else {
-        data.set(name, other.getData().get(name));
+        data.set(name, getData(other).get(name));
         return;
       }
 
@@ -617,7 +612,7 @@ public class JsonDocument implements Document {
 
       convertToList(name);
       ArrayNode currentValues = (ArrayNode) data.get(name);
-      JsonNode otherValue = other.getData().get(name);
+      JsonNode otherValue = getData(other).get(name);
 
       if (otherValue.getNodeType() == JsonNodeType.ARRAY) {
         currentValues.addAll((ArrayNode) otherValue);
@@ -630,7 +625,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void setOrAddAll(Document other) {
-    for (Iterator<String> it = other.getData().fieldNames(); it.hasNext(); ) {
+    for (Iterator<String> it = ((JsonDocument) other).data.fieldNames(); it.hasNext(); ) {
       String name = it.next();
       if (RESERVED_FIELDS.contains(name)) {
         continue;
@@ -641,14 +636,13 @@ public class JsonDocument implements Document {
 
   @Override
   public Map<String,Object> asMap() {
-    Map<String, Object> result = MAPPER.convertValue(data, TYPE);
-    return result;
+    return MAPPER.convertValue(data, TYPE);
   }
 
   @Override
   public void addChild(Document document) {
     ArrayNode node = data.withArray(CHILDREN_FIELD);
-    node.add(document.getData());
+    node.add(getData(document));
   }
 
   @Override
@@ -740,5 +734,15 @@ public class JsonDocument implements Document {
         arrayNode.add(jsonNode);
       }
     }
+  }
+
+  private static ObjectNode getData(Document other) {
+    if (other == null) {
+      throw new IllegalStateException("Document is null");
+    }
+    if (!(other instanceof JsonDocument)) {
+      throw new IllegalStateException("Documents are not of the same type");
+    }
+    return ((JsonDocument) other).data;
   }
 }
