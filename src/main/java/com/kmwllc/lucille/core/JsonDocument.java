@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 /**
@@ -25,9 +26,14 @@ import java.util.function.UnaryOperator;
  */
 public class JsonDocument implements Document {
 
+  private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_INSTANT;
+  private static final Function<String, Instant> DATE_PARSER =
+    str -> Instant.from(DATE_TIME_FORMATTER.parse(str));
+  private static final Function<Instant, String> INSTANT_FORMATTER = DATE_TIME_FORMATTER::format;
+
   protected static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
-  private static final Logger log = LoggerFactory.getLogger(JsonDocument.class);
+  private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<>() {};
+  private static final Logger log = LoggerFactory.getLogger(Document.class);
 
   @JsonValue
   protected final ObjectNode data;
@@ -41,6 +47,22 @@ public class JsonDocument implements Document {
    */
   public JsonDocument(Document document) throws DocumentException {
     this(getData(document).deepCopy());
+  }
+
+  public JsonDocument(String id) {
+    if (id == null || id.isEmpty()) {
+      throw new NullPointerException("ID cannot be null or empty");
+    }
+    this.data = MAPPER.createObjectNode();
+    this.data.put(ID_FIELD, id);
+  }
+
+  public JsonDocument(String id, String runId) {
+    this(id);
+    if (runId == null || runId.isEmpty()) {
+      throw new IllegalStateException("runId cannot be null or empty");
+    }
+    this.data.put(RUNID_FIELD, runId);
   }
 
   /**
@@ -64,26 +86,14 @@ public class JsonDocument implements Document {
     this.data = data;
   }
 
-  public JsonDocument(String id) {
-    if (id==null) {
-      throw new NullPointerException("ID cannot be null");
-    }
-    this.data = MAPPER.createObjectNode();
-    this.data.put(ID_FIELD, id);
-  }
-
-  public JsonDocument(String id, String runId) {
-    this(id);
-    this.data.put(RUNID_FIELD, runId);
-  }
-
+  // todo where is the non null annotation coming from?
   public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
-    return new JsonDocument((ObjectNode)MAPPER.readTree(json));
+    return fromJsonString(json, null);
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
-    JsonDocument doc = fromJsonString(json);
-    doc.data.put(ID_FIELD, idUpdater.apply(doc.getId()));
+    JsonDocument doc = new JsonDocument((ObjectNode) MAPPER.readTree(json));
+    doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
     return doc;
   }
 
@@ -101,32 +111,32 @@ public class JsonDocument implements Document {
 
   @Override
   public void update(String name, UpdateMode mode, String... values) {
-    update(name, mode, (v)->{setField(name,(String)v);}, (v)->{setOrAdd(name,(String)v);}, values);
+    update(name, mode, v -> setField(name, v), v -> setOrAdd(name, v), values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Long... values) {
-    update(name, mode, (v)->{setField(name,(Long)v);}, (v)->{setOrAdd(name,(Long)v);}, values);
+    update(name, mode, v -> setField(name, v), v -> setOrAdd(name, v), values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Integer... values) {
-    update(name, mode, (v)->{setField(name,(Integer)v);}, (v)->{setOrAdd(name,(Integer)v);}, values);
+    update(name, mode, v -> setField(name, v), v -> setOrAdd(name, v), values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Boolean... values) {
-    update(name, mode, (v)->{setField(name,(Boolean)v);}, (v)->{setOrAdd(name,(Boolean)v);}, values);
+    update(name, mode, v -> setField(name, v), v -> setOrAdd(name, v), values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Double... values) {
-    update(name, mode, (v)->{setField(name,(Double)v);}, (v)->{setOrAdd(name,(Double)v);}, values);
+    update(name, mode, v -> setField(name, v), v -> setOrAdd(name, v), values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Instant... values) {
-    update(name, mode, (v)->{setField(name,(Instant)v);}, (v)->{setOrAdd(name,(Instant)v);}, values);
+    update(name, mode, v -> setField(name, v), v -> setOrAdd(name, v), values);
   }
 
   /**
@@ -140,19 +150,18 @@ public class JsonDocument implements Document {
    * one of the specific setField or addToField methods which in turn call data.put(String, String),
    * data.put(String, Long), data.put(String Boolean)
    */
-  private void update(String name, UpdateMode mode, Consumer setter, Consumer adder, Object... values) {
+  @SafeVarargs
+  private <T> void update(String name, UpdateMode mode,
+                          Consumer<T> setter, Consumer<T> adder, T... values) {
 
     validateNotReservedField(name);
 
-    if (values.length == 0)
-      return;
-
-    if (has(name) && mode.equals(UpdateMode.SKIP)) {
+    if (values.length == 0 || has(name) && mode == UpdateMode.SKIP) {
       return;
     }
 
     int i = 0;
-    if (mode.equals(UpdateMode.OVERWRITE)) {
+    if (mode == UpdateMode.OVERWRITE) {
       setter.accept(values[0]);
       i = 1;
     }
@@ -165,6 +174,9 @@ public class JsonDocument implements Document {
   public void initializeRunId(String value) {
     if (data.has(RUNID_FIELD)) {
       throw new IllegalStateException();
+    }
+    if(value == null || value.isEmpty()) {
+      throw new IllegalArgumentException();
     }
     data.put(RUNID_FIELD, value);
   }
@@ -215,215 +227,130 @@ public class JsonDocument implements Document {
   @Override
   public void setField(String name, Instant value) {
     validateNotReservedField(name);
-    String instantStr = DateTimeFormatter.ISO_INSTANT.format(value);
-    data.put(name, instantStr);
+    data.put(name, INSTANT_FORMATTER.apply(value));
   }
 
   @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
-    validateNotReservedField(oldName);
-    validateNotReservedField(newName);
+    validateNotReservedField(oldName, newName);
     JsonNode oldValues = data.get(oldName);
     data.remove(oldName);
 
     if (has(newName)) {
-      if (mode.equals(UpdateMode.SKIP)) {
-        return;
-      } else if (mode.equals(UpdateMode.APPEND)) {
-        convertToList(newName);
-
-        if (oldValues.getNodeType() == JsonNodeType.ARRAY) {
-          data.withArray(newName).addAll((ArrayNode) oldValues);
-        } else {
-          data.withArray(newName).add(oldValues);
-        }
-        return;
+      switch (mode) {
+        case OVERWRITE:
+          break; // continue to setting the new value
+        case APPEND:
+          convertToList(newName);
+          if (oldValues.getNodeType() == JsonNodeType.ARRAY) {
+            data.withArray(newName).addAll((ArrayNode) oldValues);
+          } else {
+            data.withArray(newName).add(oldValues);
+          }
+          // fall through
+        case SKIP:
+          return;
+        default:
+          throw new UnsupportedOperationException("switch not implemented for mode: " + mode);
       }
     }
 
-    data.set(newName,oldValues);
+    data.set(newName, oldValues);
+  }
+
+  private <T> T getValue(String name, Function<JsonNode, T> converter) {
+    if (!data.has(name)) {
+      return null;
+    }
+    JsonNode node;
+    if (!isMultiValued(name)) {
+      node = data.get(name);
+
+    } else {
+      ArrayNode arr = data.withArray(name);
+      if (arr.isEmpty()) {
+        throw new IllegalArgumentException("Field " + name + " is empty");
+      }
+      node = arr.get(0);
+    }
+    return node.isNull() ? null : converter.apply(node);
+  }
+
+  private <T> List<T> getValues(String name, Function<JsonNode, T> converter) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getValue(name, converter));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<T> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      result.add(node.isNull() ? null : converter.apply(node));
+    }
+    return result;
   }
 
   @Override
   public String getString(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    JsonNode node = getSingleNode(name);
-
-    return node.isNull() ? null : node.asText();
+    return getValue(name, JsonNode::asText);
   }
 
   @Override
   public List<String> getStringList(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    if (!isMultiValued(name)) {
-      return Collections.singletonList(getString(name));
-    }
-
-    ArrayNode array = data.withArray(name);
-    List<String> result = new ArrayList<>();
-    for (JsonNode node : array) {
-      result.add(node.isNull() ? null : node.asText());
-    }
-    return result;
+    return getValues(name, JsonNode::asText);
   }
 
   @Override
   public Integer getInt(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    JsonNode node = getSingleNode(name);
-
-    return node.isNull() ? null : node.asInt();
+    return getValue(name, JsonNode::asInt);
   }
 
   @Override
   public List<Integer> getIntList(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    if (!isMultiValued(name)) {
-      return Collections.singletonList(getInt(name));
-    }
-
-    ArrayNode array = data.withArray(name);
-    List<Integer> result = new ArrayList<>();
-    for (JsonNode node : array) {
-      result.add(node.isNull() ? null : node.asInt());
-    }
-    return result;
+    return getValues(name, JsonNode::asInt);
   }
 
   @Override
   public Double getDouble(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    JsonNode node = getSingleNode(name);
-
-    return node.isNull() ? null : node.asDouble();
+    return getValue(name, JsonNode::asDouble);
   }
 
   @Override
   public List<Double> getDoubleList(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    if (!isMultiValued(name)) {
-      return Collections.singletonList(getDouble(name));
-    }
-
-    ArrayNode array = data.withArray(name);
-    List<Double> result = new ArrayList<>();
-    for (JsonNode node : array) {
-      result.add(node.isNull() ? null : node.asDouble());
-    }
-    return result;
+    return getValues(name, JsonNode::asDouble);
   }
 
   @Override
   public Boolean getBoolean(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    JsonNode node = getSingleNode(name);
-
-    return node.isNull() ? null : node.asBoolean();
+    return getValue(name, JsonNode::asBoolean);
   }
 
   @Override
   public List<Boolean> getBooleanList(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    if (!isMultiValued(name)) {
-      return Collections.singletonList(getBoolean(name));
-    }
-
-    ArrayNode array = data.withArray(name);
-    List<Boolean> result = new ArrayList<>();
-    for (JsonNode node : array) {
-      result.add(node.isNull() ? null : node.asBoolean());
-    }
-    return result;
+    return getValues(name, JsonNode::asBoolean);
   }
 
   @Override
   public Long getLong(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    JsonNode node = getSingleNode(name);
-
-    return node.isNull() ? null : node.asLong();
+    return getValue(name, JsonNode::asLong);
   }
 
   @Override
   public List<Long> getLongList(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    if (!isMultiValued(name)) {
-      return Collections.singletonList(getLong(name));
-    }
-
-    ArrayNode array = data.withArray(name);
-    List<Long> result = new ArrayList<>();
-    for (JsonNode node : array) {
-      result.add(node.isNull() ? null : node.asLong());
-    }
-    return result;
+    return getValues(name, JsonNode::asLong);
   }
 
   @Override
   public Instant getInstant(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    JsonNode node = getSingleNode(name);
-
-    String dateStr = node.asText();
-    Instant dateInstant = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(dateStr));
-    return node.isNull() ? null : dateInstant;
+    return getValue(name, node -> DATE_PARSER.apply(node.asText()));
   }
 
   @Override
   public List<Instant> getInstantList(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    if (!isMultiValued(name)) {
-      return Collections.singletonList(getInstant(name));
-    }
-
-    ArrayNode array = data.withArray(name);
-    List<Instant> result = new ArrayList<>();
-    for (JsonNode node : array) {
-      String instantStr = node.asText();
-      Instant instant = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(instantStr));
-      result.add(node.isNull() ? null : instant);
-    }
-    return result;
-  }
-
-  private JsonNode getSingleNode(String name) {
-    return isMultiValued(name) ? data.withArray(name).get(0) : data.get(name);
+    return getValues(name, node -> DATE_PARSER.apply(node.asText()));
   }
 
   @Override
@@ -478,6 +405,12 @@ public class JsonDocument implements Document {
     return data.hashCode();
   }
 
+  private ArrayNode getFieldArray(String name) {
+    validateNotReservedField(name);
+    convertToList(name);
+    return data.withArray(name);
+  }
+
   private void convertToList(String name) {
     if (!data.has(name)) {
       data.set(name, MAPPER.createArrayNode());
@@ -494,51 +427,32 @@ public class JsonDocument implements Document {
 
   @Override
   public void addToField(String name, String value) {
-    validateNotReservedField(name);
-    convertToList(name);
-    ArrayNode array = data.withArray(name);
-    array.add(value);
+    getFieldArray(name).add(value);
   }
 
   @Override
   public void addToField(String name, Long value) {
-    validateNotReservedField(name);
-    convertToList(name);
-    ArrayNode array = data.withArray(name);
-    array.add(value);
+    getFieldArray(name).add(value);
   }
 
   @Override
   public void addToField(String name, Integer value) {
-    validateNotReservedField(name);
-    convertToList(name);
-    ArrayNode array = data.withArray(name);
-    array.add(value);
+    getFieldArray(name).add(value);
   }
 
   @Override
   public void addToField(String name, Boolean value) {
-    validateNotReservedField(name);
-    convertToList(name);
-    ArrayNode array = data.withArray(name);
-    array.add(value);
+    getFieldArray(name).add(value);
   }
 
   @Override
   public void addToField(String name, Double value) {
-    validateNotReservedField(name);
-    convertToList(name);
-    ArrayNode array = data.withArray(name);
-    array.add(value);
+    getFieldArray(name).add(value);
   }
 
   @Override
   public void addToField(String name, Instant value) {
-    validateNotReservedField(name);
-    convertToList(name);
-    ArrayNode array = data.withArray(name);
-    String dateStr = DateTimeFormatter.ISO_INSTANT.format(value);
-    array.add(dateStr);
+    getFieldArray(name).add(INSTANT_FORMATTER.apply(value));
   }
 
   @Override
@@ -597,17 +511,13 @@ public class JsonDocument implements Document {
 
   @Override
   public void setOrAdd(String name, Document other) throws IllegalArgumentException {
+
     validateNotReservedField(name);
 
     if (!has(name)) {
-
-      if (!other.has(name)) {
-        return;
-      } else {
+      if (other.has(name)) {
         data.set(name, getData(other).get(name));
-        return;
       }
-
     } else {
 
       convertToList(name);
@@ -619,13 +529,12 @@ public class JsonDocument implements Document {
       } else {
         currentValues.add(otherValue);
       }
-
     }
   }
 
   @Override
   public void setOrAddAll(Document other) {
-    for (Iterator<String> it = ((JsonDocument) other).data.fieldNames(); it.hasNext(); ) {
+    for (Iterator<String> it = getData(other).fieldNames(); it.hasNext(); ) {
       String name = it.next();
       if (RESERVED_FIELDS.contains(name)) {
         continue;
@@ -641,19 +550,12 @@ public class JsonDocument implements Document {
 
   @Override
   public void addChild(Document document) {
-    ArrayNode node = data.withArray(CHILDREN_FIELD);
-    node.add(getData(document));
+    data.withArray(CHILDREN_FIELD).add(getData(document));
   }
 
   @Override
   public boolean hasChildren() {
-    if (!data.has(CHILDREN_FIELD)) {
-      return false;
-    }
-    if (getChildren().isEmpty()) {
-      return false;
-    }
-    return true;
+    return data.has(CHILDREN_FIELD) && !getChildren().isEmpty();
   }
 
   @Override
@@ -662,7 +564,7 @@ public class JsonDocument implements Document {
       return new ArrayList<>();
     }
     ArrayNode node = data.withArray(CHILDREN_FIELD);
-    ArrayList<Document> children = new ArrayList<>();
+    List<Document> children = new ArrayList<>();
     for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
       JsonNode element = it.next();
       try {
@@ -688,19 +590,25 @@ public class JsonDocument implements Document {
     }
   }
 
-  private void validateNotReservedField(String name) throws IllegalArgumentException {
-    if (RESERVED_FIELDS.contains(name)) {
-      throw new IllegalArgumentException();
+  private void validateNotReservedField(String... names) throws IllegalArgumentException {
+    if (names == null) {
+      throw new IllegalArgumentException("expecting string parameters");
+    }
+    for (String name: names) {
+      if (name == null) {
+        throw new IllegalArgumentException("Field name cannot be null");
+      }
+      if (RESERVED_FIELDS.contains(name)) {
+        throw new IllegalArgumentException(name + " is a reserved field");
+      }
     }
   }
 
   @Override
   public Set<String> getFieldNames() {
-    Set<String> fieldNames = new HashSet<String>();
-    Iterator<String> it = data.fieldNames();
-    while (it.hasNext()) {
-      String fieldName = it.next();
-      fieldNames.add(fieldName);
+    Set<String> fieldNames = new HashSet<>();
+    for(Iterator<String> it = data.fieldNames(); it.hasNext(); ) {
+      fieldNames.add(it.next());
     }
     return fieldNames;
   }

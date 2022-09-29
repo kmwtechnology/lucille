@@ -337,25 +337,9 @@ public abstract class DocumentTest {
     assertEquals(nullList, document.getLongList("field1"));
     assertEquals(nullList, document.getLongList("field2"));
 
-    // this fails because tries to parse date from null
-    try {
-      assertNull(document.getInstant("field1"));
-      fail();
-    } catch (java.time.format.DateTimeParseException e) {
-      // cant parse null
-    }
-    try {
-      assertEquals(nullList, document.getInstantList("field1"));
-      fail();
-    } catch (java.time.format.DateTimeParseException e) {
-      // cant parse null
-    }
-    try {
-      assertEquals(nullList, document.getInstantList("field2"));
-      fail();
-    } catch (java.time.format.DateTimeParseException e) {
-      // cant parse null
-    }
+    assertNull(document.getInstant("field1"));
+    assertEquals(nullList, document.getInstantList("field1"));
+    assertEquals(nullList, document.getInstantList("field2"));
   }
 
   @Test
