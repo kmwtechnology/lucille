@@ -1,19 +1,31 @@
 package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.Test;
 
-public class HashMapDocumentV2Test {
-
-  @Test
-  public void temp() throws DocumentException, JsonProcessingException {
-    // todo remove
-
-    Document document = HashMapDocumentV2.fromJsonString("{\"id\":\"id1\",\"field1\":\"value1\"}");
-    Document document2 = HashMapDocumentV2.fromJsonString("{\"id\":\"id1\",\"vak\":\"2\",\"field1\":\"value1\",\"arr\":[1, 2, 3]}");
+import java.util.function.UnaryOperator;
 
 
+public class HashMapDocumentV2Test extends DocumentTest {
 
-    System.out.println("hello");
+  @Override
+  public Document createDocument(String id) {
+    return new HashMapDocumentV2(id);
+  }
+
+  @Override
+  public Document createDocument(String id, String runId) {
+    return new HashMapDocumentV2(id, runId);
+  }
+
+  @Override
+  public Document createDocument(ObjectNode node) throws DocumentException {
+    return new HashMapDocumentV2(node);
+  }
+
+  @Override
+  public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
+    return HashMapDocumentV2.fromJsonString(json, idUpdater);
   }
 }

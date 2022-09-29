@@ -35,6 +35,8 @@ public interface IMultiMap {
 
   List<Object> getMany(String name);
 
+  IMultiMap deepCopy();
+
   void putOne(String name, Object value);
 
   void putMany(String name, List<Object> values);

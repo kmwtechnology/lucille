@@ -20,9 +20,9 @@ public class MultiMap implements IMultiMap {
     }
 
     this.supportedTypes = new HashSet<>(supportedTypes);
-    types = new HashMap<>();
-    single = new HashMap<>();
-    multi = new HashMap<>();
+    types = new LinkedHashMap<>();
+    single = new LinkedHashMap<>();
+    multi = new LinkedHashMap<>();
 
 //    if (singleValued == null || multiValued == null || types == null) {
 //      throw new IllegalArgumentException("constructor parameters must not be null");
@@ -90,22 +90,22 @@ public class MultiMap implements IMultiMap {
 
   @Override
   public Set<String> getSingleKeys() {
-    return new HashSet<>(single.keySet());
+    return new LinkedHashSet<>(single.keySet());
   }
 
   @Override
   public Set<String> getMultiKeys() {
-    return new HashSet<>(multi.keySet());
+    return new LinkedHashSet<>(multi.keySet());
   }
 
   @Override
   public Map<String, Object> getSingleValued() {
-    return new HashMap<>(single);
+    return new LinkedHashMap<>(single);
   }
 
   @Override
   public Map<String, List<Object>> getMultiValued() {
-    return new HashMap<>(multi);
+    return new LinkedHashMap<>(multi);
   }
 
   @Override
@@ -116,7 +116,7 @@ public class MultiMap implements IMultiMap {
 
   @Override
   public Map<String, Class<?>> getTypes() {
-    return new HashMap<>(types);
+    return new LinkedHashMap<>(types);
   }
 
   @Override
@@ -136,6 +136,20 @@ public class MultiMap implements IMultiMap {
   @Override
   public List<Object> getMany(String name) {
     return isMultiValued(name) ? new ArrayList<>(multi.get(name)) : Collections.singletonList(single.get(name));
+  }
+
+  @Override
+  public IMultiMap deepCopy() {
+
+    // todo might need to copy each individual list and object within
+    MultiMap copy = new MultiMap(supportedTypes);
+    for (String key: getSingleKeys()) {
+      copy.putOne(key, getOne(key));
+    }
+    for (String key: getMultiKeys()) {
+      copy.putMany(key, getMany(key));
+    }
+    return copy;
   }
 
   @Override
@@ -182,14 +196,14 @@ public class MultiMap implements IMultiMap {
     addValueType(name, value);
 
     if (!contains(name)) {
-      multi.put(name, Collections.singletonList(value));
+      multi.put(name, makeList(value));
       return;
     }
 
     if (isMultiValued(name)) {
       multi.get(name).add(value);
     } else {
-      multi.put(name, Arrays.asList(single.remove(name), value));
+      multi.put(name, makeList(single.remove(name), value));
     }
   }
 
@@ -379,5 +393,10 @@ public class MultiMap implements IMultiMap {
       }
     }
     return type;
+  }
+
+  // todo check if can be removed
+  private List<Object> makeList(Object... values) {
+    return new ArrayList<>(Arrays.asList(values));
   }
 }

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.UnaryOperator;
 
 import static org.junit.Assert.*;
@@ -31,7 +33,9 @@ public class HashMapDocumentTest extends DocumentTest {
   }
 
   @Test
+  @Override
   public void testSetOrAdd() {
+    // overrides one test because the multivalued does not work
 
     // confirm setOrAdd behaves as expected
     Document document = createDocument("id1");
@@ -63,5 +67,45 @@ public class HashMapDocumentTest extends DocumentTest {
     assertEquals("value1", document3.getStringList("field1").get(0));
     assertEquals("value2", document3.getStringList("field1").get(1));
     assertEquals(2, document3.getStringList("field1").size());
+  }
+
+  @Test
+  @Override
+  public void testIsMultiValued() throws DocumentException, JsonProcessingException {
+    Document document =
+      createDocumentFromJson(
+        ""
+          + "{\"id\":\"123\", "
+          + "\"null\":null,"
+          + "\"single\":\"val1\", "
+          + "\"empty_arr\":[],"
+          + "\"arr1\":[\"val1\"],"
+          + "\"arr2\":[\"val1\", \"val2\"]}");
+
+    assertFalse(document.isMultiValued("id"));
+    assertFalse(document.isMultiValued("null"));
+    assertFalse(document.isMultiValued("single"));
+    // modified
+    assertFalse(document.isMultiValued("empty_arr"));
+    // modified
+    assertFalse(document.isMultiValued("arr1"));
+    assertTrue(document.isMultiValued("arr2"));
+
+    // not present field
+    assertFalse(document.isMultiValued("not_present"));
+  }
+
+  @Test
+  public void testGetNullFieldExceptions() throws DocumentException, JsonProcessingException {
+
+    Document document =
+      createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
+
+    List<Object> nullList = new ArrayList<>();
+    nullList.add(null);
+
+    assertNull(document.getInstant("field1"));
+    assertEquals(nullList, document.getInstantList("field1"));
+    assertEquals(nullList, document.getInstantList("field2"));
   }
 }

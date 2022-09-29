@@ -11,6 +11,7 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 
 
 public class HashMapDocument implements Document {
@@ -533,29 +534,6 @@ public class HashMapDocument implements Document {
       return false;
     }
     return values.size() > 1;
-
-    /* todo review this
-
-    if (name == null) {
-      throw new IllegalArgumentException("name cannot be null");
-    }
-
-    switch (name) {
-      case ID_FIELD:
-        return false;
-      case RUNID_FIELD:
-        return runId != null;
-      case CHILDREN_FIELD:
-        return children != null;
-    }
-
-    if (RESERVED_FIELDS.contains(name)) {
-      throw new UnsupportedOperationException("switch not implemented for reserved field: " + name);
-    }
-
-    return data.containsKey(name) && data.get(name) != null;
-
-     */
   }
 
   private <T> void addToFieldList(String name, T value) {
@@ -729,10 +707,11 @@ public class HashMapDocument implements Document {
 
   @Override
   public List<Document> getChildren() {
-    if (children == null) {
-      return new ArrayList<>();
+
+    if(!hasChildren()) {
+      return Collections.emptyList();
     }
-    return new ArrayList<>(children);
+    return children.stream().map(Document::deepCopy).collect(Collectors.toList());
   }
 
   @Override
