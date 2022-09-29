@@ -29,7 +29,7 @@ public class FastCSVDocumentProducer implements DocumentProducer {
       // it's going to be a LinkedHashSet with predictable iteration order
       String idColumnName = csv.getHeader().stream().findFirst().get();
       for (NamedCsvRow row : csv) {
-        Document doc = parent.clone();
+        Document doc = parent.deepCopy();
         doc.setField(Document.ID_FIELD, row.getField(idColumnName));
         Map<String,String> fields = row.getFields();
         fields.forEach(doc::setField);

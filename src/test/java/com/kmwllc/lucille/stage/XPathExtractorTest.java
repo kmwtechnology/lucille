@@ -21,7 +21,7 @@ public class XPathExtractorTest {
   public void testXPathExtractor() throws StageException {
     Stage stage = factory.get("XPathExtractorTest/config.conf");
 
-    Document doc1 = new Document("doc1");
+    Document doc1 = Document.create("doc1");
     doc1.setField("xml",
       "<bookstore>\n" +
       "\n" +
@@ -54,7 +54,7 @@ public class XPathExtractorTest {
   public void testSpecifiedXmlField() throws StageException {
     Stage stage = factory.get("XPathExtractorTest/specifyxml.conf");
 
-    Document doc1 = new Document("doc1");
+    Document doc1 = Document.create("doc1");
     doc1.setField("random", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
       "\n" +
       "<bookstore>\n" +
@@ -83,7 +83,7 @@ public class XPathExtractorTest {
   public void testKorean() throws StageException {
     Stage stage = factory.get("XPathExtractorTest/config.conf");
 
-    Document doc1 = new Document("doc1");
+    Document doc1 = Document.create("doc1");
     doc1.setField("xml",
       "<bookstore>\n" +
         "\n" +

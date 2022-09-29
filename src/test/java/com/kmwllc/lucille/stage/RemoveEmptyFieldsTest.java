@@ -15,7 +15,7 @@ public class RemoveEmptyFieldsTest {
   @Test
   public void test() throws Exception {
     Stage stage = factory.get("RemoveEmptyFieldsTest/config.conf");
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     doc.setField("foo", "bar");
     doc.setField("bar", "");
     stage.processDocument(doc);

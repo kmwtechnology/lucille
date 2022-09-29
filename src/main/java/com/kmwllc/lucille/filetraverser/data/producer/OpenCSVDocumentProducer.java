@@ -47,7 +47,7 @@ public class OpenCSVDocumentProducer implements DocumentProducer {
         }
 
         // assume first column holds the ID
-        Document doc = new Document(line[0]);
+        Document doc = Document.create(line[0]);
         doc.setOrAddAll(parent);
 
         int maxIndex = Math.min(header.length,line.length);
@@ -69,7 +69,7 @@ public class OpenCSVDocumentProducer implements DocumentProducer {
 
   public static void main(String[] args) throws Exception {
     OpenCSVDocumentProducer producer = new OpenCSVDocumentProducer(false);
-    List<Document> docs = producer.produceDocuments(Path.of("/Volumes/Work/lucille/test.csv"), new Document("test"));
+    List<Document> docs = producer.produceDocuments(Path.of("/Volumes/Work/lucille/test.csv"), Document.create("test"));
     for (Document doc : docs) {
       System.out.println(doc);
     }

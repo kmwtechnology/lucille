@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.xml.sax.*;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Stack;
 import java.util.UUID;
@@ -91,7 +90,7 @@ public class ChunkingXMLHandler implements ContentHandler {
         id = UUID.randomUUID().toString();
       }
 
-      Document doc = new Document(docIDPrefix + id);
+      Document doc = Document.create(docIDPrefix + id);
       doc.setField(outputField, xml);
       internalPublishDocument(doc);
     }

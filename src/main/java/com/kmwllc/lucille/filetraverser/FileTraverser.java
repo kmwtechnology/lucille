@@ -186,7 +186,7 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
     log.debug("Visiting file {}", file);
 
     final String id = docProducer.createId(file.toString());
-    final Document baseDoc = new Document(id);
+    final Document baseDoc = Document.create(id);
 
     // Set up basic file properties on the doc
     baseDoc.setField(FILE_PATH, fileName);

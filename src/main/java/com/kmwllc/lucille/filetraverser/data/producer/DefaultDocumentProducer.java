@@ -29,7 +29,7 @@ public class DefaultDocumentProducer implements DocumentProducer {
     } catch (IOException e) {
       String msg = String.format("Error occurred while loading document with id %s: %s", doc.getId(), e.getMessage());
       log.error(msg, e);
-      doc.logError(msg);
+      doc.addToField("errors", msg);
     }
 
     return Collections.singletonList(doc);

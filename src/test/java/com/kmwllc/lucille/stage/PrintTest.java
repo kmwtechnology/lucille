@@ -14,7 +14,7 @@ public class PrintTest {
   public void testBasic() throws StageException {
     Stage stage = factory.get("PrintTest/config.conf");
 
-    Document doc1 = new Document("doc1");
+    Document doc1 = Document.create("doc1");
     doc1.setField("test", "this is a test");
     doc1.initializeRunId("runID1");
     stage.processDocument(doc1);

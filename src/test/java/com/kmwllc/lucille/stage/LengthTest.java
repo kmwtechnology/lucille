@@ -14,7 +14,7 @@ public class LengthTest {
   public void testLength() throws StageException {
     Stage stage = factory.get("LengthTest/config.conf");
 
-    Document doc1 = new Document("doc1");
+    Document doc1 = Document.create("doc1");
     doc1.setField("singleton", "one value");
     doc1.setField("customers", "Ace Hardware");
     doc1.setOrAdd("customers", "Home Depot");

@@ -16,23 +16,23 @@ public class DetectLanguageTest {
     Stage stage = factory.get("DetectLanguageTest/config.conf");
 
     // Ensure that the correct language is detected for field pair 1.
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     doc.setField("input1", "This is a sentence in English!");
     stage.processDocument(doc);
     assertEquals("en", doc.getStringList("language").get(0));
     assertEquals("0.99", doc.getString("lang_conf"));
 
     // Ensure that the correct language is detected for field pair 3.
-    Document doc2 = new Document("doc2");
+    Document doc2 = Document.create("doc2");
     doc2.setField("input3", "Eso oracion esta en espanol. Ojala que podimos verla.");
     stage.processDocument(doc2);
     assertEquals("es", doc2.getStringList("language").get(0));
     assertEquals("0.99", doc2.getString("lang_conf"));
 
     // Ensure multiple languages can be extracted in one pass
-    Document doc3 = new Document("doc3");
-    Document doc4 = new Document("doc4");
-    Document doc5 = new Document("doc5");
+    Document doc3 = Document.create("doc3");
+    Document doc4 = Document.create("doc4");
+    Document doc5 = Document.create("doc5");
     doc3.setField("input1", "Это стандартное предложение на моем языке.");
     doc4.setField("input1", "यह मेरी पसंद की भाषा में एक मानक वाक्य है।");
     doc5.setField("input1", "这是我选择的语言的标准句子。");

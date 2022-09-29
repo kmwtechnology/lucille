@@ -56,7 +56,7 @@ public class Print extends Stage {
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     if (excludeFields!=null) {
-      doc = doc.clone();
+      doc = doc.deepCopy();
       for (String field : excludeFields) {
         if (Document.RUNID_FIELD.equals(field)) {
           doc.clearRunId();

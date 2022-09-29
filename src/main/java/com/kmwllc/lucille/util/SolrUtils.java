@@ -100,7 +100,7 @@ public class SolrUtils {
   public static Document toDocument(Tuple tuple) throws DocumentException {
     Document d;
     if (tuple.getString(Document.ID_FIELD) != null) {
-      d = new Document(tuple.getString(Document.ID_FIELD));
+      d = Document.create(tuple.getString(Document.ID_FIELD));
     } else {
       throw new DocumentException("Unable to create Document from Tuple. No id field present.");
     }
