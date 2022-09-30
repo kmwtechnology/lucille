@@ -1,16 +1,15 @@
 package com.kmwllc.lucille.core;
 
+import static org.junit.Assert.assertTrue;
+
 import com.kmwllc.lucille.message.LocalMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import org.junit.Test;
-
 import java.io.File;
 import java.nio.file.Files;
 import java.util.stream.Stream;
-
-import static org.junit.Assert.assertTrue;
+import org.junit.Test;
 
 public class HeartbeatTest {
 
@@ -29,8 +28,12 @@ public class HeartbeatTest {
     }
 
     Config config = ConfigFactory.load("WorkerPoolTest/watcher.conf");
-    WorkerPool pool1 = new WorkerPool(config, "pipeline1",
-      WorkerMessageManagerFactory.getConstantFactory(new LocalMessageManager()), "");
+    WorkerPool pool1 =
+        new WorkerPool(
+            config,
+            "pipeline1",
+            WorkerMessageManagerFactory.getConstantFactory(new LocalMessageManager()),
+            "");
 
     pool1.start();
 
@@ -49,5 +52,4 @@ public class HeartbeatTest {
     String lastLine = lines.skip(currentLineCount - 1).findFirst().get();
     assertTrue(lastLine.contains("INFO Heartbeat: Issuing heartbeat"));
   }
-
 }

@@ -2,7 +2,6 @@ package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.util.function.UnaryOperator;
 
 public class JsonDocumentTest extends DocumentTest {
@@ -23,12 +22,14 @@ public class JsonDocumentTest extends DocumentTest {
   }
 
   @Override
-  public Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException {
+  public Document createDocumentFromJson(String json)
+      throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json);
   }
 
   @Override
-  public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
+  public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater)
+      throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 }
