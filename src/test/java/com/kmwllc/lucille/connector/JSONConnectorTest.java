@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.connector;
 
+import static org.junit.Assert.assertEquals;
+
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -7,12 +9,8 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-
-import org.junit.Test;
-
 import java.util.List;
-
-import static org.junit.Assert.assertEquals;
+import org.junit.Test;
 
 public class JSONConnectorTest {
 
@@ -33,12 +31,17 @@ public class JSONConnectorTest {
     assertEquals(3, docs.size());
 
     // prefix should be applied to doc ids and run_id should be added
-    Document doc1 = Document.createFromJson("{\"id\": \"PREFIX1\", \"field1\":\"val1-1\", \"field2\":[\"val2-1a\", \"val2-1b\"],\"run_id\":\"run1\"}");
-    Document doc2 = Document.createFromJson("{\"id\": \"PREFIX2\", \"field3\":\"val3\", \"field2\":[\"val2-2a\", \"val2-2b\"],\"run_id\":\"run1\"}");
-    Document doc3 = Document.createFromJson("{\"id\": \"PREFIX3\", \"field4\":\"val4\", \"field5\":\"val5\",\"run_id\":\"run1\"}");
+    Document doc1 =
+        Document.createFromJson(
+            "{\"id\": \"PREFIX1\", \"field1\":\"val1-1\", \"field2\":[\"val2-1a\", \"val2-1b\"],\"run_id\":\"run1\"}");
+    Document doc2 =
+        Document.createFromJson(
+            "{\"id\": \"PREFIX2\", \"field3\":\"val3\", \"field2\":[\"val2-2a\", \"val2-2b\"],\"run_id\":\"run1\"}");
+    Document doc3 =
+        Document.createFromJson(
+            "{\"id\": \"PREFIX3\", \"field4\":\"val4\", \"field5\":\"val5\",\"run_id\":\"run1\"}");
     assertEquals(doc1, docs.get(0));
     assertEquals(doc2, docs.get(1));
     assertEquals(doc3, docs.get(2));
   }
-
 }

@@ -1,5 +1,9 @@
 package com.kmwllc.lucille.indexer;
 
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
@@ -10,36 +14,33 @@ import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
+import java.util.Collection;
+import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.common.SolrInputDocument;
 import org.hamcrest.MatcherAssert;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
-import java.util.Collection;
-import java.util.List;
-
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
-
 /**
  * Tests for SolrIndexer.
  *
- * TODO: Split these tests into IndexerTest vs. SolrIndexerTest. Tests that only flex generic Indexer functionality
- * should be moved to IndexerTest even if they use a SolrIndexer as a means of invoking that functionality.
+ * <p>TODO: Split these tests into IndexerTest vs. SolrIndexerTest. Tests that only flex generic
+ * Indexer functionality should be moved to IndexerTest even if they use a SolrIndexer as a means of
+ * invoking that functionality.
  */
 public class SolrIndexerTest {
 
   /**
-   * Tests that the indexer correctly polls completed documents from the destination topic and sends them to Solr,
-   * assuming a batch size of 1.
+   * Tests that the indexer correctly polls completed documents from the destination topic and sends
+   * them to Solr, assuming a batch size of 1.
    *
    * @throws Exception
    */
   @Test
   public void testIndexerWithBatchSize1() throws Exception {
-    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    Config config =
+        ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     Document doc = Document.create("doc1", "test_run");
@@ -54,12 +55,16 @@ public class SolrIndexerTest {
     // Each batch should be sent to Solr via a call to solrClient.add()
     // So, given 2 docs and a batch size of 1, there should be 2 batches and 2 calls to add()
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
-      ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(2)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(2, captor.getAllValues().size());
-    assertEquals(doc.getId(), ((SolrInputDocument)captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
-    assertEquals(doc2.getId(), ((SolrInputDocument)captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
+    assertEquals(
+        doc.getId(),
+        ((SolrInputDocument) captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
+    assertEquals(
+        doc2.getId(),
+        ((SolrInputDocument) captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
 
     assertEquals(2, manager.getSavedEvents().size());
 
@@ -71,14 +76,15 @@ public class SolrIndexerTest {
   }
 
   /**
-   * Tests that the indexer correctly polls completed documents from the destination topic and sends them to Solr,
-   * assuming a batch size of 2.
+   * Tests that the indexer correctly polls completed documents from the destination topic and sends
+   * them to Solr, assuming a batch size of 2.
    *
    * @throws Exception
    */
   @Test
   public void testIndexerWithBatchSize2() throws Exception {
-    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
+    Config config =
+        ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     Document doc = Document.create("doc1", "test_run");
@@ -93,14 +99,18 @@ public class SolrIndexerTest {
     // Each batch should be sent to Solr via a call to solrClient.add()
     // So, given 2 docs and a batch size of 2, there should be 1 batch and 1 call to add()
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
-      ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(1)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(1, captor.getAllValues().size());
-    assertEquals(doc.getId(),
-      ((SolrInputDocument)captor.getAllValues().get(0).toArray()[0]).getFieldValue(Document.ID_FIELD));
-    assertEquals(doc2.getId(),
-      ((SolrInputDocument)captor.getAllValues().get(0).toArray()[1]).getFieldValue(Document.ID_FIELD));
+    assertEquals(
+        doc.getId(),
+        ((SolrInputDocument) captor.getAllValues().get(0).toArray()[0])
+            .getFieldValue(Document.ID_FIELD));
+    assertEquals(
+        doc2.getId(),
+        ((SolrInputDocument) captor.getAllValues().get(0).toArray()[1])
+            .getFieldValue(Document.ID_FIELD));
 
     assertEquals(2, manager.getSavedEvents().size());
 
@@ -118,9 +128,10 @@ public class SolrIndexerTest {
    */
   @Test
   public void testIdOverride() throws Exception {
-    Config config = ConfigFactory.empty().
-      withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("id_temp")).
-      withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    Config config =
+        ConfigFactory.empty()
+            .withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("id_temp"))
+            .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     // idOverrideField is set to id_temp
@@ -139,17 +150,22 @@ public class SolrIndexerTest {
     indexer.run(3);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
-      ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(3)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(3, captor.getAllValues().size());
 
-    // confirm that doc1 and doc3 are sent with their overriden IDs, while doc2 is sent with its actual ID
-    assertEquals("doc1_overriden",
-      ((SolrInputDocument)captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
-    assertEquals(doc2.getId(), ((SolrInputDocument)captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
-    assertEquals("doc3_overriden",
-      ((SolrInputDocument)captor.getAllValues().get(2).toArray()[0]).getFieldValue("id"));
+    // confirm that doc1 and doc3 are sent with their overriden IDs, while doc2 is sent with its
+    // actual ID
+    assertEquals(
+        "doc1_overriden",
+        ((SolrInputDocument) captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
+    assertEquals(
+        doc2.getId(),
+        ((SolrInputDocument) captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
+    assertEquals(
+        "doc3_overriden",
+        ((SolrInputDocument) captor.getAllValues().get(2).toArray()[0]).getFieldValue("id"));
 
     assertEquals(3, manager.getSavedEvents().size());
 
@@ -168,7 +184,8 @@ public class SolrIndexerTest {
    */
   @Test
   public void testIndexerWithNestedChildDocs() throws Exception {
-    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    Config config =
+        ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     Document doc = Document.create("doc1", "test_run");
@@ -186,15 +203,16 @@ public class SolrIndexerTest {
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
-      ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(1)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(1, captor.getAllValues().size());
-    SolrInputDocument solrDoc = (SolrInputDocument)captor.getAllValues().get(0).toArray()[0];
+    SolrInputDocument solrDoc = (SolrInputDocument) captor.getAllValues().get(0).toArray()[0];
     assertEquals(doc.getId(), solrDoc.getFieldValue(Document.ID_FIELD));
     assertEquals(2, solrDoc.getChildDocuments().size());
     assertEquals(doc2.getId(), solrDoc.getChildDocuments().get(0).getFieldValue(Document.ID_FIELD));
-    Collection<Object> myListField = solrDoc.getChildDocuments().get(0).getFieldValues("myListField");
+    Collection<Object> myListField =
+        solrDoc.getChildDocuments().get(0).getFieldValues("myListField");
     assertEquals(2, myListField.size());
     assertEquals("val1", myListField.toArray()[0]);
     assertEquals("val2", myListField.toArray()[1]);
@@ -239,7 +257,8 @@ public class SolrIndexerTest {
 
   @Test
   public void testIndexerWithNestedJson() throws Exception {
-    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    Config config =
+        ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     Document doc = Document.create("doc1", "test_run");
@@ -253,17 +272,20 @@ public class SolrIndexerTest {
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
-      ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
-    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
-      Event.Type.FAIL, equalTo(events.get(0).getType()));
+    MatcherAssert.assertThat(
+        "Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+        Event.Type.FAIL,
+        equalTo(events.get(0).getType()));
   }
 
   @Test
   public void testIndexerWithChildDocWithNestedJson() throws Exception {
-    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    Config config =
+        ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     Document doc = Document.create("doc1", "test_run");
@@ -279,17 +301,20 @@ public class SolrIndexerTest {
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
-      ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
-    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
-      Event.Type.FAIL, equalTo(events.get(0).getType()));
+    MatcherAssert.assertThat(
+        "Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+        Event.Type.FAIL,
+        equalTo(events.get(0).getType()));
   }
 
   @Test
   public void testIndexerWithNestedJsonMultivalued() throws Exception {
-    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    Config config =
+        ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     Document doc = Document.create("doc1", "test_run");
@@ -303,17 +328,20 @@ public class SolrIndexerTest {
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
-      ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
-    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
-      Event.Type.FAIL, equalTo(events.get(0).getType()));
+    MatcherAssert.assertThat(
+        "Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+        Event.Type.FAIL,
+        equalTo(events.get(0).getType()));
   }
 
   @Test
   public void testIndexerWithChildDocWithNestedJsonMultivalued() throws Exception {
-    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    Config config =
+        ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     Document doc = Document.create("doc1", "test_run");
@@ -329,17 +357,20 @@ public class SolrIndexerTest {
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
-      ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
-    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
-      Event.Type.FAIL, equalTo(events.get(0).getType()));
+    MatcherAssert.assertThat(
+        "Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+        Event.Type.FAIL,
+        equalTo(events.get(0).getType()));
   }
 
   @Test
   public void testIndexerWithNestedJsonWithObjects() throws Exception {
-    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    Config config =
+        ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     Document doc = Document.create("doc1", "test_run");
@@ -353,17 +384,20 @@ public class SolrIndexerTest {
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
-      ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
-    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
-      Event.Type.FAIL, equalTo(events.get(0).getType()));
+    MatcherAssert.assertThat(
+        "Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+        Event.Type.FAIL,
+        equalTo(events.get(0).getType()));
   }
 
   @Test
   public void testIndexerWithChildDocWithNestedJsonWithObjects() throws Exception {
-    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    Config config =
+        ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     Document doc = Document.create("doc1", "test_run");
@@ -379,12 +413,14 @@ public class SolrIndexerTest {
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
-      ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
-    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
-      Event.Type.FAIL, equalTo(events.get(0).getType()));
+    MatcherAssert.assertThat(
+        "Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+        Event.Type.FAIL,
+        equalTo(events.get(0).getType()));
   }
 
   private static class ErroringIndexer extends SolrIndexer {
@@ -398,5 +434,4 @@ public class SolrIndexerTest {
       throw new Exception("Test that errors when sending to Solr are correctly handled");
     }
   }
-
 }

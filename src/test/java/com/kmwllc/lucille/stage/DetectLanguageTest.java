@@ -1,15 +1,14 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 public class DetectLanguageTest {
 
-  private StageFactory factory = StageFactory.of(DetectLanguage.class);
+  private final StageFactory factory = StageFactory.of(DetectLanguage.class);
 
   @Test
   public void testDetectLanguage() throws Exception {

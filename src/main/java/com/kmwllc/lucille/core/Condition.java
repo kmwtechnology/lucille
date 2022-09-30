@@ -1,9 +1,8 @@
 package com.kmwllc.lucille.core;
 
+import com.typesafe.config.Config;
 import java.util.List;
 import java.util.function.Predicate;
-
-import com.typesafe.config.Config;
 
 public class Condition implements Predicate<Document> {
 
@@ -12,7 +11,8 @@ public class Condition implements Predicate<Document> {
   private final String operator;
 
   public Condition(Config config) {
-    this(config.getStringList("fields"),
+    this(
+        config.getStringList("fields"),
         config.getStringList("values"),
         config.hasPath("operator") ? config.getString("operator") : "must");
   }

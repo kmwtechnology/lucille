@@ -4,24 +4,20 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
-import com.kmwllc.lucille.util.FileUtils;
-import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
+import java.util.List;
 import org.ahocorasick.trie.PayloadTrie;
 
-import java.util.List;
-
 /**
- * Checks if any of the given fields contain any of the given values and tags the given
- * output field with the value.
+ * Checks if any of the given fields contain any of the given values and tags the given output field
+ * with the value.
  *
- * Config Parameters:
+ * <p>Config Parameters:
  *
- *   - contains (List<String>) : A list of values to search for
- *   - output (String) : The field to tag if a match is found
- *   - value (String) : The value to tag the output field with
- *   - ignoreCase (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true.
- *   - field (List<String>) : The fields to be searched
+ * <p>- contains (List<String>) : A list of values to search for - output (String) : The field to
+ * tag if a match is found - value (String) : The value to tag the output field with - ignoreCase
+ * (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true. -
+ * field (List<String>) : The fields to be searched
  */
 public class Contains extends Stage {
 
@@ -38,7 +34,7 @@ public class Contains extends Stage {
     this.contains = config.getStringList("contains");
     this.output = config.getString("output");
     this.value = config.getString("value");
-    this.ignoreCase = config.hasPath("ignoreCase") ? config.getBoolean("ignoreCase") : true;
+    this.ignoreCase = !config.hasPath("ignoreCase") || config.getBoolean("ignoreCase");
     this.fields = config.getStringList("fields");
   }
 
@@ -70,8 +66,7 @@ public class Contains extends Stage {
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     for (String field : fields) {
-      if (!doc.has(field))
-        continue;
+      if (!doc.has(field)) continue;
 
       List<String> values = doc.getStringList(field);
       for (String value : values) {

@@ -1,14 +1,16 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 public class ContainsTest {
 
-  private StageFactory factory = StageFactory.of(Contains.class);
+  private final StageFactory factory = StageFactory.of(Contains.class);
 
   @Test
   public void testContains() throws StageException {
@@ -42,6 +44,4 @@ public class ContainsTest {
     stage.processDocument(doc5);
     assertFalse(doc5.has("output"));
   }
-
-
 }

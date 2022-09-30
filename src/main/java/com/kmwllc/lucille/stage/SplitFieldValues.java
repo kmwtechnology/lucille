@@ -1,38 +1,38 @@
 package com.kmwllc.lucille.stage;
 
-import java.util.List;
-
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
+import java.util.List;
 
 /**
  * Splits a field based off a delimiter and places the separated values into a given output field.
- * <p>
- * Config Parameters -
+ *
+ * <p>Config Parameters -
+ *
  * <ul>
- * <li>inputField (String) : The field to split on.</li>
- * <li>outputField (String) : The field to place the separated values into.</li>
- * <li>delimiter (String) : The String to split the field by.</li>
- * <li>trimWhitespace (Boolean) : True if separated values should trim whitespace, false otherwise.</li>
+ *   <li>inputField (String) : The field to split on.
+ *   <li>outputField (String) : The field to place the separated values into.
+ *   <li>delimiter (String) : The String to split the field by.
+ *   <li>trimWhitespace (Boolean) : True if separated values should trim whitespace, false
+ *       otherwise.
  * </ul>
  */
 public class SplitFieldValues extends Stage {
 
   private boolean trimWhitespace = true;
-  private String inputField;
-  private String outputField;
-  private String delimiter;
+  private final String inputField;
+  private final String outputField;
+  private final String delimiter;
 
   public SplitFieldValues(Config config) {
     super(config);
-    // 
+    //
     inputField = config.getString("inputField");
     outputField = config.getString("outputField");
     delimiter = config.getString("delimiter");
     trimWhitespace = config.getBoolean("trimWhitespace");
-
   }
 
   @Override
@@ -52,5 +52,4 @@ public class SplitFieldValues extends Stage {
     }
     return null;
   }
-
 }

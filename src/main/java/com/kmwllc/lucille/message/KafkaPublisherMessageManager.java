@@ -3,18 +3,15 @@ package com.kmwllc.lucille.message;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.typesafe.config.Config;
-import org.apache.kafka.clients.admin.*;
-import org.apache.kafka.clients.consumer.*;
+import java.util.Collections;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.apache.kafka.common.KafkaFuture;
-import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 public class KafkaPublisherMessageManager implements PublisherMessageManager {
 
@@ -31,7 +28,7 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
   }
 
   public void initialize(String runId, String pipelineName) throws Exception {
-    if (this.runId!=null) {
+    if (this.runId != null) {
       throw new Exception("Already initialized.");
     }
     this.runId = runId;
@@ -53,14 +50,19 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
   }
 
   public void sendForProcessing(Document document) throws Exception {
-    RecordMetadata result = (RecordMetadata) kafkaProducer.send(
-      new ProducerRecord(KafkaUtils.getSourceTopicName(pipelineName, config), document.getId(), document)).get();
+    RecordMetadata result =
+        (RecordMetadata)
+            kafkaProducer
+                .send(
+                    new ProducerRecord(
+                        KafkaUtils.getSourceTopicName(pipelineName, config),
+                        document.getId(),
+                        document))
+                .get();
     kafkaProducer.flush();
   }
 
-  /**
-   * Polls for an Event that is waiting to be consumed.
-   */
+  /** Polls for an Event that is waiting to be consumed. */
   @Override
   public Event pollEvent() throws Exception {
     ConsumerRecords<String, String> consumerRecords = eventConsumer.poll(KafkaUtils.POLL_INTERVAL);
@@ -89,5 +91,4 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
       }
     }
   }
-
 }

@@ -9,14 +9,13 @@ import java.util.concurrent.LinkedBlockingQueue;
 /**
  * Represents a reusable "batch" that can be filled with Documents.
  *
- * Once the batch has reached a configured capacity, the next call
- * to add() will flush the batch and return all the Documents it contained.
- * The new Document will not be included in the return value but will
- * be stored as the new first element of the batch.
+ * <p>Once the batch has reached a configured capacity, the next call to add() will flush the batch
+ * and return all the Documents it contained. The new Document will not be included in the return
+ * value but will be stored as the new first element of the batch.
  *
- * A batch is considered to be "expired" if a configured timeout has
- * elapsed since last add or flush. If a batch is expired,
- * it will be flushed during the next call to add() or flushIfExpired().
+ * <p>A batch is considered to be "expired" if a configured timeout has elapsed since last add or
+ * flush. If a batch is expired, it will be flushed during the next call to add() or
+ * flushIfExpired().
  */
 public class Batch {
 
@@ -28,8 +27,8 @@ public class Batch {
    * Creates a new batch.
    *
    * @param capacity the number of documents above which the batch will be flushed
-   * @param timeout the number of milliseconds (since the previous add or flush) beyond which the batch
-   *                will be considered as expired
+   * @param timeout the number of milliseconds (since the previous add or flush) beyond which the
+   *     batch will be considered as expired
    */
   public Batch(int capacity, int timeout) {
     this.queue = new LinkedBlockingQueue<>(capacity);
@@ -38,10 +37,9 @@ public class Batch {
   }
 
   /**
-   * Adds a Document to the Batch.
-   * If the batch has reached its capacity or if it is expired, it will be flushed
-   * and all of its contents will be returned. The newly added document will not
-   * be returned but will be stored as the first element of the current batch.
+   * Adds a Document to the Batch. If the batch has reached its capacity or if it is expired, it
+   * will be flushed and all of its contents will be returned. The newly added document will not be
+   * returned but will be stored as the first element of the current batch.
    */
   public List<Document> add(Document doc) {
     List<Document> docs = new ArrayList<>();
@@ -60,17 +58,17 @@ public class Batch {
   }
 
   /**
-   * Removes and returns all Documents in the current batch if the batch is expired
-   * (i.e. if the configured timeout has been reached since the last add or flush).
-   * Returns an empty list otherwise.
+   * Removes and returns all Documents in the current batch if the batch is expired (i.e. if the
+   * configured timeout has been reached since the last add or flush). Returns an empty list
+   * otherwise.
    */
   public List<Document> flushIfExpired() {
     return isExpired() ? flush() : new ArrayList();
   }
 
   /**
-   * Removes and returns all Documents in the current batch,
-   * regardless of whether the batch is expired.
+   * Removes and returns all Documents in the current batch, regardless of whether the batch is
+   * expired.
    */
   public List<Document> flush() {
     List<Document> docs = new ArrayList<>();
@@ -80,11 +78,10 @@ public class Batch {
   }
 
   /**
-   * Indicates whether the configured timeout has elapsed since the most
-   * recent of the following events: add(), flush(), flushIfExpired() with an expiration detected, new Batch().
+   * Indicates whether the configured timeout has elapsed since the most recent of the following
+   * events: add(), flush(), flushIfExpired() with an expiration detected, new Batch().
    */
   private boolean isExpired() {
     return ChronoUnit.MILLIS.between(lastAddOrFlushInstant, Instant.now()) > timeout;
   }
-
 }

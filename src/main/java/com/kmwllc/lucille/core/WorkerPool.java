@@ -6,10 +6,12 @@ import com.kmwllc.lucille.message.WorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.*;
 
 public class WorkerPool {
 
@@ -21,25 +23,30 @@ public class WorkerPool {
 
   private final Config config;
   private final String pipelineName;
-  private Integer numWorkers = null;
-  private WorkerMessageManagerFactory workerMessageManagerFactory;
-  private boolean started = false;
   private final int logSeconds;
   private final Timer logTimer = new Timer();
   private final String metricsPrefix;
+  private Integer numWorkers = null;
+  private final WorkerMessageManagerFactory workerMessageManagerFactory;
+  private boolean started = false;
 
-  public WorkerPool(Config config, String pipelineName, WorkerMessageManagerFactory factory, String metricsPrefix) {
+  public WorkerPool(
+      Config config,
+      String pipelineName,
+      WorkerMessageManagerFactory factory,
+      String metricsPrefix) {
     this.config = config;
     this.pipelineName = pipelineName;
     this.workerMessageManagerFactory = factory;
     this.metricsPrefix = metricsPrefix;
     try {
-       this.numWorkers = Pipeline.getIntProperty(config, pipelineName, "threads");
+      this.numWorkers = Pipeline.getIntProperty(config, pipelineName, "threads");
     } catch (PipelineException e) {
       log.error("Error reading pipeline config", e);
     }
-    if (this.numWorkers==null) {
-      this.numWorkers = config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
+    if (this.numWorkers == null) {
+      this.numWorkers =
+          config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
     }
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
   }
@@ -50,21 +57,30 @@ public class WorkerPool {
     }
     started = true;
     log.info("Starting " + numWorkers + " worker threads for pipeline " + pipelineName);
-    for (int i=0; i<numWorkers; i++) {
+    for (int i = 0; i < numWorkers; i++) {
       WorkerMessageManager manager = workerMessageManagerFactory.create();
       threads.add(Worker.startThread(config, manager, pipelineName, metricsPrefix));
     }
     // Timer to log a status message every minute
-    logTimer.schedule(new TimerTask() {
-      private final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
-      private final com.codahale.metrics.Timer timer = metrics.timer(metricsPrefix + Worker.METRICS_SUFFIX);
-      @Override
-      public void run() {
-        log.info(String.format("%d docs processed. One minute rate: %.2f docs/sec. Mean pipeline latency: %.2f ms/doc.",
-          timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean()/1000000));
-      }
-    }, logSeconds*1000, logSeconds*1000);
+    logTimer.schedule(
+        new TimerTask() {
+          private final MetricRegistry metrics =
+              SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+          private final com.codahale.metrics.Timer timer =
+              metrics.timer(metricsPrefix + Worker.METRICS_SUFFIX);
 
+          @Override
+          public void run() {
+            log.info(
+                String.format(
+                    "%d docs processed. One minute rate: %.2f docs/sec. Mean pipeline latency: %.2f ms/doc.",
+                    timer.getCount(),
+                    timer.getOneMinuteRate(),
+                    timer.getSnapshot().getMean() / 1000000));
+          }
+        },
+        logSeconds * 1000L,
+        logSeconds * 1000L);
   }
 
   public void stop() {
@@ -77,7 +93,7 @@ public class WorkerPool {
     // the output should be the same for any thread;
     // all threads get their metrics via a shared registry using the same naming scheme,
     // so the metrics are collected across all the threads
-    if (threads.size()>0) {
+    if (threads.size() > 0) {
       threads.get(0).logMetrics();
     }
   }
@@ -97,5 +113,4 @@ public class WorkerPool {
   public int getNumWorkers() {
     return numWorkers;
   }
-
 }

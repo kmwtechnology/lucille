@@ -4,8 +4,6 @@ import com.typesafe.config.Config;
 
 public interface PublisherMessageManagerFactory {
 
-  PublisherMessageManager create();
-
   static PublisherMessageManagerFactory getConstantFactory(PublisherMessageManager manager) {
     return new PublisherMessageManagerFactory() {
       @Override
@@ -24,4 +22,5 @@ public interface PublisherMessageManagerFactory {
     };
   }
 
+  PublisherMessageManager create();
 }

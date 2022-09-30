@@ -1,10 +1,12 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 public class TrimWhitespaceTest {
 
@@ -37,5 +39,4 @@ public class TrimWhitespaceTest {
     assertEquals("test", doc2.getStringList("input1").get(2));
     assertEquals("test", doc2.getStringList("input1").get(3));
   }
-
 }

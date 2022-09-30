@@ -1,17 +1,19 @@
 package com.kmwllc.lucille.message;
 
-import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
-import org.apache.kafka.clients.consumer.*;
+import java.util.Collections;
+import java.util.List;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.*;
 
 public class KafkaIndexerMessageManager implements IndexerMessageManager {
 
@@ -24,17 +26,17 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
     this.pipelineName = pipelineName;
     String kafkaClientId = "lucille-indexer-" + pipelineName;
     this.destConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
-    this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
+    this.destConsumer.subscribe(
+        Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
 
     this.kafkaProducer = KafkaUtils.createEventProducer(config);
   }
 
-  /**
-   * Polls for a document that has been processed by the pipeine and is waiting to be indexed.
-   */
+  /** Polls for a document that has been processed by the pipeine and is waiting to be indexed. */
   @Override
   public Document pollCompleted() throws Exception {
-    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    ConsumerRecords<String, KafkaDocument> consumerRecords =
+        destConsumer.poll(KafkaUtils.POLL_INTERVAL);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       destConsumer.commitSync();
@@ -50,16 +52,17 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
     sendEvent(event);
   }
 
-
-  /**
-   * Sends an Event relating to a Document to the appropriate location for Events.
-   *
-   */
+  /** Sends an Event relating to a Document to the appropriate location for Events. */
   @Override
   public void sendEvent(Event event) throws Exception {
     String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
-    RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
-      new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    RecordMetadata result =
+        (RecordMetadata)
+            kafkaProducer
+                .send(
+                    new ProducerRecord(
+                        confirmationTopicName, event.getDocumentId(), event.toString()))
+                .get();
     kafkaProducer.flush(); // TODO
   }
 
@@ -69,7 +72,5 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
   }
 
   @Override
-  public void batchComplete(List<Document> batch) throws Exception {
-  }
-
+  public void batchComplete(List<Document> batch) throws Exception {}
 }

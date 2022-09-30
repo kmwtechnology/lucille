@@ -6,7 +6,7 @@ import org.apache.solr.common.SolrDocumentList;
 
 public class MockQueryResponse extends QueryResponse {
 
-  private SolrDocumentList results;
+  private final SolrDocumentList results;
 
   public MockQueryResponse() {
     super();
@@ -31,5 +31,4 @@ public class MockQueryResponse extends QueryResponse {
   public String toString() {
     return "MockQueryResponse";
   }
-
 }

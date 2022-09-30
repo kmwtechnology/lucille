@@ -1,17 +1,15 @@
 package com.kmwllc.lucille.core;
 
-import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.Assert.*;
+import org.junit.Test;
 
 public class BatchTest {
 
-  /**
-   * Test adding a single document to a batch and retrieving it by flushing the whole batch.
-   */
+  /** Test adding a single document to a batch and retrieving it by flushing the whole batch. */
   @Test
   public void testSimpleAdd() {
     Batch batch = new Batch(100, 100);
@@ -23,9 +21,7 @@ public class BatchTest {
     assertEquals("doc", docs.get(0).getId());
   }
 
-  /**
-   * Test adding a several documents to a batch and retrieving them by flushing the whole batch.
-   */
+  /** Test adding a several documents to a batch and retrieving them by flushing the whole batch. */
   @Test
   public void testSeveralAdd() {
     Batch batch = new Batch(100, 1000);
@@ -47,9 +43,7 @@ public class BatchTest {
     assertEquals("doc3", docs.get(2).getId());
   }
 
-  /**
-   * Test that documents are returned if the batch is full.
-   */
+  /** Test that documents are returned if the batch is full. */
   @Test
   public void testFullBatch() {
     Batch batch = new Batch(1, 1000);
@@ -66,9 +60,7 @@ public class BatchTest {
     assertEquals("doc2", docs.get(0).getId());
   }
 
-  /**
-   * Test that supplying a null document to the batch causes a NullPointerException.
-   */
+  /** Test that supplying a null document to the batch causes a NullPointerException. */
   @Test(expected = NullPointerException.class)
   public void testSupplyNull() {
     Batch batch = new Batch(100, 1000);
@@ -76,7 +68,8 @@ public class BatchTest {
   }
 
   /**
-   * Test that the batch is flushed if flushIfExpired() or add() is called after the time elapsed since the last
+   * Test that the batch is flushed if flushIfExpired() or add() is called after the time elapsed
+   * since the last
    *
    * @throws InterruptedException
    */
@@ -104,7 +97,6 @@ public class BatchTest {
     assertEquals(1, batch.flush().size());
   }
 
-
   /**
    * Test that the batch is NOT flushed if flushIfExpired() or add() is called before the timeout.
    */
@@ -126,5 +118,4 @@ public class BatchTest {
 
     assertEquals(3, batch.flush().size());
   }
-
 }

@@ -4,37 +4,39 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.w3c.dom.NodeList;
-
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.*;
-
-import java.io.*;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.w3c.dom.NodeList;
 
 /**
  * Extracts values out of XML document fields using XPath expressions.
- * <p>
- * Config Parameters -
+ *
+ * <p>Config Parameters -
+ *
  * <ul>
- * <li>fieldMapping (Map<String, List<String>>) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.</li>
- * <li>xmlField (String) : The name of the document field which contains the XML field: defaults to "xml".</li>
+ *   <li>fieldMapping (Map<String, List<String>>) : A mapping of the XPath expression to the list of
+ *       fields to place the evaluated expression in.
+ *   <li>xmlField (String) : The name of the document field which contains the XML field: defaults
+ *       to "xml".
  * </ul>
  */
 public class XPathExtractor extends Stage {
+  private static final Logger log = LogManager.getLogger(XPathExtractor.class);
+  private final String xmlField;
   protected Map<String, Object> xpaths;
   private DocumentBuilder builder;
-  private DocumentBuilderFactory factory;
-  private XPath xpath;
-  private final String xmlField;
-  private Map<XPathExpression, List<String>> expressionMapping;
-  private static final Logger log = LogManager.getLogger(XPathExtractor.class);
+  private final DocumentBuilderFactory factory;
+  private final XPath xpath;
+  private final Map<XPathExpression, List<String>> expressionMapping;
 
   /**
    * Creates an instance of the XPathExtractor Stage with a given configuration.

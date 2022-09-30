@@ -1,16 +1,15 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 public class NormalizeTextTest {
 
-  private StageFactory factory = StageFactory.of(NormalizeText.class);
+  private final StageFactory factory = StageFactory.of(NormalizeText.class);
 
   // TODO : Change this to use multiple configs
   @Test
@@ -37,7 +36,8 @@ public class NormalizeTextTest {
     Document doc4 = Document.create("doc4");
     doc4.setField("input2", "this is a sentence. and this! this too? test");
     stage.processDocument(doc4);
-    assertEquals("This is a sentence. And this! This too? Test", doc4.getStringList("output2").get(0));
+    assertEquals(
+        "This is a sentence. And this! This too? Test", doc4.getStringList("output2").get(0));
   }
 
   @Test

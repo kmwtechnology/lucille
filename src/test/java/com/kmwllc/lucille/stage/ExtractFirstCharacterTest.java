@@ -1,10 +1,12 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 public class ExtractFirstCharacterTest {
 
@@ -30,14 +32,14 @@ public class ExtractFirstCharacterTest {
 
   @Test
   public void testReplacement() throws StageException {
-   Stage stage = factory.get("ExtractFirstCharacterTest/replacement.conf");
+    Stage stage = factory.get("ExtractFirstCharacterTest/replacement.conf");
 
-   Document doc = Document.create("doc");
-   doc.setField("input1", "12345");
-   doc.setField("input2", "valid");
-   stage.processDocument(doc);
-   assertEquals("not a letter", doc.getString("output1"));
-   assertEquals("v", doc.getString("output2"));
+    Document doc = Document.create("doc");
+    doc.setField("input1", "12345");
+    doc.setField("input2", "valid");
+    stage.processDocument(doc);
+    assertEquals("not a letter", doc.getString("output1"));
+    assertEquals("v", doc.getString("output2"));
   }
 
   @Test
@@ -51,5 +53,4 @@ public class ExtractFirstCharacterTest {
     assertFalse(doc.has("output2"));
     assertEquals("t", doc.getString("output1"));
   }
-
 }

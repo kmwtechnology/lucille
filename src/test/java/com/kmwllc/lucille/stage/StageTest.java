@@ -1,33 +1,18 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.*;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-import org.junit.Test;
-
 import java.util.List;
-
-import static org.junit.Assert.*;
+import org.junit.Test;
 
 public class StageTest {
 
-  private StageFactory factory = StageFactory.of(MockStage.class);
-
-  private static class MockStage extends Stage {
-
-    public MockStage(Config config) {
-      super(config);
-    }
-
-    @Override
-    public List<Document> processDocument(Document doc) throws StageException {
-      doc.setField("processed", true);
-
-      return null;
-    }
-  }
+  private final StageFactory factory = StageFactory.of(MockStage.class);
 
   @Test
   public void testProcessMust() throws StageException {
@@ -143,7 +128,20 @@ public class StageTest {
   @Test
   public void testGetNameDefault() throws Exception {
     Stage stage = factory.get();
-    assertEquals(null, stage.getName());
+    assertNull(stage.getName());
   }
 
+  private static class MockStage extends Stage {
+
+    public MockStage(Config config) {
+      super(config);
+    }
+
+    @Override
+    public List<Document> processDocument(Document doc) throws StageException {
+      doc.setField("processed", true);
+
+      return null;
+    }
+  }
 }

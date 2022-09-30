@@ -12,24 +12,61 @@ public class ConnectorResult {
   private final int numFailed;
   private final int numSucceeded;
 
-  private String message;
+  private final String message;
 
-  public ConnectorResult(Connector connector, Publisher publisher,
-                         boolean status, String errorMsg) {
+  public ConnectorResult(
+      Connector connector, Publisher publisher, boolean status, String errorMsg) {
     this(connector, publisher, status, errorMsg, null);
   }
 
-  public ConnectorResult(Connector connector, Publisher publisher,
-                         boolean status, String errMsg, Double durationSecs) {
+  public ConnectorResult(
+      Connector connector,
+      Publisher publisher,
+      boolean status,
+      String errMsg,
+      Double durationSecs) {
     this.status = status;
     this.message = formatMessage(connector, publisher, status, errMsg, durationSecs);
-    if (publisher!=null) {
+    if (publisher != null) {
       this.numFailed = publisher.numFailed();
       this.numSucceeded = publisher.numSucceeded();
     } else {
       this.numFailed = 0;
       this.numSucceeded = 0;
     }
+  }
+
+  private static String formatMessage(
+      Connector connector,
+      Publisher publisher,
+      boolean status,
+      String errMsg,
+      Double durationSecs) {
+    String msg = connector.getName() + ": ";
+    msg += status ? "complete. " : "ERROR. ";
+    if (status) {
+      if (publisher == null) {
+        msg += "No pipeline configured.";
+      } else {
+        msg +=
+            publisher.numSucceeded()
+                + " docs succeeded. "
+                + publisher.numFailed()
+                + " docs "
+                + (publisher.numFailed() > 0 ? "FAILED." : "failed.");
+      }
+    } else {
+      msg += errMsg;
+    }
+    if (durationSecs != null) {
+      msg = String.format("%s Time: %.2f secs.", msg, durationSecs);
+    }
+
+    if (connector.getMessage() != null) {
+      msg += "\nMessage from " + connector.getName() + ": " + connector.getMessage();
+    }
+
+    return msg;
   }
 
   public boolean getStatus() {
@@ -46,30 +83,5 @@ public class ConnectorResult {
 
   public String toString() {
     return message;
-  }
-
-  private static String formatMessage(Connector connector, Publisher publisher,
-                                      boolean status, String errMsg, Double durationSecs) {
-    String msg = connector.getName() + ": ";
-    msg += status ? "complete. " : "ERROR. ";
-    if (status) {
-      if (publisher==null) {
-        msg += "No pipeline configured.";
-      } else {
-        msg += publisher.numSucceeded() + " docs succeeded. " + publisher.numFailed() + " docs " +
-          (publisher.numFailed()>0 ? "FAILED." : "failed.");
-      }
-    } else {
-      msg += errMsg;
-    }
-    if (durationSecs != null) {
-      msg = String.format("%s Time: %.2f secs.", msg, durationSecs);
-    }
-
-    if (connector.getMessage() != null) {
-      msg += "\nMessage from " + connector.getName() + ": " + connector.getMessage();
-    }
-
-    return msg;
   }
 }

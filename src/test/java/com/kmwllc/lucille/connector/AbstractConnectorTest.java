@@ -1,32 +1,21 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.core.*;
+import static org.junit.Assert.assertEquals;
+
+import com.kmwllc.lucille.core.Connector;
+import com.kmwllc.lucille.core.ConnectorException;
+import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.Assert.assertEquals;
-
 @RunWith(JUnit4.class)
 public class AbstractConnectorTest {
-
-  private class MyConnector extends AbstractConnector {
-
-    public MyConnector(Config config) {
-      super(config);
-    }
-
-    @Override
-    public void execute(Publisher publisher) throws ConnectorException {
-
-    }
-  }
 
   @Test
   public void testCreateDocId() throws Exception {
@@ -42,7 +31,8 @@ public class AbstractConnectorTest {
 
   @Test
   public void testDefaultNames() throws Exception {
-    List<Connector> connectors = Connector.fromConfig(ConfigFactory.load("AbstractConnectorTest/defaultNames.conf"));
+    List<Connector> connectors =
+        Connector.fromConfig(ConfigFactory.load("AbstractConnectorTest/defaultNames.conf"));
     assertEquals(3, connectors.size());
     assertEquals("connector_1", connectors.get(0).getName());
     assertEquals("connector_2", connectors.get(1).getName());
@@ -54,4 +44,13 @@ public class AbstractConnectorTest {
     Connector.fromConfig(ConfigFactory.load("AbstractConnectorTest/duplicateNames.conf"));
   }
 
+  private class MyConnector extends AbstractConnector {
+
+    public MyConnector(Config config) {
+      super(config);
+    }
+
+    @Override
+    public void execute(Publisher publisher) throws ConnectorException {}
+  }
 }

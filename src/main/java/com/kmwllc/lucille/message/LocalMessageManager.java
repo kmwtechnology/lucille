@@ -1,21 +1,21 @@
 package com.kmwllc.lucille.message;
 
-import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Event;
 import com.typesafe.config.Config;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Implementation of the message manager APIs used by Indexers, Publishers, and Workers, suitable for
- * sharing among those three components when executing Lucille in "local" mode.
+ * Implementation of the message manager APIs used by Indexers, Publishers, and Workers, suitable
+ * for sharing among those three components when executing Lucille in "local" mode.
  */
-public class LocalMessageManager implements IndexerMessageManager, PublisherMessageManager, WorkerMessageManager {
+public class LocalMessageManager
+    implements IndexerMessageManager, PublisherMessageManager, WorkerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(LocalMessageManager.class);
 
@@ -25,6 +25,8 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   private final BlockingQueue<Event> pipelineEvents = new LinkedBlockingQueue<>();
   private final BlockingQueue<Document> pipelineSource;
   private final BlockingQueue<Document> pipelineDest;
+  private String runId = null;
+  private String pipelineName;
 
   public LocalMessageManager() {
     this.pipelineSource = new LinkedBlockingQueue<>();
@@ -37,16 +39,15 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   public LocalMessageManager(Config config) {
-    this.pipelineSource = config.hasPath("publisher.queueCapacity") ?
-      new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity")) :
-      new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
-    this.pipelineDest = config.hasPath("publisher.queueCapacity") ?
-      new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity")) :
-      new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
+    this.pipelineSource =
+        config.hasPath("publisher.queueCapacity")
+            ? new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity"))
+            : new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
+    this.pipelineDest =
+        config.hasPath("publisher.queueCapacity")
+            ? new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity"))
+            : new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
   }
-
-  private String runId = null;
-  private String pipelineName;
 
   @Override
   public Document pollCompleted() throws Exception {
@@ -59,8 +60,7 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   @Override
-  public void commitPendingDocOffsets() throws Exception {
-  }
+  public void commitPendingDocOffsets() throws Exception {}
 
   @Override
   public void sendCompleted(Document document) throws Exception {
@@ -68,9 +68,7 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   @Override
-  public void sendFailed(Document document) throws Exception {
-
-  }
+  public void sendFailed(Document document) throws Exception {}
 
   @Override
   public void sendEvent(Document document, String message, Event.Type type) throws Exception {
@@ -90,7 +88,7 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
 
   @Override
   public void initialize(String runId, String pipelineName) throws Exception {
-    if (this.runId!=null) {
+    if (this.runId != null) {
       throw new Exception("Already initialized.");
     }
     this.runId = runId;
@@ -108,10 +106,8 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   @Override
-  public void close() {
-  }
+  public void close() {}
 
   @Override
-  public void batchComplete(List<Document> batch) throws Exception {
-  }
+  public void batchComplete(List<Document> batch) throws Exception {}
 }

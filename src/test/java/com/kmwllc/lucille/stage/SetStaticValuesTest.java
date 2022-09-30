@@ -1,14 +1,14 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-
 public class SetStaticValuesTest {
 
-  private StageFactory factory = StageFactory.of(SetStaticValues.class);
+  private final StageFactory factory = StageFactory.of(SetStaticValues.class);
 
   @Test
   public void test() throws Exception {
@@ -24,5 +24,4 @@ public class SetStaticValuesTest {
 
     assertEquals("Directory", doc.getString("type"));
   }
-
 }

@@ -5,11 +5,12 @@ import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.filetraverser.data.DocumentProducer;
 import de.siegmar.fastcsv.reader.NamedCsvReader;
 import de.siegmar.fastcsv.reader.NamedCsvRow;
-
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public class FastCSVDocumentProducer implements DocumentProducer {
 
@@ -20,7 +21,8 @@ public class FastCSVDocumentProducer implements DocumentProducer {
   }
 
   @Override
-  public List<Document> produceDocuments(Path file, Document parent) throws DocumentException, IOException {
+  public List<Document> produceDocuments(Path file, Document parent)
+      throws DocumentException, IOException {
 
     List<Document> docs = new ArrayList<>();
     try (NamedCsvReader csv = NamedCsvReader.builder().build(file, Charset.defaultCharset())) {
@@ -31,9 +33,9 @@ public class FastCSVDocumentProducer implements DocumentProducer {
       for (NamedCsvRow row : csv) {
         Document doc = parent.deepCopy();
         doc.setField(Document.ID_FIELD, row.getField(idColumnName));
-        Map<String,String> fields = row.getFields();
+        Map<String, String> fields = row.getFields();
         fields.forEach(doc::setField);
-        doc.setField("originalLineNumber",row.getOriginalLineNumber());
+        doc.setField("originalLineNumber", row.getOriginalLineNumber());
         docs.add(doc);
       }
     }

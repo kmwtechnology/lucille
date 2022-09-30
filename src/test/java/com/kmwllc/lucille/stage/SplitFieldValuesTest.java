@@ -2,13 +2,12 @@ package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.assertEquals;
 
-import org.junit.Test;
-
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import org.junit.Test;
 
 public class SplitFieldValuesTest {
-  private StageFactory factory = StageFactory.of(SplitFieldValues.class);
+  private final StageFactory factory = StageFactory.of(SplitFieldValues.class);
 
   @Test
   public void test() throws Exception {
@@ -19,13 +18,10 @@ public class SplitFieldValuesTest {
     stage.processDocument(doc);
 
     assertEquals(4, doc.getStringList("data").size());
-    
+
     assertEquals("this", doc.getStringList("data").get(0));
     assertEquals("that", doc.getStringList("data").get(1));
     assertEquals("the", doc.getStringList("data").get(2));
     assertEquals("other", doc.getStringList("data").get(3));
-    
-    
   }
-
 }

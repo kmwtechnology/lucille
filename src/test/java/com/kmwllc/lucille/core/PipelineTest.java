@@ -1,30 +1,31 @@
 package com.kmwllc.lucille.core;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigValueFactory;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
-import java.util.ArrayList;
-import java.util.List;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertFalse;
+
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class PipelineTest {
 
   @Test
   public void testFromConfig() throws Exception {
-    String s = "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}, {class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\"}]}]";
+    String s =
+        "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}, {class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\"}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1", "");
     List<Stage> stages = pipeline.getStages();
     assertEquals(stages.get(0).getClass(), Stage1.class);
     assertEquals(stages.get(1).getClass(), Stage4.class);
-    assertTrue(((Stage4)stages.get(1)).isStarted());
+    assertTrue(((Stage4) stages.get(1)).isStarted());
     Document doc = Document.create("d1");
     List<Document> results = pipeline.processDocument(doc);
     assertEquals("v1", doc.getString("s1"));
@@ -39,23 +40,26 @@ public class PipelineTest {
 
   @Test(expected = PipelineException.class)
   public void testFromConfigWithUnnamedPipeline() throws Exception {
-    String s = "pipelines = [{stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, " +
-      "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
+    String s =
+        "pipelines = [{stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, "
+            + "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline.fromConfig(config, "pipeline1", "");
   }
 
   @Test(expected = PipelineException.class)
   public void testFromConfigWithDuplicatePipelineName() throws Exception {
-    String s = "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, " +
-      "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
+    String s =
+        "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, "
+            + "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline.fromConfig(config, "pipeline1", "");
   }
 
   @Test(expected = PipelineException.class)
   public void testFromConfigWithoutDesignatedPipeline() throws Exception {
-    String s = "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
+    String s =
+        "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline.fromConfig(config, "pipeline2", "");
   }
@@ -67,7 +71,8 @@ public class PipelineTest {
     // d1 should flow through all stages and should get fields created by stages 1 through 4
     // d1-s2c1 and d1-s2c2 should be created by stage 2;
     //     these docs should should have fields created by downstream stages (stage 3, stage 4)
-    // d1-s3c1, d1-s3c2, d1-s2c1-s3c1, d1-s2c1-s3c2, d1-s2c2-s3c1, d1-s2c2-s3c2 should be created by stage 3
+    // d1-s3c1, d1-s3c2, d1-s2c1-s3c1, d1-s2c1-s3c2, d1-s2c2-s3c1, d1-s2c2-s3c2 should be created by
+    // stage 3
     //     and should only have fields created by stage 4
     Pipeline pipeline = new Pipeline();
     Config config = ConfigFactory.empty();
@@ -83,7 +88,9 @@ public class PipelineTest {
     pipeline.stopStages();
 
     ArrayList<Document> expected = new ArrayList<>();
-    expected.add(Document.createFromJson("{\"id\":\"d1\",\"s1\":\"v1\",\"s2\":\"v2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
+    expected.add(
+        Document.createFromJson(
+            "{\"id\":\"d1\",\"s1\":\"v1\",\"s2\":\"v2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
     expected.add(Document.createFromJson("{\"id\":\"d1-s2c1\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
     expected.add(Document.createFromJson("{\"id\":\"d1-s2c2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
     expected.add(Document.createFromJson("{\"id\":\"d1-s3c1\",\"s4\":\"v4\"}"));
@@ -119,15 +126,15 @@ public class PipelineTest {
     for (Document result : results) {
       assertEquals(runId, result.getRunId());
     }
-
   }
 
   @Test
   public void testConditional() throws Exception {
-    String s = "pipelines = [{name:\"pipeline1\", " +
-        "stages: " +
-        "[{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\", conditions:[{fields:[\"cond\"], values:[\"abc\",\"123\"], operator:\"must\"}]}, " +
-        "{class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\", conditions:[{fields:[\"cond\"], values:[\"have\",\"test\"], operator:\"must\"}]}]}]";
+    String s =
+        "pipelines = [{name:\"pipeline1\", "
+            + "stages: "
+            + "[{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\", conditions:[{fields:[\"cond\"], values:[\"abc\",\"123\"], operator:\"must\"}]}, "
+            + "{class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\", conditions:[{fields:[\"cond\"], values:[\"have\",\"test\"], operator:\"must\"}]}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1", "");
 
@@ -155,7 +162,8 @@ public class PipelineTest {
   @Test(expected = PipelineException.class)
   public void testDuplicateName() throws Exception {
     Pipeline pipeline = new Pipeline();
-    Config config = ConfigFactory.empty().withValue("name", ConfigValueFactory.fromAnyRef("stage1"));
+    Config config =
+        ConfigFactory.empty().withValue("name", ConfigValueFactory.fromAnyRef("stage1"));
     pipeline.addStage(new Stage1(config));
     pipeline.addStage(new Stage2(config));
   }

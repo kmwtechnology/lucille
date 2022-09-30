@@ -4,7 +4,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 public class PrintTest {
 

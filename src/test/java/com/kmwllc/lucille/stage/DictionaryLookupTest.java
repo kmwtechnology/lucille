@@ -1,19 +1,17 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import org.junit.Test;
-
 import java.util.List;
-
-import static org.junit.Assert.*;
+import org.junit.Test;
 
 public class DictionaryLookupTest {
 
-  private StageFactory factory = StageFactory.of(DictionaryLookup.class);
+  private final StageFactory factory = StageFactory.of(DictionaryLookup.class);
 
   @Test
   public void testDictionaryLookup() throws StageException {
@@ -40,8 +38,9 @@ public class DictionaryLookupTest {
     doc3.setField("input2", "United States of America");
     stage.processDocument(doc3);
     assertNull(doc3.getStringList("output2"));
-    
-    // Ensure that if there are multiple payloads, that the payloads get mapped to the output as expected.
+
+    // Ensure that if there are multiple payloads, that the payloads get mapped to the output as
+    // expected.
     Document doc4 = Document.create("doc4");
     doc4.setField("input1", "foo");
     stage.processDocument(doc4);
@@ -51,20 +50,17 @@ public class DictionaryLookupTest {
     assertEquals(vals.get(0), "bar");
     assertEquals(vals.get(1), "baz");
     assertEquals(vals.get(2), "boom");
-
   }
-  
+
   @Test
   public void testDictionaryLookupIgnoreCase() throws StageException {
     Stage stage = factory.get("DictionaryLookupTest/config_ignore_case.conf");
-    
+
     Document doc = Document.create("doc");
     // lower case input
     doc.setField("input1", "china");
     stage.processDocument(doc);
     // assert output is original case
     assertEquals("China", doc.getStringList("output1").get(0));
-    
   }
-  
 }

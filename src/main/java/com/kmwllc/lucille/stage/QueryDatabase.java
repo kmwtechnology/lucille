@@ -4,34 +4,32 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import java.sql.*;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
- * This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice.
- * This stage should try and reconnect to the database in the future.
+ * This Stage runs a prepared SQL statement on keyfields in a document and places the results in
+ * fields of choice. This stage should try and reconnect to the database in the future.
  */
 public class QueryDatabase extends Stage {
 
-  private String driver;
-  private String connectionString;
-  private String jdbcUser;
-  private String jdbcPassword;
-  private String sql;
-  private List<String> keyFields;
-  private List<PreparedStatementParameterType> inputTypes;
-  private List<PreparedStatementParameterType> returnTypes;
-  private Map<String, Object> fieldMapping;
-  protected Connection connection = null;
-  private PreparedStatement preparedStatement;
   private static final Logger log = LogManager.getLogger(QueryDatabase.class);
+  protected Connection connection = null;
+  private final String driver;
+  private final String connectionString;
+  private final String jdbcUser;
+  private final String jdbcPassword;
+  private final String sql;
+  private final List<String> keyFields;
+  private final List<PreparedStatementParameterType> inputTypes;
+  private final List<PreparedStatementParameterType> returnTypes;
+  private final Map<String, Object> fieldMapping;
+  private PreparedStatement preparedStatement;
 
   public QueryDatabase(Config config) {
     super(config);
@@ -153,7 +151,6 @@ public class QueryDatabase extends Stage {
     return null;
   }
 
-
   private void createConnection() throws StageException {
     try {
       Class.forName(driver);
@@ -185,4 +182,3 @@ public class QueryDatabase extends Stage {
     }
   }
 }
-

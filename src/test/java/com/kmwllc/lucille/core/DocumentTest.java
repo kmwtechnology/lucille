@@ -1,24 +1,31 @@
 package com.kmwllc.lucille.core;
 
+import static com.kmwllc.lucille.core.Document.RESERVED_FIELDS;
+import static org.junit.Assert.*;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.time.Instant;
+import java.util.*;
+import java.util.function.UnaryOperator;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.time.Instant;
-
-import java.util.*;
-import java.util.function.UnaryOperator;
-
-import static com.kmwllc.lucille.core.Document.RESERVED_FIELDS;
-import static org.junit.Assert.*;
-
 @RunWith(JUnit4.class)
 public abstract class DocumentTest {
+
+  private static List<Object> toList(Object value) {
+    // todo this is a temporary fix, intellij suggests gentrifying
+    return (List<Object>) value;
+  }
+
+  private static List<Object> valueListFromDocument(Document document, String field) {
+    return toList(document.asMap().get(field));
+  }
 
   public abstract Document createDocument(ObjectNode node) throws DocumentException;
 
@@ -26,9 +33,11 @@ public abstract class DocumentTest {
 
   public abstract Document createDocument(String id, String runId);
 
-  public abstract Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException;
+  public abstract Document createDocumentFromJson(String json)
+      throws DocumentException, JsonProcessingException;
 
-  public abstract Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException;
+  public abstract Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater)
+      throws DocumentException, JsonProcessingException;
 
   @Test(expected = NullPointerException.class)
   public void testCreateWithoutId1() {
@@ -698,15 +707,6 @@ public abstract class DocumentTest {
 
     assertFalse(document.has("field1"));
     assertEquals(List.of("first", "second", "val1"), document.getStringList("final"));
-  }
-
-  private static List<Object> toList(Object value) {
-    // todo this is a temporary fix, intellij suggests gentrifying
-    return (List<Object>) value;
-  }
-
-  private static List<Object> valueListFromDocument(Document document, String field) {
-    return toList(document.asMap().get(field));
   }
 
   @Test

@@ -18,7 +18,7 @@ public class ConfigUtils {
 
     Config originalConfig = ConfigFactory.load();
 
-    if (envName==null) {
+    if (envName == null) {
       log.info("pipeline.env system property not set");
       return originalConfig;
     }
@@ -29,18 +29,17 @@ public class ConfigUtils {
     // pipeline.env system property is set to "dev", then accessing "x" will return 2
     // even though the "dev" prefix was not included
     return originalConfig.getConfig(envName).withFallback(originalConfig);
-
   }
 
   /**
-   * Get the value of the given setting from the config file, or a default value if the setting does not exist in the
-   * config.
+   * Get the value of the given setting from the config file, or a default value if the setting does
+   * not exist in the config.
    *
-   * @param config  the config to search for the setting
+   * @param config the config to search for the setting
    * @param setting the setting to get the value of
-   * @param fallback  default value
+   * @param fallback default value
    * @param <T> the Type of this setting's value
-   * @return  the value
+   * @return the value
    */
   public static <T> T getOrDefault(Config config, String setting, T fallback) {
     if (config.hasPath(setting)) {
@@ -49,5 +48,4 @@ public class ConfigUtils {
 
     return fallback;
   }
-
 }

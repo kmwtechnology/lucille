@@ -3,7 +3,6 @@ package com.kmwllc.lucille.core;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -18,6 +17,27 @@ public interface Document {
   String CHILDREN_FIELD = ".children";
 
   Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD));
+
+  static Document create(ObjectNode node) throws DocumentException {
+    return new JsonDocument(node);
+  }
+
+  static Document create(String id) {
+    return new JsonDocument(id);
+  }
+
+  static Document create(String id, String runId) {
+    return new JsonDocument(id, runId);
+  }
+
+  static Document createFromJson(String json) throws DocumentException, JsonProcessingException {
+    return JsonDocument.fromJsonString(json);
+  }
+
+  static Document createFromJson(String json, UnaryOperator<String> idUpdater)
+      throws DocumentException, JsonProcessingException {
+    return JsonDocument.fromJsonString(json, idUpdater);
+  }
 
   void removeField(String name);
 
@@ -66,12 +86,15 @@ public interface Document {
 
   /**
    * This will return null in two cases
+   *
    * <ol>
-   *   <li>If the field is absent</li>
-   *   <li>IF the field is present but contains a null</li>
+   *   <li>If the field is absent
+   *   <li>IF the field is present but contains a null
    * </ol>
+   *
    * To distinguish between these, you can call has(). Calling getString for a field which is
    * multivalued will return the first value in the list of Strings.
+   *
    * @param name The name of the field to get.
    * @return The value of the field, or null if the field is absent or contains a null.
    */
@@ -197,25 +220,4 @@ public interface Document {
   void removeDuplicateValues(String fieldName, String targetFieldName);
 
   Document deepCopy();
-
-  static Document create(ObjectNode node) throws DocumentException {
-    return new JsonDocument(node);
-  }
-
-  static Document create(String id) {
-    return new JsonDocument(id);
-  }
-
-  static Document create(String id, String runId) {
-    return new JsonDocument(id, runId);
-  }
-
-  static Document createFromJson(String json) throws DocumentException, JsonProcessingException {
-    return JsonDocument.fromJsonString(json);
-  }
-
-  static Document createFromJson(String json, UnaryOperator<String> idUpdater)
-      throws DocumentException, JsonProcessingException {
-    return JsonDocument.fromJsonString(json, idUpdater);
-  }
 }

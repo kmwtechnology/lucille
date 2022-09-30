@@ -4,7 +4,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
-
 import java.util.List;
 
 public class StartStopCaptureStage extends Stage {
@@ -14,6 +13,11 @@ public class StartStopCaptureStage extends Stage {
 
   public StartStopCaptureStage(Config config) {
     super(config);
+  }
+
+  public static void reset() {
+    startCalled = false;
+    stopCalled = false;
   }
 
   @Override
@@ -36,11 +40,4 @@ public class StartStopCaptureStage extends Stage {
     }
     stopCalled = true;
   }
-
-  public static void reset() {
-    startCalled = false;
-    stopCalled = false;
-  }
-
-
 }

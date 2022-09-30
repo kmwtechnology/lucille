@@ -1,17 +1,16 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertTrue;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
-import org.junit.Test;
-
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-
-import static org.junit.Assert.assertTrue;
+import org.junit.Test;
 
 public class TimestampTest {
 
-  private StageFactory factory = StageFactory.of(Timestamp.class);
+  private final StageFactory factory = StageFactory.of(Timestamp.class);
 
   @Test
   public void testTimestamp() throws Exception {
@@ -30,5 +29,4 @@ public class TimestampTest {
     // timestamp should not be after now; but allow for it to be the same as now
     assertTrue(ChronoUnit.SECONDS.between(timestamp, now) >= 0);
   }
-
 }

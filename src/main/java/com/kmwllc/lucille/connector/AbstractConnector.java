@@ -5,23 +5,22 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.typesafe.config.Config;
 
 /**
- * Base class for use by Connector implementations, providing basic Config parsing behavior
- * for obtaining connector name, pipeline name, doc ID prefix, and collapsing mode.
- *
+ * Base class for use by Connector implementations, providing basic Config parsing behavior for
+ * obtaining connector name, pipeline name, doc ID prefix, and collapsing mode.
  */
 public abstract class AbstractConnector implements Connector {
 
-  private String name;
-  private String pipelineName;
-  private String docIdPrefix;
-  private boolean collapse;
+  private final String name;
+  private final String pipelineName;
+  private final String docIdPrefix;
+  private final boolean collapse;
   private String message = null;
 
   public AbstractConnector(Config config) {
     this.name = config.getString("name");
     this.pipelineName = config.hasPath("pipeline") ? config.getString("pipeline") : null;
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
-    this.collapse = config.hasPath("collapse") ? config.getBoolean("collapse") : false;
+    this.collapse = config.hasPath("collapse") && config.getBoolean("collapse");
   }
 
   @Override
@@ -55,8 +54,8 @@ public abstract class AbstractConnector implements Connector {
   }
 
   /**
-   * Returns the configured prefix that this Connector will prepend to ids from the source
-   * data when creating Documents from that data.
+   * Returns the configured prefix that this Connector will prepend to ids from the source data when
+   * creating Documents from that data.
    */
   public String getDocIdPrefix() {
     return docIdPrefix;
@@ -78,5 +77,4 @@ public abstract class AbstractConnector implements Connector {
   protected void setMessage(String message) {
     this.message = message;
   }
-
 }

@@ -1,15 +1,16 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-
 public class DeleteFieldsTest {
 
-  private StageFactory factory = StageFactory.of(DeleteFields.class);
+  private final StageFactory factory = StageFactory.of(DeleteFields.class);
 
   @Test
   public void testDeleteFields() throws StageException {
@@ -34,5 +35,4 @@ public class DeleteFieldsTest {
     assertEquals("save this one", doc2.getString("save"));
     assertEquals("and this one", doc2.getString("save2"));
   }
-
 }

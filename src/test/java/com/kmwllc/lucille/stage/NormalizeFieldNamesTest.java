@@ -1,11 +1,12 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
-
-import static org.junit.Assert.*;
 
 public class NormalizeFieldNamesTest {
 

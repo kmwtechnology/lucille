@@ -7,6 +7,10 @@ import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
 import com.typesafe.config.Config;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RequestOptions;
@@ -14,11 +18,6 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 // TODO: upgrade the ElasticsearchIndexer to use the Elasticsearch Java API Client
 public class ElasticsearchIndexer extends Indexer {
@@ -28,18 +27,51 @@ public class ElasticsearchIndexer extends Indexer {
   private final RestHighLevelClient client;
   private final String index;
 
-  public ElasticsearchIndexer(Config config, IndexerMessageManager manager, RestHighLevelClient client, String metricsPrefix) {
+  public ElasticsearchIndexer(
+      Config config,
+      IndexerMessageManager manager,
+      RestHighLevelClient client,
+      String metricsPrefix) {
     super(config, manager, metricsPrefix);
     this.client = client;
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
   }
 
-  public ElasticsearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
+  public ElasticsearchIndexer(
+      Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
     this(config, manager, getClient(config, bypass), metricsPrefix);
   }
 
   private static RestHighLevelClient getClient(Config config, boolean bypass) {
     return bypass ? null : ElasticsearchUtils.getElasticsearchRestClient(config);
+  }
+
+  public static void main(String[] args) throws Exception {
+    Config config = ConfigUtils.loadConfig();
+    String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
+    log.info("Starting Indexer for pipeline: " + pipelineName);
+    IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);
+    Indexer indexer = new ElasticsearchIndexer(config, manager, false, pipelineName);
+    if (!indexer.validateConnection()) {
+      log.error("Indexer could not connect");
+      System.exit(1);
+    }
+
+    Thread indexerThread = new Thread(indexer);
+    indexerThread.start();
+
+    Signal.handle(
+        new Signal("INT"),
+        signal -> {
+          indexer.terminate();
+          log.info("Indexer shutting down");
+          try {
+            indexerThread.join();
+          } catch (InterruptedException e) {
+            log.error("Interrupted", e);
+          }
+          System.exit(0);
+        });
   }
 
   @Override
@@ -83,7 +115,8 @@ public class ElasticsearchIndexer extends Indexer {
     for (Document doc : documents) {
       Map<String, Object> indexerDoc = doc.asMap();
 
-      // remove children documents field from indexer doc (processed from doc by addChildren method call below)
+      // remove children documents field from indexer doc (processed from doc by addChildren method
+      // call below)
       indexerDoc.remove(Document.CHILDREN_FIELD);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
@@ -121,34 +154,8 @@ public class ElasticsearchIndexer extends Indexer {
         Object value = map.get(key);
         indexerChildDoc.put(key, value);
       }
-      // TODO: Do nothing for now, add support for child docs like SolrIndexer does in future (_childDocuments_)
+      // TODO: Do nothing for now, add support for child docs like SolrIndexer does in future
+      // (_childDocuments_)
     }
   }
-
-  public static void main(String[] args) throws Exception {
-    Config config = ConfigUtils.loadConfig();
-    String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
-    log.info("Starting Indexer for pipeline: " + pipelineName);
-    IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);
-    Indexer indexer = new ElasticsearchIndexer(config, manager, false, pipelineName);
-    if (!indexer.validateConnection()) {
-      log.error("Indexer could not connect");
-      System.exit(1);
-    }
-
-    Thread indexerThread = new Thread(indexer);
-    indexerThread.start();
-
-    Signal.handle(new Signal("INT"), signal -> {
-      indexer.terminate();
-      log.info("Indexer shutting down");
-      try {
-        indexerThread.join();
-      } catch (InterruptedException e) {
-        log.error("Interrupted", e);
-      }
-      System.exit(0);
-    });
-  }
-
 }

@@ -4,8 +4,6 @@ import com.typesafe.config.Config;
 
 public interface WorkerMessageManagerFactory {
 
-  WorkerMessageManager create();
-
   static WorkerMessageManagerFactory getConstantFactory(WorkerMessageManager manager) {
     return new WorkerMessageManagerFactory() {
       @Override
@@ -24,4 +22,5 @@ public interface WorkerMessageManagerFactory {
     };
   }
 
+  WorkerMessageManager create();
 }

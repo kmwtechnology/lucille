@@ -1,8 +1,7 @@
 package com.kmwllc.lucille.message;
 
-import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Document;
-
+import com.kmwllc.lucille.core.Event;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -11,14 +10,17 @@ import java.util.List;
  * Wrapper around LocalMessageManager that stores message traffic so that it can be retrieved later.
  * Intended for use in a testing context.
  */
-public class PersistingLocalMessageManager implements IndexerMessageManager, PublisherMessageManager,
-  WorkerMessageManager {
+public class PersistingLocalMessageManager
+    implements IndexerMessageManager, PublisherMessageManager, WorkerMessageManager {
 
   private final LocalMessageManager manager;
 
-  private List<Event> savedEventMessages = Collections.synchronizedList(new ArrayList<Event>());
-  private List<Document> savedSourceMessages = Collections.synchronizedList(new ArrayList<Document>());
-  private List<Document> savedDestMessages = Collections.synchronizedList(new ArrayList<Document>());
+  private final List<Event> savedEventMessages =
+      Collections.synchronizedList(new ArrayList<Event>());
+  private final List<Document> savedSourceMessages =
+      Collections.synchronizedList(new ArrayList<Document>());
+  private final List<Document> savedDestMessages =
+      Collections.synchronizedList(new ArrayList<Document>());
 
   public PersistingLocalMessageManager() {
     this.manager = new LocalMessageManager();
@@ -81,7 +83,6 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
     return manager.getRunId();
   }
 
-
   @Override
   public void sendForProcessing(Document document) throws Exception {
     savedSourceMessages.add(document);
@@ -109,5 +110,4 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   public List<Document> getSavedCompletedDocuments() {
     return savedDestMessages;
   }
-
 }

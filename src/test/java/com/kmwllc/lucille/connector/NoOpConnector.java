@@ -14,16 +14,16 @@ public class NoOpConnector extends AbstractConnector {
     super(config);
   }
 
-  @Override
-  public void execute(Publisher publisher) throws ConnectorException {
-    this.suppliedPublisher = publisher;
-  }
-
   public static Publisher getSuppliedPublisher() {
     return suppliedPublisher;
   }
 
   public static void reset() {
     suppliedPublisher = null;
+  }
+
+  @Override
+  public void execute(Publisher publisher) throws ConnectorException {
+    suppliedPublisher = publisher;
   }
 }

@@ -1,10 +1,11 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 public class ApplyStopWordsTest {
 
@@ -52,5 +53,4 @@ public class ApplyStopWordsTest {
     assertEquals("a ?", doc1.getString("input2"));
     assertEquals("and these stopwords is reserved", doc1.getString("reserved"));
   }
-
 }

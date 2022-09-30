@@ -4,8 +4,6 @@ import com.typesafe.config.Config;
 
 public interface IndexerMessageManagerFactory {
 
-  IndexerMessageManager create();
-
   static IndexerMessageManagerFactory getConstantFactory(IndexerMessageManager manager) {
     return new IndexerMessageManagerFactory() {
       @Override
@@ -24,4 +22,5 @@ public interface IndexerMessageManagerFactory {
     };
   }
 
+  IndexerMessageManager create();
 }

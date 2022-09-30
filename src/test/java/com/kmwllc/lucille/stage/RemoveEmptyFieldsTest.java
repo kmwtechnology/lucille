@@ -3,14 +3,13 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-import org.junit.Test;
-
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import org.junit.Test;
 
 public class RemoveEmptyFieldsTest {
 
-  private StageFactory factory = StageFactory.of(RemoveEmptyFields.class);
+  private final StageFactory factory = StageFactory.of(RemoveEmptyFields.class);
 
   @Test
   public void test() throws Exception {
@@ -22,5 +21,4 @@ public class RemoveEmptyFieldsTest {
     assertEquals("bar", doc.getString("foo"));
     assertFalse(doc.has("bar"));
   }
-
 }

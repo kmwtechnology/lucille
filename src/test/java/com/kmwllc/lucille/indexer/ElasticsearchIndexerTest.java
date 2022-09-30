@@ -1,5 +1,10 @@
 package com.kmwllc.lucille.indexer;
 
+import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
@@ -8,6 +13,9 @@ import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -19,15 +27,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 public class ElasticsearchIndexerTest {
   private RestHighLevelClient mockClient;
@@ -48,7 +47,8 @@ public class ElasticsearchIndexerTest {
   }
 
   /**
-   * Tests that the indexer correctly polls completed documents from the destination topic and sends them to Elasticsearch.
+   * Tests that the indexer correctly polls completed documents from the destination topic and sends
+   * them to Elasticsearch.
    *
    * @throws Exception
    */
@@ -85,7 +85,8 @@ public class ElasticsearchIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    ElasticsearchIndexer indexer = new ErroringElasticsearchIndexer(config, manager, mockClient, "testing");
+    ElasticsearchIndexer indexer =
+        new ErroringElasticsearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     manager.sendCompleted(doc3);
@@ -106,10 +107,10 @@ public class ElasticsearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
-    Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
+    Assert.assertTrue(
+        indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
-
   }
 
   @Test
@@ -131,10 +132,13 @@ public class ElasticsearchIndexerTest {
     manager.sendCompleted(doc5);
     indexer.run(5);
 
-    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
-    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor =
+        ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor =
+        ArgumentCaptor.forClass(RequestOptions.class);
 
-    verify(mockClient, times(3)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+    verify(mockClient, times(3))
+        .bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
 
     List<BulkRequest> bulkRequestValue = bulkRequestArgumentCaptor.getAllValues();
     assertEquals(3, bulkRequestValue.size());
@@ -163,15 +167,17 @@ public class ElasticsearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
-    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor =
+        ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor =
+        ArgumentCaptor.forClass(RequestOptions.class);
 
-    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+    verify(mockClient, times(1))
+        .bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
 
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<DocWriteRequest<?>> requests = br.requests();
@@ -202,10 +208,13 @@ public class ElasticsearchIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
-    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor =
+        ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor =
+        ArgumentCaptor.forClass(RequestOptions.class);
 
-    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+    verify(mockClient, times(1))
+        .bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
 
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<DocWriteRequest<?>> requests = br.requests();
@@ -236,10 +245,13 @@ public class ElasticsearchIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
-    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor =
+        ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor =
+        ArgumentCaptor.forClass(RequestOptions.class);
 
-    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+    verify(mockClient, times(1))
+        .bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
 
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<DocWriteRequest<?>> requests = br.requests();
@@ -258,8 +270,11 @@ public class ElasticsearchIndexerTest {
 
   private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
 
-    public ErroringElasticsearchIndexer(Config config, IndexerMessageManager manager,
-                                     RestHighLevelClient client, String metricsPrefix) {
+    public ErroringElasticsearchIndexer(
+        Config config,
+        IndexerMessageManager manager,
+        RestHighLevelClient client,
+        String metricsPrefix) {
       super(config, manager, client, "testing");
     }
 

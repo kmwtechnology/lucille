@@ -1,21 +1,18 @@
 package com.kmwllc.lucille.core;
 
-import com.codahale.metrics.*;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.message.WorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import java.time.Instant;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
-
-import java.lang.management.ManagementFactory;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
 
 class Worker implements Runnable {
 
@@ -26,31 +23,67 @@ class Worker implements Runnable {
   private final WorkerMessageManager manager;
 
   private final Pipeline pipeline;
-
-  private volatile boolean running = true;
-
   private final AtomicReference<Instant> pollInstant;
-
+  private final String metricsPrefix;
+  private volatile boolean running = true;
   private boolean trackRetries = false;
   private RetryCounter counter = null;
-  private final String metricsPrefix;
 
-  public void terminate() {
-    log.debug("terminate called");
-    running = false;
-  }
-
-  public Worker(Config config, WorkerMessageManager manager, String pipelineName, String metricsPrefix) throws Exception {
+  public Worker(
+      Config config, WorkerMessageManager manager, String pipelineName, String metricsPrefix)
+      throws Exception {
     this.manager = manager;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
     if (config.hasPath("worker.maxRetries")) {
-      log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
+      log.info(
+          "Retries will be tracked in Zookeeper with a configured maximum of: "
+              + config.getInt("worker.maxRetries"));
       this.trackRetries = true;
       this.counter = new ZKRetryCounter(config);
     }
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
     this.metricsPrefix = metricsPrefix;
+  }
+
+  public static WorkerThread startThread(
+      Config config, WorkerMessageManager manager, String pipelineName, String metricsPrefix)
+      throws Exception {
+    Worker worker = new Worker(config, manager, pipelineName, metricsPrefix);
+    WorkerThread workerThread = new WorkerThread(worker, config);
+    workerThread.start();
+    return workerThread;
+  }
+
+  public static void main(String[] args) throws Exception {
+    Config config = ConfigUtils.loadConfig();
+    String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
+    log.debug("Starting Workers for pipeline: " + pipelineName);
+
+    WorkerMessageManagerFactory workerMessageManagerFactory =
+        WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName);
+
+    WorkerPool workerPool =
+        new WorkerPool(config, pipelineName, workerMessageManagerFactory, pipelineName);
+    workerPool.start();
+
+    Signal.handle(
+        new Signal("INT"),
+        signal -> {
+          workerPool.stop();
+          log.info("Workers shutting down");
+          try {
+            workerPool.join();
+          } catch (InterruptedException e) {
+            log.error("Interrupted", e);
+          }
+          System.exit(0);
+        });
+  }
+
+  public void terminate() {
+    log.debug("terminate called");
+    running = false;
   }
 
   @Override
@@ -78,7 +111,8 @@ class Worker implements Runnable {
 
       if (trackRetries && counter.add(doc)) {
         try {
-          log.info("Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");
+          log.info(
+              "Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");
           manager.sendFailed(doc);
         } catch (Exception e) {
           log.error("Failed to send doc to failure topic: " + doc.getId(), e);
@@ -136,7 +170,6 @@ class Worker implements Runnable {
       commitOffsetsAndRemoveCounter(doc);
     }
 
-
     // commit any remaining offsets before termination
     commitOffsetsAndRemoveCounter(null);
 
@@ -162,7 +195,7 @@ class Worker implements Runnable {
   private void commitOffsetsAndRemoveCounter(Document doc) {
     try {
       manager.commitPendingDocOffsets();
-      if (trackRetries && doc!=null) {
+      if (trackRetries && doc != null) {
         counter.remove(doc);
       }
     } catch (Exception commitException) {
@@ -173,37 +206,4 @@ class Worker implements Runnable {
   public AtomicReference<Instant> getPreviousPollInstant() {
     return pollInstant;
   }
-
-  public static WorkerThread startThread(Config config, WorkerMessageManager manager,
-                                         String pipelineName, String metricsPrefix) throws
-      Exception {
-    Worker worker = new Worker(config, manager, pipelineName, metricsPrefix);
-    WorkerThread workerThread = new WorkerThread(worker, config);
-    workerThread.start();
-    return workerThread;
-  }
-
-  public static void main(String[] args) throws Exception {
-    Config config = ConfigUtils.loadConfig();
-    String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
-    log.debug("Starting Workers for pipeline: " + pipelineName);
-
-    WorkerMessageManagerFactory workerMessageManagerFactory =
-        WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName);
-
-    WorkerPool workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory, pipelineName);
-    workerPool.start();
-
-    Signal.handle(new Signal("INT"), signal -> {
-      workerPool.stop();
-      log.info("Workers shutting down");
-      try {
-        workerPool.join();
-      } catch (InterruptedException e) {
-        log.error("Interrupted", e);
-      }
-      System.exit(0);
-    });
-  }
-
 }

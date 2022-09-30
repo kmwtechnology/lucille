@@ -1,13 +1,14 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
-public class ConcatenateTest  {
+public class ConcatenateTest {
 
-  private StageFactory factory = StageFactory.of(Concatenate.class);
+  private final StageFactory factory = StageFactory.of(Concatenate.class);
 
   @Test
   public void testConcatenate() throws Exception {
@@ -52,5 +53,4 @@ public class ConcatenateTest  {
     stage.processDocument(doc2);
     assertEquals("Toronto, MA, Canada", doc2.getString("dest"));
   }
-
 }

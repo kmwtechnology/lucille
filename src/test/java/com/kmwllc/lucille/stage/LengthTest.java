@@ -1,10 +1,11 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 public class LengthTest {
 
@@ -24,5 +25,4 @@ public class LengthTest {
     assertEquals("3", doc1.getString("customers_length"));
     assertEquals("1", doc1.getString("singleton_length"));
   }
-
 }

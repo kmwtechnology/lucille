@@ -7,14 +7,13 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
-import org.apache.commons.lang3.time.StopWatch;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.lang3.time.StopWatch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class Indexer implements Runnable {
 
@@ -22,35 +21,35 @@ public abstract class Indexer implements Runnable {
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
-
+  protected final String idOverrideField;
+  protected final List<String> ignoreFields;
   private final IndexerMessageManager manager;
   private final Batch batch;
-
-  private volatile boolean running = true;
-
   private final int logSeconds;
-
   private final StopWatch stopWatch;
   private final Meter meter;
   private final Histogram histogram;
-
-  protected final String idOverrideField;
-
-  protected final List<String> ignoreFields;
-
+  private volatile boolean running = true;
   private Instant lastLog = Instant.now();
-
-  public void terminate() {
-    running = false;
-    log.debug("terminate");
-  }
 
   public Indexer(Config config, IndexerMessageManager manager, String metricsPrefix) {
     this.manager = manager;
-    this.idOverrideField = config.hasPath("indexer.idOverrideField") ? config.getString("indexer.idOverrideField") : null;
-    this.ignoreFields = config.hasPath("indexer.ignoreFields") ? config.getStringList("indexer.ignoreFields") : null;
-    int batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : DEFAULT_BATCH_SIZE;
-    int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
+    this.idOverrideField =
+        config.hasPath("indexer.idOverrideField")
+            ? config.getString("indexer.idOverrideField")
+            : null;
+    this.ignoreFields =
+        config.hasPath("indexer.ignoreFields")
+            ? config.getStringList("indexer.ignoreFields")
+            : null;
+    int batchSize =
+        config.hasPath("indexer.batchSize")
+            ? config.getInt("indexer.batchSize")
+            : DEFAULT_BATCH_SIZE;
+    int batchTimeout =
+        config.hasPath("indexer.batchTimeout")
+            ? config.getInt("indexer.batchTimeout")
+            : DEFAULT_BATCH_TIMEOUT;
     this.batch = new Batch(batchSize, batchTimeout);
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
@@ -59,26 +58,29 @@ public abstract class Indexer implements Runnable {
     this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
   }
 
-  /**
-   * Return true if connection to the destination search engine is valid and the relevant index
-   * or collection exists; false otherwise.
-   */
-  abstract public boolean validateConnection();
+  public void terminate() {
+    running = false;
+    log.debug("terminate");
+  }
 
   /**
-   * Send a batch of documents to the destination search engine. Implementations should
-   * use a single call to the batch API provided by the search engine client, if available,
-   * as opposed to sending each document individually.
+   * Return true if connection to the destination search engine is valid and the relevant index or
+   * collection exists; false otherwise.
    */
-  abstract protected void sendToIndex(List<Document> documents) throws Exception;
+  public abstract boolean validateConnection();
 
   /**
-   * Close the client or connection to the destination search engine.
+   * Send a batch of documents to the destination search engine. Implementations should use a single
+   * call to the batch API provided by the search engine client, if available, as opposed to sending
+   * each document individually.
    */
-  abstract public void closeConnection();
+  protected abstract void sendToIndex(List<Document> documents) throws Exception;
+
+  /** Close the client or connection to the destination search engine. */
+  public abstract void closeConnection();
 
   private void close() {
-    if (manager!=null) {
+    if (manager != null) {
       try {
         manager.close();
       } catch (Exception e) {
@@ -132,9 +134,13 @@ public abstract class Indexer implements Runnable {
   }
 
   private void sendToIndexWithAccounting(List<Document> batchedDocs) {
-    if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
-      log.info(String.format("%d docs indexed. One minute rate: %.2f docs/sec. Mean backend latency: %.2f ms/doc.",
-        meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()/1000000));
+    if (ChronoUnit.SECONDS.between(lastLog, Instant.now()) > logSeconds) {
+      log.info(
+          String.format(
+              "%d docs indexed. One minute rate: %.2f docs/sec. Mean backend latency: %.2f ms/doc.",
+              meter.getCount(),
+              meter.getOneMinuteRate(),
+              histogram.getSnapshot().getMean() / 1000000));
       lastLog = Instant.now();
     }
 
@@ -154,9 +160,10 @@ public abstract class Indexer implements Runnable {
 
       for (Document d : batchedDocs) {
         try {
-          manager.sendEvent(d,"FAILED: " + e.getMessage(), Event.Type.FAIL);
+          manager.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
         } catch (Exception e2) {
-          // TODO: The run won't be able to finish if this event isn't received; can we do something special here?
+          // TODO: The run won't be able to finish if this event isn't received; can we do something
+          // special here?
           log.error("Couldn't send failure event for doc " + d.getId(), e2);
         }
       }
@@ -174,20 +181,20 @@ public abstract class Indexer implements Runnable {
       try {
         manager.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
       } catch (Exception e) {
-        // TODO: The run won't be able to finish if this event isn't received; can we do something special here?
+        // TODO: The run won't be able to finish if this event isn't received; can we do something
+        // special here?
         log.error("Error sending completion event for doc " + d.getId(), e);
       }
     }
   }
 
   /**
-   * Returns the ID that should be sent to the destination index/collection for the given doc,
-   * in place of the value of the Document.ID_FIELD field. Returns null if no override should
-   * be applied for the given document.
-   *
+   * Returns the ID that should be sent to the destination index/collection for the given doc, in
+   * place of the value of the Document.ID_FIELD field. Returns null if no override should be
+   * applied for the given document.
    */
   protected String getDocIdOverride(Document doc) {
-    if (idOverrideField!=null && doc.has(idOverrideField)) {
+    if (idOverrideField != null && doc.has(idOverrideField)) {
       return doc.getString(idOverrideField);
     }
     return null;

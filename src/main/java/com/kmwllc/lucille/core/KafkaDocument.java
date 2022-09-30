@@ -1,9 +1,8 @@
 package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-
 import java.util.Objects;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 public class KafkaDocument extends JsonDocument {
 
@@ -16,24 +15,25 @@ public class KafkaDocument extends JsonDocument {
     super(data);
   }
 
-  public void setKafkaMetadata(ConsumerRecord<String, ?> record) {
-    this.topic = record.topic();
-    this.partition = record.partition();
-    this.offset = record.offset();
-    this.key = record.key();
-  }
-
   public KafkaDocument(ConsumerRecord<String, String> record) throws Exception {
-    super((ObjectNode)MAPPER.readTree(record.value()));
+    super((ObjectNode) MAPPER.readTree(record.value()));
     setKafkaMetadata(record);
   }
 
-  private KafkaDocument(ObjectNode data, String topic, int partition, long offset, String key) throws DocumentException {
+  private KafkaDocument(ObjectNode data, String topic, int partition, long offset, String key)
+      throws DocumentException {
     super(data);
     this.topic = topic;
     this.partition = partition;
     this.offset = offset;
     this.key = key;
+  }
+
+  public void setKafkaMetadata(ConsumerRecord<String, ?> record) {
+    this.topic = record.topic();
+    this.partition = record.partition();
+    this.offset = record.offset();
+    this.key = record.key();
   }
 
   public String getTopic() {
@@ -58,14 +58,13 @@ public class KafkaDocument extends JsonDocument {
       return true;
     }
     if (other instanceof KafkaDocument) {
-      KafkaDocument doc = (KafkaDocument)other;
+      KafkaDocument doc = (KafkaDocument) other;
 
-      return
-        Objects.equals(topic, doc.topic) &&
-          Objects.equals(partition, doc.partition) &&
-          Objects.equals(offset, doc.offset) &&
-          Objects.equals(key, doc.key) &&
-          data.equals(doc.data);
+      return Objects.equals(topic, doc.topic)
+          && Objects.equals(partition, doc.partition)
+          && Objects.equals(offset, doc.offset)
+          && Objects.equals(key, doc.key)
+          && data.equals(doc.data);
     }
     return false;
   }

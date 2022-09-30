@@ -4,6 +4,13 @@ import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import java.io.*;
+import java.net.URL;
+import java.util.List;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,39 +18,31 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
-import java.io.*;
-import java.net.URL;
-import java.util.List;
-
-
 /**
  * Connector implementation that produces documents from a given XML file.
- * <p>
- * Config Parameters:
+ *
+ * <p>Config Parameters:
+ *
  * <ul>
- * <li>filePaths (List<String>): The list of file paths to parse through.</li>
- * <li>xmlRootPath (String): The path to the XML chunk to separate as a document.</li>
- * <li>xmlIdPath (String): The path to the id for each document.</li>
- * <li>urlFiles (List<String>): The list of URL file paths to parse. If specified along with filePaths, urlFiles takes precedence.</li>
- * <li>encoding (String): The encoding of the XML document to parse: defaults to utf-8.</li>
- * <li>outputField (String): The field to place the XML into: defaults to "xml".</li>
+ *   <li>filePaths (List<String>): The list of file paths to parse through.
+ *   <li>xmlRootPath (String): The path to the XML chunk to separate as a document.
+ *   <li>xmlIdPath (String): The path to the id for each document.
+ *   <li>urlFiles (List<String>): The list of URL file paths to parse. If specified along with
+ *       filePaths, urlFiles takes precedence.
+ *   <li>encoding (String): The encoding of the XML document to parse: defaults to utf-8.
+ *   <li>outputField (String): The field to place the XML into: defaults to "xml".
  * </ul>
  */
 public class XMLConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(XMLConnector.class);
 
-  private List<String> filePaths;
-  private String xmlRootPath;
-  private String xmlIdPath;
-  private List<String> urlFiles;
-  private String encoding;
-  private String outputField;
-
+  private final List<String> filePaths;
+  private final String xmlRootPath;
+  private final String xmlIdPath;
+  private final List<String> urlFiles;
+  private final String encoding;
+  private final String outputField;
 
   public XMLConnector(Config config) {
     super(config);
@@ -92,7 +91,7 @@ public class XMLConnector extends AbstractConnector {
         }
         File f = new File(file);
         try (InputStream in = new URL("file://" + f.getAbsolutePath()).openStream();
-             RecordingInputStream ris = new RecordingInputStream(in);) {
+            RecordingInputStream ris = new RecordingInputStream(in)) {
           setUpAndParse(ris, xmlHandler, xmlReader);
         } catch (Exception e) {
           throw new ConnectorException("Error during XML parsing", e);
@@ -109,16 +108,17 @@ public class XMLConnector extends AbstractConnector {
       }
       log.info("Parsing file: {}", file);
       try (FileInputStream fis = new FileInputStream(file);
-           RecordingInputStream ris = new RecordingInputStream(fis)) {
+          RecordingInputStream ris = new RecordingInputStream(fis)) {
         setUpAndParse(ris, xmlHandler, xmlReader);
       } catch (Exception e) {
         throw new ConnectorException("Error during XML parsing", e);
       }
     }
-
   }
 
-  public void setUpAndParse(RecordingInputStream ris, ChunkingXMLHandler xmlHandler, XMLReader xmlReader) throws ConnectorException {
+  public void setUpAndParse(
+      RecordingInputStream ris, ChunkingXMLHandler xmlHandler, XMLReader xmlReader)
+      throws ConnectorException {
     ris.setEncoding(encoding);
     try (InputStreamReader inputStreamReader = new InputStreamReader(ris, encoding)) {
       InputSource xmlSource = new InputSource(inputStreamReader);

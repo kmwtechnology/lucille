@@ -8,29 +8,26 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * A record from a source system to be passed through a Pipeline, enriched,
- * and sent to a destination system.
- *
+ * A record from a source system to be passed through a Pipeline, enriched, and sent to a
+ * destination system.
  */
 public class JsonDocument implements Document {
 
   protected static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>(){};
+  private static final TypeReference<Map<String, Object>> TYPE =
+      new TypeReference<Map<String, Object>>() {};
   private static final Logger log = LoggerFactory.getLogger(JsonDocument.class);
 
-  @JsonValue
-  protected final ObjectNode data;
+  @JsonValue protected final ObjectNode data;
 
   /**
    * A copy constructor for {@link Document} that deep copies the ObjectNode and verifies the
@@ -44,8 +41,8 @@ public class JsonDocument implements Document {
   }
 
   /**
-   * Creates a new {@link JsonDocument} from a {@link ObjectNode} of key/value pairs. Note: does
-   * not defensively copy the given ObjectNode, so it must not be modified after creation.
+   * Creates a new {@link JsonDocument} from a {@link ObjectNode} of key/value pairs. Note: does not
+   * defensively copy the given ObjectNode, so it must not be modified after creation.
    *
    * @param data the data to be stored in the document
    * @throws DocumentException if document is missing a nonempty {@link Document#ID_FIELD}
@@ -65,7 +62,7 @@ public class JsonDocument implements Document {
   }
 
   public JsonDocument(String id) {
-    if (id==null) {
+    if (id == null) {
       throw new NullPointerException("ID cannot be null");
     }
     this.data = MAPPER.createObjectNode();
@@ -77,14 +74,26 @@ public class JsonDocument implements Document {
     this.data.put(RUNID_FIELD, runId);
   }
 
-  public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
-    return new JsonDocument((ObjectNode)MAPPER.readTree(json));
+  public static JsonDocument fromJsonString(String json)
+      throws DocumentException, JsonProcessingException {
+    return new JsonDocument((ObjectNode) MAPPER.readTree(json));
   }
 
-  public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
+  public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater)
+      throws DocumentException, JsonProcessingException {
     JsonDocument doc = fromJsonString(json);
     doc.data.put(ID_FIELD, idUpdater.apply(doc.getId()));
     return doc;
+  }
+
+  private static ObjectNode getData(Document other) {
+    if (other == null) {
+      throw new IllegalStateException("Document is null");
+    }
+    if (!(other instanceof JsonDocument)) {
+      throw new IllegalStateException("Documents are not of the same type");
+    }
+    return ((JsonDocument) other).data;
   }
 
   @Override
@@ -101,51 +110,105 @@ public class JsonDocument implements Document {
 
   @Override
   public void update(String name, UpdateMode mode, String... values) {
-    update(name, mode, (v)->{setField(name,(String)v);}, (v)->{setOrAdd(name,(String)v);}, values);
+    update(
+        name,
+        mode,
+        (v) -> {
+          setField(name, (String) v);
+        },
+        (v) -> {
+          setOrAdd(name, (String) v);
+        },
+        values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Long... values) {
-    update(name, mode, (v)->{setField(name,(Long)v);}, (v)->{setOrAdd(name,(Long)v);}, values);
+    update(
+        name,
+        mode,
+        (v) -> {
+          setField(name, (Long) v);
+        },
+        (v) -> {
+          setOrAdd(name, (Long) v);
+        },
+        values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Integer... values) {
-    update(name, mode, (v)->{setField(name,(Integer)v);}, (v)->{setOrAdd(name,(Integer)v);}, values);
+    update(
+        name,
+        mode,
+        (v) -> {
+          setField(name, (Integer) v);
+        },
+        (v) -> {
+          setOrAdd(name, (Integer) v);
+        },
+        values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Boolean... values) {
-    update(name, mode, (v)->{setField(name,(Boolean)v);}, (v)->{setOrAdd(name,(Boolean)v);}, values);
+    update(
+        name,
+        mode,
+        (v) -> {
+          setField(name, (Boolean) v);
+        },
+        (v) -> {
+          setOrAdd(name, (Boolean) v);
+        },
+        values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Double... values) {
-    update(name, mode, (v)->{setField(name,(Double)v);}, (v)->{setOrAdd(name,(Double)v);}, values);
+    update(
+        name,
+        mode,
+        (v) -> {
+          setField(name, (Double) v);
+        },
+        (v) -> {
+          setOrAdd(name, (Double) v);
+        },
+        values);
   }
 
   @Override
   public void update(String name, UpdateMode mode, Instant... values) {
-    update(name, mode, (v)->{setField(name,(Instant)v);}, (v)->{setOrAdd(name,(Instant)v);}, values);
+    update(
+        name,
+        mode,
+        (v) -> {
+          setField(name, (Instant) v);
+        },
+        (v) -> {
+          setOrAdd(name, (Instant) v);
+        },
+        values);
   }
 
   /**
    * Private helper method used by different public versions of the overloaded update method.
    *
-   * Expects two Consumers that invoke setField and addToField respectively on the named field, passing in
-   * a provided value.
+   * <p>Expects two Consumers that invoke setField and addToField respectively on the named field,
+   * passing in a provided value.
    *
-   * The Consumer / Lambda Expression approach is used here to avoid code duplication between the various
-   * update methods. It is not possible to make update() a generic method because ultimately it would need to call
-   * one of the specific setField or addToField methods which in turn call data.put(String, String),
-   * data.put(String, Long), data.put(String Boolean)
+   * <p>The Consumer / Lambda Expression approach is used here to avoid code duplication between the
+   * various update methods. It is not possible to make update() a generic method because ultimately
+   * it would need to call one of the specific setField or addToField methods which in turn call
+   * data.put(String, String), data.put(String, Long), data.put(String Boolean)
    */
-  private void update(String name, UpdateMode mode, Consumer setter, Consumer adder, Object... values) {
+  private void update(
+      String name, UpdateMode mode, Consumer setter, Consumer adder, Object... values) {
 
     validateNotReservedField(name);
 
-    if (values.length == 0)
-      return;
+    if (values.length == 0) return;
 
     if (has(name) && mode.equals(UpdateMode.SKIP)) {
       return;
@@ -241,7 +304,7 @@ public class JsonDocument implements Document {
       }
     }
 
-    data.set(newName,oldValues);
+    data.set(newName, oldValues);
   }
 
   @Override
@@ -602,10 +665,8 @@ public class JsonDocument implements Document {
     if (!has(name)) {
 
       if (!other.has(name)) {
-        return;
       } else {
         data.set(name, getData(other).get(name));
-        return;
       }
 
     } else {
@@ -619,7 +680,6 @@ public class JsonDocument implements Document {
       } else {
         currentValues.add(otherValue);
       }
-
     }
   }
 
@@ -635,7 +695,7 @@ public class JsonDocument implements Document {
   }
 
   @Override
-  public Map<String,Object> asMap() {
+  public Map<String, Object> asMap() {
     return MAPPER.convertValue(data, TYPE);
   }
 
@@ -650,10 +710,7 @@ public class JsonDocument implements Document {
     if (!data.has(CHILDREN_FIELD)) {
       return false;
     }
-    if (getChildren().isEmpty()) {
-      return false;
-    }
-    return true;
+    return !getChildren().isEmpty();
   }
 
   @Override
@@ -734,15 +791,5 @@ public class JsonDocument implements Document {
         arrayNode.add(jsonNode);
       }
     }
-  }
-
-  private static ObjectNode getData(Document other) {
-    if (other == null) {
-      throw new IllegalStateException("Document is null");
-    }
-    if (!(other instanceof JsonDocument)) {
-      throw new IllegalStateException("Documents are not of the same type");
-    }
-    return ((JsonDocument) other).data;
   }
 }
