@@ -13,7 +13,8 @@ public class ConnectorException extends Exception {
     super(cause);
   }
 
-  protected ConnectorException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+  protected ConnectorException(
+      String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
     super(message, cause, enableSuppression, writableStackTrace);
   }
 
