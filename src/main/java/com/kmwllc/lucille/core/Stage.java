@@ -27,7 +27,7 @@ import java.util.stream.Stream;
  *   <li> conditional_operator (String, Optional) : The operator to determine conditional execution.
  *   Can be 'must' or 'must_not'. Defaults to must.</li>
  * </ul>
- *
+ * <p>
  * Config validation:<br/>
  * The config validation will happen based on {@link Stage#optionalProperties},
  * {@link Stage#requiredProperties}, and {@link Stage#nestedProperties}. Note that all of these
@@ -36,7 +36,6 @@ import java.util.stream.Stream;
  * optional. {@link Stage#nestedProperties} are currently implemented as optional and allow
  * properties to be passed as an object and have to start with name of the property followed by a
  * period and the nested name (ex. "property.nested")
- *
  */
 public abstract class Stage {
 
@@ -65,7 +64,7 @@ public abstract class Stage {
   }
 
   private Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties,
-                  Set<String> nestedProperties) {
+                Set<String> nestedProperties) {
 
     this.config = config;
     this.nestedProperties = new HashSet<>(nestedProperties);
@@ -90,10 +89,11 @@ public abstract class Stage {
   public void start() throws StageException {
   }
 
-  public void stop() throws StageException {}
+  public void stop() throws StageException {
+  }
 
   public void logMetrics() {
-    if (timer==null || childCounter==null || errorCounter==null) {
+    if (timer == null || childCounter == null || errorCounter == null) {
       LoggerFactory.getLogger(Stage.class).error("Metrics not initialized");
     } else {
       LoggerFactory.getLogger(Stage.class).info(
@@ -109,7 +109,7 @@ public abstract class Stage {
    * values were found in the fields.
    *
    * @param doc the doc to determine processing for
-   * @return  boolean representing - should we process this doc according to its conditionals?
+   * @return boolean representing - should we process this doc according to its conditionals?
    */
   public boolean shouldProcess(Document doc) {
     return condition.test(doc);
@@ -119,27 +119,27 @@ public abstract class Stage {
    * Process this Document iff it adheres to our conditional requirements.
    *
    * @param doc the Document
-   * @return  a list of child documents resulting from this Stages processing
+   * @return a list of child documents resulting from this Stages processing
    * @throws StageException
    */
   public List<Document> processConditional(Document doc) throws StageException {
     if (shouldProcess(doc)) {
-      if (timer!=null) {
+      if (timer != null) {
         context = timer.time();
       }
       try {
         List<Document> children = processDocument(doc);
-        if (children!=null && children.size()>0) {
+        if (children != null && children.size() > 0) {
           childCounter.inc(children.size());
         }
         return children;
       } catch (StageException e) {
-        if (errorCounter!=null) {
+        if (errorCounter != null) {
           errorCounter.inc();
         }
         throw e;
       } finally {
-        if (context!=null) {
+        if (context != null) {
           context.stop();
         }
       }
@@ -151,7 +151,7 @@ public abstract class Stage {
   /**
    * Applies an operation to a Document in place and returns a list containing any child Documents generated
    * by the operation. If no child Documents are generated, the return value should be null.
-   *
+   * <p>
    * This interface assumes that the list of child Documents is large enough to hold in memory. To support
    * an unbounded number of child documents, this method would need to return an Iterator (or something similar)
    * instead of a List.
@@ -166,7 +166,7 @@ public abstract class Stage {
    * Initialize metrics and set the Stage's name based on the position if the name has not already been set.
    */
   public void initialize(int position, String metricsPrefix) throws StageException {
-    if (name==null) {
+    if (name == null) {
       this.name = "stage_" + position;
     }
 
@@ -185,7 +185,7 @@ public abstract class Stage {
     validateConfigGeneric(config, requiredProperties, optionalProperties, nestedProperties);
 
     // validate conditions
-    if (config.hasPath("conditions"))  {
+    if (config.hasPath("conditions")) {
       for (Config condition : config.getConfigList("conditions")) {
         validateConfigGeneric(condition, Set.of("fields", "values"), Set.of("operator"), Set.of());
       }
@@ -202,7 +202,7 @@ public abstract class Stage {
       throw new IllegalArgumentException("Required, optional and nested properties must be disjoint.");
 
     // verifies all required properties are present
-    for (String property: requiredProperties) {
+    for (String property : requiredProperties) {
       if (!config.hasPath(property)) {
         throw new IllegalArgumentException("Stage config must contain property " + property);
       }
@@ -210,8 +210,8 @@ public abstract class Stage {
 
     // verifies that all remaining properties are in the optional set or are nested
     Set<String> legalProperties = Stream.concat(requiredProperties.stream(),
-        optionalProperties.stream()).collect(Collectors.toSet());
-    for (Map.Entry<String, ConfigValue> entry: config.entrySet()) {
+      optionalProperties.stream()).collect(Collectors.toSet());
+    for (Map.Entry<String, ConfigValue> entry : config.entrySet()) {
       if (!legalProperties.contains(entry.getKey()) && !isNestedProperty(entry.getKey())) {
         throw new IllegalArgumentException("Stage config contains unknown property " + entry.getKey());
       }
@@ -236,12 +236,12 @@ public abstract class Stage {
       throw new IllegalArgumentException("Sets must not be null");
     }
     for (int i = 0; i < sets.length; i++) {
-      if (sets[i] == null){
+      if (sets[i] == null) {
         throw new IllegalArgumentException("All sets must not be null");
       }
       for (int j = i + 1; j < sets.length; j++) {
         // this is more efficient than checking that the intersection is not empty
-        if (!Collections.disjoint(sets[i], sets[j])){
+        if (!Collections.disjoint(sets[i], sets[j])) {
           return false;
         }
       }
