@@ -4,14 +4,11 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
-
 import java.util.List;
 
 /**
- * Deletes a list of given fields from each document it processes.
- * <br>
- * Config Parameters -
- * <br>
+ * Deletes a list of given fields from each document it processes. <br>
+ * Config Parameters - <br>
  * fields (List<String>) : The list of fields to be deleted.
  */
 public class DeleteFields extends Stage {
@@ -33,8 +30,7 @@ public class DeleteFields extends Stage {
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     for (String field : fields) {
-      if (!doc.has(field))
-        continue;
+      if (!doc.has(field)) continue;
 
       doc.removeField(field);
     }
