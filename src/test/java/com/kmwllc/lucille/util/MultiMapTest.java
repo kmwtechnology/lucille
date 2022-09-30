@@ -211,9 +211,9 @@ public class MultiMapTest {
     assertEquals(Map.of("hi", String.class), empty.getTypes());
 
     // override
-    assertEquals("a" , map.getOne("string"));
+    assertEquals("a", map.getOne("string"));
     map.putOne("string", "b");
-    assertEquals("b" , map.getOne("string"));
+    assertEquals("b", map.getOne("string"));
 
     // override list with single value
     assertTrue(map.isMultiValued("list-string"));

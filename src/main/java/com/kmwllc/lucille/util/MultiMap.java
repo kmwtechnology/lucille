@@ -143,10 +143,10 @@ public class MultiMap implements IMultiMap {
 
     // todo might need to copy each individual list and object within
     MultiMap copy = new MultiMap(supportedTypes);
-    for (String key: getSingleKeys()) {
+    for (String key : getSingleKeys()) {
       copy.putOne(key, getOne(key));
     }
-    for (String key: getMultiKeys()) {
+    for (String key : getMultiKeys()) {
       copy.putMany(key, getMany(key));
     }
     return copy;

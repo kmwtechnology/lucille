@@ -81,7 +81,7 @@ public class HashMapDocument implements Document {
     data = new MultiMap(supported);
     data.putOne(ID_FIELD, updateString(requireString(node.get(ID_FIELD)), idUpdater));
 
-    for(Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext();) {
+    for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
       Map.Entry<String, JsonNode> entry = it.next();
       String key = entry.getKey();
       JsonNode value = entry.getValue();
@@ -96,7 +96,7 @@ public class HashMapDocument implements Document {
           if (value.getNodeType() != JsonNodeType.ARRAY) {
             throw new IllegalArgumentException();
           }
-          for (JsonNode child: value) {
+          for (JsonNode child : value) {
             addChild(new HashMapDocument((ObjectNode) child, idUpdater));
           }
           break;
@@ -138,7 +138,7 @@ public class HashMapDocument implements Document {
 //        break;
       case ARRAY:
         data.putMany(name, new ArrayList<>()); // initialize because may be empty
-        for (JsonNode item: node) {
+        for (JsonNode item : node) {
           addNodeValueToField(name, item);
         }
         break;
@@ -189,7 +189,7 @@ public class HashMapDocument implements Document {
     int start = 0;
     if (mode == UpdateMode.OVERWRITE) {
       setFieldGeneric(name, values[0]);
-      start ++;
+      start++;
     }
     for (int i = start; i < values.length; i++) {
       setOrAddGeneric(name, values[i]);
@@ -289,7 +289,7 @@ public class HashMapDocument implements Document {
     Document.validateNotReservedField(oldName, newName);
 
     if (has(newName)) {
-      switch(mode) {
+      switch (mode) {
         case OVERWRITE:
           removeField(newName);
           // go to next step
