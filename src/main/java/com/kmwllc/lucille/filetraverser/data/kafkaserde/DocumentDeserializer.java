@@ -3,11 +3,10 @@ package com.kmwllc.lucille.filetraverser.data.kafkaserde;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
+import java.nio.charset.StandardCharsets;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import java.nio.charset.StandardCharsets;
 
 public class DocumentDeserializer implements Deserializer<Document> {
   private static final Logger log = LogManager.getLogger(DocumentDeserializer.class);

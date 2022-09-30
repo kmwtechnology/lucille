@@ -59,7 +59,7 @@
         </configuration>
       </plugin>
 
-      <!-- automatically format code, taken from https://github.com/Cosium/git-code-format-maven-plugin-->
+      <!-- automatically format code, taken from https://github.com/Cosium/git-code-format-maven-plugin -->
       <plugin>
         <groupId>com.cosium.code</groupId>
         <artifactId>git-code-format-maven-plugin</artifactId>
@@ -74,12 +74,13 @@
           </execution>
           <!-- On Maven verify phase, fail if any file
           (including unmodified) is badly formatted -->
-<!--          <execution>-->
-<!--            <id>validate-code-format</id>-->
-<!--            <goals>-->
-<!--              <goal>validate-code-format</goal>-->
-<!--            </goals>-->
-<!--          </execution>-->
+          <execution>
+            <id>validate-code-format</id>
+            <goals>
+              <goal>validate-code-format</goal>
+            </goals>
+            <phase>generate-sources</phase> <!-- bind to the packaging phase -->
+          </execution>
         </executions>
       </plugin>
 
