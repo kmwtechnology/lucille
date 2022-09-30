@@ -425,12 +425,12 @@ public class Runner {
 
   public enum RunType {
     LOCAL, // launch Worker(s) and Indexer as threads; have all components communicate via in-memory
-           // queues
+    // queues
     TEST, // same as LOCAL, but bypass Solr, and store message traffic so it can be inspected after
-          // the run
+    // the run
     KAFKA_LOCAL, // launch Worker(s) and Indexer as threads; have all components communicate via
-                 // Kafka
+    // Kafka
     KAFKA_DISTRIBUTED // assume Workers/Indexers were started separately (don't launch threads);
-                      // have all components communicate via Kafka
+    // have all components communicate via Kafka
   }
 }
