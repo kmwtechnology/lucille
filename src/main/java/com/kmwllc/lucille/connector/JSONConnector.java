@@ -5,12 +5,11 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.io.LineIterator;
-
 import java.io.IOException;
 import java.io.Reader;
 import java.util.function.UnaryOperator;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.LineIterator;
 
 public class JSONConnector extends AbstractConnector {
 
