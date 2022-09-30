@@ -5,16 +5,18 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-
 import java.util.List;
 
 /**
- * Normalizes a document's field values by replacing spaces and non-alphanumeric characters with given delimiters.
- * <p>
- * Config Parameters -
+ * Normalizes a document's field values by replacing spaces and non-alphanumeric characters with
+ * given delimiters.
+ *
+ * <p>Config Parameters -
+ *
  * <ul>
- * <li>delimiter (String) : A delimiter to replace spaces, defaults to "_".</li>
- * <li>nonAlphanumReplacement (String) : A replacement for non-alphanumeric characters, defaults to "".</li>
+ *   <li>delimiter (String) : A delimiter to replace spaces, defaults to "_".
+ *   <li>nonAlphanumReplacement (String) : A replacement for non-alphanumeric characters, defaults
+ *       to "".
  * </ul>
  */
 public class NormalizeFieldNames extends Stage {
@@ -25,7 +27,8 @@ public class NormalizeFieldNames extends Stage {
   public NormalizeFieldNames(Config config) {
     super(config);
     this.delimeter = config.hasPath("delimeter") ? config.getString("delimeter") : "_";
-    this.nonAlphanumReplacement = config.hasPath("nonAlphaNumReplacement") ? config.getString("nonAlphanumReplacement") : "";
+    this.nonAlphanumReplacement =
+        config.hasPath("nonAlphaNumReplacement") ? config.getString("nonAlphanumReplacement") : "";
   }
 
   @Override
@@ -35,7 +38,8 @@ public class NormalizeFieldNames extends Stage {
         continue;
       }
 
-      String normalizedField = field.replaceAll(" ", delimeter).replaceAll("[^a-zA-Z0-9_.]", nonAlphanumReplacement);
+      String normalizedField =
+          field.replaceAll(" ", delimeter).replaceAll("[^a-zA-Z0-9_.]", nonAlphanumReplacement);
       doc.renameField(field, normalizedField, UpdateMode.DEFAULT);
     }
 
