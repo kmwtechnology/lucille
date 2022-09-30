@@ -99,13 +99,13 @@ public class JsonDocument implements Document {
 
   @Override
   public void removeField(String name) {
-    validateNotReservedField(name);
+    Document.validateNotReservedField(name);
     data.remove(name);
   }
 
   @Override
   public void removeFromArray(String name, int index) {
-    validateNotReservedField(name);
+    Document.validateNotReservedField(name);
     data.withArray(name).remove(index);
   }
 
@@ -154,7 +154,7 @@ public class JsonDocument implements Document {
   private <T> void update(String name, UpdateMode mode,
                           Consumer<T> setter, Consumer<T> adder, T... values) {
 
-    validateNotReservedField(name);
+    Document.validateNotReservedField(name);
 
     if (values.length == 0 || has(name) && mode == UpdateMode.SKIP) {
       return;
@@ -190,49 +190,49 @@ public class JsonDocument implements Document {
 
   @Override
   public void setField(String name, String value) {
-    validateNotReservedField(name);
+    Document.validateNotReservedField(name);
     data.put(name, value);
   }
 
   @Override
   public void setField(String name, Long value) {
-    validateNotReservedField(name);
+    Document.validateNotReservedField(name);
     data.put(name, value);
   }
 
   @Override
   public void setField(String name, Integer value) {
-    validateNotReservedField(name);
+    Document.validateNotReservedField(name);
     data.put(name, value);
   }
 
   @Override
   public void setField(String name, Boolean value) {
-    validateNotReservedField(name);
+    Document.validateNotReservedField(name);
     data.put(name, value);
   }
 
   @Override
   public void setField(String name, Double value) {
-    validateNotReservedField(name);
+    Document.validateNotReservedField(name);
     data.put(name, value);
   }
 
   @Override
   public void setField(String name, JsonNode value) {
-    validateNotReservedField(name);
+    Document.validateNotReservedField(name);
     data.set(name, value);
   }
 
   @Override
   public void setField(String name, Instant value) {
-    validateNotReservedField(name);
+    Document.validateNotReservedField(name);
     data.put(name, INSTANT_FORMATTER.apply(value));
   }
 
   @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
-    validateNotReservedField(oldName, newName);
+    Document.validateNotReservedField(oldName, newName);
     JsonNode oldValues = data.get(oldName);
     data.remove(oldName);
 
@@ -406,7 +406,7 @@ public class JsonDocument implements Document {
   }
 
   private ArrayNode getFieldArray(String name) {
-    validateNotReservedField(name);
+    Document.validateNotReservedField(name);
     convertToList(name);
     return data.withArray(name);
   }
@@ -512,7 +512,7 @@ public class JsonDocument implements Document {
   @Override
   public void setOrAdd(String name, Document other) throws IllegalArgumentException {
 
-    validateNotReservedField(name);
+    Document.validateNotReservedField(name);
 
     if (!has(name)) {
       if (other.has(name)) {
@@ -587,20 +587,6 @@ public class JsonDocument implements Document {
       return new JsonDocument(this);
     } catch (DocumentException e) {
       throw new IllegalStateException("Document not copyable", e);
-    }
-  }
-
-  private void validateNotReservedField(String... names) throws IllegalArgumentException {
-    if (names == null) {
-      throw new IllegalArgumentException("expecting string parameters");
-    }
-    for (String name: names) {
-      if (name == null) {
-        throw new IllegalArgumentException("Field name cannot be null");
-      }
-      if (RESERVED_FIELDS.contains(name)) {
-        throw new IllegalArgumentException(name + " is a reserved field");
-      }
     }
   }
 
