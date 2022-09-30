@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.util;
 
 import com.typesafe.config.Config;
+import java.net.URI;
 import nl.altindag.ssl.SSLFactory;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -12,11 +13,7 @@ import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
 import org.opensearch.client.RestHighLevelClient;
 
-import java.net.URI;
-
-/**
- * Utility methods for communicating with OpenSearch.
- */
+/** Utility methods for communicating with OpenSearch. */
 public class OpenSearchUtils {
 
   /**
@@ -30,7 +27,7 @@ public class OpenSearchUtils {
     // get host uri
     URI hostUri = URI.create(getOpenSearchUrl(config));
 
-    //Establish credentials to use basic authentication.
+    // Establish credentials to use basic authentication.
     final CredentialsProvider provider = new BasicCredentialsProvider();
 
     // get user info from URI if present and setup BasicAuth credentials if needed
@@ -39,8 +36,7 @@ public class OpenSearchUtils {
       int pos = userInfo.indexOf(":");
       String username = userInfo.substring(0, pos);
       String password = userInfo.substring(pos + 1);
-      provider.setCredentials(AuthScope.ANY,
-        new UsernamePasswordCredentials(username, password));
+      provider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
     }
 
     // needed to allow for local testing of HTTPS
@@ -48,22 +44,27 @@ public class OpenSearchUtils {
     boolean allowInvalidCert = getAllowInvalidCert(config);
     if (allowInvalidCert) {
       sslFactoryBuilder
-        .withTrustingAllCertificatesWithoutValidation()
-        .withHostnameVerifier((host, session) -> true);
+          .withTrustingAllCertificatesWithoutValidation()
+          .withHostnameVerifier((host, session) -> true);
     } else {
       sslFactoryBuilder.withDefaultTrustMaterial();
     }
 
     SSLFactory sslFactory = sslFactoryBuilder.build();
 
-    RestClientBuilder builder = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
-      .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
-        @Override
-        public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
-          return httpClientBuilder.setDefaultCredentialsProvider(provider).setSSLContext(sslFactory.getSslContext())
-            .setSSLHostnameVerifier(sslFactory.getHostnameVerifier());
-        }
-      });
+    RestClientBuilder builder =
+        RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
+            .setHttpClientConfigCallback(
+                new RestClientBuilder.HttpClientConfigCallback() {
+                  @Override
+                  public HttpAsyncClientBuilder customizeHttpClient(
+                      HttpAsyncClientBuilder httpClientBuilder) {
+                    return httpClientBuilder
+                        .setDefaultCredentialsProvider(provider)
+                        .setSSLContext(sslFactory.getSslContext())
+                        .setSSLHostnameVerifier(sslFactory.getHostnameVerifier());
+                  }
+                });
 
     RestHighLevelClient client = new RestHighLevelClient(builder);
 
