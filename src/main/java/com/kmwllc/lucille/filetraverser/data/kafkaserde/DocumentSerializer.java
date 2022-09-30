@@ -1,9 +1,8 @@
 package com.kmwllc.lucille.filetraverser.data.kafkaserde;
 
 import com.kmwllc.lucille.core.Document;
-import org.apache.kafka.common.serialization.Serializer;
-
 import java.nio.charset.StandardCharsets;
+import org.apache.kafka.common.serialization.Serializer;
 
 public class DocumentSerializer implements Serializer<Document> {
 
