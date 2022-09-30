@@ -199,6 +199,7 @@
             <goals>
               <goal>validate-code-format</goal>
             </goals>
+            <inherited>false</inherited>
             <phase>generate-sources</phase> <!-- bind to the packaging phase -->
           </execution>
         </executions>
