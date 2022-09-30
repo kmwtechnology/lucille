@@ -13,17 +13,18 @@ import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.protocol.HttpCoreContext;
 
-/**
- * A custom request interceptor to enable preemptive authentication.
- */
+/** A custom request interceptor to enable preemptive authentication. */
 public class PreemptiveAuthInterceptor implements HttpRequestInterceptor {
   @Override
   public void process(HttpRequest request, HttpContext context) throws HttpException {
     AuthState authState = (AuthState) context.getAttribute(HttpClientContext.TARGET_AUTH_STATE);
     if (authState.getAuthScheme() == null) {
-      CredentialsProvider credsProvider = (CredentialsProvider) context.getAttribute(HttpClientContext.CREDS_PROVIDER);
+      CredentialsProvider credsProvider =
+          (CredentialsProvider) context.getAttribute(HttpClientContext.CREDS_PROVIDER);
       HttpHost targetHost = (HttpHost) context.getAttribute(HttpCoreContext.HTTP_TARGET_HOST);
-      Credentials credentials = credsProvider.getCredentials(new AuthScope(targetHost.getHostName(), targetHost.getPort()));
+      Credentials credentials =
+          credsProvider.getCredentials(
+              new AuthScope(targetHost.getHostName(), targetHost.getPort()));
       if (credentials == null) {
         throw new HttpException("No credentials provided for preemptive authentication.");
       }
