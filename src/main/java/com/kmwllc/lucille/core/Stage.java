@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * An operation that can be performed on a Document.<br/>
@@ -39,8 +40,7 @@ import java.util.stream.Collectors;
  */
 public abstract class Stage {
 
-  private final static Set<String> RESERVED_PROPERTIES = Set.of("class");
-  private final static Set<String> OPTIONAL_PROPERTIES = Set.of("name", "conditions");
+  private final static Set<String> OPTIONAL_PROPERTIES = Set.of("class", "name", "conditions");
 
   protected Config config;
   private final Predicate<Document> condition;
@@ -68,20 +68,23 @@ public abstract class Stage {
                   Set<String> nestedProperties) {
 
     this.config = config;
+    this.nestedProperties = new HashSet<>(nestedProperties);
     this.requiredProperties = new HashSet<>(requiredProperties);
     this.optionalProperties = new HashSet<>(optionalProperties);
-    this.nestedProperties = new HashSet<>(nestedProperties);
-
-    this.optionalProperties.addAll(RESERVED_PROPERTIES);
     this.optionalProperties.addAll(OPTIONAL_PROPERTIES);
 
+    // do not move this
     validateConfig();
 
     this.name = ConfigUtils.getOrDefault(config, "name", null);
-    List<Predicate<Document>> conditions = config.hasPath("conditions") ?
-      config.getConfigList("conditions").stream().map(Condition::fromConfig).collect(Collectors.toList())
-      : new ArrayList<>();
-    this.condition = conditions.stream().reduce((d) -> true, Predicate::and);
+    this.condition = getMergedConditions();
+  }
+
+  private Predicate<Document> getMergedConditions() {
+    Stream<Predicate<Document>> conditions = !config.hasPath("conditions") ? Stream.empty()
+      : config.getConfigList("conditions").stream()
+      .map(Condition::fromConfig);
+    return conditions.reduce(c -> true, Predicate::and);
   }
 
   public void start() throws StageException {
@@ -177,23 +180,37 @@ public abstract class Stage {
     return config;
   }
 
-  public void validateConfig() throws IllegalArgumentException {
+  private void validateConfig() throws IllegalArgumentException {
 
-    // todo consider the difference between required and optional nested properties
+    validateConfigGeneric(config, requiredProperties, optionalProperties, nestedProperties);
+
+    // validate conditions
+    if (config.hasPath("conditions"))  {
+      for (Config condition : config.getConfigList("conditions")) {
+        validateConfigGeneric(condition, Set.of("fields", "values"), Set.of("operator"), Set.of());
+      }
+    }
+  }
+
+  // this can be used in a specific stage to validate nested properties
+  protected void validateConfigGeneric(
+    Config config, Set<String> requiredProperties,
+    Set<String> optionalProperties, Set<String> nestedProperties) {
 
     // verifies that set intersection is empty
-    if (!disjoint(this.requiredProperties, this.optionalProperties, this.nestedProperties))
+    if (!disjoint(requiredProperties, optionalProperties, nestedProperties))
       throw new IllegalArgumentException("Required, optional and nested properties must be disjoint.");
 
     // verifies all required properties are present
-    for (String property: this.requiredProperties) {
+    for (String property: requiredProperties) {
       if (!config.hasPath(property)) {
         throw new IllegalArgumentException("Stage config must contain property " + property);
       }
     }
 
     // verifies that all remaining properties are in the optional set or are nested
-    Set<String> legalProperties = getLegalProperties();
+    Set<String> legalProperties = Stream.concat(requiredProperties.stream(),
+        optionalProperties.stream()).collect(Collectors.toSet());
     for (Map.Entry<String, ConfigValue> entry: config.entrySet()) {
       if (!legalProperties.contains(entry.getKey()) && !isNestedProperty(entry.getKey())) {
         throw new IllegalArgumentException("Stage config contains unknown property " + entry.getKey());
@@ -202,9 +219,8 @@ public abstract class Stage {
   }
 
   public Set<String> getLegalProperties() {
-    Set<String> legalProperties = new HashSet<>(requiredProperties);
-    legalProperties.addAll(optionalProperties);
-    return legalProperties;
+    return Stream.concat(requiredProperties.stream(), optionalProperties.stream())
+      .collect(Collectors.toSet());
   }
 
   private boolean isNestedProperty(String property) {
