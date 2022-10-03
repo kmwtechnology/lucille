@@ -1,11 +1,12 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.*;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import java.util.Set;
 import org.junit.Test;
-
-import static org.junit.Assert.*;
 
 public class NormalizeFieldNamesTest {
 
@@ -27,5 +28,13 @@ public class NormalizeFieldNamesTest {
     assertFalse(doc1.has("input 3 (test123)"));
     assertTrue(doc1.has("input_3_test123"));
     assertTrue(doc1.has(".sonarcontent"));
+  }
+
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("FieldNormalizerTest/config.conf");
+    assertEquals(
+        Set.of("delimiter", "name", "conditions", "class", "nonAlphanumReplacement"),
+        stage.getLegalProperties());
   }
 }

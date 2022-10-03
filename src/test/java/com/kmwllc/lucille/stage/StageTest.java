@@ -1,15 +1,15 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.*;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-import org.junit.Test;
-
 import java.util.List;
-
-import static org.junit.Assert.*;
+import java.util.Set;
+import org.junit.Test;
 
 public class StageTest {
 
@@ -146,4 +146,9 @@ public class StageTest {
     assertEquals(null, stage.getName());
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("StageTest/processMust.conf");
+    assertEquals(Set.of("name", "conditions", "class"), stage.getLegalProperties());
+  }
 }

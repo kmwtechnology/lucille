@@ -5,7 +5,7 @@ import org.junit.Test;
 
 public class ConfigValidationTest {
 
-  private StageFactory factory = StageFactory.of(NoopStage.class);
+  private final StageFactory factory = StageFactory.of(NoopStage.class);
 
   @Test(expected = StageException.class)
   public void testConditionsRequired() throws StageException {

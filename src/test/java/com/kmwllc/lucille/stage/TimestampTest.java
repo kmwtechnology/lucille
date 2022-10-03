@@ -1,13 +1,15 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
-import org.junit.Test;
-
+import com.kmwllc.lucille.core.StageException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-
-import static org.junit.Assert.assertTrue;
+import java.util.Set;
+import org.junit.Test;
 
 public class TimestampTest {
 
@@ -31,4 +33,9 @@ public class TimestampTest {
     assertTrue(ChronoUnit.SECONDS.between(timestamp, now) >= 0);
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("TimestampTest/config.conf");
+    assertEquals(Set.of("dest_field", "name", "conditions", "class"), stage.getLegalProperties());
+  }
 }

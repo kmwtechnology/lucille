@@ -1,10 +1,12 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.*;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import java.util.Set;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 public class ContainsTest {
 
@@ -43,5 +45,12 @@ public class ContainsTest {
     assertFalse(doc5.has("output"));
   }
 
-
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("ContainsTest/config.conf");
+    assertEquals(
+        Set.of(
+            "output", "contains", "ignoreCase", "name", "fields", "conditions", "value", "class"),
+        stage.getLegalProperties());
+  }
 }

@@ -1,10 +1,12 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.*;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import java.util.Set;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 public class ExtractFirstCharacterTest {
 
@@ -30,14 +32,14 @@ public class ExtractFirstCharacterTest {
 
   @Test
   public void testReplacement() throws StageException {
-   Stage stage = factory.get("ExtractFirstCharacterTest/replacement.conf");
+    Stage stage = factory.get("ExtractFirstCharacterTest/replacement.conf");
 
-   Document doc = Document.create("doc");
-   doc.setField("input1", "12345");
-   doc.setField("input2", "valid");
-   stage.processDocument(doc);
-   assertEquals("not a letter", doc.getString("output1"));
-   assertEquals("v", doc.getString("output2"));
+    Document doc = Document.create("doc");
+    doc.setField("input1", "12345");
+    doc.setField("input2", "valid");
+    stage.processDocument(doc);
+    assertEquals("not a letter", doc.getString("output1"));
+    assertEquals("v", doc.getString("output2"));
   }
 
   @Test
@@ -52,4 +54,9 @@ public class ExtractFirstCharacterTest {
     assertEquals("t", doc.getString("output1"));
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("ExtractFirstCharacterTest/config.conf");
+    assertEquals(Set.of("name", "conditions", "replacement", "class"), stage.getLegalProperties());
+  }
 }

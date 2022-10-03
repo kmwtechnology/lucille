@@ -2,25 +2,25 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
 import com.typesafe.config.Config;
+import java.util.*;
 import org.apache.commons.lang.text.StrSubstitutor;
 
-import java.util.*;
-
 /**
- * Replaces wildcards in a given format String with the value for the given field. To declare a wildcard,
- * surround the name of the field with '{}'. EX: "{city}, {state}, {country}" -> "Boston, MA, USA". NOTE: If a given
- * field is multivalued, this Stage will substitute the first value for every wildcard.
+ * Replaces wildcards in a given format String with the value for the given field. To declare a
+ * wildcard, surround the name of the field with '{}'. EX: "{city}, {state}, {country}" -> "Boston,
+ * MA, USA". NOTE: If a given field is multivalued, this Stage will substitute the first value for
+ * every wildcard.
  *
- * Config Parameters:
+ * <p>Config Parameters:
  *
- *   - source (List<String>) : list of source field names
- *   - dest (String) : Destination field. This Stage only supports supplying a single destination field.
- *   - format_string (String) : The format String, which will have field values substituted into its placeholders
- *   - defualt_inputs (Map<String, String>, Optional) : Mapping of input fields to a default value. You do not have to
- *   supply a default for every input field, if a default is not provided, the default behavior will be to leave the
- *   wildcard for the field in place. Defaults to an empty Map.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
- *       Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
+ * <p>- source (List<String>) : list of source field names - dest (String) : Destination field. This
+ * Stage only supports supplying a single destination field. - format_string (String) : The format
+ * String, which will have field values substituted into its placeholders - defualt_inputs
+ * (Map<String, String>, Optional) : Mapping of input fields to a default value. You do not have to
+ * supply a default for every input field, if a default is not provided, the default behavior will
+ * be to leave the wildcard for the field in place. Defaults to an empty Map. - update_mode (String,
+ * Optional) : Determines how writing will be handling if the destination field is already
+ * populated. Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class Concatenate extends Stage {
 
@@ -32,17 +32,20 @@ public class Concatenate extends Stage {
   private final List<String> fields;
 
   public Concatenate(Config config) {
-    super(new StageBuilder(config)
-      .withRequiredProperties("dest", "format_string")
-      .withOptionalProperties("update_mode")
-      .withNestedProperties("default_inputs"));
+    super(
+        new StageProperties(config)
+            .withRequiredProperties("dest", "format_string")
+            .withOptionalProperties("update_mode")
+            .withNestedProperties("default_inputs"));
 
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");
 
     this.updateMode = UpdateMode.fromConfig(config);
-    this.defaultInputs = config.hasPath("default_inputs") ?
-        config.getConfig("default_inputs").root().unwrapped() : new HashMap<>();
+    this.defaultInputs =
+        config.hasPath("default_inputs")
+            ? config.getConfig("default_inputs").root().unwrapped()
+            : new HashMap<>();
     // defaultInputs = set.stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue));
 
     this.fields = new ArrayList<>();
@@ -51,7 +54,7 @@ public class Concatenate extends Stage {
   @Override
   public void start() throws StageException {
     Scanner scan = new Scanner(formatStr);
-    for (String s; (s = scan.findWithinHorizon("(?<=\\{).*?(?=})", 0)) != null;) {
+    for (String s; (s = scan.findWithinHorizon("(?<=\\{).*?(?=})", 0)) != null; ) {
       fields.add(s);
     }
   }
@@ -71,7 +74,6 @@ public class Concatenate extends Stage {
       } else {
         value = doc.getStringList(source).get(0);
       }
-
 
       // For each source field, add the field name and first value to our replacement map
       replacements.put(source, value);

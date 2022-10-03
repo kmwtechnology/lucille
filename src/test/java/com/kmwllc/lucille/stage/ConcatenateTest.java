@@ -1,11 +1,14 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
-import org.junit.Test;
 import static org.junit.Assert.*;
 
-public class ConcatenateTest  {
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import java.util.Set;
+import org.junit.Test;
+
+public class ConcatenateTest {
 
   private StageFactory factory = StageFactory.of(Concatenate.class);
 
@@ -53,4 +56,11 @@ public class ConcatenateTest  {
     assertEquals("Toronto, MA, Canada", doc2.getString("dest"));
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("ConcatenateTest/config.conf");
+    assertEquals(
+        Set.of("update_mode", "name", "format_string", "dest", "conditions", "class"),
+        stage.getLegalProperties());
+  }
 }

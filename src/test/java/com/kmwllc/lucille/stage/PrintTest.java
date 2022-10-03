@@ -1,10 +1,12 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.*;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import java.util.Set;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 public class PrintTest {
 
@@ -19,5 +21,20 @@ public class PrintTest {
     doc1.initializeRunId("runID1");
     stage.processDocument(doc1);
     stage.stop();
+  }
+
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("PrintTest/config.conf");
+    assertEquals(
+        Set.of(
+            "overwriteFile",
+            "outputFile",
+            "shouldLog",
+            "name",
+            "excludeFields",
+            "conditions",
+            "class"),
+        stage.getLegalProperties());
   }
 }

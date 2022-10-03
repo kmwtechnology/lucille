@@ -1,11 +1,12 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.*;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.kmwllc.lucille.core.StageException;
+import java.util.Set;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 public class DropValuesTest {
 
@@ -37,4 +38,10 @@ public class DropValuesTest {
     assertEquals("5678", doc2.getStringList("input").get(2));
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("DropValuesTest/config.conf");
+    assertEquals(
+        Set.of("values", "name", "source", "conditions", "class"), stage.getLegalProperties());
+  }
 }

@@ -4,23 +4,21 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
-
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Removes duplicate values from the given list of fields.
- * <br>
- * Config Parameters -
- * <br>
- * fieldMapping (Map<String, Object>) : A mapping of fields to remove duplicates from and the field to output the result to.
+ * Removes duplicate values from the given list of fields. <br>
+ * Config Parameters - <br>
+ * fieldMapping (Map<String, Object>) : A mapping of fields to remove duplicates from and the field
+ * to output the result to.
  */
 public class RemoveDuplicateValues extends Stage {
 
   private final Map<String, Object> fieldMapping;
 
   public RemoveDuplicateValues(Config config) {
-    super(new StageBuilder(config).withNestedProperties("fieldMapping"));
+    super(new StageProperties(config).withNestedProperties("fieldMapping"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
   }
 
