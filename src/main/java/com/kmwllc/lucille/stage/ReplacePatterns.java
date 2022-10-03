@@ -46,7 +46,7 @@ public class ReplacePatterns extends Stage {
 
   public ReplacePatterns(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withRequiredProperties("source", "dest", "regex", "replacement")
             .withOptionalProperties(
                 "update_mode", "ignore_case", "multiline", "dotall", "literal"));

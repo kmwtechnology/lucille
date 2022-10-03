@@ -33,7 +33,7 @@ public class MatchQuery extends Stage {
 
   public MatchQuery(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withRequiredProperties(FIELDS_PARAM, QUERIES_PARAM, MATCHEDQUERIES_PARAM));
     fieldsList = config.getStringList(FIELDS_PARAM);
     queryList = config.getObjectList(QUERIES_PARAM);

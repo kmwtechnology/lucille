@@ -33,7 +33,7 @@ public class QueryDatabase extends Stage {
 
   public QueryDatabase(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withRequiredProperties(
                 "driver",
                 "connectionString",

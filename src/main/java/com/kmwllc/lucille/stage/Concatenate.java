@@ -33,7 +33,7 @@ public class Concatenate extends Stage {
 
   public Concatenate(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withRequiredProperties("dest", "format_string")
             .withOptionalProperties("update_mode")
             .withNestedProperties("default_inputs"));

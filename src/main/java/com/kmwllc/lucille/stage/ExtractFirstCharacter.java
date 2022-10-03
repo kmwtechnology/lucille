@@ -28,7 +28,7 @@ public class ExtractFirstCharacter extends Stage {
 
   public ExtractFirstCharacter(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withOptionalProperties("replacement")
             .withNestedProperties("fieldMapping"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();

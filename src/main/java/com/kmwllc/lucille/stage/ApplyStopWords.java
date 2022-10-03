@@ -39,7 +39,7 @@ public class ApplyStopWords extends Stage {
 
   public ApplyStopWords(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withRequiredProperties("dictionaries")
             .withOptionalProperties("fields"));
     this.dictionaries = config.getStringList("dictionaries");

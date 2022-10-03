@@ -18,7 +18,7 @@ public class RemoveDuplicateValues extends Stage {
   private final Map<String, Object> fieldMapping;
 
   public RemoveDuplicateValues(Config config) {
-    super(new StageProperties(config).withNestedProperties("fieldMapping"));
+    super(new StageSpec(config).withNestedProperties("fieldMapping"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
   }
 

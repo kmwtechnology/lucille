@@ -46,7 +46,7 @@ public class ApplyRegex extends Stage {
 
   public ApplyRegex(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withRequiredProperties("source", "dest", "regex")
             .withOptionalProperties(
                 "update_mode", "ignore_case", "multiline", "dotall", "literal"));

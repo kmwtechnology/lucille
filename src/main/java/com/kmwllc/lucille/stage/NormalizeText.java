@@ -47,7 +47,7 @@ public class NormalizeText extends Stage {
    */
   public NormalizeText(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withRequiredProperties("source", "dest", "mode")
             .withOptionalProperties("update_mode"));
     this.sourceFields = config.getStringList("source");

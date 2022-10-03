@@ -31,7 +31,7 @@ public class Contains extends Stage {
 
   public Contains(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withRequiredProperties("contains", "output", "value", "fields")
             .withOptionalProperties("ignoreCase"));
 

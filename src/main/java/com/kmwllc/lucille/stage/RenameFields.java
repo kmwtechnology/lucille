@@ -26,7 +26,7 @@ public class RenameFields extends Stage {
 
   public RenameFields(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withOptionalProperties("update_mode")
             .withNestedProperties("fieldMapping"));
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();

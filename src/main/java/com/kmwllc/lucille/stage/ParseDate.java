@@ -41,7 +41,7 @@ public class ParseDate extends Stage {
 
   public ParseDate(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withRequiredProperties("source", "dest")
             .withOptionalProperties("format_strs", "update_mode", "formatters"));
 

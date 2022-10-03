@@ -25,8 +25,7 @@ public class NormalizeFieldNames extends Stage {
   private final String nonAlphanumReplacement;
 
   public NormalizeFieldNames(Config config) {
-    super(
-        new StageProperties(config).withOptionalProperties("delimiter", "nonAlphanumReplacement"));
+    super(new StageSpec(config).withOptionalProperties("delimiter", "nonAlphanumReplacement"));
     this.delimeter = config.hasPath("delimeter") ? config.getString("delimeter") : "_";
     this.nonAlphanumReplacement =
         config.hasPath("nonAlphaNumReplacement") ? config.getString("nonAlphanumReplacement") : "";

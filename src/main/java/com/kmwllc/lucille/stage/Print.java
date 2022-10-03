@@ -36,7 +36,7 @@ public class Print extends Stage {
 
   public Print(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withOptionalProperties("shouldLog", "outputFile", "overwriteFile", "excludeFields"));
     this.outputFile = config.hasPath("outputFile") ? config.getString("outputFile") : null;
     this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;

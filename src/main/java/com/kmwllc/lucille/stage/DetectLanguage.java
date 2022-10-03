@@ -54,7 +54,7 @@ public class DetectLanguage extends Stage {
 
   public DetectLanguage(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withRequiredProperties("source", "language_field")
             .withOptionalProperties(
                 "language_confidence_field",

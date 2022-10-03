@@ -9,7 +9,7 @@ import java.util.List;
 
 public class CreateChildrenStage extends Stage {
   public CreateChildrenStage(Config config) {
-    super(new StageProperties(config).withOptionalProperties("numChildren"));
+    super(new StageSpec(config).withOptionalProperties("numChildren"));
     if (config.hasPath("numChildren")) {
       numChildren = config.getInt("numChildren");
     }

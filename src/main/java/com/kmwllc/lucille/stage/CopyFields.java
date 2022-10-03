@@ -31,7 +31,7 @@ public class CopyFields extends Stage {
 
   public CopyFields(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withRequiredProperties("source", "dest")
             .withOptionalProperties("update_mode"));
     this.sourceFields = config.getStringList("source");

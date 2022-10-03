@@ -62,7 +62,7 @@ public class ExtractEntities extends Stage {
 
   public ExtractEntities(Config config) {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withRequiredProperties("source", "dest", "dictionaries")
             .withOptionalProperties(
                 "ignore_case",

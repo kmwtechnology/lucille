@@ -45,7 +45,7 @@ public class DictionaryLookup extends Stage {
 
   public DictionaryLookup(Config config) throws StageException {
     super(
-        new StageProperties(config)
+        new StageSpec(config)
             .withRequiredProperties("source", "dest", "dict_path")
             .withOptionalProperties("use_payloads", "update_mode", "ignore_case"));
 
