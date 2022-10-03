@@ -276,24 +276,24 @@ public abstract class Stage {
     private final Set<String> optionalProperties;
     private final Set<String> nestedProperties;
 
-    protected StageSpec(Config config) {
+    public StageSpec(Config config) {
       this.config = config;
       requiredProperties = new HashSet<>();
       optionalProperties = new HashSet<>();
       nestedProperties = new HashSet<>();
     }
 
-    protected StageSpec withRequiredProperties(String... properties) {
+    public StageSpec withRequiredProperties(String... properties) {
       requiredProperties.addAll(Arrays.asList(properties));
       return this;
     }
 
-    protected StageSpec withOptionalProperties(String... properties) {
+    public StageSpec withOptionalProperties(String... properties) {
       optionalProperties.addAll(Arrays.asList(properties));
       return this;
     }
 
-    protected StageSpec withNestedProperties(String... properties) {
+    public StageSpec withNestedProperties(String... properties) {
       nestedProperties.addAll(Arrays.asList(properties));
       return this;
     }
