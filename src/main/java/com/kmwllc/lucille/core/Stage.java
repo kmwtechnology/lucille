@@ -56,10 +56,10 @@ public abstract class Stage {
   private final Set<String> nestedProperties;
 
   public Stage(Config config) {
-    this(new StageBuilder(config));
+    this(new StageProperties(config));
   }
 
-  protected Stage(StageBuilder builder) {
+  protected Stage(StageProperties builder) {
     this(
         builder.config,
         builder.requiredProperties,
@@ -270,31 +270,31 @@ public abstract class Stage {
   }
 
   // todo check access modifiers
-  public static class StageBuilder {
+  public static class StageProperties {
 
     private final Config config;
     private final Set<String> requiredProperties;
     private final Set<String> optionalProperties;
     private final Set<String> nestedProperties;
 
-    public StageBuilder(Config config) {
+    public StageProperties(Config config) {
       this.config = config;
       requiredProperties = new HashSet<>();
       optionalProperties = new HashSet<>();
       nestedProperties = new HashSet<>();
     }
 
-    public StageBuilder withRequiredProperties(String... properties) {
+    public StageProperties withRequiredProperties(String... properties) {
       requiredProperties.addAll(Arrays.asList(properties));
       return this;
     }
 
-    public StageBuilder withOptionalProperties(String... properties) {
+    public StageProperties withOptionalProperties(String... properties) {
       optionalProperties.addAll(Arrays.asList(properties));
       return this;
     }
 
-    public StageBuilder withNestedProperties(String... properties) {
+    public StageProperties withNestedProperties(String... properties) {
       nestedProperties.addAll(Arrays.asList(properties));
       return this;
     }
