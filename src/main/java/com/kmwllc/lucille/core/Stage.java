@@ -7,39 +7,40 @@ import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
-import org.slf4j.LoggerFactory;
-
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.slf4j.LoggerFactory;
 
 /**
- * An operation that can be performed on a Document.<br/>
- * This abstract class provides some base functionality which should be applicable to all Stages.<br/>
- * <br/>
+ * An operation that can be performed on a Document.<br>
+ * This abstract class provides some base functionality which should be applicable to all Stages.
+ * <br>
+ * <br>
  * Config Parameters:
+ *
  * <ul>
- *   <li>conditional_fields (List<String>, Optional) : The fields which will be used to determine
- *   if this stage should be applied. Turns off conditional execution by default.</li>
+ *   <li>conditional_fields (List<String>, Optional) : The fields which will be used to determine if
+ *       this stage should be applied. Turns off conditional execution by default.
  *   <li>conditional_values (List<String>, Optional) : The values which we will search the
- *   conditional fields for. Should be set iff conditional_fields is set.</li>
- *   <li> conditional_operator (String, Optional) : The operator to determine conditional execution.
- *   Can be 'must' or 'must_not'. Defaults to must.</li>
+ *       conditional fields for. Should be set iff conditional_fields is set.
+ *   <li>conditional_operator (String, Optional) : The operator to determine conditional execution.
+ *       Can be 'must' or 'must_not'. Defaults to must.
  * </ul>
- * <p>
- * Config validation:<br/>
- * The config validation will happen based on {@link Stage#optionalProperties},
- * {@link Stage#requiredProperties}, and {@link Stage#nestedProperties}. Note that all of these
- * properties are stored as sets and are disjoint from each other. As the name suggests
- * {@link Stage#requiredProperties} are required while {@link Stage#optionalProperties} are
- * optional. {@link Stage#nestedProperties} are currently implemented as optional and allow
- * properties to be passed as an object and have to start with name of the property followed by a
- * period and the nested name (ex. "property.nested")
+ *
+ * <p>Config validation:<br>
+ * The config validation will happen based on {@link Stage#optionalProperties}, {@link
+ * Stage#requiredProperties}, and {@link Stage#nestedProperties}. Note that all of these properties
+ * are stored as sets and are disjoint from each other. As the name suggests {@link
+ * Stage#requiredProperties} are required while {@link Stage#optionalProperties} are optional.
+ * {@link Stage#nestedProperties} are currently implemented as optional and allow properties to be
+ * passed as an object and have to start with name of the property followed by a period and the
+ * nested name (ex. "property.nested")
  */
 public abstract class Stage {
 
-  private final static Set<String> OPTIONAL_PROPERTIES = Set.of("class", "name", "conditions");
+  private static final Set<String> OPTIONAL_PROPERTIES = Set.of("class", "name", "conditions");
 
   protected Config config;
   private final Predicate<Document> condition;
@@ -59,12 +60,18 @@ public abstract class Stage {
   }
 
   protected Stage(StageBuilder builder) {
-    this(builder.config, builder.requiredProperties,
-      builder.optionalProperties, builder.nestedProperties);
+    this(
+        builder.config,
+        builder.requiredProperties,
+        builder.optionalProperties,
+        builder.nestedProperties);
   }
 
-  private Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties,
-                Set<String> nestedProperties) {
+  private Stage(
+      Config config,
+      Set<String> requiredProperties,
+      Set<String> optionalProperties,
+      Set<String> nestedProperties) {
 
     this.config = config;
     this.nestedProperties = new HashSet<>(nestedProperties);
@@ -72,7 +79,7 @@ public abstract class Stage {
     this.optionalProperties = new HashSet<>(optionalProperties);
     this.optionalProperties.addAll(OPTIONAL_PROPERTIES);
 
-    // do not move this
+    // validates the properties that were just assigned
     validateConfig();
 
     this.name = ConfigUtils.getOrDefault(config, "name", null);
@@ -80,33 +87,39 @@ public abstract class Stage {
   }
 
   private Predicate<Document> getMergedConditions() {
-    Stream<Predicate<Document>> conditions = !config.hasPath("conditions") ? Stream.empty()
-      : config.getConfigList("conditions").stream()
-      .map(Condition::fromConfig);
+    Stream<Predicate<Document>> conditions =
+        !config.hasPath("conditions")
+            ? Stream.empty()
+            : config.getConfigList("conditions").stream().map(Condition::fromConfig);
     return conditions.reduce(c -> true, Predicate::and);
   }
 
-  public void start() throws StageException {
-  }
+  public void start() throws StageException {}
 
-  public void stop() throws StageException {
-  }
+  public void stop() throws StageException {}
 
   public void logMetrics() {
     if (timer == null || childCounter == null || errorCounter == null) {
       LoggerFactory.getLogger(Stage.class).error("Metrics not initialized");
     } else {
-      LoggerFactory.getLogger(Stage.class).info(
-        String.format("Stage %s metrics. Docs processed: %d. Mean latency: %.4f ms/doc. Children: %d. Errors: %d.",
-          name, timer.getCount(), timer.getSnapshot().getMean() / 1000000, childCounter.getCount(), errorCounter.getCount()));
+      LoggerFactory.getLogger(Stage.class)
+          .info(
+              String.format(
+                  "Stage %s metrics. Docs processed: %d. Mean latency: %.4f ms/doc. Children: %d. Errors: %d.",
+                  name,
+                  timer.getCount(),
+                  timer.getSnapshot().getMean() / 1000000,
+                  childCounter.getCount(),
+                  errorCounter.getCount()));
     }
   }
 
   /**
-   * Determines if this Stage should process this Document based on the conditional execution parameters. If no
-   * conditionalFields are supplied in the config, the Stage will always execute. If none of the provided conditionalFields
-   * are present on the given document, this should behave the same as if the fields were present but none of the supplied
-   * values were found in the fields.
+   * Determines if this Stage should process this Document based on the conditional execution
+   * parameters. If no conditionalFields are supplied in the config, the Stage will always execute.
+   * If none of the provided conditionalFields are present on the given document, this should behave
+   * the same as if the fields were present but none of the supplied values were found in the
+   * fields.
    *
    * @param doc the doc to determine processing for
    * @return boolean representing - should we process this doc according to its conditionals?
@@ -149,12 +162,13 @@ public abstract class Stage {
   }
 
   /**
-   * Applies an operation to a Document in place and returns a list containing any child Documents generated
-   * by the operation. If no child Documents are generated, the return value should be null.
-   * <p>
-   * This interface assumes that the list of child Documents is large enough to hold in memory. To support
-   * an unbounded number of child documents, this method would need to return an Iterator (or something similar)
-   * instead of a List.
+   * Applies an operation to a Document in place and returns a list containing any child Documents
+   * generated by the operation. If no child Documents are generated, the return value should be
+   * null.
+   *
+   * <p>This interface assumes that the list of child Documents is large enough to hold in memory.
+   * To support an unbounded number of child documents, this method would need to return an Iterator
+   * (or something similar) instead of a List.
    */
   public abstract List<Document> processDocument(Document doc) throws StageException;
 
@@ -163,7 +177,8 @@ public abstract class Stage {
   }
 
   /**
-   * Initialize metrics and set the Stage's name based on the position if the name has not already been set.
+   * Initialize metrics and set the Stage's name based on the position if the name has not already
+   * been set.
    */
   public void initialize(int position, String metricsPrefix) throws StageException {
     if (name == null) {
@@ -194,12 +209,15 @@ public abstract class Stage {
 
   // this can be used in a specific stage to validate nested properties
   protected void validateConfigGeneric(
-    Config config, Set<String> requiredProperties,
-    Set<String> optionalProperties, Set<String> nestedProperties) {
+      Config config,
+      Set<String> requiredProperties,
+      Set<String> optionalProperties,
+      Set<String> nestedProperties) {
 
     // verifies that set intersection is empty
     if (!disjoint(requiredProperties, optionalProperties, nestedProperties))
-      throw new IllegalArgumentException("Required, optional and nested properties must be disjoint.");
+      throw new IllegalArgumentException(
+          "Required, optional and nested properties must be disjoint.");
 
     // verifies all required properties are present
     for (String property : requiredProperties) {
@@ -209,25 +227,27 @@ public abstract class Stage {
     }
 
     // verifies that all remaining properties are in the optional set or are nested
-    Set<String> legalProperties = Stream.concat(requiredProperties.stream(),
-      optionalProperties.stream()).collect(Collectors.toSet());
+    Set<String> legalProperties =
+        Stream.concat(requiredProperties.stream(), optionalProperties.stream())
+            .collect(Collectors.toSet());
     for (Map.Entry<String, ConfigValue> entry : config.entrySet()) {
       if (!legalProperties.contains(entry.getKey()) && !isNestedProperty(entry.getKey())) {
-        throw new IllegalArgumentException("Stage config contains unknown property " + entry.getKey());
+        throw new IllegalArgumentException(
+            "Stage config contains unknown property " + entry.getKey());
       }
     }
   }
 
   public Set<String> getLegalProperties() {
     return Stream.concat(requiredProperties.stream(), optionalProperties.stream())
-      .collect(Collectors.toSet());
+        .collect(Collectors.toSet());
   }
 
   private boolean isNestedProperty(String property) {
     int dotIndex = property.indexOf('.');
     return dotIndex > 0
-      && dotIndex < property.length() - 1
-      && this.nestedProperties.contains(property.substring(0, dotIndex));
+        && dotIndex < property.length() - 1
+        && this.nestedProperties.contains(property.substring(0, dotIndex));
   }
 
   @SafeVarargs
