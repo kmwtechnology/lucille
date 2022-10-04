@@ -7,6 +7,7 @@ import com.typesafe.config.Config;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class CreateChildrenStage extends Stage {
   public CreateChildrenStage(Config config) {
@@ -20,7 +21,7 @@ public class CreateChildrenStage extends Stage {
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    ArrayList<Document> children = new ArrayList<>();
+    ArrayList<Document> children = new ArrayList();
     for (int i=0; i<numChildren; i++) {
       Document child = Document.create(doc.getId()+ "_child" +i);
       children.add(child);

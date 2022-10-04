@@ -2,6 +2,8 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import com.kmwllc.lucille.core.StageException;
 import java.util.Set;
 import org.junit.Test;

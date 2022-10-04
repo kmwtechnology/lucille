@@ -4,6 +4,8 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.util.FileUtils;
+import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
 import org.ahocorasick.trie.PayloadTrie;
 
@@ -39,9 +41,8 @@ public class Contains extends Stage {
     this.contains = config.getStringList("contains");
     this.output = config.getString("output");
     this.value = config.getString("value");
-    this.fields = config.getStringList("fields");
-
     this.ignoreCase = config.hasPath("ignoreCase") ? config.getBoolean("ignoreCase") : true;
+    this.fields = config.getStringList("fields");
   }
 
   @Override

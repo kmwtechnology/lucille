@@ -67,18 +67,18 @@ public class ExtractEntities extends Stage {
       .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
         "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field"));
 
-    this.sourceFields = config.getStringList("source");
-    this.destFields = config.getStringList("dest");
-    this.dictionaries = config.getStringList("dictionaries");
-
     // For the optional settings, we check if the config has this setting and then what the value is.
-    this.updateMode = UpdateMode.fromConfig(config);
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
     this.onlyWhitespaceSeparated = ConfigUtils.getOrDefault(config, "only_whitespace_separated", false);
     this.stopOnHit = ConfigUtils.getOrDefault(config, "stop_on_hit", false);
     this.onlyWholeWords = ConfigUtils.getOrDefault(config, "only_whole_words", true);
     this.ignoreOverlaps = ConfigUtils.getOrDefault(config, "ignore_overlaps", false);
     this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
+
+    this.sourceFields = config.getStringList("source");
+    this.destFields = config.getStringList("dest");
+    this.dictionaries = config.getStringList("dictionaries");
+    this.updateMode = UpdateMode.fromConfig(config);
     this.entityField = config.hasPath("entity_field") ? config.getString("entity_field") : null;
   }
 

@@ -55,7 +55,6 @@ public class ApplyRegex extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.regexExpr = config.getString("regex");
-
     this.updateMode = UpdateMode.fromConfig(config);
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
     this.multiline = ConfigUtils.getOrDefault(config, "multiline", false);

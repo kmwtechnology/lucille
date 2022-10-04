@@ -57,7 +57,6 @@ public class DetectLanguage extends Stage {
 
     this.sourceFields = config.getStringList("source");
     this.languageField = config.getString("language_field");
-
     this.languageConfidenceField = config.hasPath("language_confidence_field") ?
         config.getString("language_confidence_field") : "languageConfidence";
     this.minLength = config.hasPath("min_length") ? config.getInt("min_length") : 50;

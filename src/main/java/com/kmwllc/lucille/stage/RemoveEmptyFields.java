@@ -33,4 +33,5 @@ public class RemoveEmptyFields extends Stage {
     }
     return null;
   }
+
 }

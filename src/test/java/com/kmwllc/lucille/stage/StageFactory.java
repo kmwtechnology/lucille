@@ -15,7 +15,7 @@ import java.util.Map;
  */
 public class StageFactory {
 
-  private final Class<? extends Stage> stageClass;
+  private Class<? extends Stage> stageClass;
 
   private StageFactory(Class<? extends Stage> stageClass) {
     this.stageClass = stageClass;

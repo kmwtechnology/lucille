@@ -125,22 +125,22 @@ public abstract class Stage {
    */
   public List<Document> processConditional(Document doc) throws StageException {
     if (shouldProcess(doc)) {
-      if (timer != null) {
+      if (timer!=null) {
         context = timer.time();
       }
       try {
         List<Document> children = processDocument(doc);
-        if (children != null && children.size() > 0) {
+        if (children!=null && children.size()>0) {
           childCounter.inc(children.size());
         }
         return children;
       } catch (StageException e) {
-        if (errorCounter != null) {
+        if (errorCounter!=null) {
           errorCounter.inc();
         }
         throw e;
       } finally {
-        if (context != null) {
+        if (context!=null) {
           context.stop();
         }
       }
@@ -249,6 +249,10 @@ public abstract class Stage {
     return true;
   }
 
+  /**
+   * This class is used for convenience of initializing the extending stages in the supper
+   * constructor of {@link Stage}.
+   */
   protected static class StageSpec {
 
     private final Set<String> requiredProperties;
