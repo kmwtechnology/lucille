@@ -5,19 +5,19 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
+
 import java.util.*;
 import java.util.Map.Entry;
 
 /**
- * Renames a given set of source fields to a given set of destination fields. You must specify the
- * same number of source and destination fields.
+ * Renames a given set of source fields to a given set of destination fields. You must specify the same
+ * number of source and destination fields.
  *
- * <p>Config Parameters:
+ * Config Parameters:
  *
- * <p>- fieldMapping (Map<String, String>) : A 1-1 mapping of original field names to new field
- * names. - update_mode (String, Optional) : Determines how writing will be handling if the
- * destination field is already populated. Can be 'overwrite', 'append' or 'skip'. Defaults to
- * 'overwrite'.
+ *   - fieldMapping (Map<String, String>) : A 1-1 mapping of original field names to new field names.
+ *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *       Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class RenameFields extends Stage {
 
@@ -25,29 +25,29 @@ public class RenameFields extends Stage {
   private final UpdateMode updateMode;
 
   public RenameFields(Config config) {
-    super(
-        new StageSpec(config)
-            .withOptionalProperties("update_mode")
-            .withNestedProperties("fieldMapping"));
+    super(config, new StageSpec()
+      .withOptionalProperties("update_mode")
+      .withNestedProperties("fieldMapping"));
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
   }
 
   /**
+   *
    * @throws StageException if the field mapping is empty.
    */
   @Override
   public void start() throws StageException {
     if (fieldMap.size() == 0)
-      throw new StageException(
-          "field_mapping must have at least one source-dest pair for Rename Fields");
+      throw new StageException("field_mapping must have at least one source-dest pair for Rename Fields");
   }
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
     // For each field, if this document has the source field, rename it to the destination field
     for (Entry<String, Object> fieldPair : fieldMap.entrySet()) {
-      if (!doc.has(fieldPair.getKey())) continue;
+      if (!doc.has(fieldPair.getKey()))
+        continue;
 
       String dest = (String) fieldPair.getValue();
       doc.renameField(fieldPair.getKey(), dest, updateMode);

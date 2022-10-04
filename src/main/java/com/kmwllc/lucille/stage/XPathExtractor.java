@@ -4,28 +4,27 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
-import java.io.*;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.w3c.dom.NodeList;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.*;
+
+import java.io.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * Extracts values out of XML document fields using XPath expressions.
- *
- * <p>Config Parameters -
- *
+ * <p>
+ * Config Parameters -
  * <ul>
- *   <li>fieldMapping (Map<String, List<String>>) : A mapping of the XPath expression to the list of
- *       fields to place the evaluated expression in.
- *   <li>xmlField (String) : The name of the document field which contains the XML field: defaults
- *       to "xml".
+ * <li>fieldMapping (Map<String, List<String>>) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.</li>
+ * <li>xmlField (String) : The name of the document field which contains the XML field: defaults to "xml".</li>
  * </ul>
  */
 public class XPathExtractor extends Stage {
@@ -43,10 +42,8 @@ public class XPathExtractor extends Stage {
    * @param config
    */
   public XPathExtractor(Config config) {
-    super(
-        new StageSpec(config)
-            .withOptionalProperties("xmlField")
-            .withNestedProperties("fieldMapping"));
+    super(config, new StageSpec().withOptionalProperties("xmlField")
+      .withNestedProperties("fieldMapping"));
     xpaths = config.getConfig("fieldMapping").root().unwrapped();
     factory = DocumentBuilderFactory.newInstance();
     XPathFactory xpathFactory = XPathFactory.newInstance();

@@ -4,17 +4,19 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.sql.*;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
- * This Stage runs a prepared SQL statement on keyfields in a document and places the results in
- * fields of choice. This stage should try and reconnect to the database in the future.
+ * This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice.
+ * This stage should try and reconnect to the database in the future.
  */
 public class QueryDatabase extends Stage {
 
@@ -32,18 +34,11 @@ public class QueryDatabase extends Stage {
   private static final Logger log = LogManager.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {
-    super(
-        new StageSpec(config)
-            .withRequiredProperties(
-                "driver",
-                "connectionString",
-                "jdbcUser",
-                "jdbcPassword",
-                "keyFields",
-                "inputTypes",
-                "returnTypes")
-            .withOptionalProperties("sql")
-            .withNestedProperties("fieldMapping"));
+    super(config, new StageSpec()
+      .withOptionalProperties("sql")
+      .withNestedProperties("fieldMapping")
+      .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword",
+        "keyFields", "inputTypes", "returnTypes"));
 
     driver = config.getString("driver");
     connectionString = config.getString("connectionString");
@@ -195,3 +190,4 @@ public class QueryDatabase extends Stage {
     }
   }
 }
+

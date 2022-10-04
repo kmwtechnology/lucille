@@ -1,15 +1,16 @@
 package com.kmwllc.lucille.stage;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import org.junit.Test;
+
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Set;
-import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class TimestampTest {
 

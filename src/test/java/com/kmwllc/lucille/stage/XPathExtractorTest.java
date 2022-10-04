@@ -1,16 +1,18 @@
 package com.kmwllc.lucille.stage;
 
-import static org.junit.Assert.assertEquals;
-
 import com.kmwllc.lucille.connector.xml.XMLConnector;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.junit.Test;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
 
 public class XPathExtractorTest {
 
@@ -21,21 +23,20 @@ public class XPathExtractorTest {
     Stage stage = factory.get("XPathExtractorTest/config.conf");
 
     Document doc1 = Document.create("doc1");
-    doc1.setField(
-        "xml",
-        "<bookstore>\n"
-            + "\n"
-            + "<book>\n"
-            + "  <title lang=\"en\">Harry Potter</title>\n"
-            + "  <price>29.99</price>\n"
-            + "</book>\n"
-            + "\n"
-            + "<book>\n"
-            + "  <title lang=\"en\">Learning XML</title>\n"
-            + "  <price>39.95</price>\n"
-            + "</book>\n"
-            + "\n"
-            + "</bookstore>");
+    doc1.setField("xml",
+      "<bookstore>\n" +
+      "\n" +
+      "<book>\n" +
+      "  <title lang=\"en\">Harry Potter</title>\n" +
+      "  <price>29.99</price>\n" +
+      "</book>\n" +
+      "\n" +
+      "<book>\n" +
+      "  <title lang=\"en\">Learning XML</title>\n" +
+      "  <price>39.95</price>\n" +
+      "</book>\n" +
+      "\n" +
+      "</bookstore>");
 
     stage.processDocument(doc1);
 
@@ -55,23 +56,21 @@ public class XPathExtractorTest {
     Stage stage = factory.get("XPathExtractorTest/specifyxml.conf");
 
     Document doc1 = Document.create("doc1");
-    doc1.setField(
-        "random",
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-            + "\n"
-            + "<bookstore>\n"
-            + "\n"
-            + "<book>\n"
-            + "  <title lang=\"en\">Harry Potter</title>\n"
-            + "  <price>29.99</price>\n"
-            + "</book>\n"
-            + "\n"
-            + "<book>\n"
-            + "  <title lang=\"en\">Learning XML</title>\n"
-            + "  <price>39.95</price>\n"
-            + "</book>\n"
-            + "\n"
-            + "</bookstore>");
+    doc1.setField("random", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+      "\n" +
+      "<bookstore>\n" +
+      "\n" +
+      "<book>\n" +
+      "  <title lang=\"en\">Harry Potter</title>\n" +
+      "  <price>29.99</price>\n" +
+      "</book>\n" +
+      "\n" +
+      "<book>\n" +
+      "  <title lang=\"en\">Learning XML</title>\n" +
+      "  <price>39.95</price>\n" +
+      "</book>\n" +
+      "\n" +
+      "</bookstore>");
 
     stage.processDocument(doc1);
 
@@ -86,22 +85,21 @@ public class XPathExtractorTest {
     Stage stage = factory.get("XPathExtractorTest/config.conf");
 
     Document doc1 = Document.create("doc1");
-    doc1.setField(
-        "xml",
-        "<bookstore>\n"
-            + "\n"
-            + "<book>\n"
-            + "  <title lang=\"en\">해리 포터</title>\n"
-            + "  <price>29.99</price>\n"
-            + "</book>\n"
-            + "\n"
-            + "<book>\n"
-            + "  <title lang=\"en\">"
-            + "XML 학습</title>\n"
-            + "  <price>39.95</price>\n"
-            + "</book>\n"
-            + "\n"
-            + "</bookstore>");
+    doc1.setField("xml",
+      "<bookstore>\n" +
+        "\n" +
+        "<book>\n" +
+        "  <title lang=\"en\">해리 포터</title>\n" +
+        "  <price>29.99</price>\n" +
+        "</book>\n" +
+        "\n" +
+        "<book>\n" +
+        "  <title lang=\"en\">" +
+        "XML 학습</title>\n" +
+        "  <price>39.95</price>\n" +
+        "</book>\n" +
+        "\n" +
+        "</bookstore>");
 
     stage.processDocument(doc1);
 
@@ -114,8 +112,7 @@ public class XPathExtractorTest {
   @Test
   public void withXMLConnectorTest() throws Exception {
     // pass XML document through XMLConnector first
-    Config config =
-        ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/staff.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/staff.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);

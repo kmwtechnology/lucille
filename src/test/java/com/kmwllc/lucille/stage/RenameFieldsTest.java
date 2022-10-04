@@ -1,12 +1,15 @@
 package com.kmwllc.lucille.stage;
 
-import static org.junit.Assert.*;
-
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import java.util.Set;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
+
+import java.util.Set;
+
+import static org.junit.Assert.*;
 
 public class RenameFieldsTest {
 
@@ -29,17 +32,11 @@ public class RenameFieldsTest {
     doc.setField("input2", "this will be output2");
     doc.setField("input3", "this will be output3");
     stage.processDocument(doc2);
-    assertEquals(
-        "Field was not correctly renamed",
-        doc.getStringList("input1").get(0),
+    assertEquals("Field was not correctly renamed", doc.getStringList("input1").get(0),
         "this will be output1");
-    assertEquals(
-        "Field was not correctly renamed",
-        doc.getStringList("input2").get(0),
+    assertEquals("Field was not correctly renamed", doc.getStringList("input2").get(0),
         "this will be output2");
-    assertEquals(
-        "Field was not correctly renamed",
-        doc.getStringList("input3").get(0),
+    assertEquals("Field was not correctly renamed", doc.getStringList("input3").get(0),
         "this will be output3");
   }
 

@@ -1,12 +1,16 @@
 package com.kmwllc.lucille.stage;
 
-import static org.junit.Assert.*;
-
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import java.util.Set;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.Set;
+
+import static org.junit.Assert.*;
 
 public class CopyFieldsTest {
 
@@ -21,10 +25,7 @@ public class CopyFieldsTest {
     String inputVal = "This will be copied to output1";
     doc.setField("input1", inputVal);
     stage.processDocument(doc);
-    assertEquals(
-        "Value from input1 should be copied to output1",
-        inputVal,
-        doc.getStringList("output1").get(0));
+    assertEquals("Value from input1 should be copied to output1", inputVal, doc.getStringList("output1").get(0));
 
     // Ensure that field 2 in the source list is copied to output2
     Document doc2 = Document.create("doc2");
@@ -32,10 +33,7 @@ public class CopyFieldsTest {
     doc2.setField("input2", inputVal);
     doc2.setField("output2", "here's some junk data.");
     stage.processDocument(doc2);
-    assertEquals(
-        "Value from input2 should be copied to output2",
-        inputVal,
-        doc2.getStringList("output2").get(0));
+    assertEquals("Value from input2 should be copied to output2", inputVal, doc2.getStringList("output2").get(0));
 
     // Ensure that several fields can be copied at the same time.
     Document doc3 = Document.create("doc3");
@@ -46,18 +44,9 @@ public class CopyFieldsTest {
     doc3.setField("input2", inputVal2);
     doc3.setField("input3", inputVal3);
     stage.processDocument(doc3);
-    assertEquals(
-        "Value from input1 should be copied to output1",
-        inputVal1,
-        doc3.getStringList("output1").get(0));
-    assertEquals(
-        "Value from input2 should be copied to output2",
-        inputVal2,
-        doc3.getStringList("output2").get(0));
-    assertEquals(
-        "Value from input3 should be copied to output3",
-        inputVal3,
-        doc3.getStringList("output3").get(0));
+    assertEquals("Value from input1 should be copied to output1", inputVal1, doc3.getStringList("output1").get(0));
+    assertEquals("Value from input2 should be copied to output2", inputVal2, doc3.getStringList("output2").get(0));
+    assertEquals("Value from input3 should be copied to output3", inputVal3, doc3.getStringList("output3").get(0));
   }
 
   @Test

@@ -7,25 +7,26 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
-import java.lang.invoke.MethodHandles;
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.ahocorasick.trie.PayloadToken;
 import org.ahocorasick.trie.PayloadTrie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 /**
- * Removes stop words supplied in the dictionaries from a given list of fields. Multi term stop
- * "phrases" are allowed and will be completely removed from the output String. NOTE : This Stage
- * will only remove whole words and will make case insensitive matches.
+ * Removes stop words supplied in the dictionaries from a given list of fields. Multi term stop "phrases"
+ * are allowed and will be completely removed from the output String. NOTE : This Stage will only remove whole words and
+ * will make case insensitive matches.
  *
- * <p>Config Parameters -
+ * Config Parameters -
  *
- * <p>- dictionaries (List<String>) : A list of dictionaries to pull stop words from - fields
- * (List<String>, Optional) : A list of fields to remove stop words from. If no fields are supplied,
- * this stage will be applied to every non-reserved field on every document.
+ *   - dictionaries (List<String>) : A list of dictionaries to pull stop words from
+ *   - fields (List<String>, Optional) : A list of fields to remove stop words from. If no fields are supplied, this
+ *     stage will be applied to every non-reserved field on every document.
  */
 public class ApplyStopWords extends Stage {
 
@@ -38,10 +39,8 @@ public class ApplyStopWords extends Stage {
   private PayloadTrie<String> dictTrie;
 
   public ApplyStopWords(Config config) {
-    super(
-        new StageSpec(config)
-            .withRequiredProperties("dictionaries")
-            .withOptionalProperties("fields"));
+    super(config, new StageSpec().withRequiredProperties("dictionaries")
+      .withOptionalProperties("fields"));
     this.dictionaries = config.getStringList("dictionaries");
     this.fieldNames = config.hasPath("fields") ? config.getStringList("fields") : null;
   }
@@ -49,16 +48,15 @@ public class ApplyStopWords extends Stage {
   @Override
   public void start() throws StageException {
     if (dictionaries.isEmpty())
-      throw new StageException(
-          "Must provide at least one dictionary containing stop words to the ApplyStopWords Stage.");
+      throw new StageException("Must provide at least one dictionary containing stop words to the ApplyStopWords Stage.");
     dictTrie = buildTrie(dictionaries);
   }
 
   /**
    * Generate a Trie to perform dictionary based entity extraction with
    *
-   * @param dictionaries a list of dictionary files to read from
-   * @return a PayloadTrie capable of finding matches for its dictionary values
+   * @param dictionaries  a list of dictionary files to read from
+   * @return  a PayloadTrie capable of finding matches for its dictionary values
    */
   private PayloadTrie<String> buildTrie(List<String> dictionaries) throws StageException {
     PayloadTrie.PayloadTrieBuilder<String> trieBuilder = PayloadTrie.builder();
@@ -73,15 +71,13 @@ public class ApplyStopWords extends Stage {
         String[] line;
         boolean ignore = false;
         while ((line = reader.readNext()) != null) {
-          if (line.length == 0) continue;
+          if (line.length == 0)
+            continue;
 
           for (String term : line) {
             if (term.contains("\uFFFD")) {
-              log.warn(
-                  String.format(
-                      "Entry \"%s\" on line %d contained malformed characters which were removed. "
-                          + "This dictionary entry will be ignored.",
-                      term, reader.getLinesRead()));
+              log.warn(String.format("Entry \"%s\" on line %d contained malformed characters which were removed. " +
+                  "This dictionary entry will be ignored.", term, reader.getLinesRead()));
               ignore = true;
               break;
             }
@@ -109,24 +105,19 @@ public class ApplyStopWords extends Stage {
     fields.removeAll(Document.RESERVED_FIELDS);
 
     for (String field : fields) {
-      if (!doc.has(field)) continue;
+      if (!doc.has(field))
+        continue;
 
-      // TODO : Decide how we want to handle punctuation (currently it is left in, see tests for
-      // examples)
+      // TODO : Decide how we want to handle punctuation (currently it is left in, see tests for examples)
       List<String> newValues = new ArrayList<>();
       for (String val : doc.getStringList(field)) {
-        if (val == null) continue;
+        if (val == null)
+          continue;
 
         if (dictTrie.containsMatch(val)) {
           Stream<PayloadToken<String>> tokenStream = dictTrie.tokenize(val).stream();
-          tokenStream =
-              tokenStream.filter(
-                  (PayloadToken<String> token) ->
-                      token.getEmit() == null && !token.getFragment().isBlank());
-          newValues.add(
-              tokenStream
-                  .map((PayloadToken<String> token) -> token.getFragment().trim())
-                  .collect(Collectors.joining(" ")));
+          tokenStream = tokenStream.filter((PayloadToken<String> token) -> token.getEmit() == null && !token.getFragment().isBlank());
+          newValues.add(tokenStream.map((PayloadToken<String> token) -> token.getFragment().trim()).collect(Collectors.joining(" ")));
         } else {
           newValues.add(val.trim());
         }

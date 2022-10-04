@@ -1,14 +1,15 @@
 package com.kmwllc.lucille.stage;
 
-import static org.junit.Assert.*;
-
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import org.junit.Test;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import org.junit.Test;
+
+import static org.junit.Assert.*;
 
 public class RemoveDuplicateValuesTest {
 
@@ -140,8 +141,7 @@ public class RemoveDuplicateValuesTest {
     assertEquals("-32", values.get(3));
 
     // verify original field stays, while new values without duplicates are placed into new field
-    assertEquals(
-        "{\"id\":\"doc\",\"field1\":[1,1,23,14,-32],\"fish\":[1,23,14,-32]}", doc.toString());
+    assertEquals("{\"id\":\"doc\",\"field1\":[1,1,23,14,-32],\"fish\":[1,23,14,-32]}", doc.toString());
   }
 
   @Test

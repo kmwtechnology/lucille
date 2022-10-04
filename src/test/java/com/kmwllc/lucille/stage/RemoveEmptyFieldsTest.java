@@ -3,11 +3,13 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
+import com.kmwllc.lucille.core.StageException;
+import org.junit.Test;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
-import com.kmwllc.lucille.core.StageException;
+
 import java.util.Set;
-import org.junit.Test;
 
 public class RemoveEmptyFieldsTest {
 
