@@ -40,7 +40,6 @@ public class Concatenate extends Stage {
 
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");
-
     this.defaultInputs = config.hasPath("default_inputs") ?
         config.getConfig("default_inputs").root().unwrapped() : new HashMap<>();
     // defaultInputs = set.stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue));

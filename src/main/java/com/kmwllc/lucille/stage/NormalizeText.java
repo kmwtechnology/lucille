@@ -103,7 +103,6 @@ public class NormalizeText extends Stage {
     return null;
   }
 
-
   /**
    * Transform the given String to all lowercase
    *
