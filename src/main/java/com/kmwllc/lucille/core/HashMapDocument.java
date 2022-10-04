@@ -5,45 +5,45 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.util.IMultiMap;
+import com.kmwllc.lucille.util.LinkedMultiMap;
 import com.kmwllc.lucille.util.MultiMap;
-
 import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
-
 public class HashMapDocument implements Document {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
-  public final static Set<Class<?>> SUPPORTED_TYPES = new HashSet<>(List.of(
-    String.class,
-    Integer.class,
-    Double.class,
-    Long.class,
-    Boolean.class,
-    ObjectNode.class,
-    Instant.class,
-    HashMapDocument.class
-  ));
+  public static final Set<Class<?>> SUPPORTED_TYPES =
+      new HashSet<>(
+          List.of(
+              String.class,
+              Integer.class,
+              Double.class,
+              Long.class,
+              Boolean.class,
+              ObjectNode.class,
+              Instant.class,
+              HashMapDocument.class));
 
-  private static final Function<Object, Integer> TO_INT = value -> {
-    if (value.getClass().equals(String.class)) {
-      return Integer.parseInt((String) value);
-    } else {
-      return (Integer) value;
-    }
-  };
+  private static final Function<Object, Integer> TO_INT =
+      value -> {
+        if (value.getClass().equals(String.class)) {
+          return Integer.parseInt((String) value);
+        } else {
+          return (Integer) value;
+        }
+      };
 
-  private final IMultiMap data;
+  private final MultiMap data;
 
   public HashMapDocument(String id) {
     if (id == null || id.isEmpty()) {
       throw new NullPointerException("ID cannot be null or empty");
     }
-    data = new MultiMap(SUPPORTED_TYPES);
+    data = new LinkedMultiMap(SUPPORTED_TYPES);
     data.putOne(ID_FIELD, id);
   }
 
@@ -59,7 +59,7 @@ public class HashMapDocument implements Document {
     this(getData(other).deepCopy());
   }
 
-  private HashMapDocument(IMultiMap other) {
+  private HashMapDocument(MultiMap other) {
     data = other;
   }
 
@@ -67,7 +67,8 @@ public class HashMapDocument implements Document {
     this(data, null);
   }
 
-  public HashMapDocument(ObjectNode node, UnaryOperator<String> idUpdater) throws DocumentException {
+  public HashMapDocument(ObjectNode node, UnaryOperator<String> idUpdater)
+      throws DocumentException {
     if (node.getNodeType() != JsonNodeType.OBJECT) {
       throw new DocumentException("data is not an object");
     }
@@ -78,7 +79,7 @@ public class HashMapDocument implements Document {
 
     Set<Class<?>> supported = new HashSet<>(SUPPORTED_TYPES);
     supported.add(this.getClass());
-    data = new MultiMap(supported);
+    data = new LinkedMultiMap(supported);
     data.putOne(ID_FIELD, updateString(requireString(node.get(ID_FIELD)), idUpdater));
 
     for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
@@ -133,9 +134,9 @@ public class HashMapDocument implements Document {
       case OBJECT:
         setOrAddGeneric(name, node);
         break;
-//        throw new UnsupportedOperationException(name + " field is an object");
-//        addGeneric(name, node); // todo does this have to be parsed?
-//        break;
+        //        throw new UnsupportedOperationException(name + " field is an object");
+        //        addGeneric(name, node); // todo does this have to be parsed?
+        //        break;
       case ARRAY:
         data.putMany(name, new ArrayList<>()); // initialize because may be empty
         for (JsonNode item : node) {
@@ -148,12 +149,12 @@ public class HashMapDocument implements Document {
   }
 
   public static Document fromJsonString(String json)
-    throws DocumentException, JsonProcessingException {
+      throws DocumentException, JsonProcessingException {
     return fromJsonString(json, null);
   }
 
   public static Document fromJsonString(String json, UnaryOperator<String> idUpdater)
-    throws DocumentException, JsonProcessingException {
+      throws DocumentException, JsonProcessingException {
     return new HashMapDocument((ObjectNode) MAPPER.readTree(json), idUpdater);
   }
 
@@ -320,9 +321,11 @@ public class HashMapDocument implements Document {
   }
 
   private <T> List<T> getValues(String name, Function<Object, T> converter) {
-    return !has(name) ? null : data.getMany(name).stream()
-      .map(value -> convertOrNull(value, converter))
-      .collect(Collectors.toList());
+    return !has(name)
+        ? null
+        : data.getMany(name).stream()
+            .map(value -> convertOrNull(value, converter))
+            .collect(Collectors.toList());
   }
 
   @Override
@@ -419,7 +422,6 @@ public class HashMapDocument implements Document {
     return has(name) && data.isMultiValued(name);
   }
 
-
   private Object convertValue(String name, Object value) {
 
     if (!has(name) || value == null) {
@@ -484,7 +486,6 @@ public class HashMapDocument implements Document {
     data.setOrAdd(name, value);
   }
 
-
   @Override
   public void setOrAdd(String name, String value) {
     setOrAddGeneric(name, value);
@@ -525,7 +526,7 @@ public class HashMapDocument implements Document {
       // throw new IllegalArgumentException("The other document does not have the field " + name);
     }
 
-    IMultiMap otherData = getData(other);
+    MultiMap otherData = getData(other);
     if (has(name) || other.isMultiValued(name)) {
       data.addAll(name, otherData.getMany(name));
     } else {
@@ -535,7 +536,7 @@ public class HashMapDocument implements Document {
 
   @Override
   public void setOrAddAll(Document other) {
-    IMultiMap otherData = getData(other);
+    MultiMap otherData = getData(other);
     for (String name : otherData.getKeys()) {
       if (RESERVED_FIELDS.contains(name)) {
         continue;
@@ -551,8 +552,10 @@ public class HashMapDocument implements Document {
     map.putAll(data.getMultiValued());
     if (map.containsKey(CHILDREN_FIELD)) {
       // todo see if there is a faster way of doing this
-      map.put(CHILDREN_FIELD, ((List<Document>) map.get(CHILDREN_FIELD)).stream()
-        .map(Document::asMap).collect(Collectors.toList()));
+      map.put(
+          CHILDREN_FIELD,
+          ((List<Document>) map.get(CHILDREN_FIELD))
+              .stream().map(Document::asMap).collect(Collectors.toList()));
     }
     return map;
   }
@@ -576,8 +579,8 @@ public class HashMapDocument implements Document {
       return Collections.emptyList();
     }
     return data.getMany(CHILDREN_FIELD).stream()
-      .map(child -> ((Document) child).deepCopy())
-      .collect(Collectors.toList());
+        .map(child -> ((Document) child).deepCopy())
+        .collect(Collectors.toList());
   }
 
   @Override
@@ -633,7 +636,7 @@ public class HashMapDocument implements Document {
     return updater == null ? toUpdate : updater.apply(toUpdate);
   }
 
-  private static IMultiMap getData(Document other) {
+  private static MultiMap getData(Document other) {
     if (other == null) {
       throw new IllegalStateException("Document is null");
     }

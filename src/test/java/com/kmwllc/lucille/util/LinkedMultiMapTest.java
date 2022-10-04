@@ -1,32 +1,29 @@
 package com.kmwllc.lucille.util;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.junit.Before;
-import org.junit.Test;
-
-import java.time.Instant;
-import java.util.*;
-
 import static com.kmwllc.lucille.core.HashMapDocument.SUPPORTED_TYPES;
 import static org.junit.Assert.*;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.time.Instant;
+import java.util.*;
+import org.junit.Before;
+import org.junit.Test;
 
-public class MultiMapTest {
+public class LinkedMultiMapTest {
 
   private static final Instant NOW = Instant.now();
 
-
   int mapSize;
-  IMultiMap empty;
-  IMultiMap map;
+  MultiMap empty;
+  MultiMap map;
 
   @Before
   public void setup() throws JsonProcessingException {
-    empty = new MultiMap(SUPPORTED_TYPES);
+    empty = new LinkedMultiMap(SUPPORTED_TYPES);
 
-    map = new MultiMap(SUPPORTED_TYPES);
+    map = new LinkedMultiMap(SUPPORTED_TYPES);
     map.putOne("string", "a");
     map.putOne("null", null);
     map.putOne("integer", 1);
@@ -42,7 +39,6 @@ public class MultiMapTest {
     map.putMany("list-integer", List.of(1, 2, 3, 2, 2, 1, 3, 5));
 
     mapSize = map.size();
-
   }
 
   @Test
@@ -91,35 +87,68 @@ public class MultiMapTest {
   @Test
   public void testGetKeys() {
     assertEquals(new HashSet<>(), empty.getKeys());
-    assertEquals(new HashSet<>(List.of("string", "null", "integer", "double", "long",
-      "boolean", "json", "instant", "list-empty", "list-string", "list-integer")), map.getKeys());
+    assertEquals(
+        new HashSet<>(
+            List.of(
+                "string",
+                "null",
+                "integer",
+                "double",
+                "long",
+                "boolean",
+                "json",
+                "instant",
+                "list-empty",
+                "list-string",
+                "list-integer")),
+        map.getKeys());
 
     map.rename("string", "newString");
 
-    assertEquals(new HashSet<>(List.of("newString", "null", "integer", "double", "long",
-      "boolean", "json", "instant", "list-empty", "list-string", "list-integer")), map.getKeys());
+    assertEquals(
+        new HashSet<>(
+            List.of(
+                "newString",
+                "null",
+                "integer",
+                "double",
+                "long",
+                "boolean",
+                "json",
+                "instant",
+                "list-empty",
+                "list-string",
+                "list-integer")),
+        map.getKeys());
   }
 
   @Test
   public void testGetSingleKeys() {
     assertEquals(new HashSet<>(), empty.getSingleKeys());
-    assertEquals(new HashSet<>(List.of("string", "null", "integer", "double", "long",
-      "boolean", "json", "instant")), map.getSingleKeys());
+    assertEquals(
+        new HashSet<>(
+            List.of("string", "null", "integer", "double", "long", "boolean", "json", "instant")),
+        map.getSingleKeys());
 
     map.rename("string", "newString");
 
-    assertEquals(new HashSet<>(List.of("newString", "null", "integer", "double", "long",
-      "boolean", "json", "instant")), map.getSingleKeys());
+    assertEquals(
+        new HashSet<>(
+            List.of(
+                "newString", "null", "integer", "double", "long", "boolean", "json", "instant")),
+        map.getSingleKeys());
   }
 
   @Test
   public void testGetMultiKeys() {
     assertEquals(new HashSet<>(), empty.getMultiKeys());
-    assertEquals(new HashSet<>(List.of("list-empty", "list-string", "list-integer")), map.getMultiKeys());
+    assertEquals(
+        new HashSet<>(List.of("list-empty", "list-string", "list-integer")), map.getMultiKeys());
 
     map.rename("list-empty", "list-empty2");
 
-    assertEquals(new HashSet<>(List.of("list-empty2", "list-string", "list-integer")), map.getMultiKeys());
+    assertEquals(
+        new HashSet<>(List.of("list-empty2", "list-string", "list-integer")), map.getMultiKeys());
   }
 
   @Test
@@ -156,7 +185,6 @@ public class MultiMapTest {
 
     // verifies cannot get from an empty list
     exception(() -> map.getOne("list-empty"));
-
 
     assertEquals("a", map.getOne("string"));
     assertNull(map.getOne("null"));
@@ -233,7 +261,6 @@ public class MultiMapTest {
     exception(() -> empty.putMany("hi", List.of(Byte.valueOf("1"))));
     exception(() -> empty.putMany("hi", Arrays.asList(null, 1, null, null, "hello", null)));
 
-
     empty.putMany("string", List.of("a", "b", "c"));
     assertEquals(String.class, empty.getType("string"));
     assertEquals(List.of("a", "b", "c"), empty.getMany("string"));
@@ -255,7 +282,6 @@ public class MultiMapTest {
     empty.clear();
     empty.putMany("arr", Arrays.asList(null, null, 2, null, null));
     assertEquals(Integer.class, empty.getType("arr"));
-
   }
 
   @Test
@@ -347,9 +373,11 @@ public class MultiMapTest {
 
   @Test
   public void testException() {
-    exception(() -> {
-      throw new RuntimeException();
-    }, RuntimeException.class);
+    exception(
+        () -> {
+          throw new RuntimeException();
+        },
+        RuntimeException.class);
   }
 
   private void exception(Runnable r) {
