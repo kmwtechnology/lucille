@@ -1,39 +1,37 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
 
+import static org.junit.Assert.fail;
+
 public class ConfigValidationTest {
 
-  private final StageFactory factory = StageFactory.of(NoopStage.class);
-
-  @Test(expected = StageException.class)
-  public void testConditionsRequired() throws StageException {
-    factory.get("ConfigValidationTest/invalid-conditions.conf");
+  @Test
+  public void testConditions() {
+    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions1.conf");
+    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions2.conf");
+    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions3.conf");
+    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions4.conf");
+    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions5.conf");
+    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions6.conf");
   }
 
-  @Test(expected = StageException.class)
-  public void testConditionsRequired2() throws StageException {
-    factory.get("ConfigValidationTest/invalid-conditions2.conf");
+  @Test
+  public void testConcatenate() {
+    testException(Concatenate.class, "ConfigValidationTest/concatenate1.conf");
+    testException(Concatenate.class, "ConfigValidationTest/concatenate2.conf");
+    testException(Concatenate.class, "ConfigValidationTest/concatenate3.conf");
   }
 
-  @Test(expected = StageException.class)
-  public void testConditionsOptional() throws StageException {
-    factory.get("ConfigValidationTest/invalid-conditions3.conf");
-  }
 
-  @Test(expected = StageException.class)
-  public void testConditionsRequiredMissing() throws StageException {
-    factory.get("ConfigValidationTest/invalid-conditions4.conf");
-  }
-
-  @Test(expected = StageException.class)
-  public void testConditionsRequiredMissing2() throws StageException {
-    factory.get("ConfigValidationTest/invalid-conditions5.conf");
-  }
-
-  @Test(expected = StageException.class)
-  public void testConditionsIllegalProperty() throws StageException {
-    factory.get("ConfigValidationTest/invalid-conditions6.conf");
+  private static void testException(Class<? extends Stage> stageClass, String config) {
+    try {
+      StageFactory.of(stageClass).get(config);
+      fail();
+    } catch (StageException e) {
+      // expected
+    }
   }
 }
