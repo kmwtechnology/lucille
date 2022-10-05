@@ -206,8 +206,9 @@ public abstract class Stage {
     }
 
     // verifies all required properties are present
+    Set<String> keys = config.root().keySet();
     for (String property: requiredProperties) {
-      if (!config.hasPath(property)) {
+      if (!keys.contains(property)) {
         throw new IllegalArgumentException("Stage config must contain property " + property);
       }
     }
@@ -220,17 +221,15 @@ public abstract class Stage {
         requiredProperties.stream(),
         optionalProperties.stream())
       .collect(Collectors.toSet());
-
-    for (Map.Entry<String, ConfigValue> entry: config.entrySet()) {
-
-      if (!legalProperties.contains(entry.getKey())) {
-        String parent = getParent(entry.getKey());
+    for (String key: keys) {
+      if (!legalProperties.contains(key)) {
+        String parent = getParent(key);
         if (parent == null) {
-          throw new IllegalArgumentException("Stage config contains unknown property " + entry.getKey());
+          throw new IllegalArgumentException("Stage config contains unknown property " + key);
         } else if (requiredParents.contains(parent)) {
           observedRequiredParents.add(parent);
         } else if (!optionalParents.contains(parent)) {
-          throw new IllegalArgumentException("Stage config contains unknown property " + entry.getKey());
+          throw new IllegalArgumentException("Stage config contains unknown property " + key);
         }
       }
     }
@@ -273,7 +272,7 @@ public abstract class Stage {
   }
 
   /**
-   * This class is used for convenience of initializing the extending stages in the supper
+   * This class is used for convenience of initializing the extending stages in the super
    * constructor of {@link Stage}.
    */
   protected static class StageSpec {
