@@ -34,4 +34,6 @@ public class ConfigValidationTest {
       // expected
     }
   }
+
+  // todo add examples of failures based on the different type of properties
 }
