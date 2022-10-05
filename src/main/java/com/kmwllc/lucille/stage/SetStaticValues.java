@@ -8,7 +8,6 @@ import com.typesafe.config.Config;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Sets the value of given fields to a mapped value.
@@ -25,8 +24,9 @@ public class SetStaticValues extends Stage {
   private final UpdateMode updateMode;
 
   public SetStaticValues(Config config) {
-    super(config, new StageSpec().withOptionalProperties("update_mode")
-      .withNestedProperties("static_values"));
+    super(config, new StageSpec()
+      .withOptionalProperties("update_mode")
+      .withRequiredParents("static_values"));
     staticValues = config.getConfig("static_values").root().unwrapped();
     updateMode = UpdateMode.fromConfig(config);
   }

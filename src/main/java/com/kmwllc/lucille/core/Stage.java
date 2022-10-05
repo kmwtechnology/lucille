@@ -4,6 +4,7 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import com.google.common.collect.Sets;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
@@ -32,12 +33,11 @@ import java.util.stream.Stream;
  *
  * <p>Config validation:<br>
  * The config validation will happen based on {@link Stage#optionalProperties}, {@link
- * Stage#requiredProperties}, and {@link Stage#nestedProperties}. Note that all of these properties
- * are stored as sets and are disjoint from each other. As the name suggests {@link
- * Stage#requiredProperties} are required while {@link Stage#optionalProperties} are optional.
- * {@link Stage#nestedProperties} are currently implemented as optional and allow properties to be
- * passed as an object and have to start with name of the property followed by a period and the
- * nested name (ex. "property.nested")
+ * Stage#requiredProperties}, {@link Stage#requiredParents}, and {@link Stage#optionalParents}.
+ * Note that all of these properties are stored as sets and are disjoint from each other. As the
+ * name suggests {@link Stage#requiredProperties} and {@link Stage#requiredParents} are required to
+ * be present in the config while {@link Stage#optionalProperties} and {@link Stage#optionalParents}
+ * are optional.
  */
 public abstract class Stage {
 
@@ -52,23 +52,25 @@ public abstract class Stage {
   private Counter errorCounter;
   private Counter childCounter;
 
-  private final Set<String> optionalProperties;
   private final Set<String> requiredProperties;
-  private final Set<String> nestedProperties;
+  private final Set<String> optionalProperties;
+  private final Set<String> requiredParents;
+  private final Set<String> optionalParents;
 
   public Stage(Config config) {
     this(config, new StageSpec());
   }
 
   protected Stage(Config config, StageSpec spec) {
-    this(config, spec.requiredProperties, spec.optionalProperties, spec.nestedProperties);
+    this(config, spec.requiredProperties, spec.optionalProperties, spec.requiredParents, spec.optionalParents);
   }
 
   private Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties,
-      Set<String> nestedProperties) {
+      Set<String> requiredParents, Set<String> optionalParents) {
 
     this.config = config;
-    this.nestedProperties = new HashSet<>(nestedProperties);
+    this.requiredParents = new HashSet<>(requiredParents);
+    this.optionalParents = new HashSet<>(optionalParents);
     this.requiredProperties = new HashSet<>(requiredProperties);
     this.optionalProperties = new HashSet<>(optionalProperties);
     this.optionalProperties.addAll(OPTIONAL_PROPERTIES);
@@ -183,23 +185,25 @@ public abstract class Stage {
 
   private void validateConfig() throws IllegalArgumentException {
 
-    validateConfigGeneric(config, requiredProperties, optionalProperties, nestedProperties);
+    validateConfigGeneric(config, requiredProperties, optionalProperties, requiredParents, optionalParents);
 
     // validate conditions
     if (config.hasPath("conditions"))  {
       for (Config condition : config.getConfigList("conditions")) {
-        validateConfigGeneric(condition, Set.of("fields", "values"), Set.of("operator"), Set.of());
+        validateConfigGeneric(condition, Set.of("fields", "values"), Set.of("operator"),
+          Set.of(), Set.of());
       }
     }
   }
 
   // this can be used in a specific stage to validate nested properties
   protected void validateConfigGeneric(Config config, Set<String> requiredProperties,
-      Set<String> optionalProperties, Set<String> nestedProperties) {
+      Set<String> optionalProperties, Set<String> requiredParents, Set<String> optionalParents) {
 
     // verifies that set intersection is empty
-    if (!disjoint(requiredProperties, optionalProperties, nestedProperties))
-      throw new IllegalArgumentException("Required, optional and nested properties must be disjoint.");
+    if (!disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
+      throw new IllegalArgumentException("Properties and parents sets must be disjoint.");
+    }
 
     // verifies all required properties are present
     for (String property: requiredProperties) {
@@ -208,13 +212,31 @@ public abstract class Stage {
       }
     }
 
-    // verifies that all remaining properties are in the optional set or are nested
-    Set<String> legalProperties = Stream.concat(requiredProperties.stream(),
-        optionalProperties.stream()).collect(Collectors.toSet());
+    // verifies that
+    // 1. all remaining properties are in the optional set or are nested;
+    // 2. all required parents are present
+    Set<String> observedRequiredParents = new HashSet<>();
+    Set<String> legalProperties = Stream.concat(
+        requiredProperties.stream(),
+        optionalProperties.stream())
+      .collect(Collectors.toSet());
+
     for (Map.Entry<String, ConfigValue> entry: config.entrySet()) {
-      if (!legalProperties.contains(entry.getKey()) && !isNestedProperty(entry.getKey())) {
-        throw new IllegalArgumentException("Stage config contains unknown property " + entry.getKey());
+
+      if (!legalProperties.contains(entry.getKey())) {
+        String parent = getParent(entry.getKey());
+        if (parent == null) {
+          throw new IllegalArgumentException("Stage config contains unknown property " + entry.getKey());
+        } else if (requiredParents.contains(parent)) {
+          observedRequiredParents.add(parent);
+        } else if (!optionalParents.contains(parent)) {
+          throw new IllegalArgumentException("Stage config contains unknown property " + entry.getKey());
+        }
       }
+    }
+    if (observedRequiredParents.size() != requiredParents.size()) {
+      throw new IllegalArgumentException("Stage config is missing required parents: " +
+          Sets.difference(requiredParents, observedRequiredParents));
     }
   }
 
@@ -223,11 +245,12 @@ public abstract class Stage {
       .collect(Collectors.toSet());
   }
 
-  private boolean isNestedProperty(String property) {
+  private static String getParent(String property) {
     int dotIndex = property.indexOf('.');
-    return dotIndex > 0
-      && dotIndex < property.length() - 1
-      && this.nestedProperties.contains(property.substring(0, dotIndex));
+    if (dotIndex < 0 ||  dotIndex == property.length() - 1) {
+      return null;
+    }
+    return property.substring(0, dotIndex);
   }
 
   @SafeVarargs
@@ -257,12 +280,14 @@ public abstract class Stage {
 
     private final Set<String> requiredProperties;
     private final Set<String> optionalProperties;
-    private final Set<String> nestedProperties;
+    private final Set<String> requiredParents;
+    private final Set<String> optionalParents;
 
     public StageSpec() {
       requiredProperties = new HashSet<>();
       optionalProperties = new HashSet<>();
-      nestedProperties = new HashSet<>();
+      requiredParents = new HashSet<>();
+      optionalParents = new HashSet<>();
     }
 
     public StageSpec withRequiredProperties(String... properties) {
@@ -275,8 +300,13 @@ public abstract class Stage {
       return this;
     }
 
-    public StageSpec withNestedProperties(String... properties) {
-      nestedProperties.addAll(Arrays.asList(properties));
+    public StageSpec withRequiredParents(String... properties) {
+      requiredParents.addAll(Arrays.asList(properties));
+      return this;
+    }
+
+    public StageSpec withOptionalParents(String... properties) {
+      optionalParents.addAll(Arrays.asList(properties));
       return this;
     }
   }

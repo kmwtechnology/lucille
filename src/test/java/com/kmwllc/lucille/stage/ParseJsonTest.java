@@ -16,6 +16,7 @@ import java.util.Set;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 
 public class ParseJsonTest {
   private StageFactory factory = StageFactory.of(ParseJson.class);
@@ -208,15 +209,8 @@ public class ParseJsonTest {
 
   @Test
   public void testGetLegalProperties() throws StageException {
-
     Stage stage = factory.get("ParseJson/config.conf");
-
-    StringBuilder out = new StringBuilder("assertEquals(Set.of(");
-    Set<String> properties = stage.getLegalProperties();
-    for (String prop : properties) {
-      out.append("\"").append(prop).append("\", ");
-    }
-    out.delete(out.length() - 2, out.length()).append("), stage.getLegalProperties());");
-    System.out.println(out);
+    assertEquals(Set.of("src", "name", "sourceIsBase64", "conditions", "class"),
+      stage.getLegalProperties());
   }
 }
