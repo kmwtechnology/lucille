@@ -60,8 +60,8 @@ public abstract class Stage {
     this(config, new StageSpec());
   }
 
-  protected Stage(Config config, StageSpec builder) {
-    this(config, builder.requiredProperties, builder.optionalProperties, builder.nestedProperties);
+  protected Stage(Config config, StageSpec spec) {
+    this(config, spec.requiredProperties, spec.optionalProperties, spec.nestedProperties);
   }
 
   private Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties,
