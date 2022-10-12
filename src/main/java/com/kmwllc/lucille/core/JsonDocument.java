@@ -246,7 +246,7 @@ public class JsonDocument implements Document {
           } else {
             data.withArray(newName).add(oldValues);
           }
-          // fall through
+          return;
         case SKIP:
           return;
         default:
