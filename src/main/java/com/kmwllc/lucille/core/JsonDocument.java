@@ -86,7 +86,6 @@ public class JsonDocument implements Document {
     this.data = data;
   }
 
-  // todo where is the non null annotation coming from?
   public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
     return fromJsonString(json, null);
   }
