@@ -26,10 +26,10 @@ import java.util.function.UnaryOperator;
  */
 public class JsonDocument implements Document {
 
-  private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_INSTANT;
-  private static final Function<String, Instant> DATE_PARSER =
-    str -> Instant.from(DATE_TIME_FORMATTER.parse(str));
-  private static final Function<Instant, String> INSTANT_FORMATTER = DATE_TIME_FORMATTER::format;
+  private static final DateTimeFormatter DT_FORMATTER = DateTimeFormatter.ISO_INSTANT;
+  private static final Function<Instant, String> INSTANT_FORMATTER = DT_FORMATTER::format;
+  private static final Function<JsonNode, Instant> TO_INSTANT = node ->
+    Instant.from(DT_FORMATTER.parse(node.asText()));
 
   protected static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<>() {};
@@ -344,12 +344,12 @@ public class JsonDocument implements Document {
 
   @Override
   public Instant getInstant(String name) {
-    return getValue(name, node -> DATE_PARSER.apply(node.asText()));
+    return getValue(name, TO_INSTANT);
   }
 
   @Override
   public List<Instant> getInstantList(String name) {
-    return getValues(name, node -> DATE_PARSER.apply(node.asText()));
+    return getValues(name, TO_INSTANT);
   }
 
   @Override
