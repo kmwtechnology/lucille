@@ -10,19 +10,23 @@ public class ConfigValidationTest {
 
   @Test
   public void testConditions() {
-    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions1.conf");
-    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions2.conf");
-    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions3.conf");
-    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions4.conf");
-    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions5.conf");
-    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions6.conf");
+
+    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions-field-missing.conf");
+    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions-field-renamed.conf");
+
+    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions-values-renamed.conf");
+    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions-values-renamed.conf");
+
+    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions-optional-unknown.conf");
+    testException(NoopStage.class, "ConfigValidationTest/invalid-conditions-optional-renamed.conf");
   }
 
   @Test
   public void testConcatenate() {
-    testException(Concatenate.class, "ConfigValidationTest/concatenate1.conf");
-    testException(Concatenate.class, "ConfigValidationTest/concatenate2.conf");
-    testException(Concatenate.class, "ConfigValidationTest/concatenate3.conf");
+    testException(Concatenate.class, "ConfigValidationTest/concatenate-format-missing.conf");
+    testException(Concatenate.class, "ConfigValidationTest/concatenate-dest-missing.conf");
+    testException(Concatenate.class, "ConfigValidationTest/concatenate-unknown-property.conf");
+    testException(Concatenate.class, "ConfigValidationTest/concatenate-invalid-parent.conf");
   }
 
 
