@@ -7,7 +7,6 @@ import com.codahale.metrics.Timer;
 import com.google.common.collect.Sets;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigValue;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
@@ -76,7 +75,7 @@ public abstract class Stage {
     this.optionalProperties.addAll(OPTIONAL_PROPERTIES);
 
     // validates the properties that were just assigned
-    validateConfig();
+    validateConfigWithConditions();
 
     this.name = ConfigUtils.getOrDefault(config, "name", null);
     this.condition = getMergedConditions();
@@ -183,22 +182,23 @@ public abstract class Stage {
     return config;
   }
 
-  private void validateConfig() throws IllegalArgumentException {
+  private void validateConfigWithConditions() throws IllegalArgumentException {
 
-    validateConfigGeneric(config, requiredProperties, optionalProperties, requiredParents, optionalParents);
+    validateConfig(config, requiredProperties, optionalProperties, requiredParents, optionalParents);
 
     // validate conditions
     if (config.hasPath("conditions"))  {
       for (Config condition : config.getConfigList("conditions")) {
-        validateConfigGeneric(condition, Set.of("fields", "values"), Set.of("operator"),
+        validateConfig(condition, Set.of("fields", "values"), Set.of("operator"),
           Set.of(), Set.of());
       }
     }
   }
 
   // this can be used in a specific stage to validate nested properties
-  protected void validateConfigGeneric(Config config, Set<String> requiredProperties,
-      Set<String> optionalProperties, Set<String> requiredParents, Set<String> optionalParents) {
+  protected void validateConfig(
+    Config config, Set<String> requiredProperties, Set<String> optionalProperties,
+    Set<String> requiredParents, Set<String> optionalParents) {
 
     // verifies that set intersection is empty
     if (!disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
