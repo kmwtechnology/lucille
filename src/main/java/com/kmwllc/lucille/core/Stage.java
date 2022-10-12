@@ -206,7 +206,7 @@ public abstract class Stage {
     }
 
     // verifies all required properties are present
-    Set<String> keys = config.root().keySet();
+    Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
     for (String property: requiredProperties) {
       if (!keys.contains(property)) {
         throw new IllegalArgumentException("Stage config must contain property " + property);
@@ -217,10 +217,8 @@ public abstract class Stage {
     // 1. all remaining properties are in the optional set or are nested;
     // 2. all required parents are present
     Set<String> observedRequiredParents = new HashSet<>();
-    Set<String> legalProperties = Stream.concat(
-        requiredProperties.stream(),
-        optionalProperties.stream())
-      .collect(Collectors.toSet());
+    Set<String> legalProperties = Stream.concat(requiredProperties.stream(),
+        optionalProperties.stream()).collect(Collectors.toSet());
     for (String key: keys) {
       if (!legalProperties.contains(key)) {
         String parent = getParent(key);
