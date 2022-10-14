@@ -5,101 +5,141 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
+import com.kmwllc.lucille.util.LinkedMultiMap;
+import com.kmwllc.lucille.util.MultiMap;
 import java.time.Instant;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
-
+import java.util.stream.Collectors;
 
 public class HashMapDocument implements Document {
 
-  protected static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+  public static final Set<Class<?>> SUPPORTED_TYPES =
+      new HashSet<>(
+          List.of(
+              String.class,
+              Integer.class,
+              Double.class,
+              Long.class,
+              Boolean.class,
+              ObjectNode.class,
+              Instant.class,
+              HashMapDocument.class));
 
-  protected final Map<String, List<Object>> data;
-  protected final Map<String, Class<?>> types;
+  private static final Function<Object, Integer> TO_INT =
+      value -> {
+        if (value.getClass().equals(String.class)) {
+          return Integer.parseInt((String) value);
+        } else {
+          return (Integer) value;
+        }
+      };
 
-  protected final String id;
-  protected String runId;
-  protected List<String> errors;
-  protected List<Document> children;
+  private final MultiMap data;
 
-  private static String requireString(JsonNode node) throws DocumentException {
-    if (!node.isTextual() || node.asText().isEmpty()) {
-      throw new DocumentException("Expected non-empty string, got " + node);
+  public HashMapDocument(String id) {
+    if (id == null || id.isEmpty()) {
+      throw new NullPointerException("ID cannot be null or empty");
     }
-    return node.asText();
+    data = new LinkedMultiMap(SUPPORTED_TYPES);
+    data.putOne(ID_FIELD, id);
   }
 
-  private static String updateString(String toUpdate, UnaryOperator<String> updater) {
-    return updater == null ? toUpdate : updater.apply(toUpdate);
+  public HashMapDocument(String id, String runId) {
+    this(id);
+    if (runId == null || runId.isEmpty()) {
+      throw new IllegalArgumentException("runId cannot be null or empty");
+    }
+    data.putOne(RUNID_FIELD, runId);
   }
 
-  private HashMapDocument(ObjectNode data, UnaryOperator<String> idUpdater) throws DocumentException {
+  public HashMapDocument(Document other) {
+    this(getData(other).deepCopy());
+  }
 
-    if (data.getNodeType() != JsonNodeType.OBJECT) {
+  private HashMapDocument(MultiMap other) {
+    data = other;
+  }
+
+  public HashMapDocument(ObjectNode data) throws DocumentException {
+    this(data, null);
+  }
+
+  public HashMapDocument(ObjectNode node, UnaryOperator<String> idUpdater)
+      throws DocumentException {
+    if (node.getNodeType() != JsonNodeType.OBJECT) {
       throw new DocumentException("data is not an object");
     }
 
-    if (!data.hasNonNull(ID_FIELD)) {
+    if (!node.hasNonNull(ID_FIELD)) {
       throw new DocumentException("id is missing");
     }
 
-    this.id = updateString(requireString(data.get(ID_FIELD)), idUpdater);
-    this.data = new HashMap<>();
-    this.types = new HashMap<>();
+    Set<Class<?>> supported = new HashSet<>(SUPPORTED_TYPES);
+    supported.add(this.getClass());
+    data = new LinkedMultiMap(supported);
+    data.putOne(ID_FIELD, updateString(requireString(node.get(ID_FIELD)), idUpdater));
 
-    for(Iterator<Map.Entry<String, JsonNode>> it = data.fields(); it.hasNext();) {
+    for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
       Map.Entry<String, JsonNode> entry = it.next();
       String key = entry.getKey();
-      JsonNode node = entry.getValue();
+      JsonNode value = entry.getValue();
 
       switch (key) {
         case ID_FIELD:
           break;
         case RUNID_FIELD:
-          this.runId = requireString(node);
+          data.putOne(RUNID_FIELD, requireString(value));
           break;
         case CHILDREN_FIELD:
-          if (node.getNodeType() != JsonNodeType.ARRAY) {
+          if (value.getNodeType() != JsonNodeType.ARRAY) {
             throw new IllegalArgumentException();
           }
-          for (JsonNode child: node) {
+          for (JsonNode child : value) {
             addChild(new HashMapDocument((ObjectNode) child, idUpdater));
           }
           break;
         default:
-          addNodeValueToField(key, node);
+          addNodeValueToField(key, value);
       }
     }
   }
 
+  // todo consider what happens for nested arrays
   public void addNodeValueToField(String name, JsonNode node) {
+
+    Document.validateNotReservedField(name);
+
     switch (node.getNodeType()) {
       case STRING:
-        addToField(name, node.asText());
+        setOrAddGeneric(name, node.asText());
         break;
-        case NUMBER:
-          if (node.isInt()) {
-            addToField(name, node.asInt());
-          }
-          else if (node.isDouble()) {
-            addToField(name, node.asDouble());
-          }
-          else {
-            throw new UnsupportedOperationException("Unsupported number type: " + node);
-          }
-          break;
+      case NUMBER:
+        if (node.isInt()) {
+          setOrAddGeneric(name, node.asInt());
+        } else if (node.isDouble()) {
+          setOrAddGeneric(name, node.asDouble());
+        } else if (node.isLong()) {
+          setOrAddGeneric(name, node.asLong());
+        } else {
+          throw new IllegalArgumentException("Unsupported number type: " + node);
+        }
+        break;
       case NULL:
-        addToFieldList(name, null);
+        // fall through
+        setOrAddGeneric(name, null);
         break;
       case OBJECT:
-        addToFieldList(name, node);
+        setOrAddGeneric(name, node);
         break;
+        //        throw new UnsupportedOperationException(name + " field is an object");
+        //        addGeneric(name, node); // todo does this have to be parsed?
+        //        break;
       case ARRAY:
-        data.putIfAbsent(name, new ArrayList<>());
-        for (JsonNode item: node) {
+        data.putMany(name, new ArrayList<>()); // initialize because may be empty
+        for (JsonNode item : node) {
           addNodeValueToField(name, item);
         }
         break;
@@ -108,107 +148,26 @@ public class HashMapDocument implements Document {
     }
   }
 
-  public HashMapDocument(ObjectNode data) throws DocumentException {
-    this(data, null);
-  }
-
-  public HashMapDocument(String id) {
-    if (id == null || id.isEmpty()) {
-      throw new NullPointerException("ID cannot be null");
-    }
-    this.id = id;
-    this.data = new HashMap<>();
-    this.types = new HashMap<>();
-  }
-
-  public HashMapDocument(String id, String runId) {
-    this(id);
-    if (runId == null || runId.isEmpty()) {
-      throw new IllegalArgumentException("Run ID cannot be null");
-    }
-    this.runId = runId;
-  }
-
-//   todo review parameters / interface methods
-  private HashMapDocument(String id, String runId, List<Document> children, List<String> errors,
-                          Map<String, List<Object>> data, Map<String, Class<?>> types) {
-
-    this.id = id;
-    this.runId = runId;
-    this.children = children;
-    this.errors = errors;
-    this.types = types;
-    this.data = new HashMap<>();
-
-    for (Map.Entry<String, List<Object>> entry: data.entrySet()) {
-      this.data.put(entry.getKey(), new ArrayList<>(entry.getValue()));
-    }
-  }
-
   public static Document fromJsonString(String json)
-    throws DocumentException, JsonProcessingException {
+      throws DocumentException, JsonProcessingException {
     return fromJsonString(json, null);
   }
 
   public static Document fromJsonString(String json, UnaryOperator<String> idUpdater)
-    throws DocumentException, JsonProcessingException {
+      throws DocumentException, JsonProcessingException {
     return new HashMapDocument((ObjectNode) MAPPER.readTree(json), idUpdater);
-  }
-
-  private void validateNotReservedField(String... names) throws IllegalArgumentException {
-    if (names == null) {
-      throw new IllegalArgumentException("expecting string parameters");
-    }
-    for (String name: names) {
-      if (name == null) {
-        throw new IllegalArgumentException("Field name cannot be null");
-      }
-      if (RESERVED_FIELDS.contains(name)) {
-        throw new IllegalArgumentException(name + " is a reserved field");
-      }
-    }
   }
 
   @Override
   public void removeField(String name) {
-    validateNotReservedField(name);
+    Document.validateNotReservedField(name);
     data.remove(name);
   }
 
   @Override
   public void removeFromArray(String name, int index) {
-    validateNotReservedField(name);
-    data.get(name).remove(index);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, String... values) {
-    update(name, mode, v -> setField(name, v), v -> setOrAdd(name, v), values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Long... values) {
-    update(name, mode, v -> setField(name, v), v -> setOrAdd(name, v), values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Integer... values) {
-    update(name, mode, v -> setField(name, v), v -> setOrAdd(name, v), values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Boolean... values) {
-    update(name, mode, v -> setField(name, v), v -> setOrAdd(name, v), values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Double... values) {
-    update(name, mode, v -> setField(name, v), v -> setOrAdd(name, v), values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Instant... values) {
-    update(name, mode, v -> setField(name, v), v -> setOrAdd(name, v), values);
+    Document.validateNotReservedField(name);
+    data.removeFromArray(name, index);
   }
 
   /**
@@ -223,603 +182,467 @@ public class HashMapDocument implements Document {
    * data.put(String, String), data.put(String, Long), data.put(String Boolean)
    */
   @SafeVarargs
-  private <T> void update(String name, UpdateMode mode,
-                          Consumer<T> setter, Consumer<T> adder, T... values) {
-
-    validateNotReservedField(name);
-
+  private <T> void updateGeneric(String name, UpdateMode mode, T... values) {
+    Document.validateNotReservedField(name);
     if (values.length == 0 || has(name) && mode == UpdateMode.SKIP) {
       return;
     }
-
-    int i = 0;
+    int start = 0;
     if (mode == UpdateMode.OVERWRITE) {
-      setter.accept(values[0]);
-      i = 1;
+      setFieldGeneric(name, values[0]);
+      start++;
     }
-    for (; i < values.length; i++) {
-      adder.accept(values[i]);
+    for (int i = start; i < values.length; i++) {
+      setOrAddGeneric(name, values[i]);
     }
+  }
+
+  @Override
+  public void update(String name, UpdateMode mode, String... values) {
+    updateGeneric(name, mode, values);
+  }
+
+  @Override
+  public void update(String name, UpdateMode mode, Long... values) {
+    updateGeneric(name, mode, values);
+  }
+
+  @Override
+  public void update(String name, UpdateMode mode, Integer... values) {
+    updateGeneric(name, mode, values);
+  }
+
+  @Override
+  public void update(String name, UpdateMode mode, Boolean... values) {
+    updateGeneric(name, mode, values);
+  }
+
+  @Override
+  public void update(String name, UpdateMode mode, Double... values) {
+    updateGeneric(name, mode, values);
+  }
+
+  @Override
+  public void update(String name, UpdateMode mode, Instant... values) {
+    updateGeneric(name, mode, values);
   }
 
   @Override
   public void initializeRunId(String value) {
-    if (runId != null) {
-      throw new IllegalStateException();
+    if (value == null || value.isEmpty()) {
+      throw new IllegalArgumentException("RunId cannot be null or empty");
     }
-    runId = value;
+    if (has(RUNID_FIELD)) {
+      throw new IllegalStateException("RunId already set");
+    }
+    data.putOne(RUNID_FIELD, value);
   }
 
   @Override
   public void clearRunId() {
-    if (runId != null) {
-      runId = null;
+    if (has(RUNID_FIELD)) {
+      data.remove(RUNID_FIELD);
     }
   }
 
-  private <T> void setGenericField(String name, T value) {
-    validateNotReservedField(name);
-
-    if (value != null) {
-      types.putIfAbsent(name, value.getClass());
-
-      if (types.get(name) != value.getClass()) {
-        throw new UnsupportedOperationException();
-      }
-    }
-
-    // need to do it explicitly to handle adding null
-    List<Object> list = new ArrayList<>();
-    list.add(value);
-    data.put(name, list);
+  private <T> void setFieldGeneric(String name, T value) {
+    Document.validateNotReservedField(name);
+    data.putOne(name, value);
   }
 
   @Override
   public void setField(String name, String value) {
-    setGenericField(name, value);
+    setFieldGeneric(name, value);
   }
 
   @Override
   public void setField(String name, Long value) {
-    setGenericField(name, value);
+    setFieldGeneric(name, value);
   }
 
   @Override
   public void setField(String name, Integer value) {
-    setGenericField(name, value);
+    setFieldGeneric(name, value);
   }
 
   @Override
   public void setField(String name, Boolean value) {
-    setGenericField(name, value);
+    setFieldGeneric(name, value);
   }
 
   @Override
   public void setField(String name, Double value) {
-    setGenericField(name, value);
+    setFieldGeneric(name, value);
   }
 
   @Override
   public void setField(String name, JsonNode value) {
-    setGenericField(name, value);
+    setFieldGeneric(name, value);
   }
 
   @Override
   public void setField(String name, Instant value) {
-    setGenericField(name, value);
-  }
-
-  private void addAll(String name, List<Object> values) {
-    validateNotReservedField(name);
-    if (values == null) {
-      throw new IllegalArgumentException("values cannot be null");
-    }
-    data.putIfAbsent(name, new ArrayList<>());
-    data.get(name).addAll(values);
+    setFieldGeneric(name, value);
   }
 
   @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
-    validateNotReservedField(oldName, newName);
-    List<Object> oldValues = data.get(oldName);
-    data.remove(oldName);
+    Document.validateNotReservedField(oldName, newName);
 
     if (has(newName)) {
       switch (mode) {
         case OVERWRITE:
+          removeField(newName);
+          // go to next step
           break;
         case APPEND:
-          addAll(newName, oldValues);
-          // fall through
+          data.addAll(newName, data.getMany(oldName));
+          data.remove(oldName);
+          return;
         case SKIP:
+          data.remove(oldName);
           return;
         default:
-          throw new UnsupportedOperationException("switch not implemented for mode: " + mode);
+          throw new UnsupportedOperationException("Unsupported mode " + mode);
       }
     }
 
-    data.put(newName, oldValues);
+    data.rename(oldName, newName);
   }
 
-  private Object getSingleNode(String name) {
-
-    if (data.get(name) == null) {
-      return null;
-    }
-
-    List<Object> list = data.get(name);
-    if (list.isEmpty()) {
-      throw new UnsupportedOperationException();
-    }
-    return list.get(0);
+  private <T> T convertOrNull(Object value, Function<Object, T> converter) {
+    // TODO !!! value types should be changed during add
+    // todo add a try catch with an informative error message
+    return value == null ? null : converter.apply(value);
   }
 
-  private <T> T getSingleValue(String name, Function<Object, T> converter) {
-    switch (name) {
-      case ID_FIELD:
-        return converter.apply(id);
-      case RUNID_FIELD:
-        return converter.apply(runId);
-      default:
-        Object node = getSingleNode(name);
-        return node == null ? null : converter.apply(node);
-    }
+  private <T> T getValue(String name, Function<Object, T> converter) {
+    return !has(name) ? null : convertOrNull(data.getOne(name), converter);
   }
 
-  private <T> List<T> getValueList(String name, Function<Object, T> converter) {
-    if (!has(name)) {
-      return null;
-    }
-
-    List<T> result = new ArrayList<>();
-
-    if (data.get(name) == null) {
-      result.add(null);
-      return result;
-    }
-
-
-    for (Object node : data.get(name)) {
-      result.add(node == null ? null : converter.apply(node));
-    }
-    return result;
+  private <T> List<T> getValues(String name, Function<Object, T> converter) {
+    return !has(name)
+        ? null
+        : data.getMany(name).stream()
+            .map(value -> convertOrNull(value, converter))
+            .collect(Collectors.toList());
   }
 
-  // todo might negatively impact performance, can create static fields for each type
   @Override
   public String getString(String name) {
-    return getSingleValue(name, String::valueOf);
+    return getValue(name, String::valueOf);
   }
 
   @Override
   public List<String> getStringList(String name) {
-//    return getValueList(name, value -> (String) value);
-
-    // todo review this
-    return getValueList(name, value -> {
-      if (value.getClass() == Integer.class) {
-        return String.valueOf(value);
-      }
-      return (String) value;
-    });
+    return getValues(name, String::valueOf);
   }
 
   @Override
   public Integer getInt(String name) {
-    return getSingleValue(name, value -> (Integer) value);
+    return getValue(name, TO_INT);
   }
 
   @Override
   public List<Integer> getIntList(String name) {
-    return getValueList(name, value -> {
-      if (value.getClass() == String.class) {
-        return Integer.valueOf((String) value);
-      }
-      return (Integer) value;
-    });
+    return getValues(name, TO_INT);
   }
 
   @Override
   public Double getDouble(String name) {
-    return getSingleValue(name, value -> (Double) value);
+    return getValue(name, value -> (Double) value);
   }
 
   @Override
   public List<Double> getDoubleList(String name) {
-    return getValueList(name, value -> (Double) value);
+    return getValues(name, value -> (Double) value);
   }
 
   @Override
   public Boolean getBoolean(String name) {
-    return getSingleValue(name, value -> (Boolean) value);
+    return getValue(name, value -> (Boolean) value);
   }
 
   @Override
   public List<Boolean> getBooleanList(String name) {
-    return getValueList(name, value -> (Boolean) value);
+    return getValues(name, value -> (Boolean) value);
   }
 
   @Override
   public Long getLong(String name) {
-    return getSingleValue(name, value -> (Long) value);
+    return getValue(name, value -> (Long) value);
   }
 
   @Override
   public List<Long> getLongList(String name) {
-    return getValueList(name, value -> (Long) value);
+    return getValues(name, value -> (Long) value);
   }
 
   @Override
   public Instant getInstant(String name) {
-    return getSingleValue(name, value -> (Instant) value);
+    return getValue(name, value -> (Instant) value);
   }
 
   @Override
   public List<Instant> getInstantList(String name) {
-    return getValueList(name, value -> (Instant) value);
+    return getValues(name, value -> (Instant) value);
   }
 
   @Override
   public int length(String name) {
-    if (!has(name)) {
-      return 0;
-    }
-
-
-    if (data.get(name) == null) {
-      throw new UnsupportedOperationException();
-    }
-
-    return data.get(name).size();
+    return has(name) ? data.length(name) : 0;
   }
 
   @Override
   public String getId() {
-    return id;
+    return (String) data.getOne(ID_FIELD);
   }
 
   @Override
   public String getRunId() {
-    return runId;
+    if (has(RUNID_FIELD)) {
+      return (String) data.getOne(RUNID_FIELD);
+    }
+    return null;
   }
 
   @Override
   public boolean has(String name) {
-    switch (name) {
-      case ID_FIELD:
-        return id != null;
-      case RUNID_FIELD:
-        return runId != null;
-      case CHILDREN_FIELD:
-        return children != null;
-      default:
-        return data.containsKey(name);
-    }
+    return data.contains(name);
   }
 
   @Override
   public boolean hasNonNull(String name) {
-
-    switch (name) {
-      case ID_FIELD:
-        return id != null;
-      case RUNID_FIELD:
-        return runId != null;
-      case CHILDREN_FIELD:
-        return children != null && children.stream().anyMatch(Objects::nonNull);
-      default:
-        return data.containsKey(name) && data.get(name) != null;
-    }
+    // todo check if need to check multiple items for non null
+    return data.contains(name) && data.getOne(name) != null;
   }
 
   @Override
   public boolean isMultiValued(String name) {
-
-    if (!RESERVED_FIELDS.contains(name) && !has(name)) {
-      return false;
-    }
-    List<Object> values = data.get(name);
-    if (values == null) {
-      return false;
-    }
-    return values.size() > 1;
+    return has(name) && data.isMultiValued(name);
   }
 
-  private <T> void addToFieldList(String name, T value) {
-    validateNotReservedField(name);
+  private Object convertValue(String name, Object value) {
 
-    // todo review this
-    if (value == null) {
-      if (data.containsKey(name)) {
-        data.get(name).add(null);
-      } else {
-        data.put(name, null);
-      }
-      return;
+    if (!has(name) || value == null) {
+      return value;
     }
 
-    data.putIfAbsent(name, new ArrayList<>());
+    Class<?> type = data.getType(name);
+    Class<?> valueType = value.getClass();
 
-
-    // todo is there a better way to do this? testGetDoublesMultiValued fails otherwise
-
-    if (types.containsKey(name) && types.get(name) != value.getClass()) {
-
-      if (value.getClass() == Integer.class && types.get(name) == Double.class) {
-        data.get(name).add(((Integer) value).doubleValue());
-      }
-      else {
-        throw new UnsupportedOperationException();
-      }
-
-    } else {
-      data.get(name).add(value);
+    if (type.equals(valueType)) {
+      return value;
     }
+
+    // integer -> double
+    if (type.equals(Double.class)) {
+      if (value.getClass().equals(Integer.class)) {
+        return ((Integer) value).doubleValue();
+      }
+    }
+
+    throw new UnsupportedOperationException("Unsupported type " + type);
+  }
+
+  private <T> void addToFieldGeneric(String name, T value) {
+    Document.validateNotReservedField(name);
+    data.add(name, convertValue(name, value));
   }
 
   @Override
   public void addToField(String name, String value) {
-    addToFieldList(name, value);
+    addToFieldGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Long value) {
-    addToFieldList(name, value);
+    addToFieldGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Integer value) {
-    addToFieldList(name, value);
+    addToFieldGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Boolean value) {
-    addToFieldList(name, value);
+    addToFieldGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Double value) {
-    addToFieldList(name, value);
+    addToFieldGeneric(name, value);
   }
 
   @Override
   public void addToField(String name, Instant value) {
-    addToFieldList(name, value);
+    addToFieldGeneric(name, value);
   }
 
-  private <T> void setOrAddToList(String name, T value) {
-    if (has(name)) {
-      addToFieldList(name, value);
-    } else {
-      setGenericField(name, value);
-    }
+  private <T> void setOrAddGeneric(String name, T value) {
+    Document.validateNotReservedField(name);
+    // todo preprocess value to match the field type
+    data.setOrAdd(name, value);
   }
 
   @Override
   public void setOrAdd(String name, String value) {
-    setOrAddToList(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Long value) {
-    setOrAddToList(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Integer value) {
-    setOrAddToList(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Boolean value) {
-    setOrAddToList(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Double value) {
-    setOrAddToList(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Instant value) {
-    setOrAddToList(name, value);
+    setOrAddGeneric(name, value);
   }
 
   @Override
   public void setOrAdd(String name, Document other) throws IllegalArgumentException {
+    Document.validateNotReservedField(name);
 
-    validateNotReservedField(name);
-
-    if (!(other instanceof HashMapDocument)) {
-      throw new UnsupportedOperationException();
+    if (!other.has(name)) {
+      return;
+      // the particular implementation does not require an error here
+      // throw new IllegalArgumentException("The other document does not have the field " + name);
     }
 
-    if (!has(name)) {
-      if (other.has(name)) {
-        for (Object value : ((HashMapDocument) other).data.get(name)) {
-          addToFieldList(name, value);
-        }
-      }
+    MultiMap otherData = getData(other);
+    if (has(name) || other.isMultiValued(name)) {
+      data.addAll(name, otherData.getMany(name));
     } else {
-      addAll(name, ((HashMapDocument) other).data.get(name));
+      data.putOne(name, otherData.getOne(name));
     }
   }
 
   @Override
   public void setOrAddAll(Document other) {
-    if (!(other instanceof HashMapDocument)) {
-      throw new UnsupportedOperationException();
-    }
-    HashMapDocument otherDocument = (HashMapDocument) other;
-    for (Map.Entry<String, List<Object>> entry : otherDocument.data.entrySet()) {
-      addAll(entry.getKey(), entry.getValue());
+    MultiMap otherData = getData(other);
+    for (String name : otherData.getKeys()) {
+      if (RESERVED_FIELDS.contains(name)) {
+        continue;
+      }
+      setOrAdd(name, other);
     }
   }
 
   @Override
   public Map<String, Object> asMap() {
-
-    // todo note that this is not defensive
-
-    Map<String, Object> map = new HashMap<>();
-    for (String name : data.keySet()) {
-      map.put(name, data.get(name));
+    Map<String, Object> map = new LinkedHashMap<>();
+    map.putAll(data.getSingleValued());
+    map.putAll(data.getMultiValued());
+    if (map.containsKey(CHILDREN_FIELD)) {
+      // todo see if there is a faster way of doing this
+      map.put(
+          CHILDREN_FIELD,
+          ((List<Document>) map.get(CHILDREN_FIELD))
+              .stream().map(Document::asMap).collect(Collectors.toList()));
     }
-
-    if (id != null) {
-      map.put(ID_FIELD, id);
-    }
-
-    if (runId != null) {
-      map.put(RUNID_FIELD, runId);
-    }
-
-    if (children != null) {
-      map.put(CHILDREN_FIELD, children);
-    }
-
     return map;
   }
 
   @Override
   public void addChild(Document document) {
-    if (children == null) {
-      children = new ArrayList<>();
+    if (document == null) {
+      throw new IllegalArgumentException("The document is null");
     }
-    children.add(document);
+    data.add(CHILDREN_FIELD, document);
   }
 
   @Override
   public boolean hasChildren() {
-    return children != null;
+    return data.contains(CHILDREN_FIELD) && data.getMany(CHILDREN_FIELD).size() > 0;
   }
 
   @Override
   public List<Document> getChildren() {
-    if (children == null) {
-      return new ArrayList<>();
+    if (!hasChildren()) {
+      return Collections.emptyList();
     }
-    return new ArrayList<>(children);
+    return data.getMany(CHILDREN_FIELD).stream()
+        .map(child -> ((Document) child).deepCopy())
+        .collect(Collectors.toList());
   }
 
   @Override
   public Set<String> getFieldNames() {
-    Set<String> fieldNames = new HashSet<>(data.keySet());
-    if (id != null) {
-      fieldNames.add(ID_FIELD);
-    }
-    if (runId != null) {
-      fieldNames.add(RUNID_FIELD);
-    }
-    return fieldNames;
+    return data.getKeys();
   }
 
   @Override
-  public void removeDuplicateValues(String fieldName, String targetFieldName) {
+  public void removeDuplicateValues(String source, String target) {
+    Document.validateNotReservedField(source);
 
-    if (!has(fieldName)) {
-      throw new IllegalArgumentException("Field " + fieldName + " does not exist");
-    }
-
-    if (!isMultiValued(fieldName)) {
-      return;
-    }
-
-    List<Object> values = data.get(fieldName);
-    Set<Object> set = new LinkedHashSet<>(values);
-
-    if (targetFieldName == null || fieldName.equals(targetFieldName)) {
-      if (set.size() == values.size()) {
-        return;
-      }
-      data.remove(fieldName);
-      data.put(fieldName, new ArrayList<>(set));
-    } else {
-      data.put(targetFieldName, new ArrayList<>(set));
+    if (target != null && !target.equals(source)) {
+      data.putMany(target, new ArrayList<>(new LinkedHashSet<>(data.getMany(source))));
+    } else if (isMultiValued(source)) {
+      data.removeDuplicates(source);
     }
   }
 
   @Override
   public Document deepCopy() {
-//    return new HashMapDocument(this);
-    // todo review this
-    return new HashMapDocument(id, runId, children, null, data, types);
-  }
-
-  private static String wrap(String s) {
-    return "\"" + s + "\"";
-  }
-
-  private static String jsonEntry(String key, String value) {
-    return wrap(key) + ":" + wrap(value);
+    return new HashMapDocument(this);
   }
 
   @Override
   public String toString() {
-
-    StringBuilder out = new StringBuilder("{");
-
-    if (id != null) {
-      out.append(jsonEntry(ID_FIELD, id));
+    try {
+      return MAPPER.writeValueAsString(asMap());
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
     }
-
-    if (runId != null) {
-      out.append(",").append(jsonEntry(RUNID_FIELD, runId));
-    }
-
-    if (children != null) {
-      out.append(",").append(wrap(CHILDREN_FIELD)).append(":").append("[");
-      for (Document child : children) {
-        out.append(child.toString()).append(",");
-      }
-      out.delete(out.length() - 1, out.length()).append("]");
-    }
-
-    if (!this.data.isEmpty()) {
-      try {
-        String json = MAPPER.writeValueAsString(this.data);
-        return out.append(",").append(json.substring(1)).toString();
-      } catch (JsonProcessingException e) {
-
-        // todo check the instant to string -> testUpdateInstant
-
-        throw new RuntimeException(e);
-      }
-    }
-
-    return out.append("}").toString();
   }
 
   @Override
-  public boolean equals(Object obj) {
-
-    if (obj == this) {
-      return true;
-    }
-
-    if (!(obj instanceof HashMapDocument)) {
-      return false;
-    }
-
-    HashMapDocument other = (HashMapDocument) obj;
-
-    if (id != null && !id.equals(other.id)) {
-      return false;
-    }
-
-    if (runId != null && !runId.equals(other.runId)) {
-      return false;
-    }
-
-    if (children != null && !children.equals(other.children)) {
-      return false;
-    }
-
-    return data.equals(other.data);
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    return data.equals(((HashMapDocument) o).data);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(data, types, id, runId, errors, children);
+    return data.hashCode();
+  }
+
+  private static String requireString(JsonNode node) throws DocumentException {
+    if (!node.isTextual() || node.asText().isEmpty()) {
+      throw new DocumentException("Expected non-empty string, got " + node);
+    }
+    return node.asText();
+  }
+
+  private static String updateString(String toUpdate, UnaryOperator<String> updater) {
+    return updater == null ? toUpdate : updater.apply(toUpdate);
+  }
+
+  private static MultiMap getData(Document other) {
+    if (other == null) {
+      throw new IllegalStateException("Document is null");
+    }
+    if (!(other instanceof HashMapDocument)) {
+      throw new IllegalStateException("Documents are not of the same type");
+    }
+    return ((HashMapDocument) other).data;
   }
 }
