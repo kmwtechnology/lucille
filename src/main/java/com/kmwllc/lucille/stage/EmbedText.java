@@ -1,10 +1,13 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
+import net.minidev.json.JSONObject;
 
 import java.io.IOException;
 import java.net.URI;
@@ -26,6 +29,8 @@ import java.util.Map;
  * todo check if update mode is needed here
  */
 public class EmbedText extends Stage {
+
+  private final static ObjectMapper MAPPER = new ObjectMapper();
 
   private final String cncUrl;
   private final UpdateMode updateMode;
@@ -74,9 +79,25 @@ public class EmbedText extends Stage {
     return null;
   }
 
-  // Method to encode a string value using `UTF-8` encoding scheme
-  private static String encodeValue(String value) {
-    return URLEncoder.encode(value, StandardCharsets.UTF_8);
+  private Double[] getEmbedding(String toEmbed) throws StageException {
+
+    HttpRequest request = buildRequest(toEmbed);
+
+    try {
+      HttpResponse<String> response = httpClient.send(request,
+        HttpResponse.BodyHandlers.ofString());
+
+      if (response.statusCode() != 200) {
+        throw new StageException("EmbedText failed with status code " + response.statusCode());
+      }
+
+      Pojo pojo = MAPPER.readValue(response.body(), Pojo.class);
+      return pojo.embedding;
+
+    } catch (IOException | InterruptedException e) {
+      e.printStackTrace(); // todo consider adding trace to log
+      throw new StageException(e.getMessage());
+    }
   }
 
   private HttpRequest buildRequest(String toEmbed) {
@@ -89,32 +110,48 @@ public class EmbedText extends Stage {
       .build();
   }
 
-  private Double[] getEmbedding(String toEmbed) throws StageException {
+  // Method to encode a string value using `UTF-8` encoding scheme
+  private static String encodeValue(String value) {
+    return URLEncoder.encode(value, StandardCharsets.UTF_8);
+  }
 
-    HttpRequest request = buildRequest(toEmbed);
+  // todo check what things i actually need here
+  private static class Pojo {
+    private String model;
+    private int num_total;
+    private Double[] embedding;
 
-    try {
-      HttpResponse<String> response = httpClient.send(request,
-        HttpResponse.BodyHandlers.ofString());
+    public Pojo(String model, int num_total, Double[] embedding) {
+      this.model = model;
+      this.num_total = num_total;
+      this.embedding = embedding;
+    }
 
-      // todo clean this up
+    public Pojo() {
+    }
 
-      // print response headers
-      HttpHeaders headers = response.headers();
-      headers.map().forEach((k, v) -> System.out.println(k + ":" + v));
+    public String getModel() {
+      return model;
+    }
 
-      // print status code
-      System.out.println(response.statusCode());
+    public void setModel(String model) {
+      this.model = model;
+    }
 
-      // print response body
-      System.out.println(response.body());
+    public int getNum_total() {
+      return num_total;
+    }
 
-      Double[] embedding = new Double[10];
+    public void setNum_total(int num_total) {
+      this.num_total = num_total;
+    }
+
+    public Double[] getEmbedding() {
       return embedding;
+    }
 
-    } catch (IOException | InterruptedException e) {
-      e.printStackTrace(); // todo consider adding trace to log
-      throw new StageException(e.getMessage());
+    public void setEmbedding(Double[] embedding) {
+      this.embedding = embedding;
     }
   }
 }
