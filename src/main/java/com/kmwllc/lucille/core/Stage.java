@@ -40,6 +40,9 @@ import java.util.stream.Stream;
  */
 public abstract class Stage {
 
+  private static final Set<String> EMPTY_SET = Collections.emptySet();
+  private static final Set<String> CONDITIONS_OPTIONAL = Set.of("operator");
+  private static final Set<String> CONDITIONS_REQUIRED = Set.of("fields", "values");
   private static final Set<String> OPTIONAL_PROPERTIES = Set.of("class", "name", "conditions");
 
   protected Config config;
@@ -68,11 +71,10 @@ public abstract class Stage {
       Set<String> requiredParents, Set<String> optionalParents) {
 
     this.config = config;
-    this.requiredParents = new HashSet<>(requiredParents);
-    this.optionalParents = new HashSet<>(optionalParents);
-    this.requiredProperties = new HashSet<>(requiredProperties);
-    this.optionalProperties = new HashSet<>(optionalProperties);
-    this.optionalProperties.addAll(OPTIONAL_PROPERTIES);
+    this.requiredParents = Collections.unmodifiableSet(requiredParents);
+    this.optionalParents = Collections.unmodifiableSet(optionalParents);
+    this.requiredProperties = Collections.unmodifiableSet(requiredProperties);
+    this.optionalProperties = mergeSets(OPTIONAL_PROPERTIES, optionalProperties);
 
     // validates the properties that were just assigned
     validateConfigWithConditions();
@@ -189,8 +191,7 @@ public abstract class Stage {
     // validate conditions
     if (config.hasPath("conditions"))  {
       for (Config condition : config.getConfigList("conditions")) {
-        validateConfig(condition, Set.of("fields", "values"), Set.of("operator"),
-          Set.of(), Set.of());
+        validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_SET, EMPTY_SET);
       }
     }
   }
@@ -217,8 +218,7 @@ public abstract class Stage {
     // 1. all remaining properties are in the optional set or are nested;
     // 2. all required parents are present
     Set<String> observedRequiredParents = new HashSet<>();
-    Set<String> legalProperties = Stream.concat(requiredProperties.stream(),
-        optionalProperties.stream()).collect(Collectors.toSet());
+    Set<String> legalProperties = mergeSets(requiredProperties, optionalProperties);
     for (String key: keys) {
       if (!legalProperties.contains(key)) {
         String parent = getParent(key);
@@ -238,8 +238,7 @@ public abstract class Stage {
   }
 
   public Set<String> getLegalProperties() {
-    return Stream.concat(requiredProperties.stream(), optionalProperties.stream())
-      .collect(Collectors.toSet());
+    return mergeSets(requiredProperties, optionalProperties);
   }
 
   private static String getParent(String property) {
@@ -255,18 +254,32 @@ public abstract class Stage {
     if (sets == null) {
       throw new IllegalArgumentException("Sets must not be null");
     }
-    for (int i = 0; i < sets.length; i++) {
-      if (sets[i] == null){
-        throw new IllegalArgumentException("All sets must not be null");
+    if (sets.length == 0) {
+      throw new IllegalArgumentException("expecting at least one set");
+    }
+
+    Set<String> observed = new HashSet<>();
+    for (Set<String> set : sets) {
+      if (set == null) {
+        throw new IllegalArgumentException("Each set must not be null");
       }
-      for (int j = i + 1; j < sets.length; j++) {
-        // this is more efficient than checking that the intersection is not empty
-        if (!Collections.disjoint(sets[i], sets[j])){
+      for (String s : set) {
+        if (observed.contains(s)) {
           return false;
         }
+        observed.add(s);
       }
     }
     return true;
+  }
+
+  @SafeVarargs
+  private static <T> Set<T> mergeSets(Set<T> ... sets) {
+    Set<T> merged = new HashSet<>();
+    for (Set<T> set : sets) {
+      merged.addAll(set);
+    }
+    return Collections.unmodifiableSet(merged);
   }
 
   /**
