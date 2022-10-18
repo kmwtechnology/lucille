@@ -14,7 +14,7 @@ public class SplitFieldValuesTest {
   public void test() throws Exception {
     Stage stage = factory.get("SplitFieldValuesTest/config.conf");
 
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     doc.setField("data", "this,that, the ,other");
     stage.processDocument(doc);
 

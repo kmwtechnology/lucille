@@ -182,7 +182,7 @@ public class CSVConnector extends AbstractConnector {
           docId = getDocIdPrefix() + filename + "-" + lineNum;
         }
 
-        Document doc = new Document(docId);
+        Document doc = Document.create(docId);
         doc.setField(filePathField, path);
         doc.setField(filenameField, filename);
         // log.info("DOC ID: {}", docId);

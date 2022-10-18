@@ -23,7 +23,7 @@ public class CreateChildrenStage extends Stage {
   public List<Document> processDocument(Document doc) throws StageException {
     ArrayList<Document> children = new ArrayList();
     for (int i=0; i<numChildren; i++) {
-      Document child = new Document(doc.getId()+ "_child" +i);
+      Document child = Document.create(doc.getId()+ "_child" +i);
       children.add(child);
     }
 

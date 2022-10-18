@@ -20,13 +20,13 @@ public class DictionaryLookupTest {
     Stage stage = factory.get("DictionaryLookupTest/config.conf");
 
     // Ensure that exact matches are correctly extracted
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     doc.setField("input1", "China");
     stage.processDocument(doc);
     assertEquals("China", doc.getStringList("output1").get(0));
 
     // Ensure that multiple matches can be extracted, even in multivalued fields
-    Document doc2 = new Document("doc2");
+    Document doc2 = Document.create("doc2");
     doc2.setField("input1", "Canada");
     doc2.addToField("input1", "United States");
     doc2.setField("input3", "Taiwan");
@@ -36,13 +36,13 @@ public class DictionaryLookupTest {
     assertEquals("Taiwan", doc2.getStringList("output3").get(0));
 
     // ensure that partial matches do not get extracted
-    Document doc3 = new Document("doc2");
+    Document doc3 = Document.create("doc2");
     doc3.setField("input2", "United States of America");
     stage.processDocument(doc3);
     assertNull(doc3.getStringList("output2"));
     
     // Ensure that if there are multiple payloads, that the payloads get mapped to the output as expected.
-    Document doc4 = new Document("doc4");
+    Document doc4 = Document.create("doc4");
     doc4.setField("input1", "foo");
     stage.processDocument(doc4);
     System.out.println(doc4);
@@ -58,7 +58,7 @@ public class DictionaryLookupTest {
   public void testDictionaryLookupIgnoreCase() throws StageException {
     Stage stage = factory.get("DictionaryLookupTest/config_ignore_case.conf");
     
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     // lower case input
     doc.setField("input1", "china");
     stage.processDocument(doc);

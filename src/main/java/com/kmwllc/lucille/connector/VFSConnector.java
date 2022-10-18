@@ -77,7 +77,7 @@ public class VFSConnector extends AbstractConnector {
 
   private Document buildDocument(FileObject fo) {
     final String docId = DigestUtils.md5Hex(fo.getName().getPath());
-    final Document doc = new Document(createDocId(docId));
+    final Document doc = Document.create(createDocId(docId));
 
     // Set up basic file properties on the doc
     doc.setField(FileTraverser.FILE_PATH, fo.getName().getURI());

@@ -17,7 +17,7 @@ public class TimestampTest {
   public void testTimestamp() throws Exception {
     Stage stage = factory.get("TimestampTest/config.conf");
 
-    Document doc = new Document("doc1");
+    Document doc = Document.create("doc1");
     stage.processDocument(doc);
 
     assertTrue(doc.has("timestamp"));

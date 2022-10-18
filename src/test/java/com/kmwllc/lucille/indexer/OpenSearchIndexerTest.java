@@ -60,8 +60,8 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
-    Document doc = new Document("doc1", "test_run");
-    Document doc2 = new Document("doc2", "test_run");
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
@@ -82,11 +82,11 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/exception.conf");
 
-    Document doc = new Document("doc1", "test_run");
-    Document doc2 = new Document("doc2", "test_run");
-    Document doc3 = new Document("doc3", "test_run");
-    Document doc4 = new Document("doc4", "test_run");
-    Document doc5 = new Document("doc5", "test_run");
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+    Document doc3 = Document.create("doc3", "test_run");
+    Document doc4 = Document.create("doc4", "test_run");
+    Document doc5 = Document.create("doc5", "test_run");
 
     OpenSearchIndexer indexer = new ErroringOpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
@@ -121,11 +121,11 @@ public class OpenSearchIndexerTest {
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
 
-    Document doc = new Document("doc1", "test_run");
-    Document doc2 = new Document("doc2", "test_run");
-    Document doc3 = new Document("doc3", "test_run");
-    Document doc4 = new Document("doc4", "test_run");
-    Document doc5 = new Document("doc5", "test_run");
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+    Document doc3 = Document.create("doc3", "test_run");
+    Document doc4 = Document.create("doc4", "test_run");
+    Document doc5 = Document.create("doc5", "test_run");
 
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
@@ -161,7 +161,7 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
-    Document doc = new Document("doc1", "test_run");
+    Document doc = Document.create("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
@@ -196,7 +196,7 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
-    Document doc = new Document("doc1", "test_run");
+    Document doc = Document.create("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
@@ -230,7 +230,7 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
-    Document doc = new Document("doc1", "test_run");
+    Document doc = Document.create("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
     doc.setField("myJsonField", jsonNode);

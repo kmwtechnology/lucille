@@ -53,7 +53,7 @@ public class SolrConnectorTest {
     Connector connector = new SolrConnector(config, mockClient);
     connector.execute(publisher);
 
-    Document testDoc = new Document("doc", "run");
+    Document testDoc = Document.create("doc", "run");
     testDoc.update("q", UpdateMode.DEFAULT, "type:product");
     testDoc.update("fq", UpdateMode.DEFAULT, "devId:[5 TO 20]", "date:today");
     testDoc.update("fl", UpdateMode.DEFAULT, "date", "devId", "id", "name", "category");
