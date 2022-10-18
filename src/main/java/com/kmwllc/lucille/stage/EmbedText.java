@@ -62,9 +62,6 @@ public class EmbedText extends Stage {
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
 
-    // todo if there are multiple fields - do a multi sent request
-    // todo use the post
-
     // For each field, if this document has the source field, rename it to the destination field
     for (Map.Entry<String, Object> fieldPair : fieldMap.entrySet()) {
 
