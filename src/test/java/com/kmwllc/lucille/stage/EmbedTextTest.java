@@ -1,8 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
@@ -14,7 +12,7 @@ import static org.junit.Assert.assertEquals;
 public class EmbedTextTest {
 
   @Test
-  public void test() throws StageException, DocumentException, JsonProcessingException {
+  public void test() throws StageException {
     Stage s = StageFactory.of(EmbedText.class).get("EmbedTextTest/config.conf");
 
     Document d = Document.create("id");
@@ -28,7 +26,7 @@ public class EmbedTextTest {
   }
 
   @Test
-  public void test2() throws StageException, DocumentException, JsonProcessingException {
+  public void test2() throws StageException {
     Stage s = StageFactory.of(EmbedTextV2.class).get("EmbedTextTest/config_v2.conf");
 
     Document d = Document.create("id");
