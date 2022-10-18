@@ -1,19 +1,16 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-import net.minidev.json.JSONObject;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
-import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
@@ -65,6 +62,9 @@ public class EmbedText extends Stage {
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
 
+    // todo if there are multiple fields - do a multi sent request
+    // todo use the post
+
     // For each field, if this document has the source field, rename it to the destination field
     for (Map.Entry<String, Object> fieldPair : fieldMap.entrySet()) {
 
@@ -81,7 +81,7 @@ public class EmbedText extends Stage {
 
   private Double[] getEmbedding(String toEmbed) throws StageException {
 
-    HttpRequest request = buildRequest(toEmbed);
+    HttpRequest request = buildGetRequest(toEmbed);
 
     try {
       HttpResponse<String> response = httpClient.send(request,
@@ -91,8 +91,8 @@ public class EmbedText extends Stage {
         throw new StageException("EmbedText failed with status code " + response.statusCode());
       }
 
-      Pojo pojo = MAPPER.readValue(response.body(), Pojo.class);
-      return pojo.embedding;
+      JsonResponse jsonResponse = MAPPER.readValue(response.body(), JsonResponse.class);
+      return jsonResponse.embedding;
 
     } catch (IOException | InterruptedException e) {
       e.printStackTrace(); // todo consider adding trace to log
@@ -100,7 +100,7 @@ public class EmbedText extends Stage {
     }
   }
 
-  private HttpRequest buildRequest(String toEmbed) {
+  private HttpRequest buildGetRequest(String toEmbed) {
     String sentenceEncoded = encodeValue(toEmbed);
     String url = this.cncUrl + "/embed?sentence=" + sentenceEncoded;
     return HttpRequest.newBuilder()
@@ -115,43 +115,9 @@ public class EmbedText extends Stage {
     return URLEncoder.encode(value, StandardCharsets.UTF_8);
   }
 
-  // todo check what things i actually need here
-  private static class Pojo {
-    private String model;
-    private int num_total;
-    private Double[] embedding;
-
-    public Pojo(String model, int num_total, Double[] embedding) {
-      this.model = model;
-      this.num_total = num_total;
-      this.embedding = embedding;
-    }
-
-    public Pojo() {
-    }
-
-    public String getModel() {
-      return model;
-    }
-
-    public void setModel(String model) {
-      this.model = model;
-    }
-
-    public int getNum_total() {
-      return num_total;
-    }
-
-    public void setNum_total(int num_total) {
-      this.num_total = num_total;
-    }
-
-    public Double[] getEmbedding() {
-      return embedding;
-    }
-
-    public void setEmbedding(Double[] embedding) {
-      this.embedding = embedding;
-    }
+  static class JsonResponse {
+    public String model;
+    public int num_total;
+    public Double[] embedding;
   }
 }
