@@ -264,7 +264,7 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/routing.conf");
 
-    Document doc = new Document("doc1");
+    Document doc = Document.create("doc1");
     doc.setField("routing", "routing1");
     doc.setField("field1", "value1");
 
