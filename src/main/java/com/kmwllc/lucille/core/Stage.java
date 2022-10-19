@@ -70,7 +70,7 @@ public abstract class Stage {
   private Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties,
       Set<String> requiredParents, Set<String> optionalParents) {
 
-    this.name = ConfigUtils.getOrDefault(config, "name", this.getClass().getName());
+    this.name = ConfigUtils.getOrDefault(config, "name", null);
 
     this.config = config;
     this.requiredParents = Collections.unmodifiableSet(requiredParents);
@@ -167,6 +167,10 @@ public abstract class Stage {
     return name;
   }
 
+  private String getClassName() {
+    return this.getClass().getName();
+  }
+
   /**
    * Initialize metrics and set the Stage's name based on the position if the name has not already been set.
    */
@@ -204,7 +208,7 @@ public abstract class Stage {
 
     // verifies that set intersection is empty
     if (!disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
-      throw new IllegalArgumentException(getName()
+      throw new IllegalArgumentException(getClassName()
         + ": Properties and parents sets must be disjoint.");
     }
 
@@ -226,18 +230,18 @@ public abstract class Stage {
       if (!legalProperties.contains(key)) {
         String parent = getParent(key);
         if (parent == null) {
-          throw new IllegalArgumentException(getName() + ": Stage config contains unknown property "
+          throw new IllegalArgumentException(getClassName() + ": Stage config contains unknown property "
             + key);
         } else if (requiredParents.contains(parent)) {
           observedRequiredParents.add(parent);
         } else if (!optionalParents.contains(parent)) {
-          throw new IllegalArgumentException(getName() + ": Stage config contains unknown property "
+          throw new IllegalArgumentException(getClassName() + ": Stage config contains unknown property "
             + key);
         }
       }
     }
     if (observedRequiredParents.size() != requiredParents.size()) {
-      throw new IllegalArgumentException(getName() + ": Stage config is missing required parents: " +
+      throw new IllegalArgumentException(getClassName() + ": Stage config is missing required parents: " +
           Sets.difference(requiredParents, observedRequiredParents));
     }
   }

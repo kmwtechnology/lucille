@@ -77,7 +77,11 @@ public class Pipeline {
     try {
       return (Stage) constructor.newInstance(c);
     } catch (InvocationTargetException e) {
-      throw (Exception) e.getTargetException();
+      if (e.getTargetException() instanceof Exception) {
+        throw (Exception) e.getTargetException();
+      } else {
+        throw e;
+      }
     }
   }
 
