@@ -70,6 +70,10 @@ public abstract class Stage {
   private Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties,
       Set<String> requiredParents, Set<String> optionalParents) {
 
+    if (config == null) {
+      throw new IllegalArgumentException("Config cannot be null");
+    }
+
     this.name = ConfigUtils.getOrDefault(config, "name", null);
 
     this.config = config;
