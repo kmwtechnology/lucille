@@ -13,53 +13,42 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
 
-// todo  goal of the base class - not deseralization - not http client
+abstract class RestApiStageV2 extends Stage {
 
-// todo rename to AbstractRestApiStage
-abstract class RestApiStageV2<T> extends Stage {
-
-  private final static int DEFAULT_TIMEOUT = 10;
+  // constant variables
   protected final static ObjectMapper MAPPER = new ObjectMapper();
+  protected final static Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
+  protected final static HttpClient.Version DEFAULT_VERSION = HttpClient.Version.HTTP_1_1;
 
-  protected final HttpClient httpClient;
+  // fields
+  protected final HttpClient client;
 
-
-  public RestApiStageV2(Config config, HttpClient client) {
-
+  public RestApiStageV2(Config config) {
     super(config);
-
-    if (client == null) {
-      throw new IllegalArgumentException("client must not be null");
-    }
-
-    this.httpClient = client;
+    this.client = getNonNull(buildClient());
   }
 
   @Override
   public List<Document> processDocument(Document doc) throws StageException {
-    return processWithResponse(doc, getResponse(buildRequest(doc)));
+    HttpRequest request = getNonNull(buildRequest(doc));
+    try {
+      HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+      return processWithResponse(doc, response);
+    } catch (IOException | InterruptedException e) {
+      throw new StageException("Failed to retrieve response from API", e);
+    }
   }
 
+  public abstract HttpClient buildClient();
+
   public abstract HttpRequest buildRequest(Document document);
-  public abstract List<Document> processWithResponse(Document doc, T response) throws StageException;
 
-  public T getResponse(HttpRequest request) throws StageException {
+  public abstract List<Document> processWithResponse(Document doc, HttpResponse<String> response) throws StageException;
 
-    try {
-
-      // todo delegate response to the implementing class
-      HttpResponse<String> response = httpClient.send(request,
-        HttpResponse.BodyHandlers.ofString());
-
-      if (response.statusCode() != 200) {
-        throw new StageException(this.getName() + " stage failed with status code "
-          + response.statusCode());
-      }
-
-      return MAPPER.readValue(response.body(), responseClass);
-    } catch (IOException | InterruptedException e) {
-      e.printStackTrace(); // todo consider adding trace to log
-      throw new StageException(e.getMessage());
+  private static <T> T getNonNull(T item) {
+    if (item == null) {
+      throw new IllegalArgumentException("expecting non null parameter");
     }
+    return item;
   }
 }

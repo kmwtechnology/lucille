@@ -26,8 +26,23 @@ public class EmbedTextTest {
   }
 
   @Test
-  public void test2() throws StageException {
+  public void testV2() throws StageException {
     Stage s = StageFactory.of(EmbedTextV2.class).get("EmbedTextTest/config_v2.conf");
+
+    Document d = Document.create("id");
+    d.setField("first", "hello world");
+    d.setField("second", "hello there");
+
+    s.start();
+    s.processDocument(d);
+
+    assertEquals(384, d.getDoubleList("first_embedded").size());
+    assertEquals(384, d.getDoubleList("second_embedded").size());
+  }
+
+  @Test
+  public void testV3() throws StageException {
+    Stage s = StageFactory.of(EmbedTextV3.class).get("EmbedTextTest/config_v2.conf");
 
     Document d = Document.create("id");
     d.setField("first", "hello world");
