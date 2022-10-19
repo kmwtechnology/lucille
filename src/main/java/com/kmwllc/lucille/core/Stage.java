@@ -70,6 +70,8 @@ public abstract class Stage {
   private Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties,
       Set<String> requiredParents, Set<String> optionalParents) {
 
+    this.name = ConfigUtils.getOrDefault(config, "name", this.getClass().getName());
+
     this.config = config;
     this.requiredParents = Collections.unmodifiableSet(requiredParents);
     this.optionalParents = Collections.unmodifiableSet(optionalParents);
@@ -79,7 +81,6 @@ public abstract class Stage {
     // validates the properties that were just assigned
     validateConfigWithConditions();
 
-    this.name = ConfigUtils.getOrDefault(config, "name", null);
     this.condition = getMergedConditions();
   }
 
@@ -203,14 +204,16 @@ public abstract class Stage {
 
     // verifies that set intersection is empty
     if (!disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
-      throw new IllegalArgumentException("Properties and parents sets must be disjoint.");
+      throw new IllegalArgumentException(getName()
+        + ": Properties and parents sets must be disjoint.");
     }
 
     // verifies all required properties are present
     Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
     for (String property: requiredProperties) {
       if (!keys.contains(property)) {
-        throw new IllegalArgumentException("Stage config must contain property " + property);
+        throw new IllegalArgumentException(getName() + ": Stage config must contain property "
+          + property);
       }
     }
 
@@ -223,16 +226,18 @@ public abstract class Stage {
       if (!legalProperties.contains(key)) {
         String parent = getParent(key);
         if (parent == null) {
-          throw new IllegalArgumentException("Stage config contains unknown property " + key);
+          throw new IllegalArgumentException(getName() + ": Stage config contains unknown property "
+            + key);
         } else if (requiredParents.contains(parent)) {
           observedRequiredParents.add(parent);
         } else if (!optionalParents.contains(parent)) {
-          throw new IllegalArgumentException("Stage config contains unknown property " + key);
+          throw new IllegalArgumentException(getName() + ": Stage config contains unknown property "
+            + key);
         }
       }
     }
     if (observedRequiredParents.size() != requiredParents.size()) {
-      throw new IllegalArgumentException("Stage config is missing required parents: " +
+      throw new IllegalArgumentException(getName() + ": Stage config is missing required parents: " +
           Sets.difference(requiredParents, observedRequiredParents));
     }
   }

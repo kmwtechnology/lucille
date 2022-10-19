@@ -1,10 +1,8 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.DocumentException;
-import com.kmwllc.lucille.core.Stage;
-import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import org.junit.Test;
 
 import static org.junit.Assert.fail;
@@ -85,6 +83,17 @@ public class ConfigValidationTest {
       // e.printStackTrace();
       Throwable cause = e.getCause().getCause();
       assertContains(cause.getMessage(), message);
+    }
+  }
+
+  @Test
+  public void testPipelineException() throws Exception {
+    try {
+      PersistingLocalMessageManager manager =
+        Runner.runInTestMode(addPath("pipeline.conf")).get("connector1");
+    } catch (IllegalArgumentException e) {
+      assertContains(e.getMessage(), "com.kmwllc.lucille.stage.NoopStage: " +
+        "Stage config contains unknown property invalid_property");
     }
   }
 }
