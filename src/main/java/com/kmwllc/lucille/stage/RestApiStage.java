@@ -13,6 +13,9 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
 
+// todo  goal of the base class - not deseralization - not http client
+
+// todo rename to AbstractRestApiStage
 abstract class RestApiStage<T> extends Stage {
 
   private final static int DEFAULT_TIMEOUT = 10;
@@ -40,10 +43,19 @@ abstract class RestApiStage<T> extends Stage {
       .build();
   }
 
+  @Override
+  public List<Document> processDocument(Document doc) throws StageException {
+    return processWithResponse(doc, getResponse(buildRequest(doc)));
+  }
+
+  public abstract HttpRequest buildRequest(Document document);
+  public abstract List<Document> processWithResponse(Document doc, T response) throws StageException;
+
   public T getResponse(HttpRequest request) throws StageException {
 
     try {
 
+      // todo delegate response to the implementing class
       HttpResponse<String> response = httpClient.send(request,
         HttpResponse.BodyHandlers.ofString());
 
@@ -58,12 +70,4 @@ abstract class RestApiStage<T> extends Stage {
       throw new StageException(e.getMessage());
     }
   }
-
-  @Override
-  public List<Document> processDocument(Document doc) throws StageException {
-    return processWithResponse(doc, getResponse(buildRequest(doc)));
-  }
-
-  public abstract HttpRequest buildRequest(Document document);
-  public abstract List<Document> processWithResponse(Document doc, T response) throws StageException;
 }
