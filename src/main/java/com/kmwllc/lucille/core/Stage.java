@@ -220,7 +220,7 @@ public abstract class Stage {
     Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
     for (String property: requiredProperties) {
       if (!keys.contains(property)) {
-        throw new IllegalArgumentException(getName() + ": Stage config must contain property "
+        throw new IllegalArgumentException(getClassName() + ": Stage config must contain property "
           + property);
       }
     }
