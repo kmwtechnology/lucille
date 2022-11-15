@@ -44,7 +44,8 @@ public class DictionaryLookup extends Stage {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   public DictionaryLookup(Config config) throws StageException {
-    super(config);
+    super(config, new StageSpec().withRequiredProperties("source", "dest", "dict_path")
+      .withOptionalProperties("use_payloads", "update_mode", "ignore_case"));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");

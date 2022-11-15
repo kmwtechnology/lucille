@@ -5,6 +5,8 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
 
+import java.util.Set;
+
 import static org.junit.Assert.*;
 
 public class DeleteFieldsTest {
@@ -35,4 +37,9 @@ public class DeleteFieldsTest {
     assertEquals("and this one", doc2.getString("save2"));
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("DeleteFieldsTest/config.conf");
+    assertEquals(Set.of("name", "fields", "conditions", "class"), stage.getLegalProperties());
+  }
 }

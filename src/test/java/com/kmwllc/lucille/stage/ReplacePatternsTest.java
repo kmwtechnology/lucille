@@ -2,9 +2,13 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
+
+import java.util.Set;
+
 import static org.junit.Assert.*;
 
 public class ReplacePatternsTest {
@@ -36,4 +40,23 @@ public class ReplacePatternsTest {
     assertEquals("This should be untouched", doc3.getStringList("output3").get(0));
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("ReplacePatternsTest/config.conf");
+    assertEquals(
+        Set.of(
+            "ignore_case",
+            "regex",
+            "update_mode",
+            "multiline",
+            "name",
+            "source",
+            "dest",
+            "conditions",
+            "replacement",
+            "class",
+            "dotall",
+            "literal"),
+        stage.getLegalProperties());
+  }
 }

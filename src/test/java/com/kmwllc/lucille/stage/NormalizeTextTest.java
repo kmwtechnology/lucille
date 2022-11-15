@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.Set;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -47,5 +48,13 @@ public class NormalizeTextTest {
     doc3.setField("input3", "this will be in title case");
     stage.processDocument(doc3);
     assertEquals("This Will Be In Title Case", doc3.getStringList("output3").get(0));
+  }
+
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("NormalizeTextTest/lowercase.conf");
+    assertEquals(
+        Set.of("mode", "update_mode", "name", "source", "dest", "conditions", "class"),
+        stage.getLegalProperties());
   }
 }

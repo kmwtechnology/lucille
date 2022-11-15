@@ -2,11 +2,13 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.*;
 
@@ -60,5 +62,24 @@ public class ApplyRegexTest {
     doc.setField("input", "test~123");
     stage.processDocument(doc);
     assertEquals("123", doc.getString("output"));
+  }
+
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("ApplyRegexTest/config.conf");
+    assertEquals(
+        Set.of(
+            "ignore_case",
+            "regex",
+            "update_mode",
+            "multiline",
+            "name",
+            "source",
+            "dest",
+            "conditions",
+            "class",
+            "dotall",
+            "literal"),
+        stage.getLegalProperties());
   }
 }

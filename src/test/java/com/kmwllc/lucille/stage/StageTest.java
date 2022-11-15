@@ -8,7 +8,7 @@ import com.typesafe.config.Config;
 import org.junit.Test;
 
 import java.util.List;
-
+import java.util.Set;
 import static org.junit.Assert.*;
 
 public class StageTest {
@@ -146,4 +146,9 @@ public class StageTest {
     assertEquals(null, stage.getName());
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("StageTest/processMust.conf");
+    assertEquals(Set.of("name", "conditions", "class"), stage.getLegalProperties());
+  }
 }
