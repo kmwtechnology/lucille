@@ -83,7 +83,9 @@ public class Runner {
       .addOption(Option.builder("usekafka").hasArg(false)
         .desc("Use Kafka for inter-component communication and don't execute pipelines locally").build())
       .addOption(Option.builder("local").hasArg(false)
-        .desc("Modifies usekafka mode to execute pipelines locally").build());
+        .desc("Modifies usekafka mode to execute pipelines locally").build())
+      .addOption(Option.builder("validate").hasArg(false)
+        .desc("Validate the configuration and exit").build());
 
     CommandLine cli = null;
     try {
@@ -98,6 +100,11 @@ public class Runner {
         log.info(writer.toString());
       }
       System.exit(1);
+    }
+
+    if (cli.hasOption("validate")) {
+      logValidation(ConfigFactory.load());
+      return;
     }
 
     StopWatch stopWatch = new StopWatch();
@@ -153,6 +160,29 @@ public class Runner {
     Config config = ConfigFactory.load(configName);
     RunResult result = run(config, RunType.TEST);
     return result.getHistory();
+  }
+
+  private static List<Exception> logValidation(Config config) throws Exception {
+    List<Exception> exceptions = validatePipelines(config);
+    if(exceptions.isEmpty()) {
+      log.info("Configuration is valid");
+    } else {
+      log.error("Configuration is invalid");
+    }
+    return exceptions;
+  }
+
+  public static List<Exception> runInValidationMode(String configName) throws Exception {
+    return logValidation(ConfigFactory.load(configName));
+  }
+
+  public static List<Exception> validatePipelines(Config config) throws Exception {
+    List<Exception> exceptions = new ArrayList<>();
+    for (Connector connector : Connector.fromConfig(config)) {
+      log.info("Validating stages for connector " + connector.getName());
+      exceptions.addAll(Pipeline.validateStages(config, connector.getPipelineName()));
+    }
+    return exceptions;
   }
 
   /**

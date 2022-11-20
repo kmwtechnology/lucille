@@ -3,9 +3,12 @@ package com.kmwllc.lucille.stage;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.typesafe.config.ConfigException;
 import org.junit.Test;
 
-import static org.junit.Assert.fail;
+import java.util.List;
+
+import static org.junit.Assert.*;
 
 public class ConfigValidationTest {
 
@@ -33,7 +36,8 @@ public class ConfigValidationTest {
 
   private static void testException(Class<? extends Stage> stageClass, String config) {
     try {
-      StageFactory.of(stageClass).get(addPath(config));
+      Stage stage = StageFactory.of(stageClass).get(addPath(config));
+      stage.validateConfigWithConditions();
       fail();
     } catch (StageException e) {
       // expected
@@ -88,12 +92,27 @@ public class ConfigValidationTest {
 
   @Test
   public void testPipelineException() throws Exception {
-    try {
-      PersistingLocalMessageManager manager =
-        Runner.runInTestMode(addPath("pipeline.conf")).get("connector1");
-    } catch (IllegalArgumentException e) {
-      assertContains(e.getMessage(), "com.kmwllc.lucille.stage.NoopStage: " +
+    List<Exception> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
+    assertEquals(4, exceptions.size());
+
+    Exception e = exceptions.get(0);
+    assertEquals(e.getClass(), StageException.class);
+    assertContains(e.getMessage(), "com.kmwllc.lucille.stage.NoopStage: " +
         "Stage config contains unknown property invalid_property");
-    }
+
+    // TODO note that for the following two exceptions, the fields are retrieved before
+    //  the config validation is called
+    e = exceptions.get(1);
+    assertEquals(e.getClass(), ConfigException.Missing.class);
+    assertContains(e.getMessage(), "No configuration setting found for key 'fields'");
+
+    e = exceptions.get(2);
+    assertEquals(e.getClass(), ConfigException.Missing.class);
+    assertContains(e.getMessage(), "No configuration setting found for key 'dest'");
+
+    e = exceptions.get(3);
+    assertEquals(e.getClass(), StageException.class);
+    assertContains(e.getMessage(), "com.kmwllc.lucille.stage.Concatenate: " +
+      "Stage config contains unknown property default_inputs3");
   }
 }

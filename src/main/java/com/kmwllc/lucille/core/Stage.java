@@ -83,7 +83,7 @@ public abstract class Stage {
     this.optionalProperties = mergeSets(OPTIONAL_PROPERTIES, optionalProperties);
 
     // validates the properties that were just assigned
-    validateConfigWithConditions();
+    // validateConfigWithConditions();
 
     this.condition = getMergedConditions();
   }
@@ -193,15 +193,19 @@ public abstract class Stage {
     return config;
   }
 
-  private void validateConfigWithConditions() throws IllegalArgumentException {
+  public void validateConfigWithConditions() throws StageException {
 
-    validateConfig(config, requiredProperties, optionalProperties, requiredParents, optionalParents);
+    try {
+      validateConfig(config, requiredProperties, optionalProperties, requiredParents, optionalParents);
 
-    // validate conditions
-    if (config.hasPath("conditions"))  {
-      for (Config condition : config.getConfigList("conditions")) {
-        validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_SET, EMPTY_SET);
+      // validate conditions
+      if (config.hasPath("conditions"))  {
+        for (Config condition : config.getConfigList("conditions")) {
+          validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_SET, EMPTY_SET);
+        }
       }
+    } catch (IllegalArgumentException e) {
+      throw new StageException(e.getMessage());
     }
   }
 
