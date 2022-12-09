@@ -1,120 +1,127 @@
 package com.kmwllc.lucille.stage;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
-import java.io.IOException;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
+
 
 /**
- * This stage will embed the specified field in the document. Field mapping specifies the name of
- * the field to embed and the name the embedded field will be stored under. Connection url specifies
- * the base path to the embedding service.
- * <p>
- * todo check if update mode is needed here
+ * This stage will retrieve the embedding for the source fields in the document and store them in the target fields.
  */
-public class EmbedText extends Stage {
+public class EmbedText extends RestApiStage {
 
-  private final static ObjectMapper MAPPER = new ObjectMapper();
-
-  private final String cncUrl;
+  private final URI requestURI;
   private final UpdateMode updateMode;
-  private final HttpClient httpClient;
-  private final Map<String, Object> fieldMap;
+  private final Map<String, String> mapping;
 
+  // TODO consider testing the connection in the start
 
-  public EmbedText (Config config) {
-    super(config); // todo add optional / required once merged with the stage-validation branch
+  public EmbedText(Config config) {
+    super(config);
 
-    this.cncUrl = config.getString("connection");
+    this.requestURI = URI.create(config.getString("uri"));
     this.updateMode = UpdateMode.fromConfig(config);
-    this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
+    this.mapping = new LinkedHashMap<>();
 
-    this.httpClient = HttpClient.newBuilder()
-      .version(HttpClient.Version.HTTP_1_1)
-      .connectTimeout(Duration.ofSeconds(10))
-      .build();
+    // temporary variables
+    Map<String, Object> fieldMap = config.getConfig("fieldMapping").root().unwrapped();
+    Set<String> seenTargets = new HashSet<>();
+
+    for (Map.Entry<String, Object> entry : fieldMap.entrySet()) {
+      String source = entry.getKey();
+      String target = (String) entry.getValue();
+
+      if (mapping.containsKey(source)) {
+        throw new IllegalArgumentException("Duplicate source field: " + source);
+      }
+
+      if (seenTargets.contains(target)) {
+        throw new IllegalArgumentException("Duplicate target field: " + target);
+      } else {
+        seenTargets.add(target);
+      }
+
+      mapping.put(source, target);
+    }
+
+    if (mapping.isEmpty()) {
+      throw new IllegalArgumentException("No field mapping provided");
+    }
   }
 
   /**
-   *
    * @throws StageException if the field mapping is empty.
    */
   @Override
   public void start() throws StageException {
-    if (fieldMap.size() == 0)
-      throw new StageException("field_mapping must have " +
-        "at least one source-dest pair for EmbedText");
+    // todo check if there is a way to test connection here
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
-
-    // For each field, if this document has the source field, rename it to the destination field
-    for (Map.Entry<String, Object> fieldPair : fieldMap.entrySet()) {
-
-      if (!doc.has(fieldPair.getKey())) {
-        continue;
-      }
-
-      String dest = (String) fieldPair.getValue();
-      String toEmbed = doc.getString(fieldPair.getKey());
-      doc.update(dest, updateMode, getEmbedding(toEmbed));
-    }
-    return null;
+  public HttpClient buildClient() {
+    return HttpClient.newBuilder().version(DEFAULT_VERSION).connectTimeout(DEFAULT_TIMEOUT).build();
   }
 
-  private Double[] getEmbedding(String toEmbed) throws StageException {
+  @Override
+  public HttpRequest buildRequest(Document document) {
 
-    HttpRequest request = buildGetRequest(toEmbed);
+    List<String> toEmbed = mapping.keySet().stream().map(document::getString)
+      .collect(Collectors.toList());
 
     try {
-      HttpResponse<String> response = httpClient.send(request,
-        HttpResponse.BodyHandlers.ofString());
-
-      if (response.statusCode() != 200) {
-        throw new StageException("EmbedText failed with status code " + response.statusCode());
-      }
-
-      JsonResponse jsonResponse = MAPPER.readValue(response.body(), JsonResponse.class);
-      return jsonResponse.embedding;
-
-    } catch (IOException | InterruptedException e) {
-      e.printStackTrace(); // todo consider adding trace to log
-      throw new StageException(e.getMessage());
+      String requestBody = MAPPER.writeValueAsString(Map.of("sentences", toEmbed));
+      // todo see if there are any headers from the client that we want to include (like auth)
+      return HttpRequest.newBuilder()
+        .uri(requestURI)
+        .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+        .build();
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException("failed to build a POST request");
     }
-  }
-
-  private HttpRequest buildGetRequest(String toEmbed) {
-    String sentenceEncoded = encodeValue(toEmbed);
-    String url = this.cncUrl + "/embed?sentence=" + sentenceEncoded;
-    return HttpRequest.newBuilder()
-      .GET()
-      .uri(URI.create(url))
-      .setHeader("User-Agent", "Java 11 HttpClient Bot") // add request header
-      .build();
-  }
-
-  // Method to encode a string value using `UTF-8` encoding scheme
-  private static String encodeValue(String value) {
-    return URLEncoder.encode(value, StandardCharsets.UTF_8);
   }
 
   static class JsonResponse {
     public String model;
     public int num_total;
-    public Double[] embedding;
+    public Double[][] embeddings;
+  }
+
+  @Override
+  public List<Document> processWithResponse(Document doc, HttpResponse<String> response) throws StageException {
+
+    try {
+      JsonResponse jsonResponse = MAPPER.readValue(response.body(), JsonResponse.class);
+      Double[][] embeddings = jsonResponse.embeddings;
+
+
+      if (embeddings.length != mapping.size()) {
+        throw new StageException("Number of embeddings returned by the service does not match the " +
+          "number of fields to embed.");
+      }
+
+      // todo this assumes that embeddings are returned in the order as the fields in the request
+      int index = 0;
+      for (Map.Entry<String, String> entry : mapping.entrySet()) {
+        String target = entry.getValue();
+
+        doc.update(target, updateMode, embeddings[index]);
+        index++;
+
+      }
+
+    } catch (JsonProcessingException | StageException e) {
+      throw new StageException("failed to parse response from EmbedText", e);
+    }
+
+    return null;
   }
 }
