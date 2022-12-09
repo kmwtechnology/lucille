@@ -20,8 +20,6 @@ abstract class RestApiStage extends Stage {
   protected final static Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
   protected final static HttpClient.Version DEFAULT_VERSION = HttpClient.Version.HTTP_1_1;
 
-  // todo see if the client can be abstract - ssl connection
-  // fields
   protected final HttpClient client;
 
   public RestApiStage(Config config) {
@@ -40,8 +38,9 @@ abstract class RestApiStage extends Stage {
     }
   }
 
-  // todo add a default client that we can override if necessary
-  public abstract HttpClient buildClient();
+  public HttpClient buildClient() {
+    return HttpClient.newBuilder().version(DEFAULT_VERSION).connectTimeout(DEFAULT_TIMEOUT).build();
+  }
 
   public abstract HttpRequest buildRequest(Document document);
 

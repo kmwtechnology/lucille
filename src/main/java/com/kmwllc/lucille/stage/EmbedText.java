@@ -7,7 +7,6 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.*;
@@ -56,19 +55,6 @@ public class EmbedText extends RestApiStage {
     if (mapping.isEmpty()) {
       throw new IllegalArgumentException("No field mapping provided");
     }
-  }
-
-  /**
-   * @throws StageException if the field mapping is empty.
-   */
-  @Override
-  public void start() throws StageException {
-    // todo check if there is a way to test connection here
-  }
-
-  @Override
-  public HttpClient buildClient() {
-    return HttpClient.newBuilder().version(DEFAULT_VERSION).connectTimeout(DEFAULT_TIMEOUT).build();
   }
 
   @Override
