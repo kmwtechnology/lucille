@@ -162,27 +162,43 @@ public class Runner {
     return result.getHistory();
   }
 
-  private static List<Exception> logValidation(Config config) throws Exception {
-    List<Exception> exceptions = validatePipelines(config);
+  private static Map<String, List<Exception>> logValidation(Config config) throws Exception {
+    Map<String, List<Exception>> exceptions = validatePipelines(config);
     if(exceptions.isEmpty()) {
       log.info("Configuration is valid");
     } else {
-      log.error("Configuration is invalid");
+      StringBuilder message = new StringBuilder("Configuration is invalid. " +
+        "Printing the list of exceptions for each pipeline\n");
+
+      for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
+        message.append("\tPipeline: ").append(entry.getKey()).append("\tnume_errors=")
+          .append(entry.getValue().size()).append("\n");
+        int i = 1;
+        for (Exception e : entry.getValue()) {
+          message.append("\t\tException ").append(i++).append(": ")
+            .append(e.getMessage()).append("\n");
+        }
+      }
+      log.error(message.delete(message.length() - 1, message.length()).toString());
     }
     return exceptions;
   }
 
-  public static List<Exception> runInValidationMode(String configName) throws Exception {
+  public static Map<String, List<Exception>> runInValidationMode(String configName) throws Exception {
     return logValidation(ConfigFactory.load(configName));
   }
 
-  public static List<Exception> validatePipelines(Config config) throws Exception {
-    List<Exception> exceptions = new ArrayList<>();
+  public static Map<String, List<Exception>> validatePipelines(Config config) throws Exception {
+    Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
     for (Connector connector : Connector.fromConfig(config)) {
       log.info("Validating stages for connector " + connector.getName());
-      exceptions.addAll(Pipeline.validateStages(config, connector.getPipelineName()));
+      if (exceptionMap.containsKey(connector.getName())) {
+        // todo this might not be necessary to add but better to be safe
+        throw new RuntimeException("Duplicate connector name: " + connector.getName());
+      }
+      exceptionMap.put(connector.getName(), Pipeline.validateStages(config, connector.getPipelineName()));
     }
-    return exceptions;
+    return exceptionMap;
   }
 
   /**

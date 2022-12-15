@@ -7,6 +7,7 @@ import com.typesafe.config.ConfigException;
 import org.junit.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.*;
 
@@ -92,25 +93,31 @@ public class ConfigValidationTest {
 
   @Test
   public void testPipelineException() throws Exception {
-    List<Exception> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
-    assertEquals(4, exceptions.size());
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
+    assertEquals(2, exceptions.size());
 
-    Exception e = exceptions.get(0);
+    List<Exception> exceptions1 = exceptions.get("connector1");
+    assertEquals(2, exceptions1.size());
+
+    List<Exception> exceptions2 = exceptions.get("connector2");
+    assertEquals(2, exceptions2.size());
+
+    Exception e = exceptions1.get(0);
     assertEquals(e.getClass(), StageException.class);
     assertContains(e.getMessage(), "com.kmwllc.lucille.stage.NoopStage: " +
         "Stage config contains unknown property invalid_property");
 
     // TODO note that for the following two exceptions, the fields are retrieved before
     //  the config validation is called
-    e = exceptions.get(1);
+    e = exceptions1.get(1);
     assertEquals(e.getClass(), ConfigException.Missing.class);
     assertContains(e.getMessage(), "No configuration setting found for key 'fields'");
 
-    e = exceptions.get(2);
+    e = exceptions2.get(0);
     assertEquals(e.getClass(), ConfigException.Missing.class);
     assertContains(e.getMessage(), "No configuration setting found for key 'dest'");
 
-    e = exceptions.get(3);
+    e = exceptions2.get(1);
     assertEquals(e.getClass(), StageException.class);
     assertContains(e.getMessage(), "com.kmwllc.lucille.stage.Concatenate: " +
       "Stage config contains unknown property default_inputs3");

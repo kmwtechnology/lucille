@@ -63,19 +63,16 @@ public class Pipeline {
   /**
    * Initalize each stage and print any exceptions.
    */
-  public static List<Exception> validateStages(List<? extends Config> stages) throws
-    Exception {
+  public static List<Exception> validateStages(List<? extends Config> stages) {
     List<Exception> exceptions = new ArrayList<>();
     for (Config c : stages) {
-      Class<?> clazz = Class.forName(c.getString("class"));
-      Constructor<?> constructor = clazz.getConstructor(Config.class);
       try {
+        Class<?> clazz = Class.forName(c.getString("class"));
+        Constructor<?> constructor = clazz.getConstructor(Config.class);
         Stage stage = getInstance(constructor, c);
         stage.validateConfigWithConditions();
       } catch (Exception e) {
         exceptions.add(e);
-        // TODO: print only the message, not full stacktrace?
-        e.printStackTrace();
       }
     }
     return exceptions;
