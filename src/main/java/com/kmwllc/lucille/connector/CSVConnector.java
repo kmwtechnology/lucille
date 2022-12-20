@@ -44,6 +44,9 @@ public class CSVConnector extends AbstractConnector {
   private final String moveToAfterProcessing;
   private static final String UTF8_BOM = "\uFEFF";
 
+  // variable to keep track of the current line number
+  private int lineNum = 0;
+
   public CSVConnector(Config config) {
     super(config);
     this.path = config.getString("path");
@@ -112,7 +115,11 @@ public class CSVConnector extends AbstractConnector {
   }
 
   private void processFile(String filePath, Publisher publisher) throws ConnectorException {
-    int lineNum = 0;
+
+    if(lineNum != 0) {
+      throw new IllegalStateException("Csv connector has already been used.  Please create a new instance.");
+    }
+
     log.info("Beginning to process file {}", filePath);
     String filename = new File(filePath).getName();
     try (CSVReader csvReader = new CSVReaderBuilder(FileUtils.getReader(filePath)).
@@ -129,7 +136,7 @@ public class CSVConnector extends AbstractConnector {
           header[i] = header[i].toLowerCase();
       }
       // Index the column names
-      HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();
+      HashMap<String, Integer> columnIndexMap = new HashMap<>();
       for (int i = 0; i < header.length; i++) {
         // check for BOM
         if (i == 0) {
@@ -143,7 +150,7 @@ public class CSVConnector extends AbstractConnector {
         columnIndexMap.put(header[i], i);
       }
       // create a lookup list for column indexes
-      List<Integer> idColumns = new ArrayList<Integer>();
+      List<Integer> idColumns = new ArrayList<>();
       for (String field : idFields) {
         if (lowercaseFields) {
           idColumns.add(columnIndexMap.get(field.toLowerCase()));
@@ -155,11 +162,18 @@ public class CSVConnector extends AbstractConnector {
       if (idColumns.size() != idFields.size()) {
         log.warn("Mismatch in idFields to column map.");
       }
-      // At this point we should have the list of column ids that map to the idFields 
-      String[] line;
 
-      while ((line = csvReader.readNext()) != null) {
-        lineNum++;
+      // At this point we should have the list of column ids that map to the idFields
+      while (true) {
+
+        // reads new line and updates lineNum
+        String[] line = getNextLine(csvReader);
+
+        // break if we are at the end of the file
+        if (line == null) {
+          break;
+        }
+
         // log.info("Processing linenumber: {}", lineNum);
         // skip blank lines, lines with no value in the first column
         if (line.length == 0 || (line.length == 1 && StringUtils.isBlank(line[0]))) {
@@ -201,12 +215,38 @@ public class CSVConnector extends AbstractConnector {
         moveFile(filePath, moveToAfterProcessing);
       }
     } catch (Exception e) {
-      log.error("Error during CSV processing", e);
+      log.error("Error during CSV processing @ line number " + lineNum, e);
       if (moveToErrorFolder != null) {
         moveFile(filePath, moveToErrorFolder);
       }
     }
 
+  }
+
+  private String[] getNextLine(CSVReader csvReader) {
+
+    int numSkippedLines = 0;
+    boolean lineRead = false;
+    String[] nextLine = null;
+
+    while (!lineRead) {
+      try {
+        nextLine = csvReader.readNext(); // this can be null
+        lineRead = true;
+      } catch (Exception e) {
+        numSkippedLines++;
+      }
+    }
+
+    if (numSkippedLines > 0) {
+      log.warn("Skipped {} lines starting at line {} due to errors.", numSkippedLines, lineNum);
+      lineNum += numSkippedLines;
+    } else {
+      lineNum++;
+    }
+
+    // move onto the next line
+    return nextLine;
   }
 
   private String createDocId(ArrayList<String> idColumnData) {
