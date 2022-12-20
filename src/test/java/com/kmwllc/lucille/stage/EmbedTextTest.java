@@ -4,11 +4,14 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
+import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
+import java.io.IOException;
 import java.net.Authenticator;
 import java.net.CookieHandler;
 import java.net.ProxySelector;
@@ -23,9 +26,68 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static org.junit.Assert.assertEquals;
+//import static org.mockito.ArgumentMatchers.any;
+//import static org.mockito.Mockito.when;
 
 public class EmbedTextTest {
 
+ /* private static HttpClient mockClient;
+
+  @Before
+  public void setup() {
+    mockClient = Mockito.mock(HttpClient.class);
+    HttpResponse mockResponse = Mockito.mock(HttpResponse.class);
+    when(mockResponse.body()).thenReturn(makeResponseJson());
+
+    try {
+      when(mockClient.send(any(), any()))
+        .thenReturn((HttpResponse<Object>) CompletableFuture.completedFuture(mockResponse));
+    } catch (IOException | InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private static String makeResponseJson() {
+    Double[][] d = new Double[2][384];
+    for (int i = 0; i < 384; i++) {
+      d[0][i] = 0.0;
+    }
+    d[1] = d[0];
+
+    return String.format("{\"model\":\"model name\",\"num_total\":1,\"embeddings\":" +
+      "%s}", Arrays.deepToString(d).replaceAll(" ", ""));
+  }
+
+
+  static class MockEmbedText2 extends EmbedText {
+
+    public MockEmbedText2(Config config) {
+      super(config);
+    }
+
+    @Override
+    public HttpClient buildClient() {
+
+      return mockClient;
+    }
+  }
+
+
+  @Test
+  public void testMockClient() throws StageException {
+    Stage s = StageFactory.of(MockEmbedText2.class).get("EmbedTextTest/config.conf");
+
+    Document d = Document.create("id");
+    d.setField("first", "hello world");
+    d.setField("second", "hello there");
+
+    s.start();
+    s.processDocument(d);
+
+    assertEquals(384, d.getDoubleList("first_embedded").size());
+    assertEquals(384, d.getDoubleList("second_embedded").size());
+  }
+*/
   @Test
   public void testMapOrder() {
     Map<Integer, String> map = new LinkedHashMap<>();
