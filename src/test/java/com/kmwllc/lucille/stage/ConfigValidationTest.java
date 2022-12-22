@@ -111,18 +111,19 @@ public class ConfigValidationTest {
     List<Exception> exceptions2 = exceptions.get("connector2");
     assertEquals(2, exceptions2.size());
 
-    testException(exceptions1.get(0), StageException.class, "com.kmwllc.lucille.stage.NoopStage: " +
+    testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NoopStage: " +
       "Stage config contains unknown property invalid_property");
 
     // TODO note that for the following two exceptions, the fields are retrieved before
     //  the config validation is called
-    testException(exceptions1.get(1), ConfigException.Missing.class,
-      "No configuration setting found for key 'fields'");
 
-    testException(exceptions2.get(0), ConfigException.Missing.class,
-      "No configuration setting found for key 'dest'");
+    testException(exceptions1.get(1), IllegalArgumentException.class,
+      "Stage config must contain property fields");
 
-    testException(exceptions2.get(1), StageException.class, "com.kmwllc.lucille.stage.Concatenate: " +
+    testException(exceptions2.get(0), IllegalArgumentException.class,
+      "Stage config must contain property dest");
+
+    testException(exceptions2.get(1), IllegalArgumentException.class, "com.kmwllc.lucille.stage.Concatenate: " +
       "Stage config contains unknown property default_inputs3");
   }
 
