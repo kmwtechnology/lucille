@@ -9,7 +9,8 @@ import org.junit.Test;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 public class ConfigValidationTest {
 
@@ -92,7 +93,15 @@ public class ConfigValidationTest {
   }
 
   @Test
-  public void testPipelineException() throws Exception {
+  public void testTestModeException() throws Exception {
+    Map<String, PersistingLocalMessageManager> exceptions = Runner.runInTestMode(addPath("pipeline.conf"));
+    assertEquals(1, exceptions.size());
+
+    // todo not sure how to add validation in test mode
+  }
+
+  @Test
+  public void testValidationModeException() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
     assertEquals(2, exceptions.size());
 
@@ -102,24 +111,23 @@ public class ConfigValidationTest {
     List<Exception> exceptions2 = exceptions.get("connector2");
     assertEquals(2, exceptions2.size());
 
-    Exception e = exceptions1.get(0);
-    assertEquals(e.getClass(), StageException.class);
-    assertContains(e.getMessage(), "com.kmwllc.lucille.stage.NoopStage: " +
-        "Stage config contains unknown property invalid_property");
+    testException(exceptions1.get(0), StageException.class, "com.kmwllc.lucille.stage.NoopStage: " +
+      "Stage config contains unknown property invalid_property");
 
     // TODO note that for the following two exceptions, the fields are retrieved before
     //  the config validation is called
-    e = exceptions1.get(1);
-    assertEquals(e.getClass(), ConfigException.Missing.class);
-    assertContains(e.getMessage(), "No configuration setting found for key 'fields'");
+    testException(exceptions1.get(1), ConfigException.Missing.class,
+      "No configuration setting found for key 'fields'");
 
-    e = exceptions2.get(0);
-    assertEquals(e.getClass(), ConfigException.Missing.class);
-    assertContains(e.getMessage(), "No configuration setting found for key 'dest'");
+    testException(exceptions2.get(0), ConfigException.Missing.class,
+      "No configuration setting found for key 'dest'");
 
-    e = exceptions2.get(1);
-    assertEquals(e.getClass(), StageException.class);
-    assertContains(e.getMessage(), "com.kmwllc.lucille.stage.Concatenate: " +
+    testException(exceptions2.get(1), StageException.class, "com.kmwllc.lucille.stage.Concatenate: " +
       "Stage config contains unknown property default_inputs3");
+  }
+
+  private static void testException(Exception e, Class<? extends Exception> clazz, String message) {
+    assertEquals(e.getClass(), clazz);
+    assertContains(e.getMessage(), message);
   }
 }

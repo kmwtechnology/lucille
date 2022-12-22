@@ -83,7 +83,11 @@ public abstract class Stage {
     this.optionalProperties = mergeSets(OPTIONAL_PROPERTIES, optionalProperties);
 
     // validates the properties that were just assigned
-    // validateConfigWithConditions();
+    try {
+      validateConfigWithConditions();
+    } catch (StageException e) {
+      throw new IllegalArgumentException(e);
+    }
 
     this.condition = getMergedConditions();
   }

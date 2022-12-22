@@ -61,7 +61,8 @@ public class Pipeline {
   }
 
   /**
-   * Initalize each stage and print any exceptions.
+   * Returns a list of exceptions that occurred during initialization and validation of stages
+   * in the given list
    */
   public static List<Exception> validateStages(List<? extends Config> stages) {
     List<Exception> exceptions = new ArrayList<>();
@@ -71,7 +72,11 @@ public class Pipeline {
         Constructor<?> constructor = clazz.getConstructor(Config.class);
         Stage stage = getInstance(constructor, c);
         stage.validateConfigWithConditions();
-      } catch (Exception e) {
+      }
+      catch (ClassNotFoundException e) {
+        exceptions.add(new StageException("Stage class not found: " + e.getMessage()));
+      }
+      catch (Exception e) {
         exceptions.add(e);
       }
     }

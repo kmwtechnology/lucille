@@ -171,7 +171,7 @@ public class Runner {
         "Printing the list of exceptions for each pipeline\n");
 
       for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
-        message.append("\tPipeline: ").append(entry.getKey()).append("\tnume_errors=")
+        message.append("\tConnector: ").append(entry.getKey()).append("\tnum_errors=")
           .append(entry.getValue().size()).append("\n");
         int i = 1;
         for (Exception e : entry.getValue()) {
@@ -191,7 +191,8 @@ public class Runner {
   public static Map<String, List<Exception>> validatePipelines(Config config) throws Exception {
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
     for (Connector connector : Connector.fromConfig(config)) {
-      log.info("Validating stages for connector " + connector.getName());
+      log.info("Validating stages for connector \"" + connector.getName() +
+        "\" pipeline\" " + connector.getPipelineName() + "\"");
       if (exceptionMap.containsKey(connector.getName())) {
         // todo this might not be necessary to add but better to be safe
         throw new RuntimeException("Duplicate connector name: " + connector.getName());
