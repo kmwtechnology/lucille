@@ -54,7 +54,7 @@ public class CSVConnector extends AbstractConnector {
     this.filenameField = config.hasPath("filenameField") ? config.getString("filenameField") : "filename";
     this.filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : "source";
     String idField = config.hasPath("idField") ? config.getString("idField") : null;
-    // Either specify the idField, or idFields 
+    // Either specify the idField, or idFields
     if (idField != null) {
       this.idFields = new ArrayList<String>();
       this.idFields.add(idField);
@@ -129,6 +129,8 @@ public class CSVConnector extends AbstractConnector {
       String[] header = csvReader.readNext();
       if (header == null || header.length == 0) {
         return;
+      } else {
+        lineNum++;
       }
       // lowercase column names
       if (lowercaseFields) {
@@ -234,6 +236,7 @@ public class CSVConnector extends AbstractConnector {
         nextLine = csvReader.readNext(); // this can be null
         lineRead = true;
       } catch (Exception e) {
+        log.error("Error reading line number " + (lineNum + numSkippedLines) + " of the csv file. Skipping line.", e);
         numSkippedLines++;
       }
     }

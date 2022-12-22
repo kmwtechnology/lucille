@@ -5,17 +5,15 @@ import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigParseOptions;
-import com.typesafe.config.ConfigResolveOptions;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-
 import java.io.File;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class CSVConnectorTest {
 
@@ -166,6 +164,7 @@ public class CSVConnectorTest {
       successDir.delete();
     }
   }
+
   @Test
   public void testSemicolonSeparator() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/semicolons.conf"));
@@ -183,6 +182,31 @@ public class CSVConnectorTest {
     List<Document> docs = manager.getSavedDocumentsSentForProcessing();
     assertEquals(3, docs.size());
     assertEquals("a", docs.get(0).getString("field1"));
+  }
+
+  @Test
+  public void testBreaks() throws Exception {
+
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/test_csv_error.conf"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    Connector connector = new CSVConnector(config);
+    connector.execute(publisher);
+
+    /* contents of CSVConnectorTest/semicolons.conf
+    a,b,c
+    1,2,3
+    4,5
+    6,7,8
+    9,10,11
+    "{}",12,"
+    ",13,14
+    ",hi,hello
+     */
+
+    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(3, docs.size());
+    // todo review the rest of the errors
   }
 
   @After
