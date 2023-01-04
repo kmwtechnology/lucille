@@ -83,7 +83,11 @@ public abstract class Stage {
     this.optionalProperties = mergeSets(OPTIONAL_PROPERTIES, optionalProperties);
 
     // validates the properties that were just assigned
-    validateConfigWithConditions();
+    try {
+      validateConfigWithConditions();
+    } catch (StageException e) {
+      throw new IllegalArgumentException(e);
+    }
 
     this.condition = getMergedConditions();
   }
@@ -171,8 +175,12 @@ public abstract class Stage {
     return name;
   }
 
-  private String getClassName() {
-    return this.getClass().getName();
+  /**
+   * Returns the class name plus the stage name in parentheses, if it is not null.
+   */
+  private String getDisplayName() {
+    return this.getClass().getName() +
+      ((this.getName()==null) ? "" : " (" + this.getName() + ")");
   }
 
   /**
@@ -193,15 +201,19 @@ public abstract class Stage {
     return config;
   }
 
-  private void validateConfigWithConditions() throws IllegalArgumentException {
+  public void validateConfigWithConditions() throws StageException {
 
-    validateConfig(config, requiredProperties, optionalProperties, requiredParents, optionalParents);
+    try {
+      validateConfig(config, requiredProperties, optionalProperties, requiredParents, optionalParents);
 
-    // validate conditions
-    if (config.hasPath("conditions"))  {
-      for (Config condition : config.getConfigList("conditions")) {
-        validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_SET, EMPTY_SET);
+      // validate conditions
+      if (config.hasPath("conditions"))  {
+        for (Config condition : config.getConfigList("conditions")) {
+          validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_SET, EMPTY_SET);
+        }
       }
+    } catch (IllegalArgumentException e) {
+      throw new StageException(e.getMessage());
     }
   }
 
@@ -212,7 +224,7 @@ public abstract class Stage {
 
     // verifies that set intersection is empty
     if (!disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
-      throw new IllegalArgumentException(getClassName()
+      throw new IllegalArgumentException(getDisplayName()
         + ": Properties and parents sets must be disjoint.");
     }
 
@@ -220,7 +232,7 @@ public abstract class Stage {
     Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
     for (String property: requiredProperties) {
       if (!keys.contains(property)) {
-        throw new IllegalArgumentException(getClassName() + ": Stage config must contain property "
+        throw new IllegalArgumentException(getDisplayName() + ": Stage config must contain property "
           + property);
       }
     }
@@ -234,18 +246,18 @@ public abstract class Stage {
       if (!legalProperties.contains(key)) {
         String parent = getParent(key);
         if (parent == null) {
-          throw new IllegalArgumentException(getClassName() + ": Stage config contains unknown property "
+          throw new IllegalArgumentException(getDisplayName() + ": Stage config contains unknown property "
             + key);
         } else if (requiredParents.contains(parent)) {
           observedRequiredParents.add(parent);
         } else if (!optionalParents.contains(parent)) {
-          throw new IllegalArgumentException(getClassName() + ": Stage config contains unknown property "
+          throw new IllegalArgumentException(getDisplayName() + ": Stage config contains unknown property "
             + key);
         }
       }
     }
     if (observedRequiredParents.size() != requiredParents.size()) {
-      throw new IllegalArgumentException(getClassName() + ": Stage config is missing required parents: " +
+      throw new IllegalArgumentException(getDisplayName() + ": Stage config is missing required parents: " +
           Sets.difference(requiredParents, observedRequiredParents));
     }
   }
