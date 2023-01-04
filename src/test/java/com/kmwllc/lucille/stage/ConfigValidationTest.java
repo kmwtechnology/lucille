@@ -97,8 +97,6 @@ public class ConfigValidationTest {
   }
 
   private static void assertContains(String string, String substring) {
-    System.out.println("STRING: " + string);
-    System.out.println("SUBSTRING: " + substring);
     if (!string.contains(substring)) {
       fail();
     }
