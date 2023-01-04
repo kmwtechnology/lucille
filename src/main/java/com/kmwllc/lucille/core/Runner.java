@@ -171,7 +171,7 @@ public class Runner {
         "Printing the list of exceptions for each pipeline\n");
 
       for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
-        message.append("\tConnector: ").append(entry.getKey()).append("\tnum_errors=")
+        message.append("\tConnector: ").append(entry.getKey()).append("\tError count: ")
           .append(entry.getValue().size()).append("\n");
         int i = 1;
         for (Exception e : entry.getValue()) {

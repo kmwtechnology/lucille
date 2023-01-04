@@ -72,11 +72,9 @@ public class Pipeline {
         Constructor<?> constructor = clazz.getConstructor(Config.class);
         Stage stage = getInstance(constructor, c);
         stage.validateConfigWithConditions();
-      }
-      catch (ClassNotFoundException e) {
+      } catch (ClassNotFoundException e) {
         exceptions.add(new StageException("Stage class not found: " + e.getMessage()));
-      }
-      catch (Exception e) {
+      } catch (Exception e) {
         exceptions.add(e);
       }
     }
