@@ -60,17 +60,29 @@ public class Pipeline {
    * The Config for each Stage must specify the stage's class.
    */
   public static Pipeline fromConfig(List<? extends Config> stages, String metricsPrefix) throws
-    ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException,
-    InstantiationException, StageException, PipelineException {
+    Exception {
     Pipeline pipeline = new Pipeline();
     for (Config c : stages) {
       Class<?> clazz = Class.forName(c.getString("class"));
       Constructor<?> constructor = clazz.getConstructor(Config.class);
-      Stage stage = (Stage) constructor.newInstance(c);
+      Stage stage = getInstance(constructor, c);
       pipeline.addStage(stage, metricsPrefix);
     }
     pipeline.startStages();
     return pipeline;
+  }
+
+  private static Stage getInstance(Constructor<?> constructor, Config c)
+    throws Exception {
+    try {
+      return (Stage) constructor.newInstance(c);
+    } catch (InvocationTargetException e) {
+      if (e.getTargetException() instanceof Exception) {
+        throw (Exception) e.getTargetException();
+      } else {
+        throw e;
+      }
+    }
   }
 
   /**
@@ -79,8 +91,7 @@ public class Pipeline {
    * containing a List of stages and their settings. The list element for each Stage must specify the stage's class.
    */
   public static Pipeline fromConfig(Config config, String name, String metricsPrefix)
-    throws ClassNotFoundException, NoSuchMethodException,
-    IllegalAccessException, InvocationTargetException, InstantiationException, StageException, PipelineException {
+    throws Exception {
     if (!config.hasPath("pipelines")) {
       throw new PipelineException("No pipelines element present in config");
     }

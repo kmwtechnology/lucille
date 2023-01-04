@@ -2,11 +2,13 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.*;
 
@@ -47,5 +49,26 @@ public class ExtractEntitiesTest {
     assertEquals("North America", doc.getString("payload"));
     assertEquals("United States", doc.getString("entity"));
   }
-  
+
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("ExtractEntitiesTest/config.conf");
+    assertEquals(
+        Set.of(
+            "ignore_overlaps",
+            "entity_field",
+            "source",
+            "dest",
+            "ignore_case",
+            "use_payloads",
+            "only_whitespace_separated",
+            "update_mode",
+            "stop_on_hit",
+            "name",
+            "only_whole_words",
+            "conditions",
+            "class",
+            "dictionaries"),
+        stage.getLegalProperties());
+  }
 }

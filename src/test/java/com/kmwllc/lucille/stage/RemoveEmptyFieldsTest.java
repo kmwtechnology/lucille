@@ -3,10 +3,13 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
+import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+
+import java.util.Set;
 
 public class RemoveEmptyFieldsTest {
 
@@ -23,4 +26,9 @@ public class RemoveEmptyFieldsTest {
     assertFalse(doc.has("bar"));
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("RemoveEmptyFieldsTest/config.conf");
+    assertEquals(Set.of("name", "conditions", "class"), stage.getLegalProperties());
+  }
 }

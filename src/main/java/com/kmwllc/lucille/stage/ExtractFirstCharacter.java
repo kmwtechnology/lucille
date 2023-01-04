@@ -5,14 +5,10 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigValue;
 import org.apache.commons.lang.StringUtils;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Extracts the first character from each of the given input fields and set the associated output field
@@ -30,7 +26,8 @@ public class ExtractFirstCharacter extends Stage {
   private final String replacement;
 
   public ExtractFirstCharacter(Config config) {
-    super(config);
+    super(config, new StageSpec().withOptionalProperties("replacement")
+      .withRequiredParents("fieldMapping"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";
   }

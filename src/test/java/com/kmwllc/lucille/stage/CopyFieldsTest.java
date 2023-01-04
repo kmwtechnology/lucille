@@ -8,6 +8,7 @@ import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Set;
 
 import static org.junit.Assert.*;
 
@@ -62,5 +63,13 @@ public class CopyFieldsTest {
     assertEquals("input1 should be skipped.", doc.getStringList("output1").get(0));
     assertEquals("Here is another input.", doc.getStringList("output2").get(0));
     assertEquals("input3 should be skipped.", doc.getStringList("output3").get(0));
+  }
+
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("CopyFieldsTest/replace.conf");
+    assertEquals(
+        Set.of("update_mode", "name", "source", "dest", "conditions", "class"),
+        stage.getLegalProperties());
   }
 }

@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.lang.text.StrSubstitutor;
 
@@ -33,7 +32,10 @@ public class Concatenate extends Stage {
   private final List<String> fields;
 
   public Concatenate(Config config) {
-    super(config);
+    super(config, new StageSpec()
+      .withRequiredProperties("dest", "format_string")
+      .withOptionalProperties("update_mode")
+      .withOptionalParents("default_inputs"));
 
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");
