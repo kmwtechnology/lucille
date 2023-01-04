@@ -111,6 +111,9 @@ public class OpenSearchIndexer extends Indexer {
       if (versionType != null) {
         indexRequest.versionType(versionType);
         if (versionType == VersionType.EXTERNAL || versionType == VersionType.EXTERNAL_GTE) {
+          // the partition doesn’t need to be included in the version. We assume the doc id is used as the
+          // kafka message key, which should guarantee that all “versions” of a given document have the
+          // same kafka message key and therefore get mapped to the same topic partition.
           indexRequest.version(((KafkaDocument) doc).getOffset());
         }
       }
