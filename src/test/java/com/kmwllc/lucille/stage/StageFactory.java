@@ -39,7 +39,7 @@ public class StageFactory {
    * Creates a new instance of the stage with a Config loaded from the given resource path, starts it, and returns it.
    */
   public Stage get(String configResourceName) throws StageException {
-    return get(ConfigFactory.load(configResourceName));
+    return get(ConfigFactory.parseResourcesAnySyntax(configResourceName));
   }
 
   /**

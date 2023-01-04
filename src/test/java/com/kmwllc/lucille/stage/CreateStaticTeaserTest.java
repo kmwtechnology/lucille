@@ -2,9 +2,13 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
+
+import java.util.Set;
+
 import static org.junit.Assert.*;
 
 public class CreateStaticTeaserTest {
@@ -45,4 +49,11 @@ public class CreateStaticTeaserTest {
 
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("CreateStaticTeaserTest/config.conf");
+    assertEquals(
+      Set.of("update_mode", "name", "source", "dest", "conditions", "class", "maxLength"),
+      stage.getLegalProperties());
+  }
 }

@@ -7,6 +7,8 @@ import com.kmwllc.lucille.core.StageException;
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.util.Set;
+
 import static org.junit.Assert.*;
 
 public class QueryDatabaseTest {
@@ -70,5 +72,24 @@ public class QueryDatabaseTest {
     d.addToField("fish2", 3);
 
     stage.processDocument(d);
+  }
+
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("QueryDatabaseTest/animal.conf");
+    assertEquals(
+        Set.of(
+            "connectionString",
+            "inputTypes",
+            "driver",
+            "jdbcUser",
+            "keyFields",
+            "name",
+            "returnTypes",
+            "jdbcPassword",
+            "conditions",
+            "class",
+            "sql"),
+        stage.getLegalProperties());
   }
 }

@@ -11,7 +11,7 @@ import java.util.Map;
 
 public class CreateChildrenStage extends Stage {
   public CreateChildrenStage(Config config) {
-    super(config);
+    super(config, new StageSpec().withOptionalProperties("numChildren"));
     if (config.hasPath("numChildren")) {
       numChildren = config.getInt("numChildren");
     }

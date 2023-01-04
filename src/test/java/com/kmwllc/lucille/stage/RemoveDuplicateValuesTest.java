@@ -7,6 +7,7 @@ import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.*;
 
@@ -141,5 +142,11 @@ public class RemoveDuplicateValuesTest {
 
     // verify original field stays, while new values without duplicates are placed into new field
     assertEquals("{\"id\":\"doc\",\"field1\":[1,1,23,14,-32],\"fish\":[1,23,14,-32]}", doc.toString());
+  }
+
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("RemoveDuplicateValuesTest/config.conf");
+    assertEquals(Set.of("name", "conditions", "class"), stage.getLegalProperties());
   }
 }

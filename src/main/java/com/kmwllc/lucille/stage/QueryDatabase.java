@@ -34,7 +34,12 @@ public class QueryDatabase extends Stage {
   private static final Logger log = LogManager.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {
-    super(config);
+    super(config, new StageSpec()
+      .withOptionalProperties("sql")
+      .withRequiredParents("fieldMapping")
+      .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword",
+        "keyFields", "inputTypes", "returnTypes"));
+
     driver = config.getString("driver");
     connectionString = config.getString("connectionString");
     jdbcUser = config.getString("jdbcUser");
