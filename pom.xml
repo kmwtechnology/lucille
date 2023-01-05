@@ -219,6 +219,13 @@
       <version>${elasticsearch-rest-high-level-client.version}</version>
     </dependency>
 
+    <!-- pinecone -->
+    <dependency>
+      <groupId>io.pinecone</groupId>
+      <artifactId>pinecone-client</artifactId>
+      <version>0.2.2</version>
+    </dependency>
+
     <dependency>
       <groupId>org.apache.curator</groupId>
       <artifactId>curator-recipes</artifactId>

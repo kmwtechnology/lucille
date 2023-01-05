@@ -41,6 +41,8 @@ public class IndexerFactory {
       return new OpenSearchIndexer(config, manager,bypass, metricsPrefix);
     } else if (typeName.equalsIgnoreCase("Elasticsearch")) {
       return new ElasticsearchIndexer(config, manager,bypass, metricsPrefix);
+    } else if (typeName.equalsIgnoreCase("Pinecone")) {
+      return new PineconeIndexer(config, manager, bypass, metricsPrefix);
     } else {
       throw new IndexerException("Unknown indexer.type configuration of: '" + typeName + "'");
     }

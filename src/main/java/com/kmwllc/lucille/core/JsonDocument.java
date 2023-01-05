@@ -125,6 +125,11 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public void update(String name, UpdateMode mode, Float... values) {
+    update(name, mode, (v)->{setField(name,(Float)v);}, (v)->{setOrAdd(name,(Float)v);}, values);
+  }
+
+  @Override
   public void update(String name, UpdateMode mode, Instant... values) {
     update(name, mode, (v)->{setField(name,(Instant)v);}, (v)->{setOrAdd(name,(Instant)v);}, values);
   }
@@ -202,6 +207,12 @@ public class JsonDocument implements Document {
 
   @Override
   public void setField(String name, Double value) {
+    validateNotReservedField(name);
+    data.put(name, value);
+  }
+
+  @Override
+  public void setField(String name, Float value) {
     validateNotReservedField(name);
     data.put(name, value);
   }
@@ -327,6 +338,35 @@ public class JsonDocument implements Document {
     List<Double> result = new ArrayList<>();
     for (JsonNode node : array) {
       result.add(node.isNull() ? null : node.asDouble());
+    }
+    return result;
+  }
+
+  @Override
+  public Float getFloat(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node = getSingleNode(name);
+
+    return node.isNull() ? null : node.floatValue();
+  }
+
+  @Override
+  public List<Float> getFloatList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getFloat(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<Float> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      result.add(node.isNull() ? null : node.floatValue());
     }
     return result;
   }
@@ -533,6 +573,14 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public void addToField(String name, Float value) {
+    validateNotReservedField(name);
+    convertToList(name);
+    ArrayNode array = data.withArray(name);
+    array.add(value);
+  }
+
+  @Override
   public void addToField(String name, Instant value) {
     validateNotReservedField(name);
     convertToList(name);
@@ -579,6 +627,15 @@ public class JsonDocument implements Document {
 
   @Override
   public void setOrAdd(String name, Double value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  @Override
+  public void setOrAdd(String name, Float value) {
     if (has(name)) {
       addToField(name, value);
     } else {

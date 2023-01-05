@@ -42,6 +42,8 @@ public interface Document {
 
   void update(String name, UpdateMode mode, Double... values);
 
+  void update(String name, UpdateMode mode, Float... values);
+
   void update(String name, UpdateMode mode, Instant... values);
 
   void initializeRunId(String value);
@@ -57,6 +59,8 @@ public interface Document {
   void setField(String name, Boolean value);
 
   void setField(String name, Double value);
+
+  void setField(String name, Float value);
 
   void setField(String name, JsonNode value);
 
@@ -86,6 +90,10 @@ public interface Document {
   Double getDouble(String name);
 
   List<Double> getDoubleList(String name);
+
+  Float getFloat(String name);
+
+  List<Float> getFloatList(String name);
 
   Boolean getBoolean(String name);
 
@@ -121,6 +129,8 @@ public interface Document {
 
   void addToField(String name, Double value);
 
+  void addToField(String name, Float value);
+
   /**
    * Converts a given date in Instant form to a string according to DateTimeFormatter.ISO_INSTANT,
    * it can then be accessed as a string via getString() or a converted back to an Instant via
@@ -148,6 +158,8 @@ public interface Document {
   void setOrAdd(String name, Boolean value);
 
   void setOrAdd(String name, Double value);
+
+  void setOrAdd(String name, Float value);
 
   /**
    * Adds a given date in Instant form to a document according to DateTimeFormatter.ISO_INSTANT, can
