@@ -4,6 +4,9 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
+
+import java.util.Set;
+
 import static org.junit.Assert.*;
 
 public class ApplyStopWordsTest {
@@ -53,4 +56,11 @@ public class ApplyStopWordsTest {
     assertEquals("and these stopwords is reserved", doc1.getString("reserved"));
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("ApplyStopWordsTest/nofields.conf");
+    assertEquals(
+        Set.of("name", "fields", "conditions", "class", "dictionaries"),
+        stage.getLegalProperties());
+  }
 }

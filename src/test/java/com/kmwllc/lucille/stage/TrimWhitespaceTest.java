@@ -3,6 +3,7 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import java.util.Set;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -38,4 +39,9 @@ public class TrimWhitespaceTest {
     assertEquals("test", doc2.getStringList("input1").get(3));
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("TrimWhitespaceTest/config.conf");
+    assertEquals(Set.of("name", "fields", "conditions", "class"), stage.getLegalProperties());
+  }
 }

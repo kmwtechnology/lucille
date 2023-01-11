@@ -22,7 +22,7 @@ public class Timestamp extends Stage {
   private final String destField;
 
   public Timestamp(Config config) {
-    super(config);
+    super(config, new StageSpec().withRequiredProperties("dest_field"));
     this.destField = config.getString("dest_field");
   }
 

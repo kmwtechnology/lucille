@@ -20,6 +20,9 @@ public interface Publisher {
    * Submits the given document for processing by any available pipeline worker.
    *
    * Stamps the current Run ID on the document and begins "tracking" events relating the document.
+   *
+   * IMPORTANT: After calling publish, code should not update the Document or read values from it since at this point
+   * it may have been picked up by a worker thread.
    */
   void publish(Document document) throws Exception;
 

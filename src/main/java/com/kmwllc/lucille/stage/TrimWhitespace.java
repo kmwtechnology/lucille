@@ -22,7 +22,7 @@ public class TrimWhitespace extends Stage {
   private final List<String> fields;
 
   public TrimWhitespace(Config config) {
-    super(config);
+    super(config, new StageSpec().withRequiredProperties("fields"));
     this.fields = config.getStringList("fields");
   }
 

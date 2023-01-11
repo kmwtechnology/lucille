@@ -39,7 +39,8 @@ public class ApplyStopWords extends Stage {
   private PayloadTrie<String> dictTrie;
 
   public ApplyStopWords(Config config) {
-    super(config);
+    super(config, new StageSpec().withRequiredProperties("dictionaries")
+      .withOptionalProperties("fields"));
     this.dictionaries = config.getStringList("dictionaries");
     this.fieldNames = config.hasPath("fields") ? config.getStringList("fields") : null;
   }

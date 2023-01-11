@@ -2,6 +2,7 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
 import org.apache.commons.io.IOUtils;
 import org.hamcrest.CoreMatchers;
 import org.junit.Test;
@@ -11,9 +12,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 
 public class ParseJsonTest {
   private StageFactory factory = StageFactory.of(ParseJson.class);
@@ -202,5 +205,12 @@ public class ParseJsonTest {
       // "/items/6" and "/items".get(6) should be equivalent
       assertThat(item7, equalTo(docMap.get("item7")));
     }
+  }
+
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("ParseJson/config.conf");
+    assertEquals(Set.of("src", "name", "sourceIsBase64", "conditions", "class"),
+      stage.getLegalProperties());
   }
 }

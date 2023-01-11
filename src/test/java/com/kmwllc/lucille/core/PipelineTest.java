@@ -66,7 +66,7 @@ public class PipelineTest {
     // create a pipeline with Stages 1 through 4 in sequence
     // d1 should flow through all stages and should get fields created by stages 1 through 4
     // d1-s2c1 and d1-s2c2 should be created by stage 2;
-    //     these docs should should have fields created by downstream stages (stage 3, stage 4)
+    //     these docs should have fields created by downstream stages (stage 3, stage 4)
     // d1-s3c1, d1-s3c2, d1-s2c1-s3c1, d1-s2c1-s3c2, d1-s2c2-s3c1, d1-s2c2-s3c2 should be created by stage 3
     //     and should only have fields created by stage 4
     Pipeline pipeline = new Pipeline();
