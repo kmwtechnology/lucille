@@ -22,8 +22,8 @@ abstract class RestApiStage extends Stage {
 
   protected final HttpClient client;
 
-  public RestApiStage(Config config) {
-    super(config);
+  public RestApiStage(Config config, StageSpec spec) {
+    super(config, spec);
     this.client = getNonNull(buildClient());
   }
 

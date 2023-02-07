@@ -25,7 +25,7 @@ public class EmbedText extends RestApiStage {
   // TODO consider testing the connection in the start
 
   public EmbedText(Config config) {
-    super(config);
+    super(config, new StageSpec().withRequiredParents("fieldMapping").withRequiredProperties("uri"));
 
     this.requestURI = URI.create(config.getString("uri"));
     this.updateMode = UpdateMode.fromConfig(config);
