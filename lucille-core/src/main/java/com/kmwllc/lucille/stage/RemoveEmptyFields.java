@@ -1,0 +1,36 @@
+package com.kmwllc.lucille.stage;
+
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import com.typesafe.config.Config;
+import org.apache.solr.common.StringUtils;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Removes empty fields from a document.
+ */
+public class RemoveEmptyFields extends Stage {
+
+  public RemoveEmptyFields(Config config) {
+    super(config);
+    // iterate fields that have a blank value or a null value and remove them. 
+  }
+
+  @Override
+  public List<Document> processDocument(Document doc) throws StageException {
+    // get the field names
+    Map<String,Object> data = doc.asMap();
+    Set<String> fieldNames = data.keySet();
+    for (String fieldName : fieldNames) {
+      if (StringUtils.isEmpty(doc.getString(fieldName))) {
+        doc.removeField(fieldName);
+      }
+    }
+    return null;
+  }
+
+}
