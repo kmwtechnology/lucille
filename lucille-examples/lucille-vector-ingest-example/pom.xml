@@ -16,25 +16,32 @@
   <packaging>jar</packaging>
   <name>Lucille Examples: Lucille Vector Ingest Example</name>
 
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-bom</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
     <dependency>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-core</artifactId>
-      <version>0.0.1-SNAPSHOT</version>
     </dependency>
 
     <dependency>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-parquet</artifactId>
-      <version>0.0.1-SNAPSHOT</version>
-      <type>jar</type>
     </dependency>
 
     <dependency>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-pinecone</artifactId>
-      <version>0.0.1-SNAPSHOT</version>
-      <type>jar</type>
     </dependency>
   </dependencies>
 

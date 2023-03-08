@@ -14,7 +14,7 @@
 
   <artifactId>lucille-examples</artifactId>
   <packaging>pom</packaging>
-  <name>Lucille Plugins</name>
+  <name>Lucille Examples</name>
 
   <modules>
     <module>lucille-vector-ingest-example</module>

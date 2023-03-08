@@ -31,6 +31,9 @@
     <vfs-s3.version>4.3.5</vfs-s3.version>
     <log4j.version>2.17.0</log4j.version>
     <slf4j.version>1.8.0-beta4</slf4j.version>
+    <protobuf.version>3.19.2</protobuf.version>
+    <netty.version>4.1.89.Final</netty.version>
+    <grpc.version>1.53.0</grpc.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
@@ -57,6 +60,29 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${netty.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-bom</artifactId>
+        <version>${grpc.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-bom</artifactId>
+        <version>${protobuf.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
 
       <dependency>
         <groupId>org.slf4j</groupId>
@@ -74,11 +100,6 @@
         <version>${slf4j.version}</version>
       </dependency>
 
-      <dependency>
-        <groupId>com.google.protobuf</groupId>
-        <artifactId>protobuf-java</artifactId>
-        <version>3.19.2</version>
-      </dependency>
     </dependencies>
 
   </dependencyManagement>
