@@ -3,6 +3,7 @@ package com.kmwllc.lucille.indexer;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.OpenSearchUtils;
@@ -12,6 +13,7 @@ import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.index.VersionType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
@@ -30,11 +32,14 @@ public class OpenSearchIndexer extends Indexer {
 
   private final String routingField;
 
+  private final VersionType versionType;
+
   public OpenSearchIndexer(Config config, IndexerMessageManager manager, RestHighLevelClient client, String metricsPrefix) {
     super(config, manager, metricsPrefix);
     this.client = client;
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
     this.routingField = config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
+    this.versionType = config.hasPath("indexer.versionType") ? VersionType.fromString(config.getString("indexer.versionType")) : null;
   }
 
   public OpenSearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
@@ -102,6 +107,16 @@ public class OpenSearchIndexer extends Indexer {
         indexRequest.routing(doc.getString(routingField));
       }
       indexRequest.source(indexerDoc);
+
+      if (versionType != null) {
+        indexRequest.versionType(versionType);
+        if (versionType == VersionType.EXTERNAL || versionType == VersionType.EXTERNAL_GTE) {
+          // the partition doesn’t need to be included in the version. We assume the doc id is used as the
+          // kafka message key, which should guarantee that all “versions” of a given document have the
+          // same kafka message key and therefore get mapped to the same topic partition.
+          indexRequest.version(((KafkaDocument) doc).getOffset());
+        }
+      }
 
       // add indexRequest to bulkRequest
       bulkRequest.add(indexRequest);

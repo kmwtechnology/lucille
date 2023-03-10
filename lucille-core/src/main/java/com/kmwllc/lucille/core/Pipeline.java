@@ -17,7 +17,7 @@ public class Pipeline {
 
   private static final Logger log = LoggerFactory.getLogger(Pipeline.class);
 
-  private ArrayList<Stage> stages = new ArrayList();
+  private final ArrayList<Stage> stages = new ArrayList<>();
 
   public List<Stage> getStages() {
     return stages;
@@ -52,6 +52,33 @@ public class Pipeline {
       stage.logMetrics();
     }
   }
+
+  public static List<Exception> validateStages(Config config, String name)
+    throws Exception {
+      return validateStages(getPipelineStages(config, name));
+  }
+
+  /**
+   * Returns a list of exceptions that occurred during initialization and validation of stages
+   * in the given list
+   */
+  public static List<Exception> validateStages(List<? extends Config> stages) {
+    List<Exception> exceptions = new ArrayList<>();
+    for (Config c : stages) {
+      try {
+        Class<?> clazz = Class.forName(c.getString("class"));
+        Constructor<?> constructor = clazz.getConstructor(Config.class);
+        Stage stage = getInstance(constructor, c);
+        stage.validateConfigWithConditions();
+      } catch (ClassNotFoundException e) {
+        exceptions.add(new StageException("Stage class not found: " + e.getMessage()));
+      } catch (Exception e) {
+        exceptions.add(e);
+      }
+    }
+    return exceptions;
+  }
+
 
   /**
    * Instantiates a Pipeline from the designated list of Stage Configs.
@@ -90,6 +117,10 @@ public class Pipeline {
    */
   public static Pipeline fromConfig(Config config, String name, String metricsPrefix)
     throws Exception {
+      return fromConfig(getPipelineStages(config, name), metricsPrefix);
+  }
+
+  private static List<? extends Config> getPipelineStages(Config config, String name) throws Exception {
     if (!config.hasPath("pipelines")) {
       throw new PipelineException("No pipelines element present in config");
     }
@@ -103,7 +134,7 @@ public class Pipeline {
       throw new PipelineException("More than one pipeline found with name: " + name);
     }
     if (matchingPipelines.size()==1) {
-      return fromConfig(matchingPipelines.get(0).getConfigList("stages"), metricsPrefix);
+      return matchingPipelines.get(0).getConfigList("stages");
     }
     throw new PipelineException("No pipeline found with name: " + name);
   }
@@ -139,11 +170,11 @@ public class Pipeline {
 
     String runId = document.getRunId();
 
-    ArrayList<Document> documents = new ArrayList();
+    ArrayList<Document> documents = new ArrayList<>();
     documents.add(document);
 
     for (Stage stage : stages) {
-      List<Document> childrenFromCurrentStage = new ArrayList();
+      List<Document> childrenFromCurrentStage = new ArrayList<>();
 
       for (Document doc : documents) {
         List<Document> childrenOfCurrentDoc = stage.processConditional(doc);
@@ -168,5 +199,4 @@ public class Pipeline {
 
     return documents;
   }
-
 }
