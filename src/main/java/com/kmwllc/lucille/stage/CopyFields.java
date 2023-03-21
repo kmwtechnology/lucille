@@ -7,6 +7,7 @@ import com.kmwllc.lucille.util.StageUtils;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -46,7 +47,7 @@ public class CopyFields extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one source or dest, use it. Otherwise, use the current source/dest.
       String sourceField = sourceFields.get(i);

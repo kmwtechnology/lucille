@@ -3,6 +3,8 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+
+import java.util.Iterator;
 import java.util.Map.Entry;
 import com.typesafe.config.Config;
 
@@ -26,7 +28,7 @@ public class Length extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (Entry<String, Object> e : fieldMap.entrySet()) {
       doc.setField((String) e.getValue(), doc.length(e.getKey()));
     }

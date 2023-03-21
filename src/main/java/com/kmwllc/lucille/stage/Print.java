@@ -12,6 +12,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.lang.invoke.MethodHandles;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -54,7 +55,7 @@ public class Print extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     if (excludeFields!=null) {
       doc = doc.deepCopy();
       for (String field : excludeFields) {

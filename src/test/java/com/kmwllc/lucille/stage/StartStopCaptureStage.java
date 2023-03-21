@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
+import java.util.Iterator;
 import java.util.List;
 
 public class StartStopCaptureStage extends Stage {
@@ -17,7 +18,7 @@ public class StartStopCaptureStage extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     return null;
   }
 

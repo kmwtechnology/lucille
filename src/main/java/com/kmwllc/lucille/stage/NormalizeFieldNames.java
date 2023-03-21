@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -29,7 +30,7 @@ public class NormalizeFieldNames extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String field : doc.getFieldNames()) {
       if (Document.RESERVED_FIELDS.contains(field)) {
         continue;

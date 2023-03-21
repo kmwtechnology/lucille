@@ -15,6 +15,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -111,7 +112,7 @@ public class DetectLanguage extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
       detector = DetectorFactory.create();
       detector.setMaxTextLength(maxLength);

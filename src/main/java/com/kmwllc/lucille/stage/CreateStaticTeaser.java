@@ -8,6 +8,7 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -53,7 +54,7 @@ public class CreateStaticTeaser extends Stage {
 
   // NOTE : If a given field is multivalued, this Stage will only operate on the first value
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (int i = 0; i < sourceFields.size(); i++) {
       String source = sourceFields.get(i);
       String dest = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);

@@ -15,6 +15,7 @@ import javax.xml.xpath.*;
 
 import java.io.*;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -73,7 +74,7 @@ public class XPathExtractor extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) {
+  public Iterator<Document> processDocument(Document doc) {
     if (!doc.has(xmlField)) {
       // no xml on this document to process for this stage .. skipping
       return null;

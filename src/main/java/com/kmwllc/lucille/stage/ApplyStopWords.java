@@ -100,7 +100,7 @@ public class ApplyStopWords extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     List<String> fields = fieldNames != null ? fieldNames : new ArrayList<>(doc.getFieldNames());
     fields.removeAll(Document.RESERVED_FIELDS);
 

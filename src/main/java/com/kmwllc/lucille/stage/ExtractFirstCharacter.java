@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import org.apache.commons.lang.StringUtils;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -39,7 +40,7 @@ public class ExtractFirstCharacter extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (Map.Entry<String, Object> entry : fieldMapping.entrySet()) {
 
       if (!doc.has(entry.getKey()))

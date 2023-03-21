@@ -5,6 +5,7 @@ import com.kmwllc.lucille.message.WorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import org.apache.commons.collections4.IteratorUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
@@ -97,7 +98,8 @@ class Worker implements Runnable {
       List<Document> results = null;
       try {
         Timer.Context context = timer.time();
-        results = pipeline.processDocument(doc);
+        // TODO: convert to iteration paradigm
+        results = IteratorUtils.toList(pipeline.processDocument(doc));
         context.stop();
       } catch (Exception e) {
         log.error("Error processing document: " + doc.getId(), e);
