@@ -138,8 +138,19 @@ public abstract class Stage {
    */
   public Iterator<Document> processConditional(Document doc) throws StageException {
     if (shouldProcess(doc)) {
-      // TODO: metrics
-      return processDocument(doc);
+      if (timer!=null) {
+        context = timer.time();
+      }
+      try {
+        return processDocument(doc);
+      } finally {
+        if (context != null) {
+          // this only tracks the time taken to process the input document and
+          // return the iterator over any children; it doesn't track the time taken
+          // to actually generate the children documents by exhausting the returned iterator
+          context.stop();
+        }
+      }
     }
 
     return null;
@@ -166,13 +177,8 @@ public abstract class Stage {
       return parent;
     }
     String runId = doc.getRunId();
-    if (runId == null) {
-      return new IteratorChain(children, parent);
-    }
 
     Iterator<Document> wrappedChildren = new Iterator<>() {
-
-      Iterator<Document> current = null;
 
       @Override
       public boolean hasNext() {
@@ -183,8 +189,14 @@ public abstract class Stage {
       public Document next() {
         Document child = children.next();
 
-        if ((child != null) && !child.has(Document.RUNID_FIELD)) {
+        if (child != null) {
+          if (childCounter != null) {
+            childCounter.inc();
+          }
+
+          if ((runId != null) && !child.has(Document.RUNID_FIELD)) {
             child.initializeRunId(runId);
+          }
         }
 
         return child;
@@ -229,6 +241,10 @@ public abstract class Stage {
         try {
           current = apply(d);
         } catch (StageException e) {
+          if (errorCounter != null) {
+            errorCounter.inc();
+          }
+
           throw new RuntimeException(e); // TODO
         }
 
