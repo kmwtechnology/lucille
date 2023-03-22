@@ -57,7 +57,7 @@ public class ConnectorResult {
         msg += "No pipeline configured.";
       } else {
         msg += publisher.numSucceeded() + " docs succeeded. " + publisher.numFailed() + " docs " +
-          (publisher.numFailed()>0 ? "FAILED." : "failed.");
+          (publisher.numFailed()>0 ? "FAILED." : "failed. " + publisher.numDropped() + " docs dropped.");
       }
     } else {
       msg += errMsg;
