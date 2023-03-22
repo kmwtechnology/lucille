@@ -16,8 +16,9 @@ public interface Document {
   String ID_FIELD = "id";
   String RUNID_FIELD = "run_id";
   String CHILDREN_FIELD = ".children";
+  String DROP_FIELD = ".dropped";
 
-  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD));
+  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD));
 
   void removeField(String name);
 
@@ -185,6 +186,10 @@ public interface Document {
   List<Document> getChildren();
 
   Set<String> getFieldNames();
+
+  boolean isDropped();
+
+  void setDropped(boolean status);
 
   /**
    * A method to remove duplicate values from multivalued fields in a document and place the values

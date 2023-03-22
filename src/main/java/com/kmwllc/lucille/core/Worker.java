@@ -114,8 +114,12 @@ class Worker implements Runnable {
             manager.sendEvent(result, null, Event.Type.CREATE);
           }
 
-          // send the completed document to the queue for indexing
-          manager.sendCompleted(result);
+          if (result.isDropped()) {
+            manager.sendEvent(result, null, Event.Type.DROP);
+          } else {
+            // send the completed document to the queue for indexing
+            manager.sendCompleted(result);
+          }
         }
 
         context.stop();
