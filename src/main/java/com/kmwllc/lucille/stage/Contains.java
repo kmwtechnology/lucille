@@ -34,7 +34,10 @@ public class Contains extends Stage {
   private PayloadTrie<String> trie;
 
   public Contains(Config config) {
-    super(config);
+    super(config, new StageSpec()
+            .withRequiredProperties("contains", "output", "value", "fields")
+            .withOptionalProperties("ignoreCase"));
+
     this.contains = config.getStringList("contains");
     this.output = config.getString("output");
     this.value = config.getString("value");

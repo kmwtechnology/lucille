@@ -2,9 +2,13 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
+
+import java.util.Set;
+
 import static org.junit.Assert.*;
 
 public class DetectLanguageTest {
@@ -42,5 +46,23 @@ public class DetectLanguageTest {
     assertEquals("ru", doc3.getStringList("language").get(0));
     assertEquals("hi", doc4.getStringList("language").get(0));
     assertEquals("zh-cn", doc5.getStringList("language").get(0));
+  }
+
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("DetectLanguageTest/config.conf");
+    assertEquals(
+        Set.of(
+            "language_field",
+            "min_length",
+            "language_confidence_field",
+            "update_mode",
+            "min_probability",
+            "name",
+            "source",
+            "conditions",
+            "class",
+            "max_length"),
+        stage.getLegalProperties());
   }
 }

@@ -63,7 +63,9 @@ public class ExtractEntities extends Stage {
   private final String entityField;
 
   public ExtractEntities(Config config) {
-    super(config);
+    super(config, new StageSpec().withRequiredProperties("source", "dest", "dictionaries")
+      .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
+        "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field"));
 
     // For the optional settings, we check if the config has this setting and then what the value is.
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);

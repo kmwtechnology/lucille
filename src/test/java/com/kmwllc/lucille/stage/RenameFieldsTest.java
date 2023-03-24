@@ -2,9 +2,13 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
+
+import java.util.Set;
+
 import static org.junit.Assert.*;
 
 public class RenameFieldsTest {
@@ -34,5 +38,11 @@ public class RenameFieldsTest {
         "this will be output2");
     assertEquals("Field was not correctly renamed", doc.getStringList("input3").get(0),
         "this will be output3");
+  }
+
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("RenameFieldsTest/config.conf");
+    assertEquals(Set.of("update_mode", "name", "conditions", "class"), stage.getLegalProperties());
   }
 }

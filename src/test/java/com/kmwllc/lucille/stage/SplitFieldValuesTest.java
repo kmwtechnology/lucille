@@ -6,6 +6,8 @@ import org.junit.Test;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import java.util.Set;
 
 public class SplitFieldValuesTest {
   private StageFactory factory = StageFactory.of(SplitFieldValues.class);
@@ -28,4 +30,18 @@ public class SplitFieldValuesTest {
     
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("SplitFieldValuesTest/config.conf");
+    assertEquals(
+        Set.of(
+            "inputField",
+            "delimiter",
+            "trimWhitespace",
+            "name",
+            "conditions",
+            "class",
+            "outputField"),
+        stage.getLegalProperties());
+  }
 }

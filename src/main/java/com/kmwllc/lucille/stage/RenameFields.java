@@ -3,10 +3,8 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.util.StageUtils;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigValue;
 
 import java.util.*;
 import java.util.Map.Entry;
@@ -26,9 +24,10 @@ public class RenameFields extends Stage {
   private final Map<String, Object> fieldMap;
   private final UpdateMode updateMode;
 
-  public RenameFields (Config config) {
-    super(config);
-
+  public RenameFields(Config config) {
+    super(config, new StageSpec()
+      .withOptionalProperties("update_mode")
+      .withRequiredParents("fieldMapping"));
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
   }

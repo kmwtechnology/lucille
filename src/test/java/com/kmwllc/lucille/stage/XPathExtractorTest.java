@@ -10,6 +10,7 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 
@@ -129,5 +130,11 @@ public class XPathExtractorTest {
     assertEquals("brian", docs.get(1).getString("name"));
     assertEquals("admin", docs.get(1).getString("role"));
     assertEquals("I enjoy reading", docs.get(1).getString("bio"));
+  }
+
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("XPathExtractorTest/config.conf");
+    assertEquals(Set.of("xmlField", "name", "conditions", "class"), stage.getLegalProperties());
   }
 }

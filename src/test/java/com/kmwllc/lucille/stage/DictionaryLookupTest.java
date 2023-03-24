@@ -8,6 +8,7 @@ import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.*;
 
@@ -45,7 +46,7 @@ public class DictionaryLookupTest {
     Document doc4 = Document.create("doc4");
     doc4.setField("input1", "foo");
     stage.processDocument(doc4);
-    System.out.println(doc4);
+    // System.out.println(doc4);
     List<String> vals = doc4.getStringList("output1");
     assertEquals(vals.size(), 3);
     assertEquals(vals.get(0), "bar");
@@ -66,5 +67,21 @@ public class DictionaryLookupTest {
     assertEquals("China", doc.getStringList("output1").get(0));
     
   }
-  
+
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("DictionaryLookupTest/config.conf");
+    assertEquals(
+      Set.of(
+        "ignore_case",
+        "use_payloads",
+        "update_mode",
+        "name",
+        "source",
+        "dest",
+        "conditions",
+        "class",
+        "dict_path"),
+      stage.getLegalProperties());
+  }
 }
