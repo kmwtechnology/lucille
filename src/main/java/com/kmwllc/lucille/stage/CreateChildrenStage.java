@@ -10,17 +10,15 @@ import java.util.Iterator;
 
 public class CreateChildrenStage extends Stage {
 
-  private int numChildren = 3;
-  private boolean dropParent = false;
+  private final int numChildren;
+  private final boolean dropParent;
+  private final Integer failAfter;
 
   public CreateChildrenStage(Config config) {
-    super(config, new StageSpec().withOptionalProperties("numChildren", "dropParent"));
-    if (config.hasPath("numChildren")) {
-      numChildren = config.getInt("numChildren");
-    }
-    if (config.hasPath("dropParent")) {
-      this.dropParent = config.getBoolean("dropParent");
-    }
+    super(config, new StageSpec().withOptionalProperties("numChildren", "dropParent", "failAfter"));
+    this.numChildren = config.hasPath("numChildren") ? config.getInt("numChildren") : 3;
+    this.dropParent = config.hasPath("dropParent") ? config.getBoolean("dropParent") : false;
+    this.failAfter = config.hasPath("failAfter") ? config.getInt("failAfter") : null;
   }
 
   @Override
@@ -40,6 +38,11 @@ public class CreateChildrenStage extends Stage {
 
       @Override
       public Document next() {
+
+        if ((failAfter!=null) && (count >= failAfter)) {
+          throw new RuntimeException();
+        }
+
         if (count >= numChildren) {
           return null;
         }
