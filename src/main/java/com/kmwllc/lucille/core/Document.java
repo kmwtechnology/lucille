@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -202,6 +204,13 @@ public interface Document {
   void removeDuplicateValues(String fieldName, String targetFieldName);
 
   Document deepCopy();
+
+  /**
+   * Returns an Iterator that contains only this document.
+   */
+  default Iterator<Document> iterator() {
+    return Collections.singleton(this).iterator();
+  }
 
   static Document create(ObjectNode node) throws DocumentException {
     return new JsonDocument(node);

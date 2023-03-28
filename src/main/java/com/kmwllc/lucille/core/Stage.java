@@ -174,7 +174,7 @@ public abstract class Stage {
   public Iterator<Document> apply(Document doc) throws StageException {
 
     Iterator<Document> children = processConditional(doc);
-    Iterator<Document> parent = Collections.singleton(doc).iterator();
+    Iterator<Document> parent = doc.iterator();
 
     if (children == null) {
       return parent;
@@ -197,6 +197,8 @@ public abstract class Stage {
             childCounter.inc();
           }
 
+          // copy the parent's RunID to the child
+          // TODO: copy the parent's ID as well and store it as parentID on the child
           if ((runId != null) && !child.has(Document.RUNID_FIELD)) {
             child.initializeRunId(runId);
           }
