@@ -246,6 +246,56 @@ public class RunnerTest {
   }
 
   /**
+   * A stage could emit a child that is marked as dropped. This is likely an edge case but we still want to
+   * make sure the event accounting mechanism works properly here. When the worker sees the dropped child
+   * it should send a CREATE event for the child document and then immediately follow up with a DROP event.
+   */
+  @Test
+  public void testDropChildDocument() throws Exception {
+
+    PersistingLocalMessageManager manager =
+      Runner.runInTestMode("RunnerTest/threeChildrenDropMiddle.conf").get("connector1");;
+
+    // confirm doc 1 sent for processing
+    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(1, docsSentForProcessing.size());
+    Document parent = docsSentForProcessing.get(0);
+    assertEquals("1", parent.getId());
+
+    // confirm the two children were processed by the pipeline and sent to the destination topic,
+    // while the middle one was dropped and not sent for processing
+    List<Document> docsCompleted = manager.getSavedCompletedDocuments();
+    assertEquals(3, docsCompleted.size());
+    assertEquals("1_child1", docsCompleted.get(0).getId());
+    assertEquals("1_child3", docsCompleted.get(1).getId());
+    assertEquals("1", docsCompleted.get(2).getId());
+
+    // confirm that a CREATE event was sent for doc1's children, including the dropped one;
+    // confirm that a DROP event was sent for the middle child and no FINISH event was sent for it
+    List<Event> events = manager.getSavedEvents();
+    assertEquals(7, events.size());
+    assertEquals(Event.Type.CREATE, events.get(0).getType());
+    assertEquals("1_child1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.CREATE, events.get(1).getType());
+    assertEquals("1_child2", events.get(1).getDocumentId());
+    assertEquals(Event.Type.DROP, events.get(2).getType());
+    assertEquals("1_child2", events.get(2).getDocumentId());
+    assertEquals(Event.Type.CREATE, events.get(3).getType());
+    assertEquals("1_child3", events.get(3).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(4).getType());
+    assertEquals("1_child1", events.get(4).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(5).getType());
+    assertEquals("1_child3", events.get(5).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(6).getType());
+    assertEquals("1", events.get(6).getDocumentId());
+
+    // confirm that topics are empty
+    assertNull(manager.pollCompleted());
+    assertNull(manager.pollDocToProcess());
+    assertNull(manager.pollEvent());
+  }
+
+  /**
    * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that
    * attempts to generate 5 children but fails when the 3rd child is requested
    */
