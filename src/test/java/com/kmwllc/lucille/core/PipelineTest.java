@@ -1,4 +1,5 @@
 package com.kmwllc.lucille.core;
+import com.kmwllc.lucille.stage.CreateChildrenStage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
@@ -137,6 +138,33 @@ public class PipelineTest {
     });
 
     assertEquals(expected, stringResults);
+  }
+
+  /**
+   * Create a pipeline with 100 stages that each create 100 children for each input.
+   * Confirm that although this pipeline should generate 100^100 documents for each
+   * input document, we can begin iterating through the results without running out of memory.
+   */
+  @Test
+  public void testScalableChildIteration() throws Exception {
+    Pipeline pipeline = new Pipeline();
+    Config config = ConfigFactory.parseString("numChildren: 100");
+
+    for (int i = 0; i < 100; i++) {
+      pipeline.addStage(new CreateChildrenStage(config));
+    }
+
+    Document doc = Document.create("d1");
+
+    pipeline.startStages();
+    Iterator<Document> results = pipeline.processDocument(doc);
+
+    // iterate through the first 1000 results (out of 100 to the 100th power)
+    for (int i = 0; i < 1000; i++) {
+      assertNotNull(results.next());
+    }
+
+    pipeline.stopStages();
   }
 
 
