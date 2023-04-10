@@ -11,6 +11,7 @@ import org.apache.logging.log4j.Logger;
 import java.sql.*;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -78,7 +79,7 @@ public class QueryDatabase extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
       preparedStatement.clearParameters();
     } catch (SQLException e) {

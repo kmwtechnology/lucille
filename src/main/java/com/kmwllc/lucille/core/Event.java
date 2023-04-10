@@ -12,7 +12,7 @@ import java.util.Objects;
  */
 public class Event {
 
-  public enum Type {CREATE, FINISH, FAIL}
+  public enum Type {CREATE, FINISH, FAIL, DROP}
 
   private Type type;
   private String documentId;

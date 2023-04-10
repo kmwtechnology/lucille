@@ -7,6 +7,7 @@ import com.typesafe.config.Config;
 
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -27,7 +28,7 @@ public class Timestamp extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     Instant now = Instant.now();
     String dateStr = DateTimeFormatter.ISO_INSTANT.format(now);
     doc.setField(destField, dateStr);

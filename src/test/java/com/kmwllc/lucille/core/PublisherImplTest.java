@@ -150,20 +150,23 @@ public class PublisherImplTest {
     publisher.publish(Document.create("doc1"));
     publisher.publish(Document.create("doc2"));
     publisher.publish(Document.create("doc3"));
-    publisher.handleEvent(new Event("doc4", "run1", "", Event.Type.CREATE));
-    publisher.handleEvent(new Event("doc5", "run1", "", Event.Type.CREATE));
+    publisher.publish(Document.create("doc4"));
+    publisher.handleEvent(new Event("doc3-child1", "run1", "", Event.Type.CREATE));
+    publisher.handleEvent(new Event("doc3-child2", "run1", "", Event.Type.CREATE));
 
     publisher.handleEvent(new Event("doc1", "run1", "", Event.Type.FINISH));
     publisher.handleEvent(new Event("doc2", "run1", "", Event.Type.FAIL));
+    publisher.handleEvent(new Event("doc3-child1", "run1", "", Event.Type.FAIL));
+    publisher.handleEvent(new Event("doc3-child2", "run1", "", Event.Type.FINISH));
     publisher.handleEvent(new Event("doc3", "run1", "", Event.Type.FINISH));
-    publisher.handleEvent(new Event("doc4", "run1", "", Event.Type.FAIL));
-    publisher.handleEvent(new Event("doc5", "run1", "", Event.Type.FINISH));
+    publisher.handleEvent(new Event("doc4", "run1", "", Event.Type.DROP));
 
-    assertEquals(3, publisher.numPublished());
+    assertEquals(4, publisher.numPublished());
     assertEquals(0, publisher.numPending());
     assertEquals(3, publisher.numSucceeded());
     assertEquals(2, publisher.numFailed());
     assertEquals(2, publisher.numCreated());
+    assertEquals(1, publisher.numDropped());
   }
 
   @Test

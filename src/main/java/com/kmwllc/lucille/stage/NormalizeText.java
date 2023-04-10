@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -83,7 +84,7 @@ public class NormalizeText extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one dest, use it. Otherwise, use the current source/dest.
       String sourceField = sourceFields.get(i);

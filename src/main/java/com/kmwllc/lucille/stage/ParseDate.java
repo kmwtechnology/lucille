@@ -14,6 +14,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -78,7 +79,7 @@ public class ParseDate extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (int i = 0; i < sourceFields.size(); i++) {
       LocalDate date = null;
       String sourceField = sourceFields.get(i);

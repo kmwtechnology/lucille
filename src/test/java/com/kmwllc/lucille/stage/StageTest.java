@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import org.junit.Test;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import static org.junit.Assert.*;
@@ -22,7 +23,7 @@ public class StageTest {
     }
 
     @Override
-    public List<Document> processDocument(Document doc) throws StageException {
+    public Iterator<Document> processDocument(Document doc) throws StageException {
       doc.setField("processed", true);
 
       return null;
