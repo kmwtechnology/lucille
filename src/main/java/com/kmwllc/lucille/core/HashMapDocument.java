@@ -3,10 +3,14 @@ package com.kmwllc.lucille.core;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.kmwllc.lucille.util.LinkedMultiMap;
 import com.kmwllc.lucille.util.MultiMap;
+
+import java.lang.reflect.Array;
 import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
@@ -26,7 +30,9 @@ public class HashMapDocument implements Document {
               Boolean.class,
               ObjectNode.class,
               Instant.class,
-              HashMapDocument.class));
+              HashMapDocument.class,
+              TextNode.class,
+              ArrayNode.class));
 
   private static final Function<Object, Integer> TO_INT =
       value -> {
@@ -288,6 +294,9 @@ public class HashMapDocument implements Document {
   @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
     Document.validateNotReservedField(oldName, newName);
+    if (oldName != null && oldName.equals(newName)) {
+      return;
+    }
 
     if (has(newName)) {
       switch (mode) {
