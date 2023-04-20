@@ -225,11 +225,25 @@ public interface Document {
   }
 
   static Document createFromJson(String json) throws DocumentException, JsonProcessingException {
-    return JsonDocument.fromJsonString(json);
+    return createFromJson(json, null);
   }
 
   static Document createFromJson(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
+  }
+
+  static void validateNotReservedField(String... names) throws IllegalArgumentException {
+    if (names == null) {
+      throw new IllegalArgumentException("expecting string parameters");
+    }
+    for (String name: names) {
+      if (name == null) {
+        throw new IllegalArgumentException("Field name cannot be null");
+      }
+      if (RESERVED_FIELDS.contains(name)) {
+        throw new IllegalArgumentException(name + " is a reserved field");
+      }
+    }
   }
 }

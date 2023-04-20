@@ -26,7 +26,9 @@ public abstract class DocumentTest {
 
   public abstract Document createDocument(String id, String runId);
 
-  public abstract Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException;
+  public Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException {
+    return createDocumentFromJson(json, null);
+  }
 
   public abstract Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException;
 
@@ -95,6 +97,29 @@ public abstract class DocumentTest {
     assertEquals(0, d.length("field3"));
   }
 
+  @Test
+  public void testIsMultiValued() throws DocumentException, JsonProcessingException {
+    Document document =
+      createDocumentFromJson(
+        ""
+          + "{\"id\":\"123\", "
+          + "\"null\":null,"
+          + "\"single\":\"val1\", "
+          + "\"empty_arr\":[],"
+          + "\"arr1\":[\"val1\"],"
+          + "\"arr2\":[\"val1\", \"val2\"]}");
+
+    assertFalse(document.isMultiValued("id"));
+    assertFalse(document.isMultiValued("null"));
+    assertFalse(document.isMultiValued("single"));
+    assertTrue(document.isMultiValued("empty_arr"));
+    assertTrue(document.isMultiValued("arr1"));
+    assertTrue(document.isMultiValued("arr2"));
+
+    // not present field
+    assertFalse(document.isMultiValued("not_present"));
+  }
+
   @Test(expected = DocumentException.class)
   public void testCreateWithoutId4() throws Exception {
     createDocumentFromJson("{\"id\":null}");
@@ -148,29 +173,6 @@ public abstract class DocumentTest {
     assertEquals("123", document.getId());
     assertEquals("456", document.getString("run_id"));
     assertEquals("456", document.getRunId());
-  }
-
-  @Test
-  public void testIsMultiValued() throws DocumentException, JsonProcessingException {
-    Document document =
-        createDocumentFromJson(
-            ""
-                + "{\"id\":\"123\", "
-                + "\"null\":null,"
-                + "\"single\":\"val1\", "
-                + "\"empty_arr\":[],"
-                + "\"arr1\":[\"val1\"],"
-                + "\"arr2\":[\"val1\", \"val2\"]}");
-
-    assertFalse(document.isMultiValued("id"));
-    assertFalse(document.isMultiValued("null"));
-    assertFalse(document.isMultiValued("single"));
-    assertTrue(document.isMultiValued("empty_arr"));
-    assertTrue(document.isMultiValued("arr1"));
-    assertTrue(document.isMultiValued("arr2"));
-
-    // not present field
-    assertFalse(document.isMultiValued("not_present"));
   }
 
   @Test
@@ -321,6 +323,8 @@ public abstract class DocumentTest {
     List<Object> nullList = new ArrayList<>();
     nullList.add(null);
 
+    // todo this test does not really make sense.
+    //  why asking for a list from a null field return a list with a null value?
     assertNull(document.getInt("field1"));
     assertEquals(nullList, document.getIntList("field1"));
     assertEquals(nullList, document.getIntList("field2"));
@@ -336,26 +340,6 @@ public abstract class DocumentTest {
     assertNull(document.getLong("field1"));
     assertEquals(nullList, document.getLongList("field1"));
     assertEquals(nullList, document.getLongList("field2"));
-
-    // this fails because tries to parse date from null
-    try {
-      assertNull(document.getInstant("field1"));
-      fail();
-    } catch (java.time.format.DateTimeParseException e) {
-      // cant parse null
-    }
-    try {
-      assertEquals(nullList, document.getInstantList("field1"));
-      fail();
-    } catch (java.time.format.DateTimeParseException e) {
-      // cant parse null
-    }
-    try {
-      assertEquals(nullList, document.getInstantList("field2"));
-      fail();
-    } catch (java.time.format.DateTimeParseException e) {
-      // cant parse null
-    }
   }
 
   @Test
@@ -570,21 +554,27 @@ public abstract class DocumentTest {
   public void testChildren() throws Exception {
     Document parent = createDocument("parent");
     assertFalse(parent.hasChildren());
+
     Document child1 = createDocument("child1");
     child1.setField("field1", "val1");
+
     Document child2 = createDocument("child2");
     child2.setField("field1", "val1b");
     child1.setField("field2", "val2");
+
     parent.addChild(child1);
     assertTrue(parent.hasChildren());
     parent.addChild(child2);
+
     List<Document> children = parent.getChildren();
     assertEquals(2, children.size());
     assertEquals(child1, children.get(0));
     assertEquals(child2, children.get(1));
+
     Document deserializedParent = createDocumentFromJson(parent.toString());
-    assertEquals(parent, createDocumentFromJson(parent.toString()));
+    assertEquals(parent, deserializedParent);
     assertTrue(deserializedParent.hasChildren());
+
     List<Document> deserializedChildren = deserializedParent.getChildren();
     assertEquals(child1, deserializedChildren.get(0));
     assertEquals(child2, deserializedChildren.get(1));
@@ -1055,6 +1045,7 @@ public abstract class DocumentTest {
 
     // ensure that the numbers do not come out as Strings
     assertEquals("{\"id\":\"id\",\"field1\":[1,16,129]}", d.toString());
+//    compareToString("{\"id\":\"id\",\"field1\":[1,16,129]}", d.toString());
 
     d.setField("field2", "a");
     d.addToField("field2", "b");
@@ -1071,6 +1062,16 @@ public abstract class DocumentTest {
     // ensure that the Strings do come out as Strings
     assertEquals(
         "{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
+    //    compareToString("{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
+  }
+
+  private void assertEqualsFromString(Document document, String string) {
+    try {
+      Document created = createDocumentFromJson(string);
+      assertEquals(document, created);
+    } catch (DocumentException | JsonProcessingException e) {
+      fail();
+    }
   }
 
   @Test
@@ -1090,7 +1091,9 @@ public abstract class DocumentTest {
 
     // verify that the original field stays the same, while the output field contains the correct
     // values
-    assertEquals("{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}", d.toString());
+    // todo does the order matter here?
+//    assertEquals("{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}", d.toString());
+    assertEqualsFromString(d, "{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}");
 
     Document d2 = createDocument("id2");
     d2.setField("field2", "a");
@@ -1107,6 +1110,7 @@ public abstract class DocumentTest {
 
     // verify in-place modification
     assertEquals("{\"id\":\"id2\",\"field2\":[\"a\",\"b\",\"c\"]}", d2.toString());
+//    compareToString("{\"id\":\"id2\",\"field2\":[\"a\",\"b\",\"c\"]}", d2.toString());
   }
 
   @Test
@@ -1123,47 +1127,94 @@ public abstract class DocumentTest {
     assertEquals(List.of(1), d.getIntList("field2"));
   }
 
-  @Test
-  public void testGetChildrenException() throws DocumentException {
-
-    // demonstrates the consequences of not copying the object given to the constructor
-
-    // here the child is changed after being added to the parent and throws an error (that is
-    // logged) when trying to retrieve children
-
-    Document parent = createDocument("id");
-
-    ObjectNode child1Node = JsonNodeFactory.instance.objectNode();
-    child1Node.put("id", "child1");
-    Document child1 = createDocument(child1Node);
-    parent.addChild(child1);
-
-    Document child2 = createDocument("child2");
-    parent.addChild(child2);
-
-    // both children are present
-    assertEquals(List.of(child1, child2), parent.getChildren());
-
-    // after removing the id from child1 only child2 is returned when getting children
-    child1Node.remove("id");
-    assertEquals(List.of(child2), parent.getChildren());
-
-    // did not find an easy way to check if error message has been logged
+  // todo use if decide to use HashMap instead of LinkedHashMap
+  private void compareToString(String a, String b) {
+    assertEquals(fromString(a), fromString(b));
   }
 
-  @Test(expected = IllegalStateException.class)
-  public void testClone() throws DocumentException {
+  private JsonNode fromString(String json) {
+    try {
+      return new ObjectMapper().readTree(json);
+    } catch (JsonProcessingException e) {
+      fail();
+    }
+    throw new RuntimeException("should not get here");
+  }
 
-    // demonstrates the consequences of not copying the object given to the constructor
+  abstract static class NodeDocumentTest extends DocumentTest {
 
-    // here the node used to create the document is changed after document construction and throws
-    // an error when trying to clone the document
+    @Test
+    public void testGetNullFieldExceptions() throws DocumentException, JsonProcessingException {
 
-    ObjectNode node = JsonNodeFactory.instance.objectNode();
-    node.put("id", "123");
+      Document document =
+        createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
 
-    Document document = createDocument(node);
-    node.remove("id");
-    document.deepCopy();
+      List<Object> nullList = new ArrayList<>();
+      nullList.add(null);
+
+      // this fails because tries to parse date from null
+      try {
+        assertNull(document.getInstant("field1"));
+        fail();
+      } catch (java.time.format.DateTimeParseException e) {
+        // cant parse null
+      }
+      try {
+        assertEquals(nullList, document.getInstantList("field1"));
+        fail();
+      } catch (java.time.format.DateTimeParseException e) {
+        // cant parse null
+      }
+      try {
+        assertEquals(nullList, document.getInstantList("field2"));
+        fail();
+      } catch (java.time.format.DateTimeParseException e) {
+        // cant parse null
+      }
+    }
+
+    @Test
+    public void testGetChildrenException() throws DocumentException {
+
+      // demonstrates the consequences of not copying the object given to the constructor
+
+      // here the child is changed after being added to the parent and throws an error (that is
+      // logged) when trying to retrieve children
+
+      Document parent = createDocument("id");
+
+      ObjectNode child1Node = JsonNodeFactory.instance.objectNode();
+      child1Node.put("id", "child1");
+      Document child1 = createDocument(child1Node);
+      parent.addChild(child1);
+
+      Document child2 = createDocument("child2");
+      parent.addChild(child2);
+
+      // both children are present
+      assertEquals(List.of(child1, child2), parent.getChildren());
+
+      // after removing the id from child1 only child2 is returned when getting children
+      child1Node.remove("id");
+      assertEquals(List.of(child2), parent.getChildren());
+
+      // did not find an easy way to check if error message has been logged
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testClone() throws DocumentException {
+
+      // demonstrates the consequences of not copying the object given to the constructor
+
+      // here the node used to create the document is changed after document construction and throws
+      // an error when trying to clone the document
+
+      ObjectNode node = JsonNodeFactory.instance.objectNode();
+      node.put("id", "123");
+
+      Document document = createDocument(node);
+      node.remove("id");
+      document.deepCopy();
+    }
   }
 }

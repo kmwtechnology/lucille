@@ -78,12 +78,12 @@ public class JsonDocument implements Document {
   }
 
   public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
-    return new JsonDocument((ObjectNode)MAPPER.readTree(json));
+    return fromJsonString(json, null);
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
-    JsonDocument doc = fromJsonString(json);
-    doc.data.put(ID_FIELD, idUpdater.apply(doc.getId()));
+    JsonDocument doc = new JsonDocument((ObjectNode)MAPPER.readTree(json));;
+    doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
     return doc;
   }
 
