@@ -9,6 +9,8 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -161,44 +163,21 @@ public class Pipeline {
   }
 
   /**
-   * Passes a Document through the designated sequence of stages and returns a list containing
+   * Passes a Document through the designated sequence of stages and returns an Iterator containing
    * the input Document as the first element, along with any child documents generated.
    *
    * Child documents are passed through downstream stages only. For example, if we have a sequence of stages
    * S1, S2, S3, and if S2 generates a child document, the child document will be passed through S3 only.
    *
    */
-  public List<Document> processDocument(Document document) throws StageException {
-
-    String runId = document.getRunId();
-
-    ArrayList<Document> documents = new ArrayList<>();
-    documents.add(document);
+  public Iterator<Document> processDocument(Document document) throws StageException {
+    Iterator<Document> result = document.iterator();
 
     for (Stage stage : stages) {
-      List<Document> childrenFromCurrentStage = new ArrayList<>();
-
-      for (Document doc : documents) {
-        List<Document> childrenOfCurrentDoc = stage.processConditional(doc);
-
-        if (childrenOfCurrentDoc != null) {
-
-          // if parent has a run_id, copy it to all children that don't have one
-          if (runId != null) {
-            for (Document child : childrenOfCurrentDoc) {
-              if (!child.has(Document.RUNID_FIELD)) {
-                child.initializeRunId(runId);
-              }
-            }
-          }
-
-          childrenFromCurrentStage.addAll(childrenOfCurrentDoc);
-        }
-      }
-
-      documents.addAll(childrenFromCurrentStage);
+      result = stage.apply(result);
     }
 
-    return documents;
+    return result;
   }
+
 }

@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -33,7 +34,7 @@ public class DropValues extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String source : sourceFields) {
       if (!doc.has(source))
         continue;

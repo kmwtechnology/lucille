@@ -706,6 +706,20 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public boolean isDropped() {
+    return data.has(DROP_FIELD);
+  }
+
+  @Override
+  public void setDropped(boolean status) {
+    if (status) {
+      data.put(DROP_FIELD, true);
+    } else {
+      data.remove(DROP_FIELD);
+    }
+  }
+
+  @Override
   public void removeDuplicateValues(String fieldName, String targetFieldName) {
     if (!isMultiValued(fieldName)) {
       return;

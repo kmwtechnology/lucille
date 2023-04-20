@@ -49,6 +49,7 @@ public class PublisherImpl implements Publisher {
   private int numCreated = 0;
   private int numFailed = 0;
   private int numSucceeded = 0;
+  private int numDropped = 0;
 
   private Instant start;
   private final Timer timer;
@@ -173,6 +174,8 @@ public class PublisherImpl implements Publisher {
         numSucceeded++;
       } else if (Event.Type.FAIL.equals(event.getType())) {
         numFailed++;
+      } else if (Event.Type.DROP.equals(event.getType())) {
+        numDropped++;
       }
 
       // if we're learning that a document has finished processing, or failed, we can stop tracking it;
@@ -235,8 +238,8 @@ public class PublisherImpl implements Publisher {
         }
         log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
           timer.getMeanRate(), timer.getSnapshot().getMean()/1000000));
-        log.info(String.format("%d docs published%s. %d children created. %d success events. %d failure events.",
-            timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed));
+        log.info(String.format("%d docs published%s. %d children created. %d success events. %d failure events. %d drop events.",
+            timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped));
         if (numPublished>0 && numFailed==0) {
           log.info("All documents SUCCEEDED.");
         }
@@ -288,4 +291,8 @@ public class PublisherImpl implements Publisher {
     return numFailed;
   }
 
+  @Override
+  public int numDropped() {
+    return numDropped;
+  }
 }

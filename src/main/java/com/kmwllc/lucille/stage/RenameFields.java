@@ -43,7 +43,7 @@ public class RenameFields extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     // For each field, if this document has the source field, rename it to the destination field
     for (Entry<String, Object> fieldPair : fieldMap.entrySet()) {
       if (!doc.has(fieldPair.getKey()))

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,7 +23,7 @@ public class RemoveEmptyFields extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     // get the field names
     Map<String,Object> data = doc.asMap();
     Set<String> fieldNames = data.keySet();
