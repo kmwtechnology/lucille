@@ -598,6 +598,20 @@ public class HashMapDocument implements Document {
   }
 
   @Override
+  public boolean isDropped() {
+    return data.contains(DROP_FIELD);
+  }
+
+  @Override
+  public void setDropped(boolean status) {
+    if (status) {
+      data.putOne(DROP_FIELD, true);
+    } else {
+      data.remove(DROP_FIELD);
+    }
+  }
+
+  @Override
   public void removeDuplicateValues(String source, String target) {
     Document.validateNotReservedField(source);
 
