@@ -129,6 +129,11 @@ public class JsonDocument implements Document {
     update(name, mode, (v)->{setField(name,(Instant)v);}, (v)->{setOrAdd(name,(Instant)v);}, values);
   }
 
+  @Override
+  public void update(String name, UpdateMode mode, byte[]... values) {
+    throw new UnsupportedOperationException("JsonDocument does not support byte array fields.");
+  }
+
   /**
    * Private helper method used by different public versions of the overloaded update method.
    *
@@ -217,6 +222,11 @@ public class JsonDocument implements Document {
     validateNotReservedField(name);
     String instantStr = DateTimeFormatter.ISO_INSTANT.format(value);
     data.put(name, instantStr);
+  }
+
+  @Override
+  public void setField(String name, byte[] value) {
+    throw new UnsupportedOperationException("JsonDocument does not support byte array fields.");
   }
 
   @Override
@@ -403,6 +413,11 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public byte[] getBytes(String name) {
+    throw new UnsupportedOperationException("JsonDocument does not support byte array fields.");
+  }
+
+  @Override
   public List<Instant> getInstantList(String name) {
     if (!data.has(name)) {
       return null;
@@ -420,6 +435,11 @@ public class JsonDocument implements Document {
       result.add(node.isNull() ? null : instant);
     }
     return result;
+  }
+
+  @Override
+  public List<byte[]> getBytesList(String name) {
+    throw new UnsupportedOperationException("JsonDocument does not support byte array fields.");
   }
 
   private JsonNode getSingleNode(String name) {
@@ -542,6 +562,11 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public void addToField(String name, byte[] value) {
+    throw new UnsupportedOperationException("JsonDocument does not support byte array fields.");
+  }
+
+  @Override
   public void setOrAdd(String name, String value) {
     if (has(name)) {
       addToField(name, value);
@@ -593,6 +618,11 @@ public class JsonDocument implements Document {
     } else {
       setField(name, value);
     }
+  }
+
+  @Override
+  public void setOrAdd(String name, byte[] value) {
+    throw new UnsupportedOperationException("JsonDocument does not support byte array fields.");
   }
 
   @Override
