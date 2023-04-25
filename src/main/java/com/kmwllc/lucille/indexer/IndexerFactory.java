@@ -17,6 +17,13 @@ public class IndexerFactory {
   public static Indexer fromConfig(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix)
     throws  IndexerException {
 
+    if (bypass==false) {
+      if (config.hasPath("indexer.sendEnabled") && !config.getBoolean("indexer.sendEnabled")) {
+        log.warn("indexer.sendEnabled is set to false in the configuration; indexer will be started in bypass mode");
+        bypass=true;
+      }
+    }
+
     String typeName;
 
     // fetch indexer type if specified
@@ -31,7 +38,9 @@ public class IndexerFactory {
     if (typeName.equalsIgnoreCase("Solr")) {
       return new SolrIndexer(config, manager, bypass, metricsPrefix);
     } else if (typeName.equalsIgnoreCase("OpenSearch")) {
-      return new OpenSearchIndexer(config, manager, bypass, metricsPrefix);
+      return new OpenSearchIndexer(config, manager,bypass, metricsPrefix);
+    } else if (typeName.equalsIgnoreCase("Elasticsearch")) {
+      return new ElasticsearchIndexer(config, manager,bypass, metricsPrefix);
     } else {
       throw new IndexerException("Unknown indexer.type configuration of: '" + typeName + "'");
     }

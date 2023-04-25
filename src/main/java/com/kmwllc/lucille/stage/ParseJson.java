@@ -13,12 +13,13 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Base64;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
 /**
- * This stage parses a JSON string and sets fields on the processed document according to the configured mapping using
+ * Parses a JSON string and sets fields on the processed document according to the configured mapping using
  * JsonPath expressions.
  *
  * @see <a href="https://github.com/json-path/JsonPath">JsonPath</a>
@@ -42,7 +43,10 @@ public class ParseJson extends Stage {
   private ParseContext jsonParseCtx;
 
   public ParseJson(Config config) {
-    super(config);
+    super(config, new StageSpec()
+      .withRequiredProperties("src")
+      .withOptionalProperties("sourceIsBase64")
+      .withRequiredParents("jsonFieldPaths"));
     this.src = config.getString("src");
     this.jsonFieldPaths = config.getConfig("jsonFieldPaths").root().unwrapped();
     this.sourceIsBase64 = config.hasPath("sourceIsBase64") && config.getBoolean("sourceIsBase64");
@@ -62,7 +66,7 @@ public class ParseJson extends Stage {
    * @return
    */
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     DocumentContext ctx;
     if (this.sourceIsBase64) {
       try (InputStream stream = new ByteArrayInputStream(DECODER.decode(doc.getString(this.src)))) {

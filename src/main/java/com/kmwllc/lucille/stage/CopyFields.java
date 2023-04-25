@@ -7,10 +7,11 @@ import com.kmwllc.lucille.util.StageUtils;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
+import java.util.Iterator;
 import java.util.List;
 
 /**
- * This stage copies values from a given set of source fields to a given set of destination fields. If the same number
+ * Copies values from a given set of source fields to a given set of destination fields. If the same number
  * of fields are supplied for both sources and destinations, the fields will be copied from source_1 to dest_1 and
  * source_2 to dest_2. If either source or dest has only one field value, and the other has several, all of the
  * fields will be copied to/from the same field.
@@ -30,7 +31,9 @@ public class CopyFields extends Stage {
   private final UpdateMode updateMode;
 
   public CopyFields(Config config) {
-    super(config);
+    super(config, new StageSpec()
+            .withRequiredProperties("source", "dest")
+            .withOptionalProperties("update_mode"));
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.updateMode = UpdateMode.fromConfig(config);
@@ -44,7 +47,7 @@ public class CopyFields extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one source or dest, use it. Otherwise, use the current source/dest.
       String sourceField = sourceFields.get(i);

@@ -4,6 +4,9 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
+
+import java.util.Set;
+
 import static org.junit.Assert.*;
 
 public class LengthTest {
@@ -14,7 +17,7 @@ public class LengthTest {
   public void testLength() throws StageException {
     Stage stage = factory.get("LengthTest/config.conf");
 
-    Document doc1 = new Document("doc1");
+    Document doc1 = Document.create("doc1");
     doc1.setField("singleton", "one value");
     doc1.setField("customers", "Ace Hardware");
     doc1.setOrAdd("customers", "Home Depot");
@@ -25,4 +28,9 @@ public class LengthTest {
     assertEquals("1", doc1.getString("singleton_length"));
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("LengthTest/config.conf");
+    assertEquals(Set.of("name", "conditions", "class"), stage.getLegalProperties());
+  }
 }

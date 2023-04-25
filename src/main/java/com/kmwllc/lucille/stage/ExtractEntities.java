@@ -10,6 +10,7 @@ import java.io.File;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -63,7 +64,9 @@ public class ExtractEntities extends Stage {
   private final String entityField;
 
   public ExtractEntities(Config config) {
-    super(config);
+    super(config, new StageSpec().withRequiredProperties("source", "dest", "dictionaries")
+      .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
+        "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field"));
 
     // For the optional settings, we check if the config has this setting and then what the value is.
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
@@ -159,7 +162,7 @@ public class ExtractEntities extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     // For each of the field names, extract dictionary values from it.
     for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one source or dest, use it. Otherwise, use the current source/dest.

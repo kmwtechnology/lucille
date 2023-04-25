@@ -7,21 +7,23 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
- * This Stage removes leading and trailing whitespace from every value in the given list of fields.
- *
+ * Removes leading and trailing whitespace from every value in a given list of fields.
+ * <p>
  * Config Parameters -
- *
- *   fields (List<String>) : The list of fields to trim whitespace from
+ * <ul>
+ * <li>fields (List<String>) : The list of fields to trim whitespace from.</li>
+ * </ul>
  */
 public class TrimWhitespace extends Stage {
 
   private final List<String> fields;
 
   public TrimWhitespace(Config config) {
-    super(config);
+    super(config, new StageSpec().withRequiredProperties("fields"));
     this.fields = config.getStringList("fields");
   }
 
@@ -32,7 +34,7 @@ public class TrimWhitespace extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String field : fields) {
       if (!doc.has(field))
         continue;

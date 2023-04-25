@@ -14,11 +14,13 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
- * This Stage will parse dates into ISO_INSTANT format to be ingested by Solr. If a given date cannot be parsed, it
+ * Parses dates into ISO_INSTANT format to be ingested by Solr. If a given date cannot be parsed, it
  * will not be passed through to the destination field.
  * Config Parameters:
  * <p>
@@ -34,16 +36,21 @@ import java.util.function.Function;
 public class ParseDate extends Stage {
 
   private final List<Function<String, LocalDate>> formatters;
-  private final List<String> formatStrings;
+  private final List<DateFormat> formats;
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final UpdateMode updateMode;
 
   public ParseDate(Config config) {
-    super(config);
+    super(config, new StageSpec().withRequiredProperties("source", "dest")
+      .withOptionalProperties("format_strs", "update_mode", "formatters"));
 
     this.formatters = new ArrayList<>();
-    this.formatStrings = ConfigUtils.getOrDefault(config, "format_strs", new ArrayList<>());
+    this.formats = ConfigUtils.getOrDefault(config, "format_strs", new ArrayList<String>())
+      .stream()
+      .map(formatString -> new SimpleDateFormat(formatString))
+      .collect(Collectors.toUnmodifiableList());
+
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.updateMode = UpdateMode.fromConfig(config);
@@ -72,7 +79,7 @@ public class ParseDate extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (int i = 0; i < sourceFields.size(); i++) {
       LocalDate date = null;
       String sourceField = sourceFields.get(i);
@@ -84,8 +91,7 @@ public class ParseDate extends Stage {
       // For each String value in this field...
       List<String> outputValues = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {
-        for (String formatStr : formatStrings) {
-          DateFormat format = new SimpleDateFormat(formatStr);
+        for (DateFormat format : formats) {
           format.setLenient(false);
           Date candidate = format.parse(value, new ParsePosition(0));
 

@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.connector;
 
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.github.vfss3.S3FileSystemConfigBuilder;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -51,6 +53,11 @@ public class VFSConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try (StandardFileSystemManager fsManager = new StandardFileSystemManager()) {
+      // ensure kube access role support to work around issue https://github.com/abashev/vfs-s3/issues/77
+      FileSystemOptions fileSystemOptions = new FileSystemOptions();
+      S3FileSystemConfigBuilder s3Config = S3FileSystemConfigBuilder.getInstance();
+      s3Config.setCredentialsProvider(fileSystemOptions, new DefaultAWSCredentialsProviderChain());
+
       fsManager.init();
 
       // locate all valid files within the provided VFS path
@@ -70,7 +77,7 @@ public class VFSConnector extends AbstractConnector {
 
   private Document buildDocument(FileObject fo) {
     final String docId = DigestUtils.md5Hex(fo.getName().getPath());
-    final Document doc = new Document(createDocId(docId));
+    final Document doc = Document.create(createDocId(docId));
 
     // Set up basic file properties on the doc
     doc.setField(FileTraverser.FILE_PATH, fo.getName().getURI());

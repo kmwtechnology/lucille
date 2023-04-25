@@ -6,10 +6,11 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
+import java.util.Iterator;
 import java.util.List;
 
 /**
- * This Stage will remove all occurrences of a given value from the source fields. Field values are not removed if
+ * Removes all occurrences of a given value from the source fields. Field values are not removed if
  * they contain a blacklisted value, only if it is an exact match between the two Strings.
  * Config Parameters:
  *
@@ -22,8 +23,7 @@ public class DropValues extends Stage {
   private final List<String> values;
 
   public DropValues(Config config) {
-    super(config);
-
+    super(config, new StageSpec().withRequiredProperties("source", "values"));
     this.sourceFields = config.getStringList("source");
     this.values = config.getStringList("values");
   }
@@ -34,7 +34,7 @@ public class DropValues extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String source : sourceFields) {
       if (!doc.has(source))
         continue;

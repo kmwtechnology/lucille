@@ -49,6 +49,7 @@ public class PublisherImpl implements Publisher {
   private int numCreated = 0;
   private int numFailed = 0;
   private int numSucceeded = 0;
+  private int numDropped = 0;
 
   private Instant start;
   private final Timer timer;
@@ -173,6 +174,8 @@ public class PublisherImpl implements Publisher {
         numSucceeded++;
       } else if (Event.Type.FAIL.equals(event.getType())) {
         numFailed++;
+      } else if (Event.Type.DROP.equals(event.getType())) {
+        numDropped++;
       }
 
       // if we're learning that a document has finished processing, or failed, we can stop tracking it;
@@ -204,7 +207,7 @@ public class PublisherImpl implements Publisher {
       // periodically even when there are no available events to process
       Event event = manager.pollEvent();
 
-      if (event !=null) {
+      if (event != null) {
         handleEvent(event);
       }
 
@@ -222,7 +225,10 @@ public class PublisherImpl implements Publisher {
       // We are done if 1) the Connector thread has terminated and therefore no more Documents will be generated,
       // 2) all published Documents and their children are accounted for (none are pending),
       // 3) there are no more Events relating to the current run to consume
-      if (!thread.isAlive() && !hasPending() && !manager.hasEvents()) {
+      // Regarding 3), we assume there are no more events if the previous call to manager.pollEvent() returned null
+      // In a Kafka deployment, the publisher should be the only consumer of the event topic, and the topic should
+      // have a single partition
+      if (!thread.isAlive() && !hasPending() && event==null) {
         if (timerContext!=null) {
           timerContext.stop();
         }
@@ -232,8 +238,8 @@ public class PublisherImpl implements Publisher {
         }
         log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
           timer.getMeanRate(), timer.getSnapshot().getMean()/1000000));
-        log.info(String.format("%d docs published%s. %d children created. %d success events. %d failure events.",
-            timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed));
+        log.info(String.format("%d docs published%s. %d children created. %d success events. %d failure events. %d drop events.",
+            timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped));
         if (numPublished>0 && numFailed==0) {
           log.info("All documents SUCCEEDED.");
         }
@@ -285,4 +291,8 @@ public class PublisherImpl implements Publisher {
     return numFailed;
   }
 
+  @Override
+  public int numDropped() {
+    return numDropped;
+  }
 }

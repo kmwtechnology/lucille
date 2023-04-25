@@ -63,7 +63,7 @@ public class PublisherImplTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
-    Document doc = new Document("doc1");
+    Document doc = Document.create("doc1");
     assertEquals(0, publisher.numPublished());
     assertEquals(0, publisher.numPending());
 
@@ -94,7 +94,7 @@ public class PublisherImplTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
-    Document doc = new Document("doc1");
+    Document doc = Document.create("doc1");
     assertEquals(0, publisher.numPublished());
     assertEquals(0, publisher.numPending());
 
@@ -114,7 +114,7 @@ public class PublisherImplTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
-    Document doc = new Document("doc1");
+    Document doc = Document.create("doc1");
     assertEquals(0, publisher.numPublished());
     assertEquals(0, publisher.numPending());
 
@@ -122,7 +122,7 @@ public class PublisherImplTest {
     assertEquals(1, publisher.numPublished());
     assertEquals(1, publisher.numPending());
 
-    publisher.publish(new Document("doc1"));
+    publisher.publish(Document.create("doc1"));
     assertEquals(2, publisher.numPublished());
     assertEquals(2, publisher.numPending());
 
@@ -147,23 +147,26 @@ public class PublisherImplTest {
     assertEquals(0, publisher.numFailed());
     assertEquals(0, publisher.numCreated());
 
-    publisher.publish(new Document("doc1"));
-    publisher.publish(new Document("doc2"));
-    publisher.publish(new Document("doc3"));
-    publisher.handleEvent(new Event("doc4", "run1", "", Event.Type.CREATE));
-    publisher.handleEvent(new Event("doc5", "run1", "", Event.Type.CREATE));
+    publisher.publish(Document.create("doc1"));
+    publisher.publish(Document.create("doc2"));
+    publisher.publish(Document.create("doc3"));
+    publisher.publish(Document.create("doc4"));
+    publisher.handleEvent(new Event("doc3-child1", "run1", "", Event.Type.CREATE));
+    publisher.handleEvent(new Event("doc3-child2", "run1", "", Event.Type.CREATE));
 
     publisher.handleEvent(new Event("doc1", "run1", "", Event.Type.FINISH));
     publisher.handleEvent(new Event("doc2", "run1", "", Event.Type.FAIL));
+    publisher.handleEvent(new Event("doc3-child1", "run1", "", Event.Type.FAIL));
+    publisher.handleEvent(new Event("doc3-child2", "run1", "", Event.Type.FINISH));
     publisher.handleEvent(new Event("doc3", "run1", "", Event.Type.FINISH));
-    publisher.handleEvent(new Event("doc4", "run1", "", Event.Type.FAIL));
-    publisher.handleEvent(new Event("doc5", "run1", "", Event.Type.FINISH));
+    publisher.handleEvent(new Event("doc4", "run1", "", Event.Type.DROP));
 
-    assertEquals(3, publisher.numPublished());
+    assertEquals(4, publisher.numPublished());
     assertEquals(0, publisher.numPending());
     assertEquals(3, publisher.numSucceeded());
     assertEquals(2, publisher.numFailed());
     assertEquals(2, publisher.numCreated());
+    assertEquals(1, publisher.numDropped());
   }
 
   @Test
@@ -194,7 +197,7 @@ public class PublisherImplTest {
       public void run() {
         for (int i=0; i<100; i++) {
           try {
-            publisher.publish(new Document("doc" + i));
+            publisher.publish(Document.create("doc" + i));
           } catch (Exception e) {
             return;
           }
@@ -212,7 +215,7 @@ public class PublisherImplTest {
 
     // create space in the queue and make sure the publisher is able to publish another document
     manager.pollDocToProcess();
-    publisher.publish(new Document("doc6"));
+    publisher.publish(Document.create("doc6"));
     assertEquals(6, publisher.numPublished());
   }
 
@@ -224,15 +227,15 @@ public class PublisherImplTest {
     PublisherImpl publisher =
       new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1", "",true);
 
-    Document doc1 = new Document("before");
+    Document doc1 = Document.create("before");
 
-    Document doc2 = new Document("collapseMe");
+    Document doc2 = Document.create("collapseMe");
     doc2.setField("field1", "val1");
 
-    Document doc3 = new Document("collapseMe");
+    Document doc3 = Document.create("collapseMe");
     doc3.setField("field1", "val2");
 
-    Document doc4 = new Document("after");
+    Document doc4 = Document.create("after");
 
     assertEquals(0, publisher.numPublished());
     assertEquals(0, publisher.numPending());

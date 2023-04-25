@@ -97,4 +97,9 @@ public interface Connector extends AutoCloseable {
     return connectors;
   }
 
+  /**
+   * Returns a message that should be included in the Lucille Run Summary for this connector instance.
+   */
+  String getMessage();
+
 }

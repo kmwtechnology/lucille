@@ -83,7 +83,9 @@ public class Runner {
       .addOption(Option.builder("usekafka").hasArg(false)
         .desc("Use Kafka for inter-component communication and don't execute pipelines locally").build())
       .addOption(Option.builder("local").hasArg(false)
-        .desc("Modifies usekafka mode to execute pipelines locally").build());
+        .desc("Modifies usekafka mode to execute pipelines locally").build())
+      .addOption(Option.builder("validate").hasArg(false)
+        .desc("Validate the configuration and exit").build());
 
     CommandLine cli = null;
     try {
@@ -98,6 +100,11 @@ public class Runner {
         log.info(writer.toString());
       }
       System.exit(1);
+    }
+
+    if (cli.hasOption("validate")) {
+      logValidation(ConfigFactory.load());
+      return;
     }
 
     StopWatch stopWatch = new StopWatch();
@@ -155,6 +162,46 @@ public class Runner {
     return result.getHistory();
   }
 
+  private static Map<String, List<Exception>> logValidation(Config config) throws Exception {
+    Map<String, List<Exception>> exceptions = validatePipelines(config);
+    if(exceptions.isEmpty()) {
+      log.info("Configuration is valid");
+    } else {
+      StringBuilder message = new StringBuilder("Configuration is invalid. " +
+        "Printing the list of exceptions for each pipeline\n");
+
+      for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
+        message.append("\tConnector: ").append(entry.getKey()).append("\tError count: ")
+          .append(entry.getValue().size()).append("\n");
+        int i = 1;
+        for (Exception e : entry.getValue()) {
+          message.append("\t\tException ").append(i++).append(": ")
+            .append(e.getMessage()).append("\n");
+        }
+      }
+      log.error(message.delete(message.length() - 1, message.length()).toString());
+    }
+    return exceptions;
+  }
+
+  public static Map<String, List<Exception>> runInValidationMode(String configName) throws Exception {
+    return logValidation(ConfigFactory.load(configName));
+  }
+
+  public static Map<String, List<Exception>> validatePipelines(Config config) throws Exception {
+    Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
+    for (Connector connector : Connector.fromConfig(config)) {
+      log.info("Validating stages for connector \"" + connector.getName() +
+        "\" pipeline\" " + connector.getPipelineName() + "\"");
+      if (exceptionMap.containsKey(connector.getName())) {
+        // todo this might not be necessary to add but better to be safe
+        throw new RuntimeException("Duplicate connector name: " + connector.getName());
+      }
+      exceptionMap.put(connector.getName(), Pipeline.validateStages(config, connector.getPipelineName()));
+    }
+    return exceptionMap;
+  }
+
   /**
    * Generates a run ID and performs an end-to-end run of the designated type.
    */
@@ -201,11 +248,11 @@ public class Runner {
 
       if (!result.getStatus()) {
         log.error("Aborting run because " + connector.getName() + " failed.");
-        return new RunResult(false, connectors, connectorResults, history);
+        return new RunResult(false, connectors, connectorResults, history, runId);
       }
     }
 
-    return new RunResult(true, connectors, connectorResults, history);
+    return new RunResult(true, connectors, connectorResults, history, runId);
   }
   
   /**
@@ -222,7 +269,26 @@ public class Runner {
         connector.close();
       } catch (Exception e) {
         log.error("Error closing connector", e);
+
+        if (publisher != null) {
+          try {
+            publisher.close();
+          } catch (Exception e2) {
+            log.error("Error closing publisher", e2);
+            return new ConnectorResult(connector, publisher, false, "Error closing connector and publisher");
+          }
+        }
+
         return new ConnectorResult(connector, publisher, false, "Error closing connector");
+      }
+
+      if (publisher != null) {
+        try {
+          publisher.close();
+        } catch (Exception e) {
+          log.error("Error closing publisher", e);
+          return new ConnectorResult(connector, publisher, false, "Error closing publisher");
+        }
       }
     }
   }
@@ -269,13 +335,6 @@ public class Runner {
       } catch (Exception e) {
         log.error("waitForCompletion failed", e);
         return new ConnectorResult(connector, publisher, false,"waitForCompletion failed");
-      } finally {
-        try {
-          publisher.close();
-        } catch (Exception e) {
-          log.error("Error closing publisher", e);
-          return new ConnectorResult(connector, publisher, false, "Error closing publisher");
-        }
       }
     }
 

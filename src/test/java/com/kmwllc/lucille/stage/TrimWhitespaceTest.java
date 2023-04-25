@@ -3,6 +3,7 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import java.util.Set;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -14,7 +15,7 @@ public class TrimWhitespaceTest {
   public void trimWhitespaceTest() throws StageException {
     Stage stage = factory.get("TrimWhitespaceTest/config.conf");
 
-    Document doc1 = new Document("doc1");
+    Document doc1 = Document.create("doc1");
     doc1.setField("input1", "   trim this   ");
     doc1.setField("input2", "   test");
     doc1.addToField("input2", "test   ");
@@ -26,7 +27,7 @@ public class TrimWhitespaceTest {
     assertEquals("   this should not be trimmed  ", doc1.getString("test_field"));
     assertFalse(doc1.has("input3"));
 
-    Document doc2 = new Document("doc2");
+    Document doc2 = Document.create("doc2");
     doc2.setField("input1", "nothing to trim");
     doc2.addToField("input1", " trim this ");
     doc2.addToField("input1", "     test");
@@ -38,4 +39,9 @@ public class TrimWhitespaceTest {
     assertEquals("test", doc2.getStringList("input1").get(3));
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("TrimWhitespaceTest/config.conf");
+    assertEquals(Set.of("name", "fields", "conditions", "class"), stage.getLegalProperties());
+  }
 }

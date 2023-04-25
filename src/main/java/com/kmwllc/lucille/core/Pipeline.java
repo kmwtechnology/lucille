@@ -9,6 +9,8 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,7 +21,7 @@ public class Pipeline {
 
   private static final Logger log = LoggerFactory.getLogger(Pipeline.class);
 
-  private ArrayList<Stage> stages = new ArrayList();
+  private final ArrayList<Stage> stages = new ArrayList<>();
 
   public List<Stage> getStages() {
     return stages;
@@ -55,22 +57,61 @@ public class Pipeline {
     }
   }
 
+  public static List<Exception> validateStages(Config config, String name)
+    throws Exception {
+      return validateStages(getPipelineStages(config, name));
+  }
+
+  /**
+   * Returns a list of exceptions that occurred during initialization and validation of stages
+   * in the given list
+   */
+  public static List<Exception> validateStages(List<? extends Config> stages) {
+    List<Exception> exceptions = new ArrayList<>();
+    for (Config c : stages) {
+      try {
+        Class<?> clazz = Class.forName(c.getString("class"));
+        Constructor<?> constructor = clazz.getConstructor(Config.class);
+        Stage stage = getInstance(constructor, c);
+        stage.validateConfigWithConditions();
+      } catch (ClassNotFoundException e) {
+        exceptions.add(new StageException("Stage class not found: " + e.getMessage()));
+      } catch (Exception e) {
+        exceptions.add(e);
+      }
+    }
+    return exceptions;
+  }
+
+
   /**
    * Instantiates a Pipeline from the designated list of Stage Configs.
    * The Config for each Stage must specify the stage's class.
    */
   public static Pipeline fromConfig(List<? extends Config> stages, String metricsPrefix) throws
-    ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException,
-    InstantiationException, StageException, PipelineException {
+    Exception {
     Pipeline pipeline = new Pipeline();
     for (Config c : stages) {
       Class<?> clazz = Class.forName(c.getString("class"));
       Constructor<?> constructor = clazz.getConstructor(Config.class);
-      Stage stage = (Stage) constructor.newInstance(c);
+      Stage stage = getInstance(constructor, c);
       pipeline.addStage(stage, metricsPrefix);
     }
     pipeline.startStages();
     return pipeline;
+  }
+
+  private static Stage getInstance(Constructor<?> constructor, Config c)
+    throws Exception {
+    try {
+      return (Stage) constructor.newInstance(c);
+    } catch (InvocationTargetException e) {
+      if (e.getTargetException() instanceof Exception) {
+        throw (Exception) e.getTargetException();
+      } else {
+        throw e;
+      }
+    }
   }
 
   /**
@@ -79,8 +120,11 @@ public class Pipeline {
    * containing a List of stages and their settings. The list element for each Stage must specify the stage's class.
    */
   public static Pipeline fromConfig(Config config, String name, String metricsPrefix)
-    throws ClassNotFoundException, NoSuchMethodException,
-    IllegalAccessException, InvocationTargetException, InstantiationException, StageException, PipelineException {
+    throws Exception {
+      return fromConfig(getPipelineStages(config, name), metricsPrefix);
+  }
+
+  private static List<? extends Config> getPipelineStages(Config config, String name) throws Exception {
     if (!config.hasPath("pipelines")) {
       throw new PipelineException("No pipelines element present in config");
     }
@@ -94,7 +138,7 @@ public class Pipeline {
       throw new PipelineException("More than one pipeline found with name: " + name);
     }
     if (matchingPipelines.size()==1) {
-      return fromConfig(matchingPipelines.get(0).getConfigList("stages"), metricsPrefix);
+      return matchingPipelines.get(0).getConfigList("stages");
     }
     throw new PipelineException("No pipeline found with name: " + name);
   }
@@ -119,57 +163,21 @@ public class Pipeline {
   }
 
   /**
-   * Passes a Document through the designated sequence of stages and returns a list containing
+   * Passes a Document through the designated sequence of stages and returns an Iterator containing
    * the input Document as the first element, along with any child documents generated.
    *
    * Child documents are passed through downstream stages only. For example, if we have a sequence of stages
    * S1, S2, S3, and if S2 generates a child document, the child document will be passed through S3 only.
    *
    */
-  public List<Document> processDocument(Document document) throws StageException {
-    ArrayList<Document> documents = new ArrayList();
-    documents.add(document);
+  public Iterator<Document> processDocument(Document document) throws StageException {
+    Iterator<Document> result = document.iterator();
 
     for (Stage stage : stages) {
-      List<Document> childrenFromCurrentStage = new ArrayList();
-
-      Instant stageStart = Instant.now();
-      for (Document doc : documents) {
-        List<Document> childrenOfCurrentDoc = stage.processConditional(doc);
-
-        if (childrenOfCurrentDoc != null) {
-          childrenFromCurrentStage.addAll(childrenOfCurrentDoc);
-        }
-      }
-
-      documents.addAll(childrenFromCurrentStage);
+      result = stage.apply(result);
     }
 
-    return documents;
-  }
-
-  /**
-   * Creates a Document from a given Kafka ConsumerRecord and delegates to processDocument.
-   */
-  public List<Document> processKafkaJsonMessage(ConsumerRecord<String,String> record) throws Exception {
-    Document document = null;
-
-    try {
-      document = Document.fromJsonString(record.value());
-      log.info("Processing document " + document.getId());
-
-      if (!document.getId().equals(record.key())) {
-        log.warn("Kafka message key " + record.key() + " does not match document ID " + document.getId());
-      }
-
-      return processDocument(document);
-    } catch (OutOfMemoryError e) {
-      throw e;
-    } catch (Throwable t) {
-      log.error("Processing error", t);
-    }
-
-    return null;
+    return result;
   }
 
 }

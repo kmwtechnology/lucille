@@ -3,30 +3,26 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigValue;
 
+import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
- * This Stage removes duplicate values from the given list of fields.
- *
+ * Removes duplicate values from the given list of fields.
+ * <br>
  * Config Parameters -
- *
- *   fieldMapping (Map<String, String>) : A mapping of fields to remove duplicates from and the field to output the result to.
+ * <br>
+ * fieldMapping (Map<String, Object>) : A mapping of fields to remove duplicates from and the field to output the result to.
  */
 public class RemoveDuplicateValues extends Stage {
 
   private final Map<String, Object> fieldMapping;
 
   public RemoveDuplicateValues(Config config) {
-    super(config);
+    super(config, new StageSpec().withRequiredParents("fieldMapping"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
   }
 
@@ -37,18 +33,14 @@ public class RemoveDuplicateValues extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
-    for (Entry<String, Object> entry : fieldMapping.entrySet()) {
-      String field = entry.getKey();
-
+  public Iterator<Document> processDocument(Document doc) throws StageException {
+    for (String field : fieldMapping.keySet()) {
       if (!doc.has(field) || !doc.isMultiValued(field)) {
         continue;
       }
-
-      List<String> uniqueValues = doc.getStringList(field).stream().distinct().collect(Collectors.toList());
-      doc.update((String) entry.getValue(), UpdateMode.DEFAULT, uniqueValues.toArray(new String[0]));
+      String targetField = (String) fieldMapping.get(field);
+      doc.removeDuplicateValues(field, targetField);
     }
-
     return null;
   }
 }

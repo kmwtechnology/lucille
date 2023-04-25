@@ -15,10 +15,11 @@ import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.Iterator;
 import java.util.List;
 
 /**
- * This Stage will detect the langauge of the text in each supplied source field, for each document and output the
+ * Detects the language of the text in each supplied source field and outputs the
  * language abbreviation associated with the text to the destination fields.
  * <p>
  * Config Parameters:
@@ -51,7 +52,9 @@ public class DetectLanguage extends Stage {
   private Detector detector;
 
   public DetectLanguage(Config config) {
-    super(config);
+    super(config, new StageSpec().withRequiredProperties("source", "language_field")
+      .withOptionalProperties("language_confidence_field", "min_length", "max_length",
+        "min_probability", "update_mode"));
 
     this.sourceFields = config.getStringList("source");
     this.languageField = config.getString("language_field");
@@ -109,7 +112,7 @@ public class DetectLanguage extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
       detector = DetectorFactory.create();
       detector.setMaxTextLength(maxLength);

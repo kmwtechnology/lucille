@@ -12,10 +12,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.lang.invoke.MethodHandles;
+import java.util.Iterator;
 import java.util.List;
 
 /**
- * This Stage logs all received documents in JSON format and/or writes them to a designated file.
+ * Logs all received documents in JSON format and/or writes them to a designated file.
  * <p>
  * Config Parameters -
  * <p>
@@ -35,7 +36,8 @@ public class Print extends Stage {
   private List<String> excludeFields;
 
   public Print(Config config) {
-    super(config);
+    super(config, new StageSpec().withOptionalProperties("shouldLog", "outputFile",
+      "overwriteFile", "excludeFields"));
     this.outputFile = config.hasPath("outputFile") ? config.getString("outputFile") : null;
     this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;
     this.excludeFields = config.hasPath("excludeFields") ? config.getStringList("excludeFields") : null;
@@ -53,9 +55,9 @@ public class Print extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     if (excludeFields!=null) {
-      doc = doc.clone();
+      doc = doc.deepCopy();
       for (String field : excludeFields) {
         if (Document.RUNID_FIELD.equals(field)) {
           doc.clearRunId();

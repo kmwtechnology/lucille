@@ -12,13 +12,14 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * This Stage provides 4 modes for normalizing the case of text: Lowercase, Uppercase, Title Case and Sentence Case.
+ * Provides 4 modes for normalizing the case of text: Lowercase, Uppercase, Title Case and Sentence Case.
  * The desired mode should be set in the configuration file. NOTE: This stage will not preserve any capitalization from
  * the original document. As such, proper nouns, abbreviations and acronyms may not be correctly capitalized after
  * normalization.
@@ -48,8 +49,8 @@ public class NormalizeText extends Stage {
    * @param config
    */
   public NormalizeText(Config config) {
-    super(config);
-
+    super(config, new StageSpec().withRequiredProperties("source", "dest", "mode")
+      .withOptionalProperties("update_mode"));
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.mode = config.getString("mode");
@@ -83,7 +84,7 @@ public class NormalizeText extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one dest, use it. Otherwise, use the current source/dest.
       String sourceField = sourceFields.get(i);

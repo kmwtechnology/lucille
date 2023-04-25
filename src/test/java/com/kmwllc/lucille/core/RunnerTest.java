@@ -4,6 +4,7 @@ import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
+import com.kmwllc.lucille.connector.RunSummaryMessageConnector;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.kmwllc.lucille.stage.StartStopCaptureStage;
 import com.kmwllc.lucille.util.LogUtils;
@@ -12,6 +13,7 @@ import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -37,7 +39,6 @@ public class RunnerTest {
     assertEquals(0, manager.getSavedCompletedDocuments().size());
     assertEquals(0, manager.getSavedCompletedDocuments().size());
     assertEquals(0, manager.getSavedEvents().size());
-    assertFalse(manager.hasEvents());
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
@@ -78,7 +79,6 @@ public class RunnerTest {
     assertEquals(Event.Type.FINISH, events.get(0).getType());
 
     // confirm that topics are empty
-    assertFalse(manager.hasEvents());
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
@@ -127,7 +127,6 @@ public class RunnerTest {
     assertEquals(Event.Type.FINISH, events.get(2).getType());
 
     // confirm that topics are empty
-    assertFalse(manager.hasEvents());
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
@@ -187,7 +186,160 @@ public class RunnerTest {
     assertEquals(manager.getRunId(), events.get(2).getRunId());
 
     // confirm that topics are empty
-    assertFalse(manager.hasEvents());
+    assertNull(manager.pollCompleted());
+    assertNull(manager.pollDocToProcess());
+    assertNull(manager.pollEvent());
+  }
+
+  /**
+   * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that
+   * generates two children for every incoming document, dropping the document itself
+   */
+  @Test
+  public void testDropDocument() throws Exception {
+
+    PersistingLocalMessageManager manager =
+      Runner.runInTestMode("RunnerTest/twoChildrenDropParent.conf").get("connector1");;
+
+    // confirm doc 1 sent for processing
+    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(1, docsSentForProcessing.size());
+    Document parent = docsSentForProcessing.get(0);
+    assertEquals("1", parent.getId());
+    assertTrue(parent.has("before"));
+    assertFalse(parent.has("after1"));
+    assertFalse(parent.has("after2"));
+
+    // confirm the two children were processed by the pipeline and sent to the destination topic
+    List<Document> docsCompleted = manager.getSavedCompletedDocuments();
+    assertEquals(2, docsCompleted.size());
+    Document child1 = docsCompleted.get(0);
+    Document child2 = docsCompleted.get(1);
+    assertEquals("1_child1", child1.getId());
+    assertFalse(child1.has("before"));
+    assertTrue(child1.has("after1"));
+    assertTrue(child1.has("after2"));
+    assertEquals("1_child2", child2.getId());
+    assertFalse(child2.has("before"));
+    assertTrue(child2.has("after1"));
+    assertTrue(child2.has("after2"));
+
+    // confirm that a CREATE event was sent for the doc1's children
+    // confirm that a DROP event was sent for doc1 no FINISH event was sent for it
+    List<Event> events = manager.getSavedEvents();
+    assertEquals(5, events.size());
+    assertEquals(Event.Type.CREATE, events.get(0).getType());
+    assertEquals("1_child1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.CREATE, events.get(1).getType());
+    assertEquals("1_child2", events.get(1).getDocumentId());
+    assertEquals(Event.Type.DROP, events.get(2).getType());
+    assertEquals("1", events.get(2).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(3).getType());
+    assertEquals("1_child1", events.get(3).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(4).getType());
+    assertEquals("1_child2", events.get(4).getDocumentId());
+
+    // confirm that topics are empty
+    assertNull(manager.pollCompleted());
+    assertNull(manager.pollDocToProcess());
+    assertNull(manager.pollEvent());
+  }
+
+  /**
+   * A stage could emit a child that is marked as dropped. This is likely an edge case but we still want to
+   * make sure the event accounting mechanism works properly here. When the worker sees the dropped child
+   * it should send a CREATE event for the child document and then immediately follow up with a DROP event.
+   */
+  @Test
+  public void testDropChildDocument() throws Exception {
+
+    PersistingLocalMessageManager manager =
+      Runner.runInTestMode("RunnerTest/threeChildrenDropMiddle.conf").get("connector1");;
+
+    // confirm doc 1 sent for processing
+    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(1, docsSentForProcessing.size());
+    Document parent = docsSentForProcessing.get(0);
+    assertEquals("1", parent.getId());
+
+    // confirm the two children were processed by the pipeline and sent to the destination topic,
+    // while the middle one was dropped and not sent for processing
+    List<Document> docsCompleted = manager.getSavedCompletedDocuments();
+    assertEquals(3, docsCompleted.size());
+    assertEquals("1_child1", docsCompleted.get(0).getId());
+    assertEquals("1_child3", docsCompleted.get(1).getId());
+    assertEquals("1", docsCompleted.get(2).getId());
+
+    // confirm that a CREATE event was sent for doc1's children, including the dropped one;
+    // confirm that a DROP event was sent for the middle child and no FINISH event was sent for it
+    List<Event> events = manager.getSavedEvents();
+    assertEquals(7, events.size());
+    assertEquals(Event.Type.CREATE, events.get(0).getType());
+    assertEquals("1_child1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.CREATE, events.get(1).getType());
+    assertEquals("1_child2", events.get(1).getDocumentId());
+    assertEquals(Event.Type.DROP, events.get(2).getType());
+    assertEquals("1_child2", events.get(2).getDocumentId());
+    assertEquals(Event.Type.CREATE, events.get(3).getType());
+    assertEquals("1_child3", events.get(3).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(4).getType());
+    assertEquals("1_child1", events.get(4).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(5).getType());
+    assertEquals("1_child3", events.get(5).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(6).getType());
+    assertEquals("1", events.get(6).getDocumentId());
+
+    // confirm that topics are empty
+    assertNull(manager.pollCompleted());
+    assertNull(manager.pollDocToProcess());
+    assertNull(manager.pollEvent());
+  }
+
+  /**
+   * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that
+   * attempts to generate 5 children but fails when the 3rd child is requested
+   */
+  @Test
+  public void testErrorGeneratingChildren() throws Exception {
+
+    PersistingLocalMessageManager manager =
+      Runner.runInTestMode("RunnerTest/failAfterTwoChildren.conf").get("connector1");;
+
+    // confirm doc 1 sent for processing
+    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(1, docsSentForProcessing.size());
+    Document parent = docsSentForProcessing.get(0);
+    assertEquals("1", parent.getId());
+
+    // confirm the two children were processed by the pipeline and sent to the destination topic
+    List<Document> docsCompleted = manager.getSavedCompletedDocuments();
+    assertEquals(2, docsCompleted.size());
+    Document child1 = docsCompleted.get(0);
+    Document child2 = docsCompleted.get(1);
+    assertEquals("1_child1", child1.getId());
+    assertEquals("1_child2", child2.getId());
+
+    // confirm that a CREATE event was sent for the doc1's children;
+    // confirm that a FAIL event was sent for doc1 no DROP or FINISH event was sent for it;
+    // note that the CreateChildrenStage in the pipeline is configured to mark the parent as dropped,
+    // but the worker sends a FAIL event for the parent instead of a DROP event, because
+    // the error in generating children is considered as a failure in processing the parent;
+    // also note that the failure arises when requesting the 3rd child and therefore a CREATE event
+    // is not sent for that 3rd child
+    List<Event> events = manager.getSavedEvents();
+    assertEquals(5, events.size());
+    assertEquals(Event.Type.CREATE, events.get(0).getType());
+    assertEquals("1_child1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.CREATE, events.get(1).getType());
+    assertEquals("1_child2", events.get(1).getDocumentId());
+    assertEquals(Event.Type.FAIL, events.get(2).getType());
+    assertEquals("1", events.get(2).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(3).getType());
+    assertEquals("1_child1", events.get(3).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(4).getType());
+    assertEquals("1_child2", events.get(4).getDocumentId());
+
+    // confirm that topics are empty
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
@@ -237,12 +389,10 @@ public class RunnerTest {
     assertEquals(manager2.getRunId(), manager2.getSavedEvents().get(0).getRunId());
 
     // confirm that topics are empty
-    assertFalse(manager1.hasEvents());
     assertNull(manager1.pollCompleted());
     assertNull(manager1.pollDocToProcess());
     assertNull(manager1.pollEvent());
 
-    assertFalse(manager2.hasEvents());
     assertNull(manager2.pollCompleted());
     assertNull(manager2.pollDocToProcess());
     assertNull(manager2.pollEvent());
@@ -338,41 +488,80 @@ public class RunnerTest {
 
     // preExecute(), execute(), postExecute(), and close() should be called when running a connector
     NoOpConnector connector = mock(NoOpConnector.class);
-    Config config = ConfigFactory.empty();
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
-    assertTrue(Runner.runConnector(config, "run1", connector, publisher).getStatus());
+    PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
+    PublisherImpl publisher =
+      Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
+    assertTrue(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
     verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
+    verify(publisher, times(1)).close();
+    verify(manager, times(1)).close();
+  }
 
-    // if preExecute() throws an exception, execute() and postExecute() should not be called, but close() should be
-    connector = mock(NoOpConnector.class);
-    doThrow(new ConnectorException()).when(connector).preExecute(any());
-    assertFalse(Runner.runConnector(config, "run1", connector, publisher).getStatus());
-    verify(connector, times(1)).preExecute(any());
-    verify(connector, times(0)).execute(any());
-    verify(connector, times(0)).postExecute(any());
-    verify(connector, times(1)).close();
+    @Test
+    public void testLifecycleMethodsWithPreExecuteException() throws Exception {
+
+      // if preExecute() throws an exception, execute() and postExecute() should not be called, but close() should be
+      NoOpConnector connector = mock(NoOpConnector.class);
+      PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
+      PublisherImpl publisher =
+        Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
+      doThrow(new ConnectorException()).when(connector).preExecute(any());
+      assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
+      verify(connector, times(1)).preExecute(any());
+      verify(connector, times(0)).execute(any());
+      verify(connector, times(0)).postExecute(any());
+      verify(connector, times(1)).close();
+      verify(publisher, times(1)).close();
+      verify(manager, times(1)).close();
+    }
+
+  @Test
+  public void testLifecycleMethodsWithExecuteException() throws Exception {
 
     // if execute() throws an exception, postExecute() should not be called, but close() should be
-    connector = mock(NoOpConnector.class);
+    NoOpConnector connector = mock(NoOpConnector.class);
+    PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
+    PublisherImpl publisher =
+      Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
     doThrow(new ConnectorException()).when(connector).execute(any());
-    assertFalse(Runner.runConnector(config, "run1", connector, publisher).getStatus());
+    assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
     verify(connector, times(0)).postExecute(any());
     verify(connector, times(1)).close();
+    verify(publisher, times(1)).close();
+    verify(manager, times(1)).close();
+  }
+
+  @Test
+  public void testLifecycleMethodsWithPostExecuteException() throws Exception {
 
     // if postExecute() throws an exception, close() should still be called
-    connector = mock(NoOpConnector.class);
+    NoOpConnector connector = mock(NoOpConnector.class);
+    PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
+    PublisherImpl publisher =
+      Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
     doThrow(new ConnectorException()).when(connector).postExecute(any());
-    assertFalse(Runner.runConnector(config, "run1", connector, publisher).getStatus());
+    assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
     verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
+    verify(publisher, times(1)).close();
+    verify(manager, times(1)).close();
+  }
+
+  /**
+   * If a connector sets a custom message, the message should be included in the run summary.
+   */
+  @Test
+  public void testCustomRunSummaryMessage() throws Exception {
+    RunResult result =
+      Runner.run(ConfigFactory.load("RunnerTest/runSummaryMessage.conf"), Runner.RunType.TEST);
+    assertTrue(result.toString().contains(RunSummaryMessageConnector.MESSAGE));
   }
 
   @Test
@@ -403,16 +592,22 @@ public class RunnerTest {
   public void testPublisherCloseException() throws Exception {
     NoOpConnector connector = mock(NoOpConnector.class);
     PublisherImpl publisher = mock(PublisherImpl.class);
-    doThrow(new Exception()).when(publisher).close();
+    assertTrue(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
 
-    // if the publisher throws an exception during close():
-    //  Connector.postExecute() should not be called
-    //  the connector should be closed
-    //  runConnector should return false and not propagate the exception
+    // if the publisher throws an exception during close(),
+    // runConnector should return false and not propagate the exception
+    connector = mock(NoOpConnector.class);
+    publisher = mock(PublisherImpl.class);
+    doThrow(new Exception()).when(publisher).close();
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
+
     verify(connector, times(1)).preExecute(any());
-    verify(connector, times(1)).execute(publisher);
-    verify(connector, times(0)).postExecute(any());
+
+    // execute() is called in a separate thread so we verify it with a timeout;
+    // without the timeout we were seeing transient failures here
+    verify(connector, timeout(2000).times(1)).execute(publisher);
+
+    verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
   }
@@ -420,12 +615,22 @@ public class RunnerTest {
   @Test
   public void testConnectorCloseException() throws Exception {
     NoOpConnector connector = mock(NoOpConnector.class);
-    doThrow(new ConnectorException()).when(connector).close();
     PublisherImpl publisher = mock(PublisherImpl.class);
+    assertTrue(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
 
+    // if the connector throws an exception during close(),
+    // runConnector should return false and not propagate the exception
+    connector = mock(NoOpConnector.class);
+    publisher = mock(PublisherImpl.class);
+    doThrow(new ConnectorException()).when(connector).close();
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
+
     verify(connector, times(1)).preExecute(any());
-    verify(connector, times(1)).execute(any());
+
+    // execute() is called in a separate thread so we verify it with a timeout;
+    // without the timeout we were seeing transient failures here
+    verify(connector, timeout(2000).times(1)).execute(any());
+
     verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();

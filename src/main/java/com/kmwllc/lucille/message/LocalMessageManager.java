@@ -6,6 +6,7 @@ import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -72,6 +73,12 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   }
 
   @Override
+  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+    Event event = new Event(document.getId(), document.getRunId(), message, type);
+    sendEvent(event);
+  }
+
+  @Override
   public void sendEvent(Event event) throws Exception {
     pipelineEvents.add(event);
   }
@@ -79,11 +86,6 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   @Override
   public Event pollEvent() throws Exception {
     return pipelineEvents.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-  }
-
-  @Override
-  public boolean hasEvents() throws Exception {
-    return !pipelineEvents.isEmpty();
   }
 
   @Override
@@ -107,5 +109,9 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
 
   @Override
   public void close() {
+  }
+
+  @Override
+  public void batchComplete(List<Document> batch) throws Exception {
   }
 }

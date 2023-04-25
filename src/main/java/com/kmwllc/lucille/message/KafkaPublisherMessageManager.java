@@ -3,28 +3,27 @@ package com.kmwllc.lucille.message;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.typesafe.config.Config;
-import org.apache.kafka.clients.admin.Admin;
-import org.apache.kafka.clients.admin.AdminClientConfig;
-import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class KafkaPublisherMessageManager implements PublisherMessageManager {
 
+  public static final Logger log = LoggerFactory.getLogger(KafkaPublisherMessageManager.class);
+
   private final Config config;
-  private KafkaProducer<String, String> kafkaProducer;
+  private KafkaProducer<String, Document> kafkaProducer;
   private Consumer<String, String> eventConsumer;
   private String runId;
-  private Admin kafkaAdminClient;
   private String pipelineName;
 
   public KafkaPublisherMessageManager(Config config) {
@@ -37,15 +36,15 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
     }
     this.runId = runId;
     this.pipelineName = pipelineName;
-    Properties consumerProps = KafkaUtils.createConsumerProps(config);
-    consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "lucille-publisher-" + pipelineName);
-    // TODO: create event topic explicitly instead of relying on auto-create; delete topic when finished
-    this.eventConsumer = new KafkaConsumer(consumerProps);
-    this.eventConsumer.subscribe(Collections.singletonList(KafkaUtils.getEventTopicName(pipelineName, runId)));
-    Properties props = new Properties();
-    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
-    this.kafkaAdminClient = Admin.create(props);
-    this.kafkaProducer = KafkaUtils.createProducer(config);
+
+    // create event topic explicitly with one partition
+    KafkaUtils.createEventTopic(config, pipelineName, runId);
+
+    String kafkaClientId = "lucille-publisher-" + pipelineName;
+    String eventTopicName = KafkaUtils.getEventTopicName(pipelineName, runId);
+    this.eventConsumer = KafkaUtils.createEventConsumer(config, kafkaClientId);
+    this.eventConsumer.subscribe(Collections.singletonList(eventTopicName));
+    this.kafkaProducer = KafkaUtils.createDocumentProducer(config);
   }
 
   @Override
@@ -55,7 +54,7 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
 
   public void sendForProcessing(Document document) throws Exception {
     RecordMetadata result = (RecordMetadata) kafkaProducer.send(
-      new ProducerRecord(KafkaUtils.getSourceTopicName(pipelineName), document.getId(), document.toString())).get();
+      new ProducerRecord(KafkaUtils.getSourceTopicName(pipelineName, config), document.getId(), document)).get();
     kafkaProducer.flush();
   }
 
@@ -74,41 +73,21 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
     return null;
   }
 
-  /**
-   * Returns true if there are no events waiting to be consumed.
-   */
-  @Override
-  public boolean hasEvents() throws Exception {
-    return getLag(KafkaUtils.getEventTopicName(pipelineName, runId))>0;
-  }
-
-  private int getLag(String topic) throws Exception {
-
-    Map<TopicPartition, OffsetAndMetadata> offsets =
-      kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
-        .partitionsToOffsetAndMetadata().get();
-
-    // TODO: throw exception if no offsets found
-
-    Map<TopicPartition, Long> ends = new HashMap<>();
-    ends.putAll(kafkaAdminClient.listOffsets(offsets.entrySet().stream().collect(
-      Collectors.toMap(Map.Entry::getKey, o -> OffsetSpec.latest()))).all().get()
-      .entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, o -> o.getValue().offset())));
-
-    int total = 0;
-    for (Map.Entry<TopicPartition, OffsetAndMetadata> offset : offsets.entrySet()) {
-      if (offset.getKey().topic().equals(topic)) {
-//        System.out.println("ADDING: " + offset + " | " + ends.get(offset.getKey()));
-        total += (ends.get(offset.getKey()) - offset.getValue().offset());
+  public void close() {
+    if (kafkaProducer != null) {
+      try {
+        kafkaProducer.close();
+      } catch (Exception e) {
+        log.error("Couldn't close kafka producer", e);
       }
     }
-
-    return total;
-  }
-
-  public void close() {
-    kafkaProducer.close();
-    eventConsumer.close();
+    if (eventConsumer != null) {
+      try {
+        eventConsumer.close();
+      } catch (Exception e) {
+        log.error("Couldn't close kafka event consumer", e);
+      }
+    }
   }
 
 }

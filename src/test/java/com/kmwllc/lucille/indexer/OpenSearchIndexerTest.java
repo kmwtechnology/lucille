@@ -4,10 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -15,15 +17,18 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.index.VersionType;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -40,6 +45,9 @@ public class OpenSearchIndexerTest {
 
     // make first call to validateConnection succeed but subsequent calls to fail
     Mockito.when(mockClient.ping(RequestOptions.DEFAULT)).thenReturn(true, false);
+
+    BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(mockClient.bulk(any(), any())).thenReturn(mockResponse);
   }
 
   /**
@@ -52,15 +60,14 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
-    Document doc = new Document("doc1", "test_run");
-    Document doc2 = new Document("doc2", "test_run");
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     indexer.run(2);
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(2, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -75,11 +82,11 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/exception.conf");
 
-    Document doc = new Document("doc1", "test_run");
-    Document doc2 = new Document("doc2", "test_run");
-    Document doc3 = new Document("doc3", "test_run");
-    Document doc4 = new Document("doc4", "test_run");
-    Document doc5 = new Document("doc5", "test_run");
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+    Document doc3 = Document.create("doc3", "test_run");
+    Document doc4 = Document.create("doc4", "test_run");
+    Document doc5 = Document.create("doc5", "test_run");
 
     OpenSearchIndexer indexer = new ErroringOpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
@@ -114,11 +121,11 @@ public class OpenSearchIndexerTest {
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
 
-    Document doc = new Document("doc1", "test_run");
-    Document doc2 = new Document("doc2", "test_run");
-    Document doc3 = new Document("doc3", "test_run");
-    Document doc4 = new Document("doc4", "test_run");
-    Document doc5 = new Document("doc5", "test_run");
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+    Document doc3 = Document.create("doc3", "test_run");
+    Document doc4 = Document.create("doc4", "test_run");
+    Document doc5 = Document.create("doc5", "test_run");
 
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
@@ -142,7 +149,6 @@ public class OpenSearchIndexerTest {
 
     assertEquals(doc5.getId(), map.get("id"));
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(5, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -155,7 +161,7 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
-    Document doc = new Document("doc1", "test_run");
+    Document doc = Document.create("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
@@ -178,7 +184,6 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -191,7 +196,7 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
-    Document doc = new Document("doc1", "test_run");
+    Document doc = Document.create("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
@@ -213,8 +218,6 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
@@ -227,7 +230,7 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
-    Document doc = new Document("doc1", "test_run");
+    Document doc = Document.create("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
     doc.setField("myJsonField", jsonNode);
@@ -249,12 +252,62 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertTrue(manager.hasEvents());
     Assert.assertEquals(1, manager.getSavedEvents().size());
 
     List<Event> events = manager.getSavedEvents();
     Assert.assertEquals("doc1", events.get(0).getDocumentId());
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  @Test
+  public void testRouting() throws Exception {
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/routing.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("routing", "routing1");
+    doc.setField("field1", "value1");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient).bulk(captor.capture(), any());
+
+    IndexRequest indexRequest = (IndexRequest) captor.getValue().requests().get(0);
+
+    assertEquals("doc1", indexRequest.id());
+    assertEquals("routing1", indexRequest.routing());
+    assertEquals(Map.of("field1", "value1"), indexRequest.sourceAsMap());
+  }
+
+  @Test
+  public void testDocumentVersioning() throws Exception {
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf");
+
+    KafkaDocument doc = new KafkaDocument(
+            new ObjectMapper().createObjectNode()
+                    .put("id", "doc1")
+                    .put("field1", "value1"));
+    doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient).bulk(captor.capture(), any());
+
+    IndexRequest indexRequest = (IndexRequest) captor.getValue().requests().get(0);
+
+    assertEquals("doc1", indexRequest.id());
+    assertEquals(100, indexRequest.version());
+    assertEquals(VersionType.EXTERNAL_GTE, indexRequest.versionType());
+    assertEquals(Map.of("id", "doc1", "field1", "value1"), indexRequest.sourceAsMap());
   }
 
   private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {

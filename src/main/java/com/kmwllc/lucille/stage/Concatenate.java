@@ -1,14 +1,13 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.lang.text.StrSubstitutor;
 
 import java.util.*;
 
 /**
- * This Stage replaces wildcards in a given format String with the value for the given field. To declare a wildcard,
+ * Replaces wildcards in a given format String with the value for the given field. To declare a wildcard,
  * surround the name of the field with '{}'. EX: "{city}, {state}, {country}" -> "Boston, MA, USA". NOTE: If a given
  * field is multivalued, this Stage will substitute the first value for every wildcard.
  *
@@ -33,7 +32,10 @@ public class Concatenate extends Stage {
   private final List<String> fields;
 
   public Concatenate(Config config) {
-    super(config);
+    super(config, new StageSpec()
+      .withRequiredProperties("dest", "format_string")
+      .withOptionalProperties("update_mode")
+      .withOptionalParents("default_inputs"));
 
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");
@@ -54,7 +56,7 @@ public class Concatenate extends Stage {
 
   // NOTE : If a given field is multivalued, this Stage will only operate on the first value
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     HashMap<String, String> replacements = new HashMap<>();
     for (String source : fields) {
       String value;

@@ -2,6 +2,8 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import java.util.Set;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -14,7 +16,7 @@ public class SetStaticValuesTest {
   public void test() throws Exception {
     Stage stage = factory.get("SetStaticValuesTest/config.conf");
 
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     stage.processDocument(doc);
 
     assertEquals("File", doc.getString("type"));
@@ -25,4 +27,9 @@ public class SetStaticValuesTest {
     assertEquals("Directory", doc.getString("type"));
   }
 
+  @Test
+  public void testGetLegalProperties() throws StageException {
+    Stage stage = factory.get("SetStaticValuesTest/config.conf");
+    assertEquals(Set.of("update_mode", "name", "conditions", "class"), stage.getLegalProperties());
+  }
 }

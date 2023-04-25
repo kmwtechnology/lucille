@@ -15,6 +15,7 @@ import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 
 
@@ -35,7 +36,8 @@ public class MatchQuery extends Stage {
   
   
   public MatchQuery(Config config) {
-    super(config);
+    super(config, new StageSpec()
+      .withRequiredProperties(FIELDS_PARAM, QUERIES_PARAM, MATCHEDQUERIES_PARAM));
     fieldsList = config.getStringList(FIELDS_PARAM);
     queryList = config.getObjectList(QUERIES_PARAM);
     matchedQueriesField = config.getString(MATCHEDQUERIES_PARAM);
@@ -74,7 +76,7 @@ public class MatchQuery extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
       org.apache.lucene.document.Document luceneDoc = new org.apache.lucene.document.Document();
       

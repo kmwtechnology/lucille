@@ -5,17 +5,14 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigValue;
 import org.apache.commons.lang.StringUtils;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
- * This Stage will extract the first character from each of the given input fields and set the associated output field
+ * Extracts the first character from each of the given input fields and set the associated output field
  * to contain the character. If the character is not alphanumeric, then 'nonaplha' will be placed in the destination field.
  *
  * Config Parameters -
@@ -30,7 +27,8 @@ public class ExtractFirstCharacter extends Stage {
   private final String replacement;
 
   public ExtractFirstCharacter(Config config) {
-    super(config);
+    super(config, new StageSpec().withOptionalProperties("replacement")
+      .withRequiredParents("fieldMapping"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";
   }
@@ -42,7 +40,7 @@ public class ExtractFirstCharacter extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (Map.Entry<String, Object> entry : fieldMapping.entrySet()) {
 
       if (!doc.has(entry.getKey()))

@@ -3,16 +3,14 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.util.StageUtils;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigValue;
 
 import java.util.*;
 import java.util.Map.Entry;
 
 /**
- * This Stage renames a given set of source fields to a given set of destination fields. You must specify the same
+ * Renames a given set of source fields to a given set of destination fields. You must specify the same
  * number of source and destination fields.
  *
  * Config Parameters:
@@ -26,13 +24,18 @@ public class RenameFields extends Stage {
   private final Map<String, Object> fieldMap;
   private final UpdateMode updateMode;
 
-  public RenameFields (Config config) {
-    super(config);
-
+  public RenameFields(Config config) {
+    super(config, new StageSpec()
+      .withOptionalProperties("update_mode")
+      .withRequiredParents("fieldMapping"));
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
   }
 
+  /**
+   *
+   * @throws StageException if the field mapping is empty.
+   */
   @Override
   public void start() throws StageException {
     if (fieldMap.size() == 0)
@@ -40,7 +43,7 @@ public class RenameFields extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     // For each field, if this document has the source field, rename it to the destination field
     for (Entry<String, Object> fieldPair : fieldMap.entrySet()) {
       if (!doc.has(fieldPair.getKey()))

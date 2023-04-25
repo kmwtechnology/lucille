@@ -9,11 +9,12 @@ import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
 import org.ahocorasick.trie.PayloadTrie;
 
+import java.util.Iterator;
 import java.util.List;
 
 /**
- * This Stage will check if any of the given fields contain any of the given values. If they do, they will tag the given
- * output field with the given value.
+ * Checks if any of the given fields contain any of the given values and tags the given
+ * output field with the value.
  *
  * Config Parameters:
  *
@@ -34,7 +35,10 @@ public class Contains extends Stage {
   private PayloadTrie<String> trie;
 
   public Contains(Config config) {
-    super(config);
+    super(config, new StageSpec()
+            .withRequiredProperties("contains", "output", "value", "fields")
+            .withOptionalProperties("ignoreCase"));
+
     this.contains = config.getStringList("contains");
     this.output = config.getString("output");
     this.value = config.getString("value");
@@ -68,7 +72,7 @@ public class Contains extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String field : fields) {
       if (!doc.has(field))
         continue;

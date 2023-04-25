@@ -8,10 +8,11 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 
+import java.util.Iterator;
 import java.util.List;
 
 /**
- * This Stage will create teasers of a given length from the given source fields. If the character limit is reached in
+ * Create teasers of a given length from the given source fields. If the character limit is reached in
  * the middle of a word, the teaser will not be truncated until the end of the word. NOTE : If a given field is
  * multivalued, this Stage will only operate on the first value.
  *
@@ -32,7 +33,9 @@ public class CreateStaticTeaser extends Stage {
   private final UpdateMode updateMode;
 
   public CreateStaticTeaser(Config config) {
-    super(config);
+    super(config, new StageSpec()
+            .withRequiredProperties("source", "dest", "maxLength")
+            .withOptionalProperties("update_mode"));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
@@ -51,7 +54,7 @@ public class CreateStaticTeaser extends Stage {
 
   // NOTE : If a given field is multivalued, this Stage will only operate on the first value
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (int i = 0; i < sourceFields.size(); i++) {
       String source = sourceFields.get(i);
       String dest = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
