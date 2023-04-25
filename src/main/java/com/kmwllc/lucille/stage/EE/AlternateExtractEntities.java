@@ -30,7 +30,8 @@ public class AlternateExtractEntities extends Stage {
 
 
   public AlternateExtractEntities(Config config) {
-    super(config);
+    super(config, new StageSpec().withRequiredProperties("source", "dest", "dictionaries")
+      .withOptionalProperties("ignore_case", "update_mode", "entity_field", "use_payload", "only_whole_words"));
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.dictionaries = config.getStringList("dictionaries");
@@ -53,7 +54,7 @@ public class AlternateExtractEntities extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     // For each of the field names, extract dictionary values from it.
     for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one source or dest, use it. Otherwise, use the current source/dest.

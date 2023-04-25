@@ -20,14 +20,14 @@ public class AlternateExtractEntitiesTest {
     Stage stage = factory.get("AlternateExtractEntitiesTest/config.conf");
 
     // Ensure that keywords from the dictionary are correctly extracted
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     doc.setField("input1", "I live in the united states.");
     stage.processDocument(doc);
     assertEquals("Country name should be extracted from input1", "united states",
         doc.getStringList("output").get(0));
 
     // Ensure that several fields can be extracted and that payloads work as expected
-    Document doc2 = new Document("doc2");
+    Document doc2 = Document.create("doc2");
     doc2.setField("input1", "I live in China but am from taiwan");
     doc2.setField("input2", "I live in Canada");
     doc2.setField("input3", "I live in USSR");
@@ -41,7 +41,7 @@ public class AlternateExtractEntitiesTest {
   
   @Test
   public void testExtractEntitiesAndPayloads() throws Exception {
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     doc.setField("input1", "I live in the United States.");
     Stage stage = factory.get("AlternateExtractEntitiesTest/configEntityAndPayload.conf");
     stage.processDocument(doc);
@@ -54,7 +54,7 @@ public class AlternateExtractEntitiesTest {
     Stage stage = factory.get("AlternateExtractEntitiesTest/test.conf");
 
     // Ensure that keywords from the dictionary are correctly extracted
-    Document doc = new Document("doc");
+    Document doc = Document.create("doc");
     doc.setField("input1", "This is a nice term zzzzzzzzzz");
 
     StopWatch watch = new StopWatch();
