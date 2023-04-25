@@ -54,33 +54,5 @@ public class FileUtils {
       return false;
     }
   }
-
-  public static InputStream getInputStream(String fileName) throws Exception {
-    File f = _getFile(fileName);
-    if (f.isAbsolute()) {
-      return new FileInputStream(f);
-    } else {
-      InputStream in = _getInputStream(fileName);
-      return in;
-    }
-  }
-
-  private static InputStream _getInputStream(String fileName) throws Exception {
-    InputStream in = FileUtils.class.getClassLoader().getResourceAsStream(fileName);
-    if (in == null) {
-      //log.warn(String.format("File (%s) not found in classpath", fileName));
-      throw new Exception("File not found in classpath");
-    }
-    return in;
-  }
-
-  private static File _getFile(String fileName) throws Exception {
-    File f = new File(fileName);
-    if (f.isAbsolute() && !f.exists()) {
-      //log.warn(String.format("File (%s) not found", fileName));
-      throw new Exception("File Not Found");
-    }
-    return f;
-  }
-
+  
 }

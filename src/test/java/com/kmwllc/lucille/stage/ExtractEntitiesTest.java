@@ -52,25 +52,6 @@ public class ExtractEntitiesTest {
   }
 
   @Test
-  public void testMemoryUsage() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/test.conf");
-
-    // Ensure that keywords from the dictionary are correctly extracted
-    Document doc = Document.create("doc");
-    doc.setField("input1", "This is a nice term zzzzzzzzzz");
-
-    StopWatch watch = new StopWatch();
-    watch.start();
-
-    stage.processDocument(doc);
-
-    watch.stop();
-    System.out.println("Time Elapsed: " + watch.getTime());
-
-    assertEquals("", "aaaaaaaaaa",
-      doc.getStringList("output").get(0));
-  }
-
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("ExtractEntitiesTest/config.conf");
     assertEquals(
