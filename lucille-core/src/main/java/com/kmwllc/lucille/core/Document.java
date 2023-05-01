@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -16,8 +18,9 @@ public interface Document {
   String ID_FIELD = "id";
   String RUNID_FIELD = "run_id";
   String CHILDREN_FIELD = ".children";
+  String DROP_FIELD = ".dropped";
 
-  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD));
+  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD));
 
   void removeField(String name);
 
@@ -198,6 +201,10 @@ public interface Document {
 
   Set<String> getFieldNames();
 
+  boolean isDropped();
+
+  void setDropped(boolean status);
+
   /**
    * A method to remove duplicate values from multivalued fields in a document and place the values
    * into a target field. If the target field is null or the same as the original field, then
@@ -209,6 +216,13 @@ public interface Document {
   void removeDuplicateValues(String fieldName, String targetFieldName);
 
   Document deepCopy();
+
+  /**
+   * Returns an Iterator that contains only this document.
+   */
+  default Iterator<Document> iterator() {
+    return Collections.singleton(this).iterator();
+  }
 
   static Document create(ObjectNode node) throws DocumentException {
     return new JsonDocument(node);

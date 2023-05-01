@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,7 +20,7 @@ public class ParseFloats extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     if(doc.has(field)) {
       String value = doc.getString(this.field);
       List<Float> floats = Arrays.stream(value.replaceAll("\\[", "").replaceAll("\\]", "").replaceAll(",", "").split(" ")).map(v -> Float.parseFloat(v)).collect(Collectors.toList());

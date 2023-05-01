@@ -1,18 +1,22 @@
 package com.kmwllc.lucille.core;
-
+import com.kmwllc.lucille.stage.CreateChildrenStage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
+import org.apache.commons.collections4.IteratorUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.*;
 
 @RunWith(JUnit4.class)
 public class PipelineTest {
@@ -27,7 +31,7 @@ public class PipelineTest {
     assertEquals(stages.get(1).getClass(), Stage4.class);
     assertTrue(((Stage4)stages.get(1)).isStarted());
     Document doc = Document.create("d1");
-    List<Document> results = pipeline.processDocument(doc);
+    pipeline.processDocument(doc).next(); // TODO
     assertEquals("v1", doc.getString("s1"));
     assertEquals("v4", doc.getString("s4"));
   }
@@ -80,23 +84,89 @@ public class PipelineTest {
     Document doc = Document.create("d1");
 
     pipeline.startStages();
-    List<Document> results = pipeline.processDocument(doc);
+    List<Document> results = IteratorUtils.toList(pipeline.processDocument(doc));
     pipeline.stopStages();
 
     ArrayList<Document> expected = new ArrayList<>();
-    expected.add(Document.createFromJson("{\"id\":\"d1\",\"s1\":\"v1\",\"s2\":\"v2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
-    expected.add(Document.createFromJson("{\"id\":\"d1-s2c1\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
-    expected.add(Document.createFromJson("{\"id\":\"d1-s2c2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
-    expected.add(Document.createFromJson("{\"id\":\"d1-s3c1\",\"s4\":\"v4\"}"));
-    expected.add(Document.createFromJson("{\"id\":\"d1-s3c2\",\"s4\":\"v4\"}"));
     expected.add(Document.createFromJson("{\"id\":\"d1-s2c1-s3c1\",\"s4\":\"v4\"}"));
     expected.add(Document.createFromJson("{\"id\":\"d1-s2c1-s3c2\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1-s2c1\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
+
     expected.add(Document.createFromJson("{\"id\":\"d1-s2c2-s3c1\",\"s4\":\"v4\"}"));
     expected.add(Document.createFromJson("{\"id\":\"d1-s2c2-s3c2\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1-s2c2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
 
-    assertEquals(expected.size(), results.size());
-    assertTrue(results.containsAll(expected));
+    expected.add(Document.createFromJson("{\"id\":\"d1-s3c1\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1-s3c2\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1\",\"s1\":\"v1\",\"s2\":\"v2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
+
+    assertEquals(expected, results);
   }
+
+  @Test
+  public void testProcessDocumentWithChildren2() throws Exception {
+
+    Pipeline pipeline = new Pipeline();
+    Config config = ConfigFactory.empty();
+    pipeline.addStage(new MarkingStage(config, "f1"));
+    pipeline.addStage(new MarkingStage(config, "f2"));
+    pipeline.addStage(new MarkingStage(config, "f3"));
+
+    Document doc = Document.create("d1");
+    doc.setField("f1", "0");
+    doc.setField("f2", "0");
+    doc.setField("f3", "0");
+
+    pipeline.startStages();
+    List<Document> results = IteratorUtils.toList(pipeline.processDocument(doc));
+    pipeline.stopStages();
+
+    List<String> stringResults = new ArrayList<>();
+    for (Document d : results) {
+      stringResults.add(d.getString("f3") + d.getString("f2") + d.getString("f1"));
+    }
+
+    // 000 is the original input document
+    // 111 is the first child from the last stage, made from the first child from the middle stage, made from the
+    // first child from the first stage
+    // 201 is the second child from the last stage, made from the first child of the first stage and passed through
+    // the middle stage (not emitted from the middle stage as a child)
+    // etc.
+    List<String> expected = Arrays.asList(new String[] {
+      "111", "211", "011", "121", "221", "021", "101", "201", "001", "112", "212", "012", "122", "222",
+      "022", "102", "202", "002", "110", "210", "010", "120", "220", "020", "100", "200", "000"
+    });
+
+    assertEquals(expected, stringResults);
+  }
+
+  /**
+   * Create a pipeline with 100 stages that each create 100 children for each input.
+   * Confirm that although this pipeline should generate 100^100 documents for each
+   * input document, we can begin iterating through the results without running out of memory.
+   */
+  @Test
+  public void testScalableChildIteration() throws Exception {
+    Pipeline pipeline = new Pipeline();
+    Config config = ConfigFactory.parseString("numChildren: 100");
+
+    for (int i = 0; i < 100; i++) {
+      pipeline.addStage(new CreateChildrenStage(config));
+    }
+
+    Document doc = Document.create("d1");
+
+    pipeline.startStages();
+    Iterator<Document> results = pipeline.processDocument(doc);
+
+    // iterate through the first 1000 results (out of 100 to the 100th power)
+    for (int i = 0; i < 1000; i++) {
+      assertNotNull(results.next());
+    }
+
+    pipeline.stopStages();
+  }
+
 
   @Test
   public void testRunIdCopiedToChildren() throws Exception {
@@ -113,7 +183,7 @@ public class PipelineTest {
     doc.initializeRunId(runId);
 
     pipeline.startStages();
-    List<Document> results = pipeline.processDocument(doc);
+    List<Document> results = IteratorUtils.toList(pipeline.processDocument(doc));
     pipeline.stopStages();
 
     assertEquals(9, results.size());
@@ -134,7 +204,7 @@ public class PipelineTest {
 
     Document doc = Document.create("doc");
     doc.setField("cond", "123");
-    pipeline.processDocument(doc);
+    pipeline.processDocument(doc).next(); // TODO
 
     assertTrue(doc.has("s1"));
     assertEquals("v1", doc.getString("s1"));
@@ -168,7 +238,7 @@ public class PipelineTest {
     }
 
     @Override
-    public List<Document> processDocument(Document doc) throws StageException {
+    public Iterator<Document> processDocument(Document doc) throws StageException {
       doc.setField("s1", "v1");
       return null;
     }
@@ -181,14 +251,14 @@ public class PipelineTest {
     }
 
     @Override
-    public List<Document> processDocument(Document doc) throws StageException {
+    public Iterator<Document> processDocument(Document doc) throws StageException {
       doc.setField("s2", "v2");
       Document c1 = Document.create(doc.getId() + "-" + "s2c1");
       Document c2 = Document.create(doc.getId() + "-" + "s2c2");
       ArrayList<Document> result = new ArrayList<>();
       result.add(c1);
       result.add(c2);
-      return result;
+      return result.iterator();
     }
   }
 
@@ -199,14 +269,14 @@ public class PipelineTest {
     }
 
     @Override
-    public List<Document> processDocument(Document doc) {
+    public Iterator<Document> processDocument(Document doc) {
       doc.setField("s3", "v3");
       Document c1 = Document.create(doc.getId() + "-" + "s3c1");
       Document c2 = Document.create(doc.getId() + "-" + "s3c2");
       ArrayList<Document> result = new ArrayList<>();
       result.add(c1);
       result.add(c2);
-      return result;
+      return result.iterator();
     }
   }
 
@@ -228,9 +298,34 @@ public class PipelineTest {
     }
 
     @Override
-    public List<Document> processDocument(Document doc) throws StageException {
+    public Iterator<Document> processDocument(Document doc) throws StageException {
       doc.setField("s4", "v4");
       return null;
     }
   }
+
+  private static class MarkingStage extends Stage {
+
+    private String field;
+
+    public MarkingStage(Config conf, String field) {
+      super(conf);
+      this.field = field;
+    }
+
+    @Override
+    public Iterator<Document> processDocument(Document doc) throws StageException {
+      Document child1 = Document.create(doc.getId() + "-" + "child1");
+      child1.setOrAddAll(doc);
+      child1.setField(field, 1);
+      Document child2 = Document.create(doc.getId() + "-" + "child1");
+      child2.setField(field, 2);
+      child2.setOrAddAll(doc);
+      ArrayList<Document> children = new ArrayList<>();
+      children.add(child1);
+      children.add(child2);
+      return children.iterator();
+    }
+  }
+
 }

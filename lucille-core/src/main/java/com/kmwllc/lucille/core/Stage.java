@@ -7,6 +7,7 @@ import com.codahale.metrics.Timer;
 import com.google.common.collect.Sets;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import org.apache.commons.collections4.iterators.IteratorChain;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
@@ -125,6 +126,9 @@ public abstract class Stage {
    * @return  boolean representing - should we process this doc according to its conditionals?
    */
   public boolean shouldProcess(Document doc) {
+    if (doc.isDropped()) {
+      return false;
+    }
     return condition.test(doc);
   }
 
@@ -135,24 +139,18 @@ public abstract class Stage {
    * @return  a list of child documents resulting from this Stages processing
    * @throws StageException
    */
-  public List<Document> processConditional(Document doc) throws StageException {
+  public Iterator<Document> processConditional(Document doc) throws StageException {
     if (shouldProcess(doc)) {
       if (timer!=null) {
         context = timer.time();
       }
       try {
-        List<Document> children = processDocument(doc);
-        if (children!=null && children.size()>0) {
-          childCounter.inc(children.size());
-        }
-        return children;
-      } catch (StageException e) {
-        if (errorCounter!=null) {
-          errorCounter.inc();
-        }
-        throw e;
+        return processDocument(doc);
       } finally {
-        if (context!=null) {
+        if (context != null) {
+          // this only tracks the time taken to process the input document and
+          // return the iterator over any children; it doesn't track the time taken
+          // to actually generate the children documents by exhausting the returned iterator
           context.stop();
         }
       }
@@ -162,14 +160,113 @@ public abstract class Stage {
   }
 
   /**
-   * Applies an operation to a Document in place and returns a list containing any child Documents generated
-   * by the operation. If no child Documents are generated, the return value should be null.
-   *
-   * This interface assumes that the list of child Documents is large enough to hold in memory. To support
-   * an unbounded number of child documents, this method would need to return an Iterator (or something similar)
-   * instead of a List.
+   * Applies an operation to a Document in place and returns an Iterator over any child Documents generated
+   * by the operation, not including the parent. If no child Documents are generated, the return value should be null.
    */
-  public abstract List<Document> processDocument(Document doc) throws StageException;
+  public abstract Iterator<Document> processDocument(Document doc) throws StageException;
+
+  /**
+   * Applies an operation to a Document in place and returns an Iterator over any child Documents generated
+   * by the operation, with the input or parent document at the end. Unlike processDocument, the return
+   * value will always be non-null and will at least contain the input document.
+   * If the input document has a run ID, this ID will be copied to any children that do not have it.
+   */
+  public Iterator<Document> apply(Document doc) throws StageException {
+
+    Iterator<Document> children = processConditional(doc);
+    Iterator<Document> parent = doc.iterator();
+
+    if (children == null) {
+      return parent;
+    }
+    String runId = doc.getRunId();
+
+    Iterator<Document> wrappedChildren = new Iterator<>() {
+
+      @Override
+      public boolean hasNext() {
+        return children.hasNext();
+      }
+
+      @Override
+      public Document next() {
+        Document child = children.next();
+
+        if (child != null) {
+          if (childCounter != null) {
+            childCounter.inc();
+          }
+
+          // copy the parent's RunID to the child
+          // TODO: copy the parent's ID as well and store it as parentID on the child
+          if ((runId != null) && !child.has(Document.RUNID_FIELD)) {
+            child.initializeRunId(runId);
+          }
+        }
+
+        return child;
+      }
+
+      @Override
+      public void remove() {
+        throw new UnsupportedOperationException();
+      }
+    };
+
+
+    return new IteratorChain(wrappedChildren, parent);
+  }
+
+  /**
+   * Wraps an Iterator over Documents so as to call apply(doc) on each doc in the sequence.
+   */
+  public Iterator<Document> apply(Iterator<Document> docs) throws StageException {
+
+    return new Iterator<>() {
+
+      Iterator<Document> current = null;
+
+      @Override
+      public boolean hasNext() {
+        return (current !=null && current.hasNext()) || docs.hasNext();
+      }
+
+      @Override
+      public Document next() {
+
+        if (current != null && current.hasNext()) {
+          return current.next();
+        }
+
+        Document d = docs.next();
+        if (d == null) {
+          return null;
+        }
+
+        try {
+          current = apply(d);
+        } catch (StageException e) {
+          if (errorCounter != null) {
+            errorCounter.inc();
+          }
+
+          throw new RuntimeException(e); // TODO
+        }
+
+        if (current.hasNext()) {
+          return current.next();
+        }
+
+        return null;
+      }
+
+      @Override
+      public void remove() {
+        throw new UnsupportedOperationException();
+      }
+    };
+  }
+
 
   public String getName() {
     return name;

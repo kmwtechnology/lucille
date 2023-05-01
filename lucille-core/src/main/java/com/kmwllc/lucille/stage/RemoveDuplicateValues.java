@@ -5,8 +5,10 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
-import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
+
+import java.util.List;
 
 /**
  * Removes duplicate values from the given list of fields.
@@ -31,7 +33,7 @@ public class RemoveDuplicateValues extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String field : fieldMapping.keySet()) {
       if (!doc.has(field) || !doc.isMultiValued(field)) {
         continue;

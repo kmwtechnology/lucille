@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 
 public class ElasticsearchLookup extends Stage {
@@ -68,7 +69,7 @@ public class ElasticsearchLookup extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
       GetResponse<ObjectNode> response = client.get(g -> g
         .index(index)

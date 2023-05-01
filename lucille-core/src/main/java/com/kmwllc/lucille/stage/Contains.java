@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import org.ahocorasick.trie.PayloadTrie;
 
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -69,7 +70,7 @@ public class Contains extends Stage {
   }
 
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String field : fields) {
       if (!doc.has(field))
         continue;

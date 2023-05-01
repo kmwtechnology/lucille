@@ -58,6 +58,11 @@ public interface Publisher {
    */
   int numFailed();
 
+  /**
+   * Returns the number of documents for which the publisher has received a drop notification.
+   *
+   */
+  int numDropped();
 
   /**
    * Returns true if there are published documents or generated children than have not yet reached an

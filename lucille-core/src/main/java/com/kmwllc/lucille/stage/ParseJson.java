@@ -13,6 +13,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Base64;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -65,7 +66,7 @@ public class ParseJson extends Stage {
    * @return
    */
   @Override
-  public List<Document> processDocument(Document doc) throws StageException {
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     DocumentContext ctx;
     if (this.sourceIsBase64) {
       try (InputStream stream = new ByteArrayInputStream(DECODER.decode(doc.getString(this.src)))) {
