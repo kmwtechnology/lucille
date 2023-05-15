@@ -32,7 +32,8 @@ public class HashMapDocument implements Document {
               Instant.class,
               HashMapDocument.class,
               TextNode.class,
-              ArrayNode.class));
+              ArrayNode.class,
+              byte[].class));
 
   private static final Function<Object, Integer> TO_INT =
       value -> {
@@ -234,6 +235,11 @@ public class HashMapDocument implements Document {
   }
 
   @Override
+  public void update(String name, UpdateMode mode, byte[]... values) {
+    updateGeneric(name, mode, values);
+  }
+
+  @Override
   public void initializeRunId(String value) {
     if (value == null || value.isEmpty()) {
       throw new IllegalArgumentException("RunId cannot be null or empty");
@@ -288,6 +294,11 @@ public class HashMapDocument implements Document {
 
   @Override
   public void setField(String name, Instant value) {
+    setFieldGeneric(name, value);
+  }
+
+  @Override
+  public void setField(String name, byte[] value) {
     setFieldGeneric(name, value);
   }
 
@@ -393,8 +404,18 @@ public class HashMapDocument implements Document {
   }
 
   @Override
+  public byte[] getBytes(String name) {
+    return getValue(name, value -> (byte[]) value);
+  }
+
+  @Override
   public List<Instant> getInstantList(String name) {
     return getValues(name, value -> (Instant) value);
+  }
+
+  @Override
+  public List<byte[]> getBytesList(String name) {
+    return getValues(name, value -> (byte[]) value);
   }
 
   @Override
@@ -489,6 +510,11 @@ public class HashMapDocument implements Document {
     addToFieldGeneric(name, value);
   }
 
+  @Override
+  public void addToField(String name, byte[] value) {
+    addToFieldGeneric(name, value);
+  }
+
   private <T> void setOrAddGeneric(String name, T value) {
     Document.validateNotReservedField(name);
     // todo preprocess value to match the field type
@@ -522,6 +548,11 @@ public class HashMapDocument implements Document {
 
   @Override
   public void setOrAdd(String name, Instant value) {
+    setOrAddGeneric(name, value);
+  }
+
+  @Override
+  public void setOrAdd(String name, byte[] value) {
     setOrAddGeneric(name, value);
   }
 
