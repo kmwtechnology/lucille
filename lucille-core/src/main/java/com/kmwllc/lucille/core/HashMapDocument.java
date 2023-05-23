@@ -10,9 +10,16 @@ import com.fasterxml.jackson.databind.node.TextNode;
 import com.kmwllc.lucille.util.LinkedMultiMap;
 import com.kmwllc.lucille.util.MultiMap;
 
-import java.lang.reflect.Array;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -38,10 +45,10 @@ public class HashMapDocument implements Document {
 
   private static final Function<Object, Integer> TO_INT =
       value -> {
-        if (value.getClass().equals(String.class)) {
+        if (value instanceof String) {
           return Integer.parseInt((String) value);
         } else {
-          return (Integer) value;
+          return ((Number)value).intValue();
         }
       };
 
@@ -85,9 +92,7 @@ public class HashMapDocument implements Document {
       throw new DocumentException("id is missing");
     }
 
-    Set<Class<?>> supported = new HashSet<>(SUPPORTED_TYPES);
-    supported.add(this.getClass());
-    data = new LinkedMultiMap(supported);
+    data = new LinkedMultiMap(SUPPORTED_TYPES);
     data.putOne(ID_FIELD, updateString(requireString(node.get(ID_FIELD)), idUpdater));
 
     for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
@@ -381,22 +386,22 @@ public class HashMapDocument implements Document {
 
   @Override
   public Double getDouble(String name) {
-    return getValue(name, value -> (Double) value);
+    return getValue(name, value -> ((Number)value).doubleValue());
   }
 
   @Override
   public List<Double> getDoubleList(String name) {
-    return getValues(name, value -> (Double) value);
+    return getValues(name, value -> ((Number)value).doubleValue());
   }
 
   @Override
   public Float getFloat(String name) {
-    return getValue(name, value -> (Float) value);
+    return getValue(name, value -> ((Number)value).floatValue());
   }
 
   @Override
   public List<Float> getFloatList(String name) {
-    return getValues(name, value -> (Float) value);
+    return getValues(name, value -> ((Number)value).floatValue());
   }
 
   @Override
@@ -411,12 +416,12 @@ public class HashMapDocument implements Document {
 
   @Override
   public Long getLong(String name) {
-    return getValue(name, value -> (Long) value);
+    return getValue(name, value -> ((Number)value).longValue());
   }
 
   @Override
   public List<Long> getLongList(String name) {
-    return getValues(name, value -> (Long) value);
+    return getValues(name, value -> ((Number)value).longValue());
   }
 
   @Override
@@ -473,32 +478,9 @@ public class HashMapDocument implements Document {
     return has(name) && data.isMultiValued(name);
   }
 
-  private Object convertValue(String name, Object value) {
-
-    if (!has(name) || value == null) {
-      return value;
-    }
-
-    Class<?> type = data.getType(name);
-    Class<?> valueType = value.getClass();
-
-    if (type.equals(valueType)) {
-      return value;
-    }
-
-    // integer -> double
-    if (type.equals(Double.class)) {
-      if (value.getClass().equals(Integer.class)) {
-        return ((Integer) value).doubleValue();
-      }
-    }
-
-    throw new UnsupportedOperationException("Unsupported type " + type);
-  }
-
   private <T> void addToFieldGeneric(String name, T value) {
     Document.validateNotReservedField(name);
-    data.add(name, convertValue(name, value));
+    data.add(name, value);
   }
 
   @Override
@@ -543,7 +525,6 @@ public class HashMapDocument implements Document {
 
   private <T> void setOrAddGeneric(String name, T value) {
     Document.validateNotReservedField(name);
-    // todo preprocess value to match the field type
     data.setOrAdd(name, value);
   }
 

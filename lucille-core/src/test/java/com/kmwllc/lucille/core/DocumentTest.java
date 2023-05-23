@@ -322,8 +322,6 @@ public abstract class DocumentTest {
     List<Object> nullList = new ArrayList<>();
     nullList.add(null);
 
-    // todo this test does not really make sense.
-    //  why asking for a list from a null field return a list with a null value?
     assertNull(document.getInt("field1"));
     assertEquals(nullList, document.getIntList("field1"));
     assertEquals(nullList, document.getIntList("field2"));

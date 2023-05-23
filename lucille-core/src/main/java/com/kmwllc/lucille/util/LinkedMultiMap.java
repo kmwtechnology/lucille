@@ -1,13 +1,20 @@
 package com.kmwllc.lucille.util;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class LinkedMultiMap implements MultiMap {
 
   private final Set<Class<?>> supportedTypes;
-  private final Map<String, Class<?>> types;
   private final Map<String, Object> single;
   private final Map<String, List<Object>> multi;
 
@@ -18,30 +25,8 @@ public class LinkedMultiMap implements MultiMap {
     }
 
     this.supportedTypes = supportedTypes;
-    this.types = new LinkedHashMap<>();
     this.single = new LinkedHashMap<>();
     this.multi = new LinkedHashMap<>();
-
-    //    if (singleValued == null || multiValued == null || types == null) {
-    //      throw new IllegalArgumentException("constructor parameters must not be null");
-    //    }
-    //
-    //    if (!Collections.disjoint(singleValued.keySet(), multiValued.keySet())) {
-    //      throw new IllegalArgumentException("singleValued and multiValued must have disjoint
-    // keys");
-    //    }
-    //
-    //    this.keys = new HashSet<>(singleValued.keySet());
-    //    keys.addAll(multiValued.keySet());
-    //
-    //    if(!keys.equals(types.keySet())) {
-    //      throw new IllegalArgumentException("types must have the same keys as singleValued and
-    // multiValued");
-    //    }
-    //
-    //    this.singleValued = singleValued;
-    //    this.multiValued = multiValued;
-    //    this.types = types;
   }
 
   @Override
@@ -109,17 +94,6 @@ public class LinkedMultiMap implements MultiMap {
   }
 
   @Override
-  public Class<?> getType(String key) {
-    checkKey(key);
-    return types.get(key);
-  }
-
-  @Override
-  public Map<String, Class<?>> getTypes() {
-    return new LinkedHashMap<>(types);
-  }
-
-  @Override
   public Object getOne(String name) {
 
     if (isMultiValued(name)) {
@@ -161,15 +135,12 @@ public class LinkedMultiMap implements MultiMap {
       throw new IllegalArgumentException("key must not be null");
     }
 
-    if (value == null) {
-      types.remove(key);
-    } else {
+    if (value != null) {
       Class<?> type = value.getClass();
       if (!supportedTypes.contains(type)) {
         throw new IllegalArgumentException(
             "value must be one of " + supportedTypes + " but was " + type);
       }
-      types.put(key, type);
     }
 
     multi.remove(key);
@@ -184,10 +155,7 @@ public class LinkedMultiMap implements MultiMap {
     }
 
     // some values may be null - find non null
-    Class<?> c = getClassFromList(values);
-    if (c != null) {
-      types.put(name, c);
-    }
+    getClassFromList(values);
 
     single.remove(name);
     multi.put(name, new ArrayList<>(values));
@@ -195,8 +163,6 @@ public class LinkedMultiMap implements MultiMap {
 
   @Override
   public void add(String name, Object value) {
-
-    addValueType(name, value);
 
     if (!contains(name)) {
       multi.put(name, makeList(value));
@@ -217,27 +183,6 @@ public class LinkedMultiMap implements MultiMap {
     }
   }
 
-  private void addValueType(String name, Object value) {
-    if (name == null) {
-      throw new IllegalArgumentException("name must not be null");
-    }
-    if (value != null) {
-      Class<?> type = value.getClass();
-      if (!supportedTypes.contains(type)) {
-        throw new IllegalArgumentException(
-            "value must be one of " + supportedTypes + " but was " + type);
-      }
-      if (types.containsKey(name)) {
-        if (!types.get(name).equals(type)) {
-          throw new IllegalArgumentException(
-              "value must be of type " + types.get(name) + " but was " + type);
-        }
-      } else {
-        types.put(name, type);
-      }
-    }
-  }
-
   @Override
   public void setOrAdd(
       String name,
@@ -251,7 +196,6 @@ public class LinkedMultiMap implements MultiMap {
 
   @Override
   public void clear() {
-    types.clear();
     single.clear();
     multi.clear();
   }
@@ -262,22 +206,17 @@ public class LinkedMultiMap implements MultiMap {
     if (newName == null || contains(newName)) {
       throw new IllegalArgumentException("newName must not be null or already exist");
     }
-    // todo review which approach is better
-    types.remove(oldName);
+
     if (isMultiValued(oldName)) {
-      //      multi.put(newName, multi.remove(oldName));
       putMany(newName, multi.remove(oldName));
     } else {
-      //      single.put(newName, single.remove(oldName));
       putOne(newName, single.remove(oldName));
     }
-    //    types.put(newName, types.remove(oldName));
   }
 
   @Override
   public void remove(String name) {
     checkKey(name);
-    types.remove(name);
     single.remove(name);
     multi.remove(name);
   }
@@ -315,14 +254,13 @@ public class LinkedMultiMap implements MultiMap {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     LinkedMultiMap multiMap = (LinkedMultiMap) o;
-    return Objects.equals(types, multiMap.types)
-        && Objects.equals(single, multiMap.single)
+    return Objects.equals(single, multiMap.single)
         && Objects.equals(multi, multiMap.multi);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(types, single, multi);
+    return Objects.hash(single, multi);
   }
 
   private void checkKey(String key) {

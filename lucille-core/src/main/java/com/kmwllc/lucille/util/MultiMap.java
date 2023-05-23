@@ -31,10 +31,6 @@ public interface MultiMap {
 
   Map<String, List<Object>> getMultiValued();
 
-  Class<?> getType(String key);
-
-  Map<String, Class<?>> getTypes();
-
   Object getOne(String name);
 
   List<Object> getMany(String name);

@@ -229,14 +229,9 @@ public class LinkedMultiMapTest {
     assertEquals(1, empty.size());
     assertTrue(empty.contains("hi"));
     assertEquals("there", empty.getOne("hi"));
-    assertEquals(String.class, empty.getType("hi"));
-
-    // no type created for null value
     assertEquals(1, empty.size());
-    assertEquals(Map.of("hi", String.class), empty.getTypes());
     empty.putOne("hello", null);
     assertEquals(2, empty.size());
-    assertEquals(Map.of("hi", String.class), empty.getTypes());
 
     // override
     assertEquals("a", map.getOne("string"));
@@ -262,26 +257,15 @@ public class LinkedMultiMapTest {
     exception(() -> empty.putMany("hi", Arrays.asList(null, 1, null, null, "hello", null)));
 
     empty.putMany("string", List.of("a", "b", "c"));
-    assertEquals(String.class, empty.getType("string"));
     assertEquals(List.of("a", "b", "c"), empty.getMany("string"));
 
-    // no type was added
-    assertEquals(Map.of("string", String.class), empty.getTypes());
     empty.putMany("null", Collections.singletonList(null));
-    assertEquals(Map.of("string", String.class), empty.getTypes());
     assertNull(empty.getOne("null"));
     assertEquals(Collections.singletonList(null), empty.getMany("null"));
-
-    // same here
+    
     empty.putMany("null-list", Arrays.asList(null, null, null));
-    assertEquals(Map.of("string", String.class), empty.getTypes());
     assertEquals(Arrays.asList(null, null, null), empty.getMany("null-list"));
     assertNull(empty.getOne("null-list"));
-
-    // correctly gets the type
-    empty.clear();
-    empty.putMany("arr", Arrays.asList(null, null, 2, null, null));
-    assertEquals(Integer.class, empty.getType("arr"));
   }
 
   @Test
