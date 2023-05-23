@@ -21,7 +21,7 @@ public class HashMapDocument implements Document {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
   public static final Set<Class<?>> SUPPORTED_TYPES =
-      new HashSet<>(
+    Collections.unmodifiableSet(new HashSet<>(
           List.of(
               String.class,
               Integer.class,
@@ -34,7 +34,7 @@ public class HashMapDocument implements Document {
               HashMapDocument.class,
               TextNode.class,
               ArrayNode.class,
-              byte[].class));
+              byte[].class)));
 
   private static final Function<Object, Integer> TO_INT =
       value -> {

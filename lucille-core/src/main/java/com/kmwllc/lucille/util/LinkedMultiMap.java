@@ -17,10 +17,10 @@ public class LinkedMultiMap implements MultiMap {
       throw new IllegalArgumentException("supportedTypes cannot be null or empty");
     }
 
-    this.supportedTypes = new HashSet<>(supportedTypes);
-    types = new LinkedHashMap<>();
-    single = new LinkedHashMap<>();
-    multi = new LinkedHashMap<>();
+    this.supportedTypes = supportedTypes;
+    this.types = new LinkedHashMap<>();
+    this.single = new LinkedHashMap<>();
+    this.multi = new LinkedHashMap<>();
 
     //    if (singleValued == null || multiValued == null || types == null) {
     //      throw new IllegalArgumentException("constructor parameters must not be null");
