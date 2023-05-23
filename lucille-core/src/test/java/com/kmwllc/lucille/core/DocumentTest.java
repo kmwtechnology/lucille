@@ -502,6 +502,46 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testGetFloatMissing() {
+    Document document = createDocument("doc");
+    assertNull(document.getFloat("field1"));
+  }
+
+  @Test
+  public void testGetFloatSingleValued() {
+    Document document = createDocument("doc");
+    document.setField("float", 1.1F);
+    assertFalse(document.isMultiValued("float"));
+    assertEquals(1.1F, document.getFloat("float").floatValue(), 0);
+    assertEquals(Collections.singletonList(1.1F), document.getFloatList("float"));
+  }
+
+  @Test
+  public void testGetFloatListMissing() {
+    Document document = createDocument("doc");
+    assertNull(document.getFloatList("field1"));
+  }
+
+  @Test
+  public void testGetFloatsMultiValued() {
+    Document document = createDocument("doc");
+    document.setField("floats", 1.1F);
+    assertFalse(document.isMultiValued("floats"));
+    document.addToField("floats", 2.2F);
+    assertTrue(document.isMultiValued("floats"));
+    document.addToField("floats", 3.3F);
+    assertEquals(Arrays.asList(1.1F, 2.2F, 3.3F), document.getFloatList("floats"));
+  }
+
+  @Test
+  public void testGetFloatMultivalued() {
+    Document document = createDocument("doc");
+    document.addToField("field1", 1.1F);
+    document.addToField("field1", 2.2F);
+    assertEquals(1.1F, document.getFloat("field1").floatValue(), 0);
+  }
+
+  @Test
   public void testGetInstantMissing() {
     Document document = createDocument("doc");
     assertNull(document.getInstant("field1"));

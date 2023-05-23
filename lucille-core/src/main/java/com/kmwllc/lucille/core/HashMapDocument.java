@@ -26,6 +26,7 @@ public class HashMapDocument implements Document {
               String.class,
               Integer.class,
               Double.class,
+              Float.class,
               Long.class,
               Boolean.class,
               ObjectNode.class,
@@ -230,6 +231,11 @@ public class HashMapDocument implements Document {
   }
 
   @Override
+  public void update(String name, UpdateMode mode, Float... values) {
+    updateGeneric(name, mode, values);
+  }
+
+  @Override
   public void update(String name, UpdateMode mode, Instant... values) {
     updateGeneric(name, mode, values);
   }
@@ -284,6 +290,11 @@ public class HashMapDocument implements Document {
 
   @Override
   public void setField(String name, Double value) {
+    setFieldGeneric(name, value);
+  }
+
+  @Override
+  public void setField(String name, Float value) {
     setFieldGeneric(name, value);
   }
 
@@ -376,6 +387,16 @@ public class HashMapDocument implements Document {
   @Override
   public List<Double> getDoubleList(String name) {
     return getValues(name, value -> (Double) value);
+  }
+
+  @Override
+  public Float getFloat(String name) {
+    return getValue(name, value -> (Float) value);
+  }
+
+  @Override
+  public List<Float> getFloatList(String name) {
+    return getValues(name, value -> (Float) value);
   }
 
   @Override
@@ -506,6 +527,11 @@ public class HashMapDocument implements Document {
   }
 
   @Override
+  public void addToField(String name, Float value) {
+    addToFieldGeneric(name, value);
+  }
+
+  @Override
   public void addToField(String name, Instant value) {
     addToFieldGeneric(name, value);
   }
@@ -543,6 +569,11 @@ public class HashMapDocument implements Document {
 
   @Override
   public void setOrAdd(String name, Double value) {
+    setOrAddGeneric(name, value);
+  }
+
+  @Override
+  public void setOrAdd(String name, Float value) {
     setOrAddGeneric(name, value);
   }
 
