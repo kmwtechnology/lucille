@@ -77,7 +77,7 @@
             <configuration>
               <finalName>lucille-vector-ingest-example</finalName>
               <descriptors>
-                <descriptor>src/assembly/assembly.xml</descriptor>
+                <descriptor>assembly/assembly.xml</descriptor>
               </descriptors>
             </configuration>
           </execution>

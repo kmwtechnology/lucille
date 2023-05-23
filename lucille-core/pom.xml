@@ -169,7 +169,6 @@
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-java-sdk-sts</artifactId>
-      <version>${aws-java-sdk-sts.version}</version>
     </dependency>
 
     <!-- S3 Virtual File System Support -->
@@ -177,7 +176,6 @@
       <groupId>com.github.abashev</groupId>
       <artifactId>vfs-s3</artifactId>
       <version>${vfs-s3.version}</version>
-      <classifier>with-aws-sdk</classifier>
       <exclusions>
         <exclusion>
           <groupId>org.apache.hadoop</groupId>
