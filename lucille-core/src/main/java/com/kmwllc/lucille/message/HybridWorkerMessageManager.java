@@ -6,6 +6,9 @@ import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.consumer.*;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +21,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessageManager.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
+  private final KafkaProducer<String, String> kafkaEventProducer;
   private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
@@ -33,6 +37,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
     this.sourceConsumer = sourceConsumer;
+    this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
   }
 
   public HybridWorkerMessageManager(Config config, String pipelineName,
@@ -91,17 +96,32 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
 
   @Override
   public void sendEvent(Event event) throws Exception {
-    // no-op -- Events are not tracked in hybrid mode
+    if (kafkaEventProducer == null) {
+      return;
+    }
+    String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
+    RecordMetadata result = kafkaEventProducer.send(
+      new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    kafkaEventProducer.flush();
   }
 
   @Override
   public void sendEvent(Document document, String message, Event.Type type) throws Exception {
-    // no-op -- Events are not tracked in hybrid mode
+    if (kafkaEventProducer == null) {
+      return;
+    }
+    Event event = new Event(document.getId(), document.getRunId(), message, type);
+    sendEvent(event);
   }
 
   @Override
   public void close() throws Exception {
-    sourceConsumer.close();
+    if (sourceConsumer != null) {
+      sourceConsumer.close();
+    }
+    if (kafkaEventProducer != null) {
+      kafkaEventProducer.close();
+    }
   }
 
 }

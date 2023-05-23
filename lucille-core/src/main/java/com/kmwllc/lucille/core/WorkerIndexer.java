@@ -82,7 +82,7 @@ public class WorkerIndexer {
       new HybridWorkerMessageManager(config, pipelineName, pipelineDest, offsets);
 
     HybridIndexerMessageManager indexerMessageManager =
-      new HybridIndexerMessageManager(pipelineDest, offsets, idSet);
+      new HybridIndexerMessageManager(config, pipelineDest, offsets, idSet, pipelineName);
 
     indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, pipelineName);
 

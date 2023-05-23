@@ -3,7 +3,11 @@ package com.kmwllc.lucille.message;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 
 import java.util.HashMap;
@@ -18,6 +22,8 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
 
   private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
+  private final KafkaProducer<String, String> kafkaEventProducer;
+  private final String pipelineName;
 
   // a thread-safe Set that can be shared among all indexers running in a JVM
   // to provide a mechanism for determining when a certain number of unique documents have been
@@ -27,19 +33,16 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
   // before all offsets have been committed)
   private final Set idSet;
 
-  public HybridIndexerMessageManager(LinkedBlockingQueue<Document> pipelineDest,
-                                     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
-    this.pipelineDest = pipelineDest;
-    this.offsets = offsets;
-    this.idSet = null;
-  }
-
-  public HybridIndexerMessageManager(LinkedBlockingQueue<Document> pipelineDest,
+  public HybridIndexerMessageManager(Config config,
+                                     LinkedBlockingQueue<Document> pipelineDest,
                                      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
-                                     Set<String> idSet) {
+                                     Set<String> idSet,
+                                     String pipelineName) {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
     this.idSet = idSet;
+    this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.pipelineName = pipelineName;
   }
 
   @Override
@@ -49,22 +52,33 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
 
   @Override
   public void sendEvent(Event event) throws Exception {
-    // events are not sent anywhere in hybrid mode, but may be counted
     if (idSet != null) {
       idSet.add(event.getDocumentId());
+    }
+    if (kafkaEventProducer != null) {
+      String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
+      RecordMetadata result = (RecordMetadata)  kafkaEventProducer.send(
+        new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+      kafkaEventProducer.flush(); // TODO
     }
   }
 
   @Override
   public void sendEvent(Document document, String message, Event.Type type) throws Exception {
-    // events are not sent anywhere in hybrid mode, but may be counted
     if (idSet != null) {
       idSet.add(document.getId());
+    }
+    if (kafkaEventProducer != null) {
+      Event event = new Event(document.getId(), document.getRunId(), message, type);
+      sendEvent(event);
     }
   }
 
   @Override
   public void close() throws Exception {
+    if (kafkaEventProducer != null) {
+      kafkaEventProducer.close();
+    }
   }
 
   // TODO document assumptions about ordering of documents in batch
