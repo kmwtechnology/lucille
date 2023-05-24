@@ -1,11 +1,13 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.message.KafkaUtils;
 import com.kmwllc.lucille.util.CounterUtils;
 import com.kmwllc.lucille.util.RecordingLinkedBlockingQueue;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import net.mguenther.kafka.junit.EmbeddedKafkaCluster;
 import net.mguenther.kafka.junit.KeyValue;
+import net.mguenther.kafka.junit.ReadKeyValues;
 import net.mguenther.kafka.junit.SendKeyValues;
 import net.mguenther.kafka.junit.TopicConfig;
 import org.apache.kafka.clients.admin.Admin;
@@ -19,6 +21,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static net.mguenther.kafka.junit.EmbeddedKafkaCluster.provisionWith;
 import static net.mguenther.kafka.junit.EmbeddedKafkaClusterConfig.defaultClusterConfig;
@@ -27,6 +30,7 @@ import static org.junit.Assert.*;
 @RunWith(JUnit4.class)
 public class HybridKafkaTest {
 
+  private static final String RUN_ID = "run1";
   private EmbeddedKafkaCluster kafka;
 
   @Before
@@ -65,7 +69,8 @@ public class HybridKafkaTest {
     sendDoc("doc2", sourceTopic);
     sendDoc("doc3", sourceTopic);
 
-    CounterUtils.waitUnique(idSet, 3);
+    // 9 docs should be indexed: three parents with two children each
+    CounterUtils.waitUnique(idSet, 9);
 
     workerIndexer.stop();
 
@@ -94,6 +99,41 @@ public class HybridKafkaTest {
     assertEquals(1, offsets.getHistory().size());
     assertEquals(1, offsets.getHistory().get(0).entrySet().size());
     assertEquals(3, offsets.getHistory().get(0).get(sourceTopicPartition).offset());
+  }
+
+  @Test
+  public void testRunInKafkaHybridModeWithEvents() throws Exception {
+    // this config has "kafka.events: true"
+    Config config = ConfigFactory.load("HybridKafkaTest/childrenConfigWithEvents.conf");
+
+    String sourceTopic = config.getString("kafka.sourceTopic");
+    kafka.createTopic(TopicConfig.withName(sourceTopic).withNumberOfPartitions(1));
+
+    KafkaUtils.createEventTopic(config, "pipeline1", RUN_ID);
+
+    sendDoc("doc1", RUN_ID, sourceTopic);
+
+    WorkerIndexer workerIndexer = new WorkerIndexer();
+    LinkedBlockingQueue<Document> pipelineDest = new LinkedBlockingQueue<>();
+    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets = new LinkedBlockingQueue<>();
+    Set<String> idSet = CounterUtils.getThreadSafeSet();
+
+    workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true, idSet);
+
+    sendDoc("doc2", RUN_ID, sourceTopic);
+    sendDoc("doc3", RUN_ID, sourceTopic);
+
+    CounterUtils.waitUnique(idSet, 9);
+
+    workerIndexer.stop();
+
+    String eventTopicName = KafkaUtils.getEventTopicName("pipeline1", RUN_ID);
+
+    List<KeyValue<String, String>> records = kafka.read(ReadKeyValues
+      .from(eventTopicName));
+
+    // there should be 15 events in the event topic: 6 child creation events and 9 indexing events
+    assertEquals(15, records.size());
   }
 
   @Test
@@ -261,10 +301,13 @@ public class HybridKafkaTest {
 
   }
 
-
   private Document sendDoc(String id, String topic) throws Exception {
+    return sendDoc(id, null, topic);
+  }
+
+  private Document sendDoc(String id, String runId, String topic) throws Exception {
     List<KeyValue<String, String>> records = new ArrayList<>();
-    Document doc = Document.create(id);
+    Document doc = (runId == null) ? Document.create(id) : Document.create(id, runId);
     records.add(new KeyValue<>(id, doc.toString()));
     kafka.send(SendKeyValues.to(topic, records));
     return doc;
