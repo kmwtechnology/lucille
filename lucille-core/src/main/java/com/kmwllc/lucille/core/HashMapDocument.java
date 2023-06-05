@@ -1,21 +1,19 @@
 package com.kmwllc.lucille.core;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 import com.kmwllc.lucille.util.LinkedMultiMap;
 import com.kmwllc.lucille.util.MultiMap;
 
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -24,24 +22,12 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
-public class HashMapDocument implements Document {
+@JsonIgnoreProperties(value = { "fieldNames", "runId", "dropped", "id", "children" })
+public class HashMapDocument implements Document, Serializable {
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
-  public static final Set<Class<?>> SUPPORTED_TYPES =
-    Collections.unmodifiableSet(new HashSet<>(
-          List.of(
-              String.class,
-              Integer.class,
-              Double.class,
-              Float.class,
-              Long.class,
-              Boolean.class,
-              ObjectNode.class,
-              Instant.class,
-              HashMapDocument.class,
-              TextNode.class,
-              ArrayNode.class,
-              byte[].class)));
+  static final long serialVersionUID = 1L;
+
+  protected static final ObjectMapper MAPPER = new ObjectMapper();
 
   private static final Function<Object, Integer> TO_INT =
       value -> {
@@ -52,13 +38,24 @@ public class HashMapDocument implements Document {
         }
       };
 
-  private final MultiMap data;
+  private LinkedMultiMap data;
+
+  public void setData(LinkedMultiMap data) {
+    this.data = data;
+  }
+
+  public LinkedMultiMap getData() {
+    return data;
+  }
+
+  public HashMapDocument() {
+  }
 
   public HashMapDocument(String id) {
     if (id == null || id.isEmpty()) {
       throw new NullPointerException("ID cannot be null or empty");
     }
-    data = new LinkedMultiMap(SUPPORTED_TYPES);
+    data = new LinkedMultiMap();
     data.putOne(ID_FIELD, id);
   }
 
@@ -74,8 +71,8 @@ public class HashMapDocument implements Document {
     this(getData(other).deepCopy());
   }
 
-  private HashMapDocument(MultiMap other) {
-    data = other;
+  public HashMapDocument(MultiMap other) {
+    data = (LinkedMultiMap)other;
   }
 
   public HashMapDocument(ObjectNode data) throws DocumentException {
@@ -92,7 +89,7 @@ public class HashMapDocument implements Document {
       throw new DocumentException("id is missing");
     }
 
-    data = new LinkedMultiMap(SUPPORTED_TYPES);
+    data = new LinkedMultiMap();
     data.putOne(ID_FIELD, updateString(requireString(node.get(ID_FIELD)), idUpdater));
 
     for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
@@ -359,7 +356,7 @@ public class HashMapDocument implements Document {
   private <T> List<T> getValues(String name, Function<Object, T> converter) {
     return !has(name)
         ? null
-        : data.getMany(name).stream()
+        : (List<T>) data.getMany(name).stream()
             .map(value -> convertOrNull(value, converter))
             .collect(Collectors.toList());
   }
@@ -599,15 +596,14 @@ public class HashMapDocument implements Document {
 
   @Override
   public Map<String, Object> asMap() {
-    Map<String, Object> map = new LinkedHashMap<>();
-    map.putAll(data.getSingleValued());
-    map.putAll(data.getMultiValued());
+    // TODO avoid deepCopy here
+    Map<String, Object> map = ((LinkedMultiMap)data.deepCopy()).getData();
     if (map.containsKey(CHILDREN_FIELD)) {
-      // todo see if there is a faster way of doing this
+      // TODO see if there is a faster way of doing this
       map.put(
-          CHILDREN_FIELD,
-          ((List<Document>) map.get(CHILDREN_FIELD))
-              .stream().map(Document::asMap).collect(Collectors.toList()));
+        CHILDREN_FIELD,
+        ((List<Document>) map.get(CHILDREN_FIELD))
+          .stream().map(Document::asMap).collect(Collectors.toList()));
     }
     return map;
   }
@@ -630,7 +626,7 @@ public class HashMapDocument implements Document {
     if (!hasChildren()) {
       return Collections.emptyList();
     }
-    return data.getMany(CHILDREN_FIELD).stream()
+    return (List<Document>) data.getMany(CHILDREN_FIELD).stream()
         .map(child -> ((Document) child).deepCopy())
         .collect(Collectors.toList());
   }

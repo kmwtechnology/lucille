@@ -1,37 +1,66 @@
 package com.kmwllc.lucille.util;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
+import com.kmwllc.lucille.core.HashMapDocument;
+
+import java.io.Serializable;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-public class LinkedMultiMap implements MultiMap {
+@JsonIgnoreProperties(value = { "keys", "empty" })
+public class LinkedMultiMap implements MultiMap, Serializable {
 
-  private final Set<Class<?>> supportedTypes;
-  private final Map<String, Object> single;
-  private final Map<String, List<Object>> multi;
+  static final long serialVersionUID = 1L;
 
-  public LinkedMultiMap(Set<Class<?>> supportedTypes) {
+  private LinkedHashMap<String, Object> data;
 
-    if (supportedTypes == null || supportedTypes.isEmpty()) {
-      throw new IllegalArgumentException("supportedTypes cannot be null or empty");
-    }
+  public static final Set<Class<?>> SUPPORTED_TYPES =
+    Collections.unmodifiableSet(new HashSet<>(
+      List.of(
+        String.class,
+        Integer.class,
+        Double.class,
+        Float.class,
+        Long.class,
+        Boolean.class,
+        ObjectNode.class,
+        Instant.class,
+        HashMapDocument.class,
+        TextNode.class,
+        ArrayNode.class,
+        byte[].class)));
 
-    this.supportedTypes = supportedTypes;
-    this.single = new LinkedHashMap<>();
-    this.multi = new LinkedHashMap<>();
+
+  public LinkedMultiMap() {
+    this.data = new LinkedHashMap<>();
+  }
+
+  public LinkedMultiMap(LinkedHashMap data) {
+    this.data = data;
+  }
+
+  public LinkedHashMap getData() {
+    return data;
+  }
+
+  public void setData(LinkedHashMap data) {
+    this.data = data;
   }
 
   @Override
   public boolean isEmpty() {
-    return single.isEmpty() && multi.isEmpty();
+    return data.isEmpty();
   }
 
   @Override
@@ -39,18 +68,18 @@ public class LinkedMultiMap implements MultiMap {
     if (key == null) {
       throw new IllegalArgumentException("key must not be null");
     }
-    return single.containsKey(key) || multi.containsKey(key);
+    return data.containsKey(key);
   }
 
   @Override
   public boolean isMultiValued(String key) {
     checkKey(key);
-    return multi.containsKey(key);
+    return data.get(key) instanceof List;
   }
 
   @Override
   public int size() {
-    return single.size() + multi.size();
+    return data.size();
   }
 
   @Override
@@ -60,72 +89,45 @@ public class LinkedMultiMap implements MultiMap {
       return 1;
     }
 
-    List<Object> list = multi.get(name);
+    List list = (List)data.get(name);
+
+    // TODO remove?
     if (list == null) {
       throw new IllegalStateException("name " + name + " is multi-valued but has no values");
     }
+
     return list.size();
   }
 
   @Override
   public Set<String> getKeys() {
-    return Stream.concat(single.keySet().stream(), multi.keySet().stream())
-        .collect(Collectors.toSet());
-  }
-
-  @Override
-  public Set<String> getSingleKeys() {
-    return new LinkedHashSet<>(single.keySet());
-  }
-
-  @Override
-  public Set<String> getMultiKeys() {
-    return new LinkedHashSet<>(multi.keySet());
-  }
-
-  @Override
-  public Map<String, Object> getSingleValued() {
-    return new LinkedHashMap<>(single);
-  }
-
-  @Override
-  public Map<String, List<Object>> getMultiValued() {
-    return new LinkedHashMap<>(multi);
+    return data.keySet();
   }
 
   @Override
   public Object getOne(String name) {
 
     if (isMultiValued(name)) {
-      List<Object> list = multi.get(name);
+      List<Object> list = (List)data.get(name);
       if (list.isEmpty()) {
         throw new IllegalArgumentException("name " + name + " is multi-valued but has no values");
       }
       return list.get(0);
     }
 
-    return single.get(name);
+    return data.get(name);
   }
 
   @Override
-  public List<Object> getMany(String name) {
+  public List getMany(String name) {
     return isMultiValued(name)
-        ? new ArrayList<>(multi.get(name))
-        : Collections.singletonList(single.get(name));
+        ? (List)data.get(name)
+        : Collections.singletonList(data.get(name));
   }
 
   @Override
   public MultiMap deepCopy() {
-
-    // todo might need to copy each individual list and object within
-    LinkedMultiMap copy = new LinkedMultiMap(supportedTypes);
-    for (String key : getSingleKeys()) {
-      copy.putOne(key, getOne(key));
-    }
-    for (String key : getMultiKeys()) {
-      copy.putMany(key, getMany(key));
-    }
-    return copy;
+    return new LinkedMultiMap((LinkedHashMap)data.clone());
   }
 
   @Override
@@ -137,14 +139,13 @@ public class LinkedMultiMap implements MultiMap {
 
     if (value != null) {
       Class<?> type = value.getClass();
-      if (!supportedTypes.contains(type)) {
+      if (!SUPPORTED_TYPES.contains(type)) {
         throw new IllegalArgumentException(
-            "value must be one of " + supportedTypes + " but was " + type);
+            "value must be one of " + SUPPORTED_TYPES + " but was " + type);
       }
     }
 
-    multi.remove(key);
-    single.put(key, value);
+    data.put(key, value);
   }
 
   @Override
@@ -157,22 +158,21 @@ public class LinkedMultiMap implements MultiMap {
     // some values may be null - find non null
     getClassFromList(values);
 
-    single.remove(name);
-    multi.put(name, new ArrayList<>(values));
+    data.put(name, values);
   }
 
   @Override
   public void add(String name, Object value) {
 
     if (!contains(name)) {
-      multi.put(name, makeList(value));
+      data.put(name, makeList(value));
       return;
     }
 
     if (isMultiValued(name)) {
-      multi.get(name).add(value);
+      ((List)data.get(name)).add(value);
     } else {
-      multi.put(name, makeList(single.remove(name), value));
+      data.put(name, makeList(data.remove(name), value));
     }
   }
 
@@ -196,8 +196,7 @@ public class LinkedMultiMap implements MultiMap {
 
   @Override
   public void clear() {
-    single.clear();
-    multi.clear();
+    data.clear();
   }
 
   @Override
@@ -208,17 +207,16 @@ public class LinkedMultiMap implements MultiMap {
     }
 
     if (isMultiValued(oldName)) {
-      putMany(newName, multi.remove(oldName));
+      putMany(newName, (List)data.remove(oldName));
     } else {
-      putOne(newName, single.remove(oldName));
+      putOne(newName, data.remove(oldName));
     }
   }
 
   @Override
   public void remove(String name) {
     checkKey(name);
-    single.remove(name);
-    multi.remove(name);
+    data.remove(name);
   }
 
   @Override
@@ -226,7 +224,7 @@ public class LinkedMultiMap implements MultiMap {
     if (!isMultiValued(name)) {
       throw new IllegalArgumentException("name must be multi-valued");
     }
-    List<Object> list = multi.get(name);
+    List<Object> list = (List)data.get(name);
     if (index < 0 || index >= list.size()) {
       throw new IllegalArgumentException(
           "given index " + index + " is out of bounds for list of size " + list.size());
@@ -239,14 +237,12 @@ public class LinkedMultiMap implements MultiMap {
     if (!isMultiValued(name)) {
       throw new IllegalArgumentException("name must be multi-valued");
     }
-    multi.put(name, new ArrayList<>(new LinkedHashSet<>(multi.get(name))));
+    data.put(name, new ArrayList(new LinkedHashSet((List)data.get(name))));
   }
 
   @Override
   public String toString() {
-    return Stream.concat(single.entrySet().stream(), multi.entrySet().stream())
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
-        .toString();
+    return data.toString();
   }
 
   @Override
@@ -254,13 +250,12 @@ public class LinkedMultiMap implements MultiMap {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     LinkedMultiMap multiMap = (LinkedMultiMap) o;
-    return Objects.equals(single, multiMap.single)
-        && Objects.equals(multi, multiMap.multi);
+    return Objects.equals(data, multiMap.data);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(single, multi);
+    return data.hashCode();
   }
 
   private void checkKey(String key) {
@@ -275,7 +270,7 @@ public class LinkedMultiMap implements MultiMap {
       if (o != null) {
         if (type == null) {
           type = o.getClass();
-          if (!supportedTypes.contains(type)) {
+          if (!SUPPORTED_TYPES.contains(type)) {
             throw new IllegalArgumentException("unsupported type " + type);
           }
         } else {
