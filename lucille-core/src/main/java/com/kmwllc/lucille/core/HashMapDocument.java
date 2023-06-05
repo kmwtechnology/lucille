@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -596,16 +597,7 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public Map<String, Object> asMap() {
-    // TODO avoid deepCopy here
-    Map<String, Object> map = ((LinkedMultiMap)data.deepCopy()).getData();
-    if (map.containsKey(CHILDREN_FIELD)) {
-      // TODO see if there is a faster way of doing this
-      map.put(
-        CHILDREN_FIELD,
-        ((List<Document>) map.get(CHILDREN_FIELD))
-          .stream().map(Document::asMap).collect(Collectors.toList()));
-    }
-    return map;
+    return data.getData();
   }
 
   @Override
@@ -613,7 +605,7 @@ public class HashMapDocument implements Document, Serializable {
     if (document == null) {
       throw new IllegalArgumentException("The document is null");
     }
-    data.add(CHILDREN_FIELD, document);
+    data.add(CHILDREN_FIELD, document.asMap());
   }
 
   @Override
@@ -627,7 +619,7 @@ public class HashMapDocument implements Document, Serializable {
       return Collections.emptyList();
     }
     return (List<Document>) data.getMany(CHILDREN_FIELD).stream()
-        .map(child -> ((Document) child).deepCopy())
+        .map(child -> new HashMapDocument(new LinkedMultiMap((LinkedHashMap)child)))
         .collect(Collectors.toList());
   }
 
