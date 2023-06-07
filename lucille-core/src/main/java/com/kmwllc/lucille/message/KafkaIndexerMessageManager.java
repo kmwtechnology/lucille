@@ -20,7 +20,7 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(KafkaIndexerMessageManager.class);
   private final Consumer<String, KafkaDocument> destConsumer;
-  private final KafkaProducer<String, String> kafkaProducer;
+  private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
 
   public KafkaIndexerMessageManager(Config config, String pipelineName) {
@@ -28,8 +28,7 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
     String kafkaClientId = "com.kmwllc.lucille-indexer-" + pipelineName;
     this.destConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
-
-    this.kafkaProducer = KafkaUtils.createEventProducer(config);
+    this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
   }
 
   /**
@@ -49,6 +48,9 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
 
   @Override
   public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+    if (kafkaEventProducer == null) {
+      return;
+    }
     Event event = new Event(document.getId(), document.getRunId(), message, type);
     sendEvent(event);
   }
@@ -60,10 +62,13 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
    */
   @Override
   public void sendEvent(Event event) throws Exception {
+    if (kafkaEventProducer == null) {
+      return;
+    }
     String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
-    RecordMetadata result = (RecordMetadata)  kafkaProducer.send(
+    RecordMetadata result = (RecordMetadata)  kafkaEventProducer.send(
       new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    kafkaProducer.flush(); // TODO
+    kafkaEventProducer.flush(); // TODO
   }
 
   @Override

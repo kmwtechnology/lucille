@@ -87,6 +87,9 @@ public class KafkaUtils {
   }
 
   public static KafkaProducer<String, String> createEventProducer(Config config) {
+    if (config.hasPath("kafka.events") && !config.getBoolean("kafka.events")) {
+      return null;
+    }
     Properties producerProps = createProducerProps(config);
     producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
     return new KafkaProducer<>(producerProps);

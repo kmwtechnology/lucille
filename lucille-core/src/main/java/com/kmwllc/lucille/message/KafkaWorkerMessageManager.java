@@ -79,6 +79,9 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
 
   @Override
   public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+    if (kafkaEventProducer == null) {
+      return;
+    }
     Event event = new Event(document.getId(), document.getRunId(), message, type);
     sendEvent(event);
   }
@@ -89,6 +92,9 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
    */
   @Override
   public void sendEvent(Event event) throws Exception {
+    if (kafkaEventProducer == null) {
+      return;
+    }
     String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
     RecordMetadata result = kafkaEventProducer.send(
       new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
@@ -97,9 +103,15 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
 
   @Override
   public void close() throws Exception {
-    sourceConsumer.close();
-    kafkaDocumentProducer.close();
-    kafkaEventProducer.close();
+    if (sourceConsumer != null) {
+      sourceConsumer.close();
+    }
+    if (kafkaDocumentProducer != null) {
+      kafkaDocumentProducer.close();
+    }
+    if (kafkaEventProducer != null) {
+      kafkaEventProducer.close();
+    }
   }
 
 }
