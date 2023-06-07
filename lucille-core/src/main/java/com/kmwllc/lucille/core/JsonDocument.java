@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -135,7 +136,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void update(String name, UpdateMode mode, byte[]... values) {
-    throw new UnsupportedOperationException("JsonDocument does not support byte array fields.");
+    update(name, mode, (v)->{setField(name,(byte[])v);}, (v)->{setOrAdd(name,(byte[])v);}, values);
   }
 
   /**
@@ -236,7 +237,8 @@ public class JsonDocument implements Document {
 
   @Override
   public void setField(String name, byte[] value) {
-    throw new UnsupportedOperationException("JsonDocument does not support byte array fields.");
+    validateNotReservedField(name);
+    data.put(name, value);
   }
 
   @Override
@@ -453,7 +455,18 @@ public class JsonDocument implements Document {
 
   @Override
   public byte[] getBytes(String name) {
-    throw new UnsupportedOperationException("JsonDocument does not support byte array fields.");
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node = getSingleNode(name);
+
+    try {
+      return node.isNull() ? null : node.binaryValue();
+    } catch (IOException e) {
+      log.error("Error accessing byte[] field", e);
+      return null;
+    }
   }
 
   @Override
@@ -478,7 +491,24 @@ public class JsonDocument implements Document {
 
   @Override
   public List<byte[]> getBytesList(String name) {
-    throw new UnsupportedOperationException("JsonDocument does not support byte array fields.");
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getBytes(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<byte[]> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      try {
+        result.add(node.isNull() ? null : node.binaryValue());
+      } catch (IOException e) {
+        log.error("Error accessing byte[] field", e);
+      }
+    }
+    return result;
   }
 
   private JsonNode getSingleNode(String name) {
@@ -610,7 +640,10 @@ public class JsonDocument implements Document {
 
   @Override
   public void addToField(String name, byte[] value) {
-    throw new UnsupportedOperationException("JsonDocument does not support byte array fields.");
+    validateNotReservedField(name);
+    convertToList(name);
+    ArrayNode array = data.withArray(name);
+    array.add(value);
   }
 
   @Override
@@ -678,7 +711,11 @@ public class JsonDocument implements Document {
 
   @Override
   public void setOrAdd(String name, byte[] value) {
-    throw new UnsupportedOperationException("JsonDocument does not support byte array fields.");
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
   }
 
   @Override
