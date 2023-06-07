@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.message.KafkaDocumentDeserializer;
+import com.kmwllc.lucille.message.KafkaDocumentSerializer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Test;
 
@@ -57,5 +59,23 @@ public class KafkaDocumentTest {
 
   }
 
+  @Test
+  public void testSerde() throws Exception {
+    KafkaDocumentSerializer serializer = new KafkaDocumentSerializer();
+    KafkaDocumentDeserializer deserializer = new KafkaDocumentDeserializer();
+
+    String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
+    HashMapDocument doc = (HashMapDocument)Document.createFromJson(json);
+    assertEquals("123", doc.getId());
+    assertEquals("val1", doc.getString("field1"));
+
+    byte[] serialized = serializer.serialize("topic", doc);
+
+    KafkaDocument doc2 = (KafkaDocument)deserializer.deserialize("topic", serialized);
+
+    assertEquals("123", doc2.getId());
+    assertEquals("val1", doc2.getString("field1"));
+    assertEquals(doc.asMap(), doc2.asMap());
+  }
 
 }

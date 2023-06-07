@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.util;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
@@ -35,6 +36,7 @@ public class LinkedMultiMap implements MultiMap, Serializable {
         Long.class,
         Boolean.class,
         ObjectNode.class,
+        JsonNode.class,
         Instant.class,
         HashMapDocument.class,
         TextNode.class,
@@ -139,7 +141,7 @@ public class LinkedMultiMap implements MultiMap, Serializable {
 
     if (value != null) {
       Class<?> type = value.getClass();
-      if (!SUPPORTED_TYPES.contains(type)) {
+      if (!SUPPORTED_TYPES.contains(type) && !(value instanceof JsonNode)) {
         throw new IllegalArgumentException(
             "value must be one of " + SUPPORTED_TYPES + " but was " + type);
       }
@@ -270,7 +272,7 @@ public class LinkedMultiMap implements MultiMap, Serializable {
       if (o != null) {
         if (type == null) {
           type = o.getClass();
-          if (!SUPPORTED_TYPES.contains(type)) {
+          if (!SUPPORTED_TYPES.contains(type) && !(o instanceof JsonNode)) {
             throw new IllegalArgumentException("unsupported type " + type);
           }
         } else {

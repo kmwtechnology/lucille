@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,7 +29,10 @@ public class HashMapDocument implements Document, Serializable {
 
   static final long serialVersionUID = 1L;
 
-  protected static final ObjectMapper MAPPER = new ObjectMapper();
+  public static final ObjectMapper MAPPER = new ObjectMapper();
+
+  public static final ObjectMapper MAPPER_WITH_TYPING =
+    new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.JAVA_LANG_OBJECT, JsonTypeInfo.As.PROPERTY);
 
   private static final Function<Object, Integer> TO_INT =
       value -> {
@@ -39,7 +43,7 @@ public class HashMapDocument implements Document, Serializable {
         }
       };
 
-  private LinkedMultiMap data;
+  protected LinkedMultiMap data;
 
   public void setData(LinkedMultiMap data) {
     this.data = data;
@@ -73,7 +77,13 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   public HashMapDocument(MultiMap other) {
-    data = (LinkedMultiMap)other;
+    this.data = (LinkedMultiMap)other;
+  }
+
+  public HashMapDocument(MultiMap other, UnaryOperator<String> idUpdater) {
+    this.data = (LinkedMultiMap)other;
+    this.data.putOne(ID_FIELD, updateString((String)other.getOne(ID_FIELD), idUpdater));
+
   }
 
   public HashMapDocument(ObjectNode data) throws DocumentException {
@@ -167,6 +177,15 @@ public class HashMapDocument implements Document, Serializable {
   public static Document fromJsonString(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
     return new HashMapDocument((ObjectNode) MAPPER.readTree(json), idUpdater);
+  }
+
+  public static Document fromTypedJsonString(String json, UnaryOperator<String> idUpdater)
+    throws DocumentException, JsonProcessingException {
+    return new HashMapDocument(MAPPER_WITH_TYPING.readValue(json, LinkedMultiMap.class), idUpdater);
+  }
+
+  public String toTypedJsonString() throws JsonProcessingException {
+    return MAPPER_WITH_TYPING.writeValueAsString(data);
   }
 
   @Override

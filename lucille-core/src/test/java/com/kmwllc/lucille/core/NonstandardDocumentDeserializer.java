@@ -12,8 +12,6 @@ import org.apache.kafka.common.serialization.Deserializer;
  */
 public class NonstandardDocumentDeserializer implements Deserializer<Document> {
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
-
   @Override
   public Document deserialize(String topic, byte[] data) {
     if (data == null) {
@@ -21,7 +19,7 @@ public class NonstandardDocumentDeserializer implements Deserializer<Document> {
     }
 
     try {
-      ObjectNode node = (ObjectNode) MAPPER.readTree(data);
+      ObjectNode node = (ObjectNode) KafkaDocument.MAPPER_WITH_TYPING.readTree(data);
       if (!node.has("id") && node.has("myId")) {
         node.set("id", node.get("myId"));
       }

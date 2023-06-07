@@ -229,6 +229,8 @@ public interface Document {
 
   Document deepCopy();
 
+  String toTypedJsonString() throws JsonProcessingException;
+
   /**
    * Returns an Iterator that contains only this document.
    */
@@ -237,15 +239,15 @@ public interface Document {
   }
 
   static Document create(ObjectNode node) throws DocumentException {
-    return new JsonDocument(node);
+    return new HashMapDocument(node);
   }
 
   static Document create(String id) {
-    return new JsonDocument(id);
+    return new HashMapDocument(id);
   }
 
   static Document create(String id, String runId) {
-    return new JsonDocument(id, runId);
+    return new HashMapDocument(id, runId);
   }
 
   static Document createFromJson(String json) throws DocumentException, JsonProcessingException {
@@ -254,7 +256,16 @@ public interface Document {
 
   static Document createFromJson(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
-    return JsonDocument.fromJsonString(json, idUpdater);
+    return HashMapDocument.fromJsonString(json, idUpdater);
+  }
+
+  static Document createFromTypedJson(String json) throws DocumentException, JsonProcessingException {
+    return createFromTypedJson(json, null);
+  }
+
+  static Document createFromTypedJson(String json, UnaryOperator<String> idUpdater)
+    throws DocumentException, JsonProcessingException {
+    return HashMapDocument.fromTypedJsonString(json, idUpdater);
   }
 
   static void validateNotReservedField(String... names) throws IllegalArgumentException {

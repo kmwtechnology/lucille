@@ -247,7 +247,7 @@ public class HybridKafkaTest {
     workerIndexer.stop();
 
     assertEquals(1, pipelineDest.getHistory().size());
-    assertEquals(outputJson, pipelineDest.getHistory().get(0).toString());
+    assertEquals(HashMapDocument.fromJsonString(outputJson).asMap(), pipelineDest.getHistory().get(0).asMap());
   }
 
   @Test
@@ -308,7 +308,7 @@ public class HybridKafkaTest {
   private Document sendDoc(String id, String runId, String topic) throws Exception {
     List<KeyValue<String, String>> records = new ArrayList<>();
     Document doc = (runId == null) ? Document.create(id) : Document.create(id, runId);
-    records.add(new KeyValue<>(id, doc.toString()));
+    records.add(new KeyValue<>(id, doc.toTypedJsonString()));
     kafka.send(SendKeyValues.to(topic, records));
     return doc;
   }

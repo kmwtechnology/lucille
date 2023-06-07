@@ -1,11 +1,12 @@
 package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.kmwllc.lucille.util.MultiMap;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import java.util.Objects;
 
-public class KafkaDocument extends JsonDocument {
+public class KafkaDocument extends HashMapDocument {
 
   private String topic;
   private int partition;
@@ -13,6 +14,10 @@ public class KafkaDocument extends JsonDocument {
   private String key;
 
   public KafkaDocument(ObjectNode data) throws DocumentException {
+    super(data);
+  }
+
+  public KafkaDocument(MultiMap data) throws DocumentException {
     super(data);
   }
 
@@ -29,6 +34,14 @@ public class KafkaDocument extends JsonDocument {
   }
 
   private KafkaDocument(ObjectNode data, String topic, int partition, long offset, String key) throws DocumentException {
+    super(data);
+    this.topic = topic;
+    this.partition = partition;
+    this.offset = offset;
+    this.key = key;
+  }
+
+  private KafkaDocument(MultiMap data, String topic, int partition, long offset, String key) throws DocumentException {
     super(data);
     this.topic = topic;
     this.partition = partition;
@@ -65,7 +78,7 @@ public class KafkaDocument extends JsonDocument {
           Objects.equals(partition, doc.partition) &&
           Objects.equals(offset, doc.offset) &&
           Objects.equals(key, doc.key) &&
-          data.equals(doc.data);
+          super.equals(doc);
     }
     return false;
   }
@@ -78,7 +91,7 @@ public class KafkaDocument extends JsonDocument {
   @Override
   public KafkaDocument clone() {
     try {
-      return new KafkaDocument(data.deepCopy(), topic, partition, offset, key);
+      return new KafkaDocument(getData().deepCopy(), topic, partition, offset, key);
     } catch (DocumentException e) {
       throw new IllegalStateException("Document not cloneable", e);
     }

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.indexer;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
@@ -102,7 +103,7 @@ public class SolrIndexer extends Indexer {
         }
 
         Object value = map.get(key);
-        if(value instanceof Map) {
+        if (value instanceof Map || value instanceof JsonNode) {
           throw new IndexerException(String.format("Object field '%s' on document id=%s is not supported by the SolrIndexer.", key, doc.getId()));
         }
         solrDoc.setField(key,value);
@@ -129,7 +130,7 @@ public class SolrIndexer extends Indexer {
           continue;
         }
         Object value = map.get(key);
-        if(value instanceof Map) {
+        if (value instanceof Map || value instanceof JsonNode) {
           throw new IndexerException(String.format("Object field '%s' on child document id=%s of document id=%s is not supported by the SolrIndexer.", key, child.getId(), doc.getId()));
         }
         solrChild.setField(key,value);

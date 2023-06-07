@@ -811,6 +811,11 @@ public class JsonDocument implements Document {
     }
   }
 
+  @Override
+  public String toTypedJsonString() throws JsonProcessingException {
+    throw new UnsupportedOperationException("JsonDocument does not support typed json.");
+  }
+
   private void validateNotReservedField(String name) throws IllegalArgumentException {
     if (RESERVED_FIELDS.contains(name)) {
       throw new IllegalArgumentException();
