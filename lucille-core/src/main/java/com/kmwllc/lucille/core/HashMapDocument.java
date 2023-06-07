@@ -179,7 +179,7 @@ public class HashMapDocument implements Document, Serializable {
     return new HashMapDocument((ObjectNode) MAPPER.readTree(json), idUpdater);
   }
 
-  public static Document fromTypedJsonString(String json, UnaryOperator<String> idUpdater)
+  public static HashMapDocument fromTypedJsonString(String json, UnaryOperator<String> idUpdater)
     throws DocumentException, JsonProcessingException {
     return new HashMapDocument(MAPPER_WITH_TYPING.readValue(json, LinkedMultiMap.class), idUpdater);
   }
