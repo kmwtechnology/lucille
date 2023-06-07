@@ -6,8 +6,10 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Normalizes a document's field values by replacing spaces and non-alphanumeric characters with given delimiters.
@@ -31,7 +33,8 @@ public class NormalizeFieldNames extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    for (String field : doc.getFieldNames()) {
+    Set<String> fieldNames = new HashSet(doc.getFieldNames());
+    for (String field : fieldNames) {
       if (Document.RESERVED_FIELDS.contains(field)) {
         continue;
       }

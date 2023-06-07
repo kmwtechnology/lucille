@@ -42,25 +42,21 @@ public class HashMapDocumentTest extends DocumentTest {
   }
 
   @Test
-  public void testByteArraySerializationWithDefaultTypingEnabled() throws Exception {
-    ObjectMapper mapper = new ObjectMapper().enableDefaultTyping(
-      ObjectMapper.DefaultTyping.JAVA_LANG_OBJECT,
-      JsonTypeInfo.As.PROPERTY);
-
+  public void testByteArraySerializationWithTyping() throws Exception {
     byte[] value1 = new byte[]{ 0x3c, 0x4c, 0x5c };
 
-    HashMapDocument document = (HashMapDocument)createDocument("doc");
+    HashMapDocument document = new HashMapDocument("doc");
     document.setField("bytes", value1);
 
-    String serialized = mapper.writeValueAsString(document);
+    String serialized = document.toTypedJsonString();
 
-    HashMapDocument document2 = mapper.readValue(serialized, HashMapDocument.class);
+    HashMapDocument document2 = HashMapDocument.fromTypedJsonString(serialized, null);
     assertArrayEquals(value1, document2.getBytes("bytes"));
     assertEquals(byte[].class, document2.asMap().get("bytes").getClass());
   }
 
-  @Ignore
-  @Test
+  // demonstrate that serialization/deserialization with untyped json doesn't work
+  @Test(expected = ClassCastException.class)
   public void testByteArraySerialization() throws Exception {
     byte[] value1 = new byte[]{ 0x3c, 0x4c, 0x5c };
     HashMapDocument document = (HashMapDocument)createDocument("doc");
@@ -70,13 +66,12 @@ public class HashMapDocumentTest extends DocumentTest {
     assertEquals(byte[].class, document2.asMap().get("bytes").getClass());
   }
 
-  @Ignore
   @Test
-  public void testFloatSerialization() throws Exception {
+  public void testFloatSerializationWithTyping() throws Exception {
     Document document = createDocument("doc1");
     document.setField("field1", (Float)1.01F);
     assertEquals(Float.class, document.asMap().get("field1").getClass());
-    Document document2 = createDocumentFromJson(document.toString(), null);
+    Document document2 = HashMapDocument.fromTypedJsonString(document.toTypedJsonString(), null);
     assertEquals(Float.class, document2.asMap().get("field1").getClass());
     assertEquals((Float)1.01F, document2.getFloat("field1"));
   }
