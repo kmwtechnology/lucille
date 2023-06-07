@@ -49,6 +49,8 @@ public interface Document {
 
   void update(String name, UpdateMode mode, Instant... values);
 
+  void update(String name, UpdateMode mode, byte[]... values);
+
   void initializeRunId(String value);
 
   void clearRunId();
@@ -68,6 +70,8 @@ public interface Document {
   void setField(String name, JsonNode value);
 
   void setField(String name, Instant value);
+
+  void setField(String name, byte[] value);
 
   void renameField(String oldName, String newName, UpdateMode mode);
 
@@ -108,7 +112,11 @@ public interface Document {
 
   Instant getInstant(String name);
 
+  byte[] getBytes(String name);
+
   List<Instant> getInstantList(String name);
+
+  List<byte[]> getBytesList(String name);
 
   int length(String name);
 
@@ -144,6 +152,8 @@ public interface Document {
    */
   void addToField(String name, Instant value);
 
+  void addToField(String name, byte[] value);
+
   /**
    * Sets the field to the given value if the field is not already present; otherwise adds it to the
    * field.
@@ -173,6 +183,8 @@ public interface Document {
    * @param value The value to set or add to the field
    */
   void setOrAdd(String name, Instant value);
+
+  void setOrAdd(String name, byte[] value);
 
   /**
    * Adds a given field from the designated "other" document to the current document. If a field is
@@ -237,11 +249,25 @@ public interface Document {
   }
 
   static Document createFromJson(String json) throws DocumentException, JsonProcessingException {
-    return JsonDocument.fromJsonString(json);
+    return createFromJson(json, null);
   }
 
   static Document createFromJson(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
+  }
+
+  static void validateNotReservedField(String... names) throws IllegalArgumentException {
+    if (names == null) {
+      throw new IllegalArgumentException("expecting string parameters");
+    }
+    for (String name: names) {
+      if (name == null) {
+        throw new IllegalArgumentException("Field name cannot be null");
+      }
+      if (RESERVED_FIELDS.contains(name)) {
+        throw new IllegalArgumentException(name + " is a reserved field");
+      }
+    }
   }
 }
