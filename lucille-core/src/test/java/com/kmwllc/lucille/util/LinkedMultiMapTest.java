@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.util;
 
-import static com.kmwllc.lucille.core.HashMapDocument.SUPPORTED_TYPES;
 import static org.junit.Assert.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -21,9 +20,9 @@ public class LinkedMultiMapTest {
 
   @Before
   public void setup() throws JsonProcessingException {
-    empty = new LinkedMultiMap(SUPPORTED_TYPES);
+    empty = new LinkedMultiMap();
+    map = new LinkedMultiMap();
 
-    map = new LinkedMultiMap(SUPPORTED_TYPES);
     map.putOne("string", "a");
     map.putOne("null", null);
     map.putOne("integer", 1);
@@ -35,8 +34,8 @@ public class LinkedMultiMapTest {
 
     // todo add list of things
     map.putMany("list-empty", new ArrayList<>());
-    map.putMany("list-string", List.of("a", "b", "c"));
-    map.putMany("list-integer", List.of(1, 2, 3, 2, 2, 1, 3, 5));
+    map.putMany("list-string", new ArrayList<>(Arrays.asList("a", "b", "c")));
+    map.putMany("list-integer", new ArrayList<>(Arrays.asList(1, 2, 3, 2, 2, 1, 3, 5)));
 
     mapSize = map.size();
   }
@@ -120,60 +119,6 @@ public class LinkedMultiMapTest {
                 "list-string",
                 "list-integer")),
         map.getKeys());
-  }
-
-  @Test
-  public void testGetSingleKeys() {
-    assertEquals(new HashSet<>(), empty.getSingleKeys());
-    assertEquals(
-        new HashSet<>(
-            List.of("string", "null", "integer", "double", "long", "boolean", "json", "instant")),
-        map.getSingleKeys());
-
-    map.rename("string", "newString");
-
-    assertEquals(
-        new HashSet<>(
-            List.of(
-                "newString", "null", "integer", "double", "long", "boolean", "json", "instant")),
-        map.getSingleKeys());
-  }
-
-  @Test
-  public void testGetMultiKeys() {
-    assertEquals(new HashSet<>(), empty.getMultiKeys());
-    assertEquals(
-        new HashSet<>(List.of("list-empty", "list-string", "list-integer")), map.getMultiKeys());
-
-    map.rename("list-empty", "list-empty2");
-
-    assertEquals(
-        new HashSet<>(List.of("list-empty2", "list-string", "list-integer")), map.getMultiKeys());
-  }
-
-  @Test
-  public void testGetSingleValued() {
-    assertEquals(new HashMap<>(), empty.getSingleValued());
-    assertEquals(8, map.getSingleValued().size());
-    assertEquals("a", map.getSingleValued().get("string"));
-  }
-
-  @Test
-  public void testGetMultiValued() {
-    assertEquals(new HashMap<>(), empty.getMultiValued());
-    assertEquals(3, map.getMultiValued().size());
-    assertEquals(List.of(), map.getMultiValued().get("list-empty"));
-    assertEquals(List.of("a", "b", "c"), map.getMultiValued().get("list-string"));
-  }
-
-  @Test
-  public void testGetType() {
-    // todo
-  }
-
-  @Test
-  public void testGetTypes() {
-    // todo
   }
 
   @Test

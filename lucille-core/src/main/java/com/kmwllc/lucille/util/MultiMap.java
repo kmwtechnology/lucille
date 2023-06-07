@@ -23,14 +23,6 @@ public interface MultiMap {
 
   Set<String> getKeys();
 
-  Set<String> getSingleKeys();
-
-  Set<String> getMultiKeys();
-
-  Map<String, Object> getSingleValued();
-
-  Map<String, List<Object>> getMultiValued();
-
   Object getOne(String name);
 
   List<Object> getMany(String name);
