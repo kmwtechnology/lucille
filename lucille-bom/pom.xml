@@ -9,22 +9,13 @@
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
     <version>0.2.0-SNAPSHOT</version>
-    <relativePath>lucille-parent/pom.xml</relativePath>
+    <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
   <groupId>com.kmwllc</groupId>
-  <artifactId>lucille</artifactId>
-
-
+  <artifactId>lucille-bom</artifactId>
+  <name>Lucille Bill of Materials</name>
   <packaging>pom</packaging>
-
-  <modules>
-    <module>lucille-parent</module>
-    <module>lucille-bom</module>
-    <module>lucille-core</module>
-    <module>lucille-plugins</module>
-    <module>lucille-examples</module>
-  </modules>
 
   <repositories>
     <repository>
@@ -40,19 +31,23 @@
     </repository>
   </repositories>
 
-  <build>
-    <pluginManagement>
-      <plugins>
-        <plugin>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>exec-maven-plugin</artifactId>
-          <version>${maven-exec-plugin.version}</version>
-          <configuration>
-            <cleanupDaemonThreads>false</cleanupDaemonThreads>
-          </configuration>
-        </plugin>
-      </plugins>
-    </pluginManagement>
-  </build>
-
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-pinecone</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-parquet</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 </project>
