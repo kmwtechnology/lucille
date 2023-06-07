@@ -56,4 +56,21 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     Document document2 = createDocumentFromJson(document.toString());
     assertArrayEquals(value1, document2.getBytes("field1"));
   }
+
+  @Test
+  public void testByteArraySerializationMultivalued() throws Exception {
+    byte[] value1 = new byte[]{ 0x3c, 0x4c, 0x5c };
+    byte[] value2 = new byte[]{ 0x4c, 0x4c, 0x5c };
+    Document document = createDocument("doc");
+    document.addToField("field1", value1);
+    document.addToField("field1", value2);
+
+    // a byte array should be serialized as a base64-encoded string
+    assertTrue(document.toString().contains(Base64.getEncoder().encodeToString(value1)));
+    assertTrue(document.toString().contains(Base64.getEncoder().encodeToString(value2)));
+
+    Document document2 = createDocumentFromJson(document.toString());
+    assertArrayEquals(value1, document2.getBytesList("field1").get(0));
+    assertArrayEquals(value2, document2.getBytesList("field1").get(1));
+  }
 }
