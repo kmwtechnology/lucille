@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
@@ -14,6 +15,9 @@ import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
@@ -34,7 +38,24 @@ public class KafkaUtils {
 
   public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
 
-  private static Properties createConsumerProps(Config config, String clientId) {
+  private static Properties loadExternalProps(String filename) {
+    try(Reader propertiesReader = FileUtils.getReader(filename, StandardCharsets.UTF_8.name())) {
+      Properties consumerProps = new Properties();
+      consumerProps.load(propertiesReader);
+      return consumerProps;
+    } catch (IOException e) {
+      throw new IllegalStateException(String.format("Cannot load kafka property file %s.", filename));
+    }
+  }
+
+  //access set to package so unit tests can validate created properties without initializing a Consumer
+  static Properties createConsumerProps(Config config, String clientId) {
+    if(config.hasPath("kafka.consumerPropertyFile")) {
+      Properties loadedProps = loadExternalProps(config.getString("kafka.consumerPropertyFile"));
+      loadedProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
+      return loadedProps;
+    }
+
     Properties consumerProps = new Properties();
     consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     if (config.hasPath("kafka.securityProtocol")) {
@@ -53,8 +74,8 @@ public class KafkaUtils {
   public static KafkaConsumer<String, KafkaDocument> createDocumentConsumer(Config config, String clientId) {
     Properties consumerProps = createConsumerProps(config, clientId);
     String deserializerClass = config.hasPath("kafka.documentDeserializer")
-            ? config.getString("kafka.documentDeserializer")
-            : KafkaDocumentDeserializer.class.getName();
+      ? config.getString("kafka.documentDeserializer")
+      : KafkaDocumentDeserializer.class.getName();
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializerClass);
     return new KafkaConsumer<>(consumerProps);
   }
@@ -65,7 +86,11 @@ public class KafkaUtils {
     return new KafkaConsumer<>(consumerProps);
   }
 
-  private static Properties createProducerProps(Config config) {
+  //access set to package so unit tests can validate created properties without initializing a Producer
+  static Properties createProducerProps(Config config) {
+    if(config.hasPath("kafka.producerPropertyFile")) {
+      return loadExternalProps(config.getString("kafka.producerPropertyFile"));
+    }
     Properties producerProps = new Properties();
     producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     if (config.hasPath("kafka.securityProtocol")) {
@@ -80,8 +105,8 @@ public class KafkaUtils {
   public static KafkaProducer<String, Document> createDocumentProducer(Config config) {
     Properties producerProps = createProducerProps(config);
     String serializerClass = config.hasPath("kafka.documentSerializer")
-            ? config.getString("kafka.documentSerializer")
-            : KafkaDocumentSerializer.class.getName();
+      ? config.getString("kafka.documentSerializer")
+      : KafkaDocumentSerializer.class.getName();
     producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, serializerClass);
     return new KafkaProducer<>(producerProps);
   }
@@ -101,8 +126,8 @@ public class KafkaUtils {
 
   public static String getSourceTopicName(String pipelineName, Config config) {
     return config.hasPath("kafka.sourceTopic")
-            ? config.getString("kafka.sourceTopic")
-            : pipelineName + "_source";
+      ? config.getString("kafka.sourceTopic")
+      : pipelineName + "_source";
   }
 
   public static String getDestTopicName(String pipelineName) {
@@ -126,8 +151,15 @@ public class KafkaUtils {
     // multiple partitions could lead to events being received out of order which
     // could mean that child creation events arrive after parent completion events, which could
     // interfere with the publisher's logic for determining when the run is complete
-    Properties props = new Properties();
-    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+
+    Properties props;
+    if(config.hasPath("kafka.adminPropertyFile")) {
+      props = loadExternalProps(config.getString("kafka.adminPropertyFile"));
+    } else {
+      props = new Properties();
+      props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+    }
+
     try (Admin kafkaAdminClient = Admin.create(props)) {
       NewTopic eventTopic = new NewTopic(eventTopicName, 1, (short) 1);
       CreateTopicsResult result = kafkaAdminClient.createTopics(List.of(eventTopic), new CreateTopicsOptions());
