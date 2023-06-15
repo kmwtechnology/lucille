@@ -7,8 +7,6 @@ import org.apache.kafka.common.serialization.Serializer;
 
 public class KafkaDocumentSerializer implements Serializer<Document> {
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
-
   @Override
   public byte[] serialize(String topic, Document doc) {
     if (doc == null) {
@@ -16,7 +14,7 @@ public class KafkaDocumentSerializer implements Serializer<Document> {
     }
 
     try {
-      return MAPPER.writeValueAsBytes(doc);
+      return doc.writeAsBytes();
     } catch (Exception e) {
       throw new SerializationException("Error serializing document", e);
     }

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -120,8 +121,10 @@ public interface Document {
 
   int length(String name);
 
+  @JsonIgnore
   String getId();
 
+  @JsonIgnore
   String getRunId();
 
   boolean has(String name);
@@ -209,8 +212,10 @@ public interface Document {
 
   boolean hasChildren();
 
+  @JsonIgnore
   List<Document> getChildren();
 
+  @JsonIgnore
   Set<String> getFieldNames();
 
   boolean isDropped();
@@ -228,6 +233,9 @@ public interface Document {
   void removeDuplicateValues(String fieldName, String targetFieldName);
 
   Document deepCopy();
+
+  @JsonIgnore
+  byte[] writeAsBytes() throws Exception;
 
   /**
    * Returns an Iterator that contains only this document.

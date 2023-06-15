@@ -659,6 +659,11 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   @Override
+  public byte[] writeAsBytes() throws Exception {
+    return MAPPER.writeValueAsBytes(asMap());
+  }
+
+  @Override
   public String toString() {
     try {
       return MAPPER.writeValueAsString(asMap());

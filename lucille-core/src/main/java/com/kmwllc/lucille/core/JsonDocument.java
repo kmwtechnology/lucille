@@ -811,6 +811,11 @@ public class JsonDocument implements Document {
     }
   }
 
+  @Override
+  public byte[] writeAsBytes() throws Exception {
+    return MAPPER.writeValueAsBytes(data);
+  }
+
   private void validateNotReservedField(String name) throws IllegalArgumentException {
     if (RESERVED_FIELDS.contains(name)) {
       throw new IllegalArgumentException();
