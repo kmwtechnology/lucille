@@ -18,7 +18,7 @@ import java.util.concurrent.LinkedBlockingQueue;
  * elapsed since last add or flush. If a batch is expired,
  * it will be flushed during the next call to add() or flushIfExpired().
  */
-public class Batch {
+public class Batch implements IBatch {
 
   private final LinkedBlockingQueue<Document> queue;
   private final int timeout;
@@ -43,6 +43,7 @@ public class Batch {
    * and all of its contents will be returned. The newly added document will not
    * be returned but will be stored as the first element of the current batch.
    */
+  @Override
   public List<Document> add(Document doc) {
     List<Document> docs = new ArrayList<>();
 
@@ -64,6 +65,7 @@ public class Batch {
    * (i.e. if the configured timeout has been reached since the last add or flush).
    * Returns an empty list otherwise.
    */
+  @Override
   public List<Document> flushIfExpired() {
     return isExpired() ? flush() : new ArrayList();
   }
@@ -72,6 +74,7 @@ public class Batch {
    * Removes and returns all Documents in the current batch,
    * regardless of whether the batch is expired.
    */
+  @Override
   public List<Document> flush() {
     List<Document> docs = new ArrayList<>();
     queue.drainTo(docs);

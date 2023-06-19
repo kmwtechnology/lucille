@@ -15,9 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class SolrIndexer extends Indexer {
 
@@ -79,6 +77,10 @@ public class SolrIndexer extends Indexer {
       log.debug("sendToSolr bypassed for documents: " + documents);
       return;
     }
+    if(indexOverrideField != null) {
+      sendToIndices(documents);
+      return;
+    }
 
     List<SolrInputDocument> solrDocs = new ArrayList();
     for (Document doc : documents) {
@@ -111,8 +113,53 @@ public class SolrIndexer extends Indexer {
       addChildren(doc, solrDoc);
       solrDocs.add(solrDoc);
     }
-
     solrClient.add(solrDocs);
+  }
+
+  private void sendToIndices(List<Document> documents) throws Exception {
+    Map<String, List<SolrInputDocument>> solrDocsByCollection = new HashMap<>();
+    for(Document doc: documents) {
+      Map<String,Object> map = getIndexerDoc(doc);
+      SolrInputDocument solrDoc = new SolrInputDocument();
+      // if an id override field has been specified, use its value as the id to send to solr, instead
+      // of the document's own id
+      String idOverride = getDocIdOverride(doc);
+
+      for (String key : map.keySet()) {
+
+        if (Document.CHILDREN_FIELD.equals(key)) {
+          continue;
+        }
+
+        if (idOverride!=null && Document.ID_FIELD.equals(key)) {
+          solrDoc.setField(Document.ID_FIELD, idOverride);
+          continue;
+        }
+
+        Object value = map.get(key);
+        if(value instanceof Map) {
+          throw new IndexerException(String.format("Object field '%s' on document id=%s is not supported by the SolrIndexer.", key, doc.getId()));
+        }
+        solrDoc.setField(key,value);
+      }
+      addChildren(doc, solrDoc);
+      String docIndex = doc.getString(indexOverrideField);
+      if(solrDocsByCollection.containsKey(docIndex)) {
+        solrDocsByCollection.get(docIndex).add(solrDoc);
+      } else {
+        List<SolrInputDocument> solrDocs = new LinkedList<>();
+        solrDocsByCollection.put(docIndex, solrDocs);
+        solrDocs.add(solrDoc);
+      }
+    }
+    for(String collection: solrDocsByCollection.keySet()) {
+      List<SolrInputDocument> solrDocs = solrDocsByCollection.get(collection);
+      if(collection == null) {
+        solrClient.add(solrDocs);
+      } else {
+        solrClient.add(collection, solrDocs);
+      }
+    }
   }
 
   private void addChildren(Document doc, SolrInputDocument solrDoc) throws IndexerException {
