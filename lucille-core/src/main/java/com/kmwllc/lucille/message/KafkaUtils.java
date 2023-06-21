@@ -68,6 +68,7 @@ public class KafkaUtils {
     consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
     consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,  StringDeserializer.class.getName());
+    consumerProps.put(ConsumerConfig.METADATA_MAX_AGE_CONFIG, 30000);
     return consumerProps;
   }
 

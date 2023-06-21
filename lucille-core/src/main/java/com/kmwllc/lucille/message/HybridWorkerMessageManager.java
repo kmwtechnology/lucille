@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.regex.Pattern;
 
 public class HybridWorkerMessageManager implements WorkerMessageManager {
 
@@ -51,7 +52,8 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
     // with the same client ID are started in separate worker threads
     String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
     KafkaConsumer consumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
-    consumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName, config)));
+    consumer.subscribe(Pattern.compile(KafkaUtils.getSourceTopicName(pipelineName, config)));
+
     return consumer;
   }
 
