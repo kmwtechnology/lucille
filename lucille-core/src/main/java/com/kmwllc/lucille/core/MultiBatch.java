@@ -10,7 +10,7 @@ public class MultiBatch implements Batch {
   private final String indexField;
 
   public MultiBatch(int capacity, int timeout, String indexField){
-    this.batches = Collections.synchronizedMap(new HashMap<>());
+    this.batches = new HashMap<>();
     this.capacity = capacity;
     this.timeout = timeout;
     this.indexField = indexField;
@@ -20,14 +20,14 @@ public class MultiBatch implements Batch {
   public List<Document> add(Document doc) {
     String index = doc.getString(this.indexField);
     Batch batch;
-    synchronized (batches) {
-      if (batches.containsKey(index)) {
-        batch = batches.get(index);
-      } else {
-        batch = new SingleBatch(capacity, timeout);
-        batches.put(index, batch);
-      }
+
+    if (batches.containsKey(index)) {
+      batch = batches.get(index);
+    } else {
+      batch = new SingleBatch(capacity, timeout);
+      batches.put(index, batch);
     }
+
     return batch.add(doc);
   }
 
