@@ -112,6 +112,7 @@ public class MultiBatchTest {
     assertEquals(1, docs.size());
     assertEquals("doc2", docs.get(0).getId());
   }
+
   /**
    * Test that documents are returned if one of the batches is full. Only the full batch should return docs.
    */

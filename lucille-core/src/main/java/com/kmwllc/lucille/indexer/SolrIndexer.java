@@ -77,7 +77,7 @@ public class SolrIndexer extends Indexer {
       log.debug("sendToSolr bypassed for documents: " + documents);
       return;
     }
-    if(indexOverrideField != null) {
+    if (indexOverrideField != null) {
       sendToIndices(documents);
       return;
     }
@@ -104,7 +104,7 @@ public class SolrIndexer extends Indexer {
         }
 
         Object value = map.get(key);
-        if(value instanceof Map) {
+        if (value instanceof Map) {
           throw new IndexerException(String.format("Object field '%s' on document id=%s is not supported by the SolrIndexer.", key, doc.getId()));
         }
         solrDoc.setField(key,value);
@@ -118,7 +118,7 @@ public class SolrIndexer extends Indexer {
 
   private void sendToIndices(List<Document> documents) throws Exception {
     Map<String, List<SolrInputDocument>> solrDocsByCollection = new HashMap<>();
-    for(Document doc: documents) {
+    for (Document doc: documents) {
       Map<String,Object> map = getIndexerDoc(doc);
       SolrInputDocument solrDoc = new SolrInputDocument();
       // if an id override field has been specified, use its value as the id to send to solr, instead
@@ -144,7 +144,7 @@ public class SolrIndexer extends Indexer {
       }
       addChildren(doc, solrDoc);
       String docIndex = doc.getString(indexOverrideField);
-      if(solrDocsByCollection.containsKey(docIndex)) {
+      if (solrDocsByCollection.containsKey(docIndex)) {
         solrDocsByCollection.get(docIndex).add(solrDoc);
       } else {
         List<SolrInputDocument> solrDocs = new LinkedList<>();
@@ -152,7 +152,7 @@ public class SolrIndexer extends Indexer {
         solrDocs.add(solrDoc);
       }
     }
-    for(String collection: solrDocsByCollection.keySet()) {
+    for (String collection: solrDocsByCollection.keySet()) {
       List<SolrInputDocument> solrDocs = solrDocsByCollection.get(collection);
       if(collection == null) {
         solrClient.add(solrDocs);
