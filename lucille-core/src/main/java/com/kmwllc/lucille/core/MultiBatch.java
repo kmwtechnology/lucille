@@ -1,10 +1,9 @@
 package com.kmwllc.lucille.core;
 
-import java.time.Instant;
 import java.util.*;
 
-public class MultiBatch implements IBatch {
-  private final Map<String, IBatch> batches;
+public class MultiBatch implements Batch {
+  private final Map<String, Batch> batches;
 
   private final int capacity;
   private final int timeout;
@@ -20,12 +19,12 @@ public class MultiBatch implements IBatch {
   @Override
   public List<Document> add(Document doc) {
     String index = doc.getString(this.indexField);
-    IBatch batch;
+    Batch batch;
     synchronized (batches) {
       if (batches.containsKey(index)) {
         batch = batches.get(index);
       } else {
-        batch = new Batch(capacity, timeout);
+        batch = new SingleBatch(capacity, timeout);
         batches.put(index, batch);
       }
     }
@@ -35,7 +34,7 @@ public class MultiBatch implements IBatch {
   @Override
   public List<Document> flushIfExpired() {
     List<Document> flushedDocs = new LinkedList<>();
-    for(IBatch batch : batches.values()) {
+    for(Batch batch : batches.values()) {
       flushedDocs.addAll(batch.flushIfExpired());
     }
     return flushedDocs;
@@ -44,7 +43,7 @@ public class MultiBatch implements IBatch {
   @Override
   public List<Document> flush() {
     List<Document> flushedDocs = new LinkedList<>();
-    for(IBatch batch : batches.values()) {
+    for(Batch batch : batches.values()) {
       flushedDocs.addAll(batch.flush());
     }
     return flushedDocs;

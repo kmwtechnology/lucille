@@ -8,14 +8,14 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-public class BatchTest {
+public class SingleBatchTest {
 
   /**
    * Test adding a single document to a batch and retrieving it by flushing the whole batch.
    */
   @Test
   public void testSimpleAdd() {
-    Batch batch = new Batch(100, 100);
+    SingleBatch batch = new SingleBatch(100, 100);
     Document doc = Document.create("doc");
     List<Document> docs = batch.add(doc);
     assertTrue(docs.isEmpty());
@@ -29,7 +29,7 @@ public class BatchTest {
    */
   @Test
   public void testSeveralAdd() {
-    Batch batch = new Batch(100, 1000);
+    SingleBatch batch = new SingleBatch(100, 1000);
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
     Document doc3 = Document.create("doc3");
@@ -53,7 +53,7 @@ public class BatchTest {
    */
   @Test
   public void testFullBatch() {
-    Batch batch = new Batch(1, 1000);
+    SingleBatch batch = new SingleBatch(1, 1000);
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
 
@@ -72,7 +72,7 @@ public class BatchTest {
    */
   @Test(expected = NullPointerException.class)
   public void testSupplyNull() {
-    Batch batch = new Batch(100, 1000);
+    SingleBatch batch = new SingleBatch(100, 1000);
     batch.add(null);
   }
 
@@ -83,7 +83,7 @@ public class BatchTest {
    */
   @Test
   public void testTimeout() throws InterruptedException {
-    Batch batch = new Batch(100, 10);
+    SingleBatch batch = new SingleBatch(100, 10);
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
     Document doc3 = Document.create("doc3");
@@ -111,7 +111,7 @@ public class BatchTest {
    */
   @Test
   public void testNonTimeout() throws InterruptedException {
-    Batch batch = new Batch(100, 100000);
+    SingleBatch batch = new SingleBatch(100, 100000);
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
     Document doc3 = Document.create("doc3");

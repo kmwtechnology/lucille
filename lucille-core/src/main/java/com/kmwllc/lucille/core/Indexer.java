@@ -24,7 +24,7 @@ public abstract class Indexer implements Runnable {
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
 
   private final IndexerMessageManager manager;
-  private final IBatch batch;
+  private final Batch batch;
 
   private volatile boolean running = true;
 
@@ -53,7 +53,7 @@ public abstract class Indexer implements Runnable {
     this.ignoreFields = config.hasPath("indexer.ignoreFields") ? config.getStringList("indexer.ignoreFields") : null;
     int batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : DEFAULT_BATCH_SIZE;
     int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
-    this.batch = (indexOverrideField == null) ? new Batch(batchSize, batchTimeout) : new MultiBatch(batchSize, batchTimeout, indexOverrideField);
+    this.batch = (indexOverrideField == null) ? new SingleBatch(batchSize, batchTimeout) : new MultiBatch(batchSize, batchTimeout, indexOverrideField);
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     this.stopWatch = new StopWatch();
