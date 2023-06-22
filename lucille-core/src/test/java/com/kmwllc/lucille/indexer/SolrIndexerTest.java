@@ -16,8 +16,7 @@ import org.hamcrest.MatcherAssert;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.*;
@@ -208,6 +207,66 @@ public class SolrIndexerTest {
     assertEquals(1, events.size());
     assertEquals("doc1", events.get(0).getDocumentId());
     assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  @Test
+  public void testSolrIndexerWithMultipleCollections() throws Exception {
+    Config config = ConfigFactory.empty()
+      .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1))
+      .withValue("indexer.indexOverrideField", ConfigValueFactory.fromAnyRef("collection"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    Document doc1 = Document.create("doc1", "test_run");
+    doc1.addToField("collection", "col1");
+    Document doc2 = Document.create("doc2", "test_run");
+    doc2.addToField("collection", "col2");
+    Document doc3 = Document.create("doc3", "test_run");
+    doc3.addToField("collection", "col1");
+    Document doc4 = Document.create("doc4", "test_run");
+    doc4.addToField("collection", "col2");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(doc1);
+    manager.sendCompleted(doc2);
+    manager.sendCompleted(doc3);
+    manager.sendCompleted(doc4);
+    indexer.run(4);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor =
+      ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<String> colCaptor =
+      ArgumentCaptor.forClass(String.class);
+    verify(solrClient, times(4)).add(colCaptor.capture(), captor.capture());
+    verify(solrClient, times(1)).close();
+    assertEquals(4, captor.getAllValues().size());
+
+
+    // confirm that docs are sent to the correct collection
+    Map<String, List<SolrInputDocument>> collectionDocs = new HashMap<>();
+
+    List<Event> events = manager.getSavedEvents();
+    for(int i = 0; i < 4; i++) {
+      SolrInputDocument sDoc = captor.getAllValues().get(i).stream().findFirst().get();
+      String collection = colCaptor.getAllValues().get(i);
+      if(collectionDocs.containsKey(collection)) {
+        collectionDocs.get(collection).add(sDoc);
+      } else {
+        List<SolrInputDocument> cDocs = new ArrayList<>();
+        cDocs.add(sDoc);
+        collectionDocs.put(collection, cDocs);
+      }
+      //events from different batches can arrive out of order but events from the same batch/collection should arrive in the same order.
+      assertEquals(events.get(i).getDocumentId(), sDoc.getFieldValue(Document.ID_FIELD));
+      assertEquals(Event.Type.FINISH, events.get(0).getType());
+    }
+    assertEquals(2, collectionDocs.size());
+    assertEquals(2, collectionDocs.get("col1").size());
+    assertEquals("doc1", collectionDocs.get("col1").get(0).getFieldValue(Document.ID_FIELD));
+    assertEquals("doc3", collectionDocs.get("col1").get(1).getFieldValue(Document.ID_FIELD));
+    assertEquals(2, collectionDocs.get("col2").size());
+    assertEquals("doc2", collectionDocs.get("col2").get(0).getFieldValue(Document.ID_FIELD));
+    assertEquals("doc4", collectionDocs.get("col2").get(1).getFieldValue(Document.ID_FIELD));
   }
 
   @Test
