@@ -6,18 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 
-/**
- * Represents a reusable "batch" that can be filled with Documents.
- *
- * Once the batch has reached a configured capacity, the next call
- * to add() will flush the batch and return all the Documents it contained.
- * The new Document will not be included in the return value but will
- * be stored as the new first element of the batch.
- *
- * A batch is considered to be "expired" if a configured timeout has
- * elapsed since last add or flush. If a batch is expired,
- * it will be flushed during the next call to add() or flushIfExpired().
- */
+
 public class SingleBatch implements Batch {
 
   private final LinkedBlockingQueue<Document> queue;
