@@ -37,12 +37,7 @@ public class SingleBatch implements Batch {
     this.lastAddOrFlushInstant = Instant.now();
   }
 
-  /**
-   * Adds a Document to the Batch.
-   * If the batch has reached its capacity or if it is expired, it will be flushed
-   * and all of its contents will be returned. The newly added document will not
-   * be returned but will be stored as the first element of the current batch.
-   */
+
   @Override
   public List<Document> add(Document doc) {
     List<Document> docs = new ArrayList<>();
@@ -60,20 +55,13 @@ public class SingleBatch implements Batch {
     return docs;
   }
 
-  /**
-   * Removes and returns all Documents in the current batch if the batch is expired
-   * (i.e. if the configured timeout has been reached since the last add or flush).
-   * Returns an empty list otherwise.
-   */
+
   @Override
   public List<Document> flushIfExpired() {
     return isExpired() ? flush() : new ArrayList();
   }
 
-  /**
-   * Removes and returns all Documents in the current batch,
-   * regardless of whether the batch is expired.
-   */
+
   @Override
   public List<Document> flush() {
     List<Document> docs = new ArrayList<>();

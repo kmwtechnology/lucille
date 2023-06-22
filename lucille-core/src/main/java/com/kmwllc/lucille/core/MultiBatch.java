@@ -9,6 +9,16 @@ public class MultiBatch implements Batch {
   private final int timeout;
   private final String indexField;
 
+  /**
+   * Represents a reusable "batch" of "batches" that can be filled with Documents.
+   *
+   * The Documents are placed in separate underlying batches determined by the value of the
+   * 'indexField' on each document.
+   *
+   * A batch is considered to be "expired" if a configured timeout has
+   * elapsed since last add or flush. If any of the underlying batches are expired,
+   * it will be flushed during the next call to add() or flushIfExpired().
+   */
   public MultiBatch(int capacity, int timeout, String indexField){
     this.batches = new HashMap<>();
     this.capacity = capacity;
