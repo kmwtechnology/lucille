@@ -387,6 +387,37 @@ public class SolrIndexerTest {
       Event.Type.FAIL, equalTo(events.get(0).getType()));
   }
 
+  /**
+   * Tests that the indexer correctly handles indexer.indexOverrideField
+   */
+  @Test
+  public void testIndexOverrideField() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1))
+      .withValue("indexer.indexOverrideField", ConfigValueFactory.fromAnyRef("index"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("index", "collection1");
+    Document doc2 = Document.create("doc2", "test_run");
+    doc2.setField("index", "collection2");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(doc);
+    manager.sendCompleted(doc2);
+    indexer.run(2);
+
+    ArgumentCaptor<String> indexCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> docCaptor = ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(2)).add(indexCaptor.capture(), docCaptor.capture());
+    verify(solrClient, times(1)).close();
+    assertEquals(2, docCaptor.getAllValues().size());
+    assertEquals(doc.getId(), ((SolrInputDocument)docCaptor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
+    assertEquals("collection1", indexCaptor.getAllValues().get(0));
+    assertEquals(doc2.getId(), ((SolrInputDocument)docCaptor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
+    assertEquals("collection2", indexCaptor.getAllValues().get(1));
+  }
+
   private static class ErroringIndexer extends SolrIndexer {
 
     public ErroringIndexer(Config config, IndexerMessageManager manager, boolean bypass) {
