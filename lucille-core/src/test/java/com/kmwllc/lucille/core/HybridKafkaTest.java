@@ -301,6 +301,82 @@ public class HybridKafkaTest {
 
   }
 
+  @Test
+  public void testSourceTopicWildcard() throws Exception {
+    // sourceTopic: "test_topic.*"
+    Config config = ConfigFactory.load("HybridKafkaTest/sourceTopicWildcard.conf");
+
+    kafka.createTopic(TopicConfig.withName("test_topic1").withNumberOfPartitions(1));
+    kafka.createTopic(TopicConfig.withName("test_topic2").withNumberOfPartitions(1));
+
+    sendDoc("doc1", "test_topic1");
+    sendDoc("doc2", "test_topic2");
+
+    WorkerIndexer workerIndexer = new WorkerIndexer();
+
+    RecordingLinkedBlockingQueue<Document> pipelineDest =
+      new RecordingLinkedBlockingQueue<>();
+
+    RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
+      new RecordingLinkedBlockingQueue<>();
+
+    Set<String> idSet = CounterUtils.getThreadSafeSet();
+    workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true, idSet);
+
+    CounterUtils.waitUnique(idSet, 2, 20000, CounterUtils.DEFAULT_END_LAG_MS);
+
+    kafka.createTopic(TopicConfig.withName("test_topic3").withNumberOfPartitions(1));
+    kafka.createTopic(TopicConfig.withName("test_topic4").withNumberOfPartitions(1));
+    sendDoc("doc3", "test_topic3");
+    sendDoc("doc4", "test_topic4");
+
+    // send a second doc to test_topic3
+    sendDoc("doc5", "test_topic3");
+
+    CounterUtils.waitUnique(idSet, 5, 3 * 60 * 1000, CounterUtils.DEFAULT_END_LAG_MS);
+
+    workerIndexer.stop();
+
+    // confirm that the consumer group is looking at the correct offset in each topic
+    Properties props = new Properties();
+    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+    Admin kafkaAdminClient = Admin.create(props);
+    Map<TopicPartition, OffsetAndMetadata> retrievedOffsets =
+      kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
+        .partitionsToOffsetAndMetadata().get();
+    TopicPartition sourceTopicPartition1 = new TopicPartition("test_topic1",0);
+    assertNotNull(retrievedOffsets.get(sourceTopicPartition1));
+    assertEquals(1, retrievedOffsets.get(sourceTopicPartition1).offset());
+    TopicPartition sourceTopicPartition2 = new TopicPartition("test_topic2",0);
+    assertNotNull(retrievedOffsets.get(sourceTopicPartition2));
+    assertEquals(1, retrievedOffsets.get(sourceTopicPartition2).offset());
+    TopicPartition sourceTopicPartition3 = new TopicPartition("test_topic3",0);
+    assertNotNull(retrievedOffsets.get(sourceTopicPartition3));
+    assertEquals(2, retrievedOffsets.get(sourceTopicPartition3).offset());
+    TopicPartition sourceTopicPartition4  = new TopicPartition("test_topic4",0);
+    assertNotNull(retrievedOffsets.get(sourceTopicPartition4));
+    assertEquals(1, retrievedOffsets.get(sourceTopicPartition4).offset());
+
+    // pipelineDest and offset queues should have been drained
+    assertEquals(0, pipelineDest.size());
+    assertEquals(0, offsets.size());
+
+    // five docs should have been added to pipelineDest queue
+    assertEquals(5, pipelineDest.getHistory().size());
+
+    // we should have committed one offset map for the first two topics
+    // and a second offset map for the reamining two topics which were created later
+    assertEquals(2, offsets.getHistory().size());
+    assertEquals(2, offsets.getHistory().get(0).entrySet().size());
+    assertEquals(2, offsets.getHistory().get(1).entrySet().size());
+
+    assertEquals(1, offsets.getHistory().get(0).get(sourceTopicPartition1).offset());
+    assertEquals(1, offsets.getHistory().get(0).get(sourceTopicPartition2).offset());
+    assertEquals(2, offsets.getHistory().get(1).get(sourceTopicPartition3).offset());
+    assertEquals(1, offsets.getHistory().get(1).get(sourceTopicPartition4).offset());
+
+  }
+
   private Document sendDoc(String id, String topic) throws Exception {
     return sendDoc(id, null, topic);
   }
