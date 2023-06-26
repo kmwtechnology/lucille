@@ -145,7 +145,7 @@ public class SolrIndexer extends Indexer {
     }
     for (String collection: solrDocsByCollection.keySet()) {
       List<SolrInputDocument> solrDocs = solrDocsByCollection.get(collection);
-      if(collection == null) {
+      if (collection == null) {
         solrClient.add(solrDocs);
       } else {
         solrClient.add(collection, solrDocs);
@@ -167,7 +167,7 @@ public class SolrIndexer extends Indexer {
           continue;
         }
         Object value = map.get(key);
-        if(value instanceof Map) {
+        if (value instanceof Map) {
           throw new IndexerException(String.format("Object field '%s' on child document id=%s of document id=%s is not supported by the SolrIndexer.", key, child.getId(), doc.getId()));
         }
         solrChild.setField(key,value);
