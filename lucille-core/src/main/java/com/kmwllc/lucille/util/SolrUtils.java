@@ -39,7 +39,11 @@ public class SolrUtils {
   public static SolrClient getSolrClient(Config config) {
     SSLUtils.setSSLSystemProperties(config);
     if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
-      return requiresAuth(config) ? new CloudSolrClient.Builder(getSolrUrls(config)).withHttpClient(getHttpClient(config)).build() : new CloudSolrClient.Builder(getSolrUrls(config)).build();
+      CloudSolrClient cloudSolrClient = requiresAuth(config) ? new CloudSolrClient.Builder(getSolrUrls(config)).withHttpClient(getHttpClient(config)).build() : new CloudSolrClient.Builder(getSolrUrls(config)).build();
+      if(config.hasPath("defaultCollection")) {
+        cloudSolrClient.setDefaultCollection(config.getString("defaultCollection"));
+      }
+      return  cloudSolrClient;
     } else {
       return requiresAuth(config) ? new HttpSolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build() : new HttpSolrClient.Builder(getSolrUrl(config)).build();
     }

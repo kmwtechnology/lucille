@@ -9,8 +9,12 @@ import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.impl.CloudSolrClient;
+import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.common.util.NamedList;
+import org.apache.solr.common.util.SimpleOrderedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
@@ -39,6 +43,27 @@ public class SolrIndexer extends Indexer {
   @Override
   public boolean validateConnection() {
     if (solrClient==null) {
+      return true;
+    }
+    if (solrClient instanceof CloudSolrClient && ((CloudSolrClient)solrClient).getDefaultCollection() == null) {
+      //If we are indexing to multiple collections with the CloudSolrClient and the default collection is not set then
+      //we can't use ping. Instead, verify that we can connect to the cluster.
+      NamedList response;
+      try {
+        response = solrClient.request(new CollectionAdminRequest.ClusterStatus());
+      } catch (Exception e) {
+        log.error("Couldn't ping Solr ", e);
+        return false;
+      }
+      if (response==null) {
+        log.error("Null response when pinging solr");
+        return false;
+      }
+      Integer status = (Integer)((SimpleOrderedMap)response.get("responseHeader")).get("status");
+      if (status != 0) {
+        log.error("Non zero response when pinging solr: " + status);
+        return false;
+      }
       return true;
     }
     SolrPingResponse response;
