@@ -82,7 +82,7 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
     if (kafkaEventProducer == null) {
       return;
     }
-    Event event = new Event(document.getId(), document.getRunId(), message, type);
+    Event event = new Event(document, message, type);
     sendEvent(event);
   }
 
