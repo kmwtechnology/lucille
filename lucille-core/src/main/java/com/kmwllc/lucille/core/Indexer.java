@@ -195,6 +195,17 @@ public abstract class Indexer implements Runnable {
     return null;
   }
 
+  /**
+   * Returns the index that should be the destination for the given doc, in place of the default index.
+   * Returns null if no index override should be applied for the given document.
+   */
+  protected String getIndexOverride(Document doc) {
+    if (indexOverrideField!=null && doc.has(indexOverrideField)) {
+      return doc.getString(indexOverrideField);
+    }
+    return null;
+  }
+
   protected Map<String, Object> getIndexerDoc(Document doc) {
     Map<String, Object> indexerDoc = doc.asMap();
     if (ignoreFields != null) {

@@ -113,6 +113,10 @@ public class SolrIndexer extends Indexer {
       // of the document's own id
       String idOverride = getDocIdOverride(doc);
 
+      // if an index override field has been specified, use its value as the solr collection to send the document to,
+      // instead of the default collection. Remove the field from the solr document.
+      String indexOverride = getIndexOverride(doc);
+
       for (String key : map.keySet()) {
 
         if (Document.CHILDREN_FIELD.equals(key)) {
@@ -124,6 +128,14 @@ public class SolrIndexer extends Indexer {
           continue;
         }
 
+        if (indexOverrideField != null && indexOverride != null && indexOverrideField.equals(key)) {
+          //do not add the indexOverrideField to the solr document
+          continue;
+        }
+
+
+
+
         Object value = map.get(key);
         if (value instanceof Map) {
           throw new IndexerException(String.format("Object field '%s' on document id=%s is not supported by the SolrIndexer.", key, doc.getId()));
@@ -133,13 +145,11 @@ public class SolrIndexer extends Indexer {
 
       addChildren(doc, solrDoc);
 
-      //null docIndex indicates that the document will be indexed in the default collection of the SolrClient.
-      String docIndex = indexOverrideField != null ? doc.getString(indexOverrideField) : null;
-      if (solrDocsByCollection.containsKey(docIndex)) {
-        solrDocsByCollection.get(docIndex).add(solrDoc);
+      if (solrDocsByCollection.containsKey(indexOverride)) {
+        solrDocsByCollection.get(indexOverride).add(solrDoc);
       } else {
         List<SolrInputDocument> solrDocs = new LinkedList<>();
-        solrDocsByCollection.put(docIndex, solrDocs);
+        solrDocsByCollection.put(indexOverride, solrDocs);
         solrDocs.add(solrDoc);
       }
     }
