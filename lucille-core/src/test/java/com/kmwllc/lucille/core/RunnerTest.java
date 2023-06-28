@@ -16,6 +16,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -28,9 +30,11 @@ import static org.mockito.Mockito.*;
 
 @RunWith(JUnit4.class)
 public class RunnerTest {
+  Logger log = LoggerFactory.getLogger(RunnerTest.class);
 
   @Test
   public void testRunnerWithNoDocs() throws Exception {
+    log.debug("testRunnerWithNoDocs start");
     // we should be able to run a connector that generates no documents
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/noDocs.conf");
     assertEquals(1, map.size());
@@ -44,6 +48,7 @@ public class RunnerTest {
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
+    log.debug("testRunnerWithNoDocs stop");
   }
 
   /**
@@ -51,7 +56,7 @@ public class RunnerTest {
    */
   @Test
   public void testRunnerWithSingleDoc() throws Exception {
-
+    log.debug("testRunnerWithSingleDoc start");
     // run connectors and pipeline; acquire a persisting message manager that allows
     // for reviewing saved message traffic
     PersistingLocalMessageManager manager =
@@ -84,6 +89,7 @@ public class RunnerTest {
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
+    log.debug("testRunnerWithSingleDoc stop");
   }
 
   /**
@@ -93,7 +99,7 @@ public class RunnerTest {
    */
   @Test
   public void testRunnerWithFailingDoc() throws Exception {
-
+    log.debug("testRunnerWithFailingDoc start");
     // run connectors and pipeline; acquire a persisting message manager that allows
     // for reviewing saved message traffic
     PersistingLocalMessageManager manager =
@@ -132,6 +138,7 @@ public class RunnerTest {
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
+    log.debug("testRunnerWithFailingDoc stop");
   }
 
   /**
@@ -140,7 +147,7 @@ public class RunnerTest {
    */
   @Test
   public void testRunnerTimeout() throws Exception {
-
+    log.debug("testRunnerTimeout start");
     Config config = ConfigFactory.load("RunnerTest/singleDocTimeout.conf");
     Connector connector = Connector.fromConfig(config).get(0);
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
@@ -151,6 +158,7 @@ public class RunnerTest {
 
     assertFalse(result);
     assertTrue(ChronoUnit.SECONDS.between(start, end) < 10);
+    log.debug("testRunnerTimeout stop");
   }
 
   /**
@@ -159,7 +167,7 @@ public class RunnerTest {
    */
   @Test
   public void testChildHandling() throws Exception {
-
+    log.debug("testChildHandling start");
     PersistingLocalMessageManager manager =
       Runner.runInTestMode("RunnerTest/singleDocSingleChild.conf").get("connector1");;
 
@@ -191,6 +199,7 @@ public class RunnerTest {
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
+    log.debug("testChildHandling stop");
   }
 
   /**
@@ -199,7 +208,7 @@ public class RunnerTest {
    */
   @Test
   public void testDropDocument() throws Exception {
-
+    log.debug("testDropDocument start");
     PersistingLocalMessageManager manager =
       Runner.runInTestMode("RunnerTest/twoChildrenDropParent.conf").get("connector1");;
 
@@ -245,6 +254,7 @@ public class RunnerTest {
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
+    log.debug("testDropDocument stop");
   }
 
   /**
@@ -254,7 +264,7 @@ public class RunnerTest {
    */
   @Test
   public void testDropChildDocument() throws Exception {
-
+    log.debug("testDropChildDocument start");
     PersistingLocalMessageManager manager =
       Runner.runInTestMode("RunnerTest/threeChildrenDropMiddle.conf").get("connector1");;
 
@@ -295,6 +305,7 @@ public class RunnerTest {
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
+    log.debug("testDropChildDocument stop");
   }
 
   /**
@@ -303,7 +314,7 @@ public class RunnerTest {
    */
   @Test
   public void testErrorGeneratingChildren() throws Exception {
-
+    log.debug("testErrorGeneratingChildren start");
     PersistingLocalMessageManager manager =
       Runner.runInTestMode("RunnerTest/failAfterTwoChildren.conf").get("connector1");;
 
@@ -345,6 +356,7 @@ public class RunnerTest {
     assertNull(manager.pollCompleted());
     assertNull(manager.pollDocToProcess());
     assertNull(manager.pollEvent());
+    log.debug("testErrorGeneratingChildren stop");
   }
 
   /**
@@ -352,6 +364,7 @@ public class RunnerTest {
    */
   @Test
   public void testTwoConnectors() throws Exception {
+    log.debug("testTwoConnectors start");
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/twoConnectors.conf");
 
     assertEquals(2, map.size());
@@ -398,6 +411,7 @@ public class RunnerTest {
     assertNull(manager2.pollCompleted());
     assertNull(manager2.pollDocToProcess());
     assertNull(manager2.pollEvent());
+    log.debug("testTwoConnectors stop");
   }
 
   /**
@@ -406,13 +420,16 @@ public class RunnerTest {
    */
   @Test
   public void testThreeConnectorsWithFailure() throws Exception {
+    log.debug("testThreeConnectorsWithFailure start");
     Map<String, PersistingLocalMessageManager> map =
       Runner.runInTestMode("RunnerTest/threeConnectorsWithFailure.conf");
     assertEquals(2, map.size());
+    log.debug("testThreeConnectorsWithFailure stop");
   }
 
   @Test
   public void testRunStatus() throws Exception {
+    log.debug("testRunStatus start");
     // successful run
     RunResult result =
       Runner.run(ConfigFactory.load("RunnerTest/singleDoc.conf"), Runner.RunType.TEST);
@@ -427,6 +444,7 @@ public class RunnerTest {
     result =
       Runner.run(ConfigFactory.load("RunnerTest/threeConnectorsWithFailure.conf"), Runner.RunType.TEST);
     assertFalse(result.getStatus());
+    log.debug("testRunStatus stop");
   }
 
   /**
@@ -437,9 +455,11 @@ public class RunnerTest {
    */
   @Test
   public void testThreeConnectorsWithStageStartFailure() throws Exception {
+    log.debug("testThreeConnectorsWithStageStartFailure start");
     Map<String, PersistingLocalMessageManager> map =
       Runner.runInTestMode("RunnerTest/threeConnectorsWithStageStartFailure.conf");
     assertEquals(2, map.size());
+    log.debug("testThreeConnectorsWithStageStartFailure stop");
   }
 
   /**
@@ -447,6 +467,7 @@ public class RunnerTest {
    */
   @Test
   public void testPostCompletionActions() throws Exception {
+    log.debug("testPostCompletionActions start");
     PostCompletionCSVConnector.reset();
     PersistingLocalMessageManager manager = Runner.runInTestMode("RunnerTest/postCompletionActions.conf").get("connector1");
     assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
@@ -454,6 +475,7 @@ public class RunnerTest {
     Instant stageInstant = Instant.parse(docs.get(0).getString("timestamp"));
     Instant postCompletionInstant = PostCompletionCSVConnector.getPostCompletionInstant();
     assertTrue(postCompletionInstant.isAfter(stageInstant));
+    log.debug("testPostCompletionActions stop");
   }
 
   /**
@@ -461,10 +483,12 @@ public class RunnerTest {
    */
   @Test
   public void testPostCompletionActionsWithoutPipeline() throws Exception {
+    log.debug("testPostCompletionActionsWithoutPipeline start");
     PostCompletionCSVConnector.reset();
     PersistingLocalMessageManager manager =
       Runner.runInTestMode("RunnerTest/postCompletionActionsWithoutPipeline.conf").get("connector1");
     assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
+    log.debug("testPostCompletionActionsWithoutPipeline stop");
   }
 
   /**
@@ -472,8 +496,10 @@ public class RunnerTest {
    */
   @Test
   public void testFailingPreCompletionActions() throws Exception {
+    log.debug("testFailingPreCompletionActions start");
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/failingPreCompletionActions.conf");
     assertEquals(2, map.size());
+    log.debug("testFailingPreCompletionActions stop");
   }
 
   /**
@@ -481,13 +507,15 @@ public class RunnerTest {
    */
   @Test
   public void testFailingPostCompletionActions() throws Exception {
+    log.debug("testFailingPostCompletionActions start");
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/failingPostCompletionActions.conf");
     assertEquals(2, map.size());
+    log.debug("testFailingPostCompletionActions stop");
   }
 
   @Test
   public void testLifecycleMethods() throws Exception {
-
+    log.debug("testLifecycleMethods start");
     // preExecute(), execute(), postExecute(), and close() should be called when running a connector
     NoOpConnector connector = mock(NoOpConnector.class);
     PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
@@ -500,11 +528,12 @@ public class RunnerTest {
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
     verify(manager, times(1)).close();
+    log.debug("testLifecycleMethods stop");
   }
 
     @Test
     public void testLifecycleMethodsWithPreExecuteException() throws Exception {
-
+      log.debug("testLifecycleMethodsWithPreExecuteException start");
       // if preExecute() throws an exception, execute() and postExecute() should not be called, but close() should be
       NoOpConnector connector = mock(NoOpConnector.class);
       PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
@@ -518,11 +547,12 @@ public class RunnerTest {
       verify(connector, times(1)).close();
       verify(publisher, times(1)).close();
       verify(manager, times(1)).close();
+      log.debug("testLifecycleMethodsWithPreExecuteException stop");
     }
 
   @Test
   public void testLifecycleMethodsWithExecuteException() throws Exception {
-
+    log.debug("testLifecycleMethodsWithExecuteException start");
     // if execute() throws an exception, postExecute() should not be called, but close() should be
     NoOpConnector connector = mock(NoOpConnector.class);
     PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
@@ -536,11 +566,12 @@ public class RunnerTest {
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
     verify(manager, times(1)).close();
+    log.debug("testLifecycleMethodsWithExecuteException stop");
   }
 
   @Test
   public void testLifecycleMethodsWithPostExecuteException() throws Exception {
-
+    log.debug("testLifecycleMethodsWithPostExecuteException start");
     // if postExecute() throws an exception, close() should still be called
     NoOpConnector connector = mock(NoOpConnector.class);
     PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
@@ -554,6 +585,7 @@ public class RunnerTest {
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
     verify(manager, times(1)).close();
+    log.debug("testLifecycleMethodsWithPostExecuteException stop");
   }
 
   /**
@@ -561,13 +593,16 @@ public class RunnerTest {
    */
   @Test
   public void testCustomRunSummaryMessage() throws Exception {
+    log.debug("testCustomRunSummaryMessage start");
     RunResult result =
       Runner.run(ConfigFactory.load("RunnerTest/runSummaryMessage.conf"), Runner.RunType.TEST);
     assertTrue(result.toString().contains(RunSummaryMessageConnector.MESSAGE));
+    log.debug("testCustomRunSummaryMessage stop");
   }
 
   @Test
   public void testPublisherException() throws Exception {
+    log.debug("testPublisherException start");
     NoOpConnector connector = mock(NoOpConnector.class);
     PublisherImpl publisher = mock(PublisherImpl.class);
     doThrow(new Exception()).when(publisher).waitForCompletion(any(), anyInt());
@@ -588,10 +623,12 @@ public class RunnerTest {
     verify(connector, times(0)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
+    log.debug("testPublisherException stop");
   }
 
   @Test
   public void testPublisherCloseException() throws Exception {
+    log.debug("testPublisherCloseException start");
     NoOpConnector connector = mock(NoOpConnector.class);
     PublisherImpl publisher = mock(PublisherImpl.class);
     assertTrue(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
@@ -612,10 +649,12 @@ public class RunnerTest {
     verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
+    log.debug("testPublisherCloseException stop");
   }
 
   @Test
   public void testConnectorCloseException() throws Exception {
+    log.debug("testConnectorCloseException start");
     NoOpConnector connector = mock(NoOpConnector.class);
     PublisherImpl publisher = mock(PublisherImpl.class);
     assertTrue(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
@@ -636,10 +675,12 @@ public class RunnerTest {
     verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
+    log.debug("testConnectorCloseException stop");
   }
 
   @Test
   public void testConnectorWithoutPipeline() throws Exception {
+    log.debug("testConnectorWithoutPipeline start");
     // we should be able to run a connector that has no associated pipeline
     // in this case, the runner should not start Worker or Indexer threads
     // currently we're not testing that these threads aren't started, but we're making sure this configuration
@@ -648,47 +689,56 @@ public class RunnerTest {
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/connectorWithoutPipeline.conf");
     assertEquals(2, map.size());
     assertNull(NoOpConnector.getSuppliedPublisher());
+    log.debug("testConnectorWithoutPipeline stop");
   }
 
   @Test
   public void testConnectorExecutionFailureWithoutPipeline() throws Exception {
+    log.debug("testConnectorExecutionFailureWithoutPipeline start");
     // if a connector's execute() method fails, the run should fail,
     // even in the case where connector is not feeding to a pipeline
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/failingExecuteWithoutPipeline.conf");
     // the run should have been aborted with the second connector; the third should not have have been run
     assertEquals(2, map.size());
+    log.debug("testConnectorExecutionFailureWithoutPipeline stop");
   }
 
   @Test
   public void testConnectorsWithoutName() throws Exception {
+    log.debug("testConnectorsWithoutName start");
     Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/connectorsWithoutName.conf");
     assertEquals(3, map.size());
     // when connector names are not provided in the config, they are assigned as "connector_N"
     assertTrue(map.containsKey("connector_1"));
     assertTrue(map.containsKey("connector_2"));
     assertTrue(map.containsKey("connector_3"));
+    log.debug("testConnectorsWithoutName stop");
   }
 
   @Test
   public void testConnectorWithUnrecognizedPipeline() throws Exception {
+    log.debug("testConnectorWithUnrecognizedPipeline start");
     RunResult result =
       Runner.run(ConfigFactory.load("RunnerTest/pipelineNotFound.conf"), Runner.RunType.TEST);
     assertFalse(result.getStatus());
+    log.debug("testConnectorWithUnrecognizedPipeline stop");
   }
 
   @Test
   public void testStartStopCalledOnPipelineStages() throws Exception {
+    log.debug("testStartStopCalledOnPipelineStages start");
     StartStopCaptureStage.reset();
     Runner.runInTestMode("RunnerTest/stageStartStop.conf");
     assertTrue(StartStopCaptureStage.startCalled);
     assertTrue(StartStopCaptureStage.stopCalled);
     StartStopCaptureStage.reset();
+    log.debug("testStartStopCalledOnPipelineStages stop");
   }
 
 
   @Test
   public void testCollapse() throws Exception {
-
+    log.debug("testCollapse start");
     // DATA:
     //
     // 0,a,b,c
@@ -725,18 +775,22 @@ public class RunnerTest {
       manager1.getSavedDocumentsSentForProcessing().get(1).getStringList("field1"));
     assertEquals("non-consecutive",
       manager1.getSavedDocumentsSentForProcessing().get(3).getString("field1"));
+    log.debug("testCollapse stop");
   }
 
   @Test
   public void testIndexerConnectFailure() throws Exception {
+    log.debug("testIndexerConnectFailure start");
     // use runLocal() instead of runInTestMode() so we attempt to start an Indexer and
     // handle the failure
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerConnectFailure.conf"),
       Runner.RunType.LOCAL).getStatus());
+    log.debug("testIndexerConnectFailure stop");
   }
 
   @Test
   public void testMetrics() throws Exception {
+    log.debug("testMetrics start");
     SharedMetricRegistries.clear();
     assertEquals(0, SharedMetricRegistries.names().size());
     Runner.runInTestMode("RunnerTest/twoConnectors.conf");
@@ -769,5 +823,6 @@ public class RunnerTest {
     // not tested:
     // 1) other metrics collected by Stage beyond the counts in the processDocumentTime timer
     // 2) metrics collected by Indexer, Worker, Publisher
+    log.debug("testMetrics stop");
   }
 }
