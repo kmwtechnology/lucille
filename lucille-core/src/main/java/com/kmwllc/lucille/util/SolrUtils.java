@@ -29,7 +29,7 @@ public class SolrUtils {
 
   /**
    * Generate a SolrClient from the given config file. Supports both Cloud and Http SolrClients.
-   *
+   * <p>
    * This method has SIDE EFFECTS.  It will set SSL system properties if corresponding properties
    * are found in the config.
    *
@@ -39,13 +39,17 @@ public class SolrUtils {
   public static SolrClient getSolrClient(Config config) {
     SSLUtils.setSSLSystemProperties(config);
     if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
-      CloudSolrClient cloudSolrClient = requiresAuth(config) ? new CloudSolrClient.Builder(getSolrUrls(config)).withHttpClient(getHttpClient(config)).build() : new CloudSolrClient.Builder(getSolrUrls(config)).build();
-      if(config.hasPath("defaultCollection")) {
+      CloudSolrClient cloudSolrClient = requiresAuth(config) ?
+        new CloudSolrClient.Builder(getSolrUrls(config)).withHttpClient(getHttpClient(config)).build() :
+        new CloudSolrClient.Builder(getSolrUrls(config)).build();
+      if (config.hasPath("defaultCollection")) {
         cloudSolrClient.setDefaultCollection(config.getString("defaultCollection"));
       }
-      return  cloudSolrClient;
+      return cloudSolrClient;
     } else {
-      return requiresAuth(config) ? new HttpSolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build() : new HttpSolrClient.Builder(getSolrUrl(config)).build();
+      return requiresAuth(config) ?
+        new HttpSolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build() :
+        new HttpSolrClient.Builder(getSolrUrl(config)).build();
     }
   }
 

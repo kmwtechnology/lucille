@@ -24,7 +24,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * Tests for SolrIndexer.
- *
+ * <p>
  * TODO: Split these tests into IndexerTest vs. SolrIndexerTest. Tests that only flex generic Indexer functionality
  * should be moved to IndexerTest even if they use a SolrIndexer as a means of invoking that functionality.
  */
@@ -57,8 +57,8 @@ public class SolrIndexerTest {
     verify(solrClient, times(2)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(2, captor.getAllValues().size());
-    assertEquals(doc.getId(), ((SolrInputDocument)captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
-    assertEquals(doc2.getId(), ((SolrInputDocument)captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
+    assertEquals(doc.getId(), ((SolrInputDocument) captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
+    assertEquals(doc2.getId(), ((SolrInputDocument) captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
 
     assertEquals(2, manager.getSavedEvents().size());
 
@@ -97,9 +97,9 @@ public class SolrIndexerTest {
     verify(solrClient, times(1)).close();
     assertEquals(1, captor.getAllValues().size());
     assertEquals(doc.getId(),
-      ((SolrInputDocument)captor.getAllValues().get(0).toArray()[0]).getFieldValue(Document.ID_FIELD));
+      ((SolrInputDocument) captor.getAllValues().get(0).toArray()[0]).getFieldValue(Document.ID_FIELD));
     assertEquals(doc2.getId(),
-      ((SolrInputDocument)captor.getAllValues().get(0).toArray()[1]).getFieldValue(Document.ID_FIELD));
+      ((SolrInputDocument) captor.getAllValues().get(0).toArray()[1]).getFieldValue(Document.ID_FIELD));
 
     assertEquals(2, manager.getSavedEvents().size());
 
@@ -145,10 +145,10 @@ public class SolrIndexerTest {
 
     // confirm that doc1 and doc3 are sent with their overriden IDs, while doc2 is sent with its actual ID
     assertEquals("doc1_overriden",
-      ((SolrInputDocument)captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
-    assertEquals(doc2.getId(), ((SolrInputDocument)captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
+      ((SolrInputDocument) captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
+    assertEquals(doc2.getId(), ((SolrInputDocument) captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
     assertEquals("doc3_overriden",
-      ((SolrInputDocument)captor.getAllValues().get(2).toArray()[0]).getFieldValue("id"));
+      ((SolrInputDocument) captor.getAllValues().get(2).toArray()[0]).getFieldValue("id"));
 
     assertEquals(3, manager.getSavedEvents().size());
 
@@ -189,7 +189,7 @@ public class SolrIndexerTest {
     verify(solrClient, times(1)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(1, captor.getAllValues().size());
-    SolrInputDocument solrDoc = (SolrInputDocument)captor.getAllValues().get(0).toArray()[0];
+    SolrInputDocument solrDoc = (SolrInputDocument) captor.getAllValues().get(0).toArray()[0];
     assertEquals(doc.getId(), solrDoc.getFieldValue(Document.ID_FIELD));
     assertEquals(2, solrDoc.getChildDocuments().size());
     assertEquals(doc2.getId(), solrDoc.getChildDocuments().get(0).getFieldValue(Document.ID_FIELD));
@@ -248,17 +248,18 @@ public class SolrIndexerTest {
     Map<String, List<SolrInputDocument>> collectionDocs = new HashMap<>();
 
     List<Event> events = manager.getSavedEvents();
-    for(int i = 0; i < 4; i++) {
+    for (int i = 0; i < 4; i++) {
       SolrInputDocument sDoc = captor.getAllValues().get(i).stream().findFirst().get();
       String collection = colCaptor.getAllValues().get(i);
-      if(collectionDocs.containsKey(collection)) {
+      if (collectionDocs.containsKey(collection)) {
         collectionDocs.get(collection).add(sDoc);
       } else {
         List<SolrInputDocument> cDocs = new ArrayList<>();
         cDocs.add(sDoc);
         collectionDocs.put(collection, cDocs);
       }
-      //events from different batches can arrive out of order but events from the same batch/collection should arrive in the same order.
+      //events from different batches can arrive out of order but events from the same batch/collection should arrive
+      // in the same order.
       assertEquals(events.get(i).getDocumentId(), sDoc.getFieldValue(Document.ID_FIELD));
       assertEquals(Event.Type.FINISH, events.get(0).getType());
     }
@@ -324,7 +325,8 @@ public class SolrIndexerTest {
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
-    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an " +
+        "indexing failure event.",
       Event.Type.FAIL, equalTo(events.get(0).getType()));
   }
 
@@ -350,7 +352,8 @@ public class SolrIndexerTest {
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
-    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an " +
+        "indexing failure event.",
       Event.Type.FAIL, equalTo(events.get(0).getType()));
   }
 
@@ -374,7 +377,8 @@ public class SolrIndexerTest {
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
-    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an " +
+        "indexing failure event.",
       Event.Type.FAIL, equalTo(events.get(0).getType()));
   }
 
@@ -400,7 +404,8 @@ public class SolrIndexerTest {
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
-    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an " +
+        "indexing failure event.",
       Event.Type.FAIL, equalTo(events.get(0).getType()));
   }
 
@@ -424,7 +429,8 @@ public class SolrIndexerTest {
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
-    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an " +
+        "indexing failure event.",
       Event.Type.FAIL, equalTo(events.get(0).getType()));
   }
 
@@ -450,7 +456,8 @@ public class SolrIndexerTest {
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
-    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
+    MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an " +
+        "indexing failure event.",
       Event.Type.FAIL, equalTo(events.get(0).getType()));
   }
 
