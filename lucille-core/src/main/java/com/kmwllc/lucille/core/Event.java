@@ -38,7 +38,7 @@ public class Event {
     MAPPER.registerModule(new JavaTimeModule());
   }
 
-  public Event() {
+  private Event() {
   }
 
   public Event(Document document, String message, Type type) {
