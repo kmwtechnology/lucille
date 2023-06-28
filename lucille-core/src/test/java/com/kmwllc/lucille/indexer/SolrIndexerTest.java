@@ -211,19 +211,21 @@ public class SolrIndexerTest {
 
   @Test
   public void testSolrIndexerWithMultipleCollections() throws Exception {
+    String indexOverrideField = "collection";
+
     Config config = ConfigFactory.empty()
       .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1))
-      .withValue("indexer.indexOverrideField", ConfigValueFactory.fromAnyRef("collection"));
+      .withValue("indexer.indexOverrideField", ConfigValueFactory.fromAnyRef(indexOverrideField));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     Document doc1 = Document.create("doc1", "test_run");
-    doc1.addToField("collection", "col1");
+    doc1.addToField(indexOverrideField, "col1");
     Document doc2 = Document.create("doc2", "test_run");
-    doc2.addToField("collection", "col2");
+    doc2.addToField(indexOverrideField, "col2");
     Document doc3 = Document.create("doc3", "test_run");
-    doc3.addToField("collection", "col1");
+    doc3.addToField(indexOverrideField, "col1");
     Document doc4 = Document.create("doc4", "test_run");
-    doc4.addToField("collection", "col2");
+    doc4.addToField(indexOverrideField, "col2");
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
@@ -264,9 +266,15 @@ public class SolrIndexerTest {
     assertEquals(2, collectionDocs.get("col1").size());
     assertEquals("doc1", collectionDocs.get("col1").get(0).getFieldValue(Document.ID_FIELD));
     assertEquals("doc3", collectionDocs.get("col1").get(1).getFieldValue(Document.ID_FIELD));
+    assertFalse(collectionDocs.get("col1").get(0).containsKey(indexOverrideField));
+    assertFalse(collectionDocs.get("col1").get(1).containsKey(indexOverrideField));
+
     assertEquals(2, collectionDocs.get("col2").size());
     assertEquals("doc2", collectionDocs.get("col2").get(0).getFieldValue(Document.ID_FIELD));
     assertEquals("doc4", collectionDocs.get("col2").get(1).getFieldValue(Document.ID_FIELD));
+    assertFalse(collectionDocs.get("col2").get(0).containsKey(indexOverrideField));
+    assertFalse(collectionDocs.get("col2").get(1).containsKey(indexOverrideField));
+
   }
 
   @Test
@@ -444,37 +452,6 @@ public class SolrIndexerTest {
     MatcherAssert.assertThat(1, equalTo(events.size()));
     MatcherAssert.assertThat("Attempting to index a document with a nested object field to solr should result in an indexing failure event.",
       Event.Type.FAIL, equalTo(events.get(0).getType()));
-  }
-
-  /**
-   * Tests that the indexer correctly handles indexer.indexOverrideField
-   */
-  @Test
-  public void testIndexOverrideField() throws Exception {
-    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1))
-      .withValue("indexer.indexOverrideField", ConfigValueFactory.fromAnyRef("index"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-
-    Document doc = Document.create("doc1", "test_run");
-    doc.setField("index", "collection1");
-    Document doc2 = Document.create("doc2", "test_run");
-    doc2.setField("index", "collection2");
-
-    SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc);
-    manager.sendCompleted(doc2);
-    indexer.run(2);
-
-    ArgumentCaptor<String> indexCaptor = ArgumentCaptor.forClass(String.class);
-    ArgumentCaptor<Collection<SolrInputDocument>> docCaptor = ArgumentCaptor.forClass(Collection.class);
-    verify(solrClient, times(2)).add(indexCaptor.capture(), docCaptor.capture());
-    verify(solrClient, times(1)).close();
-    assertEquals(2, docCaptor.getAllValues().size());
-    assertEquals(doc.getId(), ((SolrInputDocument)docCaptor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
-    assertEquals("collection1", indexCaptor.getAllValues().get(0));
-    assertEquals(doc2.getId(), ((SolrInputDocument)docCaptor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
-    assertEquals("collection2", indexCaptor.getAllValues().get(1));
   }
 
   private static class ErroringIndexer extends SolrIndexer {
