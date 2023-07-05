@@ -23,6 +23,9 @@ public class CSVIndexer extends Indexer {
 
   public CSVIndexer(Config config, IndexerMessageManager manager, ICSVWriter writer, boolean bypass, String metricsPrefix) {
     super(config, manager, metricsPrefix);
+    if (this.indexOverrideField != null) {
+      throw new IllegalArgumentException("Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
+    }
     this.writer = writer;
     this.bypass = bypass;
     this.columns = config.getStringList("csv.columns");

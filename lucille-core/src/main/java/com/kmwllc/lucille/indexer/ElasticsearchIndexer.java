@@ -33,6 +33,9 @@ public class ElasticsearchIndexer extends Indexer {
   public ElasticsearchIndexer(Config config, IndexerMessageManager manager, ElasticsearchClient client,
                               String metricsPrefix) {
     super(config, manager, metricsPrefix);
+    if (this.indexOverrideField != null) {
+      throw new IllegalArgumentException("Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
+    }
     this.client = client;
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
     this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;

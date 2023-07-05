@@ -9,15 +9,17 @@ import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.impl.CloudSolrClient;
+import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.common.util.NamedList;
+import org.apache.solr.common.util.SimpleOrderedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class SolrIndexer extends Indexer {
 
@@ -41,6 +43,27 @@ public class SolrIndexer extends Indexer {
   @Override
   public boolean validateConnection() {
     if (solrClient==null) {
+      return true;
+    }
+    if (solrClient instanceof CloudSolrClient && ((CloudSolrClient)solrClient).getDefaultCollection() == null) {
+      //If we are indexing to multiple collections with the CloudSolrClient and the default collection is not set then
+      //we can't use ping. Instead, verify that we can connect to the cluster.
+      NamedList response;
+      try {
+        response = solrClient.request(new CollectionAdminRequest.ClusterStatus());
+      } catch (Exception e) {
+        log.error("Couldn't ping Solr ", e);
+        return false;
+      }
+      if (response==null) {
+        log.error("Null response when pinging solr");
+        return false;
+      }
+      Integer status = (Integer)((SimpleOrderedMap)response.get("responseHeader")).get("status");
+      if (status != 0) {
+        log.error("Non zero response when pinging solr: " + status);
+        return false;
+      }
       return true;
     }
     SolrPingResponse response;
@@ -80,7 +103,7 @@ public class SolrIndexer extends Indexer {
       return;
     }
 
-    List<SolrInputDocument> solrDocs = new ArrayList();
+    Map<String, List<SolrInputDocument>> solrDocsByCollection = new HashMap<>();
     for (Document doc : documents) {
 
       Map<String,Object> map = getIndexerDoc(doc);
@@ -89,6 +112,10 @@ public class SolrIndexer extends Indexer {
       // if an id override field has been specified, use its value as the id to send to solr, instead
       // of the document's own id
       String idOverride = getDocIdOverride(doc);
+
+      // if an index override field has been specified, use its value as the solr collection to send the document to,
+      // instead of the default collection. Remove the field from the solr document.
+      String indexOverride = getIndexOverride(doc);
 
       for (String key : map.keySet()) {
 
@@ -101,18 +128,39 @@ public class SolrIndexer extends Indexer {
           continue;
         }
 
+        if (indexOverrideField != null && indexOverride != null && indexOverrideField.equals(key)) {
+          //do not add the indexOverrideField to the solr document
+          continue;
+        }
+
+
+
+
         Object value = map.get(key);
-        if(value instanceof Map) {
+        if (value instanceof Map) {
           throw new IndexerException(String.format("Object field '%s' on document id=%s is not supported by the SolrIndexer.", key, doc.getId()));
         }
         solrDoc.setField(key,value);
       }
 
       addChildren(doc, solrDoc);
-      solrDocs.add(solrDoc);
-    }
 
-    solrClient.add(solrDocs);
+      if (solrDocsByCollection.containsKey(indexOverride)) {
+        solrDocsByCollection.get(indexOverride).add(solrDoc);
+      } else {
+        List<SolrInputDocument> solrDocs = new LinkedList<>();
+        solrDocsByCollection.put(indexOverride, solrDocs);
+        solrDocs.add(solrDoc);
+      }
+    }
+    for (String collection: solrDocsByCollection.keySet()) {
+      List<SolrInputDocument> solrDocs = solrDocsByCollection.get(collection);
+      if (collection == null) {
+        solrClient.add(solrDocs);
+      } else {
+        solrClient.add(collection, solrDocs);
+      }
+    }
   }
 
   private void addChildren(Document doc, SolrInputDocument solrDoc) throws IndexerException {
@@ -129,7 +177,7 @@ public class SolrIndexer extends Indexer {
           continue;
         }
         Object value = map.get(key);
-        if(value instanceof Map) {
+        if (value instanceof Map) {
           throw new IndexerException(String.format("Object field '%s' on child document id=%s of document id=%s is not supported by the SolrIndexer.", key, child.getId(), doc.getId()));
         }
         solrChild.setField(key,value);

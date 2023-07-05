@@ -35,6 +35,7 @@ public abstract class Indexer implements Runnable {
   private final Histogram histogram;
 
   protected final String idOverrideField;
+  protected final String indexOverrideField;
 
   protected final List<String> ignoreFields;
 
@@ -48,10 +49,11 @@ public abstract class Indexer implements Runnable {
   public Indexer(Config config, IndexerMessageManager manager, String metricsPrefix) {
     this.manager = manager;
     this.idOverrideField = config.hasPath("indexer.idOverrideField") ? config.getString("indexer.idOverrideField") : null;
+    this.indexOverrideField = config.hasPath("indexer.indexOverrideField") ? config.getString("indexer.indexOverrideField") : null;
     this.ignoreFields = config.hasPath("indexer.ignoreFields") ? config.getStringList("indexer.ignoreFields") : null;
     int batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : DEFAULT_BATCH_SIZE;
     int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
-    this.batch = new Batch(batchSize, batchTimeout);
+    this.batch = (indexOverrideField == null) ? new SingleBatch(batchSize, batchTimeout) : new MultiBatch(batchSize, batchTimeout, indexOverrideField);
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     this.stopWatch = new StopWatch();
@@ -189,6 +191,17 @@ public abstract class Indexer implements Runnable {
   protected String getDocIdOverride(Document doc) {
     if (idOverrideField!=null && doc.has(idOverrideField)) {
       return doc.getString(idOverrideField);
+    }
+    return null;
+  }
+
+  /**
+   * Returns the index that should be the destination for the given doc, in place of the default index.
+   * Returns null if no index override should be applied for the given document.
+   */
+  protected String getIndexOverride(Document doc) {
+    if (indexOverrideField!=null && doc.has(indexOverrideField)) {
+      return doc.getString(indexOverrideField);
     }
     return null;
   }
