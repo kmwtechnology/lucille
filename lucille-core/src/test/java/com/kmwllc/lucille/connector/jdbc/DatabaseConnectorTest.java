@@ -218,18 +218,11 @@ public class DatabaseConnectorTest {
 
     // create the connector with the config
     DatabaseConnector connector = new DatabaseConnector(config);
-
     // call the execute method, then close the connection
     connector.execute(publisher);
-
-    Connection connection = connector.getConnection();
-
-    // verify that the connection has opened
-    assertFalse(connection.isClosed());
-
+    assertFalse(connector.isClosed());
     connector.close();
-
     // verify that the connection is actually closed
-    assertTrue(connection.isClosed());
+    assertTrue(connector.isClosed());
   }
 }
