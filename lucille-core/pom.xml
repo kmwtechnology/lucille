@@ -216,6 +216,20 @@
       <version>1.4.200</version>
       <scope>test</scope>
     </dependency>
+
+    <!-- Google Cloud API for GoogleVertexIndexer -->
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-aiplatform</artifactId>
+      <version>3.21.0</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/com.google.guava/guava -->
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>32.0.1-jre</version>
+    </dependency>
   </dependencies>
 
   <build>

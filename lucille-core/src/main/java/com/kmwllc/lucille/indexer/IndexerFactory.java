@@ -46,6 +46,8 @@ public class IndexerFactory {
       return new ElasticsearchIndexer(config, manager,bypass, metricsPrefix);
     } else if (typeName.equalsIgnoreCase("CSV")) {
       return new CSVIndexer(config, manager, bypass, metricsPrefix);
+    } else if (typeName.equalsIgnoreCase("GoogleVertex")) {
+      return new GoogleVertexIndexer(config, manager, bypass, metricsPrefix);
     } else if (config.hasPath("indexer.class")) {
       String className = config.getString("indexer.class");
       try {

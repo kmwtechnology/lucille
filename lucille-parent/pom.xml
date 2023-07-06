@@ -31,7 +31,7 @@
     <vfs-s3.version>4.3.6</vfs-s3.version>
     <log4j.version>2.17.0</log4j.version>
     <slf4j.version>1.8.0-beta4</slf4j.version>
-    <protobuf.version>3.19.2</protobuf.version>
+    <protobuf.version>3.22.0</protobuf.version>
     <netty.version>4.1.89.Final</netty.version>
     <grpc.version>1.53.0</grpc.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
