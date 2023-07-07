@@ -134,6 +134,18 @@ public class HybridKafkaTest {
 
     // there should be 15 events in the event topic: 6 child creation events and 9 indexing events
     assertEquals(15, records.size());
+
+    // the last event should be the indexing event for doc3 (which should be indexed after its children);
+    // in hybrid mode, indexing events should have kafka metadata from the source topic as there
+    // is no destination topic;
+    // within the source topic, doc3 would have offset 2 (as offsets are 0-based) and this
+    // same offset should be recorded on the indexing event for doc3
+    Event event15 = Event.fromJsonString(records.get(14).getValue());
+    assertEquals(sourceTopic, event15.getTopic());
+    assertEquals(Integer.valueOf(0), event15.getPartition());
+    assertEquals(Long.valueOf(2), event15.getOffset());
+    assertEquals(Event.Type.FINISH, event15.getType());
+    assertEquals("doc3", event15.getDocumentId());
   }
 
   @Test
