@@ -882,4 +882,10 @@ public class JsonDocument implements Document {
     }
     return ((JsonDocument) other).data;
   }
+
+  @Override
+  public void removeChildren() {
+    // TODO Auto-generated method stub
+   data.remove(CHILDREN_FIELD); 
+  }
 }
