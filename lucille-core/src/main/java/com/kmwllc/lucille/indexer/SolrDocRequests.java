@@ -9,8 +9,9 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Maintains the list of Solr Add and Update requests that are built up as a SolrIndexer processes a batch. Allows the calling
- * code (typically a SolrIndexer instance) to keep track of the document ids within a batch and check for collisions.
+ * Maintains the list of Solr Add and Update requests that are built up as a SolrIndexer processes a
+ * batch. Allows the calling code (typically a SolrIndexer instance) to keep track of the document
+ * ids within a batch and check for collisions.
  */
 public class SolrDocRequests {
   private final List<SolrInputDocument> solrAddUpdateDocs;
@@ -31,33 +32,33 @@ public class SolrDocRequests {
   }
 
   public void addDocForAddUpdate(SolrInputDocument doc) {
-    this.solrAddUpdateDocs.add(doc);
-    this.solrAddUpdateIds.add((String) doc.getFieldValue(Document.ID_FIELD));
+    solrAddUpdateDocs.add(doc);
+    solrAddUpdateIds.add((String) doc.getFieldValue(Document.ID_FIELD));
   }
 
   public void addIdForDeletion(String id) {
-    this.solrDeleteIds.add(id);
+    solrDeleteIds.add(id);
   }
 
   public boolean containsIdForAddUpdate(String id) {
-    return this.solrAddUpdateIds.contains(id);
+    return solrAddUpdateIds.contains(id);
   }
 
   public boolean containsIdForDeletion(String id) {
-    return this.solrDeleteIds.contains(id);
+    return solrDeleteIds.contains(id);
   }
 
   public void resetAddUpdates() {
-    this.solrAddUpdateDocs.clear();
-    this.solrAddUpdateIds.clear();
+    solrAddUpdateDocs.clear();
+    solrAddUpdateIds.clear();
   }
 
   public void resetDeletes() {
-    this.solrDeleteIds.clear();
+    solrDeleteIds.clear();
   }
 
   public List<SolrInputDocument> getAddUpdateDocs() {
-    return this.solrAddUpdateDocs;
+    return solrAddUpdateDocs;
   }
 
   public List<String> getDeleteIds() {
