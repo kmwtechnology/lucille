@@ -14,54 +14,54 @@ import java.util.Set;
  * ids within a batch and check for collisions.
  */
 public class SolrDocRequests {
-  private final List<SolrInputDocument> solrAddUpdateDocs;
-  private final Set<String> solrAddUpdateIds;
-  private final Set<String> solrDeleteIds;
+  private final List<SolrInputDocument> docsToAddOrUpdate;
+  private final Set<String> idsToAddOrUpdate;
+  private final Set<String> idsToDelete;
 
   public SolrDocRequests() {
     this(new ArrayList<>(), new HashSet<>(), new HashSet<>());
   }
 
   public SolrDocRequests(
-      List<SolrInputDocument> solrAddUpdateDocs,
-      Set<String> solrAddUpdateIds,
-      Set<String> solrDeleteIds) {
-    this.solrAddUpdateDocs = solrAddUpdateDocs;
-    this.solrAddUpdateIds = solrAddUpdateIds;
-    this.solrDeleteIds = solrDeleteIds;
+      List<SolrInputDocument> docsToAddOrUpdate,
+      Set<String> idsToAddOrUpdate,
+      Set<String> idsToDelete) {
+    this.docsToAddOrUpdate = docsToAddOrUpdate;
+    this.idsToAddOrUpdate = idsToAddOrUpdate;
+    this.idsToDelete = idsToDelete;
   }
 
   public void addDocForAddUpdate(SolrInputDocument doc) {
-    solrAddUpdateDocs.add(doc);
-    solrAddUpdateIds.add((String) doc.getFieldValue(Document.ID_FIELD));
+    docsToAddOrUpdate.add(doc);
+    idsToAddOrUpdate.add((String) doc.getFieldValue(Document.ID_FIELD));
   }
 
   public void addIdForDeletion(String id) {
-    solrDeleteIds.add(id);
+    idsToDelete.add(id);
   }
 
   public boolean containsIdForAddUpdate(String id) {
-    return solrAddUpdateIds.contains(id);
+    return idsToAddOrUpdate.contains(id);
   }
 
   public boolean containsIdForDeletion(String id) {
-    return solrDeleteIds.contains(id);
+    return idsToDelete.contains(id);
   }
 
   public void resetAddUpdates() {
-    solrAddUpdateDocs.clear();
-    solrAddUpdateIds.clear();
+    docsToAddOrUpdate.clear();
+    idsToAddOrUpdate.clear();
   }
 
   public void resetDeletes() {
-    solrDeleteIds.clear();
+    idsToDelete.clear();
   }
 
   public List<SolrInputDocument> getAddUpdateDocs() {
-    return solrAddUpdateDocs;
+    return docsToAddOrUpdate;
   }
 
   public List<String> getDeleteIds() {
-    return new ArrayList<>(this.solrDeleteIds);
+    return new ArrayList<>(this.idsToDelete);
   }
 }
