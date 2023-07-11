@@ -332,6 +332,43 @@ public class SolrIndexerTest {
   }
 
   @Test
+  public void testSolrIndexerWithDocumentExplicitlyMarkedAsNotDeleted() throws Exception {
+    String deletionMarkerField = "is_deleted";
+    String deletionMarkerFieldValue = "true";
+
+    Config config =
+      ConfigFactory.empty()
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
+        .withValue(
+          "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+        .withValue(
+          "indexer.deletionMarkerFieldValue",
+          ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    Document doc1 = Document.create("doc1", "test_run");
+    doc1.addToField(deletionMarkerField, "false");
+    Document doc2 = Document.create("doc2", "test_run");
+    doc2.addToField(deletionMarkerField, "foo");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(doc1);
+    manager.sendCompleted(doc2);
+    indexer.run(2);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor =
+      ArgumentCaptor.forClass(Collection.class);
+
+    InOrder inOrder = inOrder(solrClient);
+
+    inOrder.verify(solrClient).add(captor.capture());
+    inOrder.verify(solrClient).close();
+
+    assertEquals(1, captor.getAllValues().size());
+  }
+
+  @Test
   public void testSolrIndexerAddDeleteAdd() throws Exception {
     String deletionMarkerField = "is_deleted";
     String deletionMarkerFieldValue = "true";
