@@ -152,6 +152,7 @@ public class SolrIndexer extends Indexer {
 
         if (solrDocRequests.containsIdForDeletion(solrId)) {
           sendDeletionBatch(collection, solrDocRequests.getDeleteIds());
+          solrDocRequests.resetDeletes();
         }
         solrDocRequests.addDocForAddUpdate(solrDoc);
       }
