@@ -8,6 +8,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Maintains the list of Solr Add and Update requests that are built up as a SolrIndexer processes a batch. Allows the calling
+ * code (typically a SolrIndexer instance) to keep track of the document ids within a batch and check for collisions.
+ */
 public class SolrDocRequests {
   private final List<SolrInputDocument> solrAddUpdateDocs;
   private final Set<String> solrAddUpdateIds;
