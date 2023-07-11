@@ -11,10 +11,12 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.hamcrest.MatcherAssert;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatcher;
 import org.mockito.InOrder;
 
 import java.util.*;
@@ -337,13 +339,13 @@ public class SolrIndexerTest {
     String deletionMarkerFieldValue = "true";
 
     Config config =
-      ConfigFactory.empty()
-        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
-        .withValue(
-          "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
-        .withValue(
-          "indexer.deletionMarkerFieldValue",
-          ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
+        ConfigFactory.empty()
+            .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
+            .withValue(
+                "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+            .withValue(
+                "indexer.deletionMarkerFieldValue",
+                ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     Document doc1 = Document.create("doc1", "test_run");
@@ -358,7 +360,7 @@ public class SolrIndexerTest {
     indexer.run(2);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
-      ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor.forClass(Collection.class);
 
     InOrder inOrder = inOrder(solrClient);
 
@@ -416,6 +418,79 @@ public class SolrIndexerTest {
     assertEquals(1, captor.getAllValues().get(1).size());
     assertEquals(
         2, captor.getAllValues().get(1).stream().findFirst().get().getFieldValue("version"));
+  }
+
+  @Test
+  public void testSolrIndexerUnrelatedAddAddDeleteAdd() throws Exception {
+    String deletionMarkerField = "is_deleted";
+    String deletionMarkerFieldValue = "true";
+
+    Config config =
+        ConfigFactory.empty()
+            .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(4))
+            .withValue(
+                "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+            .withValue(
+                "indexer.deletionMarkerFieldValue",
+                ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+
+    Document otherDoc1 = Document.create("doc2", "test_run");
+    otherDoc1.addToField("version", 1);
+    Document doc1 = Document.create("doc1", "test_run");
+    doc1.addToField("version", 1);
+    Document doc2 = Document.create("doc1", "test_run");
+    doc2.addToField(deletionMarkerField, deletionMarkerFieldValue);
+    Document doc3 = Document.create("doc1", "test_run");
+    doc3.addToField("version", 2);
+
+    SolrClient solrClient = mock(SolrClient.class);
+
+    // manually capture all of the docs and ids sent through the solr client.
+    List<List<SolrInputDocument>> docsSentToSolr = new ArrayList<>();
+    List<List<String>> deleteIdsSentToSolr = new ArrayList<>();
+
+    when(solrClient.add(
+            argThat(
+                (ArgumentMatcher<Collection>)
+                    t -> {
+                      docsSentToSolr.add(new ArrayList<>(t));
+                      return true;
+                    })))
+        .thenReturn(mock(UpdateResponse.class));
+
+    when(solrClient.deleteById(
+            argThat(
+                (ArgumentMatcher<List>)
+                    t -> {
+                      deleteIdsSentToSolr.add(t);
+                      return true;
+                    })))
+        .thenReturn(mock(UpdateResponse.class));
+
+    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
+    manager.sendCompleted(otherDoc1);
+    manager.sendCompleted(doc1);
+    manager.sendCompleted(doc2);
+    manager.sendCompleted(doc3);
+    indexer.run(4);
+
+    InOrder inOrder = inOrder(solrClient);
+    inOrder.verify(solrClient).add(anyCollection());
+    inOrder.verify(solrClient).deleteById(anyList());
+    inOrder.verify(solrClient).add(anyCollection());
+    inOrder.verify(solrClient).close();
+    inOrder.verifyNoMoreInteractions();
+
+    assertEquals(2, docsSentToSolr.size());
+    assertEquals(1, deleteIdsSentToSolr.size());
+    assertEquals(2, docsSentToSolr.get(0).size());
+    assertEquals(otherDoc1.getId(), docsSentToSolr.get(0).get(0).getFieldValue(Document.ID_FIELD));
+    assertEquals(doc1.getId(), docsSentToSolr.get(0).get(1).getFieldValue(Document.ID_FIELD));
+    assertEquals(1, deleteIdsSentToSolr.get(0).size());
+    assertEquals(doc2.getId(), deleteIdsSentToSolr.get(0).get(0));
+    assertEquals(1, docsSentToSolr.get(1).size());
+    assertEquals(doc3.getId(), docsSentToSolr.get(1).get(0).getFieldValue(Document.ID_FIELD));
   }
 
   @Test
