@@ -195,11 +195,13 @@ public class HybridKafkaTest {
 
     // the sum of offsets across the two partitions should be the same as the number of documents
     // consumed. All 1000 documents we added to the source topic should have been consumed.
-    assertEquals(1000,
-      consumer.position(p0) + consumer.position(p1));
+    assertEquals(1000, consumer.position(p0) + consumer.position(p1));
 
     consumer.close();
 
+    // below is an alternate way of acquiring consumer offsets
+    // it has been commented out in favor of the method above in the hopes of solving
+    // an intermittent failure
     /*
     Properties props = new Properties();
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
@@ -214,7 +216,7 @@ public class HybridKafkaTest {
     // consumed. All 1000 documents we added to the source topic should have been consumed.
     assertEquals(1000,
       retrievedOffsets.get(partition0).offset() + retrievedOffsets.get(partition1).offset());
-   */
+    */
 
     // we currently have no way to guarantee that each WorkerIndexer
     // received and processed some work
