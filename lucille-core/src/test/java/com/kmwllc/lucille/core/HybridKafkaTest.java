@@ -12,6 +12,7 @@ import net.mguenther.kafka.junit.SendKeyValues;
 import net.mguenther.kafka.junit.TopicConfig;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.After;
@@ -184,6 +185,24 @@ public class HybridKafkaTest {
     workerIndexer1.stop();
     workerIndexer2.stop();
 
+    KafkaConsumer<String, KafkaDocument> consumer = KafkaUtils.createDocumentConsumer(config, "test-client");
+    TopicPartition p0 = new TopicPartition(sourceTopic, 0);
+    TopicPartition p1 = new TopicPartition(sourceTopic, 1);
+    ArrayList partitions = new ArrayList<>();
+    partitions.add(p0);
+    partitions.add(p1);
+    consumer.assign(partitions);
+
+    // the sum of offsets across the two partitions should be the same as the number of documents
+    // consumed. All 1000 documents we added to the source topic should have been consumed.
+    assertEquals(1000, consumer.position(p0) + consumer.position(p1));
+
+    consumer.close();
+
+    // below is an alternate way of acquiring consumer offsets
+    // it has been commented out in favor of the method above in the hopes of solving
+    // an intermittent failure
+    /*
     Properties props = new Properties();
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     Admin kafkaAdminClient = Admin.create(props);
@@ -197,6 +216,7 @@ public class HybridKafkaTest {
     // consumed. All 1000 documents we added to the source topic should have been consumed.
     assertEquals(1000,
       retrievedOffsets.get(partition0).offset() + retrievedOffsets.get(partition1).offset());
+    */
 
     // we currently have no way to guarantee that each WorkerIndexer
     // received and processed some work
