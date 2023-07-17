@@ -32,6 +32,7 @@ public class DatabaseConnector extends AbstractConnector {
   private String connectionString;
   private String jdbcUser;
   private String jdbcPassword;
+  private Integer fetchSize = null;
   private String preSql;
   private String sql;
   private String postSql;
@@ -52,6 +53,10 @@ public class DatabaseConnector extends AbstractConnector {
     jdbcPassword = config.getString("jdbcPassword");
     sql = config.getString("sql");
     idField = config.getString("idField");
+    // For MYSQL this should be set to Integer.MIN_VALUE to avoid buffering the full resultset in memory.
+    // The behavior of this parameter varies from driver to driver, often it defaults to 0.
+    if (config.hasPath("fetchSize"))
+      fetchSize = config.getInt("fetchSize");
     if (config.hasPath("preSql"))
       preSql = config.getString("preSql");
     if (config.hasPath("postSql"))
@@ -101,7 +106,8 @@ public class DatabaseConnector extends AbstractConnector {
     try {
       log.info("Running primary sql");
       Statement state = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-      state.setFetchSize(Integer.MIN_VALUE);
+      if (fetchSize != null)
+        state.setFetchSize(fetchSize);
       rs = state.executeQuery(sql);
     } catch (SQLException e) {
       e.printStackTrace();
@@ -240,6 +246,7 @@ public class DatabaseConnector extends AbstractConnector {
 
   }
 
+  // TODO: can we remove this method and just use runSql instead?
   private ResultSet runJoinSQL(String sql) throws SQLException {
     ResultSet rs2 = null;
     try {
@@ -261,7 +268,9 @@ public class DatabaseConnector extends AbstractConnector {
       // make sure we stream the results instead of buffering in memory.
       // TODO: this doesn't work for h2 db..  it does work for mysql..  *shrug* 
       // Mysql needs this hint so it the mysql driver doesn't try to buffer the entire resultset in memory.
-      state2.setFetchSize(Integer.MIN_VALUE);
+      if (fetchSize != null) {
+        state2.setFetchSize(fetchSize);
+      }
       rs2 = state2.executeQuery(sql);
     } catch (SQLException e) {
       e.printStackTrace();
