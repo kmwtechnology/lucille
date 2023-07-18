@@ -12,14 +12,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class GoogleVertexIndexer extends Indexer {
 
     private static final Logger log = LoggerFactory.getLogger(GoogleVertexIndexer.class);
 
+    private static boolean isLimitHit;
+
     private final boolean bypass;
+    private final int requestLimit;
+    private static int currentRequests = 0;
 
     private final UpsertDatapointsRequest.Builder requestBuilder;
     private IndexDatapoint.Builder datapointBuilder = IndexDatapoint.newBuilder();
@@ -33,6 +39,7 @@ public class GoogleVertexIndexer extends Indexer {
         String region = config.getString("googlevertex.region");
         String indexId = config.getString("googlevertex.indexId");
         String accessToken = config.getString("googlevertex.accessToken");
+        requestLimit = config.getInt("googlevertex.requestLimit");
 
         requestBuilder = UpsertDatapointsRequest.newBuilder().setIndex(IndexName.of(projectId, region, indexId).toString());
         try {
@@ -61,7 +68,7 @@ public class GoogleVertexIndexer extends Indexer {
     }
 
     @Override
-    protected void sendToIndex(List<Document> documents) throws IOException {
+    protected void sendToIndex(List<Document> documents) throws IOException, InterruptedException {
         if (bypass) {
             return;
         }
@@ -74,10 +81,26 @@ public class GoogleVertexIndexer extends Indexer {
             datapointBuilder = datapointBuilder.clear();
         }
 
-        try (IndexServiceClient client = IndexServiceClient.create(settings)) {
-            UpsertDatapointsRequest req = requestBuilder.addAllDatapoints(datapoints).build();
-            UpsertDatapointsResponse response = client.upsertDatapoints(req);
+        currentRequests = currentRequests + datapoints.size();
+        if (currentRequests >= requestLimit) {
+            System.out.println("Preventing request limit from being hit... waiting 1 minute");
+            TimeUnit.MINUTES.sleep(1);
+            currentRequests = datapoints.size();
         }
+
+         do {
+            isLimitHit = false;
+            try (IndexServiceClient client = IndexServiceClient.create(settings)) {
+                UpsertDatapointsRequest req = requestBuilder.addAllDatapoints(datapoints).build();
+                UpsertDatapointsResponse response = client.upsertDatapoints(req);
+            } catch (Exception e) {
+                System.out.println("Hit the request limit, retrying after 10 seconds.");
+                System.out.println(e.getMessage());
+
+                TimeUnit.SECONDS.sleep(20);
+                isLimitHit = true;
+            }
+        } while (isLimitHit);
     }
 
     @Override
