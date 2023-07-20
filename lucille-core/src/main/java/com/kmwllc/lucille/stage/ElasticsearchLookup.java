@@ -72,13 +72,13 @@ public class ElasticsearchLookup extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
       GetResponse<ObjectNode> response = client.get(g -> g
-        .index(index)
-        .id(doc.getId()),
+          .index(index)
+          .id(doc.getId()),
         ObjectNode.class);
 
-      if(response.found()) {
+      if (response.found()) {
         ObjectNode json = response.source();
-        for(int i = 0; i < sourceFields.size(); i++) {
+        for (int i = 0; i < sourceFields.size(); i++) {
           doc.update(destFields.get(i), updateMode, json.get(sourceFields.get(i)).asText());
         }
       }

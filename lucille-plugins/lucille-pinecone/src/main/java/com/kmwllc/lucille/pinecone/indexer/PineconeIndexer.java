@@ -55,7 +55,7 @@ public class PineconeIndexer extends Indexer {
 
   @Override
   public boolean validateConnection() {
-    if(connection == null) {
+    if (connection == null) {
       connection = this.client.connect(this.index);
     }
     ConnectivityState state = connection.getChannel().getState(true);
@@ -65,7 +65,7 @@ public class PineconeIndexer extends Indexer {
   @Override
   protected void sendToIndex(List<Document> documents) {
 
-    for(int i = 0; i < namespaces.size(); i++) {
+    for (int i = 0; i < namespaces.size(); i++) {
       final int index = i;
       List<Vector> upsertVectors = documents.stream()
         .map(doc -> Vector.newBuilder()
@@ -78,7 +78,7 @@ public class PineconeIndexer extends Indexer {
           .build())
         .collect(Collectors.toList());
 
-      if(mode.equalsIgnoreCase("upsert")) {
+      if (mode.equalsIgnoreCase("upsert")) {
         UpsertRequest request = UpsertRequest.newBuilder()
           .addAllVectors(upsertVectors)
           .setNamespace(this.namespaces.get(i))
@@ -86,7 +86,7 @@ public class PineconeIndexer extends Indexer {
         connection.getBlockingStub().upsert(request);
       }
 
-      if(mode.equalsIgnoreCase("update")) {
+      if (mode.equalsIgnoreCase("update")) {
         documents.forEach(doc -> {
           UpdateRequest request = UpdateRequest.newBuilder()
             .addAllValues(doc.getFloatList(this.embeddingFields.get(index)))
@@ -104,7 +104,7 @@ public class PineconeIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    if(connection != null) {
+    if (connection != null) {
       connection.close();
     }
   }
