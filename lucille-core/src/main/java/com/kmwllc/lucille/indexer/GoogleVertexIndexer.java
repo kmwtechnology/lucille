@@ -27,7 +27,7 @@ public class GoogleVertexIndexer extends Indexer {
     private final int requestLimit;
     private static int currentRequests = 0;
 
-    private final UpsertDatapointsRequest.Builder requestBuilder;
+    private UpsertDatapointsRequest.Builder requestBuilder;
     private IndexDatapoint.Builder datapointBuilder = IndexDatapoint.newBuilder();
     private IndexServiceSettings settings;
 
@@ -81,23 +81,24 @@ public class GoogleVertexIndexer extends Indexer {
             datapointBuilder = datapointBuilder.clear();
         }
 
-        currentRequests = currentRequests + datapoints.size();
+/*        currentRequests = currentRequests + datapoints.size();
         if (currentRequests >= requestLimit) {
-            System.out.println("Preventing request limit from being hit... waiting 1 minute");
-            TimeUnit.MINUTES.sleep(1);
+            System.out.println("Preventing request limit from being hit... waiting 30 seconds before retrying");
+            TimeUnit.SECONDS.sleep(30);
             currentRequests = datapoints.size();
-        }
+        }*/
 
          do {
             isLimitHit = false;
             try (IndexServiceClient client = IndexServiceClient.create(settings)) {
                 UpsertDatapointsRequest req = requestBuilder.addAllDatapoints(datapoints).build();
+                requestBuilder = requestBuilder.clearDatapoints();
                 UpsertDatapointsResponse response = client.upsertDatapoints(req);
             } catch (Exception e) {
                 System.out.println("Hit the request limit, retrying after 10 seconds.");
                 System.out.println(e.getMessage());
 
-                TimeUnit.SECONDS.sleep(20);
+                TimeUnit.SECONDS.sleep(10);
                 isLimitHit = true;
             }
         } while (isLimitHit);
