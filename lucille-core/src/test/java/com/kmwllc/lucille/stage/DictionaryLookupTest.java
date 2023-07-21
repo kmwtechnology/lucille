@@ -40,8 +40,9 @@ public class DictionaryLookupTest {
     doc3.setField("input2", "United States of America");
     stage.processDocument(doc3);
     assertNull(doc3.getStringList("output2"));
-    
-    // Ensure that if there are multiple payloads, that the payloads get mapped to the output as expected.
+
+    // Ensure that if there are multiple payloads, that the payloads get mapped to the output as
+    // expected.
     Document doc4 = Document.create("doc4");
     doc4.setField("input1", "foo");
     stage.processDocument(doc4);
@@ -51,36 +52,34 @@ public class DictionaryLookupTest {
     assertEquals(vals.get(0), "bar");
     assertEquals(vals.get(1), "baz");
     assertEquals(vals.get(2), "boom");
-
   }
-  
+
   @Test
   public void testDictionaryLookupIgnoreCase() throws StageException {
     Stage stage = factory.get("DictionaryLookupTest/config_ignore_case.conf");
-    
+
     Document doc = Document.create("doc");
     // lower case input
     doc.setField("input1", "china");
     stage.processDocument(doc);
     // assert output is original case
     assertEquals("China", doc.getStringList("output1").get(0));
-    
   }
 
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("DictionaryLookupTest/config.conf");
     assertEquals(
-      Set.of(
-        "ignore_case",
-        "use_payloads",
-        "update_mode",
-        "name",
-        "source",
-        "dest",
-        "conditions",
-        "class",
-        "dict_path"),
-      stage.getLegalProperties());
+        Set.of(
+            "ignore_case",
+            "use_payloads",
+            "update_mode",
+            "name",
+            "source",
+            "dest",
+            "conditions",
+            "class",
+            "dict_path"),
+        stage.getLegalProperties());
   }
 }

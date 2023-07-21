@@ -25,10 +25,11 @@ public class ParseJsonTest {
   public void testJsonString() throws Exception {
     Stage stage = factory.get("ParseJson/config.conf");
     Document doc = Document.create("doc");
-    try (InputStream in = ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/test.json")) {
+    try (InputStream in =
+        ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/test.json")) {
       doc.setField("json", IOUtils.toString(in, StandardCharsets.UTF_8));
       stage.processDocument(doc);
-      //Get the map so we can assert on type
+      // Get the map so we can assert on type
       Map<String, Object> docMap = doc.asMap();
 
       assertThat(doc.getString("aNumber"), equalTo("1"));
@@ -40,12 +41,11 @@ public class ParseJsonTest {
       assertThat(doc.getString("menuValue"), equalTo("File"));
       assertThat(docMap.get("menuValue"), equalTo("File"));
 
-      //defer to ParseDate stage
+      // defer to ParseDate stage
       assertThat(doc.getString("aDate"), equalTo("2021-12-10"));
       assertThat(doc.getString("aTime"), equalTo("2021-12-10T14:05:26Z"));
       assertThat(docMap.get("aDate"), equalTo("2021-12-10"));
       assertThat(docMap.get("aTime"), equalTo("2021-12-10T14:05:26Z"));
-
 
       assertThat(doc.getString("isFalse"), equalTo("false"));
       assertThat(doc.getString("isTrue"), equalTo("true"));
@@ -82,7 +82,8 @@ public class ParseJsonTest {
       assertThat(menuItems.get(2).get("value"), equalTo("Close"));
       assertThat(menuItems.get(2).get("onclick"), equalTo("CloseDoc()"));
 
-      //$.menu.popup.menuitem[*].value should consolidate the value field from menuitem objects into a single
+      // $.menu.popup.menuitem[*].value should consolidate the value field from menuitem objects
+      // into a single
       // multivalued field.
       assertThat(doc.isMultiValued("menuItemValues"), CoreMatchers.is(true));
       List<String> menuItemValues = doc.getStringList("menuItemValues");
@@ -111,18 +112,17 @@ public class ParseJsonTest {
       // "/items/6" and "/items".get(6) should be equivalent
       assertThat(item7, equalTo(docMap.get("item7")));
     }
-
-
   }
 
   @Test
   public void testJsonFileContent() throws Exception {
     Stage stage = factory.get("ParseJson/base64_config.conf");
     Document doc = Document.create("doc");
-    try (InputStream in = ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/test.json")) {
+    try (InputStream in =
+        ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/test.json")) {
       doc.setField("file_content", Base64.getEncoder().encodeToString(IOUtils.toByteArray(in)));
       stage.processDocument(doc);
-      //Get the map so we can assert on type
+      // Get the map so we can assert on type
       Map<String, Object> docMap = doc.asMap();
 
       assertThat(doc.getString("aNumber"), equalTo("1"));
@@ -134,12 +134,11 @@ public class ParseJsonTest {
       assertThat(doc.getString("menuValue"), equalTo("File"));
       assertThat(docMap.get("menuValue"), equalTo("File"));
 
-      //defer to ParseDate stage
+      // defer to ParseDate stage
       assertThat(doc.getString("aDate"), equalTo("2021-12-10"));
       assertThat(doc.getString("aTime"), equalTo("2021-12-10T14:05:26Z"));
       assertThat(docMap.get("aDate"), equalTo("2021-12-10"));
       assertThat(docMap.get("aTime"), equalTo("2021-12-10T14:05:26Z"));
-
 
       assertThat(doc.getString("isFalse"), equalTo("false"));
       assertThat(doc.getString("isTrue"), equalTo("true"));
@@ -176,7 +175,8 @@ public class ParseJsonTest {
       assertThat(menuItems.get(2).get("value"), equalTo("Close"));
       assertThat(menuItems.get(2).get("onclick"), equalTo("CloseDoc()"));
 
-      //$.menu.popup.menuitem[*].value should consolidate the value field from menuitem objects into a single
+      // $.menu.popup.menuitem[*].value should consolidate the value field from menuitem objects
+      // into a single
       // multivalued field.
       assertThat(doc.isMultiValued("menuItemValues"), CoreMatchers.is(true));
       List<String> menuItemValues = doc.getStringList("menuItemValues");
@@ -210,7 +210,7 @@ public class ParseJsonTest {
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("ParseJson/config.conf");
-    assertEquals(Set.of("src", "name", "sourceIsBase64", "conditions", "class"),
-      stage.getLegalProperties());
+    assertEquals(
+        Set.of("src", "name", "sourceIsBase64", "conditions", "class"), stage.getLegalProperties());
   }
 }

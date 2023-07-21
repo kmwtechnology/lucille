@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.util;
 
-
 import java.io.*;
 import java.net.URI;
 import java.nio.file.Path;
@@ -8,9 +7,9 @@ import java.nio.file.Path;
 public class FileUtils {
 
   /**
-   * Returns a Reader for the file at the given path. If the path begins with "classpath:" the prefix will be removed
-   * and the file will be read from the classpath. If the path appears to be a URI, it will be accessed using VFS.
-   * Otherwise, it will be read from the filesystem.
+   * Returns a Reader for the file at the given path. If the path begins with "classpath:" the
+   * prefix will be removed and the file will be read from the classpath. If the path appears to be
+   * a URI, it will be accessed using VFS. Otherwise, it will be read from the filesystem.
    */
   public static Reader getReader(String path) throws IOException {
     return getReader(path, "utf-8");
@@ -25,9 +24,13 @@ public class FileUtils {
         is = new FileInputStream(path);
       }
     } else {
-      is = FileUtils.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
+      is =
+          FileUtils.class
+              .getClassLoader()
+              .getResourceAsStream(path.substring(path.indexOf(":") + 1));
     }
-    // This method of creating the Reader is used because it handles non-UTF-8 characters by replacing them with UTF
+    // This method of creating the Reader is used because it handles non-UTF-8 characters by
+    // replacing them with UTF
     // chars, rather than throwing an Exception.
     // https://stackoverflow.com/questions/26268132/all-inclusive-charset-to-avoid-java-nio-charset-malformedinputexception-input
     // return Files.newBufferedReader(Paths.get(path), StandardCharsets.UTF_8);
@@ -53,5 +56,4 @@ public class FileUtils {
       return false;
     }
   }
-
 }

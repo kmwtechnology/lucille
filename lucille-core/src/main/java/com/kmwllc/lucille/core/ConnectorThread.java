@@ -29,5 +29,4 @@ public class ConnectorThread extends Thread {
   public boolean hasException() {
     return exception != null;
   }
-
 }

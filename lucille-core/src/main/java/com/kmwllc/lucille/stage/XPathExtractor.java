@@ -21,11 +21,14 @@ import java.util.Map;
 
 /**
  * Extracts values out of XML document fields using XPath expressions.
- * <p>
- * Config Parameters -
+ *
+ * <p>Config Parameters -
+ *
  * <ul>
- * <li>fieldMapping (Map<String, List<String>>) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.</li>
- * <li>xmlField (String) : The name of the document field which contains the XML field: defaults to "xml".</li>
+ *   <li>fieldMapping (Map<String, List<String>>) : A mapping of the XPath expression to the list of
+ *       fields to place the evaluated expression in.
+ *   <li>xmlField (String) : The name of the document field which contains the XML field: defaults
+ *       to "xml".
  * </ul>
  */
 public class XPathExtractor extends Stage {
@@ -43,8 +46,9 @@ public class XPathExtractor extends Stage {
    * @param config
    */
   public XPathExtractor(Config config) {
-    super(config, new StageSpec().withOptionalProperties("xmlField")
-      .withRequiredParents("fieldMapping"));
+    super(
+        config,
+        new StageSpec().withOptionalProperties("xmlField").withRequiredParents("fieldMapping"));
     xpaths = config.getConfig("fieldMapping").root().unwrapped();
     factory = DocumentBuilderFactory.newInstance();
     XPathFactory xpathFactory = XPathFactory.newInstance();

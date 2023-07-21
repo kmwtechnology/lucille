@@ -28,11 +28,13 @@ public class ElasticsearchLookup extends Stage {
   private final UpdateMode updateMode;
 
   public ElasticsearchLookup(Config config) {
-    super(config, new StageSpec()
-      .withOptionalProperties("update_mode")
-      .withRequiredProperties("source", "dest", "elasticsearch.url", "elasticsearch.index")
-      .withOptionalProperties("elasticsearch.acceptInvalidCert", "update_mode")
-      .withRequiredParents("elasticsearch"));
+    super(
+        config,
+        new StageSpec()
+            .withOptionalProperties("update_mode")
+            .withRequiredProperties("source", "dest", "elasticsearch.url", "elasticsearch.index")
+            .withOptionalProperties("elasticsearch.acceptInvalidCert", "update_mode")
+            .withRequiredParents("elasticsearch"));
     this.client = ElasticsearchUtils.getElasticsearchOfficialClient(config);
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
 
@@ -71,10 +73,8 @@ public class ElasticsearchLookup extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
-      GetResponse<ObjectNode> response = client.get(g -> g
-          .index(index)
-          .id(doc.getId()),
-        ObjectNode.class);
+      GetResponse<ObjectNode> response =
+          client.get(g -> g.index(index).id(doc.getId()), ObjectNode.class);
 
       if (response.found()) {
         ObjectNode json = response.source();
@@ -84,7 +84,8 @@ public class ElasticsearchLookup extends Stage {
       }
       return null;
     } catch (IOException e) {
-      throw new StageException(String.format("Error looking up fields in elasticsearch for doc id: %s", doc.getId()), e);
+      throw new StageException(
+          String.format("Error looking up fields in elasticsearch for doc id: %s", doc.getId()), e);
     }
   }
 }

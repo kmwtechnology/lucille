@@ -42,11 +42,15 @@ class Worker implements Runnable {
     running = false;
   }
 
-  public Worker(Config config, WorkerMessageManager manager, String pipelineName, String metricsPrefix) throws Exception {
+  public Worker(
+      Config config, WorkerMessageManager manager, String pipelineName, String metricsPrefix)
+      throws Exception {
     this.manager = manager;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
     if (config.hasPath("worker.maxRetries")) {
-      log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
+      log.info(
+          "Retries will be tracked in Zookeeper with a configured maximum of: "
+              + config.getInt("worker.maxRetries"));
       this.trackRetries = true;
       this.counter = new ZKRetryCounter(config);
     }
@@ -80,7 +84,8 @@ class Worker implements Runnable {
 
       if (trackRetries && counter.add(doc)) {
         try {
-          log.info("Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");
+          log.info(
+              "Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");
           manager.sendFailed(doc);
         } catch (Exception e) {
           log.error("Failed to send doc to failure topic: " + doc.getId(), e);
@@ -107,8 +112,10 @@ class Worker implements Runnable {
           // if we're looking at a child document, send a CREATE events for it;
           // a document is a child if it has a different ID from the input document;
           // Note: we want to make sure that the Publisher is notified of any generated children
-          // BEFORE the input/parent document is completed. This prevents a situation where the Runner
-          // assumes the run is complete because the parent is complete and the Publisher didn't know
+          // BEFORE the input/parent document is completed. This prevents a situation where the
+          // Runner
+          // assumes the run is complete because the parent is complete and the Publisher didn't
+          // know
           // about the children. This code assumes the pipeline emits children before parents.
           if (!doc.getId().equals(result.getId())) {
             manager.sendEvent(result, null, Event.Type.CREATE);
@@ -164,7 +171,7 @@ class Worker implements Runnable {
   private void commitOffsetsAndRemoveCounter(Document doc) {
     try {
       manager.commitPendingDocOffsets();
-      if (trackRetries && doc!=null) {
+      if (trackRetries && doc != null) {
         counter.remove(doc);
       }
     } catch (Exception commitException) {
@@ -176,9 +183,9 @@ class Worker implements Runnable {
     return pollInstant;
   }
 
-  public static WorkerThread startThread(Config config, WorkerMessageManager manager,
-                                         String pipelineName, String metricsPrefix) throws
-      Exception {
+  public static WorkerThread startThread(
+      Config config, WorkerMessageManager manager, String pipelineName, String metricsPrefix)
+      throws Exception {
     Worker worker = new Worker(config, manager, pipelineName, metricsPrefix);
     WorkerThread workerThread = new WorkerThread(worker, config);
     workerThread.start();
@@ -193,19 +200,21 @@ class Worker implements Runnable {
     WorkerMessageManagerFactory workerMessageManagerFactory =
         WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName);
 
-    WorkerPool workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory, pipelineName);
+    WorkerPool workerPool =
+        new WorkerPool(config, pipelineName, workerMessageManagerFactory, pipelineName);
     workerPool.start();
 
-    Signal.handle(new Signal("INT"), signal -> {
-      workerPool.stop();
-      log.info("Workers shutting down");
-      try {
-        workerPool.join();
-      } catch (InterruptedException e) {
-        log.error("Interrupted", e);
-      }
-      System.exit(0);
-    });
+    Signal.handle(
+        new Signal("INT"),
+        signal -> {
+          workerPool.stop();
+          log.info("Workers shutting down");
+          try {
+            workerPool.join();
+          } catch (InterruptedException e) {
+            log.error("Interrupted", e);
+          }
+          System.exit(0);
+        });
   }
-
 }

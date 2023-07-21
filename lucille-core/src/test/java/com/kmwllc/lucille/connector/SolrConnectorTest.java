@@ -29,25 +29,26 @@ public class SolrConnectorTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run", "pipeline1");
 
-    when(mockClient.query(any(SolrQuery.class))).then(new Answer<>() {
-      @Override
-      public QueryResponse answer(InvocationOnMock invocationOnMock) throws Throwable {
-        SolrQuery q = invocationOnMock.getArgument(0);
+    when(mockClient.query(any(SolrQuery.class)))
+        .then(
+            new Answer<>() {
+              @Override
+              public QueryResponse answer(InvocationOnMock invocationOnMock) throws Throwable {
+                SolrQuery q = invocationOnMock.getArgument(0);
 
-        SolrDocument doc = new SolrDocument();
-        doc.setField(Document.ID_FIELD, "doc");
-        for (String param : q.getParameterNames()) {
-          if (param.equals("cursorMark"))
-            continue;
-          doc.setField(param.toLowerCase(), q.getParams(param));
-        }
+                SolrDocument doc = new SolrDocument();
+                doc.setField(Document.ID_FIELD, "doc");
+                for (String param : q.getParameterNames()) {
+                  if (param.equals("cursorMark")) continue;
+                  doc.setField(param.toLowerCase(), q.getParams(param));
+                }
 
-        MockQueryResponse resp = new MockQueryResponse();
-        resp.addToResults(doc);
-        resp.getResults().setNumFound(3);
-        return resp;
-      }
-    });
+                MockQueryResponse resp = new MockQueryResponse();
+                resp.addToResults(doc);
+                resp.getResults().setNumFound(3);
+                return resp;
+              }
+            });
 
     Connector connector = new SolrConnector(config, mockClient);
     connector.execute(publisher);
@@ -59,7 +60,7 @@ public class SolrConnectorTest {
     testDoc.update("sort", UpdateMode.DEFAULT, "devId desc", "id asc");
     testDoc.update("rows", UpdateMode.DEFAULT, "1");
 
-    //verify(mockPublisher, times(2)).publish(testDoc);
+    // verify(mockPublisher, times(2)).publish(testDoc);
 
     assertEquals(2, manager.getSavedDocumentsSentForProcessing().size());
     for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
@@ -88,7 +89,8 @@ public class SolrConnectorTest {
     connector.preExecute("run");
     connector.postExecute("run");
 
-    // We expect the request method to be called 5 times, since we supplied 2 pre actions and 3 post actions.
+    // We expect the request method to be called 5 times, since we supplied 2 pre actions and 3 post
+    // actions.
     verify(mockClient, times(5)).request(any(GenericSolrRequest.class));
   }
 
@@ -111,9 +113,11 @@ public class SolrConnectorTest {
     SolrConnector connector = new SolrConnector(config, mockClient);
 
     connector.preExecute("run1");
-    assertEquals("<delete><query>runId:run1</query></delete>", connector.getLastExecutedPreActions().get(0));
+    assertEquals(
+        "<delete><query>runId:run1</query></delete>", connector.getLastExecutedPreActions().get(0));
     connector.preExecute("run2");
-    assertEquals("<delete><query>runId:run2</query></delete>", connector.getLastExecutedPreActions().get(0));
+    assertEquals(
+        "<delete><query>runId:run2</query></delete>", connector.getLastExecutedPreActions().get(0));
 
     connector.postExecute("run1");
     assertEquals("<query>runId:run1</query>", connector.getLastExecutedPostActions().get(0));
@@ -122,20 +126,25 @@ public class SolrConnectorTest {
   }
 
   @Test
-  public void testRunIdReplacementJson() throws SolrServerException, IOException, ConnectorException {
+  public void testRunIdReplacementJson()
+      throws SolrServerException, IOException, ConnectorException {
     Config config = ConfigFactory.load("SolrConnectorTest/runIdJson.conf");
     SolrClient mockClient = mock(SolrClient.class);
     when(mockClient.request(any(GenericSolrRequest.class))).thenReturn(new NamedList<>());
     SolrConnector connector = new SolrConnector(config, mockClient);
 
     connector.preExecute("run1");
-    assertEquals("{\"delete\":{\"query\":\"runId:run1\"}}", connector.getLastExecutedPreActions().get(0));
+    assertEquals(
+        "{\"delete\":{\"query\":\"runId:run1\"}}", connector.getLastExecutedPreActions().get(0));
     connector.preExecute("run2");
-    assertEquals("{\"delete\":{\"query\":\"runId:run2\"}}", connector.getLastExecutedPreActions().get(0));
+    assertEquals(
+        "{\"delete\":{\"query\":\"runId:run2\"}}", connector.getLastExecutedPreActions().get(0));
 
     connector.postExecute("run1");
-    assertEquals("{\"delete\":{\"query\":\"runId:run1\"}}", connector.getLastExecutedPostActions().get(0));
+    assertEquals(
+        "{\"delete\":{\"query\":\"runId:run1\"}}", connector.getLastExecutedPostActions().get(0));
     connector.postExecute("run2");
-    assertEquals("{\"delete\":{\"query\":\"runId:run2\"}}", connector.getLastExecutedPostActions().get(0));
+    assertEquals(
+        "{\"delete\":{\"query\":\"runId:run2\"}}", connector.getLastExecutedPostActions().get(0));
   }
 }

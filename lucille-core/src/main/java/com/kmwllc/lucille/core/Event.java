@@ -12,14 +12,19 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * Represents something that happened relating to a particular document in the context of a particular "run."
- * For example, a document may have been created during pipeline execution, or a document may have been indexed
- * in a search engine.
+ * Represents something that happened relating to a particular document in the context of a
+ * particular "run." For example, a document may have been created during pipeline execution, or a
+ * document may have been indexed in a search engine.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class Event {
 
-  public enum Type {CREATE, FINISH, FAIL, DROP}
+  public enum Type {
+    CREATE,
+    FINISH,
+    FAIL,
+    DROP
+  }
 
   private Type type;
   private String documentId;
@@ -38,8 +43,7 @@ public class Event {
     MAPPER.registerModule(new JavaTimeModule());
   }
 
-  private Event() {
-  }
+  private Event() {}
 
   public Event(Document document, String message, Type type) {
     this.documentId = document.getId();
@@ -47,7 +51,7 @@ public class Event {
     this.message = message;
     this.type = type;
     if (document instanceof KafkaDocument) {
-      KafkaDocument kafkaDocument = (KafkaDocument)document;
+      KafkaDocument kafkaDocument = (KafkaDocument) document;
       this.topic = kafkaDocument.getTopic();
       this.partition = kafkaDocument.getPartition();
       this.offset = kafkaDocument.getOffset();
@@ -81,7 +85,9 @@ public class Event {
     return message;
   }
 
-  public Type getType() { return type; }
+  public Type getType() {
+    return type;
+  }
 
   public Instant getInstant() {
     return instant;
@@ -130,19 +136,18 @@ public class Event {
     }
 
     Event e = (Event) o;
-    return Objects.equals(documentId, e.documentId) &&
-      Objects.equals(runId, e.runId) &&
-      Objects.equals(message, e.message) &&
-      Objects.equals(type, e.type) &&
-      Objects.equals(instant, e.instant) &&
-      Objects.equals(topic, e.topic) &&
-      Objects.equals(partition, e.partition) &&
-      Objects.equals(offset, e.offset) &&
-      Objects.equals(key, e.key);
+    return Objects.equals(documentId, e.documentId)
+        && Objects.equals(runId, e.runId)
+        && Objects.equals(message, e.message)
+        && Objects.equals(type, e.type)
+        && Objects.equals(instant, e.instant)
+        && Objects.equals(topic, e.topic)
+        && Objects.equals(partition, e.partition)
+        && Objects.equals(offset, e.offset)
+        && Objects.equals(key, e.key);
   }
 
   public int hashCode() {
     return Objects.hash(documentId, runId, message, type, instant, topic, partition, offset, key);
   }
-
 }

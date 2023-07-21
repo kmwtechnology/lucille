@@ -51,7 +51,8 @@ public class OpenSearchIndexerTest {
   }
 
   /**
-   * Tests that the indexer correctly polls completed documents from the destination topic and sends them to OpenSearch.
+   * Tests that the indexer correctly polls completed documents from the destination topic and sends
+   * them to OpenSearch.
    *
    * @throws Exception
    */
@@ -88,7 +89,8 @@ public class OpenSearchIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    OpenSearchIndexer indexer = new ErroringOpenSearchIndexer(config, manager, mockClient, "testing");
+    OpenSearchIndexer indexer =
+        new ErroringOpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     manager.sendCompleted(doc3);
@@ -109,10 +111,10 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
-    Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
+    Assert.assertTrue(
+        indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
-
   }
 
   @Test
@@ -134,10 +136,13 @@ public class OpenSearchIndexerTest {
     manager.sendCompleted(doc5);
     indexer.run(5);
 
-    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
-    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor =
+        ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor =
+        ArgumentCaptor.forClass(RequestOptions.class);
 
-    verify(mockClient, times(3)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+    verify(mockClient, times(3))
+        .bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
 
     List<BulkRequest> bulkRequestValue = bulkRequestArgumentCaptor.getAllValues();
     assertEquals(3, bulkRequestValue.size());
@@ -166,15 +171,17 @@ public class OpenSearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
-    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor =
+        ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor =
+        ArgumentCaptor.forClass(RequestOptions.class);
 
-    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+    verify(mockClient, times(1))
+        .bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
 
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<DocWriteRequest<?>> requests = br.requests();
@@ -205,10 +212,13 @@ public class OpenSearchIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
-    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor =
+        ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor =
+        ArgumentCaptor.forClass(RequestOptions.class);
 
-    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+    verify(mockClient, times(1))
+        .bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
 
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<DocWriteRequest<?>> requests = br.requests();
@@ -239,10 +249,13 @@ public class OpenSearchIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
-    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor =
+        ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor =
+        ArgumentCaptor.forClass(RequestOptions.class);
 
-    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+    verify(mockClient, times(1))
+        .bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
 
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<DocWriteRequest<?>> requests = br.requests();
@@ -288,10 +301,9 @@ public class OpenSearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf");
 
-    KafkaDocument doc = new KafkaDocument(
-            new ObjectMapper().createObjectNode()
-                    .put("id", "doc1")
-                    .put("field1", "value1"));
+    KafkaDocument doc =
+        new KafkaDocument(
+            new ObjectMapper().createObjectNode().put("id", "doc1").put("field1", "value1"));
     doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
@@ -312,8 +324,11 @@ public class OpenSearchIndexerTest {
 
   private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
 
-    public ErroringOpenSearchIndexer(Config config, IndexerMessageManager manager,
-                                     RestHighLevelClient client, String metricsPrefix) {
+    public ErroringOpenSearchIndexer(
+        Config config,
+        IndexerMessageManager manager,
+        RestHighLevelClient client,
+        String metricsPrefix) {
       super(config, manager, client, "testing");
     }
 

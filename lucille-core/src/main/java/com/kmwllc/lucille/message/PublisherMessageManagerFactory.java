@@ -23,5 +23,4 @@ public interface PublisherMessageManagerFactory {
       }
     };
   }
-
 }

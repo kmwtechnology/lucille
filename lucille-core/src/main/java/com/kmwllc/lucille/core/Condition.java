@@ -12,7 +12,8 @@ public class Condition implements Predicate<Document> {
   private final String operator;
 
   public Condition(Config config) {
-    this(config.getStringList("fields"),
+    this(
+        config.getStringList("fields"),
         config.getStringList("values"),
         config.hasPath("operator") ? config.getString("operator") : "must");
   }

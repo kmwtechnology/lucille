@@ -22,7 +22,9 @@ public class ExtractEntitiesTest {
     Document doc = Document.create("doc");
     doc.setField("input1", "I live in the United States.");
     stage.processDocument(doc);
-    assertEquals("Country name should be extracted from input1", "United States",
+    assertEquals(
+        "Country name should be extracted from input1",
+        "United States",
         doc.getStringList("output").get(0));
 
     // Ensure that several fields can be extracted and that payloads work as expected
@@ -33,11 +35,14 @@ public class ExtractEntitiesTest {
     stage.processDocument(doc2);
     List<String> tokens = doc2.getStringList("output");
     assertEquals("Country names from input1 should be extracted to output", "China", tokens.get(0));
-    assertEquals("Country names from input1 should be extracted to output", "Taiwan", tokens.get(1));
-    assertEquals("Country names from input2 should be extracted to output", "Canada", tokens.get(2));
-    assertEquals("Country names from input3 should be extracted to output", "Russia", tokens.get(3));
+    assertEquals(
+        "Country names from input1 should be extracted to output", "Taiwan", tokens.get(1));
+    assertEquals(
+        "Country names from input2 should be extracted to output", "Canada", tokens.get(2));
+    assertEquals(
+        "Country names from input3 should be extracted to output", "Russia", tokens.get(3));
   }
-  
+
   @Test
   public void testExtractEntitiesAndPayloads() throws Exception {
     Document doc = Document.create("doc");

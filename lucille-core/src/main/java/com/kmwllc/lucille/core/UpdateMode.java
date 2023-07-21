@@ -3,7 +3,9 @@ package com.kmwllc.lucille.core;
 import com.typesafe.config.Config;
 
 public enum UpdateMode {
-  APPEND("append"), OVERWRITE("overwrite"), SKIP("skip");
+  APPEND("append"),
+  OVERWRITE("overwrite"),
+  SKIP("skip");
 
   public static final String CONFIG_PATH = "update_mode";
   public static final UpdateMode DEFAULT = OVERWRITE;
@@ -30,5 +32,4 @@ public enum UpdateMode {
     }
     return DEFAULT;
   }
-
 }

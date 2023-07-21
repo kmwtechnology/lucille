@@ -3,10 +3,11 @@
     "id": "file",
     "value": "File",
     "popup": {
-      "menuitem": [{
-        "value": "New",
-        "onclick": "CreateNewDoc()"
-      },
+      "menuitem": [
+        {
+          "value": "New",
+          "onclick": "CreateNewDoc()"
+        },
         {
           "value": "Open",
           "onclick": "OpenDoc()"

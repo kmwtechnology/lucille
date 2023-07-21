@@ -25,11 +25,13 @@ public abstract class DocumentTest {
 
   public abstract Document createDocument(String id, String runId);
 
-  public Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException {
+  public Document createDocumentFromJson(String json)
+      throws DocumentException, JsonProcessingException {
     return createDocumentFromJson(json, null);
   }
 
-  public abstract Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException;
+  public abstract Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater)
+      throws DocumentException, JsonProcessingException;
 
   @Test(expected = NullPointerException.class)
   public void testCreateWithoutId1() {
@@ -99,14 +101,14 @@ public abstract class DocumentTest {
   @Test
   public void testIsMultiValued() throws DocumentException, JsonProcessingException {
     Document document =
-      createDocumentFromJson(
-        ""
-          + "{\"id\":\"123\", "
-          + "\"null\":null,"
-          + "\"single\":\"val1\", "
-          + "\"empty_arr\":[],"
-          + "\"arr1\":[\"val1\"],"
-          + "\"arr2\":[\"val1\", \"val2\"]}");
+        createDocumentFromJson(
+            ""
+                + "{\"id\":\"123\", "
+                + "\"null\":null,"
+                + "\"single\":\"val1\", "
+                + "\"empty_arr\":[],"
+                + "\"arr1\":[\"val1\"],"
+                + "\"arr2\":[\"val1\", \"val2\"]}");
 
     assertFalse(document.isMultiValued("id"));
     assertFalse(document.isMultiValued("null"));
@@ -1082,7 +1084,7 @@ public abstract class DocumentTest {
 
     // ensure that the numbers do not come out as Strings
     assertEquals("{\"id\":\"id\",\"field1\":[1,16,129]}", d.toString());
-//    compareToString("{\"id\":\"id\",\"field1\":[1,16,129]}", d.toString());
+    //    compareToString("{\"id\":\"id\",\"field1\":[1,16,129]}", d.toString());
 
     d.setField("field2", "a");
     d.addToField("field2", "b");
@@ -1099,7 +1101,8 @@ public abstract class DocumentTest {
     // ensure that the Strings do come out as Strings
     assertEquals(
         "{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
-    //    compareToString("{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
+    //    compareToString("{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}",
+    // d.toString());
   }
 
   private void assertEqualsFromString(Document document, String string) {
@@ -1129,7 +1132,8 @@ public abstract class DocumentTest {
     // verify that the original field stays the same, while the output field contains the correct
     // values
     // todo does the order matter here?
-//    assertEquals("{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}", d.toString());
+    //    assertEquals("{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}",
+    // d.toString());
     assertEqualsFromString(d, "{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}");
 
     Document d2 = createDocument("id2");
@@ -1147,7 +1151,7 @@ public abstract class DocumentTest {
 
     // verify in-place modification
     assertEquals("{\"id\":\"id2\",\"field2\":[\"a\",\"b\",\"c\"]}", d2.toString());
-//    compareToString("{\"id\":\"id2\",\"field2\":[\"a\",\"b\",\"c\"]}", d2.toString());
+    //    compareToString("{\"id\":\"id2\",\"field2\":[\"a\",\"b\",\"c\"]}", d2.toString());
   }
 
   @Test
@@ -1184,7 +1188,7 @@ public abstract class DocumentTest {
     public void testGetNullFieldExceptions() throws DocumentException, JsonProcessingException {
 
       Document document =
-        createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
+          createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
 
       List<Object> nullList = new ArrayList<>();
       nullList.add(null);
@@ -1263,7 +1267,7 @@ public abstract class DocumentTest {
 
   @Test
   public void testGetBytesSingleValued() {
-    byte[] value = new byte[]{ 0x3c, 0x4c, 0x5c };
+    byte[] value = new byte[] {0x3c, 0x4c, 0x5c};
     Document document = createDocument("doc");
     document.setField("bytes", value);
     assertFalse(document.isMultiValued("bytes"));
@@ -1280,9 +1284,9 @@ public abstract class DocumentTest {
 
   @Test
   public void testGetBytesListMultiValued() throws Exception {
-    byte[] value1 = new byte[]{ 0x3c, 0x4c, 0x5c };
-    byte[] value2 = new byte[]{ 0x4c, 0x4c, 0x5c };
-    byte[] value3 = new byte[]{ 0x5c, 0x4c, 0x5c };
+    byte[] value1 = new byte[] {0x3c, 0x4c, 0x5c};
+    byte[] value2 = new byte[] {0x4c, 0x4c, 0x5c};
+    byte[] value3 = new byte[] {0x5c, 0x4c, 0x5c};
     Document document = createDocument("doc");
     document.setField("bytes", value1);
     assertFalse(document.isMultiValued("bytes"));
@@ -1294,8 +1298,8 @@ public abstract class DocumentTest {
 
   @Test
   public void testGetBytesMultivalued() {
-    byte[] value1 = new byte[]{ 0x3c, 0x4c, 0x5c };
-    byte[] value2 = new byte[]{ 0x4c, 0x4c, 0x5c };
+    byte[] value1 = new byte[] {0x3c, 0x4c, 0x5c};
+    byte[] value2 = new byte[] {0x4c, 0x4c, 0x5c};
     Document document = createDocument("doc");
     document.addToField("field1", value1);
     document.addToField("field1", value2);

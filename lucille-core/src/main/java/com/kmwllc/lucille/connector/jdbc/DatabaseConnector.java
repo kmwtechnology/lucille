@@ -14,15 +14,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Database Connector - This connector can run a select statement and return the rows 
- * from the database as documents which are published to a topic for processing.
- * If "otherSQLs" are set, the sql and otherSQLs must all be ordered by their join key
- * and the otherJoinFields must be populated.  If those parameters are populated
- * this connector will run the otherSQL statements in parallel and flatten the rows from
- * the otherSQL statements onto the Document as a child document
- * 
- * @author kwatters
+ * Database Connector - This connector can run a select statement and return the rows from the
+ * database as documents which are published to a topic for processing. If "otherSQLs" are set, the
+ * sql and otherSQLs must all be ordered by their join key and the otherJoinFields must be
+ * populated. If those parameters are populated this connector will run the otherSQL statements in
+ * parallel and flatten the rows from the otherSQL statements onto the Document as a child document
  *
+ * @author kwatters
  */
 public class DatabaseConnector extends AbstractConnector {
 
@@ -51,14 +49,12 @@ public class DatabaseConnector extends AbstractConnector {
     jdbcPassword = config.getString("jdbcPassword");
     sql = config.getString("sql");
     idField = config.getString("idField");
-    if (config.hasPath("preSql"))
-      preSql = config.getString("preSql");
-    if (config.hasPath("postSql"))
-      postSql = config.getString("postSql");
+    if (config.hasPath("preSql")) preSql = config.getString("preSql");
+    if (config.hasPath("postSql")) postSql = config.getString("postSql");
     if (config.hasPath("otherSQLs")) {
       otherSQLs = config.getStringList("otherSQLs");
       otherJoinFields = config.getStringList("otherJoinFields");
-    }  
+    }
   }
 
   // create a jdbc connection
@@ -69,7 +65,7 @@ public class DatabaseConnector extends AbstractConnector {
       // TODO better error handling/logging
       e.printStackTrace();
       setState(ConnectorState.ERROR);
-      throw(e);
+      throw (e);
     }
     try {
       connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
@@ -77,7 +73,7 @@ public class DatabaseConnector extends AbstractConnector {
       // TODO better logging/error handling.
       e.printStackTrace();
       setState(ConnectorState.ERROR);
-      throw(e);
+      throw (e);
     }
   }
 
@@ -88,97 +84,102 @@ public class DatabaseConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    
+
     try {
-    setState(ConnectorState.RUNNING);
-    // connect to the database.
-    createConnection();
-    // run the pre-sql (if specified)
-    runSql(preSql);
+      setState(ConnectorState.RUNNING);
+      // connect to the database.
+      createConnection();
+      // run the pre-sql (if specified)
+      runSql(preSql);
 
-    ResultSet rs = null;
-    try {
-      log.info("Running primary sql");
-      Statement state = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-      rs = state.executeQuery(sql);
-    } catch (SQLException e) {
-      e.printStackTrace();
-      setState(ConnectorState.ERROR);
-      throw(e);
-    }
-
-    log.info("Describing primary set...");
-    String[] columns = getColumnNames(rs);
-    int idColumn = -1;
-    for (int i = 0; i < columns.length; i++) {
-      if (columns[i].equalsIgnoreCase(idField)) {
-        idColumn = i + 1;
-        break;
+      ResultSet rs = null;
+      try {
+        log.info("Running primary sql");
+        Statement state =
+            connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+        rs = state.executeQuery(sql);
+      } catch (SQLException e) {
+        e.printStackTrace();
+        setState(ConnectorState.ERROR);
+        throw (e);
       }
-    }
 
-    ArrayList<ResultSet> otherResults = new ArrayList<ResultSet>();
-    ArrayList<String[]> otherColumns = new ArrayList<String[]>();
-    for (String otherSQL : otherSQLs) {
-      log.info("Describing other result set... {}", otherSQL );
-      // prepare the other sql query 
-      // TODO: run all sql statements in parallel.
-      ResultSet rs2 = runJoinSQL(otherSQL);
-      String[] columns2 = getColumnNames(rs2);
-      otherResults.add(rs2);
-      otherColumns.add(columns2);
-    }
-
-    log.info("Processing rows...");
-    
-    while (rs.next()) {
-      // Need the ID column from the RS.
-      String id = createDocId(rs.getString(idColumn));
-      
-      Document doc = Document.create(id);
-      
-      // Add each column / field name to the doc
-      for (int i = 1; i <= columns.length; i++) {
-        // TODO: how do we normalize our column names?  (lowercase is probably ok and likely desirable as 
-        // sometimes databases return columns in upper/lower case depending on which db you talk to.)
-        String fieldName = columns[i-1].toLowerCase();
-        if (i == idColumn && Document.ID_FIELD.equals(fieldName)) {
-          // we already have this column because it's the id column.
-          continue;
-        }
-        // log.info("Add Field {} Value {} -- Doc {}", columns[i-1].toLowerCase(), rs.getString(i), doc);
-        String fieldValue = rs.getString(i);
-        if (fieldValue != null) {
-          doc.setOrAdd(fieldName, fieldValue);
+      log.info("Describing primary set...");
+      String[] columns = getColumnNames(rs);
+      int idColumn = -1;
+      for (int i = 0; i < columns.length; i++) {
+        if (columns[i].equalsIgnoreCase(idField)) {
+          idColumn = i + 1;
+          break;
         }
       }
 
-      if (!otherResults.isEmpty()) {
-        // this is the primary key that the result set is ordered by.
-        Integer joinId = rs.getInt(idField);
-        int childId = -1;
-        int j = 0;
-        for (ResultSet otherResult : otherResults) {
-          iterateOtherSQL(otherResult, otherColumns.get(j), doc, joinId, childId, otherJoinFields.get(j));
-          j++;
-        }
+      ArrayList<ResultSet> otherResults = new ArrayList<ResultSet>();
+      ArrayList<String[]> otherColumns = new ArrayList<String[]>();
+      for (String otherSQL : otherSQLs) {
+        log.info("Describing other result set... {}", otherSQL);
+        // prepare the other sql query
+        // TODO: run all sql statements in parallel.
+        ResultSet rs2 = runJoinSQL(otherSQL);
+        String[] columns2 = getColumnNames(rs2);
+        otherResults.add(rs2);
+        otherColumns.add(columns2);
       }
-      
-      // Fix the duplicate id field value that occurs
-     // doc.setField("id", id);
-      // feed the accumulated document.
-      publisher.publish(doc);
-    }
 
-    // close all results
-    rs.close();
-    for (ResultSet ors : otherResults) {
-      ors.close();
-    }
-    // the post sql.
-    runSql(postSql);
-    flush();
-    setState(ConnectorState.STOPPED);
+      log.info("Processing rows...");
+
+      while (rs.next()) {
+        // Need the ID column from the RS.
+        String id = createDocId(rs.getString(idColumn));
+
+        Document doc = Document.create(id);
+
+        // Add each column / field name to the doc
+        for (int i = 1; i <= columns.length; i++) {
+          // TODO: how do we normalize our column names?  (lowercase is probably ok and likely
+          // desirable as
+          // sometimes databases return columns in upper/lower case depending on which db you talk
+          // to.)
+          String fieldName = columns[i - 1].toLowerCase();
+          if (i == idColumn && Document.ID_FIELD.equals(fieldName)) {
+            // we already have this column because it's the id column.
+            continue;
+          }
+          // log.info("Add Field {} Value {} -- Doc {}", columns[i-1].toLowerCase(),
+          // rs.getString(i), doc);
+          String fieldValue = rs.getString(i);
+          if (fieldValue != null) {
+            doc.setOrAdd(fieldName, fieldValue);
+          }
+        }
+
+        if (!otherResults.isEmpty()) {
+          // this is the primary key that the result set is ordered by.
+          Integer joinId = rs.getInt(idField);
+          int childId = -1;
+          int j = 0;
+          for (ResultSet otherResult : otherResults) {
+            iterateOtherSQL(
+                otherResult, otherColumns.get(j), doc, joinId, childId, otherJoinFields.get(j));
+            j++;
+          }
+        }
+
+        // Fix the duplicate id field value that occurs
+        // doc.setField("id", id);
+        // feed the accumulated document.
+        publisher.publish(doc);
+      }
+
+      // close all results
+      rs.close();
+      for (ResultSet ors : otherResults) {
+        ors.close();
+      }
+      // the post sql.
+      runSql(postSql);
+      flush();
+      setState(ConnectorState.STOPPED);
     } catch (Exception e) {
       setState(ConnectorState.ERROR);
       throw new ConnectorException("Exception caught during connector execution", e);
@@ -192,7 +193,9 @@ public class DatabaseConnector extends AbstractConnector {
     // System.err.println("No Op flush for now.");
   }
 
-  private void iterateOtherSQL(ResultSet rs2, String[] columns2, Document doc, Integer joinId, int childId, String joinField) throws SQLException {
+  private void iterateOtherSQL(
+      ResultSet rs2, String[] columns2, Document doc, Integer joinId, int childId, String joinField)
+      throws SQLException {
     while (rs2.next()) {
       // TODO: support non INT primary key
       Integer otherJoinId = rs2.getInt(joinField);
@@ -225,7 +228,6 @@ public class DatabaseConnector extends AbstractConnector {
     if (!rs2.isLast()) {
       rs2.previous();
     }
-
   }
 
   private ResultSet runJoinSQL(String sql) throws SQLException {
@@ -233,19 +235,18 @@ public class DatabaseConnector extends AbstractConnector {
     try {
       // TODO: can we do this with forward only ?
       log.info("Running other sql");
-      Statement state2 = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+      Statement state2 =
+          connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
       rs2 = state2.executeQuery(sql);
     } catch (SQLException e) {
       e.printStackTrace();
       setState(ConnectorState.ERROR);
-      throw(e);
+      throw (e);
     }
     return rs2;
   }
 
-  /**
-   * Return an array of column names.
-   */
+  /** Return an array of column names. */
   private String[] getColumnNames(ResultSet rs) throws SQLException {
     ResultSetMetaData meta = rs.getMetaData();
     String[] names = new String[meta.getColumnCount()];
@@ -269,7 +270,7 @@ public class DatabaseConnector extends AbstractConnector {
     }
   }
 
-  //@Override
+  // @Override
   public void stop() {
     // TODO: move this to a base class..
     setState(ConnectorState.STOPPED);

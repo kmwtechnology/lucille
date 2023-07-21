@@ -3,14 +3,15 @@
 ## VFSConnector
 
 The ```VFSConnector``` leverages [Apache Commons VFS](https://commons.apache.org/proper/commons-vfs/index.html) provides
-a single API for accessing various different file systems, including support for AWS S3 via the 
-[Amazon S3 driver for VFS](https://github.com/abashev/vfs-s3). The connector will accept 
-relative or absolute file paths (they are converted into ```<protocol://.*>``` format needed by VFS ) or one of 
-many [file systems](https://commons.apache.org/proper/commons-vfs/filesystems.html) that VFS supports. 
+a single API for accessing various different file systems, including support for AWS S3 via the
+[Amazon S3 driver for VFS](https://github.com/abashev/vfs-s3). The connector will accept
+relative or absolute file paths (they are converted into ```<protocol://.*>``` format needed by VFS ) or one of
+many [file systems](https://commons.apache.org/proper/commons-vfs/filesystems.html) that VFS supports.
 
 Added features are the ability include/exclude regex file path patterns.
 
 **Example Local File Path Config with no filters**
+
 ```yaml
 connectors: [
   {
@@ -29,6 +30,7 @@ connectors: [
 ```
 
 **Example Absolute File Path Config**
+
 ```yaml
 connectors: [
   {
@@ -45,6 +47,7 @@ connectors: [
 ```
 
 **Example S3 Path Config**
+
 ```yaml
 connectors: [
   {
@@ -59,6 +62,7 @@ connectors: [
 ```
 
 **Example Base64 Encoded Document produced by connector (docid is md5 hash of path)**
+
 ```json
 {
   "id": "file_bb22c3105cb1a10f1e786641e91588df",
