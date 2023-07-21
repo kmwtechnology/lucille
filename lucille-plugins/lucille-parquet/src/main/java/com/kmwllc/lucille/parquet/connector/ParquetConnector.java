@@ -21,7 +21,6 @@ import org.apache.parquet.io.ColumnIOFactory;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.RecordReader;
 import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
 
 import java.net.URI;
@@ -33,10 +32,13 @@ public class ParquetConnector extends AbstractConnector {
   private final String idField;
   private final String fsUri;
   private final long limit;
-  private final long start;
 
   private final String s3Key;
   private final String s3Secret;
+
+  // non final
+  private long start;
+  private long count = 0L;
 
 
   public ParquetConnector(Config config) {
@@ -52,6 +54,18 @@ public class ParquetConnector extends AbstractConnector {
     this.start = config.hasPath("start") ? config.getLong("start") : 0L;
   }
 
+  private boolean limitNotReached() {
+    return limit < 0 || count < limit;
+  }
+
+  private boolean canSkipAndUpdateStart(long n) {
+    if (start > n) {
+      start -= n;
+      return true;
+    }
+    return false;
+  }
+
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     Configuration conf = new Configuration();
@@ -64,91 +78,67 @@ public class ParquetConnector extends AbstractConnector {
     }
 
     try (FileSystem fs = FileSystem.get(new URI(fsUri), conf)) {
-      long count = 0L;
       RemoteIterator<LocatedFileStatus> statusIterator = fs.listFiles(new Path(path), true);
-      while (statusIterator.hasNext()) {
+      while (limitNotReached() && statusIterator.hasNext()) {
         LocatedFileStatus status = statusIterator.next();
         //only process parquet files
         if (!status.getPath().getName().endsWith("parquet")) {
           continue;
         }
-        if (limit > 0 && count >= limit) {
-          break;
-        }
 
         try (ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(status, conf))) {
+
+          // check if we can skip this file
+          if (canSkipAndUpdateStart(reader.getRecordCount())) {
+            continue;
+          }
+
           MessageType schema = reader.getFooter().getFileMetaData().getSchema();
           List<Type> fields = schema.getFields();
           PageReadStore pages;
-          while ((pages = reader.readNextRowGroup()) != null) {
-            if (limit > 0 && count >= limit) {
-              break;
+          while (limitNotReached() && (pages = reader.readNextRowGroup()) != null) {
+
+            // check if we can skip this row group
+            long nRows = pages.getRowCount();
+            if (canSkipAndUpdateStart(nRows)) {
+              continue;
             }
-            long rows = pages.getRowCount();
+
             MessageColumnIO columnIO = new ColumnIOFactory().getColumnIO(schema);
-            RecordReader recordReader = columnIO.getRecordReader(pages, new GroupRecordConverter(schema));
-            for (int i = 0; i < rows; i++) {
-              if (limit > 0 && count >= limit) {
-                break;
+            RecordReader<Group> recordReader = columnIO.getRecordReader(pages, new GroupRecordConverter(schema));
+
+            // at this point start is either 0 or < nRows, if later will update start to 0 after the loop
+            while (limitNotReached() && nRows-- > 0) {
+
+              // read record regardless of the start parameter
+              SimpleGroup simpleGroup = (SimpleGroup) recordReader.read();
+              if (canSkipAndUpdateStart(1)) {
+                continue;
               }
 
-              SimpleGroup simpleGroup = (SimpleGroup) recordReader.read();
               String id = simpleGroup.getString(idField, 0);
               Document doc = Document.create(id);
               for (int j = 0; j < fields.size(); j++) {
-                if (fields.get(j).getName().equals(idField)) {
+
+                Type field = fields.get(j);
+                String fieldName = field.getName();
+                if (fieldName.equals(idField)) {
                   continue;
                 }
-                if (fields.get(j).isPrimitive()) {
-                  PrimitiveType.PrimitiveTypeName name = fields.get(j).asPrimitiveType().getPrimitiveTypeName();
-                  switch (name) {
-                    case BINARY:
-                      doc.setField(fields.get(j).getName(), simpleGroup.getString(j, 0));
-                      break;
-                    case FLOAT:
-                      doc.setField(fields.get(j).getName(), simpleGroup.getFloat(j, 0));
-                      break;
-                    case INT32:
-                      doc.setField(fields.get(j).getName(), simpleGroup.getInteger(j, 0));
-                      break;
-                    case INT64:
-                      doc.setField(fields.get(j).getName(), simpleGroup.getLong(j, 0));
-                      break;
-                    case DOUBLE:
-                      doc.setField(fields.get(j).getName(), simpleGroup.getDouble(j, 0));
-                      break;
-                  }
+                if (field.isPrimitive()) {
+                  setDocField(doc, field, simpleGroup, j);
                 } else {
                   for (int k = 0; k < simpleGroup.getGroup(j, 0).getFieldRepetitionCount(0); k++) {
                     Group group = simpleGroup.getGroup(j, 0).getGroup(0, k);
                     Type type = group.getType().getType(0);
                     if (type.isPrimitive()) {
-                      PrimitiveType.PrimitiveTypeName name = type.asPrimitiveType().getPrimitiveTypeName();
-                      switch (name) {
-                        case BINARY:
-                          doc.addToField(fields.get(j).getName(), group.getString(0, 0));
-                          break;
-                        case FLOAT:
-                          doc.addToField(fields.get(j).getName(), group.getFloat(0, 0));
-                          break;
-                        case INT32:
-                          doc.addToField(fields.get(j).getName(), group.getInteger(0, 0));
-                          break;
-                        case INT64:
-                          doc.addToField(fields.get(j).getName(), group.getLong(0, 0));
-                          break;
-                        case DOUBLE:
-                          doc.addToField(fields.get(j).getName(), group.getDouble(0, 0));
-                          break;
-                      }
+                      addToField(doc, fieldName, type, group);
                     }
                   }
                 }
               }
+              publisher.publish(doc);
               count++;
-              if (count > start) {
-                publisher.publish(doc);
-              }
             }
           }
         } catch (Exception e) {
@@ -158,6 +148,50 @@ public class ParquetConnector extends AbstractConnector {
     } catch (Exception e) {
       throw new ConnectorException("Problem running the ParquetConnector", e);
     }
+  }
 
+  private static void setDocField(Document doc, Type field, SimpleGroup simpleGroup, int j) {
+
+    String fieldName = field.getName();
+
+    switch (field.asPrimitiveType().getPrimitiveTypeName()) {
+      case BINARY:
+        doc.setField(fieldName, simpleGroup.getString(j, 0));
+        break;
+      case FLOAT:
+        doc.setField(fieldName, simpleGroup.getFloat(j, 0));
+        break;
+      case INT32:
+        doc.setField(fieldName, simpleGroup.getInteger(j, 0));
+        break;
+      case INT64:
+        doc.setField(fieldName, simpleGroup.getLong(j, 0));
+        break;
+      case DOUBLE:
+        doc.setField(fieldName, simpleGroup.getDouble(j, 0));
+        break;
+      // todo consider adding a default case
+    }
+  }
+
+  private static void addToField(Document doc, String fieldName, Type type, Group group) {
+    switch (type.asPrimitiveType().getPrimitiveTypeName()) {
+      case BINARY:
+        doc.addToField(fieldName, group.getString(0, 0));
+        break;
+      case FLOAT:
+        doc.addToField(fieldName, group.getFloat(0, 0));
+        break;
+      case INT32:
+        doc.addToField(fieldName, group.getInteger(0, 0));
+        break;
+      case INT64:
+        doc.addToField(fieldName, group.getLong(0, 0));
+        break;
+      case DOUBLE:
+        doc.addToField(fieldName, group.getDouble(0, 0));
+        break;
+      // todo consider adding a default case
+    }
   }
 }
