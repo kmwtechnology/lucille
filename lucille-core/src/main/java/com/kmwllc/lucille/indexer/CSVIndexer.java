@@ -48,7 +48,7 @@ public class CSVIndexer extends Indexer {
 
   @Override
   public boolean validateConnection() {
-    if(!bypass && writer == null) {
+    if (!bypass && writer == null) {
       return false;
     }
     writer.writeNext(columns.toArray(new String[columns.size()]), true);
@@ -57,16 +57,16 @@ public class CSVIndexer extends Indexer {
 
   @Override
   protected void sendToIndex(List<Document> documents) throws Exception {
-    for(Document doc : documents) {
+    for (Document doc : documents) {
       writer.writeNext(getLine(doc), true);
     }
   }
 
   private String[] getLine(Document doc) {
     String[] line = new String[columns.size()];
-    for(int i = 0; i < columns.size(); i++) {
+    for (int i = 0; i < columns.size(); i++) {
       String field = columns.get(i);
-      if(doc.isMultiValued(field)) {
+      if (doc.isMultiValued(field)) {
         line[i] = doc.getStringList(field).toString();
       } else {
         line[i] = doc.getString(columns.get(i));
@@ -77,7 +77,7 @@ public class CSVIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    if(writer != null) {
+    if (writer != null) {
       try {
         writer.close();
       } catch (IOException e) {

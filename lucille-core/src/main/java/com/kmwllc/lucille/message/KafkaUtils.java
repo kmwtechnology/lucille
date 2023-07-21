@@ -25,21 +25,20 @@ import java.util.concurrent.ExecutionException;
 
 /**
  * Utilities for interacting with Kafka: creating Kafka clients, determining Kafka topic names, etc.
- *
- *
+ * <p>
+ * <p>
  *  TODO: add config option for cleaning up kafka topics at end of run
  *  prepend run id to each topic name
  *  add separate config option to leave failure topic around
  *  consider adding all failed documents to the failure topic
  *  add ability to override names of any kafka topic in the config
- *
  */
 public class KafkaUtils {
 
   public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
 
   private static Properties loadExternalProps(String filename) {
-    try(Reader propertiesReader = FileUtils.getReader(filename, StandardCharsets.UTF_8.name())) {
+    try (Reader propertiesReader = FileUtils.getReader(filename, StandardCharsets.UTF_8.name())) {
       Properties consumerProps = new Properties();
       consumerProps.load(propertiesReader);
       return consumerProps;
@@ -50,7 +49,7 @@ public class KafkaUtils {
 
   //access set to package so unit tests can validate created properties without initializing a Consumer
   static Properties createConsumerProps(Config config, String clientId) {
-    if(config.hasPath("kafka.consumerPropertyFile")) {
+    if (config.hasPath("kafka.consumerPropertyFile")) {
       Properties loadedProps = loadExternalProps(config.getString("kafka.consumerPropertyFile"));
       loadedProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
       return loadedProps;
@@ -67,7 +66,7 @@ public class KafkaUtils {
     consumerProps.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1);
     consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
-    consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,  StringDeserializer.class.getName());
+    consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     consumerProps.put(ConsumerConfig.METADATA_MAX_AGE_CONFIG, 30000);
     return consumerProps;
   }
@@ -89,7 +88,7 @@ public class KafkaUtils {
 
   //access set to package so unit tests can validate created properties without initializing a Producer
   static Properties createProducerProps(Config config) {
-    if(config.hasPath("kafka.producerPropertyFile")) {
+    if (config.hasPath("kafka.producerPropertyFile")) {
       return loadExternalProps(config.getString("kafka.producerPropertyFile"));
     }
     Properties producerProps = new Properties();
@@ -154,7 +153,7 @@ public class KafkaUtils {
     // interfere with the publisher's logic for determining when the run is complete
 
     Properties props;
-    if(config.hasPath("kafka.adminPropertyFile")) {
+    if (config.hasPath("kafka.adminPropertyFile")) {
       props = loadExternalProps(config.getString("kafka.adminPropertyFile"));
     } else {
       props = new Properties();

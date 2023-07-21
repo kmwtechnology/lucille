@@ -24,28 +24,28 @@ import java.util.concurrent.TimeUnit;
  * A Connector is considered to have failed if any of its lifecycle methods throw an Exception.
  * Importantly, a connector is NOT considered to have failed if one or more of the documents it publishes
  * encountere an error during pipeline exeuction or indexing.
- *
+ * <p>
  * In a distributed deployment, there will be one or more Worker processes and one or more Indexer processes
  * that stay alive indefinitely and constantly poll for work. A Runner can then execute
  * a sequence of connectors which pump work into the system. The work from this particular "run" should
  * then be handled by the existing Worker and Indexer. The Runner will terminate when all the work
  * it generated was complete, while the Worker and Indexer would stay alive.
- *
+ * <p>
  * For simpler deployments, Runner provides a way to execute an end-to-end run
  * without requiring that the Worker and Indexer have been started as separate processes.
  * Instead, the Worker(s) and Indexer are launched as threads in the Runner's own JVM.
  * This can be done in a fully local mode, where all message traffic
  * is stored in in-memory queues, or in Kafka mode, where message traffic flows through an external
  * deployment of Kafka.
- *
+ * <p>
  * A local end-to-end run involves a total of 4 threads for each connector:
- *
+ * <p>
  * 1) a Worker thread polls for documents to process and runs them through the pipeline
  * 2) an Indexer thread polls for processed documents and indexes them
  * 3) a Connector thread reads data from a source, generates documents, and publishes them;
- *    Connectors are run sequentially so there will be at most one Connector thread at any time
+ * Connectors are run sequentially so there will be at most one Connector thread at any time
  * 4) the main thread launches the other threads, and then uses the Publisher to poll for Events
- *    and wait for completion of the run
+ * and wait for completion of the run
  */
 public class Runner {
 
@@ -63,20 +63,20 @@ public class Runner {
   }
 
   // no need to instantiate Runner; all methods currently static
-  private Runner() {}
+  private Runner() {
+  }
 
   /**
    * Runs the configured connectors.
-   *
+   * <p>
    * no args: pipelines workers and indexers will be executed in separate threads within the same JVM; communication
    * between components will take place in memory and Kafka will not be used
-   *
+   * <p>
    * -usekafka: connectors will be run, sending documents and receiving events via Kafka. Pipeline workers
    * and indexers will not be run. The assumption is that these have been deployed as separate processes.
-   *
+   * <p>
    * -local: modifies -usekafka so that workers and indexers are started as separate threads within the same JVM;
    * kafka is still used for communication between them.
-   *
    */
   public static void main(String[] args) throws Exception {
     Options cliOptions = new Options()
@@ -136,7 +136,7 @@ public class Runner {
       log.info(result.toString());
     } finally {
       stopWatch.stop();
-      log.info(String.format("Run took %.2f secs.", (double)stopWatch.getTime(TimeUnit.MILLISECONDS)/1000));
+      log.info(String.format("Run took %.2f secs.", (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
     }
 
     if (result.getStatus()) {
@@ -149,10 +149,10 @@ public class Runner {
   /**
    * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
    * config file. Stop the run if any of the connectors fails.
-   *
+   * <p>
    * Run in a local mode where message traffic is kept in memory and there is no
    * communication with external systems like Kafka. Sending to solr is bypassed.
-   *
+   * <p>
    * Return a PersistingLocalMessageManager for each connector that
    * can be used to review the messages that were sent between various components during that connector's execution.
    */
@@ -164,7 +164,7 @@ public class Runner {
 
   private static Map<String, List<Exception>> logValidation(Config config) throws Exception {
     Map<String, List<Exception>> exceptions = validatePipelines(config);
-    if(exceptions.isEmpty()) {
+    if (exceptions.isEmpty()) {
       log.info("Configuration is valid");
     } else {
       StringBuilder message = new StringBuilder("Configuration is invalid. " +
@@ -215,7 +215,7 @@ public class Runner {
     boolean startWorkerAndIndexer = !type.equals(RunType.KAFKA_DISTRIBUTED);
     boolean bypassSolr = type.equals(RunType.TEST);
 
-    Map<String,PersistingLocalMessageManager> history = type.equals(RunType.TEST) ? new HashMap<>() : null;
+    Map<String, PersistingLocalMessageManager> history = type.equals(RunType.TEST) ? new HashMap<>() : null;
 
     for (Connector connector : connectors) {
 
@@ -254,7 +254,7 @@ public class Runner {
 
     return new RunResult(true, connectors, connectorResults, history, runId);
   }
-  
+
   /**
    * Runs the designated Connector. Returns a successful ConnectorResult only when 1) the Connector has
    * finished generating documents, and 2) all of the documents (and any generated children) have reached
@@ -302,7 +302,7 @@ public class Runner {
    */
   private static ConnectorResult runConnectorInternal(Config config, String runId, Connector connector, Publisher publisher) {
     log.info("Running connector " + connector.getName() + " feeding to pipeline " +
-      (connector.getPipelineName()==null ? "NOT CONFIGURED" : connector.getPipelineName()));
+      (connector.getPipelineName() == null ? "NOT CONFIGURED" : connector.getPipelineName()));
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
 
@@ -310,7 +310,7 @@ public class Runner {
       connector.preExecute(runId);
     } catch (ConnectorException e) {
       log.error("Connector failed to perform pre execution actions.", e);
-      return new ConnectorResult(connector, publisher, false,"preExecute failed.");
+      return new ConnectorResult(connector, publisher, false, "preExecute failed.");
     }
 
     PublisherResult pubResult = null;
@@ -318,12 +318,12 @@ public class Runner {
     // the publisher could be null if we are running a connector that has no associated pipeline and therefore
     // there's nothing to publish to; in this case, we call execute synchronously because we are not
     // pumping any work into the system and waiting for other components to complete it
-    if (publisher==null) {
+    if (publisher == null) {
       try {
         connector.execute(null);
       } catch (ConnectorException e) {
         log.error("Connector execution failed.", e);
-        return new ConnectorResult(connector, publisher, false,"execute failed.");
+        return new ConnectorResult(connector, publisher, false, "execute failed.");
       }
     } else {
       try {
@@ -334,26 +334,26 @@ public class Runner {
         pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
       } catch (Exception e) {
         log.error("waitForCompletion failed", e);
-        return new ConnectorResult(connector, publisher, false,"waitForCompletion failed");
+        return new ConnectorResult(connector, publisher, false, "waitForCompletion failed");
       }
     }
 
-    if (pubResult==null || pubResult.getStatus()) {
+    if (pubResult == null || pubResult.getStatus()) {
       try {
         connector.postExecute(runId);
       } catch (ConnectorException e) {
         log.error("postExecute failed", e);
-        return new ConnectorResult(connector, publisher, false,"postExecute failed");
+        return new ConnectorResult(connector, publisher, false, "postExecute failed");
       }
     }
 
     stopWatch.stop();
-    double durationSecs = ((double)stopWatch.getTime(TimeUnit.MILLISECONDS))/1000;
+    double durationSecs = ((double) stopWatch.getTime(TimeUnit.MILLISECONDS)) / 1000;
     log.info(String.format("Connector %s feeding to pipeline %s complete. Time: %.2f secs.",
       connector.getName(), connector.getPipelineName(), durationSecs));
 
-    boolean status = pubResult==null ? true : pubResult.getStatus();
-    String msg = pubResult==null ? null : pubResult.getMessage();
+    boolean status = pubResult == null ? true : pubResult.getStatus();
+    String msg = pubResult == null ? null : pubResult.getMessage();
     return new ConnectorResult(connector, publisher, status, msg, durationSecs);
   }
 
@@ -388,7 +388,7 @@ public class Runner {
           workerPool.start();
         } catch (Exception e) {
           log.error("Error starting workers for pipeline " + pipelineName, e);
-          return new ConnectorResult(connector, publisher,false, "Error starting workers for pipeline " + pipelineName);
+          return new ConnectorResult(connector, publisher, false, "Error starting workers for pipeline " + pipelineName);
         }
 
         IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
@@ -397,7 +397,7 @@ public class Runner {
         if (!indexer.validateConnection()) {
           String msg = "Indexer could not connect.";
           log.error(msg);
-          return new ConnectorResult(connector, publisher,false, msg);
+          return new ConnectorResult(connector, publisher, false, msg);
         }
 
         indexerThread = new Thread(indexer);
