@@ -27,7 +27,9 @@ public class DefaultDocumentProducer implements DocumentProducer {
     try {
       doc.setField(CONTENT, ENCODER.encodeToString(Files.readAllBytes(file)));
     } catch (IOException e) {
-      String msg = String.format("Error occurred while loading document with id %s: %s", doc.getId(), e.getMessage());
+      String msg =
+          String.format(
+              "Error occurred while loading document with id %s: %s", doc.getId(), e.getMessage());
       log.error(msg, e);
       doc.addToField("errors", msg);
     }
@@ -36,12 +38,13 @@ public class DefaultDocumentProducer implements DocumentProducer {
   }
 
   /**
-   * Decodes file contents sent by this {@link DocumentProducer} type from the provided {@link Document}.
+   * Decodes file contents sent by this {@link DocumentProducer} type from the provided {@link
+   * Document}.
    *
    * @param doc The document to extract binary data from
    * @return The byte[] binary data contained within the doc
-   * @throws NullPointerException if the document doesn't contain the Content {@link this#CONTENT} field or the
-   *                              field is null
+   * @throws NullPointerException if the document doesn't contain the Content {@link this#CONTENT}
+   *     field or the field is null
    */
   public static byte[] decodeFileContents(Document doc) throws NullPointerException {
     if (!doc.hasNonNull(CONTENT)) {

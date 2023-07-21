@@ -7,7 +7,6 @@ Start Kafka, create test topic, and start a console consumer:
     <kafka_install>/bin/kafka-topics.sh --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 2 --topic traverser_test
     <kafka_install>/bin/kafka-console-consumer.sh --topic traverser_test --bootstrap-server localhost:9092 -- property print.key=true
 
-
 Create some test files:
 
     mkdir /tmp/traverser
@@ -17,7 +16,6 @@ Create some test files:
 Build Lucille:
 
     com.kmwllc.lucille$ mvn clean install
-
 
 Run traverser:
 
