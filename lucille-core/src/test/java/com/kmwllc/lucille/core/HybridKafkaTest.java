@@ -173,7 +173,7 @@ public class HybridKafkaTest {
 
     // start the second worker after the first worker has processed several documents
     // the goal of this is to try to trigger a rebalance scenario where worker 1 is assigned both
-    // partitions and then gives one partition up to worker 2 when it joins the consumer group;
+    // partitions and then gives one partition up to worker 2 when worker 2 joins the consumer group;
     // we are not testing specific assertions about the rebalance here, we're just trying to trigger
     // it to make sure it doesn't cause anything else to go obviously wrong
     RecordingLinkedBlockingQueue<Document> pipelineDest2 =
@@ -203,10 +203,10 @@ public class HybridKafkaTest {
     // the sum of offsets across the two partitions should be the same as the number of documents
     // consumed. All 1000 documents we added to the source topic should have been consumed.
     // however, it is possible that a partition, say partition 1,
-    // as reassigned from worker 1 to worker 2 near
+    // was reassigned from worker 1 to worker 2 near
     // the end of the run. In this case, worker 2 might have finished reading from that partition 1 and
     // committed the end offset, while worker 1 might have been delayed in committing
-    // the offset for its own last read. This will cause the earlier offset written by worker 1 in
+    // the offset for its own last read. This will cause the lower offset committed late by worker 1
     // to overwrite the higher offset committed earlier in time by worker 2. Therefore,
     // we can only check >= and not == below
     assertTrue(1000 >= consumer.position(p0) + consumer.position(p1));
