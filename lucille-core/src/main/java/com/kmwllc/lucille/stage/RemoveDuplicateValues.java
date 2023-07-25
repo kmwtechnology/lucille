@@ -11,11 +11,10 @@ import java.util.Map;
 import java.util.List;
 
 /**
- * Removes duplicate values from the given list of fields.
- * <br>
- * Config Parameters -
- * <br>
- * fieldMapping (Map<String, Object>) : A mapping of fields to remove duplicates from and the field to output the result to.
+ * Removes duplicate values from the given list of fields. <br>
+ * Config Parameters - <br>
+ * fieldMapping (Map<String, Object>) : A mapping of fields to remove duplicates from and the field
+ * to output the result to.
  */
 public class RemoveDuplicateValues extends Stage {
 

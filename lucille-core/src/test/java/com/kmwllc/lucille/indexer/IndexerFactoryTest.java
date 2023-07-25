@@ -32,10 +32,12 @@ public class IndexerFactoryTest {
   public void testFromInvalidTypeConfig() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("IndexerFactoryTest/config_invalid_type.conf");
-    Exception exception = assertThrows(IndexerException.class, () -> {
-      Indexer indexer = IndexerFactory.fromConfig(config, manager, true, "testing");
-    });
+    Exception exception =
+        assertThrows(
+            IndexerException.class,
+            () -> {
+              Indexer indexer = IndexerFactory.fromConfig(config, manager, true, "testing");
+            });
     Assert.assertTrue(exception.getMessage().contains("Unknown indexer.type configuration of:"));
   }
-
 }

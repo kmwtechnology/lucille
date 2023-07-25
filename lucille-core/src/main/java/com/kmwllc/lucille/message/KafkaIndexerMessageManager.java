@@ -27,16 +27,16 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
     this.pipelineName = pipelineName;
     String kafkaClientId = "com.kmwllc.lucille-indexer-" + pipelineName;
     this.destConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
-    this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
+    this.destConsumer.subscribe(
+        Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
   }
 
-  /**
-   * Polls for a document that has been processed by the pipeine and is waiting to be indexed.
-   */
+  /** Polls for a document that has been processed by the pipeine and is waiting to be indexed. */
   @Override
   public Document pollCompleted() throws Exception {
-    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    ConsumerRecords<String, KafkaDocument> consumerRecords =
+        destConsumer.poll(KafkaUtils.POLL_INTERVAL);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       destConsumer.commitSync();
@@ -57,19 +57,20 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
     sendEvent(event);
   }
 
-
-  /**
-   * Sends an Event relating to a Document to the appropriate location for Events.
-   *
-   */
+  /** Sends an Event relating to a Document to the appropriate location for Events. */
   @Override
   public void sendEvent(Event event) throws Exception {
     if (kafkaEventProducer == null) {
       return;
     }
     String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
-    RecordMetadata result = (RecordMetadata)  kafkaEventProducer.send(
-      new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    RecordMetadata result =
+        (RecordMetadata)
+            kafkaEventProducer
+                .send(
+                    new ProducerRecord(
+                        confirmationTopicName, event.getDocumentId(), event.toString()))
+                .get();
     kafkaEventProducer.flush(); // TODO
   }
 
@@ -79,7 +80,5 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
   }
 
   @Override
-  public void batchComplete(List<Document> batch) throws Exception {
-  }
-
+  public void batchComplete(List<Document> batch) throws Exception {}
 }

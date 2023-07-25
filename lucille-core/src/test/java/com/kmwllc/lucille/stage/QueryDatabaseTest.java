@@ -16,8 +16,9 @@ public class QueryDatabaseTest {
   StageFactory factory = StageFactory.of(QueryDatabase.class);
 
   @Rule
-  public final DBTestHelper dbHelper = new DBTestHelper("org.h2.Driver", "jdbc:h2:mem:test", "",
-    "", "db-test-start.sql", "db-test-end.sql");
+  public final DBTestHelper dbHelper =
+      new DBTestHelper(
+          "org.h2.Driver", "jdbc:h2:mem:test", "", "", "db-test-start.sql", "db-test-end.sql");
 
   @Test
   public void testSingleKeyField() throws StageException {
@@ -59,7 +60,9 @@ public class QueryDatabaseTest {
     assertEquals("2", d.getStringList("output2").get(1));
 
     // Integers come out as Integers, not Strings
-    assertEquals("{\"id\":\"id\",\"fish\":2,\"output1\":[\"12\",\"tiger\"],\"output2\":[2,2]}", d.toString());
+    assertEquals(
+        "{\"id\":\"id\",\"fish\":2,\"output1\":[\"12\",\"tiger\"],\"output2\":[2,2]}",
+        d.toString());
   }
 
   @Test(expected = StageException.class)

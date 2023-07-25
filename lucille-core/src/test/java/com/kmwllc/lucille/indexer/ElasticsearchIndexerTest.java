@@ -41,15 +41,16 @@ public class ElasticsearchIndexerTest {
     mockClient = Mockito.mock(ElasticsearchClient.class);
 
     // make first call to validateConnection succeed but subsequent calls to fail
-    Mockito.when(mockClient.ping()).thenReturn(new BooleanResponse(true), new BooleanResponse(false));
+    Mockito.when(mockClient.ping())
+        .thenReturn(new BooleanResponse(true), new BooleanResponse(false));
 
     BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
     Mockito.when(mockClient.bulk(any(BulkRequest.class))).thenReturn(mockResponse);
   }
 
   /**
-   * Tests that the indexer correctly polls completed documents from the destination topic and sends them to
-   * Elasticsearch.
+   * Tests that the indexer correctly polls completed documents from the destination topic and sends
+   * them to Elasticsearch.
    *
    * @throws Exception
    */
@@ -86,7 +87,8 @@ public class ElasticsearchIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    ElasticsearchIndexer indexer = new ErroringElasticsearchIndexer(config, manager, mockClient, "testing");
+    ElasticsearchIndexer indexer =
+        new ErroringElasticsearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     manager.sendCompleted(doc2);
     manager.sendCompleted(doc3);
@@ -107,10 +109,10 @@ public class ElasticsearchIndexerTest {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
-    Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
+    Assert.assertTrue(
+        indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
-
   }
 
   @Test
@@ -132,7 +134,8 @@ public class ElasticsearchIndexerTest {
     manager.sendCompleted(doc5);
     indexer.run(5);
 
-    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor =
+        ArgumentCaptor.forClass(BulkRequest.class);
 
     verify(mockClient, times(3)).bulk(bulkRequestArgumentCaptor.capture());
 
@@ -162,12 +165,12 @@ public class ElasticsearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor =
+        ArgumentCaptor.forClass(BulkRequest.class);
 
     verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
 
@@ -201,7 +204,8 @@ public class ElasticsearchIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor =
+        ArgumentCaptor.forClass(BulkRequest.class);
 
     verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
 
@@ -234,7 +238,8 @@ public class ElasticsearchIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor =
+        ArgumentCaptor.forClass(BulkRequest.class);
 
     verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
 
@@ -255,8 +260,11 @@ public class ElasticsearchIndexerTest {
 
   private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
 
-    public ErroringElasticsearchIndexer(Config config, IndexerMessageManager manager,
-                                        ElasticsearchClient client, String metricsPrefix) {
+    public ErroringElasticsearchIndexer(
+        Config config,
+        IndexerMessageManager manager,
+        ElasticsearchClient client,
+        String metricsPrefix) {
       super(config, manager, client, "testing");
     }
 

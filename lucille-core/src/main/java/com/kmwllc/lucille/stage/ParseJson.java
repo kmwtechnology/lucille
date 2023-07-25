@@ -19,18 +19,14 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 /**
- * Parses a JSON string and sets fields on the processed document according to the configured mapping using
- * JsonPath expressions.
+ * Parses a JSON string and sets fields on the processed document according to the configured
+ * mapping using JsonPath expressions.
  *
- * @see <a href="https://github.com/json-path/JsonPath">JsonPath</a>
- * Config Parameters
- * <p>
- * - src (String) : The field containing the JSON string to be parsed.
- * - sourceIsBase64: When set to true, indicates that the source field is base64 encoded. In this case the stage will decode
- * the field value before parsing.
- * - jsonFieldPaths (Map<String, Object>) : Defines the mapping from JsonPath expressions
- * to the destination fields in the processed document.
- * </p>
+ * @see <a href="https://github.com/json-path/JsonPath">JsonPath</a> Config Parameters
+ *     <p>- src (String) : The field containing the JSON string to be parsed. - sourceIsBase64: When
+ *     set to true, indicates that the source field is base64 encoded. In this case the stage will
+ *     decode the field value before parsing. - jsonFieldPaths (Map<String, Object>) : Defines the
+ *     mapping from JsonPath expressions to the destination fields in the processed document.
  */
 public class ParseJson extends Stage {
   private static final Base64.Decoder DECODER = Base64.getDecoder();
@@ -43,17 +39,21 @@ public class ParseJson extends Stage {
   private ParseContext jsonParseCtx;
 
   public ParseJson(Config config) {
-    super(config, new StageSpec()
-      .withRequiredProperties("src")
-      .withOptionalProperties("sourceIsBase64")
-      .withRequiredParents("jsonFieldPaths"));
+    super(
+        config,
+        new StageSpec()
+            .withRequiredProperties("src")
+            .withOptionalProperties("sourceIsBase64")
+            .withRequiredParents("jsonFieldPaths"));
     this.src = config.getString("src");
     this.jsonFieldPaths = config.getConfig("jsonFieldPaths").root().unwrapped();
     this.sourceIsBase64 = config.hasPath("sourceIsBase64") && config.getBoolean("sourceIsBase64");
-    this.jsonPathConf = Configuration.builder()
-      .jsonProvider(new JacksonJsonProvider())
-      .mappingProvider(new JacksonMappingProvider())
-      .options(Option.DEFAULT_PATH_LEAF_TO_NULL, Option.SUPPRESS_EXCEPTIONS).build();
+    this.jsonPathConf =
+        Configuration.builder()
+            .jsonProvider(new JacksonJsonProvider())
+            .mappingProvider(new JacksonMappingProvider())
+            .options(Option.DEFAULT_PATH_LEAF_TO_NULL, Option.SUPPRESS_EXCEPTIONS)
+            .build();
   }
 
   @Override
@@ -72,14 +72,15 @@ public class ParseJson extends Stage {
       try (InputStream stream = new ByteArrayInputStream(DECODER.decode(doc.getString(this.src)))) {
         ctx = this.jsonParseCtx.parse(stream);
       } catch (IOException e) {
-        //do nothing this is a byte array stream close is a no-op. Throw stage exception just in case / futureproof.
+        // do nothing this is a byte array stream close is a no-op. Throw stage exception just in
+        // case / futureproof.
         throw new StageException("Unexpected error parsing JSON.", e);
       }
     } else {
       ctx = this.jsonParseCtx.parse(doc.getString(this.src));
     }
     for (Entry<String, Object> entry : this.jsonFieldPaths.entrySet()) {
-      //JsonNode val = srcNode.at((String) entry.getValue());
+      // JsonNode val = srcNode.at((String) entry.getValue());
       JsonNode val = ctx.read((String) entry.getValue(), JsonNode.class);
 
       doc.setField(entry.getKey(), val);

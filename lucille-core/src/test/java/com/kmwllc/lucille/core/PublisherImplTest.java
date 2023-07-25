@@ -19,20 +19,24 @@ public class PublisherImplTest {
   public void testOutOfOrderCreateEvents() throws Exception {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    PublisherImpl publisher =
+        new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     Event createEvent = new Event("doc1", "run1", "", Event.Type.CREATE);
     Event finishEvent = new Event("doc1", "run1", "", Event.Type.FINISH);
 
-    // if we receive a late CREATE event (i.e. one that arrives after the corresponding FINISH event)
-    // we shouldn't treat this as a newly created document that adds to the count of pending documents
+    // if we receive a late CREATE event (i.e. one that arrives after the corresponding FINISH
+    // event)
+    // we shouldn't treat this as a newly created document that adds to the count of pending
+    // documents
     publisher.handleEvent(finishEvent);
     assertEquals(0, publisher.numPending());
     publisher.handleEvent(createEvent);
     assertEquals(0, publisher.numPending());
 
     // we can handle late CREATE events but not redundant ones currently...
-    // so if the same CREATE event is received again, it will increase the count of pending documents
+    // so if the same CREATE event is received again, it will increase the count of pending
+    // documents
     publisher.handleEvent(createEvent);
     assertEquals(1, publisher.numPending());
   }
@@ -41,7 +45,8 @@ public class PublisherImplTest {
   public void testCreateAndFinish() throws Exception {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    PublisherImpl publisher =
+        new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     Event createEvent = new Event("doc1", "run1", "", Event.Type.CREATE);
     Event finishEvent = new Event("doc1", "run1", "", Event.Type.FINISH);
@@ -51,7 +56,8 @@ public class PublisherImplTest {
     publisher.handleEvent(finishEvent);
     assertEquals(0, publisher.numPending());
 
-    // child documents that we're notified about via a CREATE event aren't considered to be published by the publisher
+    // child documents that we're notified about via a CREATE event aren't considered to be
+    // published by the publisher
     // although they are included in the count of pending documents
     assertEquals(0, publisher.numPublished());
   }
@@ -60,7 +66,8 @@ public class PublisherImplTest {
   public void testPublishAndFinish() throws Exception {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    PublisherImpl publisher =
+        new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     Document doc = Document.create("doc1");
     assertEquals(0, publisher.numPublished());
@@ -91,7 +98,8 @@ public class PublisherImplTest {
   public void testPublishAndError() throws Exception {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    PublisherImpl publisher =
+        new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     Document doc = Document.create("doc1");
     assertEquals(0, publisher.numPublished());
@@ -111,7 +119,8 @@ public class PublisherImplTest {
   public void testRedundantDocIDs() throws Exception {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    PublisherImpl publisher =
+        new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     Document doc = Document.create("doc1");
     assertEquals(0, publisher.numPublished());
@@ -138,7 +147,8 @@ public class PublisherImplTest {
   @Test
   public void testSucceededFailedCreatedCounts() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    PublisherImpl publisher =
+        new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     assertEquals(0, publisher.numPublished());
     assertEquals(0, publisher.numPending());
@@ -171,7 +181,8 @@ public class PublisherImplTest {
   @Test
   public void testRedundantFinishEvents() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    PublisherImpl publisher =
+        new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
     assertEquals(0, publisher.numSucceeded());
 
@@ -190,19 +201,21 @@ public class PublisherImplTest {
   public void testBlockOnQueueCapacity() throws Exception {
     Config config = ConfigFactory.parseString("publisher {queueCapacity: 5}");
     LocalMessageManager manager = new LocalMessageManager(config);
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    PublisherImpl publisher =
+        new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
 
-    Thread publisherThread = new Thread() {
-      public void run() {
-        for (int i=0; i<100; i++) {
-          try {
-            publisher.publish(Document.create("doc" + i));
-          } catch (Exception e) {
-            return;
+    Thread publisherThread =
+        new Thread() {
+          public void run() {
+            for (int i = 0; i < 100; i++) {
+              try {
+                publisher.publish(Document.create("doc" + i));
+              } catch (Exception e) {
+                return;
+              }
+            }
           }
-        }
-      }
-    };
+        };
 
     // make sure that after running for a second, the publisher is able to
     // publish up to the queue capacity but not further
@@ -218,13 +231,12 @@ public class PublisherImplTest {
     assertEquals(6, publisher.numPublished());
   }
 
-
   @Test
   public void testCollapse() throws Exception {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     PublisherImpl publisher =
-      new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1", "",true);
+        new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1", "", true);
 
     Document doc1 = Document.create("before");
 
@@ -265,7 +277,7 @@ public class PublisherImplTest {
 
     Document collapsedDoc = manager.getSavedDocumentsSentForProcessing().get(1);
     assertEquals("run1", collapsedDoc.getRunId());
-    assertEquals(Arrays.asList(new String[] {"val1", "val2"}), collapsedDoc.getStringList("field1"));
+    assertEquals(
+        Arrays.asList(new String[] {"val1", "val2"}), collapsedDoc.getStringList("field1"));
   }
-
 }

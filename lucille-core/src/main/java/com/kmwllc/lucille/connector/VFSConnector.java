@@ -36,24 +36,27 @@ public class VFSConnector extends AbstractConnector {
   public VFSConnector(Config config) throws ConnectorException {
     super(config);
 
-    // normalize vfsPath to convert to a URI even if they specified an absolute or relative local file path
+    // normalize vfsPath to convert to a URI even if they specified an absolute or relative local
+    // file path
     String rawPath = config.getString("vfsPath");
-    vfsPath = FileUtils.isValidURI(rawPath) ? rawPath : Path.of(rawPath).normalize().toUri().toString();
+    vfsPath =
+        FileUtils.isValidURI(rawPath) ? rawPath : Path.of(rawPath).normalize().toUri().toString();
 
-    // Compile include and exclude regex paths or set an empty list if none were provided (allow all files)
-    List<String> includeRegex = config.hasPath("includes") ?
-        config.getStringList("includes") : Collections.emptyList();
+    // Compile include and exclude regex paths or set an empty list if none were provided (allow all
+    // files)
+    List<String> includeRegex =
+        config.hasPath("includes") ? config.getStringList("includes") : Collections.emptyList();
     includes = includeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
-    List<String> excludeRegex = config.hasPath("excludes") ?
-        config.getStringList("excludes") : Collections.emptyList();
+    List<String> excludeRegex =
+        config.hasPath("excludes") ? config.getStringList("excludes") : Collections.emptyList();
     excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
-
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try (StandardFileSystemManager fsManager = new StandardFileSystemManager()) {
-      // ensure kube access role support to work around issue https://github.com/abashev/vfs-s3/issues/77
+      // ensure kube access role support to work around issue
+      // https://github.com/abashev/vfs-s3/issues/77
       FileSystemOptions fileSystemOptions = new FileSystemOptions();
       S3FileSystemConfigBuilder s3Config = S3FileSystemConfigBuilder.getInstance();
       s3Config.setCredentialsProvider(fileSystemOptions, new DefaultAWSCredentialsProviderChain());
@@ -61,14 +64,17 @@ public class VFSConnector extends AbstractConnector {
       fsManager.init();
 
       // locate all valid files within the provided VFS path
-      traverseFiles(fsManager, vfsPath).forEach(fo -> {
-        final Document doc = buildDocument(fo);
-        try {
-          publisher.publish(doc);
-        } catch (Exception e) {
-          log.error("Unable to publish document '" + fo.getPublicURIString() + "', SKIPPING", e);
-        }
-      });
+      traverseFiles(fsManager, vfsPath)
+          .forEach(
+              fo -> {
+                final Document doc = buildDocument(fo);
+                try {
+                  publisher.publish(doc);
+                } catch (Exception e) {
+                  log.error(
+                      "Unable to publish document '" + fo.getPublicURIString() + "', SKIPPING", e);
+                }
+              });
 
     } catch (FileSystemException e) {
       throw new ConnectorException("Unable to get VFS Manager object", e);
@@ -84,35 +90,36 @@ public class VFSConnector extends AbstractConnector {
 
     // get access to file content
     try (FileContent content = fo.getContent()) {
-      doc.setField(FileTraverser.MODIFIED, Instant.ofEpochMilli(content.getLastModifiedTime()).toString());
-      doc.setField(FileTraverser.CREATED, Instant.ofEpochMilli(content.getLastModifiedTime()).toString());
+      doc.setField(
+          FileTraverser.MODIFIED, Instant.ofEpochMilli(content.getLastModifiedTime()).toString());
+      doc.setField(
+          FileTraverser.CREATED, Instant.ofEpochMilli(content.getLastModifiedTime()).toString());
       doc.setField(FileTraverser.SIZE, content.getSize());
       String encodedString = Base64.getEncoder().encodeToString(content.getByteArray());
       doc.setField(DefaultDocumentProducer.CONTENT, encodedString);
     } catch (FileSystemException e) {
       doc.setField("error", e.toString());
-      log.error("Issue getting file information from '" + fo.getName() +"'", e);
+      log.error("Issue getting file information from '" + fo.getName() + "'", e);
     } catch (IOException e) {
       doc.setField("error", e.toString());
-      log.error("Issue getting file content from '" + fo.getName() +"'", e);
+      log.error("Issue getting file content from '" + fo.getName() + "'", e);
     }
     return doc;
   }
 
-  private Stream<FileObject> traverseFiles(FileSystemManager fsManager, String rootPath) throws ConnectorException {
+  private Stream<FileObject> traverseFiles(FileSystemManager fsManager, String rootPath)
+      throws ConnectorException {
     FileObject fileRoot;
 
     // get the root object, file or directory
     try {
       fileRoot = fsManager.resolveFile(rootPath);
     } catch (FileSystemException e) {
-      throw new ConnectorException("Unable to resolve vsfPath of '"+ rootPath + "'", e);
+      throw new ConnectorException("Unable to resolve vsfPath of '" + rootPath + "'", e);
     }
 
     // return filtered FileObject stream
-    return StreamSupport.stream(fileRoot.spliterator(), false)
-        .filter(this::isValidFile);
-
+    return StreamSupport.stream(fileRoot.spliterator(), false).filter(this::isValidFile);
   }
 
   private boolean isValidFile(FileObject fo) {
@@ -127,7 +134,9 @@ public class VFSConnector extends AbstractConnector {
     // skip anything that matches excludes or doesn't match includes
     String filePath = fo.getName().getPath();
     if (excludes.parallelStream().anyMatch(pattern -> pattern.matcher(filePath).matches())
-        || (!includes.isEmpty() && includes.parallelStream().noneMatch(pattern -> pattern.matcher(filePath).matches()))) {
+        || (!includes.isEmpty()
+            && includes.parallelStream()
+                .noneMatch(pattern -> pattern.matcher(filePath).matches()))) {
       log.debug("Skipping file because of include or exclude regex: " + filePath);
       return false;
     }

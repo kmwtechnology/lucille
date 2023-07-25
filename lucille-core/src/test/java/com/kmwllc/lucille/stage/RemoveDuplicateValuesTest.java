@@ -142,7 +142,8 @@ public class RemoveDuplicateValuesTest {
     assertEquals("-32", values.get(3));
 
     // verify original field stays, while new values without duplicates are placed into new field
-    assertEquals("{\"id\":\"doc\",\"field1\":[1,1,23,14,-32],\"fish\":[1,23,14,-32]}", doc.toString());
+    assertEquals(
+        "{\"id\":\"doc\",\"field1\":[1,1,23,14,-32],\"fish\":[1,23,14,-32]}", doc.toString());
   }
 
   @Test

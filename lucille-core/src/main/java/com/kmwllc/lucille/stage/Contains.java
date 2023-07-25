@@ -11,16 +11,15 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Checks if any of the given fields contain any of the given values and tags the given
- * output field with the value.
+ * Checks if any of the given fields contain any of the given values and tags the given output field
+ * with the value.
  *
- * Config Parameters:
+ * <p>Config Parameters:
  *
- *   - contains (List<String>) : A list of values to search for
- *   - output (String) : The field to tag if a match is found
- *   - value (String) : The value to tag the output field with
- *   - ignoreCase (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true.
- *   - field (List<String>) : The fields to be searched
+ * <p>- contains (List<String>) : A list of values to search for - output (String) : The field to
+ * tag if a match is found - value (String) : The value to tag the output field with - ignoreCase
+ * (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true. -
+ * field (List<String>) : The fields to be searched
  */
 public class Contains extends Stage {
 
@@ -33,7 +32,9 @@ public class Contains extends Stage {
   private PayloadTrie<String> trie;
 
   public Contains(Config config) {
-    super(config, new StageSpec()
+    super(
+        config,
+        new StageSpec()
             .withRequiredProperties("contains", "output", "value", "fields")
             .withOptionalProperties("ignoreCase"));
 
@@ -72,8 +73,7 @@ public class Contains extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String field : fields) {
-      if (!doc.has(field))
-        continue;
+      if (!doc.has(field)) continue;
 
       List<String> values = doc.getStringList(field);
       for (String value : values) {

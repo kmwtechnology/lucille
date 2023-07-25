@@ -42,6 +42,4 @@ public class StartStopCaptureStage extends Stage {
     startCalled = false;
     stopCalled = false;
   }
-
-
 }

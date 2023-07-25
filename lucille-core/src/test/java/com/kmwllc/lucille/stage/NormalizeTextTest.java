@@ -38,7 +38,8 @@ public class NormalizeTextTest {
     Document doc4 = Document.create("doc4");
     doc4.setField("input2", "this is a sentence. and this! this too? test");
     stage.processDocument(doc4);
-    assertEquals("This is a sentence. And this! This too? Test", doc4.getStringList("output2").get(0));
+    assertEquals(
+        "This is a sentence. And this! This too? Test", doc4.getStringList("output2").get(0));
   }
 
   @Test

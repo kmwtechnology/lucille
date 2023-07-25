@@ -12,20 +12,18 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
-/**
- * Removes empty fields from a document.
- */
+/** Removes empty fields from a document. */
 public class RemoveEmptyFields extends Stage {
 
   public RemoveEmptyFields(Config config) {
     super(config);
-    // iterate fields that have a blank value or a null value and remove them. 
+    // iterate fields that have a blank value or a null value and remove them.
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // get the field names
-    Map<String,Object> data = doc.asMap();
+    Map<String, Object> data = doc.asMap();
     Set<String> fieldNames = data.keySet();
     for (String fieldName : fieldNames) {
       if (StringUtils.isEmpty(doc.getString(fieldName))) {
@@ -34,5 +32,4 @@ public class RemoveEmptyFields extends Stage {
     }
     return null;
   }
-
 }

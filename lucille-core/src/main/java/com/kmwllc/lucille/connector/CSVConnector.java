@@ -23,9 +23,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-/**
- * Connector implementation that produces documents from the rows in a given CSV file.
- */
+/** Connector implementation that produces documents from the rows in a given CSV file. */
 public class CSVConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(CSVConnector.class);
@@ -49,30 +47,44 @@ public class CSVConnector extends AbstractConnector {
   public CSVConnector(Config config) {
     super(config);
     this.path = config.getString("path");
-    this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
-    this.filenameField = config.hasPath("filenameField") ? config.getString("filenameField") : "filename";
-    this.filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : "source";
+    this.lineNumField =
+        config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
+    this.filenameField =
+        config.hasPath("filenameField") ? config.getString("filenameField") : "filename";
+    this.filePathField =
+        config.hasPath("filePathField") ? config.getString("filePathField") : "source";
     String idField = config.hasPath("idField") ? config.getString("idField") : null;
-    // Either specify the idField, or idFields 
+    // Either specify the idField, or idFields
     if (idField != null) {
       this.idFields = new ArrayList<String>();
       this.idFields.add(idField);
     } else {
-      this.idFields = config.hasPath("idFields") ? config.getStringList("idFields") : new ArrayList<String>();
+      this.idFields =
+          config.hasPath("idFields") ? config.getStringList("idFields") : new ArrayList<String>();
     }
     this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
     // if both a separator char and useTabs is specified, useTabs takes precedence
-    char separator = config.hasPath("separatorChar")  ? CharUtils.toChar(config.getString("separatorChar")) : ',';
-    this.separatorChar = (config.hasPath("useTabs") && config.getBoolean("useTabs")) ? '\t' : separator;
-    this.quoteChar = (config.hasPath("interpretQuotes") && !config.getBoolean("interpretQuotes")) ?
-      CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;
-    this.escapeChar = (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar")) ?
-      CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_ESCAPE_CHARACTER;
-    this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
-    this.moveToErrorFolder = config.hasPath("moveToErrorFolder") ? config.getString("moveToErrorFolder") : null;
-    this.ignoredTerms = config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : new ArrayList<>();
+    char separator =
+        config.hasPath("separatorChar") ? CharUtils.toChar(config.getString("separatorChar")) : ',';
+    this.separatorChar =
+        (config.hasPath("useTabs") && config.getBoolean("useTabs")) ? '\t' : separator;
+    this.quoteChar =
+        (config.hasPath("interpretQuotes") && !config.getBoolean("interpretQuotes"))
+            ? CSVParser.NULL_CHARACTER
+            : CSVParser.DEFAULT_QUOTE_CHARACTER;
+    this.escapeChar =
+        (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar"))
+            ? CSVParser.NULL_CHARACTER
+            : CSVParser.DEFAULT_ESCAPE_CHARACTER;
+    this.lowercaseFields =
+        config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
+    this.moveToErrorFolder =
+        config.hasPath("moveToErrorFolder") ? config.getString("moveToErrorFolder") : null;
+    this.ignoredTerms =
+        config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : new ArrayList<>();
     // A directory to move the files to after they are doing being processed.
-    this.moveToAfterProcessing = config.hasPath("moveToAfterProcessing") ? config.getString("moveToAfterProcessing") : null;
+    this.moveToAfterProcessing =
+        config.hasPath("moveToAfterProcessing") ? config.getString("moveToAfterProcessing") : null;
   }
 
   @Override
@@ -117,8 +129,15 @@ public class CSVConnector extends AbstractConnector {
     int lineNum = 0;
     log.info("Beginning to process file {}", filePath);
     String filename = new File(filePath).getName();
-    try (CSVReader csvReader = new CSVReaderBuilder(FileUtils.getReader(filePath)).
-      withCSVParser(new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build()).build()) {
+    try (CSVReader csvReader =
+        new CSVReaderBuilder(FileUtils.getReader(filePath))
+            .withCSVParser(
+                new CSVParserBuilder()
+                    .withSeparator(separatorChar)
+                    .withQuoteChar(quoteChar)
+                    .withEscapeChar(escapeChar)
+                    .build())
+            .build()) {
       // log.info("Processing linenumber: {}", lineNum);
       // Assume first line is header
       String[] header = csvReader.readNext();
@@ -127,8 +146,7 @@ public class CSVConnector extends AbstractConnector {
       }
       // lowercase column names
       if (lowercaseFields) {
-        for (int i = 0; i < header.length; i++)
-          header[i] = header[i].toLowerCase();
+        for (int i = 0; i < header.length; i++) header[i] = header[i].toLowerCase();
       }
       // Index the column names
       HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();
@@ -139,7 +157,9 @@ public class CSVConnector extends AbstractConnector {
         }
 
         if (columnIndexMap.containsKey(header[i])) {
-          log.warn("Multiple columns with the name {} were discovered in the source csv file.", header[i]);
+          log.warn(
+              "Multiple columns with the name {} were discovered in the source csv file.",
+              header[i]);
           continue;
         }
         columnIndexMap.put(header[i], i);
@@ -157,7 +177,7 @@ public class CSVConnector extends AbstractConnector {
       if (idColumns.size() != idFields.size()) {
         log.warn("Mismatch in idFields to column map.");
       }
-      // At this point we should have the list of column ids that map to the idFields 
+      // At this point we should have the list of column ids that map to the idFields
       String[] line;
 
       while ((line = csvReader.readNext()) != null) {
@@ -168,7 +188,10 @@ public class CSVConnector extends AbstractConnector {
           continue;
         }
         if (line.length != header.length) {
-          log.warn(String.format("Line %d of the csv has a different number of columns than columns in the header.", lineNum));
+          log.warn(
+              String.format(
+                  "Line %d of the csv has a different number of columns than columns in the header.",
+                  lineNum));
           continue;
         }
         String docId = "";
@@ -190,7 +213,9 @@ public class CSVConnector extends AbstractConnector {
         // log.info("DOC ID: {}", docId);
         int maxIndex = Math.min(header.length, line.length);
         for (int i = 0; i < maxIndex; i++) {
-          if (line[i] != null && !ignoredTerms.contains(line[i]) && !Document.RESERVED_FIELDS.contains(header[i])) {
+          if (line[i] != null
+              && !ignoredTerms.contains(line[i])
+              && !Document.RESERVED_FIELDS.contains(header[i])) {
             doc.setField(header[i], line[i]);
           }
         }
@@ -208,7 +233,6 @@ public class CSVConnector extends AbstractConnector {
         moveFile(filePath, moveToErrorFolder);
       }
     }
-
   }
 
   private String createDocId(ArrayList<String> idColumnData) {
@@ -245,7 +269,11 @@ public class CSVConnector extends AbstractConnector {
     Path dest = Paths.get(option + File.separatorChar + fileName);
     try {
       Files.move(source, dest);
-      log.info("File {} was successfully moved from source {} to destination {}", fileName, source, dest);
+      log.info(
+          "File {} was successfully moved from source {} to destination {}",
+          fileName,
+          source,
+          dest);
     } catch (IOException e) {
       log.warn("Error moving file to destination directory", e);
     }

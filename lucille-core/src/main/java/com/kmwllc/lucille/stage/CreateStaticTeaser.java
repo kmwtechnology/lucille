@@ -11,18 +11,19 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Create teasers of a given length from the given source fields. If the character limit is reached in
- * the middle of a word, the teaser will not be truncated until the end of the word. NOTE : If a given field is
- * multivalued, this Stage will only operate on the first value.
+ * Create teasers of a given length from the given source fields. If the character limit is reached
+ * in the middle of a word, the teaser will not be truncated until the end of the word. NOTE : If a
+ * given field is multivalued, this Stage will only operate on the first value.
  *
- * Config Parameters:
+ * <p>Config Parameters:
  *
- *   - source (List<String>) : list of source field names.
- *   - dest (List<String>) : list of destination field names. You can either supply the same number of source and destination fields
- *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- *   - maxLength (Integer) : The maximum number of characters to include in the extracted teaser.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
- *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
+ * <p>- source (List<String>) : list of source field names. - dest (List<String>) : list of
+ * destination field names. You can either supply the same number of source and destination fields
+ * for a 1-1 mapping of results or supply one destination field for all of the source fields to be
+ * mapped into. - maxLength (Integer) : The maximum number of characters to include in the extracted
+ * teaser. - update_mode (String, Optional) : Determines how writing will be handling if the
+ * destination field is already populated. Can be 'overwrite', 'append' or 'skip'. Defaults to
+ * 'overwrite'.
  */
 public class CreateStaticTeaser extends Stage {
 
@@ -32,7 +33,9 @@ public class CreateStaticTeaser extends Stage {
   private final UpdateMode updateMode;
 
   public CreateStaticTeaser(Config config) {
-    super(config, new StageSpec()
+    super(
+        config,
+        new StageSpec()
             .withRequiredProperties("source", "dest", "maxLength")
             .withOptionalProperties("update_mode"));
 
@@ -58,12 +61,12 @@ public class CreateStaticTeaser extends Stage {
       String source = sourceFields.get(i);
       String dest = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(source))
-        continue;
+      if (!doc.has(source)) continue;
 
       String fullText = doc.getStringList(source).get(0);
 
-      // If this field value is shorter than the max length, put the whole String in the destination field
+      // If this field value is shorter than the max length, put the whole String in the destination
+      // field
       if (maxLength > fullText.length()) {
         doc.update(dest, updateMode, fullText.trim());
         continue;
