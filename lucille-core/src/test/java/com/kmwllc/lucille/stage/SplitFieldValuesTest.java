@@ -10,6 +10,7 @@ import java.util.Set;
 import static org.junit.Assert.assertEquals;
 
 public class SplitFieldValuesTest {
+
   private StageFactory factory = StageFactory.of(SplitFieldValues.class);
 
   @Test

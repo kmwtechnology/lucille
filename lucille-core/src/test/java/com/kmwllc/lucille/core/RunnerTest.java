@@ -87,8 +87,8 @@ public class RunnerTest {
   }
 
   /**
-   * Test an end-to-end run with a single connector that generates 3 documents, where the second
-   * document causes a stage exception but the first and third should finish without out errors
+   * Test an end-to-end run with a single connector that generates 3 documents, where the second document causes a stage exception
+   * but the first and third should finish without out errors
    */
   @Test
   public void testRunnerWithFailingDoc() throws Exception {
@@ -134,8 +134,8 @@ public class RunnerTest {
   }
 
   /**
-   * Test an end-to-end run with a single connector that generates 1 document, an indexer with a
-   * batch timeout of 10 seconds, and a runner with timeout of .1 second
+   * Test an end-to-end run with a single connector that generates 1 document, an indexer with a batch timeout of 10 seconds, and a
+   * runner with timeout of .1 second
    */
   @Test
   public void testRunnerTimeout() throws Exception {
@@ -153,8 +153,8 @@ public class RunnerTest {
   }
 
   /**
-   * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that
-   * generates one child document for every incoming document
+   * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that generates one child document for
+   * every incoming document
    */
   @Test
   public void testChildHandling() throws Exception {
@@ -195,8 +195,8 @@ public class RunnerTest {
   }
 
   /**
-   * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that
-   * generates two children for every incoming document, dropping the document itself
+   * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that generates two children for every
+   * incoming document, dropping the document itself
    */
   @Test
   public void testDropDocument() throws Exception {
@@ -250,10 +250,9 @@ public class RunnerTest {
   }
 
   /**
-   * A stage could emit a child that is marked as dropped. This is likely an edge case but we still
-   * want to make sure the event accounting mechanism works properly here. When the worker sees the
-   * dropped child it should send a CREATE event for the child document and then immediately follow
-   * up with a DROP event.
+   * A stage could emit a child that is marked as dropped. This is likely an edge case but we still want to make sure the event
+   * accounting mechanism works properly here. When the worker sees the dropped child it should send a CREATE event for the child
+   * document and then immediately follow up with a DROP event.
    */
   @Test
   public void testDropChildDocument() throws Exception {
@@ -302,8 +301,8 @@ public class RunnerTest {
   }
 
   /**
-   * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that
-   * attempts to generate 5 children but fails when the 3rd child is requested
+   * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that attempts to generate 5 children
+   * but fails when the 3rd child is requested
    */
   @Test
   public void testErrorGeneratingChildren() throws Exception {
@@ -354,8 +353,7 @@ public class RunnerTest {
   }
 
   /**
-   * Test an end-to-end run with two connectors that each generate a single document, and a no-op
-   * pipeline
+   * Test an end-to-end run with two connectors that each generate a single document, and a no-op pipeline
    */
   @Test
   public void testTwoConnectors() throws Exception {
@@ -409,8 +407,7 @@ public class RunnerTest {
   }
 
   /**
-   * Attempt to run three connectors, where the second connector throws an exception. Confirm that
-   * the third connector is not run.
+   * Attempt to run three connectors, where the second connector throws an exception. Confirm that the third connector is not run.
    */
   @Test
   public void testThreeConnectorsWithFailure() throws Exception {
@@ -439,9 +436,8 @@ public class RunnerTest {
   }
 
   /**
-   * Attempt to run three connectors, where the second connector feeds to a pipeline that throws an
-   * exception while starting a stage. Confirm that the third connector is not run. An exception
-   * should not bubble up.
+   * Attempt to run three connectors, where the second connector feeds to a pipeline that throws an exception while starting a
+   * stage. Confirm that the third connector is not run. An exception should not bubble up.
    */
   @Test
   public void testThreeConnectorsWithStageStartFailure() throws Exception {
@@ -451,8 +447,7 @@ public class RunnerTest {
   }
 
   /**
-   * Test that the post completion events occur after all of the documents have been fully
-   * processed.
+   * Test that the post completion events occur after all of the documents have been fully processed.
    */
   @Test
   public void testPostCompletionActions() throws Exception {
@@ -467,8 +462,7 @@ public class RunnerTest {
   }
 
   /**
-   * Test that the post completion events occur as expected in the case where no pipeline is
-   * configured.
+   * Test that the post completion events occur as expected in the case where no pipeline is configured.
    */
   @Test
   public void testPostCompletionActionsWithoutPipeline() throws Exception {
@@ -479,7 +473,9 @@ public class RunnerTest {
     assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
   }
 
-  /** Ensure that if pre completion events fail, further connectors in the pipeline will not run. */
+  /**
+   * Ensure that if pre completion events fail, further connectors in the pipeline will not run.
+   */
   @Test
   public void testFailingPreCompletionActions() throws Exception {
     Map<String, PersistingLocalMessageManager> map =
@@ -573,7 +569,9 @@ public class RunnerTest {
     verify(manager, times(1)).close();
   }
 
-  /** If a connector sets a custom message, the message should be included in the run summary. */
+  /**
+   * If a connector sets a custom message, the message should be included in the run summary.
+   */
   @Test
   public void testCustomRunSummaryMessage() throws Exception {
     RunResult result =
@@ -738,16 +736,16 @@ public class RunnerTest {
     assertEquals(6, manager2.getSavedDocumentsSentForProcessing().size());
     List<String> expectedIdsFromCollapsingConnector =
         Arrays.asList(
-            new String[] {"connector1-0", "connector1-1", "connector1-2", "connector1-1"});
+            new String[]{"connector1-0", "connector1-1", "connector1-2", "connector1-1"});
     List<String> expectedIdsFromNonCollapsingConnector =
         Arrays.asList(
-            new String[] {
-              "connector2-0",
-              "connector2-1",
-              "connector2-1",
-              "connector2-1",
-              "connector2-2",
-              "connector2-1"
+            new String[]{
+                "connector2-0",
+                "connector2-1",
+                "connector2-1",
+                "connector2-1",
+                "connector2-2",
+                "connector2-1"
             });
     assertEquals(
         expectedIdsFromCollapsingConnector,
@@ -763,7 +761,7 @@ public class RunnerTest {
     assertEquals(6, manager2.getSavedEvents().size());
 
     assertEquals(
-        Arrays.asList(new String[] {"foo", "foo", "foo2"}),
+        Arrays.asList(new String[]{"foo", "foo", "foo2"}),
         manager1.getSavedDocumentsSentForProcessing().get(1).getStringList("field1"));
     assertEquals(
         "non-consecutive",

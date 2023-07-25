@@ -18,35 +18,36 @@ import java.util.List;
  * argument; this allows for Connectors to be instantiated reflectively based on a configuration.
  *
  * <p>A new Connector instance will be created for each run. During a run: preExecute() is always
- * called execute() is called if preExecute() succeeds postExecute() is called if preExecute() and
- * execute() succeed close() is always called
+ * called execute() is called if preExecute() succeeds postExecute() is called if preExecute() and execute() succeed close() is
+ * always called
  */
 public interface Connector extends AutoCloseable {
 
   /**
-   * Returns the name of the Connector as specified in the configuration. Connectors within a Run
-   * must have unique names.
+   * Returns the name of the Connector as specified in the configuration. Connectors within a Run must have unique names.
    */
   String getName();
 
-  /** Returns the name of the pipeline to which this Connector's Documents should be sent. */
+  /**
+   * Returns the name of the pipeline to which this Connector's Documents should be sent.
+   */
   String getPipelineName();
 
   /**
-   * Indicates whether this Connector instance expects to be passed a collapsing Publisher when
-   * execute() is called. A collapsing Publisher combines Documents that are published in sequence
-   * and share the same ID. Such sequences of Documents are combined into a single document with
-   * multi-valued fields.
+   * Indicates whether this Connector instance expects to be passed a collapsing Publisher when execute() is called. A collapsing
+   * Publisher combines Documents that are published in sequence and share the same ID. Such sequences of Documents are combined
+   * into a single document with multi-valued fields.
    */
   boolean requiresCollapsingPublisher();
 
-  /** Performs any logic that should occur before execute(). */
+  /**
+   * Performs any logic that should occur before execute().
+   */
   void preExecute(String runId) throws ConnectorException;
 
   /**
-   * Performs any data-source specific logic for connecting to a backend source, acquiring data, and
-   * generating documents from it. All generated documents should be published via the supplied
-   * Publisher. Connections should be closed in close().
+   * Performs any data-source specific logic for connecting to a backend source, acquiring data, and generating documents from it.
+   * All generated documents should be published via the supplied Publisher. Connections should be closed in close().
    *
    * <p>Will not be called if preExecute() throws an exception.
    *
@@ -55,21 +56,23 @@ public interface Connector extends AutoCloseable {
   void execute(Publisher publisher) throws ConnectorException;
 
   /**
-   * Performs any logic that should occur after execute(), not including the closing of connections,
-   * which should be done in close().
+   * Performs any logic that should occur after execute(), not including the closing of connections, which should be done in
+   * close().
    *
    * <p>Will not be called if preExecute() or execute() throw an exception.
    */
   void postExecute(String runId) throws ConnectorException;
 
-  /** Instantiates a list of Connectors from the designated Config. */
+  /**
+   * Instantiates a list of Connectors from the designated Config.
+   */
   static List<Connector> fromConfig(Config config)
       throws ClassNotFoundException,
-          NoSuchMethodException,
-          IllegalAccessException,
-          InvocationTargetException,
-          InstantiationException,
-          ConnectorException {
+      NoSuchMethodException,
+      IllegalAccessException,
+      InvocationTargetException,
+      InstantiationException,
+      ConnectorException {
     List<? extends Config> connectorConfigs = config.getConfigList("connectors");
 
     List<Connector> connectors = new ArrayList();
@@ -93,8 +96,7 @@ public interface Connector extends AutoCloseable {
   }
 
   /**
-   * Returns a message that should be included in the Lucille Run Summary for this connector
-   * instance.
+   * Returns a message that should be included in the Lucille Run Summary for this connector instance.
    */
   String getMessage();
 }

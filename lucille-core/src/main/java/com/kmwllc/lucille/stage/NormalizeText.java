@@ -19,18 +19,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Provides 4 modes for normalizing the case of text: Lowercase, Uppercase, Title Case and Sentence
- * Case. The desired mode should be set in the configuration file. NOTE: This stage will not
- * preserve any capitalization from the original document. As such, proper nouns, abbreviations and
- * acronyms may not be correctly capitalized after normalization. Config Parameters:
+ * Provides 4 modes for normalizing the case of text: Lowercase, Uppercase, Title Case and Sentence Case. The desired mode should be
+ * set in the configuration file. NOTE: This stage will not preserve any capitalization from the original document. As such, proper
+ * nouns, abbreviations and acronyms may not be correctly capitalized after normalization. Config Parameters:
  *
  * <p>- source (List<String>) : List of source field names. - dest (List<String>) : List of
- * destination field names. You can either supply the same number of source and destination fields
- * for a 1-1 mapping of results or supply one destination field for all of the source fields to be
- * mapped into. - mode (String) : The mode for normalization: uppercase, lowercase, sentence_case,
- * title_case. - update_mode (String, Optional) : Determines how writing will be handling if the
- * destination field is already populated. Can be 'overwrite', 'append' or 'skip'. Defaults to
- * 'overwrite'.
+ * destination field names. You can either supply the same number of source and destination fields for a 1-1 mapping of results or
+ * supply one destination field for all of the source fields to be mapped into. - mode (String) : The mode for normalization:
+ * uppercase, lowercase, sentence_case, title_case. - update_mode (String, Optional) : Determines how writing will be handling if
+ * the destination field is already populated. Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class NormalizeText extends Stage {
 
@@ -92,7 +89,9 @@ public class NormalizeText extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField)) continue;
+      if (!doc.has(sourceField)) {
+        continue;
+      }
 
       List<String> outputValues = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {
@@ -126,9 +125,9 @@ public class NormalizeText extends Stage {
   }
 
   /**
-   * Transform the given String into title case ex: "This Is A Title Cased String" This
-   * normalization will put ALL of the text in title case and will not preserve the case of things
-   * such as abbreviations or fully capitalized words. This can handle non latin languages.
+   * Transform the given String into title case ex: "This Is A Title Cased String" This normalization will put ALL of the text in
+   * title case and will not preserve the case of things such as abbreviations or fully capitalized words. This can handle non latin
+   * languages.
    *
    * @param value the input String
    * @return the title cased String
@@ -138,9 +137,9 @@ public class NormalizeText extends Stage {
   }
 
   /**
-   * Transform the given String into sentence case ex: "This string is a sentence. Is this a new
-   * sentence? One more!" This normalization will put ALL of the text in title case and will not
-   * preserve the case of things such a abbreviations, fully capitalized words or proper nouns.
+   * Transform the given String into sentence case ex: "This string is a sentence. Is this a new sentence? One more!" This
+   * normalization will put ALL of the text in title case and will not preserve the case of things such a abbreviations, fully
+   * capitalized words or proper nouns.
    *
    * @param value the input String
    * @return the sentence cased String

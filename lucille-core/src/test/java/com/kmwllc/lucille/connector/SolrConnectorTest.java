@@ -39,7 +39,9 @@ public class SolrConnectorTest {
                 SolrDocument doc = new SolrDocument();
                 doc.setField(Document.ID_FIELD, "doc");
                 for (String param : q.getParameterNames()) {
-                  if (param.equals("cursorMark")) continue;
+                  if (param.equals("cursorMark")) {
+                    continue;
+                  }
                   doc.setField(param.toLowerCase(), q.getParams(param));
                 }
 

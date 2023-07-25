@@ -21,20 +21,18 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Connector for issuing requests to Solr. Requests should be formatted as JSON Strings and can
- * contain the {runId} wildcard, which will be substituted for the current runId before the requests
- * are issued. This is the only wildcard supported. XML can be used instead of JSON with the
- * useXml=true parameter.
+ * Connector for issuing requests to Solr. Requests should be formatted as JSON Strings and can contain the {runId} wildcard, which
+ * will be substituted for the current runId before the requests are issued. This is the only wildcard supported. XML can be used
+ * instead of JSON with the useXml=true parameter.
  *
  * <p>Connector Parameters:
  *
  * <p>- preActions (List<String>, Optional) : A list of requests to be issued to Solr. These actions
- * will be performed first. - postActions (List<String>, Optional) : A list of requests to be issued
- * to Solr. These actions will be performed second. - solr.url (String) : The url of the Solr
- * instance for this Connector to issue its requests to. - useXml (boolean, Optional) : indicates
- * whether actions are in xml or json format; defaults to json; note that Solr does more validation
- * on json commands than xml ones (e.g. it rejects unrecognized JSON commands but accepts
- * unrecognized XML commands and reports success); therefore, json is preferable
+ * will be performed first. - postActions (List<String>, Optional) : A list of requests to be issued to Solr. These actions will be
+ * performed second. - solr.url (String) : The url of the Solr instance for this Connector to issue its requests to. - useXml
+ * (boolean, Optional) : indicates whether actions are in xml or json format; defaults to json; note that Solr does more validation
+ * on json commands than xml ones (e.g. it rejects unrecognized JSON commands but accepts unrecognized XML commands and reports
+ * success); therefore, json is preferable
  */
 // TODO : Honor and return children documents
 public class SolrConnector extends AbstractConnector {

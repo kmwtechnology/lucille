@@ -10,7 +10,9 @@ import static org.junit.Assert.assertTrue;
 
 public class SingleBatchTest {
 
-  /** Test adding a single document to a batch and retrieving it by flushing the whole batch. */
+  /**
+   * Test adding a single document to a batch and retrieving it by flushing the whole batch.
+   */
   @Test
   public void testSimpleAdd() {
     SingleBatch batch = new SingleBatch(100, 100);
@@ -22,7 +24,9 @@ public class SingleBatchTest {
     assertEquals("doc", docs.get(0).getId());
   }
 
-  /** Test adding a several documents to a batch and retrieving them by flushing the whole batch. */
+  /**
+   * Test adding a several documents to a batch and retrieving them by flushing the whole batch.
+   */
   @Test
   public void testSeveralAdd() {
     SingleBatch batch = new SingleBatch(100, 1000);
@@ -44,7 +48,9 @@ public class SingleBatchTest {
     assertEquals("doc3", docs.get(2).getId());
   }
 
-  /** Test that documents are returned if the batch is full. */
+  /**
+   * Test that documents are returned if the batch is full.
+   */
   @Test
   public void testFullBatch() {
     SingleBatch batch = new SingleBatch(1, 1000);
@@ -61,7 +67,9 @@ public class SingleBatchTest {
     assertEquals("doc2", docs.get(0).getId());
   }
 
-  /** Test that supplying a null document to the batch causes a NullPointerException. */
+  /**
+   * Test that supplying a null document to the batch causes a NullPointerException.
+   */
   @Test(expected = NullPointerException.class)
   public void testSupplyNull() {
     SingleBatch batch = new SingleBatch(100, 1000);
@@ -69,8 +77,7 @@ public class SingleBatchTest {
   }
 
   /**
-   * Test that the batch is flushed if flushIfExpired() or add() is called after the time elapsed
-   * since the last
+   * Test that the batch is flushed if flushIfExpired() or add() is called after the time elapsed since the last
    *
    * @throws InterruptedException
    */

@@ -32,6 +32,7 @@ import java.util.Map;
  * </ul>
  */
 public class XPathExtractor extends Stage {
+
   protected Map<String, Object> xpaths;
   private DocumentBuilder builder;
   private DocumentBuilderFactory factory;

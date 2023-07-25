@@ -19,16 +19,16 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 /**
- * Parses a JSON string and sets fields on the processed document according to the configured
- * mapping using JsonPath expressions.
+ * Parses a JSON string and sets fields on the processed document according to the configured mapping using JsonPath expressions.
  *
  * @see <a href="https://github.com/json-path/JsonPath">JsonPath</a> Config Parameters
- *     <p>- src (String) : The field containing the JSON string to be parsed. - sourceIsBase64: When
- *     set to true, indicates that the source field is base64 encoded. In this case the stage will
- *     decode the field value before parsing. - jsonFieldPaths (Map<String, Object>) : Defines the
- *     mapping from JsonPath expressions to the destination fields in the processed document.
+ * <p>- src (String) : The field containing the JSON string to be parsed. - sourceIsBase64: When
+ * set to true, indicates that the source field is base64 encoded. In this case the stage will decode the field value before
+ * parsing. - jsonFieldPaths (Map<String, Object>) : Defines the mapping from JsonPath expressions to the destination fields in the
+ * processed document.
  */
 public class ParseJson extends Stage {
+
   private static final Base64.Decoder DECODER = Base64.getDecoder();
 
   private final String src;

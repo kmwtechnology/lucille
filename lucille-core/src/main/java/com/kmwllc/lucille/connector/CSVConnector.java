@@ -23,7 +23,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-/** Connector implementation that produces documents from the rows in a given CSV file. */
+/**
+ * Connector implementation that produces documents from the rows in a given CSV file.
+ */
 public class CSVConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(CSVConnector.class);
@@ -146,7 +148,9 @@ public class CSVConnector extends AbstractConnector {
       }
       // lowercase column names
       if (lowercaseFields) {
-        for (int i = 0; i < header.length; i++) header[i] = header[i].toLowerCase();
+        for (int i = 0; i < header.length; i++) {
+          header[i] = header[i].toLowerCase();
+        }
       }
       // Index the column names
       HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();

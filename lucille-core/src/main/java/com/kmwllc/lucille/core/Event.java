@@ -12,9 +12,8 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * Represents something that happened relating to a particular document in the context of a
- * particular "run." For example, a document may have been created during pipeline execution, or a
- * document may have been indexed in a search engine.
+ * Represents something that happened relating to a particular document in the context of a particular "run." For example, a
+ * document may have been created during pipeline execution, or a document may have been indexed in a search engine.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class Event {
@@ -43,7 +42,8 @@ public class Event {
     MAPPER.registerModule(new JavaTimeModule());
   }
 
-  private Event() {}
+  private Event() {
+  }
 
   public Event(Document document, String message, Type type) {
     this.documentId = document.getId();

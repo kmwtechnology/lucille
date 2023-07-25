@@ -32,7 +32,9 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
   }
 
-  /** Polls for a document that has been processed by the pipeine and is waiting to be indexed. */
+  /**
+   * Polls for a document that has been processed by the pipeine and is waiting to be indexed.
+   */
   @Override
   public Document pollCompleted() throws Exception {
     ConsumerRecords<String, KafkaDocument> consumerRecords =
@@ -57,7 +59,9 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
     sendEvent(event);
   }
 
-  /** Sends an Event relating to a Document to the appropriate location for Events. */
+  /**
+   * Sends an Event relating to a Document to the appropriate location for Events.
+   */
   @Override
   public void sendEvent(Event event) throws Exception {
     if (kafkaEventProducer == null) {
@@ -80,5 +84,6 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
   }
 
   @Override
-  public void batchComplete(List<Document> batch) throws Exception {}
+  public void batchComplete(List<Document> batch) throws Exception {
+  }
 }

@@ -8,6 +8,7 @@ import java.io.InputStream;
 // extended from example at:
 // https://bytes.com/topic/net/answers/818268-java-sax-parser-how-get-raw-xml-code-currently-parsingevent
 public class RecordingInputStream extends FilterInputStream {
+
   protected ByteArrayOutputStream sink;
   private String encoding;
 
@@ -30,7 +31,9 @@ public class RecordingInputStream extends FilterInputStream {
   @Override
   public synchronized int read(byte[] buf, int off, int len) throws IOException {
     int l = in.read(buf, off, len);
-    if (l == -1) return -1;
+    if (l == -1) {
+      return -1;
+    }
     sink.write(buf, off, l);
     return l;
   }
@@ -47,7 +50,9 @@ public class RecordingInputStream extends FilterInputStream {
     byte[] buf = new byte[1024];
     while (l < len) {
       i = read(buf, 0, (int) Math.min((long) buf.length, len - l));
-      if (i == -1) break;
+      if (i == -1) {
+        break;
+      }
       l += i;
     }
     return l;

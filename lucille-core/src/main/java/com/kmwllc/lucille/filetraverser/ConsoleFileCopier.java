@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.Properties;
 
 public class ConsoleFileCopier implements AutoCloseable {
+
   private static final Logger log = LogManager.getLogger(ConsoleFileCopier.class);
   private final Path path;
   private final boolean fromBeginning;

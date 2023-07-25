@@ -13,8 +13,11 @@ import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.protocol.HttpCoreContext;
 
-/** A custom request interceptor to enable preemptive authentication. */
+/**
+ * A custom request interceptor to enable preemptive authentication.
+ */
 public class PreemptiveAuthInterceptor implements HttpRequestInterceptor {
+
   @Override
   public void process(HttpRequest request, HttpContext context) throws HttpException {
     AuthState authState = (AuthState) context.getAttribute(HttpClientContext.TARGET_AUTH_STATE);

@@ -10,8 +10,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Normalizes a document's field values by replacing spaces and non-alphanumeric characters with
- * given delimiters.
+ * Normalizes a document's field values by replacing spaces and non-alphanumeric characters with given delimiters.
  *
  * <p>Config Parameters -
  *

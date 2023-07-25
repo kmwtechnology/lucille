@@ -5,8 +5,8 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.typesafe.config.Config;
 
 /**
- * Base class for use by Connector implementations, providing basic Config parsing behavior for
- * obtaining connector name, pipeline name, doc ID prefix, and collapsing mode.
+ * Base class for use by Connector implementations, providing basic Config parsing behavior for obtaining connector name, pipeline
+ * name, doc ID prefix, and collapsing mode.
  */
 public abstract class AbstractConnector implements Connector {
 
@@ -54,16 +54,15 @@ public abstract class AbstractConnector implements Connector {
   }
 
   /**
-   * Returns the configured prefix that this Connector will prepend to ids from the source data when
-   * creating Documents from that data.
+   * Returns the configured prefix that this Connector will prepend to ids from the source data when creating Documents from that
+   * data.
    */
   public String getDocIdPrefix() {
     return docIdPrefix;
   }
 
   /**
-   * Creates an extended doc ID by adding a prefix (and possibly in the future, a suffix) to the
-   * given id.
+   * Creates an extended doc ID by adding a prefix (and possibly in the future, a suffix) to the given id.
    */
   public String createDocId(String id) {
     return docIdPrefix + id;

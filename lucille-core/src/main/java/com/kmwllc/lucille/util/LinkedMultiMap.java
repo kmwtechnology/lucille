@@ -245,8 +245,12 @@ public class LinkedMultiMap implements MultiMap, Serializable {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
     LinkedMultiMap multiMap = (LinkedMultiMap) o;
     return Objects.equals(data, multiMap.data);
   }

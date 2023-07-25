@@ -91,19 +91,20 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
-   * Return true if connection to the destination search engine is valid and the relevant index or
-   * collection exists; false otherwise.
+   * Return true if connection to the destination search engine is valid and the relevant index or collection exists; false
+   * otherwise.
    */
   public abstract boolean validateConnection();
 
   /**
-   * Send a batch of documents to the destination search engine. Implementations should use a single
-   * call to the batch API provided by the search engine client, if available, as opposed to sending
-   * each document individually.
+   * Send a batch of documents to the destination search engine. Implementations should use a single call to the batch API provided
+   * by the search engine client, if available, as opposed to sending each document individually.
    */
   protected abstract void sendToIndex(List<Document> documents) throws Exception;
 
-  /** Close the client or connection to the destination search engine. */
+  /**
+   * Close the client or connection to the destination search engine.
+   */
   public abstract void closeConnection();
 
   private void close() {
@@ -216,9 +217,8 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
-   * Returns the ID that should be sent to the destination index/collection for the given doc, in
-   * place of the value of the Document.ID_FIELD field. Returns null if no override should be
-   * applied for the given document.
+   * Returns the ID that should be sent to the destination index/collection for the given doc, in place of the value of the
+   * Document.ID_FIELD field. Returns null if no override should be applied for the given document.
    */
   protected String getDocIdOverride(Document doc) {
     if (idOverrideField != null && doc.has(idOverrideField)) {
@@ -228,8 +228,8 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
-   * Returns the index that should be the destination for the given doc, in place of the default
-   * index. Returns null if no index override should be applied for the given document.
+   * Returns the index that should be the destination for the given doc, in place of the default index. Returns null if no index
+   * override should be applied for the given document.
    */
   protected String getIndexOverride(Document doc) {
     if (indexOverrideField != null && doc.has(indexOverrideField)) {

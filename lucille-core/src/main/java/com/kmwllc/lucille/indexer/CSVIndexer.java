@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.List;
 
 public class CSVIndexer extends Indexer {
+
   private static final Logger log = LoggerFactory.getLogger(CSVIndexer.class);
 
   private final boolean bypass;

@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 public class PipelineException extends Exception {
+
   public PipelineException(String message) {
     super(message);
   }

@@ -1,8 +1,8 @@
 package com.kmwllc.lucille.core;
 
 /**
- * Represents the outcome of the Publisher's "wait for completion" process. Contains a status as
- * well as a message to be included in a Run summary.
+ * Represents the outcome of the Publisher's "wait for completion" process. Contains a status as well as a message to be included in
+ * a Run summary.
  */
 public class PublisherResult {
 

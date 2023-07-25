@@ -18,7 +18,9 @@ import org.elasticsearch.client.RestHighLevelClient;
 
 import java.net.URI;
 
-/** Utility methods for communicating with Elasticsearch. */
+/**
+ * Utility methods for communicating with Elasticsearch.
+ */
 public class ElasticsearchUtils {
 
   /**

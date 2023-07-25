@@ -15,8 +15,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * This Stage runs a prepared SQL statement on keyfields in a document and places the results in
- * fields of choice. This stage should try and reconnect to the database in the future.
+ * This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice. This stage should
+ * try and reconnect to the database in the future.
  */
 public class QueryDatabase extends Stage {
 

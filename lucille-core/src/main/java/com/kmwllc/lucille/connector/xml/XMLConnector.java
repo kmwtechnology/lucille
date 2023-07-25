@@ -92,7 +92,7 @@ public class XMLConnector extends AbstractConnector {
         }
         File f = new File(file);
         try (InputStream in = new URL("file://" + f.getAbsolutePath()).openStream();
-            RecordingInputStream ris = new RecordingInputStream(in); ) {
+            RecordingInputStream ris = new RecordingInputStream(in);) {
           setUpAndParse(ris, xmlHandler, xmlReader);
         } catch (Exception e) {
           throw new ConnectorException("Error during XML parsing", e);

@@ -15,6 +15,7 @@ import java.sql.SQLException;
  * <p>Created by matt on 3/27/17.
  */
 public class DBTestHelper extends ExternalResource {
+
   private final String driver;
   private final String connection;
   private final String user;

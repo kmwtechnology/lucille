@@ -12,7 +12,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/** A sequence of processing Stages to be applied to incoming Documents. */
+/**
+ * A sequence of processing Stages to be applied to incoming Documents.
+ */
 public class Pipeline {
 
   private static final Logger log = LoggerFactory.getLogger(Pipeline.class);
@@ -58,8 +60,7 @@ public class Pipeline {
   }
 
   /**
-   * Returns a list of exceptions that occurred during initialization and validation of stages in
-   * the given list
+   * Returns a list of exceptions that occurred during initialization and validation of stages in the given list
    */
   public static List<Exception> validateStages(List<? extends Config> stages) {
     List<Exception> exceptions = new ArrayList<>();
@@ -79,8 +80,7 @@ public class Pipeline {
   }
 
   /**
-   * Instantiates a Pipeline from the designated list of Stage Configs. The Config for each Stage
-   * must specify the stage's class.
+   * Instantiates a Pipeline from the designated list of Stage Configs. The Config for each Stage must specify the stage's class.
    */
   public static Pipeline fromConfig(List<? extends Config> stages, String metricsPrefix)
       throws Exception {
@@ -108,8 +108,8 @@ public class Pipeline {
   }
 
   /**
-   * The Config is expected to have a "pipeline.<name>.stages" element containing a List of stages
-   * and their settings. The list element for each Stage must specify the stage's class.
+   * The Config is expected to have a "pipeline.<name>.stages" element containing a List of stages and their settings. The list
+   * element for each Stage must specify the stage's class.
    */
   public static Pipeline fromConfig(Config config, String name, String metricsPrefix)
       throws Exception {
@@ -159,12 +159,11 @@ public class Pipeline {
   }
 
   /**
-   * Passes a Document through the designated sequence of stages and returns an Iterator containing
-   * the input Document as the first element, along with any child documents generated.
+   * Passes a Document through the designated sequence of stages and returns an Iterator containing the input Document as the first
+   * element, along with any child documents generated.
    *
    * <p>Child documents are passed through downstream stages only. For example, if we have a
-   * sequence of stages S1, S2, S3, and if S2 generates a child document, the child document will be
-   * passed through S3 only.
+   * sequence of stages S1, S2, S3, and if S2 generates a child document, the child document will be passed through S3 only.
    */
   public Iterator<Document> processDocument(Document document) throws StageException {
     Iterator<Document> result = document.iterator();

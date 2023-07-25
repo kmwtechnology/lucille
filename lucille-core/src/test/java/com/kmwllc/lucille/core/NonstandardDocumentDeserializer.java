@@ -6,8 +6,7 @@ import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.Deserializer;
 
 /**
- * Deserializes json containing "myId" into KafkaDocuments which require "id" For testing purposes
- * only
+ * Deserializes json containing "myId" into KafkaDocuments which require "id" For testing purposes only
  */
 public class NonstandardDocumentDeserializer implements Deserializer<Document> {
 

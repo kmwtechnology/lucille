@@ -49,7 +49,8 @@ public class HashMapDocument implements Document, Serializable {
     return data;
   }
 
-  public HashMapDocument() {}
+  public HashMapDocument() {
+  }
 
   public HashMapDocument(String id) {
     if (id == null || id.isEmpty()) {
@@ -144,9 +145,9 @@ public class HashMapDocument implements Document, Serializable {
       case OBJECT:
         setOrAddGeneric(name, node);
         break;
-        //        throw new UnsupportedOperationException(name + " field is an object");
-        //        addGeneric(name, node); // todo does this have to be parsed?
-        //        break;
+      //        throw new UnsupportedOperationException(name + " field is an object");
+      //        addGeneric(name, node); // todo does this have to be parsed?
+      //        break;
       case ARRAY:
         data.putMany(name, new ArrayList<>()); // initialize because may be empty
         for (JsonNode item : node) {
@@ -187,9 +188,9 @@ public class HashMapDocument implements Document, Serializable {
    * passing in a provided value.
    *
    * <p>The Consumer / Lambda Expression approach is used here to avoid code duplication between the
-   * various update methods. It is not possible to make update() a generic method because ultimately
-   * it would need to call one of the specific setField or addToField methods which in turn call
-   * data.put(String, String), data.put(String, Long), data.put(String Boolean)
+   * various update methods. It is not possible to make update() a generic method because ultimately it would need to call one of
+   * the specific setField or addToField methods which in turn call data.put(String, String), data.put(String, Long),
+   * data.put(String Boolean)
    */
   @SafeVarargs
   private <T> void updateGeneric(String name, UpdateMode mode, T... values) {
@@ -670,8 +671,12 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
     return data.equals(((HashMapDocument) o).data);
   }
 

@@ -18,6 +18,7 @@ import java.util.Iterator;
 import java.util.List;
 
 public class ElasticsearchLookup extends Stage {
+
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchLookup.class);
 
   private ElasticsearchClient client;

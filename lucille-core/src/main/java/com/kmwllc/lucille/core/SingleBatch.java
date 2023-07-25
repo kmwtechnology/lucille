@@ -16,8 +16,8 @@ public class SingleBatch implements Batch {
    * Creates a new batch.
    *
    * @param capacity the number of documents above which the batch will be flushed
-   * @param timeout the number of milliseconds (since the previous add or flush) beyond which the
-   *     batch will be considered as expired
+   * @param timeout  the number of milliseconds (since the previous add or flush) beyond which the batch will be considered as
+   *                 expired
    */
   public SingleBatch(int capacity, int timeout) {
     this.queue = new LinkedBlockingQueue<>(capacity);
@@ -56,8 +56,8 @@ public class SingleBatch implements Batch {
   }
 
   /**
-   * Indicates whether the configured timeout has elapsed since the most recent of the following
-   * events: add(), flush(), flushIfExpired() with an expiration detected, new Batch().
+   * Indicates whether the configured timeout has elapsed since the most recent of the following events: add(), flush(),
+   * flushIfExpired() with an expiration detected, new Batch().
    */
   private boolean isExpired() {
     return ChronoUnit.MILLIS.between(lastAddOrFlushInstant, Instant.now()) > timeout;

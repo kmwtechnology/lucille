@@ -27,6 +27,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 public class VFSConnector extends AbstractConnector {
+
   private static final Logger log = LoggerFactory.getLogger(VFSConnector.class);
 
   private final String vfsPath;
@@ -125,7 +126,9 @@ public class VFSConnector extends AbstractConnector {
   private boolean isValidFile(FileObject fo) {
     // skip if anything other than a file
     try {
-      if (fo.getType() != FileType.FILE) return false;
+      if (fo.getType() != FileType.FILE) {
+        return false;
+      }
     } catch (FileSystemException e) {
       log.error("Problem getting VFS FileType from '" + fo.getName() + "'", e);
       return false;
@@ -135,8 +138,8 @@ public class VFSConnector extends AbstractConnector {
     String filePath = fo.getName().getPath();
     if (excludes.parallelStream().anyMatch(pattern -> pattern.matcher(filePath).matches())
         || (!includes.isEmpty()
-            && includes.parallelStream()
-                .noneMatch(pattern -> pattern.matcher(filePath).matches()))) {
+        && includes.parallelStream()
+        .noneMatch(pattern -> pattern.matcher(filePath).matches()))) {
       log.debug("Skipping file because of include or exclude regex: " + filePath);
       return false;
     }

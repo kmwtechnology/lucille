@@ -171,7 +171,7 @@ public class ParquetConnector extends AbstractConnector {
       case DOUBLE:
         doc.setField(fieldName, simpleGroup.getDouble(j, 0));
         break;
-        // todo consider adding a default case
+      // todo consider adding a default case
     }
   }
 
@@ -192,7 +192,7 @@ public class ParquetConnector extends AbstractConnector {
       case DOUBLE:
         doc.addToField(fieldName, group.getDouble(0, 0));
         break;
-        // todo consider adding a default case
+      // todo consider adding a default case
     }
   }
 }

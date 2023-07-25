@@ -278,6 +278,6 @@ public class PublisherImplTest {
     Document collapsedDoc = manager.getSavedDocumentsSentForProcessing().get(1);
     assertEquals("run1", collapsedDoc.getRunId());
     assertEquals(
-        Arrays.asList(new String[] {"val1", "val2"}), collapsedDoc.getStringList("field1"));
+        Arrays.asList(new String[]{"val1", "val2"}), collapsedDoc.getStringList("field1"));
   }
 }

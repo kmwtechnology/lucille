@@ -17,26 +17,26 @@ import java.util.List;
 public interface IndexerMessageManager {
 
   /**
-   * Retrieve and remove a Document that has been processed by a pipeline and is now ready to be
-   * indexed; block if no such Document is available, but apply a timeout of several milliseconds to
-   * several seconds so that this method can be called from within a polling loop that periodically
-   * checks other conditions even when no Documents are available.
+   * Retrieve and remove a Document that has been processed by a pipeline and is now ready to be indexed; block if no such Document
+   * is available, but apply a timeout of several milliseconds to several seconds so that this method can be called from within a
+   * polling loop that periodically checks other conditions even when no Documents are available.
    */
   Document pollCompleted() throws Exception;
 
   /**
-   * Make the designated Event available to the Publisher or any other component that is listening
-   * for Document-related Events.
+   * Make the designated Event available to the Publisher or any other component that is listening for Document-related Events.
    */
   void sendEvent(Event event) throws Exception;
 
   /**
-   * Create an Event from the given parameters and make it available to the Publisher or any other
-   * component that is listening for Document-related Events.
+   * Create an Event from the given parameters and make it available to the Publisher or any other component that is listening for
+   * Document-related Events.
    */
   void sendEvent(Document document, String message, Event.Type type) throws Exception;
 
-  /** Close any connections opened by this IndexerMessageManager. */
+  /**
+   * Close any connections opened by this IndexerMessageManager.
+   */
   void close() throws Exception;
 
   /**

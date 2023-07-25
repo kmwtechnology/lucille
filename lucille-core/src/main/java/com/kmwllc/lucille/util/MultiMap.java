@@ -5,9 +5,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Represents a map with string keys and single or multi-valued object values. Offers functionality
- * similar to {@link Map} but differentiates between setting and retrieving a single or collection
- * of values.
+ * Represents a map with string keys and single or multi-valued object values. Offers functionality similar to {@link Map} but
+ * differentiates between setting and retrieving a single or collection of values.
  */
 public interface MultiMap {
 

@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.List;
 
 public class MatchQuery extends Stage {
+
   public static final String FIELDS_PARAM = "fields";
   public static final String QUERIES_PARAM = "queries";
   public static final String MATCHEDQUERIES_PARAM = "matchedQueriesField";

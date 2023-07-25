@@ -20,29 +20,25 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Stage for performing dictionary based entity extraction on a given field, using terms from a
- * given dictionary file. The dictionary file should have a term on each line, and can support
- * providing payloads with the syntax "term, payload". If any occurrences are found, they will be
- * extracted and their associated payloads will be appended to the destination field.
+ * Stage for performing dictionary based entity extraction on a given field, using terms from a given dictionary file. The
+ * dictionary file should have a term on each line, and can support providing payloads with the syntax "term, payload". If any
+ * occurrences are found, they will be extracted and their associated payloads will be appended to the destination field.
  *
  * <p>Config Parameters:
  *
  * <p>- source (List<String>) : list of source field names - dest (List<String>) : list of
- * destination field names. You can either supply the same number of source and destination fields
- * for a 1-1 mapping of results or supply one destination field for all of the source fields to be
- * mapped into. - dict_path (String) : The path the dictionary to use for matching. If the dict_path
- * begins with "classpath:" the classpath will be searched for the file. Otherwise, the local file
- * system will be searched. - use_payloads (Boolean, Optional) : denotes whether paylaods from the
- * dictionary should be used or not. - update_mode (String, Optional) : Determines how writing will
- * be handling if the destination field is already populated. Can be 'overwrite', 'append' or
- * 'skip'. Defaults to 'overwrite'. - ignore_case (Boolean, Optional) : Denotes whether this Stage
- * will ignore case determining when making matches. Defaults to false. - only_whitespace_separated
- * (Boolean, Optional) : Denotes whether terms must be whitespace separated to be candidates for
- * matching. Defaults to false. - stop_on_hit (Boolean, Optional) : Denotes whether this matcher
- * should stop after one hit. Defaults to false. - only_whole_words (Boolean, Optional) : Determines
- * whether this matcher will trigger for matches contained within other text. ie "OMAN" in "rOMAN".
- * Defaults to false. - ignore_overlaps (Boolean, Optional) : Decides whether overlapping matches
- * should both be extracted or if only the longer, left most match should be kept. Defaults to true.
+ * destination field names. You can either supply the same number of source and destination fields for a 1-1 mapping of results or
+ * supply one destination field for all of the source fields to be mapped into. - dict_path (String) : The path the dictionary to
+ * use for matching. If the dict_path begins with "classpath:" the classpath will be searched for the file. Otherwise, the local
+ * file system will be searched. - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or
+ * not. - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ * Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'. - ignore_case (Boolean, Optional) : Denotes whether this Stage
+ * will ignore case determining when making matches. Defaults to false. - only_whitespace_separated (Boolean, Optional) : Denotes
+ * whether terms must be whitespace separated to be candidates for matching. Defaults to false. - stop_on_hit (Boolean, Optional) :
+ * Denotes whether this matcher should stop after one hit. Defaults to false. - only_whole_words (Boolean, Optional) : Determines
+ * whether this matcher will trigger for matches contained within other text. ie "OMAN" in "rOMAN". Defaults to false. -
+ * ignore_overlaps (Boolean, Optional) : Decides whether overlapping matches should both be extracted or if only the longer, left
+ * most match should be kept. Defaults to true.
  */
 public class ExtractEntities extends Stage {
 
@@ -140,7 +136,9 @@ public class ExtractEntities extends Stage {
         String[] line;
         boolean ignore = false;
         while ((line = reader.readNext()) != null) {
-          if (line.length == 0) continue;
+          if (line.length == 0) {
+            continue;
+          }
 
           for (String term : line) {
             if (term.contains("\uFFFD")) {
@@ -182,7 +180,9 @@ public class ExtractEntities extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField)) continue;
+      if (!doc.has(sourceField)) {
+        continue;
+      }
 
       // Parse the matches and then convert the PayloadEmits into a List of Strings, representing
       // the payloads for
@@ -200,7 +200,9 @@ public class ExtractEntities extends Stage {
       } else {
         payloads = results.stream().map(PayloadEmit::getKeyword).collect(Collectors.toList());
       }
-      if (payloads.isEmpty()) continue;
+      if (payloads.isEmpty()) {
+        continue;
+      }
 
       doc.update(destField, updateMode, payloads.toArray(new String[0]));
 

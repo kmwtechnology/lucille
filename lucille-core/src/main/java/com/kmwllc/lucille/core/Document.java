@@ -31,8 +31,8 @@ public interface Document {
    * Updates the designated field according to the provided UpdateMode.
    *
    * <p>APPEND: the provided values will be appended to the field. OVERWRITE: the provided values
-   * will overwrite any current field values SKIP: the provided values will populate the field if
-   * the field didn't previously exist; otherwise no change will be made.
+   * will overwrite any current field values SKIP: the provided values will populate the field if the field didn't previously exist;
+   * otherwise no change will be made.
    *
    * <p>In all cases the field will be created if it doesn't already exist.
    */
@@ -83,7 +83,7 @@ public interface Document {
    *   <li>If the field is absent
    *   <li>IF the field is present but contains a null
    * </ol>
-   *
+   * <p>
    * To distinguish between these, you can call has(). Calling getString for a field which is
    * multivalued will return the first value in the list of Strings.
    *
@@ -147,11 +147,10 @@ public interface Document {
   void addToField(String name, Float value);
 
   /**
-   * Converts a given date in Instant form to a string according to DateTimeFormatter.ISO_INSTANT,
-   * it can then be accessed as a string via getString() or a converted back to an Instant via
-   * getInstant().
+   * Converts a given date in Instant form to a string according to DateTimeFormatter.ISO_INSTANT, it can then be accessed as a
+   * string via getString() or a converted back to an Instant via getInstant().
    *
-   * @param name The name of the field to add to
+   * @param name  The name of the field to add to
    * @param value The value to add to the field
    */
   void addToField(String name, Instant value);
@@ -159,12 +158,11 @@ public interface Document {
   void addToField(String name, byte[] value);
 
   /**
-   * Sets the field to the given value if the field is not already present; otherwise adds it to the
-   * field.
+   * Sets the field to the given value if the field is not already present; otherwise adds it to the field.
    *
    * <p>If the field does not already exist and this method is called once, the field will be
-   * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will be converted to a list of values.
+   * created as single-valued; if the field already exists and/or this method is called more than once, the field will be converted
+   * to a list of values.
    */
   void setOrAdd(String name, String value);
 
@@ -179,11 +177,10 @@ public interface Document {
   void setOrAdd(String name, Float value);
 
   /**
-   * Adds a given date in Instant form to a document according to DateTimeFormatter.ISO_INSTANT, can
-   * then be accessed as a string via getString() or a converted back to an Instant via
-   * getInstant().
+   * Adds a given date in Instant form to a document according to DateTimeFormatter.ISO_INSTANT, can then be accessed as a string
+   * via getString() or a converted back to an Instant via getInstant().
    *
-   * @param name The name of the field set or add to
+   * @param name  The name of the field set or add to
    * @param value The value to set or add to the field
    */
   void setOrAdd(String name, Instant value);
@@ -191,19 +188,18 @@ public interface Document {
   void setOrAdd(String name, byte[] value);
 
   /**
-   * Adds a given field from the designated "other" document to the current document. If a field is
-   * already present on the current document, the field is converted to a list.
+   * Adds a given field from the designated "other" document to the current document. If a field is already present on the current
+   * document, the field is converted to a list.
    *
-   * @param name the name of the field to add
+   * @param name  the name of the field to add
    * @param other the document to add the field from
    * @throws IllegalArgumentException if this method is called with a reserved field like id
    */
   void setOrAdd(String name, Document other) throws IllegalArgumentException;
 
   /**
-   * Adds all the fields of the designated "other" document to the current document, excluding
-   * reserved fields like id. If a field is already present on the current document, the field is
-   * converted to a list and the new value is appended.
+   * Adds all the fields of the designated "other" document to the current document, excluding reserved fields like id. If a field
+   * is already present on the current document, the field is converted to a list and the new value is appended.
    */
   void setOrAddAll(Document other);
 
@@ -222,18 +218,19 @@ public interface Document {
   void setDropped(boolean status);
 
   /**
-   * A method to remove duplicate values from multivalued fields in a document and place the values
-   * into a target field. If the target field is null or the same as the original field, then
-   * modification will happen in place.
+   * A method to remove duplicate values from multivalued fields in a document and place the values into a target field. If the
+   * target field is null or the same as the original field, then modification will happen in place.
    *
-   * @param fieldName the field to remove duplicate values from
+   * @param fieldName       the field to remove duplicate values from
    * @param targetFieldName the field to copy to
    */
   void removeDuplicateValues(String fieldName, String targetFieldName);
 
   Document deepCopy();
 
-  /** Returns an Iterator that contains only this document. */
+  /**
+   * Returns an Iterator that contains only this document.
+   */
   default Iterator<Document> iterator() {
     return Collections.singleton(this).iterator();
   }

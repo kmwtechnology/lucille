@@ -10,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import java.nio.charset.StandardCharsets;
 
 public class DocumentDeserializer implements Deserializer<Document> {
+
   private static final Logger log = LogManager.getLogger(DocumentDeserializer.class);
 
   @Override

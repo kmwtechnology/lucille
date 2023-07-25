@@ -63,7 +63,9 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
     kafkaProducer.flush();
   }
 
-  /** Polls for an Event that is waiting to be consumed. */
+  /**
+   * Polls for an Event that is waiting to be consumed.
+   */
   @Override
   public Event pollEvent() throws Exception {
     ConsumerRecords<String, String> consumerRecords = eventConsumer.poll(KafkaUtils.POLL_INTERVAL);

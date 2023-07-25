@@ -144,19 +144,18 @@ public class PipelineTest {
     // etc.
     List<String> expected =
         Arrays.asList(
-            new String[] {
-              "111", "211", "011", "121", "221", "021", "101", "201", "001", "112", "212", "012",
-              "122", "222", "022", "102", "202", "002", "110", "210", "010", "120", "220", "020",
-              "100", "200", "000"
+            new String[]{
+                "111", "211", "011", "121", "221", "021", "101", "201", "001", "112", "212", "012",
+                "122", "222", "022", "102", "202", "002", "110", "210", "010", "120", "220", "020",
+                "100", "200", "000"
             });
 
     assertEquals(expected, stringResults);
   }
 
   /**
-   * Create a pipeline with 100 stages that each create 100 children for each input. Confirm that
-   * although this pipeline should generate 100^100 documents for each input document, we can begin
-   * iterating through the results without running out of memory.
+   * Create a pipeline with 100 stages that each create 100 children for each input. Confirm that although this pipeline should
+   * generate 100^100 documents for each input document, we can begin iterating through the results without running out of memory.
    */
   @Test
   public void testScalableChildIteration() throws Exception {

@@ -29,14 +29,13 @@ import static org.mockito.Mockito.*;
  * Tests for SolrIndexer.
  *
  * <p>TODO: Split these tests into IndexerTest vs. SolrIndexerTest. Tests that only flex generic
- * Indexer functionality should be moved to IndexerTest even if they use a SolrIndexer as a means of
- * invoking that functionality.
+ * Indexer functionality should be moved to IndexerTest even if they use a SolrIndexer as a means of invoking that functionality.
  */
 public class SolrIndexerTest {
 
   /**
-   * Tests that the indexer correctly polls completed documents from the destination topic and sends
-   * them to Solr, assuming a batch size of 1.
+   * Tests that the indexer correctly polls completed documents from the destination topic and sends them to Solr, assuming a batch
+   * size of 1.
    *
    * @throws Exception
    */
@@ -79,8 +78,8 @@ public class SolrIndexerTest {
   }
 
   /**
-   * Tests that the indexer correctly polls completed documents from the destination topic and sends
-   * them to Solr, assuming a batch size of 2.
+   * Tests that the indexer correctly polls completed documents from the destination topic and sends them to Solr, assuming a batch
+   * size of 2.
    *
    * @throws Exception
    */
@@ -451,21 +450,21 @@ public class SolrIndexerTest {
     List<List<String>> deleteIdsSentToSolr = new ArrayList<>();
 
     when(solrClient.add(
-            argThat(
-                (ArgumentMatcher<Collection>)
-                    t -> {
-                      docsSentToSolr.add(new ArrayList<>(t));
-                      return true;
-                    })))
+        argThat(
+            (ArgumentMatcher<Collection>)
+                t -> {
+                  docsSentToSolr.add(new ArrayList<>(t));
+                  return true;
+                })))
         .thenReturn(mock(UpdateResponse.class));
 
     when(solrClient.deleteById(
-            argThat(
-                (ArgumentMatcher<List>)
-                    t -> {
-                      deleteIdsSentToSolr.add(t);
-                      return true;
-                    })))
+        argThat(
+            (ArgumentMatcher<List>)
+                t -> {
+                  deleteIdsSentToSolr.add(t);
+                  return true;
+                })))
         .thenReturn(mock(UpdateResponse.class));
 
     Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
@@ -547,21 +546,21 @@ public class SolrIndexerTest {
     List<List<String>> deleteIdsSentToSolr = new ArrayList<>();
 
     when(solrClient.add(
-            argThat(
-                (ArgumentMatcher<Collection>)
-                    t -> {
-                      docsSentToSolr.add(new ArrayList<>(t));
-                      return true;
-                    })))
+        argThat(
+            (ArgumentMatcher<Collection>)
+                t -> {
+                  docsSentToSolr.add(new ArrayList<>(t));
+                  return true;
+                })))
         .thenReturn(mock(UpdateResponse.class));
 
     when(solrClient.deleteById(
-            argThat(
-                (ArgumentMatcher<List>)
-                    t -> {
-                      deleteIdsSentToSolr.add(t);
-                      return true;
-                    })))
+        argThat(
+            (ArgumentMatcher<List>)
+                t -> {
+                  deleteIdsSentToSolr.add(t);
+                  return true;
+                })))
         .thenReturn(mock(UpdateResponse.class));
 
     Indexer indexer = new SolrIndexer(config, manager, solrClient, "");

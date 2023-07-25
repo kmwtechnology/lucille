@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class DefaultDocumentProducer implements DocumentProducer {
+
   private static final Logger log = LogManager.getLogger(DefaultDocumentProducer.class);
   public static final String CONTENT = "file_content";
   private static final Base64.Decoder DECODER = Base64.getDecoder();
@@ -20,7 +21,8 @@ public class DefaultDocumentProducer implements DocumentProducer {
   /**
    * @param childCopyParentMetadata Not in use yet...
    */
-  public DefaultDocumentProducer(boolean childCopyParentMetadata) {}
+  public DefaultDocumentProducer(boolean childCopyParentMetadata) {
+  }
 
   @Override
   public List<Document> produceDocuments(Path file, Document doc) {
@@ -38,13 +40,11 @@ public class DefaultDocumentProducer implements DocumentProducer {
   }
 
   /**
-   * Decodes file contents sent by this {@link DocumentProducer} type from the provided {@link
-   * Document}.
+   * Decodes file contents sent by this {@link DocumentProducer} type from the provided {@link Document}.
    *
    * @param doc The document to extract binary data from
    * @return The byte[] binary data contained within the doc
-   * @throws NullPointerException if the document doesn't contain the Content {@link this#CONTENT}
-   *     field or the field is null
+   * @throws NullPointerException if the document doesn't contain the Content {@link this#CONTENT} field or the field is null
    */
   public static byte[] decodeFileContents(Document doc) throws NullPointerException {
     if (!doc.hasNonNull(CONTENT)) {

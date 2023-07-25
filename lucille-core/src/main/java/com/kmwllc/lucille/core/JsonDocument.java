@@ -19,21 +19,21 @@ import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 /**
- * A record from a source system to be passed through a Pipeline, enriched, and sent to a
- * destination system.
+ * A record from a source system to be passed through a Pipeline, enriched, and sent to a destination system.
  */
 public class JsonDocument implements Document {
 
   protected static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> TYPE =
-      new TypeReference<Map<String, Object>>() {};
+      new TypeReference<Map<String, Object>>() {
+      };
   private static final Logger log = LoggerFactory.getLogger(JsonDocument.class);
 
-  @JsonValue protected final ObjectNode data;
+  @JsonValue
+  protected final ObjectNode data;
 
   /**
-   * A copy constructor for {@link Document} that deep copies the ObjectNode and verifies the
-   * validity of the document.
+   * A copy constructor for {@link Document} that deep copies the ObjectNode and verifies the validity of the document.
    *
    * @param document document to copy
    * @throws DocumentException if document is missing a nonempty {@link Document#ID_FIELD}
@@ -43,8 +43,8 @@ public class JsonDocument implements Document {
   }
 
   /**
-   * Creates a new {@link JsonDocument} from a {@link ObjectNode} of key/value pairs. Note: does not
-   * defensively copy the given ObjectNode, so it must not be modified after creation.
+   * Creates a new {@link JsonDocument} from a {@link ObjectNode} of key/value pairs. Note: does not defensively copy the given
+   * ObjectNode, so it must not be modified after creation.
    *
    * @param data the data to be stored in the document
    * @throws DocumentException if document is missing a nonempty {@link Document#ID_FIELD}
@@ -220,16 +220,18 @@ public class JsonDocument implements Document {
    * passing in a provided value.
    *
    * <p>The Consumer / Lambda Expression approach is used here to avoid code duplication between the
-   * various update methods. It is not possible to make update() a generic method because ultimately
-   * it would need to call one of the specific setField or addToField methods which in turn call
-   * data.put(String, String), data.put(String, Long), data.put(String Boolean)
+   * various update methods. It is not possible to make update() a generic method because ultimately it would need to call one of
+   * the specific setField or addToField methods which in turn call data.put(String, String), data.put(String, Long),
+   * data.put(String Boolean)
    */
   private void update(
       String name, UpdateMode mode, Consumer setter, Consumer adder, Object... values) {
 
     validateNotReservedField(name);
 
-    if (values.length == 0) return;
+    if (values.length == 0) {
+      return;
+    }
 
     if (has(name) && mode.equals(UpdateMode.SKIP)) {
       return;
