@@ -82,72 +82,87 @@ public class ParquetConnector extends AbstractConnector {
       while (limitNotReached() && statusIterator.hasNext()) {
         LocatedFileStatus status = statusIterator.next();
         //only process parquet files
-        if (!status.getPath().getName().endsWith("parquet")) {
-          continue;
-        }
+        if (status.getPath().getName().endsWith("parquet")) {
 
-        try (ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(status, conf))) {
-
-          // check if we can skip this file
-          if (canSkipAndUpdateStart(reader.getRecordCount())) {
-            continue;
-          }
-
-          MessageType schema = reader.getFooter().getFileMetaData().getSchema();
-          List<Type> fields = schema.getFields();
-          PageReadStore pages;
-          while (limitNotReached() && (pages = reader.readNextRowGroup()) != null) {
-
-            // check if we can skip this row group
-            long nRows = pages.getRowCount();
-            if (canSkipAndUpdateStart(nRows)) {
-              continue;
-            }
-
-            MessageColumnIO columnIO = new ColumnIOFactory().getColumnIO(schema);
-            RecordReader<Group> recordReader = columnIO.getRecordReader(pages, new GroupRecordConverter(schema));
-
-            // at this point start is either 0 or < nRows, if later will update start to 0 after the loop
-            while (limitNotReached() && nRows-- > 0) {
-
-              // read record regardless of the start parameter
-              SimpleGroup simpleGroup = (SimpleGroup) recordReader.read();
-              if (canSkipAndUpdateStart(1)) {
-                continue;
-              }
-
-              String id = simpleGroup.getString(idField, 0);
-              Document doc = Document.create(id);
-              for (int j = 0; j < fields.size(); j++) {
-
-                Type field = fields.get(j);
-                String fieldName = field.getName();
-                if (fieldName.equals(idField)) {
-                  continue;
-                }
-                if (field.isPrimitive()) {
-                  setDocField(doc, field, simpleGroup, j);
-                } else {
-                  for (int k = 0; k < simpleGroup.getGroup(j, 0).getFieldRepetitionCount(0); k++) {
-                    Group group = simpleGroup.getGroup(j, 0).getGroup(0, k);
-                    Type type = group.getType().getType(0);
-                    if (type.isPrimitive()) {
-                      addToField(doc, fieldName, type, group);
-                    }
-                  }
-                }
-              }
-              publisher.publish(doc);
-              count++;
-            }
-          }
-        } catch (Exception e) {
-          throw new ConnectorException("Problem running the connector.", e);
+          // for each file we get row groups, for each row group we get records
+          processFile(publisher, conf, status);
         }
       }
     } catch (Exception e) {
       throw new ConnectorException("Problem running the ParquetConnector", e);
     }
+  }
+
+  private void processFile(Publisher publisher, Configuration conf, LocatedFileStatus status)
+      throws ConnectorException {
+    try (ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(status, conf))) {
+
+      // check if we can skip this file
+      if (canSkipAndUpdateStart(reader.getRecordCount())) {
+        return;
+      }
+
+      MessageType schema = reader.getFooter().getFileMetaData().getSchema();
+      List<Type> fields = schema.getFields();
+      PageReadStore pages;
+      while (limitNotReached() && (pages = reader.readNextRowGroup()) != null) {
+        processRowGroup(publisher, pages, schema, fields);
+      }
+    } catch (Exception e) {
+      throw new ConnectorException("Problem running the connector.", e);
+    }
+  }
+
+  private void processRowGroup(Publisher publisher, PageReadStore pages, MessageType schema, List<Type> fields)
+      throws Exception {
+
+    // check if we can skip this row group
+    long nRows = pages.getRowCount();
+    if (canSkipAndUpdateStart(nRows)) {
+      return;
+    }
+
+    MessageColumnIO columnIO = new ColumnIOFactory().getColumnIO(schema);
+    RecordReader<Group> recordReader = columnIO.getRecordReader(pages, new GroupRecordConverter(schema));
+
+    // at this point start is either 0 or < nRows, if later will update start to 0 after the loop
+    while (limitNotReached() && nRows-- > 0) {
+
+      // read record regardless of the start parameter
+      SimpleGroup simpleGroup = (SimpleGroup) recordReader.read();
+      if (canSkipAndUpdateStart(1)) {
+        continue;
+      }
+
+      Document doc = getDocFromRecord(simpleGroup, fields);
+      publisher.publish(doc);
+      count++;
+    }
+  }
+
+  private Document getDocFromRecord(SimpleGroup simpleGroup, List<Type> fields) {
+    String id = simpleGroup.getString(idField, 0);
+    Document doc = Document.create(id);
+    for (int j = 0; j < fields.size(); j++) {
+
+      Type field = fields.get(j);
+      String fieldName = field.getName();
+      if (fieldName.equals(idField)) {
+        continue;
+      }
+      if (field.isPrimitive()) {
+        setDocField(doc, field, simpleGroup, j);
+      } else {
+        for (int k = 0; k < simpleGroup.getGroup(j, 0).getFieldRepetitionCount(0); k++) {
+          Group group = simpleGroup.getGroup(j, 0).getGroup(0, k);
+          Type type = group.getType().getType(0);
+          if (type.isPrimitive()) {
+            addToField(doc, fieldName, type, group);
+          }
+        }
+      }
+    }
+    return doc;
   }
 
   private static void setDocField(Document doc, Type field, SimpleGroup simpleGroup, int j) {
