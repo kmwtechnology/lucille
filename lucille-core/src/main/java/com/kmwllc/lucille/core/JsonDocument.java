@@ -885,7 +885,6 @@ public class JsonDocument implements Document {
 
   @Override
   public void removeChildren() {
-    // TODO Auto-generated method stub
    data.remove(CHILDREN_FIELD); 
   }
 }

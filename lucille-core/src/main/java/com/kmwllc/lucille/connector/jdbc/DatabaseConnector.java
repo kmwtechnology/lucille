@@ -101,10 +101,10 @@ public class DatabaseConnector extends AbstractConnector {
       Connection connection = createConnection();
       // run the pre-sql (if specified)
       runSql(connection, preSql);
-
+      // TODO: make sure we cleanup result set/statement/connections properly.
       ResultSet rs = null;
+      log.info("Running primary sql");
       try {
-        log.info("Running primary sql");
         Statement state = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
         if (fetchSize != null) {
           state.setFetchSize(fetchSize);
