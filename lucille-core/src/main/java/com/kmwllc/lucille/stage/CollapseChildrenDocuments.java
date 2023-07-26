@@ -36,7 +36,7 @@ public class CollapseChildrenDocuments extends Stage {
       for (Document child : doc.getChildren()) {
         for (String fieldToCopy : fieldsToCopy) {
           if (child.has(fieldToCopy)) {
-            doc.addToField(fieldToCopy, child.getString(fieldToCopy));
+            doc.setOrAdd(fieldToCopy, child);
           }
         }
       }
