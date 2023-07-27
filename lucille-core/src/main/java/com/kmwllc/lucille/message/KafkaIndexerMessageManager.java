@@ -41,7 +41,9 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
     if (consumerRecords.count() > 0) {
       destConsumer.commitSync();
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
-      return record.value();
+      KafkaDocument doc = record.value();
+      doc.setKafkaMetadata(record);
+      return doc;
     }
     return null;
   }
@@ -51,7 +53,7 @@ public class KafkaIndexerMessageManager implements IndexerMessageManager {
     if (kafkaEventProducer == null) {
       return;
     }
-    Event event = new Event(document.getId(), document.getRunId(), message, type);
+    Event event = new Event(document, message, type);
     sendEvent(event);
   }
 

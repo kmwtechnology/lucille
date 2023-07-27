@@ -35,6 +35,10 @@ public abstract class Indexer implements Runnable {
   private final Histogram histogram;
 
   protected final String idOverrideField;
+  protected final String indexOverrideField;
+
+  protected final String deletionMarkerField;
+  protected final String deletionMarkerFieldValue;
 
   protected final List<String> ignoreFields;
 
@@ -47,11 +51,38 @@ public abstract class Indexer implements Runnable {
 
   public Indexer(Config config, IndexerMessageManager manager, String metricsPrefix) {
     this.manager = manager;
-    this.idOverrideField = config.hasPath("indexer.idOverrideField") ? config.getString("indexer.idOverrideField") : null;
-    this.ignoreFields = config.hasPath("indexer.ignoreFields") ? config.getStringList("indexer.ignoreFields") : null;
-    int batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : DEFAULT_BATCH_SIZE;
-    int batchTimeout = config.hasPath("indexer.batchTimeout") ? config.getInt("indexer.batchTimeout") : DEFAULT_BATCH_TIMEOUT;
-    this.batch = new Batch(batchSize, batchTimeout);
+    this.idOverrideField =
+        config.hasPath("indexer.idOverrideField")
+            ? config.getString("indexer.idOverrideField")
+            : null;
+    this.indexOverrideField =
+        config.hasPath("indexer.indexOverrideField")
+            ? config.getString("indexer.indexOverrideField")
+            : null;
+    this.ignoreFields =
+        config.hasPath("indexer.ignoreFields")
+            ? config.getStringList("indexer.ignoreFields")
+            : null;
+    this.deletionMarkerField =
+        config.hasPath("indexer.deletionMarkerField")
+            ? config.getString("indexer.deletionMarkerField")
+            : null;
+    this.deletionMarkerFieldValue =
+        config.hasPath("indexer.deletionMarkerFieldValue")
+            ? config.getString("indexer.deletionMarkerFieldValue")
+            : null;
+    int batchSize =
+        config.hasPath("indexer.batchSize")
+            ? config.getInt("indexer.batchSize")
+            : DEFAULT_BATCH_SIZE;
+    int batchTimeout =
+        config.hasPath("indexer.batchTimeout")
+            ? config.getInt("indexer.batchTimeout")
+            : DEFAULT_BATCH_TIMEOUT;
+    this.batch =
+        (indexOverrideField == null)
+            ? new SingleBatch(batchSize, batchTimeout)
+            : new MultiBatch(batchSize, batchTimeout, indexOverrideField);
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     this.stopWatch = new StopWatch();
@@ -60,25 +91,23 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
-   * Return true if connection to the destination search engine is valid and the relevant index
-   * or collection exists; false otherwise.
+   * Return true if connection to the destination search engine is valid and the relevant index or
+   * collection exists; false otherwise.
    */
-  abstract public boolean validateConnection();
+  public abstract boolean validateConnection();
 
   /**
-   * Send a batch of documents to the destination search engine. Implementations should
-   * use a single call to the batch API provided by the search engine client, if available,
-   * as opposed to sending each document individually.
+   * Send a batch of documents to the destination search engine. Implementations should use a single
+   * call to the batch API provided by the search engine client, if available, as opposed to sending
+   * each document individually.
    */
-  abstract protected void sendToIndex(List<Document> documents) throws Exception;
+  protected abstract void sendToIndex(List<Document> documents) throws Exception;
 
-  /**
-   * Close the client or connection to the destination search engine.
-   */
-  abstract public void closeConnection();
+  /** Close the client or connection to the destination search engine. */
+  public abstract void closeConnection();
 
   private void close() {
-    if (manager!=null) {
+    if (manager != null) {
       try {
         manager.close();
       } catch (Exception e) {
@@ -132,9 +161,13 @@ public abstract class Indexer implements Runnable {
   }
 
   private void sendToIndexWithAccounting(List<Document> batchedDocs) {
-    if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
-      log.info(String.format("%d docs indexed. One minute rate: %.2f docs/sec. Mean backend latency: %.2f ms/doc.",
-        meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean()/1000000));
+    if (ChronoUnit.SECONDS.between(lastLog, Instant.now()) > logSeconds) {
+      log.info(
+          String.format(
+              "%d docs indexed. One minute rate: %.2f docs/sec. Mean backend latency: %.2f ms/doc.",
+              meter.getCount(),
+              meter.getOneMinuteRate(),
+              histogram.getSnapshot().getMean() / 1000000));
       lastLog = Instant.now();
     }
 
@@ -154,9 +187,10 @@ public abstract class Indexer implements Runnable {
 
       for (Document d : batchedDocs) {
         try {
-          manager.sendEvent(d,"FAILED: " + e.getMessage(), Event.Type.FAIL);
+          manager.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
         } catch (Exception e2) {
-          // TODO: The run won't be able to finish if this event isn't received; can we do something special here?
+          // TODO: The run won't be able to finish if this event isn't received; can we do something
+          // special here?
           log.error("Couldn't send failure event for doc " + d.getId(), e2);
         }
       }
@@ -174,21 +208,32 @@ public abstract class Indexer implements Runnable {
       try {
         manager.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
       } catch (Exception e) {
-        // TODO: The run won't be able to finish if this event isn't received; can we do something special here?
+        // TODO: The run won't be able to finish if this event isn't received; can we do something
+        // special here?
         log.error("Error sending completion event for doc " + d.getId(), e);
       }
     }
   }
 
   /**
-   * Returns the ID that should be sent to the destination index/collection for the given doc,
-   * in place of the value of the Document.ID_FIELD field. Returns null if no override should
-   * be applied for the given document.
-   *
+   * Returns the ID that should be sent to the destination index/collection for the given doc, in
+   * place of the value of the Document.ID_FIELD field. Returns null if no override should be
+   * applied for the given document.
    */
   protected String getDocIdOverride(Document doc) {
-    if (idOverrideField!=null && doc.has(idOverrideField)) {
+    if (idOverrideField != null && doc.has(idOverrideField)) {
       return doc.getString(idOverrideField);
+    }
+    return null;
+  }
+
+  /**
+   * Returns the index that should be the destination for the given doc, in place of the default
+   * index. Returns null if no index override should be applied for the given document.
+   */
+  protected String getIndexOverride(Document doc) {
+    if (indexOverrideField != null && doc.has(indexOverrideField)) {
+      return doc.getString(indexOverrideField);
     }
     return null;
   }

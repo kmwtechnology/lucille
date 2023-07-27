@@ -12,6 +12,7 @@ import net.mguenther.kafka.junit.SendKeyValues;
 import net.mguenther.kafka.junit.TopicConfig;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.After;
@@ -134,6 +135,18 @@ public class HybridKafkaTest {
 
     // there should be 15 events in the event topic: 6 child creation events and 9 indexing events
     assertEquals(15, records.size());
+
+    // the last event should be the indexing event for doc3 (which should be indexed after its children);
+    // in hybrid mode, indexing events should have kafka metadata from the source topic as there
+    // is no destination topic;
+    // within the source topic, doc3 would have offset 2 (as offsets are 0-based) and this
+    // same offset should be recorded on the indexing event for doc3
+    Event event15 = Event.fromJsonString(records.get(14).getValue());
+    assertEquals(sourceTopic, event15.getTopic());
+    assertEquals(Integer.valueOf(0), event15.getPartition());
+    assertEquals(Long.valueOf(2), event15.getOffset());
+    assertEquals(Event.Type.FINISH, event15.getType());
+    assertEquals("doc3", event15.getDocumentId());
   }
 
   @Test
@@ -156,6 +169,13 @@ public class HybridKafkaTest {
     WorkerIndexer workerIndexer1 = new WorkerIndexer();
     workerIndexer1.start(config, "pipeline1",  pipelineDest1, offsets1, true, idSet);
 
+    CounterUtils.waitUnique(idSet, 100);
+
+    // start the second worker after the first worker has processed several documents
+    // the goal of this is to try to trigger a rebalance scenario where worker 1 is assigned both
+    // partitions and then gives one partition up to worker 2 when worker 2 joins the consumer group;
+    // we are not testing specific assertions about the rebalance here, we're just trying to trigger
+    // it to make sure it doesn't cause anything else to go obviously wrong
     RecordingLinkedBlockingQueue<Document> pipelineDest2 =
       new RecordingLinkedBlockingQueue<>();
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets2 =
@@ -172,19 +192,82 @@ public class HybridKafkaTest {
     workerIndexer1.stop();
     workerIndexer2.stop();
 
-    Properties props = new Properties();
-    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
-    Admin kafkaAdminClient = Admin.create(props);
-    Map<TopicPartition, OffsetAndMetadata> retrievedOffsets =
-      kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
-        .partitionsToOffsetAndMetadata().get();
-    TopicPartition partition0 = new TopicPartition(sourceTopic,0);
-    TopicPartition partition1 = new TopicPartition(sourceTopic,1);
+    KafkaConsumer<String, KafkaDocument> consumer = KafkaUtils.createDocumentConsumer(config, "test-client");
+    TopicPartition p0 = new TopicPartition(sourceTopic, 0);
+    TopicPartition p1 = new TopicPartition(sourceTopic, 1);
+    ArrayList partitions = new ArrayList<>();
+    partitions.add(p0);
+    partitions.add(p1);
+    consumer.assign(partitions);
 
     // the sum of offsets across the two partitions should be the same as the number of documents
     // consumed. All 1000 documents we added to the source topic should have been consumed.
-    assertEquals(1000,
-      retrievedOffsets.get(partition0).offset() + retrievedOffsets.get(partition1).offset());
+    // however, it is possible that a partition, say partition 1,
+    // was reassigned from worker 1 to worker 2 near
+    // the end of the run. In this case, worker 2 might have finished reading from that partition 1 and
+    // committed the end offset, while worker 1 might have been delayed in committing
+    // the offset for its own last read. This will cause the lower offset committed late by worker 1
+    // to overwrite the higher offset committed earlier in time by worker 2. Therefore,
+    // we can only check >= and not == below
+    assertTrue(1000 >= consumer.position(p0) + consumer.position(p1));
+
+    consumer.close();
+
+    // now we compute the maximum offsets added to the offset queue for each worker for each partition;
+    // again, these max offsets might be higher than the latest committed offsets
+    long worker1MaxP0Offset = 0;
+    long worker1MaxP1Offset = 0;
+    long worker2MaxP0Offset = 0;
+    long worker2MaxP1Offset = 0;
+
+    ArrayList<Map<TopicPartition, OffsetAndMetadata>> offsets1History = offsets1.getHistory();
+    ArrayList<Map<TopicPartition, OffsetAndMetadata>> offsets2History = offsets2.getHistory();
+
+    for (Map<TopicPartition, OffsetAndMetadata> map : offsets1History) {
+      for (TopicPartition tp : map.keySet()) {
+        long offset = map.get(tp).offset();
+        if (tp.partition() == 0) {
+          if (worker1MaxP0Offset > offset) {
+            fail("worker 1 offsets for partition 0 not monotonically increasing");
+          } else {
+            worker1MaxP0Offset = offset;
+          }
+        } else if (tp.partition() == 1) {
+          if (worker1MaxP1Offset > offset) {
+            fail("worker 1 offsets for partition 1 not monotonically increasing");
+          } else {
+            worker1MaxP1Offset = offset;
+          }
+        }
+      }
+    }
+
+    for (Map<TopicPartition, OffsetAndMetadata> map : offsets2History) {
+      for (TopicPartition tp : map.keySet()) {
+        long offset = map.get(tp).offset();
+        if (tp.partition() == 0) {
+          if (worker2MaxP0Offset > offset) {
+            fail("worker 2 offsets for partition 0 not monotonically increasing");
+          } else {
+            worker2MaxP0Offset = offset;
+          }
+        } else if (tp.partition() == 1) {
+          if (worker2MaxP1Offset > offset) {
+            fail("worker 2 offsets for partition 1 not monotonically increasing");
+          } else {
+            worker2MaxP1Offset = offset;
+          }
+        }
+      }
+    }
+
+    long maxP0Offset = Math.max(worker1MaxP0Offset, worker2MaxP0Offset);
+    long maxP1Offset = Math.max(worker1MaxP1Offset, worker2MaxP1Offset);
+
+    // though we weren't able to assert that the sum of the current committed offsets
+    // was strictly equal to 1000, we CAN assert that the sum of the
+    // max offsets added to the offset queues should equal 1000
+    assertEquals(1000,  maxP0Offset + maxP1Offset);
 
     // we currently have no way to guarantee that each WorkerIndexer
     // received and processed some work

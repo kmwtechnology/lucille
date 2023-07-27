@@ -28,13 +28,25 @@ public class KafkaDocument extends JsonDocument {
     setKafkaMetadata(record);
   }
 
-  private KafkaDocument(ObjectNode data, String topic, int partition, long offset, String key) throws DocumentException {
+  KafkaDocument(ObjectNode data, String topic, int partition, long offset, String key) throws DocumentException {
     super(data);
     this.topic = topic;
     this.partition = partition;
     this.offset = offset;
     this.key = key;
   }
+
+  /**
+   * Creates a deep copy of the given Document, now as a KafkaDocument with kafka metadata.
+   */
+  KafkaDocument(Document doc, String topic, int partition, long offset, String key) throws DocumentException {
+    super(doc);
+    this.topic = topic;
+    this.partition = partition;
+    this.offset = offset;
+    this.key = key;
+  }
+
 
   public String getTopic() {
     return topic;

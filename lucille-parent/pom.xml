@@ -154,7 +154,7 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
         <configuration>
-          <redirectTestOutputToFile>true</redirectTestOutputToFile>
+          <redirectTestOutputToFile>false</redirectTestOutputToFile>
           <!--ensure consistent timezone for unit tests-->
           <!--suppress UnresolvedMavenProperty -->
           <argLine>${argLine} -Duser.timezone=UTC</argLine>
