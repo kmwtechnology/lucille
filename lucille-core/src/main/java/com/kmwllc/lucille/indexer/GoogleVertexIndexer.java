@@ -8,12 +8,14 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.typesafe.config.Config;
+import io.grpc.StatusRuntimeException;
+import org.apache.http.auth.InvalidCredentialsException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.time.Instant;
+import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -21,15 +23,14 @@ public class GoogleVertexIndexer extends Indexer {
 
     private static final Logger log = LoggerFactory.getLogger(GoogleVertexIndexer.class);
 
-    private static boolean isLimitHit;
+    private static boolean rerunIndex;
 
     private final boolean bypass;
-    private final int requestLimit;
-    private static int currentRequests = 0;
-
     private UpsertDatapointsRequest.Builder requestBuilder;
     private IndexDatapoint.Builder datapointBuilder = IndexDatapoint.newBuilder();
+    private IndexServiceSettings.Builder settingsBuilder;
     private IndexServiceSettings settings;
+    private String accessToken;
 
     public GoogleVertexIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
         super(config, manager, metricsPrefix);
@@ -38,16 +39,16 @@ public class GoogleVertexIndexer extends Indexer {
         String projectId = config.getString("googlevertex.projectId");
         String region = config.getString("googlevertex.region");
         String indexId = config.getString("googlevertex.indexId");
-        String accessToken = config.getString("googlevertex.accessToken");
-        requestLimit = config.getInt("googlevertex.requestLimit");
 
         requestBuilder = UpsertDatapointsRequest.newBuilder().setIndex(IndexName.of(projectId, region, indexId).toString());
         try {
-            settings = IndexServiceSettings.newBuilder()
-                    .setCredentialsProvider(
-                            FixedCredentialsProvider.create(GoogleCredentials.create(AccessToken.newBuilder().setTokenValue(accessToken).build())))
+            accessToken = getAccessToken();
+            // TODO: Look into configuring the CredentialsProvider to point directly at the service acct key JSON
+            settingsBuilder = IndexServiceSettings.newBuilder()
                     .setEndpoint("us-west1-aiplatform.googleapis.com:443")
-                    .build();
+                    .setCredentialsProvider(
+                            FixedCredentialsProvider.create(GoogleCredentials.create(AccessToken.newBuilder().setTokenValue(accessToken).build())));
+            settings = settingsBuilder.build();
         } catch (IOException e) {
             System.out.println("Error: " + e.getMessage());
         }
@@ -81,31 +82,50 @@ public class GoogleVertexIndexer extends Indexer {
             datapointBuilder = datapointBuilder.clear();
         }
 
-/*        currentRequests = currentRequests + datapoints.size();
-        if (currentRequests >= requestLimit) {
-            System.out.println("Preventing request limit from being hit... waiting 30 seconds before retrying");
-            TimeUnit.SECONDS.sleep(30);
-            currentRequests = datapoints.size();
-        }*/
-
          do {
-            isLimitHit = false;
+            rerunIndex = false;
             try (IndexServiceClient client = IndexServiceClient.create(settings)) {
                 UpsertDatapointsRequest req = requestBuilder.addAllDatapoints(datapoints).build();
                 requestBuilder = requestBuilder.clearDatapoints();
                 UpsertDatapointsResponse response = client.upsertDatapoints(req);
             } catch (Exception e) {
-                System.out.println("Hit the request limit, retrying after 10 seconds.");
-                System.out.println(e.getMessage());
-
-                TimeUnit.SECONDS.sleep(10);
-                isLimitHit = true;
+                rerunIndex = true;
+                try {
+                    System.out.println("Retrieving new access token...");
+                    String accessToken = getAccessToken();
+                    settingsBuilder = settingsBuilder.setCredentialsProvider(FixedCredentialsProvider.create(
+                            GoogleCredentials.create(AccessToken.newBuilder().setTokenValue(accessToken).build())));
+                    settings = settingsBuilder.build();
+                } catch (Exception e2) {
+                    System.out.println("Failed to retrieve new access token");
+                    System.out.println(e2.getMessage() + "\n" + Arrays.toString(e2.getStackTrace()));
+                    rerunIndex = false;
+                }
             }
-        } while (isLimitHit);
+        } while (rerunIndex);
     }
 
     @Override
     public void closeConnection() {
         // no-op
+    }
+
+    private String getAccessToken() throws IOException {
+        // String filename = "current-token.txt";
+        // File f = File.createTempFile(filename, ".txt");
+        // ProcessBuilder builder = new ProcessBuilder(command).redirectOutput(f);
+
+        // Process getToken = builder.start();
+
+        String command = "gcloud auth print-access-token";
+        Process getToken = Runtime.getRuntime().exec(command);
+
+        StringBuilder sb = new StringBuilder();
+        try (BufferedReader in =
+                     new BufferedReader(new InputStreamReader(getToken.getInputStream()))) {
+            in.lines().forEach(sb::append);
+        }
+
+        return sb.toString();
     }
 }
