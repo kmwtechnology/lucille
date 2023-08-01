@@ -242,6 +242,8 @@ public class DatabaseConnectorTest {
     DatabaseConnector connector = new DatabaseConnector(config);
     // call the execute method, then close the connection
     connector.execute(publisher);
+    assertEquals(2, dbHelper.checkNumConnections());
+    
     assertFalse(connector.isClosed());
     connector.close();
     // verify that the connection is actually closed
