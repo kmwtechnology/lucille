@@ -164,8 +164,6 @@ public class DatabaseConnector extends AbstractConnector {
             j++;
           }
         }
-        // Fix the duplicate id field value that occurs
-        // doc.setField("id", id);
         // feed the accumulated document.
         publisher.publish(doc);
       }
