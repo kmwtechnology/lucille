@@ -24,14 +24,14 @@ public class CollapseChildrenDocumentsTest {
     doc.setField("parent", true);
     
     Document child1 = Document.create("child1");
-    child1.setField("childfield1", "foo");
-    child1.setField("childfield2", "bar");
+    child1.setField("childfield1", "foo1");
+    child1.setField("childfield2", "bar1");
     doc.addChild(child1);
 
     Document child2 = Document.create("child2");
-    child2.setField("childfield1", "foo");
-    child2.setField("childfield2", "bar");
-    child2.setField("childfield3", "baz");
+    child2.setField("childfield1", "foo2");
+    child2.setField("childfield2", "bar2");
+    child2.setField("childfield3", "baz2");
     doc.addChild(child2);
 
     stage.processDocument(doc);
@@ -43,7 +43,42 @@ public class CollapseChildrenDocumentsTest {
     
     List<String> values = doc.getStringList("childfield1");
     assertEquals(values.size(), 2);
+    assertEquals(values.get(0), "foo1");
+    assertEquals(values.get(1), "foo2");
     
   }
 
+  @Test
+  public void testCollapsedFieldsKeepChildren() throws StageException {
+    Stage stage = factory.get("CollapseChildrenDocumentsTest/config_keep_children.conf");
+
+    Document doc = Document.create("doc");
+    doc.setField("parent", true);
+    
+    Document child1 = Document.create("child1");
+    child1.setField("childfield1", "foo1");
+    child1.setField("childfield2", "bar1");
+    doc.addChild(child1);
+
+    Document child2 = Document.create("child2");
+    child2.setField("childfield1", "foo2");
+    child2.setField("childfield2", "bar2");
+    child2.setField("childfield3", "baz2");
+    doc.addChild(child2);
+
+    stage.processDocument(doc);
+    
+    assertTrue(doc.hasChildren());
+    assertTrue(doc.has("childfield1"));
+    assertTrue(doc.has("childfield2"));
+    assertFalse(doc.has("childfield3"));
+    
+    List<String> values = doc.getStringList("childfield1");
+    assertEquals(values.size(), 2);
+    assertEquals(values.get(0), "foo1");
+    assertEquals(values.get(1), "foo2");
+    
+  }
+
+  
 }
