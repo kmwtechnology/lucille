@@ -9,6 +9,7 @@ import java.io.IOException;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -89,6 +90,31 @@ public class FetchUriTest {
     assertArrayEquals(expectedResult, d.getBytes("url_data"));
     assertEquals(Integer.valueOf(200), d.getInt("url_status_code"));
     assertEquals(Integer.valueOf(14), d.getInt("url_size"));
+  }
+
+  @Test
+  public void testFetchUriWithError() throws StageException, IOException {
+    FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/config.conf");
+    s.setClient(mockClient);
+    Document d = Document.create("id");
+    d.setField("name", "Jane Doe"); // extra field to test that not all fields are being read
+    d.setField("url", "https://example.com"); // uri field that is meant to be read
+
+    ClientProtocolException fakeError = new ClientProtocolException("fake error");
+    Mockito.when(mockClient.execute(Mockito.any(HttpGet.class))).thenThrow(fakeError);
+
+    s.processDocument(d);
+
+    byte[] expectedResult;
+    try {
+      expectedResult = IOUtils.toByteArray(IOUtils.toInputStream("examplerespons", "UTF-8"));
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+    assertEquals(null, d.getBytes("url_data"));
+    assertEquals(null, d.getInt("url_status_code"));
+    assertEquals(null, d.getInt("url_size"));
+    assertEquals("fake error", d.getString("url_error"));
   }
 
 }

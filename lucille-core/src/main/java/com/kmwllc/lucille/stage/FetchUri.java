@@ -51,10 +51,7 @@ public class FetchUri extends Stage {
     String uri = doc.getString(this.source);
 
     HttpGet httpGet = new HttpGet(uri);
-    CloseableHttpResponse httpResponse = null;
-    try {
-      httpResponse = this.client.execute(httpGet);
-
+    try (CloseableHttpResponse httpResponse = this.client.execute(httpGet)) {
       int statusCode = httpResponse.getStatusLine().getStatusCode();
       HttpEntity ent = httpResponse.getEntity();
       InputStream content = ent.getContent();
@@ -71,15 +68,7 @@ public class FetchUri extends Stage {
       doc.setField(this.source + "_error", ex.getMessage());
     } catch (IOException ex) {
       doc.setField(this.source + "_error", ex.getMessage());
-    } finally {
-      try {
-        httpResponse.close();
-      } catch (IOException ex) {
-        doc.setField(this.source + "_error", ex.getMessage());
-      }
     }
-
-
     return null;
   }
 
