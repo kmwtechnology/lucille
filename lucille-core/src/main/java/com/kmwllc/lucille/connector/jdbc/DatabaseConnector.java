@@ -21,6 +21,9 @@ import java.util.List;
  * this connector will run the otherSQL statements in parallel and flatten the rows from
  * the otherSQL statements onto the Document as a child document
  * 
+ * Note: currently this connector with otherSQL statements only supports integers as a 
+ * join key.
+ * 
  * @author kwatters
  *
  */
