@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -7,10 +8,8 @@ import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
-import java.util.Map;
-
-import java.util.Map.Entry;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.input.BoundedInputStream;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -21,47 +20,65 @@ import org.apache.http.util.EntityUtils;
 
 public class FetchUri extends Stage {
 
-  private final Map<String, Object> fieldMap;
+  private final String source;
+  private final String dest;
+  private final String statusSuffix;
+  private final String sizeSuffix;
+  private final int maxDownloadSize;
   private CloseableHttpClient client;
 
   public FetchUri(Config config) {
-    super(config, new StageSpec().withRequiredParents("fieldMapping"));
-    this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
-    client = HttpClients.createDefault();
+    super(config, new StageSpec().withRequiredProperties("source", "dest").withOptionalProperties("size_suffix", "status_suffix", "max_size"));
+
+    this.source = config.getString("source");
+    this.dest = config.getString("dest");
+    this.statusSuffix = ConfigUtils.getOrDefault(config, "status_suffix", "status_code");
+    this.sizeSuffix = ConfigUtils.getOrDefault(config, "size_suffix", "size");
+    this.maxDownloadSize = ConfigUtils.getOrDefault(config, "max_size", Integer.MAX_VALUE);
   }
 
-  void setClient(CloseableHttpClient newClient) {
-    this.client = newClient;
+  void setClient(CloseableHttpClient client) {
+    this.client = client;
+  }
+
+  @Override
+  public void start() throws StageException {
+    client = HttpClients.createDefault();
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    for (Entry<String, Object> e : fieldMap.entrySet()) {
-      String fieldName = e.getKey();
-      String destinationFieldName = (String) e.getValue();
-      String uri = doc.getString(fieldName);
+    String uri = doc.getString(this.source);
 
-      HttpGet httpGet = new HttpGet(uri);
-      CloseableHttpResponse httpResponse = null;
+    HttpGet httpGet = new HttpGet(uri);
+    CloseableHttpResponse httpResponse = null;
+    try {
+      httpResponse = this.client.execute(httpGet);
+
+      int statusCode = httpResponse.getStatusLine().getStatusCode();
+      HttpEntity ent = httpResponse.getEntity();
+      InputStream content = ent.getContent();
+      BoundedInputStream boundedContentStream = new BoundedInputStream(content, maxDownloadSize);
+      byte[] bytes = IOUtils.toByteArray(boundedContentStream);
+      long contentSize = bytes.length; // is it okay to be a long? Does it need to be an int?
+
+      doc.setField(this.dest, bytes);
+      doc.setField(this.source + "_" + statusSuffix, statusCode);
+      doc.setField(this.source + "_" + sizeSuffix, contentSize);
+
+      EntityUtils.consume(ent);
+    } catch (ClientProtocolException ex) {
+      doc.setField(this.source + "_error", ex.getMessage());
+    } catch (IOException ex) {
+      doc.setField(this.source + "_error", ex.getMessage());
+    } finally {
       try {
-        httpResponse = client.execute(httpGet);
-        HttpEntity ent = httpResponse.getEntity();
-        InputStream content = ent.getContent();
-        byte[] bytes = IOUtils.toByteArray(content);
-        doc.setField(destinationFieldName, bytes);
-        EntityUtils.consume(ent);
-      } catch (ClientProtocolException ex) {
-        throw new StageException("Error processing GET", ex);
+        httpResponse.close();
       } catch (IOException ex) {
-        throw new StageException("Error processing GET", ex);
-      } finally {
-        try {
-          httpResponse.close();
-        } catch (IOException ex) {
-          throw new StageException("Error processing GET", ex);
-        }
+        doc.setField(this.source + "_error", ex.getMessage());
       }
     }
+
 
     return null;
   }
