@@ -29,7 +29,6 @@ public class FetchUri extends Stage {
 
   public FetchUri(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest").withOptionalProperties("size_suffix", "status_suffix", "max_size"));
-
     this.source = config.getString("source");
     this.dest = config.getString("dest");
     this.statusSuffix = ConfigUtils.getOrDefault(config, "status_suffix", "status_code");
@@ -49,15 +48,15 @@ public class FetchUri extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     String uri = doc.getString(this.source);
-
     HttpGet httpGet = new HttpGet(uri);
+
     try (CloseableHttpResponse httpResponse = this.client.execute(httpGet)) {
       int statusCode = httpResponse.getStatusLine().getStatusCode();
       HttpEntity ent = httpResponse.getEntity();
       InputStream content = ent.getContent();
       BoundedInputStream boundedContentStream = new BoundedInputStream(content, maxDownloadSize);
       byte[] bytes = IOUtils.toByteArray(boundedContentStream);
-      long contentSize = bytes.length; // is it okay to be a long? Does it need to be an int?
+      long contentSize = bytes.length;
 
       doc.setField(this.dest, bytes);
       doc.setField(this.source + "_" + statusSuffix, statusCode);

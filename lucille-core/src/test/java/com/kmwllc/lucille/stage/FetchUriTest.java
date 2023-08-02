@@ -20,15 +20,6 @@ import org.mockito.Mockito;
 
 public class FetchUriTest {
 
-  /*
-  TODO:
-    - Default Parameters
-    - Stage Exception Errors
-   */
-
-
-
-
   private CloseableHttpClient mockClient;
 
   @Before
@@ -47,7 +38,6 @@ public class FetchUriTest {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-
   }
 
   @Test
@@ -76,8 +66,8 @@ public class FetchUriTest {
     FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/maxSizeLimit.conf");
     s.setClient(mockClient);
     Document d = Document.create("id");
-    d.setField("name", "Jane Doe"); // extra field to test that not all fields are being read
-    d.setField("url", "https://example.com"); // uri field that is meant to be read
+    d.setField("name", "Jane Doe");
+    d.setField("url", "https://example.com");
 
     s.processDocument(d);
 
@@ -97,8 +87,8 @@ public class FetchUriTest {
     FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/config.conf");
     s.setClient(mockClient);
     Document d = Document.create("id");
-    d.setField("name", "Jane Doe"); // extra field to test that not all fields are being read
-    d.setField("url", "https://example.com"); // uri field that is meant to be read
+    d.setField("name", "Jane Doe");
+    d.setField("url", "https://example.com");
 
     ClientProtocolException fakeError = new ClientProtocolException("fake error");
     Mockito.when(mockClient.execute(Mockito.any(HttpGet.class))).thenThrow(fakeError);
@@ -116,5 +106,4 @@ public class FetchUriTest {
     assertEquals(null, d.getInt("url_size"));
     assertEquals("fake error", d.getString("url_error"));
   }
-
 }
