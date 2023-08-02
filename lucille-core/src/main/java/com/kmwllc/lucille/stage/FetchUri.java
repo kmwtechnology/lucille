@@ -23,6 +23,19 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
+/**
+ * Fetches byte data of a given URL field and places data into a specified field
+ * <br>
+ * Config Parameters -
+ * <br>
+ * source (String) : Field name of URL to be fetched, must be present for stage to process
+ * dest (String) : Field name of destination for byte data, must be present for stage to process
+ * size_suffix (String, Optional) : suffix to be appended to end of source field name for the size of data
+ *  e.g. url --> url_(size_suffix) where source name is url
+ * status_suffix (String, Optional) : suffix to be appended to end of source field name for the status code of the fetch request
+ * error_suffix (String, Optional) : suffix to be appended to end of source field name for any errors in process
+ * max_size (Integer, Optional) : max size, in bytes, of data to be read from fetch
+ */
 public class FetchUri extends Stage {
 
   private final String source;
@@ -45,6 +58,7 @@ public class FetchUri extends Stage {
     this.maxDownloadSize = ConfigUtils.getOrDefault(config, "max_size", Integer.MAX_VALUE);
   }
 
+  // Method exists for testing with mockito mocks
   void setClient(CloseableHttpClient client) {
     this.client = client;
   }
@@ -59,24 +73,20 @@ public class FetchUri extends Stage {
     if (!doc.has(source) || doc.getString(source).isEmpty()) {
       return null;
     }
-    String uri = doc.getString(source);
+    String url = doc.getString(source);
 
-    // Following checks for first valid URL and if not, then valid URI, and then if not places error message in error field
+    // Following checks for valid URL
     try {
-      new URL(uri).toURI();
+      new URL(url).toURI();
     } catch (URISyntaxException e) {
       doc.setField(source + "_" + errorSuffix, e.getClass().getCanonicalName() + " " + e.getMessage());
       return null;
     } catch (MalformedURLException e) {
-      try {
-        UriUtils.validate(URI.create(uri));
-      } catch (IllegalArgumentException ex) {
-        doc.setField(source + "_" + errorSuffix, e.getClass().getCanonicalName() + " " + e.getMessage());
-        return null;
-      }
+      doc.setField(source + "_" + errorSuffix, e.getClass().getCanonicalName() + " " + e.getMessage());
+      return null;
     }
 
-    HttpGet httpGet = new HttpGet(uri);
+    HttpGet httpGet = new HttpGet(url);
     try (CloseableHttpResponse httpResponse = client.execute(httpGet)) {
       int statusCode = httpResponse.getStatusLine().getStatusCode();
       HttpEntity ent = httpResponse.getEntity();
@@ -101,7 +111,7 @@ public class FetchUri extends Stage {
   @Override
   public void stop() throws StageException {
     try {
-      if (client == null) {
+      if (client != null) {
         client.close();
       }
     } catch (IOException e) {

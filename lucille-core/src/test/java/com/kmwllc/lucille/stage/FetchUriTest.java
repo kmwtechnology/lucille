@@ -104,22 +104,6 @@ public class FetchUriTest {
   }
 
   @Test
-  public void testFetchUriWithValidUri() throws StageException, IOException {
-    FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/allOptionalParameters.conf");
-    s.setClient(mockClient);
-    Document d = Document.create("id");
-    d.setField("name", "Jane Doe");
-    d.setField("url", "fake://32.0.2.16:80/");
-
-    s.processDocument(d);
-
-    // We expect that only the error field is populated with the pertinent error
-    assertTrue(d.has("url_data"));
-    assertTrue(d.has("url_code"));
-    assertTrue(d.has("url_length"));
-  }
-
-  @Test
   public void testFetchUriWithMalformedLink() throws StageException, IOException {
     FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/allOptionalParameters.conf");
     //s.setClient(mockClient); Not setting client, seeing that we want to ignore the setup
@@ -154,6 +138,5 @@ public class FetchUriTest {
     assertFalse(d.has("url_code"));
     assertFalse(d.has("url_length"));
     assertFalse(d.has("url_error_msg"));
-
   }
 }
