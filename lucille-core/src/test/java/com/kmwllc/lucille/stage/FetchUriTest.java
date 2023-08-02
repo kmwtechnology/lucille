@@ -2,6 +2,8 @@ package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.StageException;
@@ -26,7 +28,7 @@ public class FetchUriTest {
   public void setup() {
     mockClient = Mockito.mock(CloseableHttpClient.class);
     CloseableHttpResponse mockResponse = Mockito.mock(CloseableHttpResponse.class);
-    HttpEntity mockEntity =  Mockito.mock(HttpEntity.class);
+    HttpEntity mockEntity = Mockito.mock(HttpEntity.class);
     StatusLine mockStatusLine = Mockito.mock(StatusLine.class);
 
     try {
@@ -84,7 +86,7 @@ public class FetchUriTest {
 
   @Test
   public void testFetchUriWithError() throws StageException, IOException {
-    FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/config.conf");
+    FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/allOptionalParameters.conf");
     s.setClient(mockClient);
     Document d = Document.create("id");
     d.setField("name", "Jane Doe");
@@ -95,15 +97,63 @@ public class FetchUriTest {
 
     s.processDocument(d);
 
-    byte[] expectedResult;
-    try {
-      expectedResult = IOUtils.toByteArray(IOUtils.toInputStream("examplerespons", "UTF-8"));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
     assertEquals(null, d.getBytes("url_data"));
-    assertEquals(null, d.getInt("url_status_code"));
-    assertEquals(null, d.getInt("url_size"));
-    assertEquals("fake error", d.getString("url_error"));
+    assertEquals(null, d.getInt("url_code"));
+    assertEquals(null, d.getInt("url_length"));
+    assertEquals("org.apache.http.client.ClientProtocolException fake error", d.getString("url_error_msg"));
+  }
+
+  @Test
+  public void testFetchUriWithValidUri() throws StageException, IOException {
+    FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/allOptionalParameters.conf");
+    s.setClient(mockClient);
+    Document d = Document.create("id");
+    d.setField("name", "Jane Doe");
+    d.setField("url", "fake://32.0.2.16:80/");
+
+    s.processDocument(d);
+
+    // We expect that only the error field is populated with the pertinent error
+    assertTrue(d.has("url_data"));
+    assertTrue(d.has("url_code"));
+    assertTrue(d.has("url_length"));
+  }
+
+  @Test
+  public void testFetchUriWithMalformedLink() throws StageException, IOException {
+    FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/allOptionalParameters.conf");
+    //s.setClient(mockClient); Not setting client, seeing that we want to ignore the setup
+    Document d = Document.create("id");
+    d.setField("name", "Jane Doe");
+    d.setField("url", "abcdef");
+
+    s.processDocument(d);
+
+    // We expect that only the error field is populated with the pertinent error
+    assertFalse(d.has("url_data"));
+    assertFalse(d.has("url_code"));
+    assertFalse(d.has("url_length"));
+    assertEquals("java.net.MalformedURLException no protocol: abcdef", d.getString("url_error_msg"));
+  }
+
+  @Test
+  public void testFetchUriWithNoLink() throws StageException, IOException {
+    FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/allOptionalParameters.conf");
+    s.setClient(mockClient);
+    Document d = Document.create("id");
+    d.setField("name", "Jane Doe");
+    d.setField("url", "");
+
+    ClientProtocolException fakeError = new ClientProtocolException("fake error");
+    Mockito.when(mockClient.execute(Mockito.any(HttpGet.class))).thenThrow(fakeError);
+
+    s.processDocument(d);
+
+    // We expect that none of the fields are populated if there is no URI/URL
+    assertFalse(d.has("url_data"));
+    assertFalse(d.has("url_code"));
+    assertFalse(d.has("url_length"));
+    assertFalse(d.has("url_error_msg"));
+
   }
 }

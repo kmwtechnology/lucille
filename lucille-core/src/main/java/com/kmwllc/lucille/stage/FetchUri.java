@@ -7,7 +7,12 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.Iterator;
+import nl.altindag.ssl.util.UriUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.BoundedInputStream;
 import org.apache.http.HttpEntity;
@@ -24,15 +29,19 @@ public class FetchUri extends Stage {
   private final String dest;
   private final String statusSuffix;
   private final String sizeSuffix;
+
+  private final String errorSuffix;
   private final int maxDownloadSize;
   private CloseableHttpClient client;
 
   public FetchUri(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "dest").withOptionalProperties("size_suffix", "status_suffix", "max_size"));
+    super(config, new StageSpec().withRequiredProperties("source", "dest")
+        .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix"));
     this.source = config.getString("source");
     this.dest = config.getString("dest");
     this.statusSuffix = ConfigUtils.getOrDefault(config, "status_suffix", "status_code");
     this.sizeSuffix = ConfigUtils.getOrDefault(config, "size_suffix", "size");
+    this.errorSuffix = ConfigUtils.getOrDefault(config, "error_suffix", "error");
     this.maxDownloadSize = ConfigUtils.getOrDefault(config, "max_size", Integer.MAX_VALUE);
   }
 
@@ -47,10 +56,28 @@ public class FetchUri extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    String uri = doc.getString(this.source);
-    HttpGet httpGet = new HttpGet(uri);
+    if (!doc.has(source) || doc.getString(source).isEmpty()) {
+      return null;
+    }
+    String uri = doc.getString(source);
 
-    try (CloseableHttpResponse httpResponse = this.client.execute(httpGet)) {
+    // Following checks for first valid URL and if not, then valid URI, and then if not places error message in error field
+    try {
+      new URL(uri).toURI();
+    } catch (URISyntaxException e) {
+      doc.setField(source + "_" + errorSuffix, e.getClass().getCanonicalName() + " " + e.getMessage());
+      return null;
+    } catch (MalformedURLException e) {
+      try {
+        UriUtils.validate(URI.create(uri));
+      } catch (IllegalArgumentException ex) {
+        doc.setField(source + "_" + errorSuffix, e.getClass().getCanonicalName() + " " + e.getMessage());
+        return null;
+      }
+    }
+
+    HttpGet httpGet = new HttpGet(uri);
+    try (CloseableHttpResponse httpResponse = client.execute(httpGet)) {
       int statusCode = httpResponse.getStatusLine().getStatusCode();
       HttpEntity ent = httpResponse.getEntity();
       InputStream content = ent.getContent();
@@ -58,15 +85,15 @@ public class FetchUri extends Stage {
       byte[] bytes = IOUtils.toByteArray(boundedContentStream);
       long contentSize = bytes.length;
 
-      doc.setField(this.dest, bytes);
-      doc.setField(this.source + "_" + statusSuffix, statusCode);
-      doc.setField(this.source + "_" + sizeSuffix, contentSize);
+      doc.setField(dest, bytes);
+      doc.setField(source + "_" + statusSuffix, statusCode);
+      doc.setField(source + "_" + sizeSuffix, contentSize);
 
       EntityUtils.consume(ent);
-    } catch (ClientProtocolException ex) {
-      doc.setField(this.source + "_error", ex.getMessage());
-    } catch (IOException ex) {
-      doc.setField(this.source + "_error", ex.getMessage());
+    } catch (ClientProtocolException e) {
+      doc.setField(source + "_" + errorSuffix, e.getClass().getCanonicalName() + " " + e.getMessage());
+    } catch (IOException e) {
+      doc.setField(source + "_" + errorSuffix, e.getClass().getCanonicalName() + " " + e.getMessage());
     }
     return null;
   }
@@ -74,7 +101,9 @@ public class FetchUri extends Stage {
   @Override
   public void stop() throws StageException {
     try {
-      client.close();
+      if (client == null) {
+        client.close();
+      }
     } catch (IOException e) {
       throw new StageException("Error closing client", e);
     }
