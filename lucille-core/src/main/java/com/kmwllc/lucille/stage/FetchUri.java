@@ -85,10 +85,10 @@ public class FetchUri extends Stage {
     }
 
     HttpGet httpGet = new HttpGet(url);
-    HttpEntity ent = null;
+
     try (CloseableHttpResponse httpResponse = client.execute(httpGet)) {
       int statusCode = httpResponse.getStatusLine().getStatusCode();
-      ent = httpResponse.getEntity();
+      HttpEntity ent = httpResponse.getEntity();
       try (BoundedInputStream boundedContentStream = new BoundedInputStream(ent.getContent(), maxDownloadSize);) {
         byte[] bytes = IOUtils.toByteArray(boundedContentStream);
         long contentSize = bytes.length;
@@ -101,7 +101,7 @@ public class FetchUri extends Stage {
       setErrorField(doc, e);
     } catch (IOException e) {
       setErrorField(doc, e);
-    } 
+    }
     return null;
   }
 
