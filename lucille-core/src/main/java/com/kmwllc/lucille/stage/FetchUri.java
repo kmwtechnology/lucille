@@ -101,13 +101,7 @@ public class FetchUri extends Stage {
       setErrorField(doc, e);
     } catch (IOException e) {
       setErrorField(doc, e);
-    } finally {
-      try {
-        EntityUtils.consume(ent);
-      } catch (IOException e) {
-        setErrorField(doc, e);
-      }
-    }
+    } 
     return null;
   }
 
