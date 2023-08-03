@@ -139,6 +139,11 @@ public class JsonDocument implements Document {
     update(name, mode, (v)->{setField(name,(byte[])v);}, (v)->{setOrAdd(name,(byte[])v);}, values);
   }
 
+  @Override
+  public void update(String name, UpdateMode mode, JsonNode... values) {
+    update(name, mode, (v)->{setField(name,(JsonNode)v);}, (v)->{setOrAdd(name,(JsonNode)v);}, values);
+  }
+
   /**
    * Private helper method used by different public versions of the overloaded update method.
    *
@@ -511,6 +516,35 @@ public class JsonDocument implements Document {
     return result;
   }
 
+  @Override
+  public JsonNode getJson(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    JsonNode node = getSingleNode(name);
+
+    return node.isNull() ? null : node;
+  }
+
+  @Override
+  public List<JsonNode> getJsonList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getJson(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<JsonNode> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      result.add(node.isNull() ? null : node);
+    }
+    return result;
+  }
+
   private JsonNode getSingleNode(String name) {
     return isMultiValued(name) ? data.withArray(name).get(0) : data.get(name);
   }
@@ -647,6 +681,14 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public void addToField(String name, JsonNode value) {
+    validateNotReservedField(name);
+    convertToList(name);
+    ArrayNode array = data.withArray(name);
+    array.add(value);
+  }
+
+  @Override
   public void setOrAdd(String name, String value) {
     if (has(name)) {
       addToField(name, value);
@@ -711,6 +753,15 @@ public class JsonDocument implements Document {
 
   @Override
   public void setOrAdd(String name, byte[] value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  @Override
+  public void setOrAdd(String name, JsonNode value) {
     if (has(name)) {
       addToField(name, value);
     } else {

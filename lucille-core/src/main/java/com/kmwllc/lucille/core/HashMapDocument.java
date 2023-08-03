@@ -249,6 +249,11 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   @Override
+  public void update(String name, UpdateMode mode, JsonNode... values) {
+    updateGeneric(name, mode, values);
+  }
+
+  @Override
   public void initializeRunId(String value) {
     if (value == null || value.isEmpty()) {
       throw new IllegalArgumentException("RunId cannot be null or empty");
@@ -443,6 +448,16 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   @Override
+  public JsonNode getJson(String name) {
+    return getValue(name, value -> (JsonNode) value);
+  }
+
+  @Override
+  public List<JsonNode> getJsonList(String name) {
+    return getValues(name, value -> (JsonNode) value);
+  }
+
+  @Override
   public int length(String name) {
     return has(name) ? data.length(name) : 0;
   }
@@ -521,6 +536,11 @@ public class HashMapDocument implements Document, Serializable {
     addToFieldGeneric(name, value);
   }
 
+  @Override
+  public void addToField(String name, JsonNode value) {
+    addToFieldGeneric(name, value);
+  }
+
   private <T> void setOrAddGeneric(String name, T value) {
     Document.validateNotReservedField(name);
     data.setOrAdd(name, value);
@@ -563,6 +583,11 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public void setOrAdd(String name, byte[] value) {
+    setOrAddGeneric(name, value);
+  }
+
+  @Override
+  public void setOrAdd(String name, JsonNode value) {
     setOrAddGeneric(name, value);
   }
 

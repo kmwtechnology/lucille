@@ -232,4 +232,31 @@ public class DatabaseConnectorTest {
     // verify that the connection is actually closed
     assertTrue(connection.isClosed());
   }
+
+  @Test
+  public void testTableWithIdColumn() throws ConnectorException {
+
+    HashMap<String,Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select * from table_with_id_column");
+    configValues.put("idField", "other_id");
+
+    Config config = ConfigFactory.parseMap(configValues);
+
+    DatabaseConnector connector = new DatabaseConnector(config);
+
+    connector.execute(publisher);
+
+    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(2, docsSentForProcessing.size());
+
+    Document doc1 = docsSentForProcessing.get(0);
+
+    // todo complete actual testing
+  }
 }

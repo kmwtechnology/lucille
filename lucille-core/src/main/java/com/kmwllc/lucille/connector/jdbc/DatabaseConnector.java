@@ -149,6 +149,13 @@ public class DatabaseConnector extends AbstractConnector {
         // log.info("Add Field {} Value {} -- Doc {}", columns[i-1].toLowerCase(), rs.getString(i), doc);
         String fieldValue = rs.getString(i);
         if (fieldValue != null) {
+
+          // TODO THROWS ERROR IF IS SET AND THE RESULT HAS A COLUMN WITH THE SAME NAME
+          // todo also consider removing the field with the original name to avoid duplication
+          if (fieldName.equals("id")) {
+            fieldName = "database_id";
+          }
+
           doc.setOrAdd(fieldName, fieldValue);
         }
       }
