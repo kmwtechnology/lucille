@@ -89,14 +89,14 @@ public class FetchUri extends Stage {
     try (CloseableHttpResponse httpResponse = client.execute(httpGet)) {
       int statusCode = httpResponse.getStatusLine().getStatusCode();
       ent = httpResponse.getEntity();
-      InputStream content = ent.getContent();
-      BoundedInputStream boundedContentStream = new BoundedInputStream(content, maxDownloadSize);
-      byte[] bytes = IOUtils.toByteArray(boundedContentStream);
-      long contentSize = bytes.length;
+      try (BoundedInputStream boundedContentStream = new BoundedInputStream(ent.getContent(), maxDownloadSize);) {
+        byte[] bytes = IOUtils.toByteArray(boundedContentStream);
+        long contentSize = bytes.length;
 
-      doc.setField(dest, bytes);
-      doc.setField(source + "_" + statusSuffix, statusCode);
-      doc.setField(source + "_" + sizeSuffix, contentSize);
+        doc.setField(dest, bytes);
+        doc.setField(source + "_" + statusSuffix, statusCode);
+        doc.setField(source + "_" + sizeSuffix, contentSize);
+      }
     } catch (ClientProtocolException e) {
       setErrorField(doc, e);
     } catch (IOException e) {
@@ -122,7 +122,7 @@ public class FetchUri extends Stage {
     }
   }
 
-  // sets the error field with the name of the error and message from error
+  // sets the error field of the doc with the name of the exception and message from exception
   private void setErrorField(Document doc, Exception e) {
     doc.setField(source + "_" + errorSuffix, e.getClass().getCanonicalName() + " " + e.getMessage());
   }
