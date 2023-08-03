@@ -26,8 +26,8 @@ import org.apache.http.util.EntityUtils;
  * <br>
  * Config Parameters -
  * <br>
- * source (String) : Field name of URL to be fetched, must be present for stage to process
- * dest (String) : Field name of destination for byte data, must be present for stage to process
+ * source (String) : Field name of URL to be fetched; document will be skipped if the field with this name is absent or empty
+ * dest (String) : Field name of destination for byte data; document will be skipped if the field with this name is absent or empty
  * size_suffix (String, Optional) : suffix to be appended to end of source field name for the size of data
  *  e.g. url --> url_(size_suffix) where source name is url
  * status_suffix (String, Optional) : suffix to be appended to end of source field name for the status code of the fetch request
