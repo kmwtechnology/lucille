@@ -77,17 +77,18 @@ public class FetchUri extends Stage {
     try {
       new URL(url).toURI();
     } catch (URISyntaxException e) {
-      doc.setField(source + "_" + errorSuffix, e.getClass().getCanonicalName() + " " + e.getMessage());
+      setErrorField(doc, e);
       return null;
     } catch (MalformedURLException e) {
-      doc.setField(source + "_" + errorSuffix, e.getClass().getCanonicalName() + " " + e.getMessage());
+      setErrorField(doc, e);
       return null;
     }
 
     HttpGet httpGet = new HttpGet(url);
+    HttpEntity ent = null;
     try (CloseableHttpResponse httpResponse = client.execute(httpGet)) {
       int statusCode = httpResponse.getStatusLine().getStatusCode();
-      HttpEntity ent = httpResponse.getEntity();
+      ent = httpResponse.getEntity();
       InputStream content = ent.getContent();
       BoundedInputStream boundedContentStream = new BoundedInputStream(content, maxDownloadSize);
       byte[] bytes = IOUtils.toByteArray(boundedContentStream);
@@ -96,12 +97,16 @@ public class FetchUri extends Stage {
       doc.setField(dest, bytes);
       doc.setField(source + "_" + statusSuffix, statusCode);
       doc.setField(source + "_" + sizeSuffix, contentSize);
-
-      EntityUtils.consume(ent);
     } catch (ClientProtocolException e) {
-      doc.setField(source + "_" + errorSuffix, e.getClass().getCanonicalName() + " " + e.getMessage());
+      setErrorField(doc, e);
     } catch (IOException e) {
-      doc.setField(source + "_" + errorSuffix, e.getClass().getCanonicalName() + " " + e.getMessage());
+      setErrorField(doc, e);
+    } finally {
+      try {
+        EntityUtils.consume(ent);
+      } catch (IOException e) {
+        setErrorField(doc, e);
+      }
     }
     return null;
   }
@@ -115,6 +120,11 @@ public class FetchUri extends Stage {
     } catch (IOException e) {
       throw new StageException("Error closing client", e);
     }
+  }
+
+  // sets the error field with the name of the error and message from error
+  private void setErrorField(Document doc, Exception e) {
+    doc.setField(source + "_" + errorSuffix, e.getClass().getCanonicalName() + " " + e.getMessage());
   }
 
 }
