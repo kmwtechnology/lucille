@@ -256,7 +256,21 @@ public class DatabaseConnectorTest {
     assertEquals(2, docsSentForProcessing.size());
 
     Document doc1 = docsSentForProcessing.get(0);
+    Document doc2 = docsSentForProcessing.get(1);
 
-    // todo complete actual testing
+    // document id is coming from the "other_id" column
+    assertEquals("id1", doc1.getId());
+    assertEquals("id2", doc2.getId());
+
+    // "id" column is renamed to "database_id"
+    assertEquals("1", doc1.getString("database_id"));
+    assertEquals("2", doc2.getString("database_id"));
+
+    // "other_id" remains in the document as a duplicate of the id
+    // todo consider removing and adding database_id_field_name as a document field
+    assertTrue(doc1.has("other_id"));
+    assertTrue(doc2.has("other_id"));
+    assertEquals(doc1.getId(), doc1.getString("other_id"));
+    assertEquals(doc2.getId(), doc2.getString("other_id"));
   }
 }
