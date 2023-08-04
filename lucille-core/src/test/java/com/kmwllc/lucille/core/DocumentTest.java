@@ -1049,6 +1049,53 @@ public abstract class DocumentTest {
     assertEquals(d, d2);
   }
 
+  private void testArrayNodeJsonNodeFieldSet(String json) throws JsonProcessingException {
+    ObjectMapper mapper = new ObjectMapper();
+
+    JsonNode arrayNode = mapper.readTree(json);
+    Document d = createDocument("id1");
+    String field = "myField";
+    d.setField(field, arrayNode);
+
+    assertFalse(d.isMultiValued(field));
+    assertEquals(arrayNode, d.getJson(field));
+    assertEquals(List.of(arrayNode), d.getJsonList(field));
+  }
+
+  @Test
+  public void testArrayNodeJsonNodeFieldSetEmpty() throws JsonProcessingException {
+    testArrayNodeJsonNodeFieldSet("[]");
+  }
+
+  @Test
+  public void testArrayNodeJsonNodeFieldSetFull() throws JsonProcessingException {
+    testArrayNodeJsonNodeFieldSet("[{\"a\":1}, {\"b\": 2}]");
+  }
+
+  private void testArrayNodeJsonNodeFieldAdd(String json) throws JsonProcessingException {
+    ObjectMapper mapper = new ObjectMapper();
+
+    JsonNode arrayNode = mapper.readTree(json);
+    Document d = createDocument("id1");
+    String field = "myField";
+
+    d.addToField(field, arrayNode);
+
+    assertTrue(d.isMultiValued(field));
+    assertEquals(arrayNode, d.getJson(field));
+    assertEquals(List.of(arrayNode), d.getJsonList(field));
+  }
+
+  @Test
+  public void testArrayNodeJsonNodeFieldAddEmpty() throws JsonProcessingException {
+    testArrayNodeJsonNodeFieldAdd("[]");
+  }
+
+  @Test
+  public void testArrayNodeJsonNodeFieldAddFull() throws JsonProcessingException {
+    testArrayNodeJsonNodeFieldAdd("[{\"a\":1}, {\"b\": 2}]");
+  }
+
   @Test
   public void testGetAllFieldNames() {
     Document d = createDocument("id");
