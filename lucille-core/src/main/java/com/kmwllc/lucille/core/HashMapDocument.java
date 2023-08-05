@@ -11,14 +11,7 @@ import com.kmwllc.lucille.util.MultiMap;
 
 import java.io.Serializable;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -650,7 +643,7 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public Set<String> getFieldNames() {
-    return data.getKeys();
+    return new HashSet<>(data.getKeys());
   }
 
   @Override
