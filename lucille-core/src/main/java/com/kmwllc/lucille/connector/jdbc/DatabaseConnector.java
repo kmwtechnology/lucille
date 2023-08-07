@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector.jdbc;
 
 import com.kmwllc.lucille.connector.AbstractConnector;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -12,6 +13,7 @@ import org.apache.logging.log4j.Logger;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Database Connector - This connector can run a select statement and return the rows 
@@ -50,7 +52,7 @@ public class DatabaseConnector extends AbstractConnector {
     jdbcUser = config.getString("jdbcUser");
     jdbcPassword = config.getString("jdbcPassword");
     sql = config.getString("sql");
-    idField = config.getString("idField");
+    idField = ConfigUtils.getOrDefault(config, "idField", null);
     if (config.hasPath("preSql"))
       preSql = config.getString("preSql");
     if (config.hasPath("postSql"))
@@ -133,8 +135,8 @@ public class DatabaseConnector extends AbstractConnector {
     
     while (rs.next()) {
       // Need the ID column from the RS.
-      String id = createDocId(rs.getString(idColumn));
-      
+      // todo think about how this should be handled
+      String id = idField == null ? UUID.randomUUID().toString() : rs.getString(idColumn);
       Document doc = Document.create(id);
       
       // Add each column / field name to the doc
