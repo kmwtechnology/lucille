@@ -1302,4 +1302,18 @@ public abstract class DocumentTest {
     assertEquals(value1, document.getBytes("field1"));
     assertEquals(Arrays.asList(value1, value2), document.getBytesList("field1"));
   }
+  
+  @Test
+  public void testRemoveChildren() {
+    Document doc = createDocument("doc");
+    assertFalse(doc.hasChildren());
+    doc.addChild(createDocument("child1"));
+    assertTrue(doc.hasChildren());
+    assertEquals(doc.getChildren().size(), 1);
+    doc.addChild(createDocument("child2"));
+    assertEquals(doc.getChildren().size(), 2);
+    doc.removeChildren();
+    // validate no children exist after we remove them.
+    assertFalse(doc.hasChildren());
+  }
 }
