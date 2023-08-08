@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector.jdbc;
 
 import com.kmwllc.lucille.connector.AbstractConnector;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -20,29 +21,28 @@ import java.util.List;
  * and the otherJoinFields must be populated.  If those parameters are populated
  * this connector will run the otherSQL statements in parallel and flatten the rows from
  * the otherSQL statements onto the Document as a child document
- *
+ * <p>
  * Note: currently this connector with otherSQL statements only supports integers as a
  * join key.
  *
  * @author kwatters
- *
  */
 public class DatabaseConnector extends AbstractConnector {
 
   private static final Logger log = LogManager.getLogger(DatabaseConnector.class);
 
-  private String driver;
-  private String connectionString;
-  private String jdbcUser;
-  private String jdbcPassword;
-  private Integer fetchSize = null;
-  private String preSql;
-  private String sql;
-  private String postSql;
-  private String idField;
-  private List<String> otherSQLs = new ArrayList<String>();
-  private List<String> otherJoinFields;
-  private List<Connection> connections = new ArrayList<Connection>();
+  private final String driver;
+  private final String connectionString;
+  private final String jdbcUser;
+  private final String jdbcPassword;
+  private final Integer fetchSize;
+  private final String preSql;
+  private final String sql;
+  private final String postSql;
+  private final String idField;
+  private final List<String> otherSQLs;
+  private final List<String> otherJoinFields;
+  private final List<Connection> connections = new ArrayList<>();
   // TODO: consider moving this down to the base connector class.
   private ConnectorState state = null;
 
@@ -50,42 +50,46 @@ public class DatabaseConnector extends AbstractConnector {
   public DatabaseConnector(Config config) {
     super(config);
 
+    // required config
     driver = config.getString("driver");
     connectionString = config.getString("connectionString");
     jdbcUser = config.getString("jdbcUser");
     jdbcPassword = config.getString("jdbcPassword");
     sql = config.getString("sql");
     idField = config.getString("idField");
+
+    // optional config
+
     // For MYSQL this should be set to Integer.MIN_VALUE to avoid buffering the full resultset in memory.
     // The behavior of this parameter varies from driver to driver, often it defaults to 0.
-    if (config.hasPath("fetchSize"))
-      fetchSize = config.getInt("fetchSize");
-    if (config.hasPath("preSql"))
-      preSql = config.getString("preSql");
-    if (config.hasPath("postSql"))
-      postSql = config.getString("postSql");
+    fetchSize = config.hasPath("fetchSize") ? config.getInt("fetchSize") : null;
+    preSql = ConfigUtils.getOrDefault(config, "preSql", null);
+    postSql = ConfigUtils.getOrDefault(config, "postSql", null);
     if (config.hasPath("otherSQLs")) {
       otherSQLs = config.getStringList("otherSQLs");
       otherJoinFields = config.getStringList("otherJoinFields");
+    } else {
+      otherSQLs = new ArrayList<>();
+      otherJoinFields = null;
     }
   }
 
   // create a jdbc connection
   private Connection createConnection() throws ClassNotFoundException, SQLException {
-    Connection connection = null;
+    Connection connection;
     try {
       Class.forName(driver);
     } catch (ClassNotFoundException e) {
       log.error("Driver not found {} check classpath to make sure the jdbc driver jar file is there.", driver);
       setState(ConnectorState.ERROR);
-      throw(e);
+      throw (e);
     }
     try {
       connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
     } catch (SQLException e) {
       log.error("Unable to connect to database {} user:{}", connectionString, jdbcUser);
       setState(ConnectorState.ERROR);
-      throw(e);
+      throw (e);
     }
     connections.add(connection);
     return connection;
@@ -105,7 +109,7 @@ public class DatabaseConnector extends AbstractConnector {
       // run the pre-sql (if specified)
       runSql(connection, preSql);
       // TODO: make sure we cleanup result set/statement/connections properly.
-      ResultSet rs = null;
+      ResultSet rs;
       log.info("Running primary sql");
       try {
         Statement state = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -115,7 +119,7 @@ public class DatabaseConnector extends AbstractConnector {
         rs = state.executeQuery(sql);
       } catch (SQLException e) {
         setState(ConnectorState.ERROR);
-        throw(e);
+        throw (e);
       }
       log.info("Describing primary set...");
       String[] columns = getColumnNames(rs);
@@ -126,10 +130,10 @@ public class DatabaseConnector extends AbstractConnector {
           break;
         }
       }
-      ArrayList<ResultSet> otherResults = new ArrayList<ResultSet>();
-      ArrayList<String[]> otherColumns = new ArrayList<String[]>();
+      ArrayList<ResultSet> otherResults = new ArrayList<>();
+      ArrayList<String[]> otherColumns = new ArrayList<>();
       for (String otherSQL : otherSQLs) {
-        log.info("Describing other result set... {}", otherSQL );
+        log.info("Describing other result set... {}", otherSQL);
         // prepare the other sql query
         // TODO: run all sql statements in parallel.
         ResultSet rs2 = runJoinSQL(otherSQL);
@@ -146,7 +150,7 @@ public class DatabaseConnector extends AbstractConnector {
         for (int i = 1; i <= columns.length; i++) {
           // TODO: how do we normalize our column names?  (lowercase is probably ok and likely desirable as
           // sometimes databases return columns in upper/lower case depending on which db you talk to.)
-          String fieldName = columns[i-1].toLowerCase();
+          String fieldName = columns[i - 1].toLowerCase();
           if (i == idColumn && Document.ID_FIELD.equals(fieldName)) {
             // we already have this column because it's the id column.
             continue;
@@ -199,17 +203,17 @@ public class DatabaseConnector extends AbstractConnector {
       // we need to at least advance to the first row.
       rs2.next();
     }
-    // Test if this resultset is alread exhausted.
+    // Test if this result set is already exhausted.
     if (rs2.isAfterLast()) {
-      // um.. why is this getting called?  if it is?
+      // um… why is this getting called?  if it is?
       return;
     }
 
     do {
-      // Convert to do-while i think we can avoid the rs2.previous() call.
+      // Convert to do-while I think we can avoid the rs2.previous() call.
 
       // TODO: support non INT primary key
-      Integer otherJoinId = rs2.getInt(joinField);
+      int otherJoinId = rs2.getInt(joinField);
       if (otherJoinId < joinId) {
         // advance until we get to the id on the right side that we want.
         rs2.next();
@@ -217,12 +221,12 @@ public class DatabaseConnector extends AbstractConnector {
       }
 
       if (otherJoinId > joinId) {
-        // we've gone too far.. lets back up and break out , move forward the primary result set.
-        // we should leave the cursor here so we can test again when the primary result set is advanced.
+        // we've gone too far… lets back up and break out , move forward the primary result set.
+        // we should leave the cursor here, so we can test again when the primary result set is advanced.
         return;
       }
 
-      // here we have a match for the join keys.. let's create the child doc for this joined row.
+      // here we have a match for the join keys… let's create the child doc for this joined row.
       childId++;
       Document child = Document.create(Integer.toString(childId));
       for (String c : columns2) {
@@ -236,25 +240,25 @@ public class DatabaseConnector extends AbstractConnector {
 
       // add the accumulated rows to the document.
       doc.addChild(child);
-      // Ok.. so now we need to advance this cursor and see if there is another row to collapse into a child.
+      // Ok… so now we need to advance this cursor and see if there is another row to collapse into a child.
     } while (rs2.next());
 
   }
 
   // TODO: can we remove this method and just use runSql instead?
   private ResultSet runJoinSQL(String sql) throws SQLException {
-    ResultSet rs2 = null;
+    ResultSet rs2;
     try {
       // Running the sql
       log.info("Running other sql");
-      // create a new connection instead of re-using this one because we're using forward only resultsets
+      // create a new connection instead of re-using this one because we're using forward only result sets
       Connection connection = null;
       try {
         // TODO: clean up this connection .. we need to hold onto a handle of it
         connection = createConnection();
       } catch (ClassNotFoundException e) {
         setState(ConnectorState.ERROR);
-        log.error("Error creating connection.",e);
+        log.error("Error creating connection.", e);
       }
       Statement state2 = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
       // Statement state2 = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
@@ -268,7 +272,7 @@ public class DatabaseConnector extends AbstractConnector {
     } catch (SQLException e) {
       e.printStackTrace();
       setState(ConnectorState.ERROR);
-      throw(e);
+      throw (e);
     }
     log.info("Other SQL Executed.");
     return rs2;
@@ -304,70 +308,6 @@ public class DatabaseConnector extends AbstractConnector {
     setState(ConnectorState.STOPPED);
   }
 
-  public String getDriver() {
-    return driver;
-  }
-
-  public void setDriver(String driver) {
-    this.driver = driver;
-  }
-
-  public String getConnectionString() {
-    return connectionString;
-  }
-
-  public void setConnectionString(String connectionString) {
-    this.connectionString = connectionString;
-  }
-
-  public String getJdbcUser() {
-    return jdbcUser;
-  }
-
-  public void setJdbcUser(String jdbcUser) {
-    this.jdbcUser = jdbcUser;
-  }
-
-  public String getJdbcPassword() {
-    return jdbcPassword;
-  }
-
-  public void setJdbcPassword(String jdbcPassword) {
-    this.jdbcPassword = jdbcPassword;
-  }
-
-  public String getPreSql() {
-    return preSql;
-  }
-
-  public void setPreSql(String preSql) {
-    this.preSql = preSql;
-  }
-
-  public String getSql() {
-    return sql;
-  }
-
-  public void setSql(String sql) {
-    this.sql = sql;
-  }
-
-  public String getPostSql() {
-    return postSql;
-  }
-
-  public void setPostSql(String postSql) {
-    this.postSql = postSql;
-  }
-
-  public String getIdField() {
-    return idField;
-  }
-
-  public void setIdField(String idField) {
-    this.idField = idField;
-  }
-
   @Override
   public void close() throws ConnectorException {
     for (Connection connection : connections) {
@@ -383,13 +323,13 @@ public class DatabaseConnector extends AbstractConnector {
       }
     }
     // empty out the collections
-    connections = new ArrayList<Connection>();
+    connections.clear();
   }
 
   // for testing purposes
   // return true if any connection is open to the database
   public boolean isClosed() {
-    if (connections.size() == 0) {
+    if (connections.isEmpty()) {
       return true;
     }
     for (Connection connection : connections) {
@@ -404,5 +344,4 @@ public class DatabaseConnector extends AbstractConnector {
     }
     return true;
   }
-
 }
