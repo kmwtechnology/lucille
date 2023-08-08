@@ -44,7 +44,7 @@ public class DatabaseConnector extends AbstractConnector {
   private final List<String> otherJoinFields;
   private final List<Connection> connections = new ArrayList<>();
   // TODO: consider moving this down to the base connector class.
-  private ConnectorState state = null;
+  //  private ConnectorState state = null;
 
   // The constructor that takes the config.
   public DatabaseConnector(Config config) {
@@ -96,7 +96,7 @@ public class DatabaseConnector extends AbstractConnector {
   }
 
   private void setState(ConnectorState newState) {
-    this.state = newState;
+    // this.state = newState;
   }
 
   @Override
