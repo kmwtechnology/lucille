@@ -11,9 +11,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Database Connector - This connector can run a select statement and return the rows 
@@ -40,6 +39,7 @@ public class DatabaseConnector extends AbstractConnector {
   private String idField;
   private List<String> otherSQLs = new ArrayList<String>();
   private List<String> otherJoinFields;
+  private final Set<String> ignoreFields;
   private Connection connection = null;
 
   // The constructor that takes the config.
@@ -60,7 +60,15 @@ public class DatabaseConnector extends AbstractConnector {
     if (config.hasPath("otherSQLs")) {
       otherSQLs = config.getStringList("otherSQLs");
       otherJoinFields = config.getStringList("otherJoinFields");
-    }  
+    }
+    ignoreFields = new HashSet<>();
+    if (config.hasPath("ignoreFields")) {
+      ignoreFields.addAll(
+          config.getStringList("ignoreFields")
+              .stream()
+              .map(String::toLowerCase)
+              .collect(Collectors.toSet()));
+    }
   }
 
   // create a jdbc connection
@@ -88,6 +96,23 @@ public class DatabaseConnector extends AbstractConnector {
     // System.err.println("Implement Me: ");
   }
 
+  private int getIdColumnIndex(String[] columns) throws ConnectorException {
+    int idColumn = -1;
+    for (int i = 0; i < columns.length; i++) {
+      if (columns[i].equalsIgnoreCase(idField)) {
+        idColumn = i + 1;
+        break;
+      }
+    }
+
+    // throw an exception if unable to find id column
+    if (idColumn == -1) {
+      throw new ConnectorException("Unable to find id column: " + idField);
+    }
+
+    return idColumn;
+  }
+
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     
@@ -111,13 +136,7 @@ public class DatabaseConnector extends AbstractConnector {
 
     log.info("Describing primary set...");
     String[] columns = getColumnNames(rs);
-    int idColumn = -1;
-    for (int i = 0; i < columns.length; i++) {
-      if (columns[i].equalsIgnoreCase(idField)) {
-        idColumn = i + 1;
-        break;
-      }
-    }
+    int idColumn = getIdColumnIndex(columns);
 
     ArrayList<ResultSet> otherResults = new ArrayList<ResultSet>();
     ArrayList<String[]> otherColumns = new ArrayList<String[]>();
@@ -144,20 +163,21 @@ public class DatabaseConnector extends AbstractConnector {
         // TODO: how do we normalize our column names?  (lowercase is probably ok and likely desirable as 
         // sometimes databases return columns in upper/lower case depending on which db you talk to.)
         String fieldName = columns[i-1].toLowerCase();
-        if (i == idColumn && Document.ID_FIELD.equals(fieldName)) {
-          // we already have this column because it's the id column.
+
+        // continue if it is an id column or if this field is in the ignore list
+        if (i == idColumn || ignoreFields.contains(fieldName)) {
           continue;
         }
-        // log.info("Add Field {} Value {} -- Doc {}", columns[i-1].toLowerCase(), rs.getString(i), doc);
+
+        // throw an exception if field is in the reserved set
+        if (Document.RESERVED_FIELDS.contains(fieldName)) {
+          throw new ConnectorException(
+              String.format("Field name \"%s\" is reserved, please rename it or add it to the ignore list", fieldName));
+        }
+
         String fieldValue = rs.getString(i);
+        // log.info("Add Field {} Value {} -- Doc {}", fieldName, fieldValue, doc);
         if (fieldValue != null) {
-
-          // TODO THROWS ERROR IF IS SET AND THE RESULT HAS A COLUMN WITH THE SAME NAME
-          // todo also consider removing the field with the original name to avoid duplication
-          if (fieldName.equals("id")) {
-            fieldName = "database_id";
-          }
-
           doc.setOrAdd(fieldName, fieldValue);
         }
       }
