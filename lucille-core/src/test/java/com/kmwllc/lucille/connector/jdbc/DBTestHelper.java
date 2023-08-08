@@ -5,8 +5,10 @@ import org.junit.rules.ExternalResource;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
@@ -54,6 +56,13 @@ public class DBTestHelper extends ExternalResource {
       conn.close();
     } catch (SQLException e) {
       e.printStackTrace();
+    }
+  }
+  
+  public int checkNumConnections() throws SQLException {
+    try(ResultSet rs = RunScript.execute(conn, new StringReader("select count(*) from information_schema.sessions;"))) {
+      rs.next();
+      return rs.getInt(1);
     }
   }
 }
