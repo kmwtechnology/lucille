@@ -270,8 +270,8 @@ public class DatabaseConnectorTest {
       connector.execute(publisher);
     } catch (ConnectorException e) {
       // expected
-      // todo why does this not pass ?
-//      assertEquals( "Field name \"id\" is reserved, please rename it or add it to the ignore list", e.getMessage());
+      assertEquals( "Field name \"id\" is reserved, please rename it or add it to the ignore list",
+          e.getCause().getMessage());
     }
 
     connector.close();
