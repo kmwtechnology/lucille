@@ -195,7 +195,7 @@ public class DatabaseConnectorTest {
     Config config = ConfigFactory.parseMap(configValues);
     // create the connector with the config
     DatabaseConnector connector = new DatabaseConnector(config);
-    // create a publisher to record all the docs sent to it.  
+    // create a publisher to record all the docs sent to it.
     // run the connector
 
     connector.execute(publisher);
@@ -207,7 +207,7 @@ public class DatabaseConnectorTest {
       System.err.println(d);
     }
 
-    // TODO: 
+    // TODO:
     //    for (Document doc : publisher.getPublishedDocs()) {
     //      System.out.println(doc);
     //    }
