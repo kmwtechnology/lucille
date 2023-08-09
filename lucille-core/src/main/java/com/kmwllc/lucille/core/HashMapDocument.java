@@ -631,6 +631,10 @@ public class HashMapDocument implements Document, Serializable {
     return data.contains(CHILDREN_FIELD) && data.getMany(CHILDREN_FIELD).size() > 0;
   }
 
+  public void removeChildren() {
+    data.remove(CHILDREN_FIELD);
+  }
+  
   @Override
   public List<Document> getChildren() {
     if (!hasChildren()) {

@@ -280,4 +280,6 @@ public interface Document {
       }
     }
   }
+
+  void removeChildren();
 }

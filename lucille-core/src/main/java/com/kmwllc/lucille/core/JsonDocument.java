@@ -933,4 +933,9 @@ public class JsonDocument implements Document {
     }
     return ((JsonDocument) other).data;
   }
+
+  @Override
+  public void removeChildren() {
+   data.remove(CHILDREN_FIELD); 
+  }
 }

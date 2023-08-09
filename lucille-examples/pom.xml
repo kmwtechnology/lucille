@@ -27,5 +27,6 @@
 
   <modules>
     <module>lucille-vector-ingest-example</module>
+    <module>lucille-joining-db-connector-example</module>
   </modules>
 </project>
