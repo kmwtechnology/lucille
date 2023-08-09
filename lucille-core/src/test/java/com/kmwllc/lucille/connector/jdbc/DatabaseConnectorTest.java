@@ -14,7 +14,6 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -67,7 +66,7 @@ public class DatabaseConnectorTest {
     // create the connector with the config
     DatabaseConnector connector = new DatabaseConnector(config);
 
-    // start the connector 
+    // start the connector
     connector.execute(publisher);
 
     // Confirm there were 3 results.
