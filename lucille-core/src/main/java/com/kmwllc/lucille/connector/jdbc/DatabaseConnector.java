@@ -60,7 +60,6 @@ public class DatabaseConnector extends AbstractConnector {
     jdbcUser = config.getString("jdbcUser");
     jdbcPassword = config.getString("jdbcPassword");
     sql = config.getString("sql");
-
     idField = config.getString("idField");
 
     // optional config
