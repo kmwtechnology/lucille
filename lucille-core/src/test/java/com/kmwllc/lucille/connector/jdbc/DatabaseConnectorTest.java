@@ -270,7 +270,7 @@ public class DatabaseConnectorTest {
       connector.execute(publisher);
     } catch (ConnectorException e) {
       // expected
-      assertEquals( "Field name \"id\" is reserved, please rename it or add it to the ignore list",
+      assertEquals("Field name \"id\" is reserved, please rename it or add it to the ignore list",
           e.getCause().getMessage());
     }
 
