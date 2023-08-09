@@ -44,7 +44,7 @@ public class DeserializeJson extends Stage {
     return null;
   }
 
-  private JsonNode getJsonNode(String content) throws StageException {
+  private static JsonNode getJsonNode(String content) throws StageException {
     try {
       return MAPPER.readTree(content);
     } catch (JsonProcessingException e) {
@@ -66,6 +66,8 @@ public class DeserializeJson extends Stage {
       JsonNode value = entry.getValue();
 
       String fieldName = getFieldName(doc, prefix, name);
+
+      // todo consider checking if field is duplicate and has the same value
 
       if (value.isObject()) {
         // does not collapse nested objects
