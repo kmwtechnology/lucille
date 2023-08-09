@@ -176,8 +176,13 @@ public class DatabaseConnector extends AbstractConnector {
           // sometimes databases return columns in upper/lower case depending on which db you talk to.)
           String fieldName = columns[i - 1].toLowerCase();
 
-          // continue if it is an id column or if this field is in the ignore list
-          if (i == idColumn || ignoreFields.contains(fieldName)) {
+          // continue if it is an id column and has the same name as the id field
+          if ((i == idColumn && Document.ID_FIELD.equals(fieldName))) {
+            continue;
+          }
+
+          // continue if field is in the ignore set
+          if (ignoreFields.contains(fieldName)) {
             continue;
           }
 

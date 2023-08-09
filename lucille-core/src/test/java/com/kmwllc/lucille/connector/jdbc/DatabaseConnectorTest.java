@@ -122,7 +122,6 @@ public class DatabaseConnectorTest {
     // The doc ID should have the 'company-' prefix
     assertEquals("company-1-1", docsSentForProcessing.get(0).getId());
     // There should also be a company_id field containing the company ID
-    Document doc1 = docsSentForProcessing.get(0); // todo remove this line
     assertEquals("1-1", docsSentForProcessing.get(0).getStringList("company_id").get(0));
     assertEquals("Acme", docsSentForProcessing.get(0).getStringList("name").get(0));
 
@@ -313,8 +312,10 @@ public class DatabaseConnectorTest {
     assertEquals("2", doc2.getString("table_id"));
 
     // "other_id" is not in the document
-    assertFalse(doc1.has("other_id"));
-    assertFalse(doc2.has("other_id"));
+    assertTrue(doc1.has("other_id"));
+    assertEquals("id1", doc1.getString("other_id"));
+    assertTrue(doc2.has("other_id"));
+    assertEquals("id2", doc2.getString("other_id"));
 
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
