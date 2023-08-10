@@ -100,20 +100,14 @@ public class DatabaseConnector extends AbstractConnector {
   }
 
   private int getIdColumnIndex(String[] columns) throws ConnectorException {
-    int idColumn = -1;
     for (int i = 0; i < columns.length; i++) {
       if (columns[i].equalsIgnoreCase(idField)) {
-        idColumn = i + 1;
-        break;
+        return i + 1;
       }
     }
 
     // throw an exception if unable to find id column
-    if (idColumn == -1) {
-      throw new ConnectorException("Unable to find id column: " + idField);
-    }
-
-    return idColumn;
+    throw new ConnectorException("Unable to find id column: " + idField);
   }
 
   @Override
