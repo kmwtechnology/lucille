@@ -265,13 +265,11 @@ public class DatabaseConnectorTest {
     Config config = ConfigFactory.parseMap(configValues);
     DatabaseConnector connector = new DatabaseConnector(config);
 
-    try {
+    Throwable exception = assertThrows(ConnectorException.class, () -> {
       connector.execute(publisher);
-    } catch (ConnectorException e) {
-      // expected
-      assertEquals("Field name \"id\" is reserved, please rename it or add it to the ignore list",
-          e.getCause().getMessage());
-    }
+    });
+    assertEquals("Field name \"id\" is reserved, please rename it or add it to the ignore list",
+        exception.getCause().getMessage());
 
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
