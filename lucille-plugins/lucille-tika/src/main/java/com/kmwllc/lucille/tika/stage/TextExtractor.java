@@ -64,6 +64,13 @@ public class TextExtractor extends Stage {
     // if the document has both a byteArray field and a filePathField, only byteArray will be processed.
     if (doc.has(byteArrayField)) {
 
+      // Local testing:
+      /*
+        - Make python script to convert a file to byte array
+        - copy byte array contents into csv with field name as 'byte_field'
+        - Run lucille with this stage to see if that byte array is recognized as a byte array
+        - if not, consider how to decode it frm string to byte array
+       */
       byte[] byteArray = doc.getBytes(byteArrayField);
       //byteArray = Base64.getDecoder().decode(new String(doc.getString(byteArrayField)).getBytes("UTF-8"));
 
@@ -102,7 +109,9 @@ public class TextExtractor extends Stage {
       log.warn("Tika Exception: {}", e);
     }
 
-    doc.addToField(textField, textData.toString());
+//    doc.addToField(textField, textData.toString());
+    doc.addToField(textField, bch.toString());
+    parseCtx.toString();
     for (String name : metadata.names()) {
       // clean the field name first.
       String cleanName = cleanFieldName(name);

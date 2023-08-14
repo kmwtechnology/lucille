@@ -15,10 +15,10 @@ public class FileUtilsTest {
 
   @Before
   public void setup() {
-    try (MockedStatic<VFSInputStream> utilities = Mockito.mockStatic(VFSInputStream.class)) {
-      utilities.when(VFSInputStream::open).thenReturn("Eugen");
-      assertEquals(VFSInputStream.open()).isEqualTo("Eugen");
-    }
+//    try (MockedStatic<VFSInputStream> utilities = Mockito.mockStatic(VFSInputStream.class)) {
+//      utilities.when(VFSInputStream::open).thenReturn("Eugen");
+//      assertEquals(VFSInputStream.open()).isEqualTo("Eugen");
+//    }
   }
 
   @Test
