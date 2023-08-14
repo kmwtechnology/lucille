@@ -77,9 +77,9 @@ public class DatabaseConnector extends AbstractConnector {
       otherJoinFields = null;
     }
     ignoreColumns = new HashSet<>();
-    if (config.hasPath("ignoreFields")) {
+    if (config.hasPath("ignoreColumns")) {
       ignoreColumns.addAll(
-          config.getStringList("ignoreFields")
+          config.getStringList("ignoreColumns")
               .stream()
               .map(String::toLowerCase)
               .collect(Collectors.toSet()));
@@ -177,7 +177,7 @@ public class DatabaseConnector extends AbstractConnector {
           String fieldName = columns[i - 1].toLowerCase();
 
           // continue if it is an id column and has the same name as the id field
-          if ((i == idColumn && Document.ID_FIELD.equals(fieldName))) {
+          if (i == idColumn && Document.ID_FIELD.equals(fieldName)) {
             // we already have this column because it's the id column.
             continue;
           }
