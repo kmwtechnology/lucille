@@ -251,6 +251,34 @@ public class DatabaseConnectorTest {
   }
 
   @Test
+  public void testIdColumnException() {
+    // Create a test config
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select * from companies");
+    configValues.put("idField", "NONEXISTENT_ID_COLUMN");
+
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // create the connector with the config
+    DatabaseConnector connector = new DatabaseConnector(config);
+    // call the execute method, then close the connection
+    try {
+      connector.execute(publisher);
+      fail("Should have thrown an exception");
+    } catch (ConnectorException e) {
+      // expected
+      assertEquals("Unable to find id column: NONEXISTENT_ID_COLUMN", e.getCause().getMessage());
+    }
+  }
+
+  @Test
   public void testReservedFieldError() throws ConnectorException, SQLException {
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);

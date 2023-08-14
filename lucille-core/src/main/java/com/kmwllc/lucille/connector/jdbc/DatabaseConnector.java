@@ -93,46 +93,44 @@ public class DatabaseConnector extends AbstractConnector {
       Class.forName(driver);
     } catch (ClassNotFoundException e) {
       log.error("Driver not found {} check classpath to make sure the jdbc driver jar file is there.", driver);
-      setState(ConnectorState.ERROR);
-      throw (e);
+      // ignoring setting state for now
+      // setState(ConnectorState.ERROR);
+      throw e;
     }
     try {
       connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
     } catch (SQLException e) {
       log.error("Unable to connect to database {} user:{}", connectionString, jdbcUser);
-      setState(ConnectorState.ERROR);
-      throw (e);
+      // ignoring setting state for now
+      // setState(ConnectorState.ERROR);
+      throw e;
     }
     connections.add(connection);
     return connection;
   }
 
-  private void setState(ConnectorState newState) {
-    // this.state = newState;
-  }
+  // ignoring setting state for now
+//  private void  setState(ConnectorState newState) {
+//     this.state = newState;
+//  }
 
   private int getIdColumnIndex(String[] columns) throws ConnectorException {
-    int idColumn = -1;
     for (int i = 0; i < columns.length; i++) {
       if (columns[i].equalsIgnoreCase(idField)) {
-        idColumn = i + 1;
-        break;
+        return i + 1;
       }
     }
 
     // throw an exception if unable to find id column
-    if (idColumn == -1) {
-      throw new ConnectorException("Unable to find id column: " + idField);
-    }
-
-    return idColumn;
+    throw new ConnectorException("Unable to find id column: " + idField);
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
 
     try {
-      setState(ConnectorState.RUNNING);
+      // ignoring setting state for now
+      // setState(ConnectorState.RUNNING);
       // connect to the database.
       Connection connection = createConnection();
       // run the pre-sql (if specified)
@@ -147,8 +145,9 @@ public class DatabaseConnector extends AbstractConnector {
         }
         rs = state.executeQuery(sql);
       } catch (SQLException e) {
-        setState(ConnectorState.ERROR);
-        throw (e);
+        // ignoring setting state for now
+        // setState(ConnectorState.ERROR);
+        throw e;
       }
       log.info("Describing primary set...");
       String[] columns = getColumnNames(rs);
@@ -221,9 +220,11 @@ public class DatabaseConnector extends AbstractConnector {
       // the post sql.
       runSql(connection, postSql);
       flush();
-      setState(ConnectorState.STOPPED);
+      // ignoring setting state for now
+      // setState(ConnectorState.STOPPED);
     } catch (Exception e) {
-      setState(ConnectorState.ERROR);
+      // ignoring setting state for now
+      // setState(ConnectorState.ERROR);
       throw new ConnectorException("Exception caught during connector execution", e);
     }
   }
@@ -243,7 +244,7 @@ public class DatabaseConnector extends AbstractConnector {
     }
     // Test if this result set is already exhausted.
     if (rs2.isAfterLast()) {
-      // um… why is this getting called?  if it is?
+      // um... why is this getting called?  if it is?
       return;
     }
 
@@ -259,12 +260,12 @@ public class DatabaseConnector extends AbstractConnector {
       }
 
       if (otherJoinId > joinId) {
-        // we've gone too far… lets back up and break out , move forward the primary result set.
+        // we've gone too far... lets back up and break out , move forward the primary result set.
         // we should leave the cursor here, so we can test again when the primary result set is advanced.
         return;
       }
 
-      // here we have a match for the join keys… let's create the child doc for this joined row.
+      // here we have a match for the join keys... let's create the child doc for this joined row.
       childId++;
       Document child = Document.create(Integer.toString(childId));
       for (String c : columns2) {
@@ -278,7 +279,7 @@ public class DatabaseConnector extends AbstractConnector {
 
       // add the accumulated rows to the document.
       doc.addChild(child);
-      // Ok… so now we need to advance this cursor and see if there is another row to collapse into a child.
+      // Ok... so now we need to advance this cursor and see if there is another row to collapse into a child.
     } while (rs2.next());
 
   }
@@ -295,7 +296,8 @@ public class DatabaseConnector extends AbstractConnector {
         // TODO: clean up this connection .. we need to hold onto a handle of it
         connection = createConnection();
       } catch (ClassNotFoundException e) {
-        setState(ConnectorState.ERROR);
+        // ignoring setting state for now
+        // setState(ConnectorState.ERROR);
         log.error("Error creating connection.", e);
       }
       Statement state2 = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -309,8 +311,9 @@ public class DatabaseConnector extends AbstractConnector {
       rs2 = state2.executeQuery(sql);
     } catch (SQLException e) {
       e.printStackTrace();
-      setState(ConnectorState.ERROR);
-      throw (e);
+      // ignoring setting state for now
+      // setState(ConnectorState.ERROR);
+      throw e;
     }
     log.info("Other SQL Executed.");
     return rs2;
@@ -343,7 +346,8 @@ public class DatabaseConnector extends AbstractConnector {
   //@Override
   public void stop() {
     // TODO: move this to a base class..
-    setState(ConnectorState.STOPPED);
+    // ignoring setting state for now
+    // setState(ConnectorState.STOPPED);
   }
 
   @Override
