@@ -287,7 +287,7 @@ public class DatabaseConnectorTest {
     configValues.put("connectionString", "jdbc:h2:mem:test");
     configValues.put("jdbcUser", "");
     configValues.put("jdbcPassword", "");
-    configValues.put("ignoreFields", List.of("id"));
+    configValues.put("ignoreColumns", List.of("id"));
     configValues.put("sql", "select id as table_id, * from table_with_id_column");
     configValues.put("idField", "other_id");
 

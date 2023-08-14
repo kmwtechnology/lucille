@@ -45,7 +45,7 @@ public class DatabaseConnector extends AbstractConnector {
   private final String idField;
   private final List<String> otherSQLs;
   private final List<String> otherJoinFields;
-  private final Set<String> ignoreFields;
+  private final Set<String> ignoreColumns;
   private final List<Connection> connections = new ArrayList<>();
   // TODO: consider moving this down to the base connector class.
   //  private ConnectorState state = null;
@@ -76,9 +76,9 @@ public class DatabaseConnector extends AbstractConnector {
       otherSQLs = new ArrayList<>();
       otherJoinFields = null;
     }
-    ignoreFields = new HashSet<>();
+    ignoreColumns = new HashSet<>();
     if (config.hasPath("ignoreFields")) {
-      ignoreFields.addAll(
+      ignoreColumns.addAll(
           config.getStringList("ignoreFields")
               .stream()
               .map(String::toLowerCase)
@@ -183,7 +183,7 @@ public class DatabaseConnector extends AbstractConnector {
           }
 
           // continue if field is in the ignore set
-          if (ignoreFields.contains(fieldName)) {
+          if (ignoreColumns.contains(fieldName)) {
             continue;
           }
 
