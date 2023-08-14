@@ -39,18 +39,18 @@ public class StageUtilsTest {
   @Test
   public void testValidateFieldNumsSeveralToOne() {
     Exception firstException = assertThrows(StageException.class, () -> {
-      StageUtils.validateFieldNumsEqual(new ArrayList<String>(Arrays.asList("a", "b")),
-          new ArrayList<String>(Arrays.asList("c")), "TestStage");
+      StageUtils.validateFieldNumsSeveralToOne(new ArrayList<String>(Arrays.asList("a", "b")),
+          new ArrayList<String>(Arrays.asList("c", "d", "e")), "TestStage");
     });
     String actualMessageFirst = firstException.getMessage();
 
     Exception secondException = assertThrows(StageException.class, () -> {
-      StageUtils.validateFieldNumsEqual(new ArrayList<String>(Arrays.asList("a")),
-          new ArrayList<String>(Arrays.asList("b", "c")), "TestStage");
+      StageUtils.validateFieldNumsSeveralToOne(new ArrayList<String>(Arrays.asList("a", "b", "c")),
+          new ArrayList<String>(Arrays.asList()), "TestStage");
     });
     String actualMessageSecond = secondException.getMessage();
 
-    String expectedMessage = "Unequal length field lists supplied to TestStage";
+    String expectedMessage = "TestStage was supplied with an invalid number of fields in the inputted field lists";
 
     assertTrue(actualMessageFirst.contains(expectedMessage));
     assertTrue(actualMessageSecond.contains(expectedMessage));
