@@ -219,7 +219,7 @@ public class DatabaseConnector extends AbstractConnector {
     }
     // Test if this result set is already exhausted.
     if (rs2.isAfterLast()) {
-      // um… why is this getting called?  if it is?
+      // um... why is this getting called?  if it is?
       return;
     }
 
@@ -235,12 +235,12 @@ public class DatabaseConnector extends AbstractConnector {
       }
 
       if (otherJoinId > joinId) {
-        // we've gone too far… lets back up and break out , move forward the primary result set.
+        // we've gone too far... lets back up and break out , move forward the primary result set.
         // we should leave the cursor here, so we can test again when the primary result set is advanced.
         return;
       }
 
-      // here we have a match for the join keys… let's create the child doc for this joined row.
+      // here we have a match for the join keys... let's create the child doc for this joined row.
       childId++;
       Document child = Document.create(Integer.toString(childId));
       for (String c : columns2) {
@@ -254,7 +254,7 @@ public class DatabaseConnector extends AbstractConnector {
 
       // add the accumulated rows to the document.
       doc.addChild(child);
-      // Ok… so now we need to advance this cursor and see if there is another row to collapse into a child.
+      // Ok... so now we need to advance this cursor and see if there is another row to collapse into a child.
     } while (rs2.next());
 
   }
