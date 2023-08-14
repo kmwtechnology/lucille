@@ -82,14 +82,14 @@ public class DatabaseConnector extends AbstractConnector {
     } catch (ClassNotFoundException e) {
       log.error("Driver not found {} check classpath to make sure the jdbc driver jar file is there.", driver);
       setState(ConnectorState.ERROR);
-      throw (e);
+      throw e;
     }
     try {
       connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
     } catch (SQLException e) {
       log.error("Unable to connect to database {} user:{}", connectionString, jdbcUser);
       setState(ConnectorState.ERROR);
-      throw (e);
+      throw e;
     }
     connections.add(connection);
     return connection;
@@ -130,7 +130,7 @@ public class DatabaseConnector extends AbstractConnector {
         rs = state.executeQuery(sql);
       } catch (SQLException e) {
         setState(ConnectorState.ERROR);
-        throw (e);
+        throw e;
       }
       log.info("Describing primary set...");
       String[] columns = getColumnNames(rs);
@@ -279,7 +279,7 @@ public class DatabaseConnector extends AbstractConnector {
     } catch (SQLException e) {
       e.printStackTrace();
       setState(ConnectorState.ERROR);
-      throw (e);
+      throw e;
     }
     log.info("Other SQL Executed.");
     return rs2;
