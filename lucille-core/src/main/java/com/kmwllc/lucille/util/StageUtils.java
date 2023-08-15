@@ -38,7 +38,7 @@ public class StageUtils {
   }
 
   /**
-   * Validate that if the field lists have unequal numbers of field names, one of the field lists contains 1 and
+   * Validate that if the field lists have unequal numbers of field names, the second field list contains 1 and
    * only one field name.
    *
    * @param fields1 the first field list
