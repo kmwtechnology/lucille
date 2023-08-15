@@ -56,34 +56,22 @@ public class StageUtilsTest {
   }
 
   @Test
-  public void testValidateFieldNumNotZeroNoException() {
-    try {
-      StageUtils.validateFieldNumNotZero(new ArrayList<String>(Arrays.asList("a", "b")), "TestStage");
-    } catch (StageException e) {
-      throw new RuntimeException(e);
-    }
+  public void testValidateFieldNumNotZeroNoException() throws StageException {
+    StageUtils.validateFieldNumNotZero(new ArrayList<String>(Arrays.asList("a", "b")), "TestStage");
   }
 
   @Test
-  public void testValidateFieldNumsEqualNoException() {
-    try {
-      StageUtils.validateFieldNumsEqual(new ArrayList<String>(Arrays.asList("a", "b")),
-          new ArrayList<String>(Arrays.asList("c", "d")), "TestStage");
-    } catch (StageException e) {
-      throw new RuntimeException(e);
-    }
+  public void testValidateFieldNumsEqualNoException() throws StageException {
+    StageUtils.validateFieldNumsEqual(new ArrayList<String>(Arrays.asList("a", "b")),
+        new ArrayList<String>(Arrays.asList("c", "d")), "TestStage");
   }
 
   @Test
-  public void testValidateFieldNumsSeveralToOneNoException() {
-    try {
-      StageUtils.validateFieldNumsSeveralToOne(new ArrayList<String>(Arrays.asList("a", "b")),
-          new ArrayList<String>(Arrays.asList("c")), "TestStage");
-      StageUtils.validateFieldNumsSeveralToOne(new ArrayList<String>(Arrays.asList("a", "b")),
-          new ArrayList<String>(Arrays.asList("c", "d")), "TestStage");
-    } catch (StageException e) {
-      throw new RuntimeException(e);
-    }
+  public void testValidateFieldNumsSeveralToOneNoException() throws StageException {
+    StageUtils.validateFieldNumsSeveralToOne(new ArrayList<String>(Arrays.asList("a", "b")),
+        new ArrayList<String>(Arrays.asList("c")), "TestStage");
+    StageUtils.validateFieldNumsSeveralToOne(new ArrayList<String>(Arrays.asList("a", "b")),
+        new ArrayList<String>(Arrays.asList("c", "d")), "TestStage");
   }
 
 }
