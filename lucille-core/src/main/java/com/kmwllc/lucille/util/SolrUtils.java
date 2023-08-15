@@ -55,6 +55,7 @@ public class SolrUtils {
   private static CloudSolrClient getCloudClient(Config config) {
     // todo review if zkHosts is required
     // https://solr.apache.org/guide/solr/latest/deployment-guide/solrj.html#base-urls-of-cloudsolrclient
+    // https://solr.apache.org/guide/6_6/setting-up-an-external-zookeeper-ensemble.html
     CloudSolrClient.Builder cloudBuilder;
     if (config.hasPath("solr.zkHosts")) {
 
