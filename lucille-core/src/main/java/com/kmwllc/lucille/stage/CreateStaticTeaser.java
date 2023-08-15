@@ -45,7 +45,8 @@ public class CreateStaticTeaser extends Stage {
   @Override
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Create Static Teaser");
-
+    StageUtils.validateFieldNumNotZero(destFields, "Create Static Teaser");
+    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Create Static Teaser");
     if (maxLength < 1) {
       throw new StageException("Max length is less than 1 for Static Teaser Stage");
     }
