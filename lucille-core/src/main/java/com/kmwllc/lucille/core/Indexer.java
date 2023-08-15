@@ -39,6 +39,8 @@ public abstract class Indexer implements Runnable {
 
   protected final String deletionMarkerField;
   protected final String deletionMarkerFieldValue;
+  protected final String deleteByFieldField;
+  protected final String deleteByFieldValue;
 
   protected final List<String> ignoreFields;
 
@@ -71,6 +73,14 @@ public abstract class Indexer implements Runnable {
         config.hasPath("indexer.deletionMarkerFieldValue")
             ? config.getString("indexer.deletionMarkerFieldValue")
             : null;
+    this.deleteByFieldField =
+      config.hasPath("indexer.deleteByFieldField")
+        ? config.getString("indexer.deleteByFieldField")
+        : null;
+    this.deleteByFieldValue =
+      config.hasPath("indexer.deleteByFieldValue")
+        ? config.getString("indexer.deleteByFieldValue")
+        : null;
     int batchSize =
         config.hasPath("indexer.batchSize")
             ? config.getInt("indexer.batchSize")

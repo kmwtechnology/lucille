@@ -157,7 +157,7 @@
           <redirectTestOutputToFile>false</redirectTestOutputToFile>
           <!--ensure consistent timezone for unit tests-->
           <!--suppress UnresolvedMavenProperty -->
-          <argLine>${argLine} -Duser.timezone=UTC</argLine>
+          <argLine>${argLine} -Dtest.solr.allowed.securerandom=NativePRNG -Duser.timezone=UTC</argLine>
         </configuration>
         <dependencies>
           <dependency>
