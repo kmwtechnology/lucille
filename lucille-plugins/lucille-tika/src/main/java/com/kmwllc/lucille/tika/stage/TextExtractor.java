@@ -8,9 +8,13 @@ import com.typesafe.config.Config;
 import java.util.Iterator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.tika.Tika;
 import org.apache.tika.config.TikaConfig;
+import org.apache.tika.detect.DefaultDetector;
+import org.apache.tika.detect.Detector;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
+import org.apache.tika.mime.MediaType;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.Parser;
@@ -21,6 +25,14 @@ import org.xml.sax.SAXException;
 
 import java.io.*;
 import java.util.Base64;
+
+// Local testing:
+/*
+  - Make python script to convert a file to byte array
+  - copy byte array contents into csv with field name as 'byte_field'
+  - Run lucille with this stage to see if that byte array is recognized as a byte array
+  - if not, consider how to decode it frm string to byte array
+ */
 
 /**
  * This stage uses Apache Tika to perform text and metadata extraction.
@@ -35,11 +47,11 @@ public class TextExtractor extends Stage {
   private ParseContext parseCtx;
 
   public TextExtractor(Config config) {
-    super(config);
-    textField = config.hasPath("textField") ? config.getString("textField") : "text";
-    filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : "filepath";
-    byteArrayField = config.hasPath("byteArrayField") ? config.getString("byteArrayField") : "byteArray";
-    tikaConfigPath = config.hasPath("tikaConfigPath") ? config.getString("tikaConfigPath") : null;
+    super(config, new StageSpec().withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path"));
+    textField = config.hasPath("text_field") ? config.getString("text_field") : "text";
+    filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : "filepath";
+    byteArrayField = config.hasPath("byte_array_field") ? config.getString("byte_array_field") : "byte_array";
+    tikaConfigPath = config.hasPath("tika_config_path") ? config.getString("tika_config_path") : null;
     parseCtx = new ParseContext();
   }
 
@@ -64,13 +76,6 @@ public class TextExtractor extends Stage {
     // if the document has both a byteArray field and a filePathField, only byteArray will be processed.
     if (doc.has(byteArrayField)) {
 
-      // Local testing:
-      /*
-        - Make python script to convert a file to byte array
-        - copy byte array contents into csv with field name as 'byte_field'
-        - Run lucille with this stage to see if that byte array is recognized as a byte array
-        - if not, consider how to decode it frm string to byte array
-       */
       byte[] byteArray = doc.getBytes(byteArrayField);
       //byteArray = Base64.getDecoder().decode(new String(doc.getString(byteArrayField)).getBytes("UTF-8"));
 
@@ -101,15 +106,13 @@ public class TextExtractor extends Stage {
 
   public void parseInputStream(Document doc, InputStream inputStream) {
     Metadata metadata = new Metadata();
-    StringWriter textData = new StringWriter();
-    ContentHandler bch = new BodyContentHandler(textData);
+    ContentHandler bch = new BodyContentHandler();
     try {
       parser.parse(inputStream, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
       log.warn("Tika Exception: {}", e);
     }
 
-//    doc.addToField(textField, textData.toString());
     doc.addToField(textField, bch.toString());
     parseCtx.toString();
     for (String name : metadata.names()) {
@@ -119,5 +122,58 @@ public class TextExtractor extends Stage {
         doc.addToField("tika_" + cleanName, value);
       }
     }
+
+
+//    Parser parser = new AutoDetectParser();
+//    ContentHandler handler = new BodyContentHandler();
+//    Metadata metadata = new Metadata();
+//    ParseContext context = new ParseContext();
+//    try {
+//      parser.parse(inputStream, handler, metadata, context);
+//    } catch (IOException | SAXException | TikaException e) {
+//      log.warn("Tika Exception: {}", e);
+//    }
+//    try {
+//      System.out.println("here's the content " + handler.toString());
+//      System.out.println("here's the type " + detectDocTypeUsingFacade(new BufferedInputStream(inputStream)));
+//    } catch (IOException e) {
+//      throw new RuntimeException(e);
+//    }
+
+//    Tika tika = new Tika();
+//    String content = null;
+//    try {
+//      content = tika.parseToString(inputStream);
+//    } catch (IOException e) {
+//      throw new RuntimeException(e);
+//    } catch (TikaException e) {
+//      throw new RuntimeException(e);
+//    }
+//    System.out.println("this is the content " + content);
+//
+//    try {
+//      System.out.println("this is the metadata " + extractMetadatatUsingFacade(inputStream));
+//    } catch (IOException e) {
+//      throw new RuntimeException(e);
+//    } catch (TikaException e) {
+//      throw new RuntimeException(e);
+//    }
+  }
+
+  public static String detectDocTypeUsingFacade(InputStream stream)
+      throws IOException {
+
+    Tika tika = new Tika();
+    String mediaType = tika.detect(stream);
+    return mediaType;
+  }
+
+  public static Metadata extractMetadatatUsingFacade(InputStream stream)
+      throws IOException, TikaException {
+    Tika tika = new Tika();
+    Metadata metadata = new Metadata();
+
+    tika.parse(stream, metadata);
+    return metadata;
   }
 }

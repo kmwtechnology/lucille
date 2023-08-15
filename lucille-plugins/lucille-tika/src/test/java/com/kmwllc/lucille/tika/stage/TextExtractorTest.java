@@ -54,7 +54,7 @@ public class TextExtractorTest {
     File file = new File("src/test/resources/TextExtractorTest/tika.txt");
     byte[] fileContent = Files.readAllBytes(file.toPath());
     //String val = Base64.getEncoder().encodeToString(fileContent);
-    doc.setField("byteArray", fileContent);
+    doc.setField("byte_array", fileContent);
     stage.processDocument(doc);
     assertEquals("Hi There!\n", doc.getString("text"));
   }
@@ -68,7 +68,7 @@ public class TextExtractorTest {
   public void testDocx() throws StageException {
     Stage stage = factory.get("TextExtractorTest/filepath.conf");
     Document doc = Document.create("doc1");
-    doc.setField("filepath", "src/test/resources/TextExtractorTest/tika.docx");
+    doc.setField("path", "src/test/resources/TextExtractorTest/tika.docx");
     stage.processDocument(doc);
     assertEquals("Hi There!\n", doc.getString("text"));
     assertEquals("Microsoft Office Word", doc.getString("tika_extended_properties_application"));

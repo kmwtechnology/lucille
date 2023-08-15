@@ -16,7 +16,7 @@
     <packaging>jar</packaging>
 
     <properties>
-      <tika.version>2.8.0</tika.version>
+      <tika.version>2.7.0</tika.version>
       <maven.compiler.source>17</maven.compiler.source>
       <maven.compiler.target>17</maven.compiler.target>
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -46,10 +46,11 @@
 
       <dependency>
         <groupId>org.apache.tika</groupId>
-        <artifactId>tika-parsers-standard</artifactId>
+        <artifactId>tika-parsers-standard-package</artifactId>
         <version>${tika.version}</version>
-        <type>pom</type>
-      </dependency><dependency><groupId>com.kmwllc</groupId><artifactId>lucille-core</artifactId><version>0.2.0-SNAPSHOT</version><scope>compile</scope></dependency>
+      </dependency>
+
+      <dependency><groupId>com.kmwllc</groupId><artifactId>lucille-core</artifactId><version>0.2.0-SNAPSHOT</version><scope>compile</scope></dependency>
     </dependencies>
 
     
