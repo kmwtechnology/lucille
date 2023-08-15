@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.util;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -54,6 +53,37 @@ public class StageUtilsTest {
 
     assertTrue(actualMessageFirst.contains(expectedMessage));
     assertTrue(actualMessageSecond.contains(expectedMessage));
+  }
+
+  @Test
+  public void testValidateFieldNumNotZeroNoException() {
+    try {
+      StageUtils.validateFieldNumNotZero(new ArrayList<String>(Arrays.asList("a", "b")), "TestStage");
+    } catch (StageException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Test
+  public void testValidateFieldNumsEqualNoException() {
+    try {
+      StageUtils.validateFieldNumsEqual(new ArrayList<String>(Arrays.asList("a", "b")),
+          new ArrayList<String>(Arrays.asList("c", "d")), "TestStage");
+    } catch (StageException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Test
+  public void testValidateFieldNumsSeveralToOneNoException() {
+    try {
+      StageUtils.validateFieldNumsSeveralToOne(new ArrayList<String>(Arrays.asList("a", "b")),
+          new ArrayList<String>(Arrays.asList("c")), "TestStage");
+      StageUtils.validateFieldNumsSeveralToOne(new ArrayList<String>(Arrays.asList("a", "b")),
+          new ArrayList<String>(Arrays.asList("c", "d")), "TestStage");
+    } catch (StageException e) {
+      throw new RuntimeException(e);
+    }
   }
 
 }
