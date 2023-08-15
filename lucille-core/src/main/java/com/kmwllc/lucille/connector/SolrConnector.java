@@ -57,10 +57,10 @@ public class SolrConnector extends AbstractConnector {
 
   public SolrConnector(Config config, SolrClient client) {
     super(config);
+    this.client = client;
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
     this.actionFormat = config.hasPath("useXml") && config.getBoolean("useXml") ? "text/xml" : "text/json";
-    this.client = SolrUtils.getSolrClient(config);
 
     this.request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
     this.solrParams = new HashMap<>();
@@ -81,7 +81,7 @@ public class SolrConnector extends AbstractConnector {
         this.solrParams.put(e.getKey(), Collections.singletonList(String.valueOf(rawValues)));
       }
     }
-    this.client = client;
+
   }
 
   @Override
