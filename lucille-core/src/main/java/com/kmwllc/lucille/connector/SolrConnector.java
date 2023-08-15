@@ -52,6 +52,10 @@ public class SolrConnector extends AbstractConnector {
   private final String actionFormat;
 
   public SolrConnector(Config config) {
+    this(config, SolrUtils.getSolrClient(config));
+  }
+
+  public SolrConnector(Config config, SolrClient client) {
     super(config);
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
@@ -77,10 +81,6 @@ public class SolrConnector extends AbstractConnector {
         this.solrParams.put(e.getKey(), Collections.singletonList(String.valueOf(rawValues)));
       }
     }
-  }
-
-  public SolrConnector(Config config, SolrClient client) {
-    this(config);
     this.client = client;
   }
 
