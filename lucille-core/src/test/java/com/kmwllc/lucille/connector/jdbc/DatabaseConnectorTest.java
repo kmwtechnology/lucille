@@ -336,7 +336,7 @@ public class DatabaseConnectorTest {
     assertEquals("1", doc1.getString("table_id"));
     assertEquals("2", doc2.getString("table_id"));
 
-    // "other_id" is not in the document
+    // "other_id" is still in the document
     assertTrue(doc1.has("other_id"));
     assertEquals("id1", doc1.getString("other_id"));
     assertTrue(doc2.has("other_id"));
