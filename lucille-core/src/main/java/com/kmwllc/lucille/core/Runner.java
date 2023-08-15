@@ -210,59 +210,49 @@ public class Runner {
     log.info("Starting run with id " + runId);
 
     List<Connector> connectors = Connector.fromConfig(config);
-    try {
-      List<ConnectorResult> connectorResults = new ArrayList<>();
+    List<ConnectorResult> connectorResults = new ArrayList<>();
 
-      boolean startWorkerAndIndexer = !type.equals(RunType.KAFKA_DISTRIBUTED);
-      boolean bypassSolr = type.equals(RunType.TEST);
+    boolean startWorkerAndIndexer = !type.equals(RunType.KAFKA_DISTRIBUTED);
+    boolean bypassSolr = type.equals(RunType.TEST);
 
-      Map<String, PersistingLocalMessageManager> history = type.equals(RunType.TEST) ? new HashMap<>() : null;
+    Map<String, PersistingLocalMessageManager> history = type.equals(RunType.TEST) ? new HashMap<>() : null;
 
-      for (Connector connector : connectors) {
+    for (Connector connector : connectors) {
 
-        WorkerMessageManagerFactory workerMMFactory;
-        IndexerMessageManagerFactory indexerMMFactory;
-        PublisherMessageManagerFactory publisherMMFactory;
+      WorkerMessageManagerFactory workerMMFactory;
+      IndexerMessageManagerFactory indexerMMFactory;
+      PublisherMessageManagerFactory publisherMMFactory;
 
-        if (RunType.TEST.equals(type)) {
-          PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-          history.put(connector.getName(), manager);
-          workerMMFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
-          indexerMMFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
-          publisherMMFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
-        } else if (RunType.LOCAL.equals(type)) {
-          LocalMessageManager manager = new LocalMessageManager(config);
-          workerMMFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
-          indexerMMFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
-          publisherMMFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
-        } else { // RunType.KAFKA_LOCAL.equals(type) || RunType.KAFKA_DISTRIBUTED.equals(type)
-          workerMMFactory = WorkerMessageManagerFactory.getKafkaFactory(config, connector.getPipelineName());
-          indexerMMFactory = IndexerMessageManagerFactory.getKafkaFactory(config, connector.getPipelineName());
-          publisherMMFactory = PublisherMessageManagerFactory.getKafkaFactory(config);
-        }
-
-        ConnectorResult result =
-          runConnectorWithComponents(config, runId, connector,
-            workerMMFactory, indexerMMFactory, publisherMMFactory, startWorkerAndIndexer, bypassSolr);
-
-        connectorResults.add(result);
-
-        if (!result.getStatus()) {
-          log.error("Aborting run because " + connector.getName() + " failed.");
-          return new RunResult(false, connectors, connectorResults, history, runId);
-        }
+      if (RunType.TEST.equals(type)) {
+        PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+        history.put(connector.getName(), manager);
+        workerMMFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
+        indexerMMFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
+        publisherMMFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
+      } else if (RunType.LOCAL.equals(type)) {
+        LocalMessageManager manager = new LocalMessageManager(config);
+        workerMMFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
+        indexerMMFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
+        publisherMMFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
+      } else { // RunType.KAFKA_LOCAL.equals(type) || RunType.KAFKA_DISTRIBUTED.equals(type)
+        workerMMFactory = WorkerMessageManagerFactory.getKafkaFactory(config, connector.getPipelineName());
+        indexerMMFactory = IndexerMessageManagerFactory.getKafkaFactory(config, connector.getPipelineName());
+        publisherMMFactory = PublisherMessageManagerFactory.getKafkaFactory(config);
       }
-      return new RunResult(true, connectors, connectorResults, history, runId);
-    } finally {
-      // make sure none of the connectors linger beyond this run.
-      if (connectors != null) {
-        for (Connector connector: connectors) {
-          if (connector != null) {
-            connector.close();
-          }
-        }
+
+      ConnectorResult result =
+        runConnectorWithComponents(config, runId, connector,
+          workerMMFactory, indexerMMFactory, publisherMMFactory, startWorkerAndIndexer, bypassSolr);
+
+      connectorResults.add(result);
+
+      if (!result.getStatus()) {
+        log.error("Aborting run because " + connector.getName() + " failed.");
+        return new RunResult(false, connectors, connectorResults, history, runId);
       }
     }
+
+    return new RunResult(true, connectors, connectorResults, history, runId);
   }
 
   /**
@@ -407,6 +397,8 @@ public class Runner {
         if (!indexer.validateConnection()) {
           String msg = "Indexer could not connect.";
           log.error(msg);
+          // clean up indexer lifecycle which was created but never run in a thread.
+          indexer.closeConnection();
           return new ConnectorResult(connector, publisher, false, msg);
         }
 
@@ -428,7 +420,6 @@ public class Runner {
         workerPool.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
       }
       if (indexerThread != null) {
-        indexer.closeConnection();
         indexer.terminate();
         indexerThread.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
       }
