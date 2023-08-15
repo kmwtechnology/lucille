@@ -39,10 +39,10 @@ public class SolrUtils {
    */
   public static SolrClient getSolrClient(Config config) {
     SSLUtils.setSSLSystemProperties(config);
-    if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
+    if (config.hasPath("solr.useCloudClient") && config.getBoolean("solr.useCloudClient")) {
       CloudSolrClient cloudSolrClient = getCloudClient(config);
-      if (config.hasPath("defaultCollection")) {
-        cloudSolrClient.setDefaultCollection(config.getString("defaultCollection"));
+      if (config.hasPath("solr.defaultCollection")) {
+        cloudSolrClient.setDefaultCollection(config.getString("solr.defaultCollection"));
       }
       return cloudSolrClient;
     } else {
@@ -56,17 +56,17 @@ public class SolrUtils {
     // todo review if zkHosts is required
     // https://solr.apache.org/guide/solr/latest/deployment-guide/solrj.html#base-urls-of-cloudsolrclient
     CloudSolrClient.Builder cloudBuilder;
-    if (config.hasPath("zkHosts")) {
+    if (config.hasPath("solr.zkHosts")) {
 
       // optional property
       Optional<String> zkChroot;
-      if (config.hasPath("zkChroot")) {
-        zkChroot = Optional.of(config.getString("zkChroot"));
+      if (config.hasPath("solr.zkChroot")) {
+        zkChroot = Optional.of(config.getString("solr.zkChroot"));
       } else {
         zkChroot = Optional.empty();
       }
 
-      cloudBuilder = new CloudSolrClient.Builder(config.getStringList("zkHosts"), zkChroot);
+      cloudBuilder = new CloudSolrClient.Builder(config.getStringList("solr.zkHosts"), zkChroot);
     } else {
       cloudBuilder = new CloudSolrClient.Builder(getSolrUrls(config));
     }

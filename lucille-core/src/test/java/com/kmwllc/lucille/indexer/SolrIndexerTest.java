@@ -853,6 +853,16 @@ public class SolrIndexerTest {
         equalTo(events.get(0).getType()));
   }
 
+  @Test(expected = com.typesafe.config.ConfigException.WrongType.class)
+  public void testUseCloudClientConfigException() {
+    Config config = ConfigFactory.empty()
+        .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
+        // This should be a list of strings
+        .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef("hello"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    new SolrIndexer(config, manager, false, "");
+  }
+
   private static class ErroringIndexer extends SolrIndexer {
 
     public ErroringIndexer(Config config, IndexerMessageManager manager, boolean bypass) {
