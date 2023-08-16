@@ -7,8 +7,8 @@
         <option name="TAB_SIZE" value="2" />
       </value>
     </option>
-    <option name="ENABLE_JAVADOC_FORMATTING" value="false" />
     <option name="RIGHT_MARGIN" value="132" />
+    <option name="ENABLE_JAVADOC_FORMATTING" value="false" />
     <option name="KEEP_CONTROL_STATEMENT_IN_ONE_LINE" value="false" />
     <option name="KEEP_BLANK_LINES_BEFORE_RBRACE" value="0" />
     <option name="ALIGN_MULTILINE_PARAMETERS" value="false" />
@@ -61,6 +61,7 @@
           <package name="" withSubpackages="true" static="false" />
         </value>
       </option>
+      <option name="ENABLE_JAVADOC_FORMATTING" value="false" />
     </JavaCodeStyleSettings>
     <Objective-C>
       <option name="INDENT_NAMESPACE_MEMBERS" value="0" />
