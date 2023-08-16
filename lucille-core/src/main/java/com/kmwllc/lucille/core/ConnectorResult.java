@@ -14,20 +14,16 @@ public class ConnectorResult {
 
   private String message;
 
-  public ConnectorResult(
-      Connector connector, Publisher publisher, boolean status, String errorMsg) {
+  public ConnectorResult(Connector connector, Publisher publisher,
+                         boolean status, String errorMsg) {
     this(connector, publisher, status, errorMsg, null);
   }
 
-  public ConnectorResult(
-      Connector connector,
-      Publisher publisher,
-      boolean status,
-      String errMsg,
-      Double durationSecs) {
+  public ConnectorResult(Connector connector, Publisher publisher,
+                         boolean status, String errMsg, Double durationSecs) {
     this.status = status;
     this.message = formatMessage(connector, publisher, status, errMsg, durationSecs);
-    if (publisher != null) {
+    if (publisher!=null) {
       this.numFailed = publisher.numFailed();
       this.numSucceeded = publisher.numSucceeded();
     } else {
@@ -52,26 +48,16 @@ public class ConnectorResult {
     return message;
   }
 
-  private static String formatMessage(
-      Connector connector,
-      Publisher publisher,
-      boolean status,
-      String errMsg,
-      Double durationSecs) {
+  private static String formatMessage(Connector connector, Publisher publisher,
+                                      boolean status, String errMsg, Double durationSecs) {
     String msg = connector.getName() + ": ";
     msg += status ? "complete. " : "ERROR. ";
     if (status) {
-      if (publisher == null) {
+      if (publisher==null) {
         msg += "No pipeline configured.";
       } else {
-        msg +=
-            publisher.numSucceeded()
-                + " docs succeeded. "
-                + publisher.numFailed()
-                + " docs "
-                + (publisher.numFailed() > 0
-                    ? "FAILED."
-                    : "failed. " + publisher.numDropped() + " docs dropped.");
+        msg += publisher.numSucceeded() + " docs succeeded. " + publisher.numFailed() + " docs " +
+          (publisher.numFailed()>0 ? "FAILED." : "failed. " + publisher.numDropped() + " docs dropped.");
       }
     } else {
       msg += errMsg;

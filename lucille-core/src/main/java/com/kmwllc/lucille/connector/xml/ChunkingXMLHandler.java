@@ -32,23 +32,27 @@ public class ChunkingXMLHandler implements ContentHandler {
   private String outputField;
 
   @Override
-  public void setDocumentLocator(Locator locator) {}
+  public void setDocumentLocator(Locator locator) {
+  }
 
   @Override
-  public void startDocument() throws SAXException {}
+  public void startDocument() throws SAXException {
+  }
 
   @Override
-  public void endDocument() throws SAXException {}
+  public void endDocument() throws SAXException {
+  }
 
   @Override
-  public void startPrefixMapping(String prefix, String uri) throws SAXException {}
+  public void startPrefixMapping(String prefix, String uri) throws SAXException {
+  }
 
   @Override
-  public void endPrefixMapping(String prefix) throws SAXException {}
+  public void endPrefixMapping(String prefix) throws SAXException {
+  }
 
   @Override
-  public void startElement(String uri, String localName, String qName, Attributes atts)
-      throws SAXException {
+  public void startElement(String uri, String localName, String qName, Attributes atts) throws SAXException {
     // push on the stack.
     currentPath.push(qName);
 
@@ -62,6 +66,7 @@ public class ChunkingXMLHandler implements ContentHandler {
       } catch (IOException e) {
         log.error("IOException caught", e);
       }
+
     }
     if (documentIDPath.equals(path)) {
       // this is the start of the document id field.
@@ -116,13 +121,16 @@ public class ChunkingXMLHandler implements ContentHandler {
   }
 
   @Override
-  public void ignorableWhitespace(char[] ch, int start, int length) throws SAXException {}
+  public void ignorableWhitespace(char[] ch, int start, int length) throws SAXException {
+  }
 
   @Override
-  public void processingInstruction(String target, String data) throws SAXException {}
+  public void processingInstruction(String target, String data) throws SAXException {
+  }
 
   @Override
-  public void skippedEntity(String name) throws SAXException {}
+  public void skippedEntity(String name) throws SAXException {
+  }
 
   public void setDocumentRootPath(String documentRootPath) {
     this.documentRootPath = documentRootPath;
@@ -159,4 +167,5 @@ public class ChunkingXMLHandler implements ContentHandler {
   public void setOutputField(String outputField) {
     this.outputField = outputField;
   }
+
 }

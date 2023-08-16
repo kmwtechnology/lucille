@@ -32,22 +32,21 @@ public class WorkerPoolTest {
   }
 
   /**
-   * Confirm that a worker's message manager is closed when the worker stopped. This is important in
-   * kafka mode where we want to close any kafka client connections before shutting down.
+   * Confirm that a worker's message manager is closed when the worker stopped.
+   * This is important in kafka mode where we want to close any kafka client connections before
+   * shutting down.
+   *
    */
   @Test
   public void testManagerClose() throws Exception {
     PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
     WorkerMessageManagerFactory factory = WorkerMessageManagerFactory.getConstantFactory(manager);
-    WorkerPool pool =
-        new WorkerPool(
-            ConfigFactory.load("WorkerPoolTest/onePipeline.conf"),
-            "pipeline1",
-            factory,
-            "metricsPrefix");
+    WorkerPool pool = new WorkerPool(ConfigFactory.load("WorkerPoolTest/onePipeline.conf"),
+      "pipeline1", factory, "metricsPrefix");
     pool.start();
     pool.stop();
     pool.join();
     verify(manager, times(1)).close();
   }
+
 }

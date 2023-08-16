@@ -29,12 +29,8 @@ public class HeartbeatTest {
     }
 
     Config config = ConfigFactory.load("WorkerPoolTest/watcher.conf");
-    WorkerPool pool1 =
-        new WorkerPool(
-            config,
-            "pipeline1",
-            WorkerMessageManagerFactory.getConstantFactory(new LocalMessageManager()),
-            "");
+    WorkerPool pool1 = new WorkerPool(config, "pipeline1",
+      WorkerMessageManagerFactory.getConstantFactory(new LocalMessageManager()), "");
 
     pool1.start();
 
@@ -53,4 +49,5 @@ public class HeartbeatTest {
     String lastLine = lines.skip(currentLineCount - 1).findFirst().get();
     assertTrue(lastLine.contains("INFO Heartbeat: Issuing heartbeat"));
   }
+
 }

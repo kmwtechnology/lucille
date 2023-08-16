@@ -27,27 +27,21 @@ public class ElasticsearchIndexer extends Indexer {
   private final ElasticsearchClient client;
   private final String index;
 
-  // flag for using partial update API when sending documents to elastic
+  //flag for using partial update API when sending documents to elastic
   private final boolean update;
 
-  public ElasticsearchIndexer(
-      Config config,
-      IndexerMessageManager manager,
-      ElasticsearchClient client,
-      String metricsPrefix) {
+  public ElasticsearchIndexer(Config config, IndexerMessageManager manager, ElasticsearchClient client,
+                              String metricsPrefix) {
     super(config, manager, metricsPrefix);
     if (this.indexOverrideField != null) {
-      throw new IllegalArgumentException(
-          "Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
+      throw new IllegalArgumentException("Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
     }
     this.client = client;
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
-    this.update =
-        config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
+    this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
   }
 
-  public ElasticsearchIndexer(
-      Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
+  public ElasticsearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
     this(config, manager, getClient(config, bypass), metricsPrefix);
   }
 
@@ -81,11 +75,12 @@ public class ElasticsearchIndexer extends Indexer {
 
     BulkRequest.Builder br = new BulkRequest.Builder();
 
+
     for (Document doc : documents) {
       Map<String, Object> indexerDoc = doc.asMap();
 
-      // remove children documents field from indexer doc (processed from doc by addChildren method
-      // call below)
+
+      // remove children documents field from indexer doc (processed from doc by addChildren method call below)
       indexerDoc.remove(Document.CHILDREN_FIELD);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
@@ -96,11 +91,23 @@ public class ElasticsearchIndexer extends Indexer {
       addChildren(doc, indexerDoc);
 
       if (update) {
-        br.operations(
-            op -> op.update(up -> up.id(docId).index(index).action(upx -> upx.doc(indexerDoc))));
+        br.operations(op -> op
+          .update(up -> up
+            .id(docId)
+            .index(index)
+            .action(upx -> upx
+              .doc(indexerDoc)
+            )));
       } else {
-        br.operations(op -> op.index(idx -> idx.index(index).id(docId).document(indexerDoc)));
+        br.operations(op -> op
+          .index(idx -> idx
+            .index(index)
+            .id(docId)
+            .document(indexerDoc)
+          ));
       }
+
+
     }
     client.bulk(br.build());
   }
@@ -132,8 +139,7 @@ public class ElasticsearchIndexer extends Indexer {
         Object value = map.get(key);
         indexerChildDoc.put(key, value);
       }
-      // TODO: Do nothing for now, add support for child docs like SolrIndexer does in future
-      // (_childDocuments_)
+      // TODO: Do nothing for now, add support for child docs like SolrIndexer does in future (_childDocuments_)
     }
   }
 
@@ -151,17 +157,16 @@ public class ElasticsearchIndexer extends Indexer {
     Thread indexerThread = new Thread(indexer);
     indexerThread.start();
 
-    Signal.handle(
-        new Signal("INT"),
-        signal -> {
-          indexer.terminate();
-          log.info("Indexer shutting down");
-          try {
-            indexerThread.join();
-          } catch (InterruptedException e) {
-            log.error("Interrupted", e);
-          }
-          System.exit(0);
-        });
+    Signal.handle(new Signal("INT"), signal -> {
+      indexer.terminate();
+      log.info("Indexer shutting down");
+      try {
+        indexerThread.join();
+      } catch (InterruptedException e) {
+        log.error("Interrupted", e);
+      }
+      System.exit(0);
+    });
   }
+
 }

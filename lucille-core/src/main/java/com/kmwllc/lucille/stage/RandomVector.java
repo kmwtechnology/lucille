@@ -19,11 +19,9 @@ public class RandomVector extends Stage {
   private final UpdateMode updateMode;
 
   public RandomVector(Config config) {
-    super(
-        config,
-        new StageSpec()
-            .withOptionalProperties("update_mode")
-            .withRequiredProperties("fields", "dimensions"));
+    super(config, new StageSpec()
+      .withOptionalProperties("update_mode")
+      .withRequiredProperties("fields", "dimensions"));
     this.fields = config.getStringList("fields");
     this.updateMode = UpdateMode.fromConfig(config);
     this.dimensions = config.getInt("dimensions");

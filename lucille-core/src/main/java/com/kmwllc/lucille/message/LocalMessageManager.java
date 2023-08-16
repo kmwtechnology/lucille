@@ -12,11 +12,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Implementation of the message manager APIs used by Indexers, Publishers, and Workers, suitable
- * for sharing among those three components when executing Lucille in "local" mode.
+ * Implementation of the message manager APIs used by Indexers, Publishers, and Workers, suitable for
+ * sharing among those three components when executing Lucille in "local" mode.
  */
-public class LocalMessageManager
-    implements IndexerMessageManager, PublisherMessageManager, WorkerMessageManager {
+public class LocalMessageManager implements IndexerMessageManager, PublisherMessageManager, WorkerMessageManager {
 
   public static final Logger log = LoggerFactory.getLogger(LocalMessageManager.class);
 
@@ -38,14 +37,12 @@ public class LocalMessageManager
   }
 
   public LocalMessageManager(Config config) {
-    this.pipelineSource =
-        config.hasPath("publisher.queueCapacity")
-            ? new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity"))
-            : new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
-    this.pipelineDest =
-        config.hasPath("publisher.queueCapacity")
-            ? new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity"))
-            : new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
+    this.pipelineSource = config.hasPath("publisher.queueCapacity") ?
+      new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity")) :
+      new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
+    this.pipelineDest = config.hasPath("publisher.queueCapacity") ?
+      new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity")) :
+      new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
   }
 
   private String runId = null;
@@ -62,7 +59,8 @@ public class LocalMessageManager
   }
 
   @Override
-  public void commitPendingDocOffsets() throws Exception {}
+  public void commitPendingDocOffsets() throws Exception {
+  }
 
   @Override
   public void sendCompleted(Document document) throws Exception {
@@ -70,7 +68,9 @@ public class LocalMessageManager
   }
 
   @Override
-  public void sendFailed(Document document) throws Exception {}
+  public void sendFailed(Document document) throws Exception {
+
+  }
 
   @Override
   public void sendEvent(Document document, String message, Event.Type type) throws Exception {
@@ -90,7 +90,7 @@ public class LocalMessageManager
 
   @Override
   public void initialize(String runId, String pipelineName) throws Exception {
-    if (this.runId != null) {
+    if (this.runId!=null) {
       throw new Exception("Already initialized.");
     }
     this.runId = runId;
@@ -108,8 +108,10 @@ public class LocalMessageManager
   }
 
   @Override
-  public void close() {}
+  public void close() {
+  }
 
   @Override
-  public void batchComplete(List<Document> batch) throws Exception {}
+  public void batchComplete(List<Document> batch) throws Exception {
+  }
 }

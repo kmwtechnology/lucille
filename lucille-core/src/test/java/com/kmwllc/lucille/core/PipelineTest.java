@@ -1,5 +1,4 @@
 package com.kmwllc.lucille.core;
-
 import com.kmwllc.lucille.stage.CreateChildrenStage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -24,14 +23,13 @@ public class PipelineTest {
 
   @Test
   public void testFromConfig() throws Exception {
-    String s =
-        "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}, {class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\"}]}]";
+    String s = "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}, {class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\"}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1", "");
     List<Stage> stages = pipeline.getStages();
     assertEquals(stages.get(0).getClass(), Stage1.class);
     assertEquals(stages.get(1).getClass(), Stage4.class);
-    assertTrue(((Stage4) stages.get(1)).isStarted());
+    assertTrue(((Stage4)stages.get(1)).isStarted());
     Document doc = Document.create("d1");
     pipeline.processDocument(doc).next(); // TODO
     assertEquals("v1", doc.getString("s1"));
@@ -46,26 +44,23 @@ public class PipelineTest {
 
   @Test(expected = PipelineException.class)
   public void testFromConfigWithUnnamedPipeline() throws Exception {
-    String s =
-        "pipelines = [{stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, "
-            + "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
+    String s = "pipelines = [{stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, " +
+      "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline.fromConfig(config, "pipeline1", "");
   }
 
   @Test(expected = PipelineException.class)
   public void testFromConfigWithDuplicatePipelineName() throws Exception {
-    String s =
-        "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, "
-            + "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
+    String s = "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, " +
+      "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline.fromConfig(config, "pipeline1", "");
   }
 
   @Test(expected = PipelineException.class)
   public void testFromConfigWithoutDesignatedPipeline() throws Exception {
-    String s =
-        "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
+    String s = "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline.fromConfig(config, "pipeline2", "");
   }
@@ -77,8 +72,7 @@ public class PipelineTest {
     // d1 should flow through all stages and should get fields created by stages 1 through 4
     // d1-s2c1 and d1-s2c2 should be created by stage 2;
     //     these docs should have fields created by downstream stages (stage 3, stage 4)
-    // d1-s3c1, d1-s3c2, d1-s2c1-s3c1, d1-s2c1-s3c2, d1-s2c2-s3c1, d1-s2c2-s3c2 should be created by
-    // stage 3
+    // d1-s3c1, d1-s3c2, d1-s2c1-s3c1, d1-s2c1-s3c2, d1-s2c2-s3c1, d1-s2c2-s3c2 should be created by stage 3
     //     and should only have fields created by stage 4
     Pipeline pipeline = new Pipeline();
     Config config = ConfigFactory.empty();
@@ -104,9 +98,7 @@ public class PipelineTest {
 
     expected.add(Document.createFromJson("{\"id\":\"d1-s3c1\",\"s4\":\"v4\"}"));
     expected.add(Document.createFromJson("{\"id\":\"d1-s3c2\",\"s4\":\"v4\"}"));
-    expected.add(
-        Document.createFromJson(
-            "{\"id\":\"d1\",\"s1\":\"v1\",\"s2\":\"v2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
+    expected.add(Document.createFromJson("{\"id\":\"d1\",\"s1\":\"v1\",\"s2\":\"v2\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
 
     assertEquals(expected, results);
   }
@@ -135,28 +127,23 @@ public class PipelineTest {
     }
 
     // 000 is the original input document
-    // 111 is the first child from the last stage, made from the first child from the middle stage,
-    // made from the
+    // 111 is the first child from the last stage, made from the first child from the middle stage, made from the
     // first child from the first stage
-    // 201 is the second child from the last stage, made from the first child of the first stage and
-    // passed through
+    // 201 is the second child from the last stage, made from the first child of the first stage and passed through
     // the middle stage (not emitted from the middle stage as a child)
     // etc.
-    List<String> expected =
-        Arrays.asList(
-            new String[] {
-              "111", "211", "011", "121", "221", "021", "101", "201", "001", "112", "212", "012",
-              "122", "222", "022", "102", "202", "002", "110", "210", "010", "120", "220", "020",
-              "100", "200", "000"
-            });
+    List<String> expected = Arrays.asList(new String[] {
+      "111", "211", "011", "121", "221", "021", "101", "201", "001", "112", "212", "012", "122", "222",
+      "022", "102", "202", "002", "110", "210", "010", "120", "220", "020", "100", "200", "000"
+    });
 
     assertEquals(expected, stringResults);
   }
 
   /**
-   * Create a pipeline with 100 stages that each create 100 children for each input. Confirm that
-   * although this pipeline should generate 100^100 documents for each input document, we can begin
-   * iterating through the results without running out of memory.
+   * Create a pipeline with 100 stages that each create 100 children for each input.
+   * Confirm that although this pipeline should generate 100^100 documents for each
+   * input document, we can begin iterating through the results without running out of memory.
    */
   @Test
   public void testScalableChildIteration() throws Exception {
@@ -180,6 +167,7 @@ public class PipelineTest {
     pipeline.stopStages();
   }
 
+
   @Test
   public void testRunIdCopiedToChildren() throws Exception {
     // create a pipeline with Stages 1 through 4 in sequence
@@ -202,15 +190,15 @@ public class PipelineTest {
     for (Document result : results) {
       assertEquals(runId, result.getRunId());
     }
+
   }
 
   @Test
   public void testConditional() throws Exception {
-    String s =
-        "pipelines = [{name:\"pipeline1\", "
-            + "stages: "
-            + "[{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\", conditions:[{fields:[\"cond\"], values:[\"abc\",\"123\"], operator:\"must\"}]}, "
-            + "{class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\", conditions:[{fields:[\"cond\"], values:[\"have\",\"test\"], operator:\"must\"}]}]}]";
+    String s = "pipelines = [{name:\"pipeline1\", " +
+        "stages: " +
+        "[{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\", conditions:[{fields:[\"cond\"], values:[\"abc\",\"123\"], operator:\"must\"}]}, " +
+        "{class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\", conditions:[{fields:[\"cond\"], values:[\"have\",\"test\"], operator:\"must\"}]}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1", "");
 
@@ -238,8 +226,7 @@ public class PipelineTest {
   @Test(expected = PipelineException.class)
   public void testDuplicateName() throws Exception {
     Pipeline pipeline = new Pipeline();
-    Config config =
-        ConfigFactory.empty().withValue("name", ConfigValueFactory.fromAnyRef("stage1"));
+    Config config = ConfigFactory.empty().withValue("name", ConfigValueFactory.fromAnyRef("stage1"));
     pipeline.addStage(new Stage1(config));
     pipeline.addStage(new Stage2(config));
   }
@@ -340,4 +327,5 @@ public class PipelineTest {
       return children.iterator();
     }
   }
+
 }

@@ -14,7 +14,7 @@ public class ErrorStage extends Stage {
 
   public ErrorStage(Config config) {
     super(config);
-    if (config.hasPath("exceptionOnStart") && config.getBoolean("exceptionOnStart")) {
+    if (config.hasPath("exceptionOnStart")&&config.getBoolean("exceptionOnStart")) {
       this.exceptionOnStart = true;
     }
   }
@@ -22,8 +22,7 @@ public class ErrorStage extends Stage {
   @Override
   public void start() throws StageException {
     if (exceptionOnStart) {
-      throw new StageException(
-          "Expected exception on start (thrown because exceptionOnStart==true)");
+      throw new StageException("Expected exception on start (thrown because exceptionOnStart==true)");
     }
   }
 

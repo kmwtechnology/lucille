@@ -19,14 +19,8 @@ public class KafkaUtilsTest {
     Properties externalProps = KafkaUtils.createConsumerProps(externalConfig, "test-client-1");
     assertThat(directProps.size(), equalTo(externalProps.size()));
     for (Object key : directProps.keySet()) {
-      assertThat(
-          String.format("%s should be present in both configs.", key),
-          externalProps.containsKey(key),
-          equalTo(true));
-      assertThat(
-          String.format("%s should match.", key),
-          directProps.get(key.toString()).toString(),
-          equalTo(externalProps.get(key.toString()).toString()));
+      assertThat(String.format("%s should be present in both configs.", key), externalProps.containsKey(key), equalTo(true));
+      assertThat(String.format("%s should match.", key), directProps.get(key.toString()).toString(), equalTo(externalProps.get(key.toString()).toString()));
     }
   }
 
@@ -38,14 +32,8 @@ public class KafkaUtilsTest {
     Properties externalProps = KafkaUtils.createProducerProps(externalConfig);
     assertThat(directProps.size(), equalTo(externalProps.size()));
     for (Object key : directProps.keySet()) {
-      assertThat(
-          String.format("%s should be present in both configs.", key),
-          externalProps.containsKey(key),
-          equalTo(true));
-      assertThat(
-          String.format("%s should match.", key),
-          directProps.get(key.toString()).toString(),
-          equalTo(externalProps.get(key.toString()).toString()));
+      assertThat(String.format("%s should be present in both configs.", key), externalProps.containsKey(key), equalTo(true));
+      assertThat(String.format("%s should match.", key), directProps.get(key.toString()).toString(), equalTo(externalProps.get(key.toString()).toString()));
     }
   }
 }

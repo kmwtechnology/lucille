@@ -15,8 +15,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * This Stage runs a prepared SQL statement on keyfields in a document and places the results in
- * fields of choice. This stage should try and reconnect to the database in the future.
+ * This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice.
+ * This stage should try and reconnect to the database in the future.
  */
 public class QueryDatabase extends Stage {
 
@@ -34,19 +34,11 @@ public class QueryDatabase extends Stage {
   private static final Logger log = LogManager.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {
-    super(
-        config,
-        new StageSpec()
-            .withOptionalProperties("sql")
-            .withRequiredParents("fieldMapping")
-            .withRequiredProperties(
-                "driver",
-                "connectionString",
-                "jdbcUser",
-                "jdbcPassword",
-                "keyFields",
-                "inputTypes",
-                "returnTypes"));
+    super(config, new StageSpec()
+      .withOptionalProperties("sql")
+      .withRequiredParents("fieldMapping")
+      .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword",
+        "keyFields", "inputTypes", "returnTypes"));
 
     driver = config.getString("driver");
     connectionString = config.getString("connectionString");
@@ -166,6 +158,7 @@ public class QueryDatabase extends Stage {
     return null;
   }
 
+
   private void createConnection() throws StageException {
     try {
       Class.forName(driver);
@@ -197,3 +190,4 @@ public class QueryDatabase extends Stage {
     }
   }
 }
+

@@ -10,9 +10,10 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 /**
- * Database helper class to create an h2 database and initialize it with a sql start script.
- *
- * <p>Created by matt on 3/27/17.
+ * Database helper class to create an h2 database 
+ * and initialize it with a sql start script.
+ * 
+ * Created by matt on 3/27/17.
  */
 public class DBTestHelper extends ExternalResource {
   private final String driver;
@@ -23,12 +24,7 @@ public class DBTestHelper extends ExternalResource {
   private final String endScriptPath;
   private Connection conn;
 
-  public DBTestHelper(
-      String driver,
-      String connection,
-      String user,
-      String password,
-      String startScriptPath,
+  public DBTestHelper(String driver, String connection, String user, String password, String startScriptPath,
       String endScriptPath) {
     this.driver = driver;
     this.connection = connection;

@@ -12,7 +12,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/** A sequence of processing Stages to be applied to incoming Documents. */
+/**
+ * A sequence of processing Stages to be applied to incoming Documents.
+ */
 public class Pipeline {
 
   private static final Logger log = LoggerFactory.getLogger(Pipeline.class);
@@ -24,7 +26,7 @@ public class Pipeline {
   }
 
   public void addStage(Stage stage, String metricsPrefix) throws PipelineException, StageException {
-    stage.initialize(stages.size() + 1, metricsPrefix);
+    stage.initialize(stages.size()+1, metricsPrefix);
     if (stages.stream().anyMatch(s -> stage.getName().equals(s.getName()))) {
       throw new PipelineException("Two stages cannot have the same name: " + stage.getName());
     }
@@ -53,13 +55,14 @@ public class Pipeline {
     }
   }
 
-  public static List<Exception> validateStages(Config config, String name) throws Exception {
-    return validateStages(getPipelineStages(config, name));
+  public static List<Exception> validateStages(Config config, String name)
+    throws Exception {
+      return validateStages(getPipelineStages(config, name));
   }
 
   /**
-   * Returns a list of exceptions that occurred during initialization and validation of stages in
-   * the given list
+   * Returns a list of exceptions that occurred during initialization and validation of stages
+   * in the given list
    */
   public static List<Exception> validateStages(List<? extends Config> stages) {
     List<Exception> exceptions = new ArrayList<>();
@@ -78,12 +81,13 @@ public class Pipeline {
     return exceptions;
   }
 
+
   /**
-   * Instantiates a Pipeline from the designated list of Stage Configs. The Config for each Stage
-   * must specify the stage's class.
+   * Instantiates a Pipeline from the designated list of Stage Configs.
+   * The Config for each Stage must specify the stage's class.
    */
-  public static Pipeline fromConfig(List<? extends Config> stages, String metricsPrefix)
-      throws Exception {
+  public static Pipeline fromConfig(List<? extends Config> stages, String metricsPrefix) throws
+    Exception {
     Pipeline pipeline = new Pipeline();
     for (Config c : stages) {
       Class<?> clazz = Class.forName(c.getString("class"));
@@ -95,7 +99,8 @@ public class Pipeline {
     return pipeline;
   }
 
-  private static Stage getInstance(Constructor<?> constructor, Config c) throws Exception {
+  private static Stage getInstance(Constructor<?> constructor, Config c)
+    throws Exception {
     try {
       return (Stage) constructor.newInstance(c);
     } catch (InvocationTargetException e) {
@@ -108,16 +113,16 @@ public class Pipeline {
   }
 
   /**
-   * The Config is expected to have a "pipeline.<name>.stages" element containing a List of stages
-   * and their settings. The list element for each Stage must specify the stage's class.
+   *
+   * The Config is expected to have a "pipeline.<name>.stages" element
+   * containing a List of stages and their settings. The list element for each Stage must specify the stage's class.
    */
   public static Pipeline fromConfig(Config config, String name, String metricsPrefix)
-      throws Exception {
-    return fromConfig(getPipelineStages(config, name), metricsPrefix);
+    throws Exception {
+      return fromConfig(getPipelineStages(config, name), metricsPrefix);
   }
 
-  private static List<? extends Config> getPipelineStages(Config config, String name)
-      throws Exception {
+  private static List<? extends Config> getPipelineStages(Config config, String name) throws Exception {
     if (!config.hasPath("pipelines")) {
       throw new PipelineException("No pipelines element present in config");
     }
@@ -126,20 +131,17 @@ public class Pipeline {
       throw new PipelineException("Pipeline without name found in config");
     }
     List<Config> matchingPipelines =
-        pipelines.stream()
-            .filter(p -> name.equals(p.getString("name")))
-            .collect(Collectors.toList());
-    if (matchingPipelines.size() > 1) {
+      pipelines.stream().filter(p -> name.equals(p.getString("name"))).collect(Collectors.toList());
+    if (matchingPipelines.size()>1) {
       throw new PipelineException("More than one pipeline found with name: " + name);
     }
-    if (matchingPipelines.size() == 1) {
+    if (matchingPipelines.size()==1) {
       return matchingPipelines.get(0).getConfigList("stages");
     }
     throw new PipelineException("No pipeline found with name: " + name);
   }
 
-  public static Integer getIntProperty(Config config, String pipelineName, String propertyName)
-      throws PipelineException {
+  public static Integer getIntProperty(Config config, String pipelineName, String propertyName) throws PipelineException {
     if (!config.hasPath("pipelines")) {
       throw new PipelineException("No pipelines element present in config");
     }
@@ -162,9 +164,9 @@ public class Pipeline {
    * Passes a Document through the designated sequence of stages and returns an Iterator containing
    * the input Document as the first element, along with any child documents generated.
    *
-   * <p>Child documents are passed through downstream stages only. For example, if we have a
-   * sequence of stages S1, S2, S3, and if S2 generates a child document, the child document will be
-   * passed through S3 only.
+   * Child documents are passed through downstream stages only. For example, if we have a sequence of stages
+   * S1, S2, S3, and if S2 generates a child document, the child document will be passed through S3 only.
+   *
    */
   public Iterator<Document> processDocument(Document document) throws StageException {
     Iterator<Document> result = document.iterator();
@@ -175,4 +177,5 @@ public class Pipeline {
 
     return result;
   }
+
 }

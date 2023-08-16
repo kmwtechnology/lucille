@@ -19,18 +19,17 @@ import java.util.concurrent.TimeUnit;
 /**
  * Publisher implementation that maintains an in-memory list of pending documents.
  *
- * <p>Note that this implementation includes an explicit design decision that the publisher should
- * not remember all of the documents it has published because there could be an unbounded number of
- * such documents and they could take up significant space in memory. We don't even want the
- * publisher to remember all of the ids of those documents. As soon as the publisher learns that a
- * document has reached an end-state in the workflow, it can "forget" about that document aside from
- * including it a count of how many documents were published. The intention is that the publisher
- * will be receiving events in a separate thread from the one that is publishing documents (e.g.
- * handleEvent() and publish() will be called by separate threads) so that the publisher can stop
- * tracking some documents even as it starts tracking new ones. To achieve a memory of all the
- * documents that were published, a persisting implementation of PublisherMessageManager could be
- * given to the Publisher at construction time, and the history could be accessed from the message
- * manager.
+ * Note that this implementation includes an explicit design decision that the publisher should
+ * not remember all of the documents it has published because there could be an unbounded number of such documents
+ * and they could take up significant space in memory. We don't even want the publisher to remember
+ * all of the ids of those documents. As soon as the publisher learns that a document has reached
+ * an end-state in the workflow, it can "forget" about that document aside from including it
+ * a count of how many documents were published. The intention is that the publisher will be receiving
+ * events in a separate thread from the one that is publishing documents (e.g. handleEvent() and publish() will
+ * be called by separate threads) so that the publisher can stop tracking some documents even as it starts
+ * tracking new ones. To achieve a memory of all the documents that were published,
+ * a persisting implementation of PublisherMessageManager could be given to the Publisher at construction time,
+ * and the history could be accessed from the message manager.
  */
 public class PublisherImpl implements Publisher {
 
@@ -60,41 +59,26 @@ public class PublisherImpl implements Publisher {
   private Document previousDoc = null;
   private StopWatch firstDocStopWatch;
 
-  // List of published documents that have not reached a terminal state. Also includes children of
-  // published documents.
-  // Note that this is a List, not a Set, because if two documents with the same ID are published,
-  // we would
-  // expect to receive two separate terminal events relating to those documents, and we will
-  // therefore make
-  // two attempts to remove the ID. Upon each removal attempt, we would like there to be something
-  // present
-  // to remove; otherwise we would classify the event as an "early" terminal event and treat it
-  // specially.
-  // Also note that a Publisher may be shared by a Runner and a Connector: the connector may be
-  // publishing
+  // List of published documents that have not reached a terminal state. Also includes children of published documents.
+  // Note that this is a List, not a Set, because if two documents with the same ID are published, we would
+  // expect to receive two separate terminal events relating to those documents, and we will therefore make
+  // two attempts to remove the ID. Upon each removal attempt, we would like there to be something present
+  // to remove; otherwise we would classify the event as an "early" terminal event and treat it specially.
+  // Also note that a Publisher may be shared by a Runner and a Connector: the connector may be publishing
   // new Documents while the Connector is receiving Events and calling handleEvent().
   // publish() and handleEvent() both update docIdsToTrack so the list should be synchronized.
   private List<String> docIdsToTrack = Collections.synchronizedList(new ArrayList<String>());
 
-  // List of child documents for which a terminal event has been received early, before the
-  // corresponding CREATE event
-  private List<String> docIdsIndexedBeforeTracking =
-      Collections.synchronizedList(new ArrayList<String>());
+  // List of child documents for which a terminal event has been received early, before the corresponding CREATE event
+  private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
 
-  public PublisherImpl(
-      Config config,
-      PublisherMessageManager manager,
-      String runId,
-      String pipelineName,
-      String metricsPrefix,
-      boolean isCollapsing)
-      throws Exception {
+  public PublisherImpl(Config config, PublisherMessageManager manager, String runId,
+                       String pipelineName, String metricsPrefix, boolean isCollapsing) throws Exception {
     this.manager = manager;
     this.runId = runId;
     this.pipelineName = pipelineName;
     this.timer =
-        SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG)
-            .timer(metricsPrefix + ".timeBetweenPublishCalls");
+      SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).timer(metricsPrefix + ".timeBetweenPublishCalls");
     this.isCollapsing = isCollapsing;
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     manager.initialize(runId, pipelineName);
@@ -102,20 +86,18 @@ public class PublisherImpl implements Publisher {
     this.firstDocStopWatch.start();
   }
 
-  public PublisherImpl(
-      Config config, PublisherMessageManager manager, String runId, String pipelineName)
-      throws Exception {
-    this(config, manager, runId, pipelineName, "default", false);
+  public PublisherImpl(Config config, PublisherMessageManager manager, String runId,
+                       String pipelineName) throws Exception {
+    this(config, manager, runId, pipelineName, "default",false);
   }
 
   @Override
   public void publish(Document document) throws Exception {
     if (firstDocStopWatch.isStarted()) {
       firstDocStopWatch.stop();
-      log.info(
-          "First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
+      log.info("First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
     }
-    if (timerContext != null) {
+    if (timerContext!=null) {
       // stop timing the duration since tha last call to publish;
       // the goal is to track the rate of publish() calls as well as the
       // average lag between them (which tells us how fast the connector produces each document)
@@ -134,7 +116,7 @@ public class PublisherImpl implements Publisher {
       return;
     }
 
-    if (previousDoc == null) {
+    if (previousDoc==null) {
       previousDoc = document;
       return;
     }
@@ -158,15 +140,15 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public void flush() throws Exception {
-    if (previousDoc != null) {
+    if (previousDoc!=null) {
       sendForProcessing(previousDoc);
     }
-    previousDoc = null;
+    previousDoc=null;
   }
 
   @Override
   public void close() throws Exception {
-    if (timerContext != null) {
+    if (timerContext!=null) {
       timerContext.stop();
     }
     manager.close();
@@ -180,8 +162,7 @@ public class PublisherImpl implements Publisher {
 
       numCreated++;
 
-      // if we're learning that a child document has been created, we need to begin tracking it
-      // unless
+      // if we're learning that a child document has been created, we need to begin tracking it unless
       // we have already received an early confirmation that it was indexed
       // TODO: this does not handle redundant create events
       if (!docIdsIndexedBeforeTracking.remove(docId)) {
@@ -198,8 +179,7 @@ public class PublisherImpl implements Publisher {
         numDropped++;
       }
 
-      // if we're learning that a document has finished processing, or failed, we can stop tracking
-      // it;
+      // if we're learning that a document has finished processing, or failed, we can stop tracking it;
       // but if we weren't previously tracking it, we need to remember that we've seen it so that
       // if we receive an out-of-order or late create event for this document in the future,
       // we won't start tracking it then
@@ -217,16 +197,14 @@ public class PublisherImpl implements Publisher {
     // poll for Events relating the current run; loop until all work is complete;
     // Note: this polling loop could be refactored so that we would 1) start a logging thread,
     // 2) start a Connector thread, 3) start an Event handling thread which would poll for events
-    // in a fully blocking way, without a timeout, testing the termination conditions only after
-    // processing
+    // in a fully blocking way, without a timeout, testing the termination conditions only after processing
     // each event. We would then join on the connector thread, then the Event handling thread, and
     // finally stop the logging thread.
     while (true) {
 
       // we assume that manager.pollEvent() is a blocking operation with a timeout in the range
       // of several milliseconds to several seconds.
-      // We want to avoid a busy wait; at the same time, we want to test the termination conditions
-      // of the loop
+      // We want to avoid a busy wait; at the same time, we want to test the termination conditions of the loop
       // periodically even when there are no available events to process
       Event event = manager.pollEvent();
 
@@ -235,66 +213,47 @@ public class PublisherImpl implements Publisher {
       }
 
       if (ChronoUnit.MILLIS.between(start, Instant.now()) > timeout) {
-        log.error(
-            "Exiting run with "
-                + numPending()
-                + " pending documents; publisher timed out ("
-                + timeout
-                + "ms)");
+        log.error("Exiting run with " + numPending() + " pending documents; publisher timed out (" + timeout + "ms)");
         return new PublisherResult(false, "Publisher timeout.");
       }
 
       // stop waiting if the connector threw an exception
       if (thread.hasException()) {
-        log.error(
-            "Exiting run with " + numPending() + " pending documents; connector threw exception",
-            thread.getException());
+        log.error("Exiting run with " + numPending() + " pending documents; connector threw exception", thread.getException());
         return new PublisherResult(false, "Connector exception.");
       }
 
-      // We are done if 1) the Connector thread has terminated and therefore no more Documents will
-      // be generated,
+      // We are done if 1) the Connector thread has terminated and therefore no more Documents will be generated,
       // 2) all published Documents and their children are accounted for (none are pending),
       // 3) there are no more Events relating to the current run to consume
-      // Regarding 3), we assume there are no more events if the previous call to
-      // manager.pollEvent() returned null
-      // In a Kafka deployment, the publisher should be the only consumer of the event topic, and
-      // the topic should
+      // Regarding 3), we assume there are no more events if the previous call to manager.pollEvent() returned null
+      // In a Kafka deployment, the publisher should be the only consumer of the event topic, and the topic should
       // have a single partition
-      if (!thread.isAlive() && !hasPending() && event == null) {
-        if (timerContext != null) {
+      if (!thread.isAlive() && !hasPending() && event==null) {
+        if (timerContext!=null) {
           timerContext.stop();
         }
         String collapseInfo = "";
         if (isCollapsing && numPublished < timer.getCount()) {
           collapseInfo = String.format(" (%d after collapsing)", numPublished);
         }
-        log.info(
-            String.format(
-                "Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
-                timer.getMeanRate(), timer.getSnapshot().getMean() / 1000000));
-        log.info(
-            String.format(
-                "%d docs published%s. %d children created. %d success events. %d failure events. %d drop events.",
-                timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped));
-        if (numPublished > 0 && numFailed == 0) {
+        log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
+          timer.getMeanRate(), timer.getSnapshot().getMean()/1000000));
+        log.info(String.format("%d docs published%s. %d children created. %d success events. %d failure events. %d drop events.",
+            timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped));
+        if (numPublished>0 && numFailed==0) {
           log.info("All documents SUCCEEDED.");
         }
-        if (numFailed > 0) {
+        if (numFailed>0) {
           log.error(numFailed + " documents FAILED, but run will continue.");
         }
         return new PublisherResult(!thread.hasException(), null);
       }
 
-      if (ChronoUnit.SECONDS.between(lastLog, Instant.now()) > logSeconds) {
+      if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
         if (thread.isAlive()) {
-          log.info(
-              String.format(
-                  "%d docs published. One minute rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc. Waiting on %d docs.",
-                  timer.getCount(),
-                  timer.getOneMinuteRate(),
-                  timer.getSnapshot().getMean() / 1000000,
-                  numPending()));
+          log.info(String.format("%d docs published. One minute rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc. Waiting on %d docs.",
+            timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000, numPending()));
         } else {
           log.info(String.format("Connector complete. Waiting on %d docs.", numPending()));
         }

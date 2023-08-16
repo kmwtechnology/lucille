@@ -12,7 +12,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
 
-/** Opens an input stream to a VFS file, then closes the VFS resources when the stream is closed. */
+/**
+ * Opens an input stream to a VFS file, then closes the VFS resources when the stream is closed.
+ */
 class VFSInputStream extends FilterInputStream {
 
   private final FileSystemManager manager;

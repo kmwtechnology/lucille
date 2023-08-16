@@ -482,40 +482,15 @@ public class SolrIndexerTest {
     inOrder.verify(solrClient).close();
     inOrder.verifyNoMoreInteractions();
 
-    assertEquals(
-        "Two separate batches of documents should have been sent to solr",
-        2,
-        docsSentToSolr.size());
-    assertEquals(
-        "One batch of deletes should have been sent to solr", 1, deleteIdsSentToSolr.size());
-    assertEquals(
-        "The first batch of documents sent to solr should have contained 2 documents",
-        2,
-        docsSentToSolr.get(0).size());
-    assertEquals(
-        "The first document in the first batch of documents sent to solr should be otherDoc1",
-        otherDoc1.getId(),
-        docsSentToSolr.get(0).get(0).getFieldValue(Document.ID_FIELD));
-    assertEquals(
-        "The second document in the first batch of documents sent to solr should be doc1",
-        doc1.getId(),
-        docsSentToSolr.get(0).get(1).getFieldValue(Document.ID_FIELD));
-    assertEquals(
-        "The batch of deletes sent to solr should contain one id to delete",
-        1,
-        deleteIdsSentToSolr.get(0).size());
-    assertEquals(
-        "The id in the batch of deletes sent to solr should be the id of doc2",
-        doc2.getId(),
-        deleteIdsSentToSolr.get(0).get(0));
-    assertEquals(
-        "The second batch of documents sent to solr should have contained one document",
-        1,
-        docsSentToSolr.get(1).size());
-    assertEquals(
-        "The document in the second batch of documents sent to solr should be doc3",
-        doc3.getId(),
-        docsSentToSolr.get(1).get(0).getFieldValue(Document.ID_FIELD));
+    assertEquals("Two separate batches of documents should have been sent to solr",2, docsSentToSolr.size());
+    assertEquals("One batch of deletes should have been sent to solr", 1, deleteIdsSentToSolr.size());
+    assertEquals("The first batch of documents sent to solr should have contained 2 documents", 2, docsSentToSolr.get(0).size());
+    assertEquals("The first document in the first batch of documents sent to solr should be otherDoc1", otherDoc1.getId(), docsSentToSolr.get(0).get(0).getFieldValue(Document.ID_FIELD));
+    assertEquals("The second document in the first batch of documents sent to solr should be doc1", doc1.getId(), docsSentToSolr.get(0).get(1).getFieldValue(Document.ID_FIELD));
+    assertEquals("The batch of deletes sent to solr should contain one id to delete", 1, deleteIdsSentToSolr.get(0).size());
+    assertEquals("The id in the batch of deletes sent to solr should be the id of doc2", doc2.getId(), deleteIdsSentToSolr.get(0).get(0));
+    assertEquals("The second batch of documents sent to solr should have contained one document", 1, docsSentToSolr.get(1).size());
+    assertEquals("The document in the second batch of documents sent to solr should be doc3",doc3.getId(), docsSentToSolr.get(1).get(0).getFieldValue(Document.ID_FIELD));
   }
 
   @Test
@@ -547,22 +522,23 @@ public class SolrIndexerTest {
     List<List<String>> deleteIdsSentToSolr = new ArrayList<>();
 
     when(solrClient.add(
-            argThat(
-                (ArgumentMatcher<Collection>)
-                    t -> {
-                      docsSentToSolr.add(new ArrayList<>(t));
-                      return true;
-                    })))
-        .thenReturn(mock(UpdateResponse.class));
+      argThat(
+        (ArgumentMatcher<Collection>)
+          t -> {
+            docsSentToSolr.add(new ArrayList<>(t));
+            return true;
+          })))
+      .thenReturn(mock(UpdateResponse.class));
 
     when(solrClient.deleteById(
-            argThat(
-                (ArgumentMatcher<List>)
-                    t -> {
-                      deleteIdsSentToSolr.add(t);
-                      return true;
-                    })))
-        .thenReturn(mock(UpdateResponse.class));
+      argThat(
+        (ArgumentMatcher<List>)
+          t -> {
+            deleteIdsSentToSolr.add(t);
+            return true;
+          })))
+      .thenReturn(mock(UpdateResponse.class));
+
 
     Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
     manager.sendCompleted(doc1);
@@ -578,36 +554,14 @@ public class SolrIndexerTest {
     inOrder.verify(solrClient).close();
     inOrder.verifyNoMoreInteractions();
 
-    assertEquals(
-        "There should have been one batch of documents sent to solr", 1, docsSentToSolr.size());
-    assertEquals(
-        "There should have been 2 batches of ids to delete sent to solr",
-        2,
-        deleteIdsSentToSolr.size());
-    assertEquals(
-        "The first batch of ids to delete sent to solr should have contained one id",
-        1,
-        deleteIdsSentToSolr.get(0).size());
-    assertEquals(
-        "The id in the first batch of ids to delete sent to solr should be the id of doc1",
-        doc1.getId(),
-        deleteIdsSentToSolr.get(0).get(0));
-    assertEquals(
-        "The batch of docs added to solr should contain one document",
-        1,
-        docsSentToSolr.get(0).size());
-    assertEquals(
-        "The document in the first batch of documents added to solr should be doc2",
-        doc2.getId(),
-        docsSentToSolr.get(0).get(0).getFieldValue(Document.ID_FIELD));
-    assertEquals(
-        "The second batch of ids to delete sent to solr should have contained one id",
-        1,
-        deleteIdsSentToSolr.get(1).size());
-    assertEquals(
-        "The id in the second batch of ids to delete sent to solr should be the id of doc3",
-        doc3.getId(),
-        deleteIdsSentToSolr.get(1).get(0));
+    assertEquals("There should have been one batch of documents sent to solr", 1, docsSentToSolr.size());
+    assertEquals("There should have been 2 batches of ids to delete sent to solr", 2, deleteIdsSentToSolr.size());
+    assertEquals("The first batch of ids to delete sent to solr should have contained one id",1, deleteIdsSentToSolr.get(0).size());
+    assertEquals("The id in the first batch of ids to delete sent to solr should be the id of doc1",doc1.getId(), deleteIdsSentToSolr.get(0).get(0));
+    assertEquals("The batch of docs added to solr should contain one document", 1, docsSentToSolr.get(0).size());
+    assertEquals("The document in the first batch of documents added to solr should be doc2", doc2.getId(), docsSentToSolr.get(0).get(0).getFieldValue(Document.ID_FIELD));
+    assertEquals("The second batch of ids to delete sent to solr should have contained one id", 1, deleteIdsSentToSolr.get(1).size());
+    assertEquals("The id in the second batch of ids to delete sent to solr should be the id of doc3", doc3.getId(), deleteIdsSentToSolr.get(1).get(0));
   }
 
   @Test
@@ -616,13 +570,13 @@ public class SolrIndexerTest {
     String deletionMarkerFieldValue = "true";
 
     Config config =
-        ConfigFactory.empty()
-            .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(3))
-            .withValue(
-                "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
-            .withValue(
-                "indexer.deletionMarkerFieldValue",
-                ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
+      ConfigFactory.empty()
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(3))
+        .withValue(
+          "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+        .withValue(
+          "indexer.deletionMarkerFieldValue",
+          ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     Document doc1 = Document.create("doc1", "test_run");
@@ -640,7 +594,7 @@ public class SolrIndexerTest {
     indexer.run(3);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+      ArgumentCaptor.forClass(Collection.class);
 
     ArgumentCaptor<List<String>> delCaptor = ArgumentCaptor.forClass(List.class);
 
@@ -654,6 +608,7 @@ public class SolrIndexerTest {
     assertEquals(1, captor.getAllValues().size());
     assertEquals(2, delCaptor.getAllValues().size());
   }
+
 
   @Test
   public void testSolrIndexerAddAddDelete() throws Exception {

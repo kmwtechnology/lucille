@@ -9,8 +9,10 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Deletes a list of given fields from each document it processes. <br>
- * Config Parameters - <br>
+ * Deletes a list of given fields from each document it processes.
+ * <br>
+ * Config Parameters -
+ * <br>
  * fields (List<String>) : The list of fields to be deleted.
  */
 public class DeleteFields extends Stage {
@@ -31,7 +33,8 @@ public class DeleteFields extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String field : fields) {
-      if (!doc.has(field)) continue;
+      if (!doc.has(field))
+        continue;
 
       doc.removeField(field);
     }

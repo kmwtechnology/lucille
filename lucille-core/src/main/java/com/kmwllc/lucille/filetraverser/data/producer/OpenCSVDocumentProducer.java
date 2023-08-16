@@ -23,17 +23,16 @@ public class OpenCSVDocumentProducer implements DocumentProducer {
   }
 
   @Override
-  public List<Document> produceDocuments(Path file, Document parent)
-      throws DocumentException, IOException {
+  public List<Document> produceDocuments(Path file, Document parent) throws DocumentException, IOException {
 
     List<Document> docs = new ArrayList<>();
 
     try (Reader fileReader = Files.newBufferedReader(file);
-        CSVReader csvReader = new CSVReader(fileReader)) {
+         CSVReader csvReader = new CSVReader(fileReader)) {
 
       // Assume first line is header
       String[] header = csvReader.readNext();
-      if (header == null || header.length == 0) {
+      if (header==null || header.length==0) {
         return docs;
       }
 
@@ -43,7 +42,7 @@ public class OpenCSVDocumentProducer implements DocumentProducer {
         lineNum++;
 
         // skip blank lines and lines with no value in the first column
-        if (line.length == 0 || (line.length == 1 && StringUtils.isBlank(line[0]))) {
+        if (line.length==0 || (line.length==1 && StringUtils.isBlank(line[0]))) {
           continue;
         }
 
@@ -51,9 +50,9 @@ public class OpenCSVDocumentProducer implements DocumentProducer {
         Document doc = Document.create(line[0]);
         doc.setOrAddAll(parent);
 
-        int maxIndex = Math.min(header.length, line.length);
-        for (int i = 1; i < maxIndex; i++) {
-          if (line[i] != null) {
+        int maxIndex = Math.min(header.length,line.length);
+        for (int i=1;i<maxIndex;i++) {
+          if (line[i]!=null) {
             doc.setField(header[i], line[i]);
             doc.setField("csvLineNumber", lineNum);
           }
@@ -70,11 +69,10 @@ public class OpenCSVDocumentProducer implements DocumentProducer {
 
   public static void main(String[] args) throws Exception {
     OpenCSVDocumentProducer producer = new OpenCSVDocumentProducer(false);
-    List<Document> docs =
-        producer.produceDocuments(
-            Path.of("/Volumes/Work/com.kmwllc.lucille/test.csv"), Document.create("test"));
+    List<Document> docs = producer.produceDocuments(Path.of("/Volumes/Work/com.kmwllc.lucille/test.csv"), Document.create("test"));
     for (Document doc : docs) {
       System.out.println(doc);
     }
   }
+
 }

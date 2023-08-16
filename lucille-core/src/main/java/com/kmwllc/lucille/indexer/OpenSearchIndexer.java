@@ -34,28 +34,18 @@ public class OpenSearchIndexer extends Indexer {
 
   private final VersionType versionType;
 
-  public OpenSearchIndexer(
-      Config config,
-      IndexerMessageManager manager,
-      RestHighLevelClient client,
-      String metricsPrefix) {
+  public OpenSearchIndexer(Config config, IndexerMessageManager manager, RestHighLevelClient client, String metricsPrefix) {
     super(config, manager, metricsPrefix);
     if (this.indexOverrideField != null) {
-      throw new IllegalArgumentException(
-          "Cannot create OpenSearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by OpenSearchIndexer.");
+      throw new IllegalArgumentException("Cannot create OpenSearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by OpenSearchIndexer.");
     }
     this.client = client;
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
-    this.routingField =
-        config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
-    this.versionType =
-        config.hasPath("indexer.versionType")
-            ? VersionType.fromString(config.getString("indexer.versionType"))
-            : null;
+    this.routingField = config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
+    this.versionType = config.hasPath("indexer.versionType") ? VersionType.fromString(config.getString("indexer.versionType")) : null;
   }
 
-  public OpenSearchIndexer(
-      Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
+  public OpenSearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
     this(config, manager, getClient(config, bypass), metricsPrefix);
   }
 
@@ -104,8 +94,7 @@ public class OpenSearchIndexer extends Indexer {
     for (Document doc : documents) {
       Map<String, Object> indexerDoc = getIndexerDoc(doc);
 
-      // remove children documents field from indexer doc (processed from doc by addChildren method
-      // call below)
+      // remove children documents field from indexer doc (processed from doc by addChildren method call below)
       indexerDoc.remove(Document.CHILDREN_FIELD);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
@@ -125,10 +114,8 @@ public class OpenSearchIndexer extends Indexer {
       if (versionType != null) {
         indexRequest.versionType(versionType);
         if (versionType == VersionType.EXTERNAL || versionType == VersionType.EXTERNAL_GTE) {
-          // the partition doesn’t need to be included in the version. We assume the doc id is used
-          // as the
-          // kafka message key, which should guarantee that all “versions” of a given document have
-          // the
+          // the partition doesn’t need to be included in the version. We assume the doc id is used as the
+          // kafka message key, which should guarantee that all “versions” of a given document have the
           // same kafka message key and therefore get mapped to the same topic partition.
           indexRequest.version(((KafkaDocument) doc).getOffset());
         }
@@ -160,8 +147,7 @@ public class OpenSearchIndexer extends Indexer {
         Object value = map.get(key);
         indexerChildDoc.put(key, value);
       }
-      // TODO: Do nothing for now, add support for child docs like SolrIndexer does in future
-      // (_childDocuments_)
+      // TODO: Do nothing for now, add support for child docs like SolrIndexer does in future (_childDocuments_)
     }
   }
 
@@ -179,17 +165,16 @@ public class OpenSearchIndexer extends Indexer {
     Thread indexerThread = new Thread(indexer);
     indexerThread.start();
 
-    Signal.handle(
-        new Signal("INT"),
-        signal -> {
-          indexer.terminate();
-          log.info("Indexer shutting down");
-          try {
-            indexerThread.join();
-          } catch (InterruptedException e) {
-            log.error("Interrupted", e);
-          }
-          System.exit(0);
-        });
+    Signal.handle(new Signal("INT"), signal -> {
+      indexer.terminate();
+      log.info("Indexer shutting down");
+      try {
+        indexerThread.join();
+      } catch (InterruptedException e) {
+        log.error("Interrupted", e);
+      }
+      System.exit(0);
+    });
   }
+
 }

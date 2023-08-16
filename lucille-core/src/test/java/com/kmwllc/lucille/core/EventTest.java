@@ -25,7 +25,7 @@ public class EventTest {
     assertTrue(event1B.equals(event1));
     assertEquals(event1.hashCode(), event1B.hashCode());
 
-    KafkaDocument doc2 = new KafkaDocument(doc1, "t1", 5, 3, "testKey");
+    KafkaDocument doc2 = new KafkaDocument(doc1, "t1", 5, 3,"testKey");
     Instant beforeEvent2 = Instant.now();
     Event event2 = new Event(doc2, "test message", Event.Type.FINISH);
     Instant afterEvent2 = Instant.now();

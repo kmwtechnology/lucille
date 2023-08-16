@@ -12,11 +12,10 @@ import java.util.List;
 
 /**
  * Adds a timestamp into a given field.
- *
- * <p>Config Parameters -
- *
+ * <p>
+ * Config Parameters -
  * <ul>
- *   <li>dest_field (String) : The field to place the timestamp into.
+ * <li>dest_field (String) : The field to place the timestamp into.</li>
  * </ul>
  */
 public class Timestamp extends Stage {

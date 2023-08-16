@@ -31,10 +31,8 @@ public class ConsoleFileCopier implements AutoCloseable {
     Properties props = new Properties();
     props.putIfAbsent(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, location);
     props.putIfAbsent(ConsumerConfig.GROUP_ID_CONFIG, "ConsoleFileConsumer");
-    props.putIfAbsent(
-        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-    props.putIfAbsent(
-        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, DocumentDeserializer.class.getName());
+    props.putIfAbsent(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+    props.putIfAbsent(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, DocumentDeserializer.class.getName());
     props.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
     props.putIfAbsent(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 16000);
     consumer = new KafkaConsumer<>(props);
@@ -42,62 +40,35 @@ public class ConsoleFileCopier implements AutoCloseable {
   }
 
   public static void main(String[] args) throws Exception {
-    Options cliOptions =
-        new Options()
-            // TODO: should kafka info be provided in a properties file?
-            .addOption(
-                Option.builder("t")
-                    .required()
-                    .argName("TOPIC")
-                    .longOpt("topic-name")
-                    .numberOfArgs(1)
-                    .desc("Name of the topic the file should be sent to")
-                    .build())
-            .addOption(
-                Option.builder("l")
-                    .required()
-                    .argName("LOCATION")
-                    .longOpt("location")
-                    .numberOfArgs(1)
-                    .desc("The location of the Kafka endpoint")
-                    .build())
-            .addOption(
-                Option.builder("b")
-                    .longOpt("from-beginning")
-                    .desc("Whether the consumer should read the topic from the beginning")
-                    .build())
-            .addOption(
-                Option.builder("p")
-                    .argName("PATH")
-                    .longOpt("path")
-                    .numberOfArgs(1)
-                    .desc(
-                        "Path to the directory files should be output; if omitted, file contents are not saved")
-                    .build());
+    Options cliOptions = new Options()
+        // TODO: should kafka info be provided in a properties file?
+        .addOption(Option.builder("t").required().argName("TOPIC").longOpt("topic-name").numberOfArgs(1)
+            .desc("Name of the topic the file should be sent to").build())
+        .addOption(Option.builder("l").required().argName("LOCATION").longOpt("location")
+            .numberOfArgs(1).desc("The location of the Kafka endpoint").build())
+        .addOption(Option.builder("b").longOpt("from-beginning")
+            .desc("Whether the consumer should read the topic from the beginning").build())
+        .addOption(Option.builder("p").argName("PATH").longOpt("path").numberOfArgs(1)
+            .desc("Path to the directory files should be output; if omitted, file contents are not saved").build());
 
     CommandLine cli = null;
     try {
       cli = new DefaultParser().parse(cliOptions, args);
     } catch (UnrecognizedOptionException | MissingOptionException e) {
       try (StringWriter writer = new StringWriter();
-          PrintWriter printer = new PrintWriter(writer)) {
+           PrintWriter printer = new PrintWriter(writer)) {
 
-        String header =
-            "Read FileInfo objects from the given Kafka topic and write information to the "
-                + "console and (optionally) disk.";
-        new HelpFormatter()
-            .printHelp(printer, 256, "ConsoleFileConsumer", header, cliOptions, 2, 10, "", true);
+        String header = "Read FileInfo objects from the given Kafka topic and write information to the " +
+            "console and (optionally) disk.";
+        new HelpFormatter().printHelp(printer, 256, "ConsoleFileConsumer", header, cliOptions,
+            2, 10, "", true);
         log.info(writer.toString());
       }
       System.exit(1);
     }
 
-    try (ConsoleFileCopier consoleFileCopier =
-        new ConsoleFileCopier(
-            cli.hasOption('p') ? cli.getOptionValue('p') : null,
-            cli.getOptionValue('t'),
-            cli.getOptionValue('l'),
-            cli.hasOption('b'))) {
+    try (ConsoleFileCopier consoleFileCopier = new ConsoleFileCopier(cli.hasOption('p') ? cli.getOptionValue('p') : null,
+        cli.getOptionValue('t'), cli.getOptionValue('l'), cli.hasOption('b'))) {
       consoleFileCopier.readFiles();
     }
   }
@@ -127,9 +98,7 @@ public class ConsoleFileCopier implements AutoCloseable {
           if (path != null && record.value().has(DefaultDocumentProducer.CONTENT)) {
             log.debug("Writing file to disk");
             // TODO: what happens with absolute path?
-            Path file =
-                Path.of(path.toString(), record.value().getString(FileTraverser.FILE_PATH))
-                    .normalize();
+            Path file = Path.of(path.toString(), record.value().getString(FileTraverser.FILE_PATH)).normalize();
             Files.createDirectories(file.getParent());
             Files.write(file, DefaultDocumentProducer.decodeFileContents(record.value()));
           }

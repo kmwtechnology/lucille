@@ -10,8 +10,10 @@ import java.util.Iterator;
 /**
  * Creates a designated number of children documents.
  *
- * <p>This stage is intended for use in testing only. It is included in the main source tree so that
- * it can be used in manual tests run against an artifact that excludes the test tree.
+ * This stage is intended for use in testing only.
+ * It is included in the main source tree so that it can be used in manual tests run against an artifact
+ * that excludes the test tree.
+ *
  */
 public class CreateChildrenStage extends Stage {
 
@@ -21,10 +23,7 @@ public class CreateChildrenStage extends Stage {
   private final Integer dropChild;
 
   public CreateChildrenStage(Config config) {
-    super(
-        config,
-        new StageSpec()
-            .withOptionalProperties("numChildren", "dropParent", "failAfter", "dropChild"));
+    super(config, new StageSpec().withOptionalProperties("numChildren", "dropParent", "failAfter", "dropChild"));
     this.numChildren = config.hasPath("numChildren") ? config.getInt("numChildren") : 3;
     this.dropParent = config.hasPath("dropParent") ? config.getBoolean("dropParent") : false;
     this.failAfter = config.hasPath("failAfter") ? config.getInt("failAfter") : null;

@@ -12,11 +12,10 @@ import java.util.List;
 
 /**
  * Removes leading and trailing whitespace from every value in a given list of fields.
- *
- * <p>Config Parameters -
- *
+ * <p>
+ * Config Parameters -
  * <ul>
- *   <li>fields (List<String>) : The list of fields to trim whitespace from.
+ * <li>fields (List<String>) : The list of fields to trim whitespace from.</li>
  * </ul>
  */
 public class TrimWhitespace extends Stage {
@@ -37,7 +36,8 @@ public class TrimWhitespace extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String field : fields) {
-      if (!doc.has(field)) continue;
+      if (!doc.has(field))
+        continue;
 
       List<String> values = new ArrayList<>();
       for (String value : doc.getStringList(field)) {
@@ -46,6 +46,7 @@ public class TrimWhitespace extends Stage {
 
       doc.update(field, UpdateMode.OVERWRITE, values.toArray(new String[0]));
     }
+
 
     return null;
   }

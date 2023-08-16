@@ -34,14 +34,14 @@ public class ExtractFirstCharacterTest {
 
   @Test
   public void testReplacement() throws StageException {
-    Stage stage = factory.get("ExtractFirstCharacterTest/replacement.conf");
+   Stage stage = factory.get("ExtractFirstCharacterTest/replacement.conf");
 
-    Document doc = Document.create("doc");
-    doc.setField("input1", "12345");
-    doc.setField("input2", "valid");
-    stage.processDocument(doc);
-    assertEquals("not a letter", doc.getString("output1"));
-    assertEquals("v", doc.getString("output2"));
+   Document doc = Document.create("doc");
+   doc.setField("input1", "12345");
+   doc.setField("input2", "valid");
+   stage.processDocument(doc);
+   assertEquals("not a letter", doc.getString("output1"));
+   assertEquals("v", doc.getString("output2"));
   }
 
   @Test

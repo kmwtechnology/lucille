@@ -20,8 +20,7 @@ public interface Document {
   String CHILDREN_FIELD = ".children";
   String DROP_FIELD = ".dropped";
 
-  Set<String> RESERVED_FIELDS =
-      new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD));
+  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD));
 
   void removeField(String name);
 
@@ -78,15 +77,12 @@ public interface Document {
 
   /**
    * This will return null in two cases
-   *
    * <ol>
-   *   <li>If the field is absent
-   *   <li>IF the field is present but contains a null
+   *   <li>If the field is absent</li>
+   *   <li>IF the field is present but contains a null</li>
    * </ol>
-   *
    * To distinguish between these, you can call has(). Calling getString for a field which is
    * multivalued will return the first value in the list of Strings.
-   *
    * @param name The name of the field to get.
    * @return The value of the field, or null if the field is absent or contains a null.
    */
@@ -233,7 +229,9 @@ public interface Document {
 
   Document deepCopy();
 
-  /** Returns an Iterator that contains only this document. */
+  /**
+   * Returns an Iterator that contains only this document.
+   */
   default Iterator<Document> iterator() {
     return Collections.singleton(this).iterator();
   }
@@ -263,7 +261,7 @@ public interface Document {
     if (names == null) {
       throw new IllegalArgumentException("expecting string parameters");
     }
-    for (String name : names) {
+    for (String name: names) {
       if (name == null) {
         throw new IllegalArgumentException("Field name cannot be null");
       }

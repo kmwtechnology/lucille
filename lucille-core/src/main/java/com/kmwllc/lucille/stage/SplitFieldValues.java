@@ -10,15 +10,13 @@ import com.typesafe.config.Config;
 
 /**
  * Splits a field based off a delimiter and places the separated values into a given output field.
- *
- * <p>Config Parameters -
- *
+ * <p>
+ * Config Parameters -
  * <ul>
- *   <li>inputField (String) : The field to split on.
- *   <li>outputField (String) : The field to place the separated values into.
- *   <li>delimiter (String) : The String to split the field by.
- *   <li>trimWhitespace (Boolean) : True if separated values should trim whitespace, false
- *       otherwise.
+ * <li>inputField (String) : The field to split on.</li>
+ * <li>outputField (String) : The field to place the separated values into.</li>
+ * <li>delimiter (String) : The String to split the field by.</li>
+ * <li>trimWhitespace (Boolean) : True if separated values should trim whitespace, false otherwise.</li>
  * </ul>
  */
 public class SplitFieldValues extends Stage {
@@ -29,15 +27,14 @@ public class SplitFieldValues extends Stage {
   private String delimiter;
 
   public SplitFieldValues(Config config) {
-    super(
-        config,
-        new StageSpec()
-            .withRequiredProperties("inputField", "outputField", "delimiter", "trimWhitespace"));
+    super(config, new StageSpec().withRequiredProperties("inputField", "outputField",
+      "delimiter", "trimWhitespace"));
 
     inputField = config.getString("inputField");
     outputField = config.getString("outputField");
     delimiter = config.getString("delimiter");
     trimWhitespace = config.getBoolean("trimWhitespace");
+
   }
 
   @Override
@@ -57,4 +54,5 @@ public class SplitFieldValues extends Stage {
     }
     return null;
   }
+
 }

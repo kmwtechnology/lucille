@@ -22,8 +22,7 @@ public class FastCSVDocumentProducer implements DocumentProducer {
   }
 
   @Override
-  public List<Document> produceDocuments(Path file, Document parent)
-      throws DocumentException, IOException {
+  public List<Document> produceDocuments(Path file, Document parent) throws DocumentException, IOException {
 
     List<Document> docs = new ArrayList<>();
     try (NamedCsvReader csv = NamedCsvReader.builder().build(file, Charset.defaultCharset())) {
@@ -34,9 +33,9 @@ public class FastCSVDocumentProducer implements DocumentProducer {
       for (NamedCsvRow row : csv) {
         Document doc = parent.deepCopy();
         doc.setField(Document.ID_FIELD, row.getField(idColumnName));
-        Map<String, String> fields = row.getFields();
+        Map<String,String> fields = row.getFields();
         fields.forEach(doc::setField);
-        doc.setField("originalLineNumber", row.getOriginalLineNumber());
+        doc.setField("originalLineNumber",row.getOriginalLineNumber());
         docs.add(doc);
       }
     }

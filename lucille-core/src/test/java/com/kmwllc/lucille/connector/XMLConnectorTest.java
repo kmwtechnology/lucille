@@ -21,8 +21,7 @@ public class XMLConnectorTest {
 
   @Test
   public void testStaff() throws Exception {
-    Config config =
-        ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/staff.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/staff.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
@@ -33,22 +32,18 @@ public class XMLConnectorTest {
     assertEquals(2, docs.size());
 
     assertTrue(docs.get(0).has("xml"));
-    assertEquals(
-        "<staff>\n"
-            + "        <id>1001</id>\n"
-            + "        <name>daniel</name>\n"
-            + "        <role>software engineer</role>\n"
-            + "        <salary currency=\"USD\">3000</salary>\n"
-            + "        <bio>I am from San Diego</bio>\n"
-            + "    </staff>",
-        docs.get(0).getString("xml"));
+    assertEquals("<staff>\n" +
+      "        <id>1001</id>\n" +
+      "        <name>daniel</name>\n" +
+      "        <role>software engineer</role>\n" +
+      "        <salary currency=\"USD\">3000</salary>\n" +
+      "        <bio>I am from San Diego</bio>\n" +
+      "    </staff>", docs.get(0).getString("xml"));
   }
 
   @Test
   public void testNestedStaff() throws Exception {
-    Config config =
-        ConfigFactory.parseReader(
-            FileUtils.getReader("classpath:XMLConnectorTest/nestedstaff.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/nestedstaff.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
@@ -64,8 +59,7 @@ public class XMLConnectorTest {
 
   @Test
   public void testKoreanEncoding() throws Exception {
-    Config config =
-        ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/korean.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/korean.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
@@ -76,21 +70,18 @@ public class XMLConnectorTest {
     assertEquals(1, docs.size());
 
     assertTrue(docs.get(0).has("xml"));
-    assertEquals(
-        "<staff>\n"
-            + "        <id>1001</id>\n"
-            + "        <name>대니엘</name>\n"
-            + "        <role>컴퓨터 과학자</role>\n"
-            + "        <salary currency=\"USD\">3000</salary>\n"
-            + "        <bio>샌디에고</bio>\n"
-            + "    </staff>",
-        docs.get(0).getString("xml"));
+    assertEquals("<staff>\n" +
+      "        <id>1001</id>\n" +
+      "        <name>대니엘</name>\n" +
+      "        <role>컴퓨터 과학자</role>\n" +
+      "        <salary currency=\"USD\">3000</salary>\n" +
+      "        <bio>샌디에고</bio>\n" +
+      "    </staff>", docs.get(0).getString("xml"));
   }
 
   @Test
   public void testJapaneseEncoding() throws Exception {
-    Config config =
-        ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/japanese.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/japanese.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
@@ -101,20 +92,17 @@ public class XMLConnectorTest {
     assertEquals(1, docs.size());
 
     assertTrue(docs.get(0).has("xml"));
-    assertEquals(
-        "<staff>\n"
-            + "        <id>1001</id>\n"
-            + "        <name>ニエル</name>\n"
-            + "        <role>コンピュ</role>\n"
-            + "        <bio>サンディエゴ</bio>\n"
-            + "    </staff>",
-        docs.get(0).getString("xml"));
+    assertEquals("<staff>\n" +
+      "        <id>1001</id>\n" +
+      "        <name>ニエル</name>\n" +
+      "        <role>コンピュ</role>\n" +
+      "        <bio>サンディエゴ</bio>\n" +
+      "    </staff>", docs.get(0).getString("xml"));
   }
 
   @Test
   public void testChineseEncoding() throws Exception {
-    Config config =
-        ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/chinese.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/chinese.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
@@ -125,21 +113,18 @@ public class XMLConnectorTest {
     assertEquals(1, docs.size());
 
     assertTrue(docs.get(0).has("xml_field"));
-    assertEquals(
-        "<staff>\n"
-            + "        <id>1001</id>\n"
-            + "        <name>丹尼尔</name>\n"
-            + "        <role>电脑科学家</role>\n"
-            + "        <salary currency=\"USD\">3000</salary>\n"
-            + "        <bio>圣地亚哥</bio>\n"
-            + "    </staff>",
-        docs.get(0).getString("xml_field"));
+    assertEquals("<staff>\n" +
+      "        <id>1001</id>\n" +
+      "        <name>丹尼尔</name>\n" +
+      "        <role>电脑科学家</role>\n" +
+      "        <salary currency=\"USD\">3000</salary>\n" +
+      "        <bio>圣地亚哥</bio>\n" +
+      "    </staff>", docs.get(0).getString("xml_field"));
   }
 
   @Test
   public void testURL() throws Exception {
-    Config config =
-        ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/url.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/url.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
@@ -150,22 +135,18 @@ public class XMLConnectorTest {
     assertEquals(2, docs.size());
 
     assertTrue(docs.get(0).has("xml"));
-    assertEquals(
-        "<staff>\n"
-            + "        <id>1001</id>\n"
-            + "        <name>daniel</name>\n"
-            + "        <role>software engineer</role>\n"
-            + "        <salary currency=\"USD\">3000</salary>\n"
-            + "        <bio>I am from San Diego</bio>\n"
-            + "    </staff>",
-        docs.get(0).getString("xml"));
+    assertEquals("<staff>\n" +
+      "        <id>1001</id>\n" +
+      "        <name>daniel</name>\n" +
+      "        <role>software engineer</role>\n" +
+      "        <salary currency=\"USD\">3000</salary>\n" +
+      "        <bio>I am from San Diego</bio>\n" +
+      "    </staff>", docs.get(0).getString("xml"));
   }
 
   @Test(expected = ConnectorException.class)
   public void testEncodingError() throws Exception {
-    Config config =
-        ConfigFactory.parseReader(
-            FileUtils.getReader("classpath:XMLConnectorTest/encodingError.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/encodingError.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);

@@ -31,4 +31,5 @@ public class MockQueryResponse extends QueryResponse {
   public String toString() {
     return "MockQueryResponse";
   }
+
 }

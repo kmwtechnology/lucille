@@ -24,14 +24,13 @@ public class CSVConnectorTest {
     tempDir.mkdirs();
   }
 
+
   @Test
   public void testDefaults() throws Exception {
-    // we're loading the config this way to prevent the "path" system property from overriding the
-    // path
+    // we're loading the config this way to prevent the "path" system property from overriding the path
     // property in the connector config; ConfigFactory.parseReader() does not consider system
     // properties like ConfigFactory.load() does
-    Config config =
-        ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/defaults.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/defaults.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
@@ -52,8 +51,7 @@ public class CSVConnectorTest {
 
   @Test
   public void testTabsAndNoninterpretedQuotes() throws Exception {
-    Config config =
-        ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/tabs.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/tabs.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
@@ -74,9 +72,7 @@ public class CSVConnectorTest {
 
   @Test(expected = ConnectorException.class)
   public void testPathNotFound() throws Exception {
-    Config config =
-        ConfigFactory.parseReader(
-            FileUtils.getReader("classpath:CSVConnectorTest/pathNotFound.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/pathNotFound.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
@@ -85,8 +81,7 @@ public class CSVConnectorTest {
 
   @Test
   public void testBOMHandling() throws Exception {
-    Config config =
-        ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/bom.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/bom.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
@@ -104,8 +99,7 @@ public class CSVConnectorTest {
     // retrieve a document from the list and ensure that the first column does not contain the BOM
     assertTrue(docs.get(0).getFieldNames().contains("name"));
 
-    // there should be no issues accessing the field value of the first column because BOM is
-    // removed
+    // there should be no issues accessing the field value of the first column because BOM is removed
     assertEquals("Carbonara", docs.get(0).getString("name"));
   }
 
@@ -117,8 +111,7 @@ public class CSVConnectorTest {
     File copy = new File("src/test/resources/CSVConnectorTest/faulty.csv");
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
-    Config config =
-        ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/faulty.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/faulty.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
@@ -149,8 +142,7 @@ public class CSVConnectorTest {
     File copy = new File("src/test/resources/CSVConnectorTest/defaults.csv");
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
-    Config config =
-        ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/success.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/success.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
@@ -172,12 +164,9 @@ public class CSVConnectorTest {
       successDir.delete();
     }
   }
-
   @Test
   public void testSemicolonSeparator() throws Exception {
-    Config config =
-        ConfigFactory.parseReader(
-            FileUtils.getReader("classpath:CSVConnectorTest/semicolons.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/semicolons.conf"));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);

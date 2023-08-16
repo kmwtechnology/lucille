@@ -14,16 +14,16 @@ public class IndexerFactory {
   public static final String DEFAULT_INDEXER_TYPE = "Solr";
   private static final Logger log = LoggerFactory.getLogger(IndexerFactory.class);
 
-  /** Instantiates an Indexer from the designated Config. */
-  public static Indexer fromConfig(
-      Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix)
-      throws IndexerException {
+  /**
+   * Instantiates an Indexer from the designated Config.
+   */
+  public static Indexer fromConfig(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix)
+    throws  IndexerException {
 
-    if (bypass == false) {
+    if (bypass==false) {
       if (config.hasPath("indexer.sendEnabled") && !config.getBoolean("indexer.sendEnabled")) {
-        log.warn(
-            "indexer.sendEnabled is set to false in the configuration; indexer will be started in bypass mode");
-        bypass = true;
+        log.warn("indexer.sendEnabled is set to false in the configuration; indexer will be started in bypass mode");
+        bypass=true;
       }
     }
 
@@ -33,10 +33,7 @@ public class IndexerFactory {
     if (config.hasPath("indexer.type")) {
       typeName = config.getString("indexer.type");
     } else {
-      log.info(
-          "Config setting for indexer.type was not specified, using default indexer type of '"
-              + DEFAULT_INDEXER_TYPE
-              + "'.");
+      log.info("Config setting for indexer.type was not specified, using default indexer type of '" + DEFAULT_INDEXER_TYPE + "'.");
       typeName = DEFAULT_INDEXER_TYPE;
     }
 
@@ -44,28 +41,22 @@ public class IndexerFactory {
     if (typeName.equalsIgnoreCase("Solr")) {
       return new SolrIndexer(config, manager, bypass, metricsPrefix);
     } else if (typeName.equalsIgnoreCase("OpenSearch")) {
-      return new OpenSearchIndexer(config, manager, bypass, metricsPrefix);
+      return new OpenSearchIndexer(config, manager,bypass, metricsPrefix);
     } else if (typeName.equalsIgnoreCase("Elasticsearch")) {
-      return new ElasticsearchIndexer(config, manager, bypass, metricsPrefix);
+      return new ElasticsearchIndexer(config, manager,bypass, metricsPrefix);
     } else if (typeName.equalsIgnoreCase("CSV")) {
       return new CSVIndexer(config, manager, bypass, metricsPrefix);
     } else if (config.hasPath("indexer.class")) {
       String className = config.getString("indexer.class");
       try {
         Class<?> clazz = Class.forName(className);
-        Constructor<?> constructor =
-            clazz.getConstructor(
-                Config.class, IndexerMessageManager.class, Boolean.TYPE, String.class);
+        Constructor<?> constructor = clazz.getConstructor(Config.class, IndexerMessageManager.class, Boolean.TYPE, String.class);
         return (Indexer) constructor.newInstance(config, manager, bypass, metricsPrefix);
-      } catch (ClassNotFoundException
-          | NoSuchMethodException
-          | InvocationTargetException
-          | InstantiationException
-          | IllegalAccessException e) {
-        throw new IndexerException(
-            "Problem initializing indexer.class configuration of: '" + className + "'", e);
+      } catch (ClassNotFoundException | NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException e) {
+        throw new IndexerException("Problem initializing indexer.class configuration of: '" + className + "'", e);
       }
-    } else {
+    }
+    else {
       throw new IndexerException("Unknown indexer.type configuration of: '" + typeName + "'");
     }
   }

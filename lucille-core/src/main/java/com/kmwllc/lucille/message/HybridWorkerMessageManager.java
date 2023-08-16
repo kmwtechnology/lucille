@@ -29,12 +29,10 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
   private final Config config;
   private final String pipelineName;
 
-  public HybridWorkerMessageManager(
-      Config config,
-      String pipelineName,
-      LinkedBlockingQueue<Document> pipelineDest,
-      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
-      KafkaConsumer sourceConsumer) {
+  public HybridWorkerMessageManager(Config config, String pipelineName,
+                                    LinkedBlockingQueue<Document> pipelineDest,
+                                    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
+                                    KafkaConsumer sourceConsumer) {
     this.config = config;
     this.pipelineName = pipelineName;
     this.pipelineDest = pipelineDest;
@@ -43,20 +41,16 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
   }
 
-  public HybridWorkerMessageManager(
-      Config config,
-      String pipelineName,
-      LinkedBlockingQueue<Document> pipelineDest,
-      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
+  public HybridWorkerMessageManager(Config config, String pipelineName,
+                                    LinkedBlockingQueue<Document> pipelineDest,
+                                    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
     this(config, pipelineName, pipelineDest, offsets, createSourceConsumer(config, pipelineName));
   }
 
   private static KafkaConsumer createSourceConsumer(Config config, String pipelineName) {
-    // append random string to kafka client ID to prevent kafka from issuing a warning when multiple
-    // consumers
+    // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
     // with the same client ID are started in separate worker threads
-    String kafkaClientId =
-        "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
+    String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
     KafkaConsumer consumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     consumer.subscribe(Pattern.compile(KafkaUtils.getSourceTopicName(pipelineName, config)));
 
@@ -66,12 +60,11 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
   /**
    * Polls for a document that is waiting to be processed by the pipeline.
    *
-   * <p>Does not commit offsets.
+   * Does not commit offsets.
    */
   @Override
   public KafkaDocument pollDocToProcess() throws Exception {
-    ConsumerRecords<String, KafkaDocument> consumerRecords =
-        sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    ConsumerRecords<String, KafkaDocument> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
@@ -84,7 +77,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
 
   @Override
   public void commitPendingDocOffsets() throws Exception {
-    Map<TopicPartition, OffsetAndMetadata> batchOffsets = null;
+    Map<TopicPartition,OffsetAndMetadata> batchOffsets = null;
     while ((batchOffsets = offsets.poll()) != null) {
       sourceConsumer.commitSync(batchOffsets);
     }
@@ -92,6 +85,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
 
   /**
    * Sends a processed document to the appropriate destination for documents waiting to be indexed.
+   *
    */
   @Override
   public void sendCompleted(Document document) throws Exception {
@@ -99,7 +93,8 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
   }
 
   @Override
-  public void sendFailed(Document document) throws Exception {}
+  public void sendFailed(Document document) throws Exception {
+  }
 
   @Override
   public void sendEvent(Event event) throws Exception {
@@ -107,12 +102,8 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
       return;
     }
     String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
-    RecordMetadata result =
-        kafkaEventProducer
-            .send(
-                new ProducerRecord<>(
-                    confirmationTopicName, event.getDocumentId(), event.toString()))
-            .get();
+    RecordMetadata result = kafkaEventProducer.send(
+      new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
     kafkaEventProducer.flush();
   }
 
@@ -134,4 +125,6 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
       kafkaEventProducer.close();
     }
   }
+
 }
+

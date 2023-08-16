@@ -13,7 +13,8 @@ public class RecordingLinkedBlockingQueue<E> extends LinkedBlockingQueue<E> {
     history.add(e);
   }
 
-  public boolean offer(E e, long timeout, TimeUnit unit) throws InterruptedException {
+  public boolean offer(E e, long timeout, TimeUnit unit)
+    throws InterruptedException {
     boolean result = super.offer(e, timeout, unit);
     if (result) {
       history.add(e);

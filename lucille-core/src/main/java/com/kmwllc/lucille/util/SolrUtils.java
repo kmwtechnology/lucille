@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.util;
 
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
 import com.typesafe.config.Config;
@@ -19,15 +20,17 @@ import org.apache.solr.client.solrj.io.Tuple;
 import java.util.List;
 import java.util.Map;
 
-/** Utility methods for communicating with Solr. */
+/**
+ * Utility methods for communicating with Solr.
+ */
 public class SolrUtils {
 
   private static final Logger log = LogManager.getLogger(SolrUtils.class);
 
   /**
    * Generate a SolrClient from the given config file. Supports both Cloud and Http SolrClients.
-   *
-   * <p>This method has SIDE EFFECTS. It will set SSL system properties if corresponding properties
+   * <p>
+   * This method has SIDE EFFECTS.  It will set SSL system properties if corresponding properties
    * are found in the config.
    *
    * @param config The configuration file to generate a client from
@@ -36,22 +39,17 @@ public class SolrUtils {
   public static SolrClient getSolrClient(Config config) {
     SSLUtils.setSSLSystemProperties(config);
     if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
-      CloudSolrClient cloudSolrClient =
-          requiresAuth(config)
-              ? new CloudSolrClient.Builder(getSolrUrls(config))
-                  .withHttpClient(getHttpClient(config))
-                  .build()
-              : new CloudSolrClient.Builder(getSolrUrls(config)).build();
+      CloudSolrClient cloudSolrClient = requiresAuth(config) ?
+        new CloudSolrClient.Builder(getSolrUrls(config)).withHttpClient(getHttpClient(config)).build() :
+        new CloudSolrClient.Builder(getSolrUrls(config)).build();
       if (config.hasPath("defaultCollection")) {
         cloudSolrClient.setDefaultCollection(config.getString("defaultCollection"));
       }
       return cloudSolrClient;
     } else {
-      return requiresAuth(config)
-          ? new HttpSolrClient.Builder(getSolrUrl(config))
-              .withHttpClient(getHttpClient(config))
-              .build()
-          : new HttpSolrClient.Builder(getSolrUrl(config)).build();
+      return requiresAuth(config) ?
+        new HttpSolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build() :
+        new HttpSolrClient.Builder(getSolrUrl(config)).build();
     }
   }
 
@@ -101,8 +99,8 @@ public class SolrUtils {
   }
 
   /**
-   * This method will convert a Tuple produced by a Solr Streaming Expression into a Lucille
-   * Document. The Tuple must have a value in its id field in order to be converted.
+   * This method will convert a Tuple produced by a Solr Streaming Expression into a Lucille Document. The Tuple must
+   * have a value in its id field in order to be converted.
    *
    * @param tuple a Tuple from Solr
    * @return a Document

@@ -20,31 +20,25 @@ public class CSVIndexer extends Indexer {
   private final ICSVWriter writer;
   private final List<String> columns;
 
-  public CSVIndexer(
-      Config config,
-      IndexerMessageManager manager,
-      ICSVWriter writer,
-      boolean bypass,
-      String metricsPrefix) {
+
+  public CSVIndexer(Config config, IndexerMessageManager manager, ICSVWriter writer, boolean bypass, String metricsPrefix) {
     super(config, manager, metricsPrefix);
     if (this.indexOverrideField != null) {
-      throw new IllegalArgumentException(
-          "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
+      throw new IllegalArgumentException("Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
     }
     this.writer = writer;
     this.bypass = bypass;
     this.columns = config.getStringList("csv.columns");
   }
 
-  public CSVIndexer(
-      Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
+  public CSVIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
     this(config, manager, getCsvWriter(config, bypass), bypass, metricsPrefix);
   }
 
   private static ICSVWriter getCsvWriter(Config config, boolean bypass) {
     try {
       CSVWriterBuilder builder = new CSVWriterBuilder(new FileWriter(config.getString("csv.path")));
-      // TODO options from config?
+      //TODO options from config?
       return builder.build();
     } catch (IOException e) {
       log.error("Error initializing writer for CSVIndexer", e);
@@ -91,4 +85,6 @@ public class CSVIndexer extends Indexer {
       }
     }
   }
+
+
 }

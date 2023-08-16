@@ -38,27 +38,14 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
   private final DocumentProducer docProducer;
   private final boolean binaryData;
 
-  public FileTraverser(
-      String[] paths,
-      String topic,
-      String brokerList,
-      String[] includeRegex,
-      String[] excludeRegex,
-      boolean binaryData,
-      String dataType,
-      String childCopyParentMetadata) {
+  public FileTraverser(String[] paths, String topic, String brokerList, String[] includeRegex, String[] excludeRegex,
+                       boolean binaryData, String dataType, String childCopyParentMetadata) {
     this.binaryData = binaryData;
 
-    // Turn all provided paths into Path objects, replacing the "~" character with the user.home
-    // system property
-    this.paths =
-        Arrays.stream(paths)
-            .map(
-                path ->
-                    Path.of(path.replace("~", System.getProperty("user.home")))
-                        .toAbsolutePath()
-                        .normalize())
-            .collect(Collectors.toList());
+    // Turn all provided paths into Path objects, replacing the "~" character with the user.home system property
+    this.paths = Arrays.stream(paths).map(path ->
+      Path.of(path.replace("~", System.getProperty("user.home"))).toAbsolutePath().normalize())
+      .collect(Collectors.toList());
 
     // Require that provided paths exist
     if (!this.paths.stream().allMatch(Files::exists)) {
@@ -67,132 +54,77 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
 
     this.topic = topic;
 
-    // Compile include and exclude regex paths or set an empty list if none were provided (allow all
-    // files)
-    this.includes =
-        includeRegex == null
-            ? Collections.emptyList()
-            : Arrays.stream(includeRegex).map(Pattern::compile).collect(Collectors.toList());
-    this.excludes =
-        excludeRegex == null
-            ? Collections.emptyList()
-            : Arrays.stream(excludeRegex).map(Pattern::compile).collect(Collectors.toList());
+    // Compile include and exclude regex paths or set an empty list if none were provided (allow all files)
+    this.includes = includeRegex == null
+        ? Collections.emptyList()
+        : Arrays.stream(includeRegex).map(Pattern::compile).collect(Collectors.toList());
+    this.excludes = excludeRegex == null
+        ? Collections.emptyList()
+        : Arrays.stream(excludeRegex).map(Pattern::compile).collect(Collectors.toList());
 
     this.maxDepth = null;
 
     // Instantiate the desired doc producer
-    this.docProducer =
-        DocumentProducer.getProducer(dataType, Boolean.parseBoolean(childCopyParentMetadata));
+    this.docProducer = DocumentProducer.getProducer(dataType, Boolean.parseBoolean(childCopyParentMetadata));
 
     // Set up the KafkaProducer
     Properties props = new Properties();
     props.putIfAbsent(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
     props.putIfAbsent(ProducerConfig.CLIENT_ID_CONFIG, "LucilleFileTraverser");
     props.putIfAbsent(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-    props.putIfAbsent(
-        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, DocumentSerializer.class.getName());
+    props.putIfAbsent(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, DocumentSerializer.class.getName());
     props.putIfAbsent(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, MAX_FILE_SIZE_BYTES);
     producer = new KafkaProducer<>(props);
   }
 
   public static void main(String[] args) throws ParseException, IOException {
-    Options cliOptions =
-        new Options()
-            .addOption(
-                Option.builder("p")
-                    .required()
-                    .argName("PATH")
-                    .longOpt("path")
-                    .hasArgs()
-                    .desc("Path to the file or directory")
-                    .build())
-            // TODO: should kafka info be provided in a properties file?
-            .addOption(
-                Option.builder("t")
-                    .required()
-                    .argName("TOPIC")
-                    .longOpt("topic-name")
-                    .hasArgs()
-                    .desc("Name of the topic the file should be sent to")
-                    .build())
-            .addOption(
-                Option.builder("l")
-                    .required()
-                    .argName("BROKER_LIST")
-                    .longOpt("broker-list")
-                    .hasArg()
-                    .numberOfArgs(1)
-                    .desc("The location of the Kafka endpoint")
-                    .build())
-            .addOption(
-                Option.builder("i")
-                    .argName("INCLUDE")
-                    .longOpt("include")
-                    .hasArgs()
-                    .desc(
-                        "A regex describing file names to include. --exclude takes precedence on conflict. If left empty,"
-                            + " everything is matched. File must match any regex to be included.")
-                    .build())
-            .addOption(
-                Option.builder("e")
-                    .argName("EXCLUDE")
-                    .longOpt("exclude")
-                    .hasArgs()
-                    .desc(
-                        "A regex describing file names to exclude. If left empty, nothing is matched. File must match any regex "
-                            + "to be included.")
-                    .build())
-            .addOption(
-                Option.builder("b")
-                    .longOpt("binary-data")
-                    .hasArg(false)
-                    .desc("Includes file data in Kafka message")
-                    .build())
-            .addOption(
-                Option.builder("d")
-                    .longOpt("data-type")
-                    .hasArg(true)
-                    .desc("The data type that the file should be parsed as (default is 'default')")
-                    .build())
-            .addOption(
-                Option.builder()
-                    .longOpt("copy-parent-metadata")
-                    .hasArg(true)
-                    .desc(
-                        "When child documents are being produced, should the child copy all of parent's metadata")
-                    .build())
-            .addOption(
-                Option.builder("h")
-                    .longOpt("help")
-                    .hasArg(false)
-                    .desc("This help message")
-                    .build());
+    Options cliOptions = new Options()
+        .addOption(Option.builder("p").required().argName("PATH").longOpt("path").hasArgs()
+            .desc("Path to the file or directory").build())
+        // TODO: should kafka info be provided in a properties file?
+        .addOption(Option.builder("t").required().argName("TOPIC").longOpt("topic-name").hasArgs()
+            .desc("Name of the topic the file should be sent to").build())
+        .addOption(Option.builder("l").required().argName("BROKER_LIST").longOpt("broker-list").hasArg()
+            .numberOfArgs(1).desc("The location of the Kafka endpoint").build())
+        .addOption(Option.builder("i").argName("INCLUDE").longOpt("include").hasArgs()
+            .desc("A regex describing file names to include. --exclude takes precedence on conflict. If left empty," +
+                " everything is matched. File must match any regex to be included.").build())
+        .addOption(Option.builder("e").argName("EXCLUDE").longOpt("exclude").hasArgs()
+            .desc("A regex describing file names to exclude. If left empty, nothing is matched. File must match any regex " +
+                "to be included.").build())
+        .addOption(Option.builder("b").longOpt("binary-data").hasArg(false)
+            .desc("Includes file data in Kafka message").build())
+        .addOption(Option.builder("d").longOpt("data-type").hasArg(true)
+            .desc("The data type that the file should be parsed as (default is 'default')").build())
+        .addOption(Option.builder().longOpt("copy-parent-metadata").hasArg(true)
+            .desc("When child documents are being produced, should the child copy all of parent's metadata").build())
+        .addOption(Option.builder("h").longOpt("help").hasArg(false)
+            .desc("This help message").build());
 
     CommandLine cli = null;
     try {
       cli = new DefaultParser().parse(cliOptions, args);
     } catch (UnrecognizedOptionException | MissingOptionException e) {
       try (StringWriter writer = new StringWriter();
-          PrintWriter printer = new PrintWriter(writer)) {
+           PrintWriter printer = new PrintWriter(writer)) {
 
         String header = "Walk file tree and send files with info to a given Kafka topic";
-        new HelpFormatter()
-            .printHelp(printer, 256, "FileTraverser", header, cliOptions, 2, 10, "", true);
+        new HelpFormatter().printHelp(printer, 256, "FileTraverser", header, cliOptions,
+            2, 10, "", true);
         log.info(writer.toString());
       }
       System.exit(1);
     }
 
-    try (final FileTraverser traverser =
-        new FileTraverser(
-            cli.getOptionValues("path"),
-            cli.getOptionValue("topic-name"),
-            cli.getOptionValue("broker-list"),
-            cli.getOptionValues("include"),
-            cli.getOptionValues("exclude"),
-            cli.hasOption("binary-data"),
-            cli.getOptionValue("data-type", "DEFAULT"),
-            cli.getOptionValue("copy-parent-metadata", "true"))) {
+    try (final FileTraverser traverser = new FileTraverser(
+        cli.getOptionValues("path"),
+        cli.getOptionValue("topic-name"),
+        cli.getOptionValue("broker-list"),
+        cli.getOptionValues("include"),
+        cli.getOptionValues("exclude"),
+        cli.hasOption("binary-data"),
+        cli.getOptionValue("data-type", "DEFAULT"),
+        cli.getOptionValue("copy-parent-metadata", "true"))) {
       traverser.walkTree();
     }
   }
@@ -203,8 +135,8 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
   }
 
   /**
-   * Walks the file tree using {@link Files#walkFileTree(Path, FileVisitor)}, or {@link
-   * Files#walk(Path, int, FileVisitOption...)} if a max depth is set.
+   * Walks the file tree using {@link Files#walkFileTree(Path, FileVisitor)}, or
+   * {@link Files#walk(Path, int, FileVisitOption...)} if a max depth is set.
    */
   public void walkTree() {
     log.info("Waking provided paths: {}", paths);
@@ -230,9 +162,7 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
 
     // Skip file if any exclude regex patterns match or if no include regex patterns match
     if (excludes.parallelStream().anyMatch(pattern -> pattern.matcher(fileName).matches())
-        || (!includes.isEmpty()
-            && includes.parallelStream()
-                .noneMatch(pattern -> pattern.matcher(fileName).matches()))) {
+    || (!includes.isEmpty() && includes.parallelStream().noneMatch(pattern -> pattern.matcher(fileName).matches()))) {
       log.debug("Skipping file because of include or exclude regex");
       return FileVisitResult.CONTINUE;
     }
@@ -249,11 +179,9 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
     baseDoc.setField(SIZE, attrs.size());
 
     if (binaryData) {
-      // Make sure the file passes the file size check if we're sending binary data and should do
-      // the file size check
+      // Make sure the file passes the file size check if we're sending binary data and should do the file size check
       if (attrs.size() > MAX_FILE_SIZE_BYTES && docProducer.shouldDoFileSizeCheck()) {
-        handleFailure(
-            file, null, new IOException("File binary data larger than max configured size"));
+        handleFailure(file, null, new IOException("File binary data larger than max configured size"));
       } else {
         try {
           sendDocumentsToTopic(docProducer.produceDocuments(file, baseDoc));
@@ -276,14 +204,12 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
   }
 
   /**
-   * Send a tombstone for the given file. Calls {@link DocumentProducer#createTombstone(Path,
-   * Document, Throwable)} to update the given {@link Document} with error info or create a new
-   * document if it's null. After the {@code Document} has been updated, {@link
-   * this#sendDocumentsToTopic(List)} sends the document.
+   * Send a tombstone for the given file. Calls {@link DocumentProducer#createTombstone(Path, Document, Throwable)} to
+   * update the given {@link Document} with error info or create a new document if it's null. After the {@code Document}
+   * has been updated, {@link this#sendDocumentsToTopic(List)} sends the document.
    *
    * @param file The file the error occurred on
-   * @param doc A null document if no information has been extracted yet, or an existing doc to add
-   *     error information to
+   * @param doc A null document if no information has been extracted yet, or an existing doc to add error information to
    * @param exception The exception that occurred
    */
   private void handleFailure(Path file, Document doc, Throwable exception) {

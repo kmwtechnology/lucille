@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-@JsonIgnoreProperties(value = {"keys", "empty"})
+@JsonIgnoreProperties(value = { "keys", "empty" })
 public class LinkedMultiMap implements MultiMap, Serializable {
 
   static final long serialVersionUID = 1L;
@@ -26,21 +26,21 @@ public class LinkedMultiMap implements MultiMap, Serializable {
   private LinkedHashMap<String, Object> data;
 
   public static final Set<Class<?>> SUPPORTED_TYPES =
-      Collections.unmodifiableSet(
-          new HashSet<>(
-              List.of(
-                  String.class,
-                  Integer.class,
-                  Double.class,
-                  Float.class,
-                  Long.class,
-                  Boolean.class,
-                  ObjectNode.class,
-                  Instant.class,
-                  HashMapDocument.class,
-                  TextNode.class,
-                  ArrayNode.class,
-                  byte[].class)));
+    Collections.unmodifiableSet(new HashSet<>(
+      List.of(
+        String.class,
+        Integer.class,
+        Double.class,
+        Float.class,
+        Long.class,
+        Boolean.class,
+        ObjectNode.class,
+        Instant.class,
+        HashMapDocument.class,
+        TextNode.class,
+        ArrayNode.class,
+        byte[].class)));
+
 
   public LinkedMultiMap() {
     this.data = new LinkedHashMap<>();
@@ -89,7 +89,7 @@ public class LinkedMultiMap implements MultiMap, Serializable {
       return 1;
     }
 
-    List list = (List) data.get(name);
+    List list = (List)data.get(name);
 
     // TODO remove?
     if (list == null) {
@@ -108,7 +108,7 @@ public class LinkedMultiMap implements MultiMap, Serializable {
   public Object getOne(String name) {
 
     if (isMultiValued(name)) {
-      List<Object> list = (List) data.get(name);
+      List<Object> list = (List)data.get(name);
       if (list.isEmpty()) {
         throw new IllegalArgumentException("name " + name + " is multi-valued but has no values");
       }
@@ -120,12 +120,14 @@ public class LinkedMultiMap implements MultiMap, Serializable {
 
   @Override
   public List getMany(String name) {
-    return isMultiValued(name) ? (List) data.get(name) : Collections.singletonList(data.get(name));
+    return isMultiValued(name)
+        ? (List)data.get(name)
+        : Collections.singletonList(data.get(name));
   }
 
   @Override
   public MultiMap deepCopy() {
-    return new LinkedMultiMap((LinkedHashMap) data.clone());
+    return new LinkedMultiMap((LinkedHashMap)data.clone());
   }
 
   @Override
@@ -168,7 +170,7 @@ public class LinkedMultiMap implements MultiMap, Serializable {
     }
 
     if (isMultiValued(name)) {
-      ((List) data.get(name)).add(value);
+      ((List)data.get(name)).add(value);
     } else {
       data.put(name, makeList(data.remove(name), value));
     }
@@ -205,7 +207,7 @@ public class LinkedMultiMap implements MultiMap, Serializable {
     }
 
     if (isMultiValued(oldName)) {
-      putMany(newName, (List) data.remove(oldName));
+      putMany(newName, (List)data.remove(oldName));
     } else {
       putOne(newName, data.remove(oldName));
     }
@@ -222,7 +224,7 @@ public class LinkedMultiMap implements MultiMap, Serializable {
     if (!isMultiValued(name)) {
       throw new IllegalArgumentException("name must be multi-valued");
     }
-    List<Object> list = (List) data.get(name);
+    List<Object> list = (List)data.get(name);
     if (index < 0 || index >= list.size()) {
       throw new IllegalArgumentException(
           "given index " + index + " is out of bounds for list of size " + list.size());
@@ -235,7 +237,7 @@ public class LinkedMultiMap implements MultiMap, Serializable {
     if (!isMultiValued(name)) {
       throw new IllegalArgumentException("name must be multi-valued");
     }
-    data.put(name, new ArrayList(new LinkedHashSet((List) data.get(name))));
+    data.put(name, new ArrayList(new LinkedHashSet((List)data.get(name))));
   }
 
   @Override

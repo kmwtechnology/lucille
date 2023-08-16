@@ -6,11 +6,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * * Formatter for parsing infobox data into Dates. Attempts to find dates which only contain two
- * years only and extract the values into a Java date. The first year specified will be the year we
- * save, the other year will be discarded. Since no month or date are specified, they will default
- * to January 1 of the given year. Will return null of the there are no dates formatted in it's
- * style within the String.
+ *  * Formatter for parsing infobox data into Dates. Attempts to find dates which only contain two years only and extract
+ *  the values into a Java date. The first year specified will be the year we save, the other year will be discarded.
+ *  Since no month or date are specified, they will default to January 1 of the given year.
+ *  Will return null of the there are no dates formatted in it's style within the String.
  */
 public class DateTwoYearsFormatter implements Function<String, LocalDate> {
 
@@ -28,5 +27,6 @@ public class DateTwoYearsFormatter implements Function<String, LocalDate> {
 
       return LocalDate.of(Integer.parseInt(firstYear), 1, 1);
     }
+
   }
 }

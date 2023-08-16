@@ -40,11 +40,13 @@ public class ParquetConnector extends AbstractConnector {
   private long start;
   private long count = 0L;
 
+
   public ParquetConnector(Config config) {
     super(config);
     this.path = config.getString("path");
     this.idField = config.getString("id_field");
     this.fsUri = config.getString("fs_uri");
+
 
     this.s3Key = config.hasPath("s3_key") ? config.getString("s3_key") : null;
     this.s3Secret = config.hasPath("s3_secret") ? config.getString("s3_secret") : null;
@@ -79,13 +81,12 @@ public class ParquetConnector extends AbstractConnector {
       RemoteIterator<LocatedFileStatus> statusIterator = fs.listFiles(new Path(path), true);
       while (limitNotReached() && statusIterator.hasNext()) {
         LocatedFileStatus status = statusIterator.next();
-        // only process parquet files
+        //only process parquet files
         if (!status.getPath().getName().endsWith("parquet")) {
           continue;
         }
 
-        try (ParquetFileReader reader =
-            ParquetFileReader.open(HadoopInputFile.fromStatus(status, conf))) {
+        try (ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(status, conf))) {
 
           // check if we can skip this file
           if (canSkipAndUpdateStart(reader.getRecordCount())) {
@@ -104,11 +105,9 @@ public class ParquetConnector extends AbstractConnector {
             }
 
             MessageColumnIO columnIO = new ColumnIOFactory().getColumnIO(schema);
-            RecordReader<Group> recordReader =
-                columnIO.getRecordReader(pages, new GroupRecordConverter(schema));
+            RecordReader<Group> recordReader = columnIO.getRecordReader(pages, new GroupRecordConverter(schema));
 
-            // at this point start is either 0 or < nRows, if later will update start to 0 after the
-            // loop
+            // at this point start is either 0 or < nRows, if later will update start to 0 after the loop
             while (limitNotReached() && nRows-- > 0) {
 
               // read record regardless of the start parameter
@@ -171,7 +170,7 @@ public class ParquetConnector extends AbstractConnector {
       case DOUBLE:
         doc.setField(fieldName, simpleGroup.getDouble(j, 0));
         break;
-        // todo consider adding a default case
+      // todo consider adding a default case
     }
   }
 
@@ -192,7 +191,7 @@ public class ParquetConnector extends AbstractConnector {
       case DOUBLE:
         doc.addToField(fieldName, group.getDouble(0, 0));
         break;
-        // todo consider adding a default case
+      // todo consider adding a default case
     }
   }
 }

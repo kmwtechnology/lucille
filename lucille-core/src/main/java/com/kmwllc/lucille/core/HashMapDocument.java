@@ -23,7 +23,7 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
-@JsonIgnoreProperties(value = {"fieldNames", "runId", "dropped", "id", "children"})
+@JsonIgnoreProperties(value = { "fieldNames", "runId", "dropped", "id", "children" })
 public class HashMapDocument implements Document, Serializable {
 
   static final long serialVersionUID = 1L;
@@ -35,7 +35,7 @@ public class HashMapDocument implements Document, Serializable {
         if (value instanceof String) {
           return Integer.parseInt((String) value);
         } else {
-          return ((Number) value).intValue();
+          return ((Number)value).intValue();
         }
       };
 
@@ -49,7 +49,8 @@ public class HashMapDocument implements Document, Serializable {
     return data;
   }
 
-  public HashMapDocument() {}
+  public HashMapDocument() {
+  }
 
   public HashMapDocument(String id) {
     if (id == null || id.isEmpty()) {
@@ -72,7 +73,7 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   public HashMapDocument(MultiMap other) {
-    data = (LinkedMultiMap) other;
+    data = (LinkedMultiMap)other;
   }
 
   public HashMapDocument(ObjectNode data) throws DocumentException {
@@ -356,10 +357,9 @@ public class HashMapDocument implements Document, Serializable {
   private <T> List<T> getValues(String name, Function<Object, T> converter) {
     return !has(name)
         ? null
-        : (List<T>)
-            data.getMany(name).stream()
-                .map(value -> convertOrNull(value, converter))
-                .collect(Collectors.toList());
+        : (List<T>) data.getMany(name).stream()
+            .map(value -> convertOrNull(value, converter))
+            .collect(Collectors.toList());
   }
 
   @Override
@@ -384,22 +384,22 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public Double getDouble(String name) {
-    return getValue(name, value -> ((Number) value).doubleValue());
+    return getValue(name, value -> ((Number)value).doubleValue());
   }
 
   @Override
   public List<Double> getDoubleList(String name) {
-    return getValues(name, value -> ((Number) value).doubleValue());
+    return getValues(name, value -> ((Number)value).doubleValue());
   }
 
   @Override
   public Float getFloat(String name) {
-    return getValue(name, value -> ((Number) value).floatValue());
+    return getValue(name, value -> ((Number)value).floatValue());
   }
 
   @Override
   public List<Float> getFloatList(String name) {
-    return getValues(name, value -> ((Number) value).floatValue());
+    return getValues(name, value -> ((Number)value).floatValue());
   }
 
   @Override
@@ -414,12 +414,12 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public Long getLong(String name) {
-    return getValue(name, value -> ((Number) value).longValue());
+    return getValue(name, value -> ((Number)value).longValue());
   }
 
   @Override
   public List<Long> getLongList(String name) {
-    return getValues(name, value -> ((Number) value).longValue());
+    return getValues(name, value -> ((Number)value).longValue());
   }
 
   @Override
@@ -618,10 +618,9 @@ public class HashMapDocument implements Document, Serializable {
     if (!hasChildren()) {
       return Collections.emptyList();
     }
-    return (List<Document>)
-        data.getMany(CHILDREN_FIELD).stream()
-            .map(child -> new HashMapDocument(new LinkedMultiMap((LinkedHashMap) child)))
-            .collect(Collectors.toList());
+    return (List<Document>) data.getMany(CHILDREN_FIELD).stream()
+        .map(child -> new HashMapDocument(new LinkedMultiMap((LinkedHashMap)child)))
+        .collect(Collectors.toList());
   }
 
   @Override

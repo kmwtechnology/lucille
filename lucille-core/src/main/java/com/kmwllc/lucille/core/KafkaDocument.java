@@ -24,12 +24,11 @@ public class KafkaDocument extends JsonDocument {
   }
 
   public KafkaDocument(ConsumerRecord<String, String> record) throws Exception {
-    super((ObjectNode) MAPPER.readTree(record.value()));
+    super((ObjectNode)MAPPER.readTree(record.value()));
     setKafkaMetadata(record);
   }
 
-  KafkaDocument(ObjectNode data, String topic, int partition, long offset, String key)
-      throws DocumentException {
+  KafkaDocument(ObjectNode data, String topic, int partition, long offset, String key) throws DocumentException {
     super(data);
     this.topic = topic;
     this.partition = partition;
@@ -37,15 +36,17 @@ public class KafkaDocument extends JsonDocument {
     this.key = key;
   }
 
-  /** Creates a deep copy of the given Document, now as a KafkaDocument with kafka metadata. */
-  KafkaDocument(Document doc, String topic, int partition, long offset, String key)
-      throws DocumentException {
+  /**
+   * Creates a deep copy of the given Document, now as a KafkaDocument with kafka metadata.
+   */
+  KafkaDocument(Document doc, String topic, int partition, long offset, String key) throws DocumentException {
     super(doc);
     this.topic = topic;
     this.partition = partition;
     this.offset = offset;
     this.key = key;
   }
+
 
   public String getTopic() {
     return topic;
@@ -69,13 +70,14 @@ public class KafkaDocument extends JsonDocument {
       return true;
     }
     if (other instanceof KafkaDocument) {
-      KafkaDocument doc = (KafkaDocument) other;
+      KafkaDocument doc = (KafkaDocument)other;
 
-      return Objects.equals(topic, doc.topic)
-          && Objects.equals(partition, doc.partition)
-          && Objects.equals(offset, doc.offset)
-          && Objects.equals(key, doc.key)
-          && data.equals(doc.data);
+      return
+        Objects.equals(topic, doc.topic) &&
+          Objects.equals(partition, doc.partition) &&
+          Objects.equals(offset, doc.offset) &&
+          Objects.equals(key, doc.key) &&
+          data.equals(doc.data);
     }
     return false;
   }

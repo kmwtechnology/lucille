@@ -207,7 +207,7 @@ public class LinkedMultiMapTest {
     empty.putMany("null", Collections.singletonList(null));
     assertNull(empty.getOne("null"));
     assertEquals(Collections.singletonList(null), empty.getMany("null"));
-
+    
     empty.putMany("null-list", Arrays.asList(null, null, null));
     assertEquals(Arrays.asList(null, null, null), empty.getMany("null-list"));
     assertNull(empty.getOne("null-list"));
