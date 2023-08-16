@@ -31,7 +31,7 @@ public class StageUtils {
    * @param stageName the name of the calling stage
    * @throws StageException
    */
-  public static void validateFieldNumsEqual(List<String> fields1, List<String> fields2, String stageName) throws StageException{
+  public static void validateFieldNumsEqual(List<String> fields1, List<String> fields2, String stageName) throws StageException {
     if (fields1.size() != fields2.size()) {
       throw new StageException("Unequal length field lists supplied to " + stageName);
     }
@@ -46,7 +46,8 @@ public class StageUtils {
    * @param stageName the name of the calling stage
    * @throws StageException
    */
-  public static void validateFieldNumsSeveralToOne(List<String> fields1, List<String> fields2, String stageName) throws StageException {
+  public static void validateFieldNumsSeveralToOne(List<String> fields1, List<String> fields2, String stageName)
+      throws StageException {
     if ((fields1.size() != fields2.size()) && (fields2.size() != 1)) {
       throw new StageException(stageName + " was supplied with an invalid number of fields in the inputted field lists");
     }

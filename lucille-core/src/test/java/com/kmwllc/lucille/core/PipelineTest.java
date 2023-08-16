@@ -1,4 +1,5 @@
 package com.kmwllc.lucille.core;
+
 import com.kmwllc.lucille.stage.CreateChildrenStage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -29,7 +30,7 @@ public class PipelineTest {
     List<Stage> stages = pipeline.getStages();
     assertEquals(stages.get(0).getClass(), Stage1.class);
     assertEquals(stages.get(1).getClass(), Stage4.class);
-    assertTrue(((Stage4)stages.get(1)).isStarted());
+    assertTrue(((Stage4) stages.get(1)).isStarted());
     Document doc = Document.create("d1");
     pipeline.processDocument(doc).next(); // TODO
     assertEquals("v1", doc.getString("s1"));
@@ -45,7 +46,7 @@ public class PipelineTest {
   @Test(expected = PipelineException.class)
   public void testFromConfigWithUnnamedPipeline() throws Exception {
     String s = "pipelines = [{stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, " +
-      "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
+        "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline.fromConfig(config, "pipeline1", "");
   }
@@ -53,7 +54,7 @@ public class PipelineTest {
   @Test(expected = PipelineException.class)
   public void testFromConfigWithDuplicatePipelineName() throws Exception {
     String s = "pipelines = [{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}, " +
-      "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
+        "{name:\"pipeline1\", stages: [{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\"}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline.fromConfig(config, "pipeline1", "");
   }
@@ -132,9 +133,9 @@ public class PipelineTest {
     // 201 is the second child from the last stage, made from the first child of the first stage and passed through
     // the middle stage (not emitted from the middle stage as a child)
     // etc.
-    List<String> expected = Arrays.asList(new String[] {
-      "111", "211", "011", "121", "221", "021", "101", "201", "001", "112", "212", "012", "122", "222",
-      "022", "102", "202", "002", "110", "210", "010", "120", "220", "020", "100", "200", "000"
+    List<String> expected = Arrays.asList(new String[]{
+        "111", "211", "011", "121", "221", "021", "101", "201", "001", "112", "212", "012", "122", "222",
+        "022", "102", "202", "002", "110", "210", "010", "120", "220", "020", "100", "200", "000"
     });
 
     assertEquals(expected, stringResults);
@@ -197,7 +198,8 @@ public class PipelineTest {
   public void testConditional() throws Exception {
     String s = "pipelines = [{name:\"pipeline1\", " +
         "stages: " +
-        "[{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\", conditions:[{fields:[\"cond\"], values:[\"abc\",\"123\"], operator:\"must\"}]}, " +
+        "[{class:\"com.kmwllc.lucille.core.PipelineTest$Stage1\", conditions:[{fields:[\"cond\"], values:[\"abc\",\"123\"], operator:\"must\"}]}, "
+        +
         "{class:\"com.kmwllc.lucille.core.PipelineTest$Stage4\", conditions:[{fields:[\"cond\"], values:[\"have\",\"test\"], operator:\"must\"}]}]}]";
     Config config = ConfigFactory.parseString(s);
     Pipeline pipeline = Pipeline.fromConfig(config, "pipeline1", "");

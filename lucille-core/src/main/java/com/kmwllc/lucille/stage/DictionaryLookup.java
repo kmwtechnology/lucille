@@ -40,17 +40,17 @@ public class DictionaryLookup extends Stage {
   private final HashMap<String, String[]> dict;
   private final boolean usePayloads;
   private final UpdateMode updateMode;
-  private final boolean ignoreCase; 
+  private final boolean ignoreCase;
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   public DictionaryLookup(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "dict_path")
-      .withOptionalProperties("use_payloads", "update_mode", "ignore_case"));
+        .withOptionalProperties("use_payloads", "update_mode", "ignore_case"));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads" ,true);
+    this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
     this.updateMode = UpdateMode.fromConfig(config);
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
     this.dict = buildHashMap(config.getString("dict_path"));
@@ -60,7 +60,7 @@ public class DictionaryLookup extends Stage {
    * Create a HashMap matching key phrases from the dictionary to payloads
    *
    * @param dictPath  the path of the dictionary file
-   * @return  the populated HashMap
+   * @return the populated HashMap
    */
   private HashMap<String, String[]> buildHashMap(String dictPath) throws StageException {
     HashMap<String, String[]> dict = new HashMap<>();
@@ -68,9 +68,10 @@ public class DictionaryLookup extends Stage {
       // For each line of the dictionary file, add a keyword/payload pair to the Trie
       String[] line;
       boolean ignore = false;
-      while((line = reader.readNext()) != null) {
-        if (line.length == 0)
+      while ((line = reader.readNext()) != null) {
+        if (line.length == 0) {
           continue;
+        }
 
         for (String term : line) {
           if (term.contains("\uFFFD")) {
@@ -97,7 +98,7 @@ public class DictionaryLookup extends Stage {
         } else {
           // Handle multiple payload values here.
           String[] rest = Arrays.copyOfRange(line, 1, line.length);
-          for (int i = 0; i < rest.length;i++) {
+          for (int i = 0; i < rest.length; i++) {
             rest[i] = rest[i].trim();
           }
           if (ignoreCase) {
@@ -123,8 +124,9 @@ public class DictionaryLookup extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField))
+      if (!doc.has(sourceField)) {
         continue;
+      }
 
       List<String> outputValues = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {

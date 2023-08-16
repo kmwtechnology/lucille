@@ -261,7 +261,7 @@ public interface Document {
     if (names == null) {
       throw new IllegalArgumentException("expecting string parameters");
     }
-    for (String name: names) {
+    for (String name : names) {
       if (name == null) {
         throw new IllegalArgumentException("Field name cannot be null");
       }

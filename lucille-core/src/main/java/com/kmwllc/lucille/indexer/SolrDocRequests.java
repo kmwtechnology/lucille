@@ -14,6 +14,7 @@ import java.util.Set;
  * ids within a batch and check for collisions.
  */
 public class SolrDocRequests {
+
   private final List<SolrInputDocument> docsToAddOrUpdate;
   private final Set<String> idsToAddOrUpdate;
   private final Set<String> idsToDelete;

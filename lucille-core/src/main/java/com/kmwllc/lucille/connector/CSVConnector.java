@@ -62,12 +62,12 @@ public class CSVConnector extends AbstractConnector {
     }
     this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
     // if both a separator char and useTabs is specified, useTabs takes precedence
-    char separator = config.hasPath("separatorChar")  ? CharUtils.toChar(config.getString("separatorChar")) : ',';
+    char separator = config.hasPath("separatorChar") ? CharUtils.toChar(config.getString("separatorChar")) : ',';
     this.separatorChar = (config.hasPath("useTabs") && config.getBoolean("useTabs")) ? '\t' : separator;
     this.quoteChar = (config.hasPath("interpretQuotes") && !config.getBoolean("interpretQuotes")) ?
-      CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;
+        CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;
     this.escapeChar = (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar")) ?
-      CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_ESCAPE_CHARACTER;
+        CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_ESCAPE_CHARACTER;
     this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
     this.moveToErrorFolder = config.hasPath("moveToErrorFolder") ? config.getString("moveToErrorFolder") : null;
     this.ignoredTerms = config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : new ArrayList<>();
@@ -118,7 +118,9 @@ public class CSVConnector extends AbstractConnector {
     log.info("Beginning to process file {}", filePath);
     String filename = new File(filePath).getName();
     try (CSVReader csvReader = new CSVReaderBuilder(FileUtils.getReader(filePath)).
-      withCSVParser(new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build()).build()) {
+        withCSVParser(
+            new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
+        .build()) {
       // log.info("Processing linenumber: {}", lineNum);
       // Assume first line is header
       String[] header = csvReader.readNext();
@@ -127,8 +129,9 @@ public class CSVConnector extends AbstractConnector {
       }
       // lowercase column names
       if (lowercaseFields) {
-        for (int i = 0; i < header.length; i++)
+        for (int i = 0; i < header.length; i++) {
           header[i] = header[i].toLowerCase();
+        }
       }
       // Index the column names
       HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();

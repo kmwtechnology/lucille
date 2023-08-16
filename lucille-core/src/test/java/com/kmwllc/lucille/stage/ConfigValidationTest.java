@@ -43,14 +43,14 @@ public class ConfigValidationTest {
     Document doc = Document.createFromJson("{\"id\":\"id\",\"true\": \"boolean\"}");
 
     testMessage(ApplyRegex.class, "apply-regex-invalid-type-1.conf", doc,
-      "source has type BOOLEAN rather than LIST");
+        "source has type BOOLEAN rather than LIST");
 
     testMessage(ApplyRegex.class, "apply-regex-invalid-type-2.conf", doc,
-      "regex has type LIST rather than STRING");
+        "regex has type LIST rather than STRING");
 
     // multiple variants of the class cast error message have been observed so we only look for a short substring
     testMessage(ApplyRegex.class, "apply-regex-invalid-type-3.conf", doc,
-      "java.lang.String");
+        "java.lang.String");
   }
 
   @Test
@@ -71,23 +71,23 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions2.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NoopStage: " +
-      "Stage config contains unknown property invalid_property");
+        "Stage config contains unknown property invalid_property");
 
     // TODO note that for the following two exceptions, the fields are retrieved before
     //  the config validation is called
 
     testException(exceptions1.get(1), IllegalArgumentException.class,
-      "Stage config must contain property fields");
+        "Stage config must contain property fields");
 
     testException(exceptions2.get(0), IllegalArgumentException.class,
-      "Stage config must contain property dest");
+        "Stage config must contain property dest");
 
     testException(exceptions2.get(1), IllegalArgumentException.class, "com.kmwllc.lucille.stage.Concatenate: " +
-      "Stage config contains unknown property default_inputs3");
+        "Stage config contains unknown property default_inputs3");
   }
 
   private static void processDoc(Class<? extends Stage> stageClass, String config, Document doc)
-    throws StageException {
+      throws StageException {
     Stage s = StageFactory.of(stageClass).get(addPath(config));
     s.processDocument(doc);
   }

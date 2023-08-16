@@ -34,10 +34,10 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
   private final Set idSet;
 
   public HybridIndexerMessageManager(Config config,
-                                     LinkedBlockingQueue<Document> pipelineDest,
-                                     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
-                                     Set<String> idSet,
-                                     String pipelineName) {
+      LinkedBlockingQueue<Document> pipelineDest,
+      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
+      Set<String> idSet,
+      String pipelineName) {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
     this.idSet = idSet;
@@ -57,8 +57,8 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
     }
     if (kafkaEventProducer != null) {
       String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
-      RecordMetadata result = (RecordMetadata)  kafkaEventProducer.send(
-        new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+      RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
+          new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
       kafkaEventProducer.flush(); // TODO
     }
   }
@@ -87,20 +87,20 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
     if (batch.isEmpty()) {
       return;
     }
-    Map<TopicPartition,OffsetAndMetadata> batchOffsets = new HashMap<>();
+    Map<TopicPartition, OffsetAndMetadata> batchOffsets = new HashMap<>();
     for (Document doc : batch) {
 
       if (!(doc instanceof KafkaDocument)) {
         continue;
       }
 
-      KafkaDocument kDoc = (KafkaDocument)doc;
+      KafkaDocument kDoc = (KafkaDocument) doc;
       TopicPartition topicPartition = new TopicPartition(kDoc.getTopic(), kDoc.getPartition());
       // per the kafka docs:
       // "Note: The committed offset should always be the offset of the next message that your application will read.
       // Thus, when calling commitSync(offsets) you should add one to the offset of the last message processed."
-      OffsetAndMetadata offset = new OffsetAndMetadata(kDoc.getOffset()+1);
-      batchOffsets.put(topicPartition,offset);
+      OffsetAndMetadata offset = new OffsetAndMetadata(kDoc.getOffset() + 1);
+      batchOffsets.put(topicPartition, offset);
     }
     if (!batchOffsets.isEmpty()) {
       offsets.put(batchOffsets);

@@ -33,6 +33,7 @@ import java.util.Map.Entry;
  * </p>
  */
 public class ParseJson extends Stage {
+
   private static final Base64.Decoder DECODER = Base64.getDecoder();
 
   private final String src;
@@ -44,16 +45,16 @@ public class ParseJson extends Stage {
 
   public ParseJson(Config config) {
     super(config, new StageSpec()
-      .withRequiredProperties("src")
-      .withOptionalProperties("sourceIsBase64")
-      .withRequiredParents("jsonFieldPaths"));
+        .withRequiredProperties("src")
+        .withOptionalProperties("sourceIsBase64")
+        .withRequiredParents("jsonFieldPaths"));
     this.src = config.getString("src");
     this.jsonFieldPaths = config.getConfig("jsonFieldPaths").root().unwrapped();
     this.sourceIsBase64 = config.hasPath("sourceIsBase64") && config.getBoolean("sourceIsBase64");
     this.jsonPathConf = Configuration.builder()
-      .jsonProvider(new JacksonJsonProvider())
-      .mappingProvider(new JacksonMappingProvider())
-      .options(Option.DEFAULT_PATH_LEAF_TO_NULL, Option.SUPPRESS_EXCEPTIONS).build();
+        .jsonProvider(new JacksonJsonProvider())
+        .mappingProvider(new JacksonMappingProvider())
+        .options(Option.DEFAULT_PATH_LEAF_TO_NULL, Option.SUPPRESS_EXCEPTIONS).build();
   }
 
   @Override

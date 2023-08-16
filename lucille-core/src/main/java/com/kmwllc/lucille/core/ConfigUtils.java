@@ -18,7 +18,7 @@ public class ConfigUtils {
 
     Config originalConfig = ConfigFactory.load();
 
-    if (envName==null) {
+    if (envName == null) {
       log.info("pipeline.env system property not set");
       return originalConfig;
     }
@@ -40,7 +40,7 @@ public class ConfigUtils {
    * @param setting the setting to get the value of
    * @param fallback  default value
    * @param <T> the Type of this setting's value
-   * @return  the value
+   * @return the value
    */
   public static <T> T getOrDefault(Config config, String setting, T fallback) {
     if (config.hasPath(setting)) {

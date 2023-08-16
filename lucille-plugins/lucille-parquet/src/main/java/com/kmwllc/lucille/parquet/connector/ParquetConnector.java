@@ -47,7 +47,6 @@ public class ParquetConnector extends AbstractConnector {
     this.idField = config.getString("id_field");
     this.fsUri = config.getString("fs_uri");
 
-
     this.s3Key = config.hasPath("s3_key") ? config.getString("s3_key") : null;
     this.s3Secret = config.hasPath("s3_secret") ? config.getString("s3_secret") : null;
     this.limit = config.hasPath("limit") ? config.getLong("limit") : -1;

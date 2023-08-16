@@ -26,8 +26,8 @@ public class SetStaticValues extends Stage {
 
   public SetStaticValues(Config config) {
     super(config, new StageSpec()
-      .withOptionalProperties("update_mode")
-      .withRequiredParents("static_values"));
+        .withOptionalProperties("update_mode")
+        .withRequiredParents("static_values"));
     staticValues = config.getConfig("static_values").root().unwrapped();
     updateMode = UpdateMode.fromConfig(config);
   }

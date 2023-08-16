@@ -36,8 +36,9 @@ public class DropValues extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String source : sourceFields) {
-      if (!doc.has(source))
+      if (!doc.has(source)) {
         continue;
+      }
 
       List<String> fieldVals = doc.getStringList(source);
       doc.removeField(source);

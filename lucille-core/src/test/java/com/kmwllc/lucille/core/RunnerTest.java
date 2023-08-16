@@ -55,7 +55,7 @@ public class RunnerTest {
     // run connectors and pipeline; acquire a persisting message manager that allows
     // for reviewing saved message traffic
     PersistingLocalMessageManager manager =
-      Runner.runInTestMode("RunnerTest/singleDoc.conf").get("connector1");
+        Runner.runInTestMode("RunnerTest/singleDoc.conf").get("connector1");
 
     // confirm doc 1 sent for processing
     List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
@@ -97,7 +97,7 @@ public class RunnerTest {
     // run connectors and pipeline; acquire a persisting message manager that allows
     // for reviewing saved message traffic
     PersistingLocalMessageManager manager =
-      Runner.runInTestMode("RunnerTest/threeDocsOneFailure.conf").get("connector1");
+        Runner.runInTestMode("RunnerTest/threeDocsOneFailure.conf").get("connector1");
 
     // confirm doc 3 docs sent for processing but only 2 docs completed
     List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
@@ -161,7 +161,8 @@ public class RunnerTest {
   public void testChildHandling() throws Exception {
 
     PersistingLocalMessageManager manager =
-      Runner.runInTestMode("RunnerTest/singleDocSingleChild.conf").get("connector1");;
+        Runner.runInTestMode("RunnerTest/singleDocSingleChild.conf").get("connector1");
+    ;
 
     // confirm doc 1 sent for processing
     List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
@@ -201,7 +202,8 @@ public class RunnerTest {
   public void testDropDocument() throws Exception {
 
     PersistingLocalMessageManager manager =
-      Runner.runInTestMode("RunnerTest/twoChildrenDropParent.conf").get("connector1");;
+        Runner.runInTestMode("RunnerTest/twoChildrenDropParent.conf").get("connector1");
+    ;
 
     // confirm doc 1 sent for processing
     List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
@@ -256,7 +258,8 @@ public class RunnerTest {
   public void testDropChildDocument() throws Exception {
 
     PersistingLocalMessageManager manager =
-      Runner.runInTestMode("RunnerTest/threeChildrenDropMiddle.conf").get("connector1");;
+        Runner.runInTestMode("RunnerTest/threeChildrenDropMiddle.conf").get("connector1");
+    ;
 
     // confirm doc 1 sent for processing
     List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
@@ -305,7 +308,8 @@ public class RunnerTest {
   public void testErrorGeneratingChildren() throws Exception {
 
     PersistingLocalMessageManager manager =
-      Runner.runInTestMode("RunnerTest/failAfterTwoChildren.conf").get("connector1");;
+        Runner.runInTestMode("RunnerTest/failAfterTwoChildren.conf").get("connector1");
+    ;
 
     // confirm doc 1 sent for processing
     List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
@@ -407,7 +411,7 @@ public class RunnerTest {
   @Test
   public void testThreeConnectorsWithFailure() throws Exception {
     Map<String, PersistingLocalMessageManager> map =
-      Runner.runInTestMode("RunnerTest/threeConnectorsWithFailure.conf");
+        Runner.runInTestMode("RunnerTest/threeConnectorsWithFailure.conf");
     assertEquals(2, map.size());
   }
 
@@ -415,17 +419,17 @@ public class RunnerTest {
   public void testRunStatus() throws Exception {
     // successful run
     RunResult result =
-      Runner.run(ConfigFactory.load("RunnerTest/singleDoc.conf"), Runner.RunType.TEST);
+        Runner.run(ConfigFactory.load("RunnerTest/singleDoc.conf"), Runner.RunType.TEST);
     assertTrue(result.getStatus());
 
     // successful run with failing documents
     result =
-      Runner.run(ConfigFactory.load("RunnerTest/threeDocsOneFailure.conf"), Runner.RunType.TEST);
+        Runner.run(ConfigFactory.load("RunnerTest/threeDocsOneFailure.conf"), Runner.RunType.TEST);
     assertTrue(result.getStatus());
 
     // failing run
     result =
-      Runner.run(ConfigFactory.load("RunnerTest/threeConnectorsWithFailure.conf"), Runner.RunType.TEST);
+        Runner.run(ConfigFactory.load("RunnerTest/threeConnectorsWithFailure.conf"), Runner.RunType.TEST);
     assertFalse(result.getStatus());
   }
 
@@ -438,7 +442,7 @@ public class RunnerTest {
   @Test
   public void testThreeConnectorsWithStageStartFailure() throws Exception {
     Map<String, PersistingLocalMessageManager> map =
-      Runner.runInTestMode("RunnerTest/threeConnectorsWithStageStartFailure.conf");
+        Runner.runInTestMode("RunnerTest/threeConnectorsWithStageStartFailure.conf");
     assertEquals(2, map.size());
   }
 
@@ -463,7 +467,7 @@ public class RunnerTest {
   public void testPostCompletionActionsWithoutPipeline() throws Exception {
     PostCompletionCSVConnector.reset();
     PersistingLocalMessageManager manager =
-      Runner.runInTestMode("RunnerTest/postCompletionActionsWithoutPipeline.conf").get("connector1");
+        Runner.runInTestMode("RunnerTest/postCompletionActionsWithoutPipeline.conf").get("connector1");
     assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
   }
 
@@ -492,7 +496,7 @@ public class RunnerTest {
     NoOpConnector connector = mock(NoOpConnector.class);
     PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
     PublisherImpl publisher =
-      Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
+        Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
     assertTrue(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
@@ -502,23 +506,23 @@ public class RunnerTest {
     verify(manager, times(1)).close();
   }
 
-    @Test
-    public void testLifecycleMethodsWithPreExecuteException() throws Exception {
+  @Test
+  public void testLifecycleMethodsWithPreExecuteException() throws Exception {
 
-      // if preExecute() throws an exception, execute() and postExecute() should not be called, but close() should be
-      NoOpConnector connector = mock(NoOpConnector.class);
-      PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
-      PublisherImpl publisher =
+    // if preExecute() throws an exception, execute() and postExecute() should not be called, but close() should be
+    NoOpConnector connector = mock(NoOpConnector.class);
+    PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
+    PublisherImpl publisher =
         Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
-      doThrow(new ConnectorException()).when(connector).preExecute(any());
-      assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
-      verify(connector, times(1)).preExecute(any());
-      verify(connector, times(0)).execute(any());
-      verify(connector, times(0)).postExecute(any());
-      verify(connector, times(1)).close();
-      verify(publisher, times(1)).close();
-      verify(manager, times(1)).close();
-    }
+    doThrow(new ConnectorException()).when(connector).preExecute(any());
+    assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
+    verify(connector, times(1)).preExecute(any());
+    verify(connector, times(0)).execute(any());
+    verify(connector, times(0)).postExecute(any());
+    verify(connector, times(1)).close();
+    verify(publisher, times(1)).close();
+    verify(manager, times(1)).close();
+  }
 
   @Test
   public void testLifecycleMethodsWithExecuteException() throws Exception {
@@ -527,7 +531,7 @@ public class RunnerTest {
     NoOpConnector connector = mock(NoOpConnector.class);
     PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
     PublisherImpl publisher =
-      Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
+        Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
     doThrow(new ConnectorException()).when(connector).execute(any());
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
@@ -545,7 +549,7 @@ public class RunnerTest {
     NoOpConnector connector = mock(NoOpConnector.class);
     PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
     PublisherImpl publisher =
-      Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
+        Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
     doThrow(new ConnectorException()).when(connector).postExecute(any());
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
@@ -562,7 +566,7 @@ public class RunnerTest {
   @Test
   public void testCustomRunSummaryMessage() throws Exception {
     RunResult result =
-      Runner.run(ConfigFactory.load("RunnerTest/runSummaryMessage.conf"), Runner.RunType.TEST);
+        Runner.run(ConfigFactory.load("RunnerTest/runSummaryMessage.conf"), Runner.RunType.TEST);
     assertTrue(result.toString().contains(RunSummaryMessageConnector.MESSAGE));
   }
 
@@ -672,7 +676,7 @@ public class RunnerTest {
   @Test
   public void testConnectorWithUnrecognizedPipeline() throws Exception {
     RunResult result =
-      Runner.run(ConfigFactory.load("RunnerTest/pipelineNotFound.conf"), Runner.RunType.TEST);
+        Runner.run(ConfigFactory.load("RunnerTest/pipelineNotFound.conf"), Runner.RunType.TEST);
     assertFalse(result.getStatus());
   }
 
@@ -711,20 +715,20 @@ public class RunnerTest {
     assertEquals(4, manager1.getSavedDocumentsSentForProcessing().size());
     assertEquals(6, manager2.getSavedDocumentsSentForProcessing().size());
     List<String> expectedIdsFromCollapsingConnector =
-      Arrays.asList(new String[] {"connector1-0", "connector1-1", "connector1-2", "connector1-1"});
+        Arrays.asList(new String[]{"connector1-0", "connector1-1", "connector1-2", "connector1-1"});
     List<String> expectedIdsFromNonCollapsingConnector =
-      Arrays.asList(new String[] {"connector2-0", "connector2-1", "connector2-1", "connector2-1", "connector2-2", "connector2-1"});
+        Arrays.asList(new String[]{"connector2-0", "connector2-1", "connector2-1", "connector2-1", "connector2-2", "connector2-1"});
     assertEquals(expectedIdsFromCollapsingConnector,
-      manager1.getSavedDocumentsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
+        manager1.getSavedDocumentsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
     assertEquals(expectedIdsFromNonCollapsingConnector,
-      manager2.getSavedDocumentsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
+        manager2.getSavedDocumentsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
     assertEquals(4, manager1.getSavedEvents().size());
     assertEquals(6, manager2.getSavedEvents().size());
 
-    assertEquals(Arrays.asList(new String[] {"foo", "foo", "foo2"}),
-      manager1.getSavedDocumentsSentForProcessing().get(1).getStringList("field1"));
+    assertEquals(Arrays.asList(new String[]{"foo", "foo", "foo2"}),
+        manager1.getSavedDocumentsSentForProcessing().get(1).getStringList("field1"));
     assertEquals("non-consecutive",
-      manager1.getSavedDocumentsSentForProcessing().get(3).getString("field1"));
+        manager1.getSavedDocumentsSentForProcessing().get(3).getString("field1"));
   }
 
   @Test
@@ -732,7 +736,7 @@ public class RunnerTest {
     // use runLocal() instead of runInTestMode() so we attempt to start an Indexer and
     // handle the failure
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerConnectFailure.conf"),
-      Runner.RunType.LOCAL).getStatus());
+        Runner.RunType.LOCAL).getStatus());
   }
 
   @Test
@@ -747,9 +751,9 @@ public class RunnerTest {
     // confirm that each stage instance within each connector/pipeline pair creates a timer with a unique name
     // note: it's important for names to be unique, otherwise metrics across instances of a stage would be combined
     SortedMap<String, Timer> connector1Pipeline1Stage1Timers =
-      metrics.getTimers(MetricFilter.contains("connector1.pipeline1.stage.stage_1.processDocumentTime"));
+        metrics.getTimers(MetricFilter.contains("connector1.pipeline1.stage.stage_1.processDocumentTime"));
     SortedMap<String, Timer> connector2Pipeline2Stage1Timers =
-      metrics.getTimers(MetricFilter.contains("connector2.pipeline2.stage.stage_1.processDocumentTime"));
+        metrics.getTimers(MetricFilter.contains("connector2.pipeline2.stage.stage_1.processDocumentTime"));
     assertEquals(1, connector1Pipeline1Stage1Timers.size());
     assertEquals(1, connector2Pipeline2Stage1Timers.size());
 

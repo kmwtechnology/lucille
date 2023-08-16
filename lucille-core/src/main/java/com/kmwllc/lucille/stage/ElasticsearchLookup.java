@@ -18,6 +18,7 @@ import java.util.Iterator;
 import java.util.List;
 
 public class ElasticsearchLookup extends Stage {
+
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchLookup.class);
 
   private ElasticsearchClient client;
@@ -29,10 +30,10 @@ public class ElasticsearchLookup extends Stage {
 
   public ElasticsearchLookup(Config config) {
     super(config, new StageSpec()
-      .withOptionalProperties("update_mode")
-      .withRequiredProperties("source", "dest", "elasticsearch.url", "elasticsearch.index")
-      .withOptionalProperties("elasticsearch.acceptInvalidCert", "update_mode")
-      .withRequiredParents("elasticsearch"));
+        .withOptionalProperties("update_mode")
+        .withRequiredProperties("source", "dest", "elasticsearch.url", "elasticsearch.index")
+        .withOptionalProperties("elasticsearch.acceptInvalidCert", "update_mode")
+        .withRequiredParents("elasticsearch"));
     this.client = ElasticsearchUtils.getElasticsearchOfficialClient(config);
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
 
@@ -72,9 +73,9 @@ public class ElasticsearchLookup extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
       GetResponse<ObjectNode> response = client.get(g -> g
-          .index(index)
-          .id(doc.getId()),
-        ObjectNode.class);
+              .index(index)
+              .id(doc.getId()),
+          ObjectNode.class);
 
       if (response.found()) {
         ObjectNode json = response.source();

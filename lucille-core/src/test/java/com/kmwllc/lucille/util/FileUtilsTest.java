@@ -9,6 +9,7 @@ import java.io.Reader;
 import static org.junit.Assert.assertEquals;
 
 public class FileUtilsTest {
+
   @Test
   public void getReaderTest() throws Exception {
     String[] paths = {

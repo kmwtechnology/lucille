@@ -33,9 +33,9 @@ public class FastCSVDocumentProducer implements DocumentProducer {
       for (NamedCsvRow row : csv) {
         Document doc = parent.deepCopy();
         doc.setField(Document.ID_FIELD, row.getField(idColumnName));
-        Map<String,String> fields = row.getFields();
+        Map<String, String> fields = row.getFields();
         fields.forEach(doc::setField);
-        doc.setField("originalLineNumber",row.getOriginalLineNumber());
+        doc.setField("originalLineNumber", row.getOriginalLineNumber());
         docs.add(doc);
       }
     }

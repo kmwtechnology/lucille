@@ -164,7 +164,7 @@ class Worker implements Runnable {
   private void commitOffsetsAndRemoveCounter(Document doc) {
     try {
       manager.commitPendingDocOffsets();
-      if (trackRetries && doc!=null) {
+      if (trackRetries && doc != null) {
         counter.remove(doc);
       }
     } catch (Exception commitException) {
@@ -177,7 +177,7 @@ class Worker implements Runnable {
   }
 
   public static WorkerThread startThread(Config config, WorkerMessageManager manager,
-                                         String pipelineName, String metricsPrefix) throws
+      String pipelineName, String metricsPrefix) throws
       Exception {
     Worker worker = new Worker(config, manager, pipelineName, metricsPrefix);
     WorkerThread workerThread = new WorkerThread(worker, config);
