@@ -5,14 +5,15 @@ import com.kmwllc.lucille.core.StageException;
 import java.util.List;
 
 /**
- * Util class for the Stage API. Contains static methods to facilitate validation and other operations common across Stages.
+ * Util class for the Stage API. Contains static methods to facilitate validation and other
+ * operations common across Stages.
  */
 public class StageUtils {
 
   /**
    * Validate that the given field list contains at least 1 field name.
    *
-   * @param fields    the field list
+   * @param fields the field list
    * @param stageName the name of the calling stage
    * @throws StageException
    */
@@ -26,8 +27,8 @@ public class StageUtils {
   /**
    * Validate that the two given field lists contain the same number of field names.
    *
-   * @param fields1   the first field list
-   * @param fields2   the second field list
+   * @param fields1 the first field list
+   * @param fields2 the second field list
    * @param stageName the name of the calling stage
    * @throws StageException
    */
@@ -39,11 +40,11 @@ public class StageUtils {
   }
 
   /**
-   * Validate that if the field lists have unequal numbers of field names, one of the field lists contains 1 and only one field
-   * name.
+   * Validate that if the field lists have unequal numbers of field names, one of the field lists
+   * contains 1 and only one field name.
    *
-   * @param fields1   the first field list
-   * @param fields2   the second field list
+   * @param fields1 the first field list
+   * @param fields2 the second field list
    * @param stageName the name of the calling stage
    * @throws StageException
    */

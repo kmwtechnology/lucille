@@ -14,9 +14,7 @@ import org.opensearch.client.RestHighLevelClient;
 
 import java.net.URI;
 
-/**
- * Utility methods for communicating with OpenSearch.
- */
+/** Utility methods for communicating with OpenSearch. */
 public class OpenSearchUtils {
 
   /**

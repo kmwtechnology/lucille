@@ -1,8 +1,8 @@
 package com.kmwllc.lucille.core;
 
 /**
- * Represents the outcome of an execution of a specific connector feeding to a specific pipeline. Contains a status as well as a
- * message to be included in a run summary.
+ * Represents the outcome of an execution of a specific connector feeding to a specific pipeline.
+ * Contains a status as well as a message to be included in a run summary.
  */
 public class ConnectorResult {
 
@@ -70,8 +70,8 @@ public class ConnectorResult {
                 + publisher.numFailed()
                 + " docs "
                 + (publisher.numFailed() > 0
-                ? "FAILED."
-                : "failed. " + publisher.numDropped() + " docs dropped.");
+                    ? "FAILED."
+                    : "failed. " + publisher.numDropped() + " docs dropped.");
       }
     } else {
       msg += errMsg;

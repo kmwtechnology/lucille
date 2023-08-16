@@ -40,9 +40,7 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
         Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName, config)));
   }
 
-  /**
-   * Polls for a document that is waiting to be processed by the pipeline.
-   */
+  /** Polls for a document that is waiting to be processed by the pipeline. */
   @Override
   public Document pollDocToProcess() throws Exception {
     ConsumerRecords<String, KafkaDocument> consumerRecords =
@@ -92,9 +90,7 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
     sendEvent(event);
   }
 
-  /**
-   * Sends an Event relating to a Document to the appropriate location for Events.
-   */
+  /** Sends an Event relating to a Document to the appropriate location for Events. */
   @Override
   public void sendEvent(Event event) throws Exception {
     if (kafkaEventProducer == null) {

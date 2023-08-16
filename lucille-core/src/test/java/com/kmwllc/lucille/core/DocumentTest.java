@@ -1267,7 +1267,7 @@ public abstract class DocumentTest {
 
   @Test
   public void testGetBytesSingleValued() {
-    byte[] value = new byte[]{0x3c, 0x4c, 0x5c};
+    byte[] value = new byte[] {0x3c, 0x4c, 0x5c};
     Document document = createDocument("doc");
     document.setField("bytes", value);
     assertFalse(document.isMultiValued("bytes"));
@@ -1284,9 +1284,9 @@ public abstract class DocumentTest {
 
   @Test
   public void testGetBytesListMultiValued() throws Exception {
-    byte[] value1 = new byte[]{0x3c, 0x4c, 0x5c};
-    byte[] value2 = new byte[]{0x4c, 0x4c, 0x5c};
-    byte[] value3 = new byte[]{0x5c, 0x4c, 0x5c};
+    byte[] value1 = new byte[] {0x3c, 0x4c, 0x5c};
+    byte[] value2 = new byte[] {0x4c, 0x4c, 0x5c};
+    byte[] value3 = new byte[] {0x5c, 0x4c, 0x5c};
     Document document = createDocument("doc");
     document.setField("bytes", value1);
     assertFalse(document.isMultiValued("bytes"));
@@ -1298,8 +1298,8 @@ public abstract class DocumentTest {
 
   @Test
   public void testGetBytesMultivalued() {
-    byte[] value1 = new byte[]{0x3c, 0x4c, 0x5c};
-    byte[] value2 = new byte[]{0x4c, 0x4c, 0x5c};
+    byte[] value1 = new byte[] {0x3c, 0x4c, 0x5c};
+    byte[] value2 = new byte[] {0x4c, 0x4c, 0x5c};
     Document document = createDocument("doc");
     document.addToField("field1", value1);
     document.addToField("field1", value2);

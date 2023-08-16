@@ -7,7 +7,8 @@ import com.typesafe.config.Config;
 import java.time.Instant;
 
 /**
- * This Class is only for test purposes! Used to determine if post completion actions occur how/when they are expected.
+ * This Class is only for test purposes! Used to determine if post completion actions occur how/when
+ * they are expected.
  */
 public class PostCompletionCSVConnector extends CSVConnector {
 

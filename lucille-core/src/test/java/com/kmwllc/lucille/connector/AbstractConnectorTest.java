@@ -25,8 +25,7 @@ public class AbstractConnectorTest {
     }
 
     @Override
-    public void execute(Publisher publisher) throws ConnectorException {
-    }
+    public void execute(Publisher publisher) throws ConnectorException {}
   }
 
   @Test

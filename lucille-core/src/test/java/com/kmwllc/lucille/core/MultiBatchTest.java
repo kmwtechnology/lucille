@@ -10,10 +10,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class MultiBatchTest {
-
-  /**
-   * Test adding a single document to a batch and retrieving it by flushing the whole batch.
-   */
+  /** Test adding a single document to a batch and retrieving it by flushing the whole batch. */
   @Test
   public void testSimpleAdd() {
     MultiBatch batch = new MultiBatch(100, 100, "index");
@@ -26,7 +23,8 @@ public class MultiBatchTest {
   }
 
   /**
-   * Test adding a single document targetted to a specific index to a batch and retrieving it by flushing the whole batch.
+   * Test adding a single document targetted to a specific index to a batch and retrieving it by
+   * flushing the whole batch.
    */
   @Test
   public void testSimpleAddToIndex() {
@@ -40,9 +38,7 @@ public class MultiBatchTest {
     assertEquals("doc", docs.get(0).getId());
   }
 
-  /**
-   * Test adding a several documents to a batch and retrieving them by flushing the whole batch.
-   */
+  /** Test adding a several documents to a batch and retrieving them by flushing the whole batch. */
   @Test
   public void testSeveralAdd() {
     MultiBatch batch = new MultiBatch(100, 1000, "index");
@@ -65,7 +61,8 @@ public class MultiBatchTest {
   }
 
   /**
-   * Test adding a several documents to a batch targetting separate indices and retrieving them by flushing the whole batch.
+   * Test adding a several documents to a batch targetting separate indices and retrieving them by
+   * flushing the whole batch.
    */
   @Test
   public void testSeveralAddToIndices() {
@@ -95,9 +92,7 @@ public class MultiBatchTest {
     assertEquals("index3", docs.get(2).getString("index"));
   }
 
-  /**
-   * Test that documents are returned if the batch is full.
-   */
+  /** Test that documents are returned if the batch is full. */
   @Test
   public void testFullBatch() {
     MultiBatch batch = new MultiBatch(1, 1000, "index");
@@ -115,7 +110,8 @@ public class MultiBatchTest {
   }
 
   /**
-   * Test that documents are returned if one of the batches is full. Only the full batch should return docs.
+   * Test that documents are returned if one of the batches is full. Only the full batch should
+   * return docs.
    */
   @Test
   public void testOneBatchisFull() {
@@ -146,9 +142,7 @@ public class MultiBatchTest {
     assertEquals("doc4", docs.get(2).getId());
   }
 
-  /**
-   * Test that supplying a null document to the batch causes a NullPointerException.
-   */
+  /** Test that supplying a null document to the batch causes a NullPointerException. */
   @Test(expected = NullPointerException.class)
   public void testSupplyNull() {
     MultiBatch batch = new MultiBatch(100, 1000, "index");
@@ -156,7 +150,8 @@ public class MultiBatchTest {
   }
 
   /**
-   * Test that the batch is flushed if flushIfExpired() or add() is called after the time elapsed since the last
+   * Test that the batch is flushed if flushIfExpired() or add() is called after the time elapsed
+   * since the last
    *
    * @throws InterruptedException
    */

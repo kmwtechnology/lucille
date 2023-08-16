@@ -6,9 +6,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * * Formatter for parsing infobox data into Dates. Attempts to find dates which only contain a year and extract the values into a
- * Java date. Since no month or date are specified, they will default to January 1 of the given year. Will return null of the there
- * are no dates formatted in it's style within the String.
+ * * Formatter for parsing infobox data into Dates. Attempts to find dates which only contain a year
+ * and extract the values into a Java date. Since no month or date are specified, they will default
+ * to January 1 of the given year. Will return null of the there are no dates formatted in it's
+ * style within the String.
  */
 public class DateYearOnlyFormatter implements Function<String, LocalDate> {
 

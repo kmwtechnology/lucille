@@ -11,13 +11,10 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
 public class IndexerFactory {
-
   public static final String DEFAULT_INDEXER_TYPE = "Solr";
   private static final Logger log = LoggerFactory.getLogger(IndexerFactory.class);
 
-  /**
-   * Instantiates an Indexer from the designated Config.
-   */
+  /** Instantiates an Indexer from the designated Config. */
   public static Indexer fromConfig(
       Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix)
       throws IndexerException {
@@ -61,10 +58,10 @@ public class IndexerFactory {
                 Config.class, IndexerMessageManager.class, Boolean.TYPE, String.class);
         return (Indexer) constructor.newInstance(config, manager, bypass, metricsPrefix);
       } catch (ClassNotFoundException
-               | NoSuchMethodException
-               | InvocationTargetException
-               | InstantiationException
-               | IllegalAccessException e) {
+          | NoSuchMethodException
+          | InvocationTargetException
+          | InstantiationException
+          | IllegalAccessException e) {
         throw new IndexerException(
             "Problem initializing indexer.class configuration of: '" + className + "'", e);
       }

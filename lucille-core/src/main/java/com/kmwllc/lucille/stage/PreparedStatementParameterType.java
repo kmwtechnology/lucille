@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.stage;
 
 /**
- * An enum to represent the parameter types which can be used by the Prepared Statement in the QueryDatabase stage.
+ * An enum to represent the parameter types which can be used by the Prepared Statement in the
+ * QueryDatabase stage.
  */
 public enum PreparedStatementParameterType {
   STRING,

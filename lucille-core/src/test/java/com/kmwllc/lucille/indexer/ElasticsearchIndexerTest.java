@@ -30,7 +30,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 public class ElasticsearchIndexerTest {
-
   private ElasticsearchClient mockClient;
 
   @Before
@@ -50,7 +49,8 @@ public class ElasticsearchIndexerTest {
   }
 
   /**
-   * Tests that the indexer correctly polls completed documents from the destination topic and sends them to Elasticsearch.
+   * Tests that the indexer correctly polls completed documents from the destination topic and sends
+   * them to Elasticsearch.
    *
    * @throws Exception
    */

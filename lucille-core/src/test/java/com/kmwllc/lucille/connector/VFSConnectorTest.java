@@ -26,23 +26,21 @@ public class VFSConnectorTest {
     Connector connector = new VFSConnector(config);
     connector.execute(publisher);
     String[] fileNames = {
-        "a.json",
-        "b.json",
-        "c.json",
-        "d.json",
-        "subdir1/e.json",
-        "subdir1/e.json.gz",
-        "subdir1/e.yaml",
-        "subdir1/f.jsonl"
+      "a.json",
+      "b.json",
+      "c.json",
+      "d.json",
+      "subdir1/e.json",
+      "subdir1/e.json.gz",
+      "subdir1/e.yaml",
+      "subdir1/f.jsonl"
     };
     int docCount = 0;
     for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
       String docId = doc.getId();
       String filePath = doc.getString(FileTraverser.FILE_PATH);
       // skip if it's an automatically generated Finder file because the directory was opened
-      if (filePath.endsWith(".DS_Store")) {
-        continue;
-      }
+      if (filePath.endsWith(".DS_Store")) continue;
       String content =
           new String(Base64.getDecoder().decode(doc.getString(DefaultDocumentProducer.CONTENT)));
       Assert.assertTrue(docId.startsWith("file_"));
@@ -74,15 +72,12 @@ public class VFSConnectorTest {
       String content =
           new String(Base64.getDecoder().decode(doc.getString(DefaultDocumentProducer.CONTENT)));
       Assert.assertTrue(Arrays.stream(fileNames).anyMatch(filePath::endsWith));
-      if (filePath.endsWith("a.json")) {
+      if (filePath.endsWith("a.json"))
         Assert.assertTrue(content.contains("\"filename\":\"400_106547e2f83b.jpg\""));
-      }
-      if (filePath.endsWith("b.json")) {
+      if (filePath.endsWith("b.json"))
         Assert.assertTrue(content.contains("\"imageHash\":\"1aaeac2de7c48e4e7773b1f92138291f\""));
-      }
-      if (filePath.endsWith("c.json")) {
+      if (filePath.endsWith("c.json"))
         Assert.assertTrue(content.contains("\"productImg\":\"mug-400_6812876c6c27.jpg\""));
-      }
     }
   }
 }

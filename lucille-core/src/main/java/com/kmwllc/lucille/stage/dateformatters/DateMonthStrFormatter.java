@@ -7,8 +7,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * * Formatter for parsing infobox data into Dates. Attempts to find dates of the form "January 1, 2000" and extract the values into
- * a Java date. Will return null of the there are no dates formatted in it's style within the String.
+ * * Formatter for parsing infobox data into Dates. Attempts to find dates of the form "January 1,
+ * 2000" and extract the values into a Java date. Will return null of the there are no dates
+ * formatted in it's style within the String.
  */
 public class DateMonthStrFormatter implements Function<String, LocalDate> {
 

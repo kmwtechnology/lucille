@@ -10,18 +10,21 @@ import org.apache.commons.lang.text.StrSubstitutor;
 import java.util.*;
 
 /**
- * Replaces wildcards in a given format String with the value for the given field. To declare a wildcard, surround the name of the
- * field with '{}'. EX: "{city}, {state}, {country}" -> "Boston, MA, USA". NOTE: If a given field is multivalued, this Stage will
- * substitute the first value for every wildcard.
+ * Replaces wildcards in a given format String with the value for the given field. To declare a
+ * wildcard, surround the name of the field with '{}'. EX: "{city}, {state}, {country}" -> "Boston,
+ * MA, USA". NOTE: If a given field is multivalued, this Stage will substitute the first value for
+ * every wildcard.
  *
  * <p>Config Parameters:
  *
  * <p>- source (List<String>) : list of source field names - dest (String) : Destination field. This
- * Stage only supports supplying a single destination field. - format_string (String) : The format String, which will have field
- * values substituted into its placeholders - defualt_inputs (Map<String, String>, Optional) : Mapping of input fields to a default
- * value. You do not have to supply a default for every input field, if a default is not provided, the default behavior will be to
- * leave the wildcard for the field in place. Defaults to an empty Map. - update_mode (String, Optional) : Determines how writing
- * will be handling if the destination field is already populated. Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
+ * Stage only supports supplying a single destination field. - format_string (String) : The format
+ * String, which will have field values substituted into its placeholders - defualt_inputs
+ * (Map<String, String>, Optional) : Mapping of input fields to a default value. You do not have to
+ * supply a default for every input field, if a default is not provided, the default behavior will
+ * be to leave the wildcard for the field in place. Defaults to an empty Map. - update_mode (String,
+ * Optional) : Determines how writing will be handling if the destination field is already
+ * populated. Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class Concatenate extends Stage {
 

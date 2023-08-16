@@ -16,10 +16,11 @@ import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
- * Provides a way to launch a Worker-Indexer pair, where: 1) the Worker reads documents from a source kafka topic 2) the Worker
- * publishes documents to an in-memory queue 3) the Indexer retrieves documents from an in-memory queue 4) the Indexer adds offsets
- * of indexed documents to an in-memory queue 5) the Worker reads offsets from the in-memory queue and commits them 6) callbacks are
- * disabled
+ * Provides a way to launch a Worker-Indexer pair, where: 1) the Worker reads documents from a
+ * source kafka topic 2) the Worker publishes documents to an in-memory queue 3) the Indexer
+ * retrieves documents from an in-memory queue 4) the Indexer adds offsets of indexed documents to
+ * an in-memory queue 5) the Worker reads offsets from the in-memory queue and commits them 6)
+ * callbacks are disabled
  *
  * <p>TODO: document why pairing of one worker with one indexer is necessary for hybrid mode
  */

@@ -12,12 +12,14 @@ public class CounterUtils {
   public static long DEFAULT_END_LAG_MS = 500;
 
   /**
-   * Returns a threadsafe Set that can be used to track the unique document IDs processed by a group of threads.
+   * Returns a threadsafe Set that can be used to track the unique document IDs processed by a group
+   * of threads.
    *
    * <p>We use a set of IDs instead of an AtomicLong or other counter because we want to track the
-   * number of _unique_ documents processed. If we simply counted the number of documents seen, the count might include duplicate
-   * documents. Duplicates can arise when multiple consumers are consuming from a kafka topic and there is a consumer group
-   * rebalance before all offsets have been committed.
+   * number of _unique_ documents processed. If we simply counted the number of documents seen, the
+   * count might include duplicate documents. Duplicates can arise when multiple consumers are
+   * consuming from a kafka topic and there is a consumer group rebalance before all offsets have
+   * been committed.
    */
   public static Set<String> getThreadSafeSet() {
     return ConcurrentHashMap.newKeySet();
@@ -28,8 +30,8 @@ public class CounterUtils {
   }
 
   /**
-   * Waits until the set reaches or exceeds the targetSize, followed by the designated end pad duration. Times out with a
-   * RuntimeException after the designated timeout.
+   * Waits until the set reaches or exceeds the targetSize, followed by the designated end pad
+   * duration. Times out with a RuntimeException after the designated timeout.
    */
   public static void waitUnique(Set<String> mySet, long targetSize, long timeoutMs, long endPad) {
 

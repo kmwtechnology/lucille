@@ -12,8 +12,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Implementation of the message manager APIs used by Indexers, Publishers, and Workers, suitable for sharing among those three
- * components when executing Lucille in "local" mode.
+ * Implementation of the message manager APIs used by Indexers, Publishers, and Workers, suitable
+ * for sharing among those three components when executing Lucille in "local" mode.
  */
 public class LocalMessageManager
     implements IndexerMessageManager, PublisherMessageManager, WorkerMessageManager {
@@ -62,8 +62,7 @@ public class LocalMessageManager
   }
 
   @Override
-  public void commitPendingDocOffsets() throws Exception {
-  }
+  public void commitPendingDocOffsets() throws Exception {}
 
   @Override
   public void sendCompleted(Document document) throws Exception {
@@ -71,8 +70,7 @@ public class LocalMessageManager
   }
 
   @Override
-  public void sendFailed(Document document) throws Exception {
-  }
+  public void sendFailed(Document document) throws Exception {}
 
   @Override
   public void sendEvent(Document document, String message, Event.Type type) throws Exception {
@@ -110,10 +108,8 @@ public class LocalMessageManager
   }
 
   @Override
-  public void close() {
-  }
+  public void close() {}
 
   @Override
-  public void batchComplete(List<Document> batch) throws Exception {
-  }
+  public void batchComplete(List<Document> batch) throws Exception {}
 }

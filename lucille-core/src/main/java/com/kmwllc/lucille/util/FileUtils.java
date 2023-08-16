@@ -7,9 +7,9 @@ import java.nio.file.Path;
 public class FileUtils {
 
   /**
-   * Returns a Reader for the file at the given path. If the path begins with "classpath:" the prefix will be removed and the file
-   * will be read from the classpath. If the path appears to be a URI, it will be accessed using VFS. Otherwise, it will be read
-   * from the filesystem.
+   * Returns a Reader for the file at the given path. If the path begins with "classpath:" the
+   * prefix will be removed and the file will be read from the classpath. If the path appears to be
+   * a URI, it will be accessed using VFS. Otherwise, it will be read from the filesystem.
    */
   public static Reader getReader(String path) throws IOException {
     return getReader(path, "utf-8");

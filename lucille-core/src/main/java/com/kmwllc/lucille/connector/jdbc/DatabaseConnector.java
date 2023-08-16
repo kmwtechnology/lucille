@@ -14,10 +14,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Database Connector - This connector can run a select statement and return the rows from the database as documents which are
- * published to a topic for processing. If "otherSQLs" are set, the sql and otherSQLs must all be ordered by their join key and the
- * otherJoinFields must be populated. If those parameters are populated this connector will run the otherSQL statements in parallel
- * and flatten the rows from the otherSQL statements onto the Document as a child document
+ * Database Connector - This connector can run a select statement and return the rows from the
+ * database as documents which are published to a topic for processing. If "otherSQLs" are set, the
+ * sql and otherSQLs must all be ordered by their join key and the otherJoinFields must be
+ * populated. If those parameters are populated this connector will run the otherSQL statements in
+ * parallel and flatten the rows from the otherSQL statements onto the Document as a child document
  *
  * @author kwatters
  */
@@ -48,12 +49,8 @@ public class DatabaseConnector extends AbstractConnector {
     jdbcPassword = config.getString("jdbcPassword");
     sql = config.getString("sql");
     idField = config.getString("idField");
-    if (config.hasPath("preSql")) {
-      preSql = config.getString("preSql");
-    }
-    if (config.hasPath("postSql")) {
-      postSql = config.getString("postSql");
-    }
+    if (config.hasPath("preSql")) preSql = config.getString("preSql");
+    if (config.hasPath("postSql")) postSql = config.getString("postSql");
     if (config.hasPath("otherSQLs")) {
       otherSQLs = config.getStringList("otherSQLs");
       otherJoinFields = config.getStringList("otherJoinFields");
@@ -249,9 +246,7 @@ public class DatabaseConnector extends AbstractConnector {
     return rs2;
   }
 
-  /**
-   * Return an array of column names.
-   */
+  /** Return an array of column names. */
   private String[] getColumnNames(ResultSet rs) throws SQLException {
     ResultSetMetaData meta = rs.getMetaData();
     String[] names = new String[meta.getColumnCount()];

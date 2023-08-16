@@ -23,7 +23,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class FileTraverser extends SimpleFileVisitor<Path> implements AutoCloseable {
-
   private static final Logger log = LogManager.getLogger(FileTraverser.class);
   public static final String FILE_PATH = "file_path";
   public static final String MODIFIED = "file_modification_date";
@@ -204,8 +203,8 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
   }
 
   /**
-   * Walks the file tree using {@link Files#walkFileTree(Path, FileVisitor)}, or {@link Files#walk(Path, int, FileVisitOption...)}
-   * if a max depth is set.
+   * Walks the file tree using {@link Files#walkFileTree(Path, FileVisitor)}, or {@link
+   * Files#walk(Path, int, FileVisitOption...)} if a max depth is set.
    */
   public void walkTree() {
     log.info("Waking provided paths: {}", paths);
@@ -232,8 +231,8 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
     // Skip file if any exclude regex patterns match or if no include regex patterns match
     if (excludes.parallelStream().anyMatch(pattern -> pattern.matcher(fileName).matches())
         || (!includes.isEmpty()
-        && includes.parallelStream()
-        .noneMatch(pattern -> pattern.matcher(fileName).matches()))) {
+            && includes.parallelStream()
+                .noneMatch(pattern -> pattern.matcher(fileName).matches()))) {
       log.debug("Skipping file because of include or exclude regex");
       return FileVisitResult.CONTINUE;
     }
@@ -277,12 +276,14 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
   }
 
   /**
-   * Send a tombstone for the given file. Calls {@link DocumentProducer#createTombstone(Path, Document, Throwable)} to update the
-   * given {@link Document} with error info or create a new document if it's null. After the {@code Document} has been updated,
-   * {@link this#sendDocumentsToTopic(List)} sends the document.
+   * Send a tombstone for the given file. Calls {@link DocumentProducer#createTombstone(Path,
+   * Document, Throwable)} to update the given {@link Document} with error info or create a new
+   * document if it's null. After the {@code Document} has been updated, {@link
+   * this#sendDocumentsToTopic(List)} sends the document.
    *
-   * @param file      The file the error occurred on
-   * @param doc       A null document if no information has been extracted yet, or an existing doc to add error information to
+   * @param file The file the error occurred on
+   * @param doc A null document if no information has been extracted yet, or an existing doc to add
+   *     error information to
    * @param exception The exception that occurred
    */
   private void handleFailure(Path file, Document doc, Throwable exception) {

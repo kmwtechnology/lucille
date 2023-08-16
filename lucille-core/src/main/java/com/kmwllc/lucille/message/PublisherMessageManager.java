@@ -12,33 +12,29 @@ import com.kmwllc.lucille.core.Event;
 public interface PublisherMessageManager {
 
   /**
-   * Sets the Run ID and pipeline that this PublisherMessageManager should use. Should be called exactly once.
+   * Sets the Run ID and pipeline that this PublisherMessageManager should use. Should be called
+   * exactly once.
    */
   void initialize(String runId, String pipelineName) throws Exception;
 
-  /**
-   * Returns the ID of the Run in which this PublisherMessageManager instance is participating.
-   */
+  /** Returns the ID of the Run in which this PublisherMessageManager instance is participating. */
   String getRunId();
 
-  /**
-   * Submits a Document for processing by a configured pipeline.
-   */
+  /** Submits a Document for processing by a configured pipeline. */
   void sendForProcessing(Document document) throws Exception;
 
   /**
-   * Retrieves and removes an Event waiting to be processed. Should block if no events are available, but should apply a timeout
-   * which may be provided when a PublisherMessageManager implementation is instantiated. Intended to be called in a polling loop
-   * where pollEvent() would periodically timeout so that other conditions can be checked as the loop is waiting for the next
-   * event.
+   * Retrieves and removes an Event waiting to be processed. Should block if no events are
+   * available, but should apply a timeout which may be provided when a PublisherMessageManager
+   * implementation is instantiated. Intended to be called in a polling loop where pollEvent() would
+   * periodically timeout so that other conditions can be checked as the loop is waiting for the
+   * next event.
    *
    * <p>Events sent via WorkerMessageManager.sendEvent() and IndexMessageManager.sendEvent() are
    * returned by the current method, PublisherMessageManager.pollEvent()
    */
   Event pollEvent() throws Exception;
 
-  /**
-   * Closes any connections opened by this PublisherMessageManager.
-   */
+  /** Closes any connections opened by this PublisherMessageManager. */
   void close();
 }

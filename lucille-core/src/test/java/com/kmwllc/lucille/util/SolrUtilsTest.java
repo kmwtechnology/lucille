@@ -9,7 +9,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class SolrUtilsTest {
-
   @Test
   public void requireAuthTest() throws Exception {
     Config config =

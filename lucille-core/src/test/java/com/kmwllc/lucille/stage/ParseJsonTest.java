@@ -19,7 +19,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
 public class ParseJsonTest {
-
   private StageFactory factory = StageFactory.of(ParseJson.class);
 
   @Test

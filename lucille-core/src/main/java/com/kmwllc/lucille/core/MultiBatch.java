@@ -3,7 +3,6 @@ package com.kmwllc.lucille.core;
 import java.util.*;
 
 public class MultiBatch implements Batch {
-
   private final Map<String, Batch> batches;
 
   private final int capacity;
@@ -17,7 +16,8 @@ public class MultiBatch implements Batch {
    * 'indexField' on each document.
    *
    * <p>A batch is considered to be "expired" if a configured timeout has elapsed since last add or
-   * flush. If any of the underlying batches are expired, it will be flushed during the next call to add() or flushIfExpired().
+   * flush. If any of the underlying batches are expired, it will be flushed during the next call to
+   * add() or flushIfExpired().
    */
   public MultiBatch(int capacity, int timeout, String indexField) {
     this.batches = new HashMap<>();

@@ -21,9 +21,10 @@ import java.util.List;
  * <p>Config Parameters -
  *
  * <p>- shouldLog (Boolean, Optional) : Whether to log the document in JSON format at INFO level.
- * Defaults to true. - outputFile (String, Optional) : A file to append the documents to (will be created if it doesn't already
- * exist). - excludeFields (String list, Optional) : A list of fields to exclude from the output. - overwriteFile (Boolean,
- * Optional) : Whether the output file should overwritten if it already exists. Defaults to true.
+ * Defaults to true. - outputFile (String, Optional) : A file to append the documents to (will be
+ * created if it doesn't already exist). - excludeFields (String list, Optional) : A list of fields
+ * to exclude from the output. - overwriteFile (Boolean, Optional) : Whether the output file should
+ * overwritten if it already exists. Defaults to true.
  */
 public class Print extends Stage {
 

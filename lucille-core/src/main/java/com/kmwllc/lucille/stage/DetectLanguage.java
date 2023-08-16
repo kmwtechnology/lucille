@@ -19,27 +19,29 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Detects the language of the text in each supplied source field and outputs the language abbreviation associated with the text to
- * the destination fields.
+ * Detects the language of the text in each supplied source field and outputs the language
+ * abbreviation associated with the text to the destination fields.
  *
  * <p>Config Parameters:
  *
  * <p>- source (List<String>) : List of source field names. - dest (List<String>) : List of
- * destination field names. You can either supply the same number of source and destination fields for a 1-1 mapping of results or
- * supply one destination field for all of the source fields to be mapped into. - min_length (Integer) : The min length of Strings
- * to be considered for language detection. Shorter Strings will be ignored. - max_length (Integer) : The max length of Strings to
- * be considered for language detection. Longer Strings will be truncated. - min_probability (Double) : The min probability for a
- * language result to be considered valid. Results below this threshold will be ignored.
+ * destination field names. You can either supply the same number of source and destination fields
+ * for a 1-1 mapping of results or supply one destination field for all of the source fields to be
+ * mapped into. - min_length (Integer) : The min length of Strings to be considered for language
+ * detection. Shorter Strings will be ignored. - max_length (Integer) : The max length of Strings to
+ * be considered for language detection. Longer Strings will be truncated. - min_probability
+ * (Double) : The min probability for a language result to be considered valid. Results below this
+ * threshold will be ignored.
  */
 public class DetectLanguage extends Stage {
 
   private static final String profileResourcesLoc = "profiles";
 
   private static final String[] profiles = {
-      "af", "ar", "bg", "bn", "cs", "da", "de", "el", "en", "es", "et", "fa", "fi", "fr", "gu", "he",
-      "hi", "hr", "hu", "id", "it", "ja", "kn", "ko", "lt", "lv", "mk", "ml", "mr", "ne", "nl", "no",
-      "pa", "pl", "pt", "ro", "ru", "sk", "sl", "so", "sq", "sv", "sw", "ta", "te", "th", "tl", "tr",
-      "uk", "ur", "vi", "zh-cn", "zh-tw"
+    "af", "ar", "bg", "bn", "cs", "da", "de", "el", "en", "es", "et", "fa", "fi", "fr", "gu", "he",
+    "hi", "hr", "hu", "id", "it", "ja", "kn", "ko", "lt", "lv", "mk", "ml", "mr", "ne", "nl", "no",
+    "pa", "pl", "pt", "ro", "ru", "sk", "sl", "so", "sq", "sv", "sw", "ta", "te", "th", "tl", "tr",
+    "uk", "ur", "vi", "zh-cn", "zh-tw"
   };
 
   private final List<String> sourceFields;
@@ -136,22 +138,16 @@ public class DetectLanguage extends Stage {
     StringBuilder builder = new StringBuilder();
     for (String source : sourceFields) {
 
-      if (!doc.has(source)) {
-        continue;
-      }
+      if (!doc.has(source)) continue;
 
       for (String value : doc.getStringList(source)) {
         builder.append(value);
 
-        if (builder.length() > maxLength) {
-          break;
-        }
+        if (builder.length() > maxLength) break;
       }
     }
 
-    if (builder.length() < minLength) {
-      return null;
-    }
+    if (builder.length() < minLength) return null;
 
     try {
       detector.append(builder.substring(0, Math.min(builder.length(), maxLength)));

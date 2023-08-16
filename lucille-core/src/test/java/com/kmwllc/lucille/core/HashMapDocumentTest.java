@@ -48,7 +48,7 @@ public class HashMapDocumentTest extends DocumentTest {
             .enableDefaultTyping(
                 ObjectMapper.DefaultTyping.JAVA_LANG_OBJECT, JsonTypeInfo.As.PROPERTY);
 
-    byte[] value1 = new byte[]{0x3c, 0x4c, 0x5c};
+    byte[] value1 = new byte[] {0x3c, 0x4c, 0x5c};
 
     HashMapDocument document = (HashMapDocument) createDocument("doc");
     document.setField("bytes", value1);
@@ -63,7 +63,7 @@ public class HashMapDocumentTest extends DocumentTest {
   @Ignore
   @Test
   public void testByteArraySerialization() throws Exception {
-    byte[] value1 = new byte[]{0x3c, 0x4c, 0x5c};
+    byte[] value1 = new byte[] {0x3c, 0x4c, 0x5c};
     HashMapDocument document = (HashMapDocument) createDocument("doc");
     document.setField("bytes", value1);
     Document document2 = createDocumentFromJson(document.toString(), null);

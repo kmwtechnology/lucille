@@ -99,8 +99,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
   }
 
   @Override
-  public void sendFailed(Document document) throws Exception {
-  }
+  public void sendFailed(Document document) throws Exception {}
 
   @Override
   public void sendEvent(Event event) throws Exception {

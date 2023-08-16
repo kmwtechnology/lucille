@@ -30,17 +30,14 @@ public class TrimWhitespace extends Stage {
 
   @Override
   public void start() throws StageException {
-    if (fields.size() == 0) {
+    if (fields.size() == 0)
       throw new StageException("Must supply at least one field to trim whitespace from.");
-    }
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String field : fields) {
-      if (!doc.has(field)) {
-        continue;
-      }
+      if (!doc.has(field)) continue;
 
       List<String> values = new ArrayList<>();
       for (String value : doc.getStringList(field)) {

@@ -96,9 +96,7 @@ public class OpenSearchIndexer extends Indexer {
   @Override
   protected void sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
-    if (client == null) {
-      return;
-    }
+    if (client == null) return;
 
     BulkRequest bulkRequest = new BulkRequest(index);
 

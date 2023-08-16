@@ -19,9 +19,7 @@ import org.apache.solr.client.solrj.io.Tuple;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Utility methods for communicating with Solr.
- */
+/** Utility methods for communicating with Solr. */
 public class SolrUtils {
 
   private static final Logger log = LogManager.getLogger(SolrUtils.class);
@@ -41,8 +39,8 @@ public class SolrUtils {
       CloudSolrClient cloudSolrClient =
           requiresAuth(config)
               ? new CloudSolrClient.Builder(getSolrUrls(config))
-              .withHttpClient(getHttpClient(config))
-              .build()
+                  .withHttpClient(getHttpClient(config))
+                  .build()
               : new CloudSolrClient.Builder(getSolrUrls(config)).build();
       if (config.hasPath("defaultCollection")) {
         cloudSolrClient.setDefaultCollection(config.getString("defaultCollection"));
@@ -51,8 +49,8 @@ public class SolrUtils {
     } else {
       return requiresAuth(config)
           ? new HttpSolrClient.Builder(getSolrUrl(config))
-          .withHttpClient(getHttpClient(config))
-          .build()
+              .withHttpClient(getHttpClient(config))
+              .build()
           : new HttpSolrClient.Builder(getSolrUrl(config)).build();
     }
   }
@@ -103,8 +101,8 @@ public class SolrUtils {
   }
 
   /**
-   * This method will convert a Tuple produced by a Solr Streaming Expression into a Lucille Document. The Tuple must have a value
-   * in its id field in order to be converted.
+   * This method will convert a Tuple produced by a Solr Streaming Expression into a Lucille
+   * Document. The Tuple must have a value in its id field in order to be converted.
    *
    * @param tuple a Tuple from Solr
    * @return a Document

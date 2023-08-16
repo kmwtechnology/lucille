@@ -5,9 +5,7 @@ import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Represents the outcome of a Run. Contains a status as well as a message summarizing the Run.
- */
+/** Represents the outcome of a Run. Contains a status as well as a message summarizing the Run. */
 public class RunResult {
 
   // true indicates success, false indicates failure
@@ -88,7 +86,8 @@ public class RunResult {
   }
 
   /**
-   * Get the history of the run. History is only tracked for runs with RunType.TEST; otherwise the return value will be null;
+   * Get the history of the run. History is only tracked for runs with RunType.TEST; otherwise the
+   * return value will be null;
    */
   public Map<String, PersistingLocalMessageManager> getHistory() {
     return history;

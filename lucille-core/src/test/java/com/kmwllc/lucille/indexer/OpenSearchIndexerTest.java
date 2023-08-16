@@ -33,7 +33,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 public class OpenSearchIndexerTest {
-
   private RestHighLevelClient mockClient;
 
   @Before
@@ -52,7 +51,8 @@ public class OpenSearchIndexerTest {
   }
 
   /**
-   * Tests that the indexer correctly polls completed documents from the destination topic and sends them to OpenSearch.
+   * Tests that the indexer correctly polls completed documents from the destination topic and sends
+   * them to OpenSearch.
    *
    * @throws Exception
    */

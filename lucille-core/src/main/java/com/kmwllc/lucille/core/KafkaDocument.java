@@ -37,9 +37,7 @@ public class KafkaDocument extends JsonDocument {
     this.key = key;
   }
 
-  /**
-   * Creates a deep copy of the given Document, now as a KafkaDocument with kafka metadata.
-   */
+  /** Creates a deep copy of the given Document, now as a KafkaDocument with kafka metadata. */
   KafkaDocument(Document doc, String topic, int partition, long offset, String key)
       throws DocumentException {
     super(doc);

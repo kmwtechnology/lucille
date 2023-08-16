@@ -12,14 +12,16 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Extracts the first character from each of the given input fields and set the associated output field to contain the character. If
- * the character is not alphanumeric, then 'nonaplha' will be placed in the destination field.
+ * Extracts the first character from each of the given input fields and set the associated output
+ * field to contain the character. If the character is not alphanumeric, then 'nonaplha' will be
+ * placed in the destination field.
  *
  * <p>Config Parameters -
  *
  * <p>- fieldMapping (Map<String, String>) : A mapping of source->destination fields - replacement
- * (String, Optional) : The String to place in the output field if the first character is not a letter. If "SKIP" is supplied, the
- * output field will not be set to anything. Defaults to "nonalpha".
+ * (String, Optional) : The String to place in the output field if the first character is not a
+ * letter. If "SKIP" is supplied, the output field will not be set to anything. Defaults to
+ * "nonalpha".
  */
 public class ExtractFirstCharacter extends Stage {
 
@@ -44,15 +46,11 @@ public class ExtractFirstCharacter extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
     for (Map.Entry<String, Object> entry : fieldMapping.entrySet()) {
 
-      if (!doc.has(entry.getKey())) {
-        continue;
-      }
+      if (!doc.has(entry.getKey())) continue;
 
       String value = doc.getString(entry.getKey());
 
-      if (value == null || value.isBlank()) {
-        continue;
-      }
+      if (value == null || value.isBlank()) continue;
 
       String firstChar = value.substring(0, 1);
       String dest = (String) entry.getValue();
