@@ -14,6 +14,7 @@
 
     <artifactId>lucille-tika</artifactId>
     <packaging>jar</packaging>
+     <name>Lucille Plugins: Lucille Tika</name>
 
     <properties>
       <tika.version>2.7.0</tika.version>
@@ -21,8 +22,6 @@
       <maven.compiler.target>17</maven.compiler.target>
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
-
-    <name>Lucille Plugins: Lucille Tika</name>
 
     <dependencies>
       <dependency>
@@ -49,9 +48,45 @@
         <artifactId>tika-parsers-standard-package</artifactId>
         <version>${tika.version}</version>
       </dependency>
-
-      <dependency><groupId>com.kmwllc</groupId><artifactId>lucille-core</artifactId><version>0.2.0-SNAPSHOT</version><scope>compile</scope></dependency>
     </dependencies>
+
+    <build>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-shade-plugin</artifactId>
+          <version>3.4.1</version>
+          <executions>
+            <execution>
+              <phase>package</phase>
+              <goals>
+                <goal>shade</goal>
+              </goals>
+              <configuration>
+                <finalName>${project.artifactId}-plugin</finalName>
+                <createDependencyReducedPom>false</createDependencyReducedPom>
+                <filters>
+                  <filter>
+                    <artifact>*:*</artifact>
+                    <excludes>
+                      <exclude>META-INF/LICENSE</exclude>
+                      <exclude>META-INF/*.SF</exclude>
+                      <exclude>META-INF/*.DSA</exclude>
+                      <exclude>META-INF/*.RSA</exclude>
+                      <exclude>log4j2.properties</exclude>
+                    </excludes>
+                  </filter>
+                </filters>
+                <transformers>
+                  <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                </transformers>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </build>
+
 
     
 </project>
