@@ -12,7 +12,6 @@ import java.io.InputStream;
 import java.util.Iterator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.tika.Tika;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
@@ -23,18 +22,16 @@ import org.apache.tika.sax.BodyContentHandler;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 
-// Local testing:
-/*
-  -
- */
-
-// add tests for further metadata
-// add configurability for tika_ prefix for metadata
-// add javadoc / comments throughout code
-// test locally with vfs connector
-
 /**
- * This stage uses Apache Tika to perform text and metadata extraction.
+ * This stage uses Apache Tika to perform text and metadata extraction
+ * <br>
+ * Config Parameters -
+ * <br>
+ * text_field (String, Optional) : name of destination field for parsed data to be placed
+ * file_path_field (String, Optional) : name of field from which file path can be extracted, if file_path_field and byte_array_field both not provided, stage will do nothing
+ * byte_array_field (String, Optional) : name of field from which byte array data can be extracted
+ * tika_config_path (String, Optional) : path to tika config, if not provided will default to empty AutoDetectParser
+ * metadata_prefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
  */
 public class TextExtractor extends Stage {
 
@@ -98,6 +95,9 @@ public class TextExtractor extends Stage {
     return null;
   }
 
+  /**
+   * Cleans the name of metadata field names to be in line with general standards for documents
+   */
   private static String cleanFieldName(String name) {
     String cleanName = name.trim().toLowerCase();
     cleanName = cleanName.replaceAll(" ", "_");
@@ -106,6 +106,9 @@ public class TextExtractor extends Stage {
     return cleanName;
   }
 
+  /**
+   * Parses given input stream and adds the text data and metadata to given document
+   */
   public void parseInputStream(Document doc, InputStream inputStream) {
     Metadata metadata = new Metadata();
     ContentHandler bch = new BodyContentHandler();
