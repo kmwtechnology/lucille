@@ -11,10 +11,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -60,9 +57,9 @@ public class DatabaseConnector extends AbstractConnector {
     jdbcUser = config.getString("jdbcUser");
     jdbcPassword = config.getString("jdbcPassword");
     sql = config.getString("sql");
-    idField = config.getString("idField");
 
     // optional config
+    idField = ConfigUtils.getOrDefault(config, "idField", null);
 
     // For MYSQL this should be set to Integer.MIN_VALUE to avoid buffering the full resultset in memory.
     // The behavior of this parameter varies from driver to driver, often it defaults to 0.
@@ -152,7 +149,7 @@ public class DatabaseConnector extends AbstractConnector {
       }
       log.info("Describing primary set...");
       String[] columns = getColumnNames(rs);
-      int idColumn = getIdColumnIndex(columns);
+      int idColumn = idField == null ? -1 : getIdColumnIndex(columns);
 
       ArrayList<ResultSet> otherResults = new ArrayList<>();
       ArrayList<String[]> otherColumns = new ArrayList<>();
@@ -168,7 +165,7 @@ public class DatabaseConnector extends AbstractConnector {
       log.info("Processing rows...");
       while (rs.next()) {
         // Need the ID column from the RS.
-        String id = createDocId(rs.getString(idColumn));
+        String id = idField == null ?  UUID.randomUUID().toString() : createDocId(rs.getString(idColumn));
         Document doc = Document.create(id);
         // Add each column / field name to the doc
         for (int i = 1; i <= columns.length; i++) {
