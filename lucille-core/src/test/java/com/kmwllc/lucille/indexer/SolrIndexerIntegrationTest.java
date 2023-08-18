@@ -100,7 +100,7 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
       SolrQuery qr = new SolrQuery();
       qr.set("q", "*:*");
 
-      assertEquals("The test document should in the indexed.", 1, cluster.getSolrClient().query(COL, qr).getResults().size());
+      assertEquals("The test document should have been indexed.", 1, cluster.getSolrClient().query(COL, qr).getResults().size());
 
       Document delete = Document.create("id_1");
       delete.setField("is_deleted", "true");
@@ -154,7 +154,7 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
       SolrQuery qr = new SolrQuery();
       qr.set("q", "*:*");
 
-      assertEquals("The test document should in the indexed.", 1, cluster.getSolrClient().query(COL, qr).getResults().size());
+      assertEquals("The test document should have been indexed.", 1, cluster.getSolrClient().query(COL, qr).getResults().size());
 
       Document delete = Document.create("id_2");
       delete.setField("is_deleted", "true");
@@ -219,7 +219,7 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
       SolrQuery qr = new SolrQuery();
       qr.set("q", "*:*");
 
-      assertEquals("The test documents should in the indexed.", 4, cluster.getSolrClient().query(COL, qr).getResults().size());
+      assertEquals("The test documents should have been indexed.", 4, cluster.getSolrClient().query(COL, qr).getResults().size());
 
       Document delete1 = Document.create("id_2");
       delete1.setField("is_deleted", "true");
