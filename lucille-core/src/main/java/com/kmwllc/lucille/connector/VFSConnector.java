@@ -87,8 +87,7 @@ public class VFSConnector extends AbstractConnector {
       doc.setField(FileTraverser.MODIFIED, Instant.ofEpochMilli(content.getLastModifiedTime()).toString());
       doc.setField(FileTraverser.CREATED, Instant.ofEpochMilli(content.getLastModifiedTime()).toString());
       doc.setField(FileTraverser.SIZE, content.getSize());
-      String encodedString = Base64.getEncoder().encodeToString(content.getByteArray());
-      doc.setField(DefaultDocumentProducer.CONTENT, encodedString);
+      doc.setField(DefaultDocumentProducer.CONTENT, content.getByteArray());
     } catch (FileSystemException e) {
       doc.setField("error", e.toString());
       log.error("Issue getting file information from '" + fo.getName() +"'", e);
