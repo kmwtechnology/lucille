@@ -46,6 +46,9 @@ public class DatabaseConnectorTest {
 
   @Test
   public void testDatabaseConnector() throws Exception {
+    
+    // The only connection to the h2 database should be the dbHelper
+    assertEquals(1, dbHelper.checkNumConnections());
 
     // Create the test config
     HashMap<String, Object> configValues = new HashMap<String, Object>();
@@ -84,12 +87,18 @@ public class DatabaseConnectorTest {
     assertEquals("3", docsSentForProcessing.get(2).getId());
     assertEquals("Blaze", docsSentForProcessing.get(2).getStringList("name").get(0));
     assertEquals("Cat", docsSentForProcessing.get(2).getStringList("type").get(0));
-
+    
+    connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
+    
   }
 
   @Test
-  public void testCompaniesQuery() throws ConnectorException {
-    HashMap<String, Object> configValues = new HashMap<>();
+  public void testCompaniesQuery() throws ConnectorException, SQLException {
+    
+    assertEquals(1, dbHelper.checkNumConnections());
+    
+    HashMap<String,Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -119,12 +128,17 @@ public class DatabaseConnectorTest {
     assertEquals("1-2", docsSentForProcessing.get(1).getStringList("company_id").get(0));
     // The name field shouldn't be set because the value was null in the database
     assertFalse(docsSentForProcessing.get(1).has("name"));
+    
+    connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testJoiningDatabaseConnector() throws Exception {
-
-    HashMap<String, Object> configValues = new HashMap<String, Object>();
+    
+    assertEquals(1, dbHelper.checkNumConnections());
+    
+    HashMap<String,Object> configValues = new HashMap<String,Object>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
 
@@ -155,6 +169,9 @@ public class DatabaseConnectorTest {
     // TODO: better verification / edge cases.. also formalize the "children" docs.
     String expected = "{\"id\":\"1\",\"name\":\"Matt\",\".children\":[{\"id\":\"0\",\"meal_id\":\"1\",\"animal_id\":\"1\",\"name\":\"breakfast\"},{\"id\":\"1\",\"meal_id\":\"2\",\"animal_id\":\"1\",\"name\":\"lunch\"},{\"id\":\"2\",\"meal_id\":\"3\",\"animal_id\":\"1\",\"name\":\"dinner\"}],\"run_id\":\"testRunId\"}";
     assertEquals(expected, docs.get(0).toString());
+    
+    connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
 
   }
 
@@ -162,8 +179,9 @@ public class DatabaseConnectorTest {
   // @Test
   public void testCollapsingDatabaseConnector() throws Exception {
     // TODO: implement me
-
-    HashMap<String, Object> configValues = new HashMap<String, Object>();
+    assertEquals(1, dbHelper.checkNumConnections());
+    
+    HashMap<String,Object> configValues = new HashMap<String,Object>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -197,10 +215,14 @@ public class DatabaseConnectorTest {
     //    assertEquals(3, publisher.getPublishedDocs().size());
     // TODO: more validations.
 
+    connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testClose() throws ConnectorException, SQLException {
+    
+    assertEquals(1, dbHelper.checkNumConnections());
     // Create a test config
     HashMap<String, Object> configValues = new HashMap<String, Object>();
     configValues.put("name", connectorName);
@@ -217,18 +239,16 @@ public class DatabaseConnectorTest {
 
     // create the connector with the config
     DatabaseConnector connector = new DatabaseConnector(config);
-
     // call the execute method, then close the connection
     connector.execute(publisher);
-
-    Connection connection = connector.getConnection();
-
-    // verify that the connection has opened
-    assertFalse(connection.isClosed());
-
+    assertEquals(2, dbHelper.checkNumConnections());
+    
+    assertFalse(connector.isClosed());
     connector.close();
-
     // verify that the connection is actually closed
-    assertTrue(connection.isClosed());
+    assertTrue(connector.isClosed());
+    assertEquals(1, dbHelper.checkNumConnections());
+    
   }
+  
 }
