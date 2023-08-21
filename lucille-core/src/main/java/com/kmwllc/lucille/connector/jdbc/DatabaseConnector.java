@@ -135,7 +135,6 @@ public class DatabaseConnector extends AbstractConnector {
       for (String otherSQL : otherSQLs) {
         log.info("Describing other result set... {}", otherSQL );
         // prepare the other sql query
-
         // TODO: run all sql statements in parallel.
         ResultSet rs2 = runJoinSQL(otherSQL);
         String[] columns2 = getColumnNames(rs2);

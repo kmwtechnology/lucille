@@ -90,7 +90,6 @@ public class DatabaseConnectorTest {
     
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
-    
   }
 
   @Test
@@ -172,7 +171,6 @@ public class DatabaseConnectorTest {
     
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
-
   }
 
   // TODO: not implemented yet.
@@ -248,7 +246,6 @@ public class DatabaseConnectorTest {
     // verify that the connection is actually closed
     assertTrue(connector.isClosed());
     assertEquals(1, dbHelper.checkNumConnections());
-    
   }
   
 }
