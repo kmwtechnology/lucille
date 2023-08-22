@@ -55,20 +55,22 @@ public class SolrIndexer extends Indexer {
     // we can't use ping. Instead, verify that we can connect to the cluster.
     NamedList response;
     try {
+      log.debug("Validating SolrIndexer connection by checking cluster status.");
       response = solrClient.request(new CollectionAdminRequest.ClusterStatus());
     } catch (Exception e) {
-      log.error("Couldn't ping Solr ", e);
+      log.error("Couldn't check solr cluster status.", e);
       return false;
     }
     if (response == null) {
-      log.error("Null response when pinging solr");
+      log.error("Null response when checking solr cluster status.");
       return false;
     }
     Integer status = (Integer) ((SimpleOrderedMap) response.get("responseHeader")).get("status");
     if (status != 0) {
-      log.error("Non zero response when pinging solr: " + status);
+      log.error("Non zero response when checking solr cluster status: " + status);
       return false;
     }
+    log.debug("SolrIndexer connection successfully validated: {}", response);
     return true;
   }
 
