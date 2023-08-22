@@ -53,9 +53,6 @@ public class SolrUtils {
   }
 
   private static CloudSolrClient getCloudClient(Config config) {
-    // todo review if zkHosts is required
-    // https://solr.apache.org/guide/solr/latest/deployment-guide/solrj.html#base-urls-of-cloudsolrclient
-    // https://solr.apache.org/guide/6_6/setting-up-an-external-zookeeper-ensemble.html
     CloudSolrClient.Builder cloudBuilder;
     if (config.hasPath("solr.zkHosts")) {
 
@@ -104,8 +101,8 @@ public class SolrUtils {
   /**
    * Determines whether the connection to Solr requires authentication.
    *
-   * @param config
-   * @return
+   * @param config The configuration file to check for authentication properties.
+   * @return true if authentication is required, false otherwise.
    */
   public static boolean requiresAuth(Config config) {
     boolean hasUserName = config.hasPath("solr.userName");
