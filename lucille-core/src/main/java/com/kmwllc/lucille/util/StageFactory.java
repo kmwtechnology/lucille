@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.tika.stage;
+package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;

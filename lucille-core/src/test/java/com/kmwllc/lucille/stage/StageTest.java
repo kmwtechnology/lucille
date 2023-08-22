@@ -4,11 +4,11 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.util.StageFactory;
 import com.typesafe.config.Config;
 import org.junit.Test;
 
 import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
 
 import static org.junit.Assert.*;

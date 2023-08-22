@@ -2,8 +2,7 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
-import com.typesafe.config.ConfigException;
+import com.kmwllc.lucille.util.StageFactory;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 

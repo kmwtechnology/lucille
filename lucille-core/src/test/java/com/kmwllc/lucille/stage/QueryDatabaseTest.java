@@ -4,6 +4,7 @@ import com.kmwllc.lucille.connector.jdbc.DBTestHelper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.StageFactory;
 import org.junit.Rule;
 import org.junit.Test;
 

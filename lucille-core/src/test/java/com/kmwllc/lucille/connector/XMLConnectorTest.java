@@ -3,7 +3,7 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.connector.xml.XMLConnector;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
-import com.kmwllc.lucille.stage.StageFactory;
+import com.kmwllc.lucille.util.StageFactory;
 import com.kmwllc.lucille.stage.XPathExtractor;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
