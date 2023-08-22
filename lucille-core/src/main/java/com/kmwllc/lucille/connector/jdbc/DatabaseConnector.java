@@ -81,26 +81,17 @@ public class DatabaseConnector extends AbstractConnector {
       Class.forName(driver);
     } catch (ClassNotFoundException e) {
       log.error("Driver not found {} check classpath to make sure the jdbc driver jar file is there.", driver);
-      // ignoring setting state for now
-      // setState(ConnectorState.ERROR);
       throw e;
     }
     try {
       connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
     } catch (SQLException e) {
       log.error("Unable to connect to database {} user:{}", connectionString, jdbcUser);
-      // ignoring setting state for now
-      // setState(ConnectorState.ERROR);
       throw e;
     }
     connections.add(connection);
     return connection;
   }
-
-  // ignoring setting state for now
-//  private void  setState(ConnectorState newState) {
-//     this.state = newState;
-//  }
 
   private int getIdColumnIndex(String[] columns) throws ConnectorException {
     for (int i = 0; i < columns.length; i++) {
@@ -117,8 +108,6 @@ public class DatabaseConnector extends AbstractConnector {
   public void execute(Publisher publisher) throws ConnectorException {
 
     try {
-      // ignoring setting state for now
-      // setState(ConnectorState.RUNNING);
       // connect to the database.
       Connection connection = createConnection();
       // run the pre-sql (if specified)
@@ -133,8 +122,6 @@ public class DatabaseConnector extends AbstractConnector {
         }
         rs = state.executeQuery(sql);
       } catch (SQLException e) {
-        // ignoring setting state for now
-        // setState(ConnectorState.ERROR);
         throw e;
       }
       log.info("Describing primary set...");
@@ -195,11 +182,7 @@ public class DatabaseConnector extends AbstractConnector {
       // the post sql.
       runSql(connection, postSql);
       flush();
-      // ignoring setting state for now
-      // setState(ConnectorState.STOPPED);
     } catch (Exception e) {
-      // ignoring setting state for now
-      // setState(ConnectorState.ERROR);
       throw new ConnectorException("Exception caught during connector execution", e);
     }
   }
@@ -271,8 +254,6 @@ public class DatabaseConnector extends AbstractConnector {
         // TODO: clean up this connection .. we need to hold onto a handle of it
         connection = createConnection();
       } catch (ClassNotFoundException e) {
-        // ignoring setting state for now
-        // setState(ConnectorState.ERROR);
         log.error("Error creating connection.", e);
       }
       Statement state2 = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -286,8 +267,6 @@ public class DatabaseConnector extends AbstractConnector {
       rs2 = state2.executeQuery(sql);
     } catch (SQLException e) {
       e.printStackTrace();
-      // ignoring setting state for now
-      // setState(ConnectorState.ERROR);
       throw e;
     }
     log.info("Other SQL Executed.");
@@ -321,8 +300,6 @@ public class DatabaseConnector extends AbstractConnector {
   //@Override
   public void stop() {
     // TODO: move this to a base class..
-    // ignoring setting state for now
-    // setState(ConnectorState.STOPPED);
   }
 
   @Override
