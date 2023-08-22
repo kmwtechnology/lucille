@@ -69,11 +69,12 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
             Arrays.asList(
                 new SolrInputDocument(
                     "id", "id_1",
+                    "delete_by_id", "deleteid_1"),
+                new SolrInputDocument(
+                    "id", "id_2",
                     "delete_by_id", "deleteid_1")))
         .setAction(AbstractUpdateRequest.ACTION.COMMIT, true, true)
         .process(cluster.getSolrClient(), COL);
-
-
 
     JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);
 
@@ -96,11 +97,13 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
       indexer = new SolrIndexer(config, mockIndexerMessageManager, false, "solr");
       assertTrue(indexer.validateConnection());
 
-
       SolrQuery qr = new SolrQuery();
       qr.set("q", "*:*");
 
-      assertEquals("The test document should have been indexed.", 1, cluster.getSolrClient().query(COL, qr).getResults().size());
+      assertEquals(
+          "The test documents should have been indexed.",
+          2,
+          cluster.getSolrClient().query(COL, qr).getResults().size());
 
       Document delete = Document.create("id_1");
       delete.setField("is_deleted", "true");
@@ -108,7 +111,10 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
       indexer.sendToIndex(List.of(delete));
 
       cluster.getSolrClient().commit(COL);
-      assertEquals("The test document should have been deleted", 0, cluster.getSolrClient().query(COL, qr).getResults().size());
+      assertEquals(
+          "One of the test documents should have been deleted",
+          1,
+          cluster.getSolrClient().query(COL, qr).getResults().size());
 
     } finally {
       if (indexer != null) {
@@ -124,7 +130,10 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
             Arrays.asList(
                 new SolrInputDocument(
                     "id", "id_1",
-                    "delete_by_id", "deleteid_1")))
+                    "delete_by_id", "deleteid_1"),
+                new SolrInputDocument(
+                    "id", "id_2",
+                    "delete_by_id", "deleteid_2")))
         .setAction(AbstractUpdateRequest.ACTION.COMMIT, true, true)
         .process(cluster.getSolrClient(), COL);
 
@@ -154,7 +163,10 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
       SolrQuery qr = new SolrQuery();
       qr.set("q", "*:*");
 
-      assertEquals("The test document should have been indexed.", 1, cluster.getSolrClient().query(COL, qr).getResults().size());
+      assertEquals(
+          "The test documents should have been indexed.",
+          2,
+          cluster.getSolrClient().query(COL, qr).getResults().size());
 
       Document delete = Document.create("id_2");
       delete.setField("is_deleted", "true");
@@ -164,7 +176,10 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
       indexer.sendToIndex(List.of(delete));
 
       cluster.getSolrClient().commit(COL);
-      assertEquals("The test document should have been deleted", 0, cluster.getSolrClient().query(COL, qr).getResults().size());
+      assertEquals(
+          "One of the test documents should have been deleted",
+          1,
+          cluster.getSolrClient().query(COL, qr).getResults().size());
 
     } finally {
       if (indexer != null) {
@@ -219,7 +234,10 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
       SolrQuery qr = new SolrQuery();
       qr.set("q", "*:*");
 
-      assertEquals("The test documents should have been indexed.", 4, cluster.getSolrClient().query(COL, qr).getResults().size());
+      assertEquals(
+          "The test documents should have been indexed.",
+          4,
+          cluster.getSolrClient().query(COL, qr).getResults().size());
 
       Document delete1 = Document.create("id_2");
       delete1.setField("is_deleted", "true");
@@ -255,9 +273,8 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
 
   @AfterClass
   public static void tearDownClass() throws Exception {
-    if(cluster != null) {
+    if (cluster != null) {
       cluster.shutdown();
     }
-
   }
 }
