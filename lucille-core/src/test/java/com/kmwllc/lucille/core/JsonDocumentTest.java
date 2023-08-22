@@ -74,7 +74,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertArrayEquals(value2, document2.getBytesList("field1").get(1));
   }
 
-  @Test
+  @Override
   public void testArrayNodeJsonNodeFieldSetEmpty() throws JsonProcessingException {
     ObjectMapper mapper = new ObjectMapper();
 
@@ -83,19 +83,14 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     String field = "myField";
     d.setField(field, arrayNode);
 
-    // todo decide if should be False similar to HashMapDocument
+    // todo review these tests
     assertTrue(d.isMultiValued(field));
-    // throws an error because since getSingleNode thinks its multivalued and tries to get the first element
-    try {
-      d.getJson(field);
-      fail();
-    } catch (NullPointerException e) {
-      // expected
-    }
+    // todo throws an error because since getSingleNode thinks its multivalued and tries to get the first element
+    assertThrows(NullPointerException.class, () -> d.getJson(field));
     assertEquals(List.of(), d.getJsonList(field));
   }
 
-  @Test
+  @Override
   public void testArrayNodeJsonNodeFieldSetFull() throws JsonProcessingException {
     ObjectMapper mapper = new ObjectMapper();
 
@@ -104,6 +99,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     String field = "myField";
     d.setField(field, arrayNode);
 
+    // todo review these tests
     assertTrue(d.isMultiValued(field));
     // returns the first element of the array
     assertEquals(arrayNode.get(0), d.getJson(field));
