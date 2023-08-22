@@ -272,4 +272,70 @@ public class DatabaseConnectorTest {
     Throwable exception = assertThrows(ConnectorException.class, () -> connector.execute(publisher));
     assertEquals("Unable to find id column: NONEXISTENT_ID_COLUMN", exception.getCause().getMessage());
   }
+
+  @Test
+  public void testReservedFieldError() throws ConnectorException, SQLException {
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select * from table_with_id_column");
+    configValues.put("idField", "other_id");
+
+    Config config = ConfigFactory.parseMap(configValues);
+    DatabaseConnector connector = new DatabaseConnector(config);
+
+    Throwable exception = assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+    assertEquals("Field name \"id\" is reserved, please rename it or add it to the ignore list",
+        exception.getCause().getMessage());
+
+    connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+  @Test
+  public void testTableWithIdColumn() throws ConnectorException, SQLException {
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("ignoreColumns", List.of("id"));
+    configValues.put("sql", "select id as table_id, * from table_with_id_column");
+    configValues.put("idField", "other_id");
+
+    Config config = ConfigFactory.parseMap(configValues);
+    DatabaseConnector connector = new DatabaseConnector(config);
+
+    connector.execute(publisher);
+
+    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    assertEquals(2, docsSentForProcessing.size());
+
+    Document doc1 = docsSentForProcessing.get(0);
+    Document doc2 = docsSentForProcessing.get(1);
+
+    // document id is coming from the "other_id" column
+    assertEquals("id1", doc1.getId());
+    assertEquals("id2", doc2.getId());
+
+    // "id" column is renamed to "table_id"
+    assertEquals("1", doc1.getString("table_id"));
+    assertEquals("2", doc2.getString("table_id"));
+
+    // "other_id" is still in the document
+    assertTrue(doc1.has("other_id"));
+    assertEquals("id1", doc1.getString("other_id"));
+    assertTrue(doc2.has("other_id"));
+    assertEquals("id2", doc2.getString("other_id"));
+
+    connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
 }

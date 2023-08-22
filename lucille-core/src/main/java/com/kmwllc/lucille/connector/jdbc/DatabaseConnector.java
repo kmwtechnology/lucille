@@ -12,7 +12,10 @@ import org.apache.logging.log4j.Logger;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Database Connector - This connector can run a select statement and return the rows
@@ -42,6 +45,7 @@ public class DatabaseConnector extends AbstractConnector {
   private final String idField;
   private final List<String> otherSQLs;
   private final List<String> otherJoinFields;
+  private final Set<String> ignoreColumns;
   private final List<Connection> connections = new ArrayList<>();
   // TODO: consider moving this down to the base connector class.
   //  private ConnectorState state = null;
@@ -71,6 +75,14 @@ public class DatabaseConnector extends AbstractConnector {
     } else {
       otherSQLs = new ArrayList<>();
       otherJoinFields = null;
+    }
+    ignoreColumns = new HashSet<>();
+    if (config.hasPath("ignoreColumns")) {
+      ignoreColumns.addAll(
+          config.getStringList("ignoreColumns")
+              .stream()
+              .map(String::toLowerCase)
+              .collect(Collectors.toSet()));
     }
   }
 
@@ -149,9 +161,22 @@ public class DatabaseConnector extends AbstractConnector {
           // TODO: how do we normalize our column names?  (lowercase is probably ok and likely desirable as
           // sometimes databases return columns in upper/lower case depending on which db you talk to.)
           String fieldName = columns[i - 1].toLowerCase();
+
+          // continue if it is an id column and has the same name as the id field
           if (i == idColumn && Document.ID_FIELD.equals(fieldName)) {
             // we already have this column because it's the id column.
             continue;
+          }
+
+          // continue if field is in the ignore set
+          if (ignoreColumns.contains(fieldName)) {
+            continue;
+          }
+
+          // throw an exception if field is in the reserved set
+          if (Document.RESERVED_FIELDS.contains(fieldName)) {
+            throw new ConnectorException(
+                String.format("Field name \"%s\" is reserved, please rename it or add it to the ignore list", fieldName));
           }
 
           String fieldValue = rs.getString(i);
