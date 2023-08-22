@@ -269,13 +269,8 @@ public class DatabaseConnectorTest {
     // create the connector with the config
     DatabaseConnector connector = new DatabaseConnector(config);
     // call the execute method, then close the connection
-    try {
-      connector.execute(publisher);
-      fail("Should have thrown an exception");
-    } catch (ConnectorException e) {
-      // expected
-      assertEquals("Unable to find id column: NONEXISTENT_ID_COLUMN", e.getCause().getMessage());
-    }
+    Throwable exception = assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+    assertEquals("Unable to find id column: NONEXISTENT_ID_COLUMN", exception.getCause().getMessage());
   }
 
   @Test
