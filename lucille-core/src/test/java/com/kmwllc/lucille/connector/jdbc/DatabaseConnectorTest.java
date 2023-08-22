@@ -288,9 +288,7 @@ public class DatabaseConnectorTest {
     Config config = ConfigFactory.parseMap(configValues);
     DatabaseConnector connector = new DatabaseConnector(config);
 
-    Throwable exception = assertThrows(ConnectorException.class, () -> {
-      connector.execute(publisher);
-    });
+    Throwable exception = assertThrows(ConnectorException.class, () -> connector.execute(publisher));
     assertEquals("Field name \"id\" is reserved, please rename it or add it to the ignore list",
         exception.getCause().getMessage());
 
