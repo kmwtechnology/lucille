@@ -2,6 +2,7 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
@@ -54,6 +55,12 @@ public class DictionaryLookup extends Stage {
     this.updateMode = UpdateMode.fromConfig(config);
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
     this.dict = buildHashMap(config.getString("dict_path"));
+  }
+
+  public void start() throws StageException {
+    StageUtils.validateFieldNumNotZero(sourceFields, "Dictionary Lookup");
+    StageUtils.validateFieldNumNotZero(destFields, "Dictionary Lookup");
+    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Dictionary Lookup");
   }
 
   /**
