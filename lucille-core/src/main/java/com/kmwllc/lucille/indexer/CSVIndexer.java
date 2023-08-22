@@ -19,6 +19,7 @@ public class CSVIndexer extends Indexer {
   private final boolean bypass;
   private final ICSVWriter writer;
   private final List<String> columns;
+  private final boolean includeHeader;
 
 
   public CSVIndexer(Config config, IndexerMessageManager manager, ICSVWriter writer, boolean bypass, String metricsPrefix) {
@@ -29,6 +30,7 @@ public class CSVIndexer extends Indexer {
     this.writer = writer;
     this.bypass = bypass;
     this.columns = config.getStringList("csv.columns");
+    this.includeHeader = config.hasPath("csv.includeHeader") ? config.getBoolean("csv.includeHeader") : true;
   }
 
   public CSVIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
@@ -36,9 +38,9 @@ public class CSVIndexer extends Indexer {
   }
 
   private static ICSVWriter getCsvWriter(Config config, boolean bypass) {
+    boolean append = config.hasPath("csv.append") ? config.getBoolean("csv.append") : false;
     try {
-      CSVWriterBuilder builder = new CSVWriterBuilder(new FileWriter(config.getString("csv.path")));
-      //TODO options from config?
+      CSVWriterBuilder builder = new CSVWriterBuilder(new FileWriter(config.getString("csv.path"), append));
       return builder.build();
     } catch (IOException e) {
       log.error("Error initializing writer for CSVIndexer", e);
@@ -51,7 +53,9 @@ public class CSVIndexer extends Indexer {
     if (!bypass && writer == null) {
       return false;
     }
-    writer.writeNext(columns.toArray(new String[columns.size()]), true);
+    if (includeHeader) {
+      writer.writeNext(columns.toArray(new String[columns.size()]), true);
+    }
     return true;
   }
 
