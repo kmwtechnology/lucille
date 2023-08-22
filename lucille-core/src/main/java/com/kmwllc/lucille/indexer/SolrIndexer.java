@@ -191,7 +191,7 @@ public class SolrIndexer extends Indexer {
       List<String> termsQueries = new ArrayList<>();
       if (!requests.getDeleteIds().isEmpty()) {
         termsQueries.add(
-            String.format("+{!terms f='id' v='%s'}", String.join(",", requests.getDeleteIds())));
+            String.format("(+{!terms f='id' v='%s'})", String.join(",", requests.getDeleteIds())));
       }
 
       requests
@@ -201,10 +201,10 @@ public class SolrIndexer extends Indexer {
               entry ->
                   termsQueries.add(
                       String.format(
-                          "+{!terms f='%s' v='%s'}",
+                          "(+{!terms f='%s' v='%s'})",
                           entry.getKey(), String.join(",", entry.getValue()))));
 
-      String queryToDelete = String.join(" ", termsQueries);
+      String queryToDelete = String.join(" OR ", termsQueries);
 
       if (collection == null) {
         solrClient.deleteByQuery(queryToDelete);

@@ -85,7 +85,7 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
     map.put("indexer.indexOverrideField", "collection");
-    map.put("indexer.deletionMarkerField", "is_deleted");
+    map.put("indexer.deletionMarkerField", "is_delete");
     map.put("indexer.deletionMarkerFieldValue", "true");
 
     Config config = ConfigFactory.parseMap(map);
@@ -106,7 +106,7 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
           cluster.getSolrClient().query(COL, qr).getResults().size());
 
       Document delete = Document.create("id_1");
-      delete.setField("is_deleted", "true");
+      delete.setField("is_delete", "true");
       delete.setField("collection", COL);
       indexer.sendToIndex(List.of(delete));
 
@@ -130,10 +130,10 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
             Arrays.asList(
                 new SolrInputDocument(
                     "id", "id_1",
-                    "delete_by_id", "deleteid_1"),
+                    "myField", "123"),
                 new SolrInputDocument(
                     "id", "id_2",
-                    "delete_by_id", "deleteid_2")))
+                    "myField", "321")))
         .setAction(AbstractUpdateRequest.ACTION.COMMIT, true, true)
         .process(cluster.getSolrClient(), COL);
 
@@ -146,10 +146,17 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
     map.put("indexer.indexOverrideField", "collection");
-    map.put("indexer.deletionMarkerField", "is_deleted");
+    map.put("indexer.deletionMarkerField", "is_delete");
     map.put("indexer.deletionMarkerFieldValue", "true");
-    map.put("indexer.deleteByFieldField", "delete_by_field");
-    map.put("indexer.deleteByFieldValue", "delete_by_id");
+    /*
+    The field on the document referenced by the deleteByFieldField contains the field name in solr that the document
+    is indicating should be used in a delete by query request. The field on the document referenced by the deleteByFieldValue
+    contains the value of the field that should be used in a delete by query request. When a document containing the
+    deletionMarkerField set to the deletionMarkerValue that has a deleteByFieldField and a deleteByFieldValue then all
+    of the documents in solr containing the value for that field will by deleted.
+     */
+    map.put("indexer.deleteByFieldField", "delete.FieldName");
+    map.put("indexer.deleteByFieldValue", "delete.FieldValue");
 
     Config config = ConfigFactory.parseMap(map);
 
@@ -169,9 +176,9 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
           cluster.getSolrClient().query(COL, qr).getResults().size());
 
       Document delete = Document.create("id_2");
-      delete.setField("is_deleted", "true");
-      delete.setField("delete_by_field", "delete_by_id");
-      delete.setField("delete_by_id", "deleteid_1");
+      delete.setField("is_delete", "true");
+      delete.setField("delete.FieldName", "myField");
+      delete.setField("delete.FieldValue", "123");
       delete.setField("collection", COL);
       indexer.sendToIndex(List.of(delete));
 
@@ -195,16 +202,16 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
             Arrays.asList(
                 new SolrInputDocument(
                     "id", "id_1",
-                    "delete_by_id", "deleteid_1"),
+                    "myField", "123"),
                 new SolrInputDocument(
                     "id", "id_2",
-                    "delete_by_id", "deleteid_2"),
+                    "myField", "234"),
                 new SolrInputDocument(
                     "id", "id_3",
-                    "delete_by_id", "deleteid_2"),
+                    "myField", "234"),
                 new SolrInputDocument(
                     "id", "id_4",
-                    "delete_by_id", "deleteid_4")))
+                    "myField", "321")))
         .setAction(AbstractUpdateRequest.ACTION.COMMIT, true, true)
         .process(cluster.getSolrClient(), COL);
 
@@ -217,10 +224,17 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
     map.put("indexer.indexOverrideField", "collection");
-    map.put("indexer.deletionMarkerField", "is_deleted");
+    map.put("indexer.deletionMarkerField", "is_delete");
     map.put("indexer.deletionMarkerFieldValue", "true");
-    map.put("indexer.deleteByFieldField", "delete_by_field");
-    map.put("indexer.deleteByFieldValue", "delete_by_id");
+    /*
+    The field on the document referenced by the deleteByFieldField contains the field name in solr that the document
+    is indicating should be used in a delete by query request. The field on the document referenced by the deleteByFieldValue
+    contains the value of the field that should be used in a delete by query request. When a document containing the
+    deletionMarkerField set to the deletionMarkerValue that has a deleteByFieldField and a deleteByFieldValue then all
+    of the documents in solr containing the value for that field will by deleted.
+     */
+    map.put("indexer.deleteByFieldField", "delete.FieldName");
+    map.put("indexer.deleteByFieldValue", "delete.FieldValue");
 
     Config config = ConfigFactory.parseMap(map);
 
@@ -239,16 +253,16 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
           4,
           cluster.getSolrClient().query(COL, qr).getResults().size());
 
-      Document delete1 = Document.create("id_2");
-      delete1.setField("is_deleted", "true");
-      delete1.setField("delete_by_field", "delete_by_id");
-      delete1.setField("delete_by_id", "deleteid_1");
+      // Send one delete that deletes the id:id_1 document from the index.
+      Document delete1 = Document.create("id_1");
+      delete1.setField("is_delete", "true");
       delete1.setField("collection", COL);
 
+      // Send a second delete that deletes all documents with a field "myField" containing "234" from the index.
       Document delete2 = Document.create("id_2");
-      delete2.setField("is_deleted", "true");
-      delete2.setField("delete_by_field", "delete_by_id");
-      delete2.setField("delete_by_id", "deleteid_2");
+      delete2.setField("is_delete", "true");
+      delete2.setField("delete.FieldName", "myField");
+      delete2.setField("delete.FieldValue", "234");
       delete2.setField("collection", COL);
 
       indexer.sendToIndex(List.of(delete1, delete2));
