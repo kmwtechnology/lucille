@@ -74,13 +74,13 @@ public abstract class Indexer implements Runnable {
             ? config.getString("indexer.deletionMarkerFieldValue")
             : null;
     this.deleteByFieldField =
-      config.hasPath("indexer.deleteByFieldField")
-        ? config.getString("indexer.deleteByFieldField")
-        : null;
+        config.hasPath("indexer.deleteByFieldField")
+            ? config.getString("indexer.deleteByFieldField")
+            : null;
     this.deleteByFieldValue =
-      config.hasPath("indexer.deleteByFieldValue")
-        ? config.getString("indexer.deleteByFieldValue")
-        : null;
+        config.hasPath("indexer.deleteByFieldValue")
+            ? config.getString("indexer.deleteByFieldValue")
+            : null;
     int batchSize =
         config.hasPath("indexer.batchSize")
             ? config.getInt("indexer.batchSize")
@@ -93,6 +93,18 @@ public abstract class Indexer implements Runnable {
         (indexOverrideField == null)
             ? new SingleBatch(batchSize, batchTimeout)
             : new MultiBatch(batchSize, batchTimeout, indexOverrideField);
+    // validate config deletionFields that must be present together
+    if ((deleteByFieldField != null && deleteByFieldValue == null)
+        || (deleteByFieldField == null && deleteByFieldValue != null)) {
+      throw new IllegalArgumentException(
+          "When one of indexer.deleteByFieldField and indexer.deleteByFieldValue are set, both must be set.");
+    }
+    if ((deletionMarkerField != null && deletionMarkerFieldValue == null)
+      || (deletionMarkerField == null && deletionMarkerFieldValue != null)) {
+      throw new IllegalArgumentException(
+        "When one of indexer.deletionMarkerField and indexer.deletionMarkerFieldValue are set, both must be set.");
+    }
+
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     this.stopWatch = new StopWatch();

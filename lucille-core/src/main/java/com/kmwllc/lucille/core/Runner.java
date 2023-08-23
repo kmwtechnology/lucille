@@ -391,8 +391,13 @@ public class Runner {
           return new ConnectorResult(connector, publisher, false, "Error starting workers for pipeline " + pipelineName);
         }
 
-        IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
-        indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassIndexer, metricsPrefix);
+        try {
+          IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
+          indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassIndexer, metricsPrefix);
+        } catch (Exception e) {
+          log.error("Error creating indexer from config.", e);
+          return new ConnectorResult(connector, publisher, false, "Error creating indexer from config.");
+        }
 
         if (!indexer.validateConnection()) {
           String msg = "Indexer could not connect.";
