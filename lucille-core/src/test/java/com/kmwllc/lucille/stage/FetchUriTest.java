@@ -8,7 +8,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.StageException;
 import java.io.IOException;
 
-import com.kmwllc.lucille.util.StageFactory;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;

@@ -9,7 +9,10 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.tika.config.TikaConfig;
@@ -28,10 +31,18 @@ import org.xml.sax.SAXException;
  * Config Parameters -
  * <br>
  * text_field (String, Optional) : name of destination field for parsed data to be placed
- * file_path_field (String, Optional) : name of field from which file path can be extracted, if file_path_field and byte_array_field both not provided, stage will do nothing
+ * file_path_field (String, Optional) : name of field from which file path can be extracted, if file_path_field
+ * and byte_array_field both not provided, stage will do nothing
  * byte_array_field (String, Optional) : name of field from which byte array data can be extracted
  * tika_config_path (String, Optional) : path to tika config, if not provided will default to empty AutoDetectParser
  * metadata_prefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
+ * text_content_limit (String, Optional) : limits how large the content of the returned text can be
+ *
+ *
+ * TODO
+ * - add test case for empty metadata_prefix, if metadata_prefix is empty,
+ *  do not include underscore i.e. "" -> content_type not _content_type
+ *
  */
 public class TextExtractor extends Stage {
 
@@ -41,6 +52,9 @@ public class TextExtractor extends Stage {
   private String tikaConfigPath;
   private String byteArrayField;
   private String metadataPrefix;
+  private Integer textContentLimit;
+  private List<String> metadataWhitelist;
+  private List<String> metadataBlacklist;
   private Parser parser;
   private ParseContext parseCtx;
 
@@ -52,6 +66,9 @@ public class TextExtractor extends Stage {
     byteArrayField = config.hasPath("byte_array_field") ? config.getString("byte_array_field") : "byte_array";
     metadataPrefix = config.hasPath("metadata_prefix") ? config.getString("metadata_prefix") : "tika";
     tikaConfigPath = config.hasPath("tika_config_path") ? config.getString("tika_config_path") : null;
+    textContentLimit = config.hasPath("text_content_limit") ? config.getInt("text_content_limit") : Integer.MAX_VALUE;
+    metadataWhitelist = config.hasPath("metadata_whitelist") ? config.getStringList("metadata_whitelist") : new ArrayList<String>();
+    metadataBlacklist = config.hasPath("metadata_blacklist") ? config.getStringList("metadata_blacklist") : new ArrayList<String>();
     parseCtx = new ParseContext();
   }
 
@@ -111,7 +128,7 @@ public class TextExtractor extends Stage {
    */
   public void parseInputStream(Document doc, InputStream inputStream) {
     Metadata metadata = new Metadata();
-    ContentHandler bch = new BodyContentHandler();
+    ContentHandler bch = new BodyContentHandler(textContentLimit);
     try {
       parser.parse(inputStream, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
@@ -124,7 +141,11 @@ public class TextExtractor extends Stage {
       // clean the field name first.
       String cleanName = cleanFieldName(name);
       for (String value : metadata.getValues(name)) {
-        doc.addToField(metadataPrefix + "_" + cleanName, value);
+        if (!metadataBlacklist.contains(value)) {
+          if (!metadataWhitelist.isEmpty() && metadataWhitelist.contains(value)) {
+            doc.addToField(metadataPrefix + "_" + cleanName, value);
+          }
+        }
       }
     }
   }

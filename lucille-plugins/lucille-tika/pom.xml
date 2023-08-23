@@ -23,6 +23,17 @@
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <dependencyManagement>
+      <dependencies>
+        <dependency>
+          <groupId>org.apache.tika</groupId>
+          <artifactId>tika-bom</artifactId>
+          <version>${tika.version}</version>
+          <type>pom</type>
+        </dependency>
+      </dependencies>
+    </dependencyManagement>
+
     <dependencies>
       <dependency>
         <groupId>com.kmwllc</groupId>

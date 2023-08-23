@@ -4,7 +4,6 @@ import com.kmwllc.lucille.connector.xml.XMLConnector;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.kmwllc.lucille.util.FileUtils;
-import com.kmwllc.lucille.util.StageFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
