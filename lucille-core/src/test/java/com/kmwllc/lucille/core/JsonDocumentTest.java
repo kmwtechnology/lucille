@@ -1,6 +1,8 @@
 package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.Test;
 
@@ -8,9 +10,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
 
@@ -72,5 +72,38 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     Document document2 = createDocumentFromJson(document.toString());
     assertArrayEquals(value1, document2.getBytesList("field1").get(0));
     assertArrayEquals(value2, document2.getBytesList("field1").get(1));
+  }
+
+  @Override
+  public void testArrayNodeJsonNodeFieldSetEmpty() throws JsonProcessingException {
+    ObjectMapper mapper = new ObjectMapper();
+
+    JsonNode arrayNode = mapper.readTree("[]");
+    Document d = createDocument("id1");
+    String field = "myField";
+    d.setField(field, arrayNode);
+
+    // todo review these tests
+    assertTrue(d.isMultiValued(field));
+    // todo throws an error because since getSingleNode thinks its multivalued and tries to get the first element
+    assertThrows(NullPointerException.class, () -> d.getJson(field));
+    assertEquals(List.of(), d.getJsonList(field));
+  }
+
+  @Override
+  public void testArrayNodeJsonNodeFieldSetFull() throws JsonProcessingException {
+    ObjectMapper mapper = new ObjectMapper();
+
+    JsonNode arrayNode = mapper.readTree("[{\"a\":1}, {\"b\": 2}]");
+    Document d = createDocument("id1");
+    String field = "myField";
+    d.setField(field, arrayNode);
+
+    // todo review these tests
+    assertTrue(d.isMultiValued(field));
+    // returns the first element of the array
+    assertEquals(arrayNode.get(0), d.getJson(field));
+    // for this to pass need to convert ArrayNode to List<JsonNode>
+    assertEquals(List.of(arrayNode.get(0), arrayNode.get(1)), d.getJsonList(field));
   }
 }
