@@ -272,7 +272,7 @@ public class ElasticsearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
 
     List<BulkOperation> requests = br.operations();
-    IndexOperation indexRequest = requests.get(0).index();
+    IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     assertEquals("doc1", indexRequest.id());
     assertEquals("routing1", indexRequest.routing());
