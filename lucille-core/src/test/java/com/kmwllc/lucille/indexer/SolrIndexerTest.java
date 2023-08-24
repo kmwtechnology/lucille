@@ -22,6 +22,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.InOrder;
 
+import java.io.IOException;
 import java.util.*;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -867,7 +868,7 @@ public class SolrIndexerTest {
   }
 
   @Test
-  public void testClientInstance() {
+  public void testClientInstance() throws IOException {
 
     Config httpConfig = ConfigFactory.empty()
         .withValue("solr.url", ConfigValueFactory.fromAnyRef("localhost:8983/solr"));
@@ -876,8 +877,11 @@ public class SolrIndexerTest {
         .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
         .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef(List.of("localhost:2181")));
 
-    assertTrue(SolrUtils.getSolrClient(httpConfig) instanceof HttpSolrClient);
-    assertTrue(SolrUtils.getSolrClient(cloudConfig) instanceof CloudSolrClient);
+    try (SolrClient httpClient = SolrUtils.getSolrClient(httpConfig); SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig);){
+      assertTrue(httpClient instanceof HttpSolrClient);
+      assertTrue(cloudClient instanceof CloudSolrClient);
+    }
+
   }
 
   private static class ErroringIndexer extends SolrIndexer {
