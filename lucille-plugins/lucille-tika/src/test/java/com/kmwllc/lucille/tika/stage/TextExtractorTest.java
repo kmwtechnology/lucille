@@ -143,14 +143,12 @@ public class TextExtractorTest {
     Document doc2 = Document.create("doc2");
     doc2.setField("path", "src/test/resources/TextExtractorTest/tika.docx");
     stage.processDocument(doc2);
-    System.out.println(doc2.getStringList("tika_content_type"));
     assertTrue(doc2.getStringList("tika_content_type")
         .contains("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
 
     Document doc3 = Document.create("doc3");
     doc3.setField("path", "src/test/resources/TextExtractorTest/tika.txt");
     stage.processDocument(doc3);
-    System.out.println(doc3.getStringList("tika_content_type"));
     assertTrue(doc3.getStringList("tika_content_type").contains("text/plain; charset=ISO-8859-1"));
   }
 

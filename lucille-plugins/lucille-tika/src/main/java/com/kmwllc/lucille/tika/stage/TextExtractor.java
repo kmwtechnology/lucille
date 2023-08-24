@@ -147,7 +147,8 @@ public class TextExtractor extends Stage {
       // clean the field name first.
       String cleanName = cleanFieldName(name);
       if ((metadataBlacklist != null && !metadataBlacklist.contains(cleanName))
-          || (metadataWhitelist != null && metadataWhitelist.contains(cleanName))) {
+          || (metadataWhitelist != null && metadataWhitelist.contains(cleanName))
+          || (metadataWhitelist == null) && (metadataBlacklist == null)) {
         for (String value : metadata.getValues(name)) {
           doc.addToField(newMetadataPrefix + cleanName, value);
         }
