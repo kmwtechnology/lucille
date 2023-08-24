@@ -12,12 +12,8 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Parses dates into ISO_INSTANT format to be ingested by Solr. If a given date cannot be parsed, it
@@ -32,6 +28,7 @@ import java.util.stream.Collectors;
  * - format_strs (List<String>, Optional) : A List of format Strings to try and apply to the dates. Defaults to an empty list.
  * - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  * Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
+ * todo add comments about timezone
  */
 public class ParseDate extends Stage {
 
@@ -40,20 +37,45 @@ public class ParseDate extends Stage {
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final UpdateMode updateMode;
+  private final String timeZoneId;
 
   public ParseDate(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest")
-      .withOptionalProperties("format_strs", "update_mode", "formatters"));
+      .withOptionalProperties("format_strs", "update_mode", "formatters", "time_zone_id"));
 
     this.formatters = new ArrayList<>();
-    this.formats = ConfigUtils.getOrDefault(config, "format_strs", new ArrayList<String>())
-      .stream()
-      .map(formatString -> new SimpleDateFormat(formatString))
-      .collect(Collectors.toUnmodifiableList());
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.updateMode = UpdateMode.fromConfig(config);
+
+    timeZoneId = getTimeZoneId(config);
+    formats = getFormats(config);
+  }
+
+  private static String getTimeZoneId(Config config) {
+    String timeZoneId = ConfigUtils.getOrDefault(config, "time_zone_id", Calendar.getInstance().getTimeZone().getID());
+    if (Arrays.stream(TimeZone.getAvailableIDs()).noneMatch(timeZoneId::equals)) {
+      throw new IllegalArgumentException("Invalid time zone ID: \"" + timeZoneId
+          + "\", must be one of TimeZone.getAvailableIDs()");
+    }
+    return timeZoneId;
+  }
+
+  private List<DateFormat> getFormats(Config config) {
+
+    // convert format strings to a set to remove duplicates
+    Set<String> formatStrings = new HashSet<>(ConfigUtils.getOrDefault(config, "format_strs", new ArrayList<>()));
+
+    // create date formatters from format strings with a timezone
+    List<DateFormat> formats = new ArrayList<>();
+    TimeZone timeZone = TimeZone.getTimeZone(timeZoneId);
+    for (String formatString : formatStrings) {
+      SimpleDateFormat format = new SimpleDateFormat(formatString);
+      format.setTimeZone(timeZone);
+      formats.add(format);
+    }
+    return formats;
   }
 
   @Override
