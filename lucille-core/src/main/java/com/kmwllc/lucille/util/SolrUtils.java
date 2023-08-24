@@ -19,6 +19,7 @@ import org.apache.solr.client.solrj.io.Tuple;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Utility methods for communicating with Solr.
@@ -38,12 +39,10 @@ public class SolrUtils {
    */
   public static SolrClient getSolrClient(Config config) {
     SSLUtils.setSSLSystemProperties(config);
-    if (config.hasPath("useCloudClient") && config.getBoolean("useCloudClient")) {
-      CloudSolrClient cloudSolrClient = requiresAuth(config) ?
-        new CloudSolrClient.Builder(getSolrUrls(config)).withHttpClient(getHttpClient(config)).build() :
-        new CloudSolrClient.Builder(getSolrUrls(config)).build();
-      if (config.hasPath("defaultCollection")) {
-        cloudSolrClient.setDefaultCollection(config.getString("defaultCollection"));
+    if (config.hasPath("solr.useCloudClient") && config.getBoolean("solr.useCloudClient")) {
+      CloudSolrClient cloudSolrClient = getCloudClient(config);
+      if (config.hasPath("solr.defaultCollection")) {
+        cloudSolrClient.setDefaultCollection(config.getString("solr.defaultCollection"));
       }
       return cloudSolrClient;
     } else {
@@ -51,6 +50,30 @@ public class SolrUtils {
         new HttpSolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build() :
         new HttpSolrClient.Builder(getSolrUrl(config)).build();
     }
+  }
+
+  private static CloudSolrClient getCloudClient(Config config) {
+    CloudSolrClient.Builder cloudBuilder;
+    if (config.hasPath("solr.zkHosts")) {
+
+      // optional property
+      Optional<String> zkChroot;
+      if (config.hasPath("solr.zkChroot")) {
+        zkChroot = Optional.of(config.getString("solr.zkChroot"));
+      } else {
+        zkChroot = Optional.empty();
+      }
+
+      cloudBuilder = new CloudSolrClient.Builder(config.getStringList("solr.zkHosts"), zkChroot);
+    } else {
+      cloudBuilder = new CloudSolrClient.Builder(getSolrUrls(config));
+    }
+
+    if (requiresAuth(config)) {
+      cloudBuilder.withHttpClient(getHttpClient(config));
+    }
+
+    return cloudBuilder.build();
   }
 
   /**
@@ -78,8 +101,8 @@ public class SolrUtils {
   /**
    * Determines whether the connection to Solr requires authentication.
    *
-   * @param config
-   * @return
+   * @param config The configuration file to check for authentication properties.
+   * @return true if authentication is required, false otherwise.
    */
   public static boolean requiresAuth(Config config) {
     boolean hasUserName = config.hasPath("solr.userName");

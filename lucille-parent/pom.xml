@@ -20,6 +20,7 @@
     <maven-surefire-plugin.version>2.22.0</maven-surefire-plugin.version>
     <maven-javadoc-plugin.version>3.3.2</maven-javadoc-plugin.version>
     <jackson.version>2.12.2</jackson.version>
+    <!-- todo if updated to version 9 will need to add solr-solrj-zookeeper dependency -->
     <lucene-solr.version>8.11.1</lucene-solr.version>
     <opensearch-rest-client.version>1.2.0</opensearch-rest-client.version>
     <opensearch-rest-high-level-client.version>1.2.3</opensearch-rest-high-level-client.version>
