@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -36,8 +37,9 @@ import org.xml.sax.SAXException;
  * byte_array_field (String, Optional) : name of field from which byte array data can be extracted
  * tika_config_path (String, Optional) : path to tika config, if not provided will default to empty AutoDetectParser
  * metadata_prefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
- * text_content_limit (String, Optional) : limits how large the content of the returned text can be
- *
+ * text_content_limit (Integer, Optional) : limits how large the content of the returned text can be
+ * metadata_whitelist (StringList, Optional) : list of metadata names that are to be included in document
+ * metadata_blacklist (StringList, Optional) : list of metadata names that are not to be included in document
  *
  * TODO
  * - add test case for empty metadata_prefix, if metadata_prefix is empty,
@@ -58,17 +60,20 @@ public class TextExtractor extends Stage {
   private Parser parser;
   private ParseContext parseCtx;
 
-  public TextExtractor(Config config) {
+  public TextExtractor(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
-        "metadata_prefix"));
+        "metadata_prefix", "metadata_whitelist", "metadata_blacklist", "text_content_limit"));
     textField = config.hasPath("text_field") ? config.getString("text_field") : "text";
     filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : "filepath";
     byteArrayField = config.hasPath("byte_array_field") ? config.getString("byte_array_field") : "byte_array";
     metadataPrefix = config.hasPath("metadata_prefix") ? config.getString("metadata_prefix") : "tika";
     tikaConfigPath = config.hasPath("tika_config_path") ? config.getString("tika_config_path") : null;
     textContentLimit = config.hasPath("text_content_limit") ? config.getInt("text_content_limit") : Integer.MAX_VALUE;
-    metadataWhitelist = config.hasPath("metadata_whitelist") ? config.getStringList("metadata_whitelist") : new ArrayList<String>();
-    metadataBlacklist = config.hasPath("metadata_blacklist") ? config.getStringList("metadata_blacklist") : new ArrayList<String>();
+    metadataWhitelist = config.hasPath("metadata_whitelist") ? config.getStringList("metadata_whitelist") : null;
+    metadataBlacklist = config.hasPath("metadata_blacklist") ? config.getStringList("metadata_blacklist") : null;
+    if (metadataWhitelist != null && metadataBlacklist != null) {
+      throw new StageException("Provided both a whitelist and blacklist to the TextExtractor stage");
+    }
     parseCtx = new ParseContext();
   }
 
@@ -132,19 +137,19 @@ public class TextExtractor extends Stage {
     try {
       parser.parse(inputStream, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
-      log.warn("Tika Exception: {}", e);
+      log.warn("Tika Exception: {}", e.getMessage());
     }
 
     doc.addToField(textField, bch.toString());
     parseCtx.toString();
+    String newMetadataPrefix = metadataPrefix == "" ? "": metadataPrefix + "_" ;
     for (String name : metadata.names()) {
       // clean the field name first.
       String cleanName = cleanFieldName(name);
-      for (String value : metadata.getValues(name)) {
-        if (!metadataBlacklist.contains(value)) {
-          if (!metadataWhitelist.isEmpty() && metadataWhitelist.contains(value)) {
-            doc.addToField(metadataPrefix + "_" + cleanName, value);
-          }
+      if ((metadataBlacklist != null && !metadataBlacklist.contains(cleanName))
+          || (metadataWhitelist != null && metadataWhitelist.contains(cleanName))) {
+        for (String value : metadata.getValues(name)) {
+          doc.addToField(newMetadataPrefix + cleanName, value);
         }
       }
     }
