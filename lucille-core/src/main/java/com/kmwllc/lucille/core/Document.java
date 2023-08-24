@@ -262,11 +262,8 @@ public interface Document {
       throw new IllegalArgumentException("expecting string parameters");
     }
     for (String name: names) {
-      if (name == null) {
-        throw new IllegalArgumentException("Field name cannot be null");
-      }
-      if (name.isEmpty()) {
-        throw new IllegalArgumentException("Field name cannot be empty");
+      if (name == null || name.isEmpty()) {
+        throw new IllegalArgumentException("Field name cannot be null or empty");
       }
       if (RESERVED_FIELDS.contains(name)) {
         throw new IllegalArgumentException(name + " is a reserved field");
