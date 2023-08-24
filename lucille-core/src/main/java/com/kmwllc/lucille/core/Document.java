@@ -257,13 +257,16 @@ public interface Document {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 
-  static void validateNotReservedField(String... names) throws IllegalArgumentException {
+  static void validateFieldNames(String... names) throws IllegalArgumentException {
     if (names == null) {
       throw new IllegalArgumentException("expecting string parameters");
     }
     for (String name: names) {
       if (name == null) {
         throw new IllegalArgumentException("Field name cannot be null");
+      }
+      if (name.isEmpty()) {
+        throw new IllegalArgumentException("Field name cannot be empty");
       }
       if (RESERVED_FIELDS.contains(name)) {
         throw new IllegalArgumentException(name + " is a reserved field");

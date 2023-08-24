@@ -11,6 +11,9 @@ import org.junit.runners.JUnit4;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 import static com.kmwllc.lucille.core.Document.RESERVED_FIELDS;
@@ -1315,5 +1318,92 @@ public abstract class DocumentTest {
     doc.removeChildren();
     // validate no children exist after we remove them.
     assertFalse(doc.hasChildren());
+  }
+
+  @Test
+  public void testValidateFieldNames() {
+
+    Document doc = createDocument("doc");
+
+    JsonNode node = new ObjectMapper().createObjectNode();
+
+    List<BiConsumer<String, Document>> setFunctions = List.of(
+        (fieldName, document) -> document.setField(fieldName, "val"),
+        (fieldName, document) -> document.setField(fieldName, 1L),
+        (fieldName, document) -> document.setField(fieldName, 1),
+        (fieldName, document) -> document.setField(fieldName, true),
+        (fieldName, document) -> document.setField(fieldName, 1.0),
+        (fieldName, document) -> document.setField(fieldName, 1.0f),
+        (fieldName, document) -> document.setField(fieldName, node),
+        (fieldName, document) -> document.setField(fieldName, Instant.now()),
+        (fieldName, document) -> document.setField(fieldName, new byte[]{0x3c, 0x4c, 0x5c})
+    );
+
+    List<BiConsumer<String, Document>> updateFunctions = List.of(
+        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, "val"),
+        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, 1L),
+        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, 1),
+        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, true),
+        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, 1.0),
+        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, 1.0f),
+// todo missing update for JsonNode
+//        (fieldName, document)-> document.update(fieldName, UpdateMode.DEFAULT, node),
+        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, Instant.now()),
+        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, new byte[]{0x3c, 0x4c, 0x5c})
+    );
+
+    List<BiConsumer<String, Document>> addToFieldFunctions = List.of(
+        (fieldName, document) -> document.addToField(fieldName, "val"),
+        (fieldName, document) -> document.addToField(fieldName, 1L),
+        (fieldName, document) -> document.addToField(fieldName, 1),
+        (fieldName, document) -> document.addToField(fieldName, true),
+        (fieldName, document) -> document.addToField(fieldName, 1.0),
+        (fieldName, document) -> document.addToField(fieldName, 1.0f),
+//        (fieldName, document) -> document.addToField(fieldName, node),
+        (fieldName, document) -> document.addToField(fieldName, Instant.now()),
+        (fieldName, document) -> document.addToField(fieldName, new byte[]{0x3c, 0x4c, 0x5c})
+    );
+
+    List<BiConsumer<String, Document>> setOrAddFunctions = List.of(
+        (fieldName, document) -> document.setOrAdd(fieldName, "val"),
+        (fieldName, document) -> document.setOrAdd(fieldName, 1L),
+        (fieldName, document) -> document.setOrAdd(fieldName, 1),
+        (fieldName, document) -> document.setOrAdd(fieldName, true),
+        (fieldName, document) -> document.setOrAdd(fieldName, 1.0),
+        (fieldName, document) -> document.setOrAdd(fieldName, 1.0f),
+//        (fieldName, document) -> document.setOrAdd(fieldName, node),
+        (fieldName, document) -> document.setOrAdd(fieldName, Instant.now()),
+        (fieldName, document) -> document.setOrAdd(fieldName, new byte[]{0x3c, 0x4c, 0x5c})
+    );
+
+    List<BiConsumer<String, Document>> removeFunctions = List.of(
+        (fieldName, document) -> document.removeField(fieldName),
+        (fieldName, document) -> document.removeFromArray(fieldName, 0)
+    );
+
+    List<BiConsumer<String, Document>> functions = new ArrayList<>();
+    functions.addAll(setFunctions);
+    functions.addAll(updateFunctions);
+    functions.addAll(addToFieldFunctions);
+    functions.addAll(setOrAddFunctions);
+    functions.addAll(removeFunctions);
+
+    // illegal field names
+    List<String> illegalFieldNames = new ArrayList<>(RESERVED_FIELDS);
+    illegalFieldNames.add(null);
+    illegalFieldNames.add("");
+
+
+    for (String fieldName : illegalFieldNames) {
+      for (BiConsumer<String, Document> function : functions) {
+        assertThrows(IllegalArgumentException.class, () -> function.accept(fieldName, doc));
+      }
+    }
+
+    // rename field test
+    doc.addToField("field1", "val");
+    for (String fieldName : illegalFieldNames) {
+      assertThrows(IllegalArgumentException.class, () -> doc.renameField("field1", fieldName, UpdateMode.DEFAULT));
+    }
   }
 }

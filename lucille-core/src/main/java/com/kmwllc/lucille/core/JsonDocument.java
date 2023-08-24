@@ -18,6 +18,8 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
+import static com.kmwllc.lucille.core.Document.validateFieldNames;
+
 /**
  * A record from a source system to be passed through a Pipeline, enriched,
  * and sent to a destination system.
@@ -89,13 +91,13 @@ public class JsonDocument implements Document {
 
   @Override
   public void removeField(String name) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     data.remove(name);
   }
 
   @Override
   public void removeFromArray(String name, int index) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     data.withArray(name).remove(index);
   }
 
@@ -152,7 +154,7 @@ public class JsonDocument implements Document {
    */
   private void update(String name, UpdateMode mode, Consumer setter, Consumer adder, Object... values) {
 
-    validateNotReservedField(name);
+    validateFieldNames(name);
 
     if (values.length == 0)
       return;
@@ -188,63 +190,62 @@ public class JsonDocument implements Document {
 
   @Override
   public void setField(String name, String value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     data.put(name, value);
   }
 
   @Override
   public void setField(String name, Long value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     data.put(name, value);
   }
 
   @Override
   public void setField(String name, Integer value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     data.put(name, value);
   }
 
   @Override
   public void setField(String name, Boolean value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     data.put(name, value);
   }
 
   @Override
   public void setField(String name, Double value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     data.put(name, value);
   }
 
   @Override
   public void setField(String name, Float value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     data.put(name, value);
   }
 
   @Override
   public void setField(String name, JsonNode value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     data.set(name, value);
   }
 
   @Override
   public void setField(String name, Instant value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     String instantStr = DateTimeFormatter.ISO_INSTANT.format(value);
     data.put(name, instantStr);
   }
 
   @Override
   public void setField(String name, byte[] value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     data.put(name, value);
   }
 
   @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
-    validateNotReservedField(oldName);
-    validateNotReservedField(newName);
+    validateFieldNames(oldName, newName);
     JsonNode oldValues = data.get(oldName);
     data.remove(oldName);
 
@@ -583,7 +584,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void addToField(String name, String value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
@@ -591,7 +592,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void addToField(String name, Long value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
@@ -599,7 +600,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void addToField(String name, Integer value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
@@ -607,7 +608,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void addToField(String name, Boolean value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
@@ -615,7 +616,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void addToField(String name, Double value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
@@ -623,7 +624,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void addToField(String name, Float value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
@@ -631,7 +632,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void addToField(String name, Instant value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
     String dateStr = DateTimeFormatter.ISO_INSTANT.format(value);
@@ -640,7 +641,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void addToField(String name, byte[] value) {
-    validateNotReservedField(name);
+    validateFieldNames(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
@@ -720,7 +721,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void setOrAdd(String name, Document other) throws IllegalArgumentException {
-    validateNotReservedField(name);
+    validateFieldNames(name);
 
     if (!has(name)) {
 
@@ -808,12 +809,6 @@ public class JsonDocument implements Document {
       return new JsonDocument(this);
     } catch (DocumentException e) {
       throw new IllegalStateException("Document not copyable", e);
-    }
-  }
-
-  private void validateNotReservedField(String name) throws IllegalArgumentException {
-    if (RESERVED_FIELDS.contains(name)) {
-      throw new IllegalArgumentException();
     }
   }
 
