@@ -12,8 +12,6 @@ import org.junit.runners.JUnit4;
 import java.time.Instant;
 import java.util.*;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 import static com.kmwllc.lucille.core.Document.RESERVED_FIELDS;
@@ -1324,9 +1322,14 @@ public abstract class DocumentTest {
   public void testValidateFieldNames() {
 
     Document doc = createDocument("doc");
-
     JsonNode node = new ObjectMapper().createObjectNode();
 
+    // build a list of illegal field names
+    List<String> illegalFieldNames = new ArrayList<>(RESERVED_FIELDS);
+    illegalFieldNames.add(null);
+    illegalFieldNames.add("");
+
+    // build a list of functions that set, update, add, or remove fields
     List<BiConsumer<String, Document>> setFunctions = List.of(
         (fieldName, document) -> document.setField(fieldName, "val"),
         (fieldName, document) -> document.setField(fieldName, 1L),
@@ -1381,6 +1384,7 @@ public abstract class DocumentTest {
         (fieldName, document) -> document.removeFromArray(fieldName, 0)
     );
 
+    // merge lists of functions
     List<BiConsumer<String, Document>> functions = new ArrayList<>();
     functions.addAll(setFunctions);
     functions.addAll(updateFunctions);
@@ -1388,19 +1392,14 @@ public abstract class DocumentTest {
     functions.addAll(setOrAddFunctions);
     functions.addAll(removeFunctions);
 
-    // illegal field names
-    List<String> illegalFieldNames = new ArrayList<>(RESERVED_FIELDS);
-    illegalFieldNames.add(null);
-    illegalFieldNames.add("");
-
-
+    // test merged list of function
     for (String fieldName : illegalFieldNames) {
       for (BiConsumer<String, Document> function : functions) {
         assertThrows(IllegalArgumentException.class, () -> function.accept(fieldName, doc));
       }
     }
 
-    // rename field test
+    // test renameField method
     doc.addToField("field1", "val");
     for (String fieldName : illegalFieldNames) {
       assertThrows(IllegalArgumentException.class, () -> doc.renameField("field1", fieldName, UpdateMode.DEFAULT));
