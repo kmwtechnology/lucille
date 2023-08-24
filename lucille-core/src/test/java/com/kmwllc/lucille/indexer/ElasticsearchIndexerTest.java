@@ -253,6 +253,32 @@ public class ElasticsearchIndexerTest {
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
+  @Test
+  public void testRouting() throws Exception {
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/routing.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("routing", "routing1");
+    doc.setField("field1", "value1");
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+
+    assertEquals("doc1", indexRequest.id());
+    assertEquals("routing1", indexRequest.routing());
+    assertEquals(doc.asMap(), indexRequest.document());
+  }
+
   private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
 
     public ErroringElasticsearchIndexer(Config config, IndexerMessageManager manager,

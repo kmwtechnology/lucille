@@ -29,6 +29,7 @@ public class ElasticsearchIndexer extends Indexer {
 
   //flag for using partial update API when sending documents to elastic
   private final boolean update;
+  private final String routingField;
 
   public ElasticsearchIndexer(Config config, IndexerMessageManager manager, ElasticsearchClient client,
                               String metricsPrefix) {
@@ -39,6 +40,9 @@ public class ElasticsearchIndexer extends Indexer {
     this.client = client;
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
     this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
+
+    // todo consider making routing a Document class member
+    this.routingField = ConfigUtils.getOrDefault(config, "indexer.routingField", null);
   }
 
   public ElasticsearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
@@ -90,19 +94,24 @@ public class ElasticsearchIndexer extends Indexer {
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);
 
+      // we don't have to worry about routing being null or not in the document since the indexer will ignore it
+      String routing = doc.getString(routingField);
+
       if (update) {
         br.operations(op -> op
           .update(up -> up
             .id(docId)
             .index(index)
+            .routing(routing)
             .action(upx -> upx
               .doc(indexerDoc)
             )));
       } else {
         br.operations(op -> op
           .index(idx -> idx
-            .index(index)
             .id(docId)
+            .index(index)
+            .routing(routing)
             .document(indexerDoc)
           ));
       }
