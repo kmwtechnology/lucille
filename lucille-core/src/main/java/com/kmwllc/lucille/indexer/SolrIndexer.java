@@ -38,7 +38,10 @@ public class SolrIndexer extends Indexer {
 
   public SolrIndexer(
       Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
-    this(config, manager, getSolrClient(config, bypass), metricsPrefix);
+    super(config, manager, metricsPrefix);
+    // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
+    // to avoid problems where a client is created with no way to close it.
+    this.solrClient = getSolrClient(config, bypass);
   }
 
   private static SolrClient getSolrClient(Config config, boolean bypass) {
