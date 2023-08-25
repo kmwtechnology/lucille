@@ -6,6 +6,7 @@ import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.IndexOperation;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
@@ -21,6 +22,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -251,6 +253,66 @@ public class ElasticsearchIndexerTest {
     List<Event> events = manager.getSavedEvents();
     Assert.assertEquals("doc1", events.get(0).getDocumentId());
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  @Test
+  public void testJoinParent() throws Exception {
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/joinParent.conf");
+
+    Document doc = Document.create("doc1");
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
+
+    Map<String, Object> expected = new HashMap<>();
+    expected.put("id", "doc1");
+    expected.put("my_join_field", "parentName1");
+
+    assertEquals(expected, indexRequest.document());
+  }
+
+  @Test
+  public void testJoinChild() throws Exception {
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/joinChild.conf");
+
+    Document doc = Document.create("doc1");
+
+    // define parent id
+    doc.setField("parentDocumentIdSource1", "parentId1");
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
+
+    Map<String, Object> joinData = new HashMap<>();
+    joinData.put("name", "childName1");
+    joinData.put("parent", "parentId1");
+
+    Map<String, Object> expected = new HashMap<>();
+    expected.put("id", "doc1");
+    expected.put("parentDocumentIdSource1", "parentId1");
+    expected.put("my_join_field", joinData);
+
+    assertEquals(expected, indexRequest.document());
   }
 
   private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
