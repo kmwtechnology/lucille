@@ -3,8 +3,6 @@ package com.kmwllc.lucille.indexer;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
@@ -31,7 +29,7 @@ public class ElasticsearchIndexer extends Indexer {
 
   //flag for using partial update API when sending documents to elastic
   private final boolean update;
-  private final ElasticJoinData joinData;
+  private final ElasticsearchUtils.ElasticJoinData joinData;
 
   public ElasticsearchIndexer(Config config, IndexerMessageManager manager, ElasticsearchClient client,
                               String metricsPrefix) {
@@ -43,7 +41,7 @@ public class ElasticsearchIndexer extends Indexer {
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
     this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
 
-    joinData = ElasticJoinDataBuilder.fromConfig(config);
+    joinData = ElasticsearchUtils.ElasticJoinData.fromConfig(config);
   }
 
   public ElasticsearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
@@ -84,7 +82,7 @@ public class ElasticsearchIndexer extends Indexer {
     for (Document doc : documents) {
 
       // add join data to document
-      addJoinData(doc);
+      joinData.addJoinData(doc);
 
       Map<String, Object> indexerDoc = doc.asMap();
 
@@ -176,126 +174,5 @@ public class ElasticsearchIndexer extends Indexer {
       }
       System.exit(0);
     });
-  }
-
-  private void addJoinData(Document doc) {
-    if (joinData.isJoin()) {
-
-      // check that join field doesn't already exist
-      if (doc.has(joinData.getJoinFieldName())) {
-        throw new IllegalStateException("Document already has join field: " + joinData.getJoinFieldName());
-      }
-
-      // add either parent or child field
-      if (joinData.isChild()) {
-        JsonNode node = new ObjectMapper().createObjectNode()
-            .put("name", joinData.getChildName())
-            .put("parent", doc.getString(joinData.getParentDocumentIdSource()));
-        doc.setField(joinData.getJoinFieldName(), node);
-      } else {
-        doc.setField(joinData.getJoinFieldName(), joinData.getParentName());
-      }
-    }
-  }
-
-  private static class ElasticJoinData {
-    private final String joinFieldName;
-    private final boolean isChild;
-    private final String parentName;
-    private final String childName;
-    private final String parentDocumentIdSource;
-
-    private ElasticJoinData(String joinFieldName, boolean isChild, String parentName, String childName, String parentDocumentIdSource) {
-      this.joinFieldName = joinFieldName;
-      this.isChild = isChild;
-      this.parentName = parentName;
-      this.childName = childName;
-      this.parentDocumentIdSource = parentDocumentIdSource;
-    }
-
-    public boolean isJoin() {
-      return joinFieldName != null;
-    }
-
-    public String getJoinFieldName() {
-      return joinFieldName;
-    }
-
-    public boolean isChild() {
-      return isChild;
-    }
-
-    public String getParentName() {
-      return parentName;
-    }
-
-    public String getChildName() {
-      return childName;
-    }
-
-    public String getParentDocumentIdSource() {
-      return parentDocumentIdSource;
-    }
-  }
-
-  private static class ElasticJoinDataBuilder {
-
-    private String joinFieldName = null;
-    private boolean isChild = false;
-    private String parentName = null;
-    private String childName = null;
-    private String parentDocumentIdSource = null;
-
-    public ElasticJoinDataBuilder setJoinFieldName(String joinFieldName) {
-      this.joinFieldName = joinFieldName;
-      return this;
-    }
-
-    public ElasticJoinDataBuilder setParent(String parentName) {
-
-      if (childName != null) {
-        throw new IllegalStateException("Cannot set childName and parentName at the same time");
-      }
-
-      this.parentName = parentName;
-      return this;
-    }
-
-    public ElasticJoinDataBuilder setChild(String childName, String parentDocumentIdSource) {
-
-      if (parentName != null) {
-        throw new IllegalStateException("Cannot set childName and parentName at the same time");
-      }
-
-      this.isChild = true;
-      this.childName = childName;
-      this.parentDocumentIdSource = parentDocumentIdSource;
-      return this;
-    }
-
-    public ElasticJoinData build() {
-      return new ElasticJoinData(joinFieldName, isChild, parentName, childName, parentDocumentIdSource);
-    }
-
-    private static ElasticJoinData fromConfig(Config config) {
-      ElasticJoinDataBuilder builder = new ElasticJoinDataBuilder();
-
-      // else skip to default values
-      if (config.hasPath("elasticsearch.join")) {
-        builder.setJoinFieldName(config.getString("elasticsearch.join.joinFieldName"));
-
-        // todo we don't actually care about child being set to false
-        if (config.hasPath("elasticsearch.join.isChild") && config.getBoolean("elasticsearch.join.isChild")) {
-          builder.setChild(
-              config.getString("elasticsearch.join.childName"),
-              config.getString("elasticsearch.join.parentDocumentIdSource")
-          );
-        } else {
-          builder.setParent(config.getString("elasticsearch.join.parentName"));
-        }
-      }
-
-      return builder.build();
-    }
   }
 }
