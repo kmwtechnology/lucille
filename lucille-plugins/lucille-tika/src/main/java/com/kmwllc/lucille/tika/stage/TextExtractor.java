@@ -37,12 +37,6 @@ import org.xml.sax.SAXException;
  * text_content_limit (Integer, Optional) : limits how large the content of the returned text can be
  * metadata_whitelist (StringList, Optional) : list of metadata names that are to be included in document
  * metadata_blacklist (StringList, Optional) : list of metadata names that are not to be included in document
- *
- * TODO
- * - force the user to provide both a file_path_field and byte_array_field (no default value), throw error if they don't provide
- * exactly one of those field names
- * - confirm above approach doesn't create additional problems
- *
  */
 public class TextExtractor extends Stage {
 
