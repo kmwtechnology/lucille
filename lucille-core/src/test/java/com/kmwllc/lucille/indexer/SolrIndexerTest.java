@@ -7,10 +7,13 @@ import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.impl.CloudSolrClient;
+import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.hamcrest.MatcherAssert;
@@ -19,6 +22,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.InOrder;
 
+import java.io.IOException;
 import java.util.*;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -859,6 +863,33 @@ public class SolrIndexerTest {
             + "indexing failure event.",
         Event.Type.FAIL,
         equalTo(events.get(0).getType()));
+  }
+
+  @Test(expected = com.typesafe.config.ConfigException.WrongType.class)
+  public void testUseCloudClientConfigException() {
+    Config config = ConfigFactory.empty()
+        .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
+        // This should be a list of strings
+        .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef("hello"));
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    new SolrIndexer(config, manager, false, "");
+  }
+
+  @Test
+  public void testClientInstance() throws IOException {
+
+    Config httpConfig = ConfigFactory.empty()
+        .withValue("solr.url", ConfigValueFactory.fromAnyRef("localhost:8983/solr"));
+
+    Config cloudConfig = ConfigFactory.empty()
+        .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
+        .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef(List.of("localhost:2181")));
+
+    try (SolrClient httpClient = SolrUtils.getSolrClient(httpConfig); SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig);){
+      assertTrue(httpClient instanceof HttpSolrClient);
+      assertTrue(cloudClient instanceof CloudSolrClient);
+    }
+
   }
 
   private static class ErroringIndexer extends SolrIndexer {

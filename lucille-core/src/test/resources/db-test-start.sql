@@ -29,3 +29,7 @@ INSERT INTO data VALUES (6, 3, 2, 'white');
 CREATE TABLE companies(company_id VARCHAR, name VARCHAR);
 INSERT INTO companies VALUES ('1-1', 'Acme');
 INSERT INTO companies VALUES ('1-2', NULL);
+
+create table table_with_id_column(id int, value int, other_id varchar(10));
+insert into table_with_id_column values (1, 1, 'id1');
+insert into table_with_id_column values (2, 2, 'id2');
