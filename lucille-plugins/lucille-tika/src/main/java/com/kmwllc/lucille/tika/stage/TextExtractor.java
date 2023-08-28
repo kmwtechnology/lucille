@@ -64,7 +64,7 @@ public class TextExtractor extends Stage {
     super(config, new StageSpec().withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
         "metadata_prefix", "metadata_whitelist", "metadata_blacklist", "text_content_limit"));
     textField = config.hasPath("text_field") ? config.getString("text_field") : "text";
-    filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : "filepath";
+    filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : "file_path";
     byteArrayField = config.hasPath("byte_array_field") ? config.getString("byte_array_field") : "byte_array";
     metadataPrefix = config.hasPath("metadata_prefix") ? config.getString("metadata_prefix") : "tika";
     tikaConfigPath = config.hasPath("tika_config_path") ? config.getString("tika_config_path") : null;
