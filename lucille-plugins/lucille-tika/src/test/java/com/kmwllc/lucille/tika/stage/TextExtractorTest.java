@@ -168,6 +168,11 @@ public class TextExtractorTest {
     assertThrows(NullPointerException.class, () -> doc.getStringList("tika_x_tika_parsed_by").get(0));
   }
 
+  /**
+   * Tests the TextExtractor blacklist functionality
+   *
+   * @throws StageException
+   */
   @Test
   public void testBlackList() throws StageException {
     Stage stage = factory.get("TextExtractorTest/blacklist.conf");
@@ -179,6 +184,11 @@ public class TextExtractorTest {
     assertThrows(NullPointerException.class, () -> doc.getStringList("content_encoding").get(0));
   }
 
+  /**
+   * Tests the TextExtractor size limit functionality
+   *
+   * @throws StageException
+   */
   @Test
   public void testSizeLimit() throws StageException, IOException {
     Stage stage = factory.get("TextExtractorTest/sizelimit.conf");
