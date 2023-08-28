@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -87,8 +86,7 @@ public class VFSConnector extends AbstractConnector {
       doc.setField(FileTraverser.MODIFIED, Instant.ofEpochMilli(content.getLastModifiedTime()).toString());
       doc.setField(FileTraverser.CREATED, Instant.ofEpochMilli(content.getLastModifiedTime()).toString());
       doc.setField(FileTraverser.SIZE, content.getSize());
-      String encodedString = Base64.getEncoder().encodeToString(content.getByteArray());
-      doc.setField(DefaultDocumentProducer.CONTENT, encodedString);
+      doc.setField(DefaultDocumentProducer.CONTENT, content.getByteArray());
     } catch (FileSystemException e) {
       doc.setField("error", e.toString());
       log.error("Issue getting file information from '" + fo.getName() +"'", e);
