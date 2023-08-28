@@ -221,7 +221,17 @@
       <version>1.4.200</version>
       <scope>test</scope>
     </dependency>
+
+    <!-- test dependency for solr integration tests -->
+    <dependency>
+      <groupId>org.apache.solr</groupId>
+      <artifactId>solr-test-framework</artifactId>
+      <version>${lucene-solr.version}</version>
+    </dependency>
+
   </dependencies>
+
+
 
   <build>
     <plugins>

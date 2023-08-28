@@ -736,6 +736,20 @@ public class RunnerTest {
   }
 
   @Test
+  public void testIndexerDeleteByFieldConfig() throws Exception {
+    assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteByFieldInvalid1.conf"), Runner.RunType.LOCAL).getStatus());
+    assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteByFieldInvalid2.conf"), Runner.RunType.LOCAL).getStatus());
+    assertTrue(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteByFieldValid.conf"), Runner.RunType.LOCAL).getStatus());
+  }
+
+  @Test
+  public void testIndexerDeleteMarkerConfig() throws Exception {
+    assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteInvalid1.conf"), Runner.RunType.LOCAL).getStatus());
+    assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteInvalid2.conf"), Runner.RunType.LOCAL).getStatus());
+    assertTrue(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteValid.conf"), Runner.RunType.LOCAL).getStatus());
+  }
+
+  @Test
   public void testMetrics() throws Exception {
     SharedMetricRegistries.clear();
     assertEquals(0, SharedMetricRegistries.names().size());
