@@ -39,8 +39,9 @@ import org.xml.sax.SAXException;
  * metadata_blacklist (StringList, Optional) : list of metadata names that are not to be included in document
  *
  * TODO
- * - add test case for empty metadata_prefix, if metadata_prefix is empty,
- *  do not include underscore i.e. "" -> content_type not _content_type
+ * - force the user to provide both a file_path_field and byte_array_field (no default value), throw error if they don't provide
+ * exactly one of those field names
+ * - confirm above approach doesn't create additional problems
  *
  */
 public class TextExtractor extends Stage {
@@ -61,8 +62,8 @@ public class TextExtractor extends Stage {
     super(config, new StageSpec().withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
         "metadata_prefix", "metadata_whitelist", "metadata_blacklist", "text_content_limit"));
     textField = config.hasPath("text_field") ? config.getString("text_field") : "text";
-    filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : "file_path";
-    byteArrayField = config.hasPath("byte_array_field") ? config.getString("byte_array_field") : "byte_array";
+    filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : null;
+    byteArrayField = config.hasPath("byte_array_field") ? config.getString("byte_array_field") : null;
     metadataPrefix = config.hasPath("metadata_prefix") ? config.getString("metadata_prefix") : "tika";
     tikaConfigPath = config.hasPath("tika_config_path") ? config.getString("tika_config_path") : null;
     textContentLimit = config.hasPath("text_content_limit") ? config.getInt("text_content_limit") : Integer.MAX_VALUE;
@@ -70,6 +71,12 @@ public class TextExtractor extends Stage {
     metadataBlacklist = config.hasPath("metadata_blacklist") ? config.getStringList("metadata_blacklist") : null;
     if (metadataWhitelist != null && metadataBlacklist != null) {
       throw new StageException("Provided both a whitelist and blacklist to the TextExtractor stage");
+    }
+    if (filePathField != null && byteArrayField != null) {
+      throw new StageException("Provided both a file_path_field and byte_array_field to the TextExtractor stage");
+    }
+    if (filePathField == null && byteArrayField == null) {
+      throw new StageException("Provided neither a file_path_field nor byte_array_field to the TextExtractor stage");
     }
     parseCtx = new ParseContext();
   }
