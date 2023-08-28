@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.tika.config.TikaConfig;
@@ -139,7 +138,6 @@ public class TextExtractor extends Stage {
     }
 
     doc.addToField(textField, bch.toString());
-    parseCtx.toString();
     String newMetadataPrefix = metadataPrefix == "" ? "": metadataPrefix + "_" ;
     for (String name : metadata.names()) {
       // clean the field name first.
