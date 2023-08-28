@@ -5,6 +5,8 @@ import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
@@ -16,6 +18,18 @@ import static org.junit.Assert.assertFalse;
 
 public class CSVIndexerTest {
 
+  private final File outputFile = new File("output.csv");
+
+  @Before
+  public void init() {
+    outputFile.delete();
+  }
+
+  @After
+  public void teardown() {
+    outputFile.delete();
+  }
+
   /**
    * Tests that the indexer correctly polls completed documents from the destination topic and sends them to
    * Elasticsearch.
@@ -24,11 +38,7 @@ public class CSVIndexerTest {
    */
   @Test
   public void testCSVIndexer() throws Exception {
-
-    File output = new File("output.csv");
-    output.delete();
-
-    assertFalse(output.exists());
+    assertFalse(outputFile.exists());
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Config config = ConfigFactory.load("CSVIndexerTest/config.conf");
@@ -53,12 +63,9 @@ public class CSVIndexerTest {
       assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
     }
 
-    List<String> lines = Files.readAllLines(output.toPath());
+    List<String> lines = Files.readAllLines(outputFile.toPath());
     assertEquals(2, lines.size());
     assertEquals("\"doc1\",\"123\",\"abc\"", lines.get(0));
     assertEquals("\"doc2\",\"456\",\"def\"", lines.get(1));
-
-    output.delete();
-    assertFalse(output.exists());
   }
 }
