@@ -1,14 +1,13 @@
 package com.kmwllc.lucille.util;
-
 import org.apache.commons.io.IOUtils;
 import org.junit.Test;
-
 import java.io.File;
 import java.io.Reader;
 
 import static org.junit.Assert.assertEquals;
 
 public class FileUtilsTest {
+
   @Test
   public void getReaderTest() throws Exception {
     String[] paths = {
@@ -22,4 +21,6 @@ public class FileUtilsTest {
       }
     }
   }
+
+
 }

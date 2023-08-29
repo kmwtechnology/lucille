@@ -54,4 +54,19 @@ public class FileUtils {
     }
   }
 
+  /**
+   * Takes a path and returns the correct InputStream depending on whether the path is a URI or URL.
+   *
+   * @param path the path as a String
+   * @return the correct InputStream
+   */
+  public static InputStream getInputStream(String path) throws IOException {
+    if (isValidURI(path)) {
+      return VFSInputStream.open(path);
+    }
+    return new FileInputStream(path);
+  }
+
+
+
 }
