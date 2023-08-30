@@ -73,7 +73,7 @@ public interface Connector extends AutoCloseable {
    * Instantiates a list of Connectors from the designated Config.
    */
   static List<Connector> fromConfig(Config config) throws ClassNotFoundException, NoSuchMethodException,
-    IllegalAccessException, InvocationTargetException, InstantiationException, ConnectorException {
+      IllegalAccessException, InvocationTargetException, InstantiationException, ConnectorException {
     List<? extends Config> connectorConfigs = config.getConfigList("connectors");
 
     List<Connector> connectors = new ArrayList();

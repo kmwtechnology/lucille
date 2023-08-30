@@ -33,6 +33,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 public class OpenSearchIndexerTest {
+
   private RestHighLevelClient mockClient;
 
   @Before
@@ -166,7 +167,6 @@ public class OpenSearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
@@ -289,9 +289,9 @@ public class OpenSearchIndexerTest {
     Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf");
 
     KafkaDocument doc = new KafkaDocument(
-            new ObjectMapper().createObjectNode()
-                    .put("id", "doc1")
-                    .put("field1", "value1"));
+        new ObjectMapper().createObjectNode()
+            .put("id", "doc1")
+            .put("field1", "value1"));
     doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
@@ -313,7 +313,7 @@ public class OpenSearchIndexerTest {
   private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
 
     public ErroringOpenSearchIndexer(Config config, IndexerMessageManager manager,
-                                     RestHighLevelClient client, String metricsPrefix) {
+        RestHighLevelClient client, String metricsPrefix) {
       super(config, manager, client, "testing");
     }
 

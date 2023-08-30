@@ -34,7 +34,7 @@ public class CounterUtils {
    * end pad duration. Times out with a RuntimeException after the designated timeout.
    *
    */
-  public static void waitUnique(Set<String> mySet, long targetSize, long timeoutMs, long endPad)  {
+  public static void waitUnique(Set<String> mySet, long targetSize, long timeoutMs, long endPad) {
 
     StopWatch watch = new StopWatch();
     watch.start();

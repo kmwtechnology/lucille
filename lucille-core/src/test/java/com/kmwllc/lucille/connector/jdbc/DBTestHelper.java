@@ -14,10 +14,11 @@ import java.sql.SQLException;
 /**
  * Database helper class to create an h2 database 
  * and initialize it with a sql start script.
- * 
+ *
  * Created by matt on 3/27/17.
  */
 public class DBTestHelper extends ExternalResource {
+
   private final String driver;
   private final String connection;
   private final String user;

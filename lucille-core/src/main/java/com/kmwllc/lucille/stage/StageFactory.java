@@ -12,6 +12,9 @@ import java.util.Map;
  * Utility for instantiating stages from with a test. Provide various get methods that handle the
  * details of acquiring a Config, creating a stage instance with the Config, and then starting
  * the stage. The stage is returned in a "ready to use" condition.
+ *
+ * Moved to lucille-core main from test seeing that we want lucille-plugins (e.g. tika) to be able to use StageFactory
+ * for testing.
  */
 public class StageFactory {
 

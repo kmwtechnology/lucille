@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.List;
 
 public class CSVIndexer extends Indexer {
+
   private static final Logger log = LoggerFactory.getLogger(CSVIndexer.class);
 
   private final boolean bypass;
@@ -25,7 +26,8 @@ public class CSVIndexer extends Indexer {
   public CSVIndexer(Config config, IndexerMessageManager manager, ICSVWriter writer, boolean bypass, String metricsPrefix) {
     super(config, manager, metricsPrefix);
     if (this.indexOverrideField != null) {
-      throw new IllegalArgumentException("Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
+      throw new IllegalArgumentException(
+          "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
     }
     this.writer = writer;
     this.bypass = bypass;

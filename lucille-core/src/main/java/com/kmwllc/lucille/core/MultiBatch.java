@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core;
 import java.util.*;
 
 public class MultiBatch implements Batch {
+
   private final Map<String, Batch> batches;
 
   private final int capacity;

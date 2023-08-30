@@ -40,7 +40,7 @@ public class OpenSearchUtils {
       String username = userInfo.substring(0, pos);
       String password = userInfo.substring(pos + 1);
       provider.setCredentials(AuthScope.ANY,
-        new UsernamePasswordCredentials(username, password));
+          new UsernamePasswordCredentials(username, password));
     }
 
     // needed to allow for local testing of HTTPS
@@ -48,8 +48,8 @@ public class OpenSearchUtils {
     boolean allowInvalidCert = getAllowInvalidCert(config);
     if (allowInvalidCert) {
       sslFactoryBuilder
-        .withTrustingAllCertificatesWithoutValidation()
-        .withHostnameVerifier((host, session) -> true);
+          .withTrustingAllCertificatesWithoutValidation()
+          .withHostnameVerifier((host, session) -> true);
     } else {
       sslFactoryBuilder.withDefaultTrustMaterial();
     }
@@ -57,13 +57,13 @@ public class OpenSearchUtils {
     SSLFactory sslFactory = sslFactoryBuilder.build();
 
     RestClientBuilder builder = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
-      .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
-        @Override
-        public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
-          return httpClientBuilder.setDefaultCredentialsProvider(provider).setSSLContext(sslFactory.getSslContext())
-            .setSSLHostnameVerifier(sslFactory.getHostnameVerifier());
-        }
-      });
+        .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
+          @Override
+          public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
+            return httpClientBuilder.setDefaultCredentialsProvider(provider).setSSLContext(sslFactory.getSslContext())
+                .setSSLHostnameVerifier(sslFactory.getHostnameVerifier());
+          }
+        });
 
     RestHighLevelClient client = new RestHighLevelClient(builder);
 

@@ -62,27 +62,27 @@ public class WorkerIndexer {
 
     // TODO: make queue capacity configurable
     LinkedBlockingQueue<Document> pipelineDest =
-      new LinkedBlockingQueue<>(LocalMessageManager.DEFAULT_QUEUE_CAPACITY);
+        new LinkedBlockingQueue<>(LocalMessageManager.DEFAULT_QUEUE_CAPACITY);
 
     // TODO: should we place a capacity on the offsets queue?
     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
-      new LinkedBlockingQueue<>();
+        new LinkedBlockingQueue<>();
 
     start(config, pipelineName, pipelineDest, offsets, bypassSearchEngine, idSet);
   }
 
   public void start(Config config, String pipelineName, LinkedBlockingQueue<Document> pipelineDest,
-                    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
-                    boolean bypassSearchEngine,
-                    Set<String> idSet) throws Exception {
+      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
+      boolean bypassSearchEngine,
+      Set<String> idSet) throws Exception {
 
     log.info("Starting WorkerIndexer for pipeline: " + pipelineName);
 
     HybridWorkerMessageManager workerMessageManager =
-      new HybridWorkerMessageManager(config, pipelineName, pipelineDest, offsets);
+        new HybridWorkerMessageManager(config, pipelineName, pipelineDest, offsets);
 
     HybridIndexerMessageManager indexerMessageManager =
-      new HybridIndexerMessageManager(config, pipelineDest, offsets, idSet, pipelineName);
+        new HybridIndexerMessageManager(config, pipelineDest, offsets, idSet, pipelineName);
 
     indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, pipelineName);
 
@@ -94,7 +94,7 @@ public class WorkerIndexer {
     indexerThread.start();
 
     workerThread =
-      Worker.startThread(config, workerMessageManager, pipelineName, pipelineName);
+        Worker.startThread(config, workerMessageManager, pipelineName, pipelineName);
   }
 
   public void stop() throws Exception {
