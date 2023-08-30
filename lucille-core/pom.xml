@@ -227,6 +227,7 @@
       <groupId>org.apache.solr</groupId>
       <artifactId>solr-test-framework</artifactId>
       <version>${lucene-solr.version}</version>
+      <scope>test</scope>
     </dependency>
 
   </dependencies>
