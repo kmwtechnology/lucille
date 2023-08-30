@@ -28,7 +28,7 @@ public class ExtractFirstCharacter extends Stage {
 
   public ExtractFirstCharacter(Config config) {
     super(config, new StageSpec().withOptionalProperties("replacement")
-      .withRequiredParents("fieldMapping"));
+        .withRequiredParents("fieldMapping"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";
   }
@@ -43,13 +43,15 @@ public class ExtractFirstCharacter extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
     for (Map.Entry<String, Object> entry : fieldMapping.entrySet()) {
 
-      if (!doc.has(entry.getKey()))
+      if (!doc.has(entry.getKey())) {
         continue;
+      }
 
       String value = doc.getString(entry.getKey());
 
-      if (value == null || value.isBlank())
+      if (value == null || value.isBlank()) {
         continue;
+      }
 
       String firstChar = value.substring(0, 1);
       String dest = (String) entry.getValue();

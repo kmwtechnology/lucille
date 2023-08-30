@@ -26,6 +26,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 public class VFSConnector extends AbstractConnector {
+
   private static final Logger log = LoggerFactory.getLogger(VFSConnector.class);
 
   private final String vfsPath;
@@ -89,10 +90,10 @@ public class VFSConnector extends AbstractConnector {
       doc.setField(DefaultDocumentProducer.CONTENT, content.getByteArray());
     } catch (FileSystemException e) {
       doc.setField("error", e.toString());
-      log.error("Issue getting file information from '" + fo.getName() +"'", e);
+      log.error("Issue getting file information from '" + fo.getName() + "'", e);
     } catch (IOException e) {
       doc.setField("error", e.toString());
-      log.error("Issue getting file content from '" + fo.getName() +"'", e);
+      log.error("Issue getting file content from '" + fo.getName() + "'", e);
     }
     return doc;
   }
@@ -104,7 +105,7 @@ public class VFSConnector extends AbstractConnector {
     try {
       fileRoot = fsManager.resolveFile(rootPath);
     } catch (FileSystemException e) {
-      throw new ConnectorException("Unable to resolve vsfPath of '"+ rootPath + "'", e);
+      throw new ConnectorException("Unable to resolve vsfPath of '" + rootPath + "'", e);
     }
 
     // return filtered FileObject stream
@@ -116,7 +117,9 @@ public class VFSConnector extends AbstractConnector {
   private boolean isValidFile(FileObject fo) {
     // skip if anything other than a file
     try {
-      if (fo.getType() != FileType.FILE) return false;
+      if (fo.getType() != FileType.FILE) {
+        return false;
+      }
     } catch (FileSystemException e) {
       log.error("Problem getting VFS FileType from '" + fo.getName() + "'", e);
       return false;

@@ -59,10 +59,10 @@ public class HybridKafkaTest {
     WorkerIndexer workerIndexer = new WorkerIndexer();
 
     RecordingLinkedBlockingQueue<Document> pipelineDest =
-      new RecordingLinkedBlockingQueue<>();
+        new RecordingLinkedBlockingQueue<>();
 
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
-      new RecordingLinkedBlockingQueue<>();
+        new RecordingLinkedBlockingQueue<>();
 
     Set<String> idSet = CounterUtils.getThreadSafeSet();
     workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true, idSet);
@@ -82,9 +82,9 @@ public class HybridKafkaTest {
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     Admin kafkaAdminClient = Admin.create(props);
     Map<TopicPartition, OffsetAndMetadata> retrievedOffsets =
-      kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
-        .partitionsToOffsetAndMetadata().get();
-    TopicPartition sourceTopicPartition = new TopicPartition(sourceTopic,0);
+        kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
+            .partitionsToOffsetAndMetadata().get();
+    TopicPartition sourceTopicPartition = new TopicPartition(sourceTopic, 0);
     assertNotNull(retrievedOffsets.get(sourceTopicPartition));
     assertEquals(3, retrievedOffsets.get(sourceTopicPartition).offset());
 
@@ -131,7 +131,7 @@ public class HybridKafkaTest {
     String eventTopicName = KafkaUtils.getEventTopicName("pipeline1", RUN_ID);
 
     List<KeyValue<String, String>> records = kafka.read(ReadKeyValues
-      .from(eventTopicName));
+        .from(eventTopicName));
 
     // there should be 15 events in the event topic: 6 child creation events and 9 indexing events
     assertEquals(15, records.size());
@@ -156,18 +156,18 @@ public class HybridKafkaTest {
     String sourceTopic = config.getString("kafka.sourceTopic");
     kafka.createTopic(TopicConfig.withName(sourceTopic).withNumberOfPartitions(2));
 
-    for (int i=0;i<500;i++) {
-      sendDoc("doc"+i, sourceTopic);
+    for (int i = 0; i < 500; i++) {
+      sendDoc("doc" + i, sourceTopic);
     }
 
     Set<String> idSet = CounterUtils.getThreadSafeSet();
 
     RecordingLinkedBlockingQueue<Document> pipelineDest1 =
-      new RecordingLinkedBlockingQueue<>();
+        new RecordingLinkedBlockingQueue<>();
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets1 =
-      new RecordingLinkedBlockingQueue<>();
+        new RecordingLinkedBlockingQueue<>();
     WorkerIndexer workerIndexer1 = new WorkerIndexer();
-    workerIndexer1.start(config, "pipeline1",  pipelineDest1, offsets1, true, idSet);
+    workerIndexer1.start(config, "pipeline1", pipelineDest1, offsets1, true, idSet);
 
     CounterUtils.waitUnique(idSet, 100);
 
@@ -177,14 +177,14 @@ public class HybridKafkaTest {
     // we are not testing specific assertions about the rebalance here, we're just trying to trigger
     // it to make sure it doesn't cause anything else to go obviously wrong
     RecordingLinkedBlockingQueue<Document> pipelineDest2 =
-      new RecordingLinkedBlockingQueue<>();
+        new RecordingLinkedBlockingQueue<>();
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets2 =
-      new RecordingLinkedBlockingQueue<>();
+        new RecordingLinkedBlockingQueue<>();
     WorkerIndexer workerIndexer2 = new WorkerIndexer();
     workerIndexer2.start(config, "pipeline1", pipelineDest2, offsets2, true, idSet);
 
-    for (int i=500;i<1000;i++) {
-      sendDoc("doc"+i, sourceTopic);
+    for (int i = 500; i < 1000; i++) {
+      sendDoc("doc" + i, sourceTopic);
     }
 
     CounterUtils.waitUnique(idSet, 1000);
@@ -267,7 +267,7 @@ public class HybridKafkaTest {
     // though we weren't able to assert that the sum of the current committed offsets
     // was strictly equal to 1000, we CAN assert that the sum of the
     // max offsets added to the offset queues should equal 1000
-    assertEquals(1000,  maxP0Offset + maxP1Offset);
+    assertEquals(1000, maxP0Offset + maxP1Offset);
 
     // we currently have no way to guarantee that each WorkerIndexer
     // received and processed some work
@@ -291,8 +291,8 @@ public class HybridKafkaTest {
       idsProcessed.add(d.getId());
     }
     assertEquals(1000, idsProcessed.size());
-    for (int i=0; i<1000; i++) {
-      assertTrue(idsProcessed.contains("doc"+i));
+    for (int i = 0; i < 1000; i++) {
+      assertTrue(idsProcessed.contains("doc" + i));
     }
 
   }
@@ -318,9 +318,9 @@ public class HybridKafkaTest {
     WorkerIndexer workerIndexer = new WorkerIndexer();
 
     RecordingLinkedBlockingQueue<Document> pipelineDest =
-      new RecordingLinkedBlockingQueue<>();
+        new RecordingLinkedBlockingQueue<>();
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
-      new RecordingLinkedBlockingQueue<>();
+        new RecordingLinkedBlockingQueue<>();
 
     Set<String> idSet = CounterUtils.getThreadSafeSet();
     workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true, idSet);
@@ -342,18 +342,18 @@ public class HybridKafkaTest {
 
     Set<String> idSet = CounterUtils.getThreadSafeSet();
     WorkerIndexerPool pool =
-      new WorkerIndexerPool(config,"pipeline1", true, idSet);
+        new WorkerIndexerPool(config, "pipeline1", true, idSet);
 
     assertEquals(5, pool.getNumWorkers());
 
-    for (int i=0;i<500;i++) {
-      sendDoc("doc"+i, sourceTopic);
+    for (int i = 0; i < 500; i++) {
+      sendDoc("doc" + i, sourceTopic);
     }
 
     pool.start();
 
-    for (int i=500;i<1000;i++) {
-      sendDoc("doc"+i, sourceTopic);
+    for (int i = 500; i < 1000; i++) {
+      sendDoc("doc" + i, sourceTopic);
     }
 
     CounterUtils.waitUnique(idSet, 1000);
@@ -364,19 +364,19 @@ public class HybridKafkaTest {
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     Admin kafkaAdminClient = Admin.create(props);
     Map<TopicPartition, OffsetAndMetadata> retrievedOffsets =
-      kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
-        .partitionsToOffsetAndMetadata().get();
-    TopicPartition partition0 = new TopicPartition(sourceTopic,0);
-    TopicPartition partition1 = new TopicPartition(sourceTopic,1);
-    TopicPartition partition2 = new TopicPartition(sourceTopic,2);
-    TopicPartition partition3 = new TopicPartition(sourceTopic,3);
-    TopicPartition partition4 = new TopicPartition(sourceTopic,4);
+        kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
+            .partitionsToOffsetAndMetadata().get();
+    TopicPartition partition0 = new TopicPartition(sourceTopic, 0);
+    TopicPartition partition1 = new TopicPartition(sourceTopic, 1);
+    TopicPartition partition2 = new TopicPartition(sourceTopic, 2);
+    TopicPartition partition3 = new TopicPartition(sourceTopic, 3);
+    TopicPartition partition4 = new TopicPartition(sourceTopic, 4);
 
     long sumOffsets = retrievedOffsets.get(partition0).offset() +
-      retrievedOffsets.get(partition1).offset() +
-      retrievedOffsets.get(partition2).offset() +
-      retrievedOffsets.get(partition3).offset() +
-      retrievedOffsets.get(partition4).offset();
+        retrievedOffsets.get(partition1).offset() +
+        retrievedOffsets.get(partition2).offset() +
+        retrievedOffsets.get(partition3).offset() +
+        retrievedOffsets.get(partition4).offset();
 
     // the sum of offsets across the two partitions should be the same as the number of documents
     // consumed. All 1000 documents we added to the source topic should have been consumed.
@@ -398,10 +398,10 @@ public class HybridKafkaTest {
     WorkerIndexer workerIndexer = new WorkerIndexer();
 
     RecordingLinkedBlockingQueue<Document> pipelineDest =
-      new RecordingLinkedBlockingQueue<>();
+        new RecordingLinkedBlockingQueue<>();
 
     RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
-      new RecordingLinkedBlockingQueue<>();
+        new RecordingLinkedBlockingQueue<>();
 
     Set<String> idSet = CounterUtils.getThreadSafeSet();
     workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true, idSet);
@@ -425,18 +425,18 @@ public class HybridKafkaTest {
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     Admin kafkaAdminClient = Admin.create(props);
     Map<TopicPartition, OffsetAndMetadata> retrievedOffsets =
-      kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
-        .partitionsToOffsetAndMetadata().get();
-    TopicPartition sourceTopicPartition1 = new TopicPartition("test_topic1",0);
+        kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
+            .partitionsToOffsetAndMetadata().get();
+    TopicPartition sourceTopicPartition1 = new TopicPartition("test_topic1", 0);
     assertNotNull(retrievedOffsets.get(sourceTopicPartition1));
     assertEquals(1, retrievedOffsets.get(sourceTopicPartition1).offset());
-    TopicPartition sourceTopicPartition2 = new TopicPartition("test_topic2",0);
+    TopicPartition sourceTopicPartition2 = new TopicPartition("test_topic2", 0);
     assertNotNull(retrievedOffsets.get(sourceTopicPartition2));
     assertEquals(1, retrievedOffsets.get(sourceTopicPartition2).offset());
-    TopicPartition sourceTopicPartition3 = new TopicPartition("test_topic3",0);
+    TopicPartition sourceTopicPartition3 = new TopicPartition("test_topic3", 0);
     assertNotNull(retrievedOffsets.get(sourceTopicPartition3));
     assertEquals(2, retrievedOffsets.get(sourceTopicPartition3).offset());
-    TopicPartition sourceTopicPartition4  = new TopicPartition("test_topic4",0);
+    TopicPartition sourceTopicPartition4 = new TopicPartition("test_topic4", 0);
     assertNotNull(retrievedOffsets.get(sourceTopicPartition4));
     assertEquals(1, retrievedOffsets.get(sourceTopicPartition4).offset());
 

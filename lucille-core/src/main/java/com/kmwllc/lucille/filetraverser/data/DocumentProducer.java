@@ -32,6 +32,7 @@ import java.util.Locale;
  * given file.
  */
 public interface DocumentProducer {
+
   Logger log = LogManager.getLogger(DocumentProducer.class);
   Base64.Encoder ENCODER = Base64.getEncoder();
 

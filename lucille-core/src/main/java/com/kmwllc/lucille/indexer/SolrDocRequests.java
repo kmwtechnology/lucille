@@ -14,6 +14,7 @@ import java.util.*;
  * be deleted with a terms query.
  */
 public class SolrDocRequests {
+
   private final List<SolrInputDocument> docsToAddOrUpdate;
   private final Set<String> idsToAddOrUpdate;
   private final Set<String> idsToDelete;

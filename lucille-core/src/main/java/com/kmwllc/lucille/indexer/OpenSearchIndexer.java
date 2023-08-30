@@ -37,12 +37,14 @@ public class OpenSearchIndexer extends Indexer {
   public OpenSearchIndexer(Config config, IndexerMessageManager manager, RestHighLevelClient client, String metricsPrefix) {
     super(config, manager, metricsPrefix);
     if (this.indexOverrideField != null) {
-      throw new IllegalArgumentException("Cannot create OpenSearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by OpenSearchIndexer.");
+      throw new IllegalArgumentException(
+          "Cannot create OpenSearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by OpenSearchIndexer.");
     }
     this.client = client;
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
     this.routingField = config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
-    this.versionType = config.hasPath("indexer.versionType") ? VersionType.fromString(config.getString("indexer.versionType")) : null;
+    this.versionType =
+        config.hasPath("indexer.versionType") ? VersionType.fromString(config.getString("indexer.versionType")) : null;
   }
 
   public OpenSearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
@@ -86,7 +88,9 @@ public class OpenSearchIndexer extends Indexer {
   @Override
   protected void sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
-    if (client == null) return;
+    if (client == null) {
+      return;
+    }
 
     BulkRequest bulkRequest = new BulkRequest(index);
 

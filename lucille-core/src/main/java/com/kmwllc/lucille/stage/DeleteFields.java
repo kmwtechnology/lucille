@@ -26,15 +26,17 @@ public class DeleteFields extends Stage {
 
   @Override
   public void start() throws StageException {
-    if (fields.size() == 0)
+    if (fields.size() == 0) {
       throw new StageException("Must supply at least one field to be deleted.");
+    }
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String field : fields) {
-      if (!doc.has(field))
+      if (!doc.has(field)) {
         continue;
+      }
 
       doc.removeField(field);
     }

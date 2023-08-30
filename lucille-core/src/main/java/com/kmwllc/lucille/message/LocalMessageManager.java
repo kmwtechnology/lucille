@@ -38,11 +38,11 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
 
   public LocalMessageManager(Config config) {
     this.pipelineSource = config.hasPath("publisher.queueCapacity") ?
-      new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity")) :
-      new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
+        new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity")) :
+        new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
     this.pipelineDest = config.hasPath("publisher.queueCapacity") ?
-      new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity")) :
-      new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
+        new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity")) :
+        new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
   }
 
   private String runId = null;
@@ -90,7 +90,7 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
 
   @Override
   public void initialize(String runId, String pipelineName) throws Exception {
-    if (this.runId!=null) {
+    if (this.runId != null) {
       throw new Exception("Already initialized.");
     }
     this.runId = runId;

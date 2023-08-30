@@ -9,7 +9,7 @@ import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 
-public class ConcatenateTest  {
+public class ConcatenateTest {
 
   private StageFactory factory = StageFactory.of(Concatenate.class);
 

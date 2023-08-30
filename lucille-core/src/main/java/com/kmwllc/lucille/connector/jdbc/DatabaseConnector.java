@@ -136,6 +136,7 @@ public class DatabaseConnector extends AbstractConnector {
       } catch (SQLException e) {
         throw e;
       }
+
       log.info("Describing primary set...");
       String[] columns = getColumnNames(rs);
       int idColumn = getIdColumnIndex(columns);
@@ -233,7 +234,6 @@ public class DatabaseConnector extends AbstractConnector {
 
     do {
       // Convert to do-while I think we can avoid the rs2.previous() call.
-
       // TODO: support non INT primary key
       int otherJoinId = rs2.getInt(joinField);
       if (otherJoinId < joinId) {

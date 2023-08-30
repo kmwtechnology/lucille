@@ -10,6 +10,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class MultiBatchTest {
+
   /**
    * Test adding a single document to a batch and retrieving it by flushing the whole batch.
    */

@@ -43,13 +43,13 @@ public class ParseDate extends Stage {
 
   public ParseDate(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest")
-      .withOptionalProperties("format_strs", "update_mode", "formatters"));
+        .withOptionalProperties("format_strs", "update_mode", "formatters"));
 
     this.formatters = new ArrayList<>();
     this.formats = ConfigUtils.getOrDefault(config, "format_strs", new ArrayList<String>())
-      .stream()
-      .map(formatString -> new SimpleDateFormat(formatString))
-      .collect(Collectors.toUnmodifiableList());
+        .stream()
+        .map(formatString -> new SimpleDateFormat(formatString))
+        .collect(Collectors.toUnmodifiableList());
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
@@ -85,8 +85,9 @@ public class ParseDate extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField))
+      if (!doc.has(sourceField)) {
         continue;
+      }
 
       // For each String value in this field...
       List<String> outputValues = new ArrayList<>();

@@ -33,12 +33,12 @@ public class XMLConnectorTest {
 
     assertTrue(docs.get(0).has("xml"));
     assertEquals("<staff>\n" +
-      "        <id>1001</id>\n" +
-      "        <name>daniel</name>\n" +
-      "        <role>software engineer</role>\n" +
-      "        <salary currency=\"USD\">3000</salary>\n" +
-      "        <bio>I am from San Diego</bio>\n" +
-      "    </staff>", docs.get(0).getString("xml"));
+        "        <id>1001</id>\n" +
+        "        <name>daniel</name>\n" +
+        "        <role>software engineer</role>\n" +
+        "        <salary currency=\"USD\">3000</salary>\n" +
+        "        <bio>I am from San Diego</bio>\n" +
+        "    </staff>", docs.get(0).getString("xml"));
   }
 
   @Test
@@ -71,12 +71,12 @@ public class XMLConnectorTest {
 
     assertTrue(docs.get(0).has("xml"));
     assertEquals("<staff>\n" +
-      "        <id>1001</id>\n" +
-      "        <name>대니엘</name>\n" +
-      "        <role>컴퓨터 과학자</role>\n" +
-      "        <salary currency=\"USD\">3000</salary>\n" +
-      "        <bio>샌디에고</bio>\n" +
-      "    </staff>", docs.get(0).getString("xml"));
+        "        <id>1001</id>\n" +
+        "        <name>대니엘</name>\n" +
+        "        <role>컴퓨터 과학자</role>\n" +
+        "        <salary currency=\"USD\">3000</salary>\n" +
+        "        <bio>샌디에고</bio>\n" +
+        "    </staff>", docs.get(0).getString("xml"));
   }
 
   @Test
@@ -93,11 +93,11 @@ public class XMLConnectorTest {
 
     assertTrue(docs.get(0).has("xml"));
     assertEquals("<staff>\n" +
-      "        <id>1001</id>\n" +
-      "        <name>ニエル</name>\n" +
-      "        <role>コンピュ</role>\n" +
-      "        <bio>サンディエゴ</bio>\n" +
-      "    </staff>", docs.get(0).getString("xml"));
+        "        <id>1001</id>\n" +
+        "        <name>ニエル</name>\n" +
+        "        <role>コンピュ</role>\n" +
+        "        <bio>サンディエゴ</bio>\n" +
+        "    </staff>", docs.get(0).getString("xml"));
   }
 
   @Test
@@ -114,12 +114,12 @@ public class XMLConnectorTest {
 
     assertTrue(docs.get(0).has("xml_field"));
     assertEquals("<staff>\n" +
-      "        <id>1001</id>\n" +
-      "        <name>丹尼尔</name>\n" +
-      "        <role>电脑科学家</role>\n" +
-      "        <salary currency=\"USD\">3000</salary>\n" +
-      "        <bio>圣地亚哥</bio>\n" +
-      "    </staff>", docs.get(0).getString("xml_field"));
+        "        <id>1001</id>\n" +
+        "        <name>丹尼尔</name>\n" +
+        "        <role>电脑科学家</role>\n" +
+        "        <salary currency=\"USD\">3000</salary>\n" +
+        "        <bio>圣地亚哥</bio>\n" +
+        "    </staff>", docs.get(0).getString("xml_field"));
   }
 
   @Test
@@ -136,12 +136,12 @@ public class XMLConnectorTest {
 
     assertTrue(docs.get(0).has("xml"));
     assertEquals("<staff>\n" +
-      "        <id>1001</id>\n" +
-      "        <name>daniel</name>\n" +
-      "        <role>software engineer</role>\n" +
-      "        <salary currency=\"USD\">3000</salary>\n" +
-      "        <bio>I am from San Diego</bio>\n" +
-      "    </staff>", docs.get(0).getString("xml"));
+        "        <id>1001</id>\n" +
+        "        <name>daniel</name>\n" +
+        "        <role>software engineer</role>\n" +
+        "        <salary currency=\"USD\">3000</salary>\n" +
+        "        <bio>I am from San Diego</bio>\n" +
+        "    </staff>", docs.get(0).getString("xml"));
   }
 
   @Test(expected = ConnectorException.class)

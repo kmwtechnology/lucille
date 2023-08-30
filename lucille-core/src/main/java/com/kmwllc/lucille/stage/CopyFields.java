@@ -32,8 +32,8 @@ public class CopyFields extends Stage {
 
   public CopyFields(Config config) {
     super(config, new StageSpec()
-            .withRequiredProperties("source", "dest")
-            .withOptionalProperties("update_mode"));
+        .withRequiredProperties("source", "dest")
+        .withOptionalProperties("update_mode"));
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.updateMode = UpdateMode.fromConfig(config);
@@ -53,8 +53,9 @@ public class CopyFields extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField))
+      if (!doc.has(sourceField)) {
         continue;
+      }
 
       doc.update(destField, updateMode, doc.getStringList(sourceField).toArray(new String[0]));
     }
