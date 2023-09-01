@@ -118,15 +118,15 @@ public class DatabaseConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-
-    try {
-      // connect to the database.
-      Connection connection = createConnection();
+    ResultSet rs = null;
+    ArrayList<ResultSet> otherResults = null;
+    try (Connection connection = createConnection()) {
       // run the pre-sql (if specified)
       runSql(connection, preSql);
       // TODO: make sure we cleanup result set/statement/connections properly.
-      ResultSet rs;
+
       log.info("Running primary sql");
+
       try {
         Statement state = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
         if (fetchSize != null) {
@@ -140,7 +140,7 @@ public class DatabaseConnector extends AbstractConnector {
       String[] columns = getColumnNames(rs);
       int idColumn = getIdColumnIndex(columns);
 
-      ArrayList<ResultSet> otherResults = new ArrayList<>();
+      otherResults = new ArrayList<>();
       ArrayList<String[]> otherColumns = new ArrayList<>();
       for (String otherSQL : otherSQLs) {
         log.info("Describing other result set... {}", otherSQL);
@@ -199,16 +199,29 @@ public class DatabaseConnector extends AbstractConnector {
         publisher.publish(doc);
       }
 
-      // close all results
-      rs.close();
-      for (ResultSet ors : otherResults) {
-        ors.close();
-      }
       // the post sql.
       runSql(connection, postSql);
       flush();
     } catch (Exception e) {
       throw new ConnectorException("Exception caught during connector execution", e);
+    } finally {
+      // we are closing the result sets
+      if (rs != null) {
+        try {
+          rs.close();
+        } catch (SQLException e) {
+          log.warn("Result set unable to be closed");
+        }
+      }
+      if (otherResults != null) {
+        for (ResultSet ors : otherResults) {
+          try {
+            ors.close();
+          } catch (SQLException e) {
+            log.warn("Other result set is unable to be closed");
+          }
+        }
+      }
     }
   }
 
