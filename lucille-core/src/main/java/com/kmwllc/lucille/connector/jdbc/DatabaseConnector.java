@@ -120,7 +120,8 @@ public class DatabaseConnector extends AbstractConnector {
   public void execute(Publisher publisher) throws ConnectorException {
     ResultSet rs = null;
     ArrayList<ResultSet> otherResults = null;
-    try (Connection connection = createConnection()) {
+    try {
+      Connection connection = createConnection();
       // run the pre-sql (if specified)
       runSql(connection, preSql);
       // TODO: make sure we cleanup result set/statement/connections properly.
