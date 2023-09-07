@@ -12,9 +12,9 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>lucille-weviate</artifactId>
+  <artifactId>lucille-weaviate</artifactId>
   <packaging>jar</packaging>
-  <name>Lucille Plugins: Lucille Weviate</name>
+  <name>Lucille Plugins: Lucille Weaviate</name>
 
   <dependencies>
     <dependency>

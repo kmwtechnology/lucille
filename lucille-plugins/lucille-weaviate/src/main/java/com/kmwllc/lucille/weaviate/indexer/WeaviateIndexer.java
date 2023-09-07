@@ -33,7 +33,7 @@ public class WeaviateIndexer extends Indexer {
 
   private final WeaviateClient client;
 
-  // the name of the object class in the Weviate schema that we are creating or updating
+  // the name of the object class in the Weaviate schema that we are creating or updating
   private final String weaviateClassName;
 
   // "id" is a reserved property in Weaviate and it must be UUID
