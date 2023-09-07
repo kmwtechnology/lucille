@@ -18,6 +18,7 @@
 
   <modules>
     <module>lucille-pinecone</module>
+    <module>lucille-weviate</module>
     <module>lucille-parquet</module>
     <module>lucille-tika</module>
   </modules>
