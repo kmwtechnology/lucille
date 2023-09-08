@@ -292,7 +292,7 @@ public class OpenSearchIndexerTest {
   @Test
   public void testDocumentVersioning() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Config config = ConfigFactory.load("OpenSearchIndexerTest/routing.conf");
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf");
 
     KafkaDocument doc = new KafkaDocument(
         new ObjectMapper().createObjectNode()
