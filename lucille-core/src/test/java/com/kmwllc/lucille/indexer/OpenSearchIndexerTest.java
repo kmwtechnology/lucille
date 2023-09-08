@@ -15,17 +15,19 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
-import org.opensearch.action.DocWriteRequest;
-import org.opensearch.action.bulk.BulkRequest;
-import org.opensearch.action.bulk.BulkResponse;
-import org.opensearch.action.index.IndexRequest;
-import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
-import org.opensearch.index.VersionType;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch._types.VersionType;
+import org.opensearch.client.opensearch.core.BulkRequest;
+import org.opensearch.client.opensearch.core.BulkResponse;
+import org.opensearch.client.opensearch.core.IndexRequest;
+import org.opensearch.client.opensearch.core.bulk.BulkOperation;
+import org.opensearch.client.opensearch.core.bulk.IndexOperation;
+import org.opensearch.client.transport.endpoints.BooleanResponse;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,7 +36,7 @@ import static org.mockito.Mockito.verify;
 
 public class OpenSearchIndexerTest {
 
-  private RestHighLevelClient mockClient;
+  private OpenSearchClient mockClient;
 
   @Before
   public void setup() throws IOException {
@@ -42,13 +44,17 @@ public class OpenSearchIndexerTest {
   }
 
   private void setupOpenSearchClient() throws IOException {
-    mockClient = Mockito.mock(RestHighLevelClient.class);
+    mockClient = Mockito.mock(OpenSearchClient.class);
+
+    BooleanResponse mockBooleanResponse = Mockito.mock(BooleanResponse.class);
+    Mockito.when(mockClient.ping()).thenReturn(mockBooleanResponse);
 
     // make first call to validateConnection succeed but subsequent calls to fail
-    Mockito.when(mockClient.ping(RequestOptions.DEFAULT)).thenReturn(true, false);
+    Mockito.when(mockBooleanResponse.value()).thenReturn(true, false);
 
+    BulkRequest.Builder mockRequestBuilder = Mockito.mock(BulkRequest.Builder.class);
     BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
-    Mockito.when(mockClient.bulk(any(), any())).thenReturn(mockResponse);
+    Mockito.when(mockClient.bulk(mockRequestBuilder.build())).thenReturn(mockResponse);
   }
 
   /**
@@ -135,20 +141,19 @@ public class OpenSearchIndexerTest {
     manager.sendCompleted(doc5);
     indexer.run(5);
 
-    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
-    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(
+        BulkRequest.class);
 
-    verify(mockClient, times(3)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+    verify(mockClient, times(3)).bulk(bulkRequestArgumentCaptor.capture());
 
     List<BulkRequest> bulkRequestValue = bulkRequestArgumentCaptor.getAllValues();
     assertEquals(3, bulkRequestValue.size());
 
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
-    List<DocWriteRequest<?>> requests = br.requests();
-    IndexRequest indexRequest = (IndexRequest) requests.get(0);
-    Map<String, Object> map = indexRequest.sourceAsMap();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
 
-    assertEquals(doc5.getId(), map.get("id"));
+    assertEquals(doc5.getId(), indexRequest.id());
 
     Assert.assertEquals(5, manager.getSavedEvents().size());
 
@@ -172,16 +177,16 @@ public class OpenSearchIndexerTest {
     indexer.run(1);
 
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
-    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
 
-    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
 
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
-    List<DocWriteRequest<?>> requests = br.requests();
-    IndexRequest indexRequest = (IndexRequest) requests.get(0);
-    Map<String, Object> map = indexRequest.sourceAsMap();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
 
-    assertEquals(doc.getId(), map.get("id"));
+    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+
+    assertEquals(doc.getId(), indexRequest.id());
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
     Assert.assertEquals(1, manager.getSavedEvents().size());
@@ -206,14 +211,13 @@ public class OpenSearchIndexerTest {
     indexer.run(1);
 
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
-    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
 
-    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
 
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
-    List<DocWriteRequest<?>> requests = br.requests();
-    IndexRequest indexRequest = (IndexRequest) requests.get(0);
-    Map<String, Object> map = indexRequest.sourceAsMap();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
 
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -240,14 +244,13 @@ public class OpenSearchIndexerTest {
     indexer.run(1);
 
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
-    ArgumentCaptor<RequestOptions> requestOptionsArgumentCaptor = ArgumentCaptor.forClass(RequestOptions.class);
 
-    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture(), requestOptionsArgumentCaptor.capture());
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
 
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
-    List<DocWriteRequest<?>> requests = br.requests();
-    IndexRequest indexRequest = (IndexRequest) requests.get(0);
-    Map<String, Object> map = indexRequest.sourceAsMap();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
 
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -272,21 +275,24 @@ public class OpenSearchIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
 
-    verify(mockClient).bulk(captor.capture(), any());
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
 
-    IndexRequest indexRequest = (IndexRequest) captor.getValue().requests().get(0);
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
 
     assertEquals("doc1", indexRequest.id());
     assertEquals("routing1", indexRequest.routing());
-    assertEquals(Map.of("field1", "value1"), indexRequest.sourceAsMap());
+    assertEquals(Map.of("field1", "value1", "id", "doc1", "routing", "routing1"), map);
   }
 
   @Test
   public void testDocumentVersioning() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf");
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/routing.conf");
 
     KafkaDocument doc = new KafkaDocument(
         new ObjectMapper().createObjectNode()
@@ -297,23 +303,26 @@ public class OpenSearchIndexerTest {
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
 
-    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
 
-    verify(mockClient).bulk(captor.capture(), any());
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
 
-    IndexRequest indexRequest = (IndexRequest) captor.getValue().requests().get(0);
-
+    Long expectedVersion = Long.valueOf(100);
     assertEquals("doc1", indexRequest.id());
-    assertEquals(100, indexRequest.version());
-    assertEquals(VersionType.EXTERNAL_GTE, indexRequest.versionType());
-    assertEquals(Map.of("id", "doc1", "field1", "value1"), indexRequest.sourceAsMap());
+    assertEquals(expectedVersion, indexRequest.version());
+    assertEquals(VersionType.ExternalGte, indexRequest.versionType());
+    assertEquals(Map.of("id", "doc1", "field1", "value1"), map);
   }
 
   private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
 
     public ErroringOpenSearchIndexer(Config config, IndexerMessageManager manager,
-        RestHighLevelClient client, String metricsPrefix) {
+        OpenSearchClient client, String metricsPrefix) {
       super(config, manager, client, "testing");
     }
 

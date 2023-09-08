@@ -3,6 +3,7 @@ package com.kmwllc.lucille.indexer;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.OpenSearchUtils;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch._types.VersionType;
 import org.opensearch.client.opensearch.core.BulkRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +28,8 @@ public class OpenSearchIndexer extends Indexer {
 
   private final String routingField;
 
+  private final VersionType versionType;
+
   //flag for using partial update API when sending documents to opensearch
   private final boolean update;
 
@@ -39,6 +43,8 @@ public class OpenSearchIndexer extends Indexer {
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
     this.routingField = config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
     this.update = config.hasPath("opensearch.update") ? config.getBoolean("opensearch.update") : false;
+    this.versionType =
+        config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
   public OpenSearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
@@ -101,6 +107,16 @@ public class OpenSearchIndexer extends Indexer {
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);
 
+      if (versionType != null) {
+        indexRequest.versionType(versionType);
+        if (versionType == VersionType.External || versionType == VersionType.ExternalGte) {
+          // the partition doesn’t need to be included in the version. We assume the doc id is used as the
+          // kafka message key, which should guarantee that all “versions” of a given document have the
+          // same kafka message key and therefore get mapped to the same topic partition.
+          indexRequest.version(((KafkaDocument) doc).getOffset());
+        }
+      }
+
       if (update) {
         br.operations(op -> op
             .update(up -> up
@@ -116,8 +132,6 @@ public class OpenSearchIndexer extends Indexer {
                 .document(indexerDoc)
             ));
       }
-
-
     }
     client.bulk(br.build());
   }
