@@ -107,16 +107,6 @@ public class OpenSearchIndexer extends Indexer {
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);
 
-//      if (versionType != null) {
-//        indexRequest.versionType(versionType);
-//        if (versionType == VersionType.External || versionType == VersionType.ExternalGte) {
-//          // the partition doesn’t need to be included in the version. We assume the doc id is used as the
-//          // kafka message key, which should guarantee that all “versions” of a given document have the
-//          // same kafka message key and therefore get mapped to the same topic partition.
-//          indexRequest.version(((KafkaDocument) doc).getOffset());
-//        }
-//      }
-
       // seems as though passing null to .routing(), .version(), or .versionType() will not affect the indexing process
       String routing = doc.getString(routingField);
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
