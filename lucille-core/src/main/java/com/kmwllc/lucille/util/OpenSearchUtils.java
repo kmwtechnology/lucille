@@ -9,10 +9,13 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.opensearch.client.RestClient;
-import org.opensearch.client.RestClientBuilder;
-import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.client.RestClientBuilder.HttpClientConfigCallback;
 
 import java.net.URI;
+import org.opensearch.client.json.jackson.JacksonJsonpMapper;
+import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.transport.OpenSearchTransport;
+import org.opensearch.client.transport.rest_client.RestClientTransport;
 
 /**
  * Utility methods for communicating with OpenSearch.
@@ -25,7 +28,7 @@ public class OpenSearchUtils {
    * @param config The configuration file to generate a client from
    * @return the RestHighLevelClient client
    */
-  public static RestHighLevelClient getOpenSearchRestClient(Config config) {
+  public static OpenSearchClient getOpenSearchRestClient(Config config) {
 
     // get host uri
     URI hostUri = URI.create(getOpenSearchUrl(config));
@@ -56,16 +59,17 @@ public class OpenSearchUtils {
 
     SSLFactory sslFactory = sslFactoryBuilder.build();
 
-    RestClientBuilder builder = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
-        .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
+    RestClient restClient = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
+        .setHttpClientConfigCallback(new HttpClientConfigCallback() {
           @Override
           public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
             return httpClientBuilder.setDefaultCredentialsProvider(provider).setSSLContext(sslFactory.getSslContext())
                 .setSSLHostnameVerifier(sslFactory.getHostnameVerifier());
           }
-        });
+        }).build();
 
-    RestHighLevelClient client = new RestHighLevelClient(builder);
+    final OpenSearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
+    final OpenSearchClient client = new OpenSearchClient(transport);
 
     return client;
   }

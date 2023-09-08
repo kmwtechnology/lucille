@@ -18,10 +18,21 @@
 
   <dependencies>
 
+<!--    <dependency>-->
+<!--      <groupId>org.opensearch.client</groupId>-->
+<!--      <artifactId>opensearch-rest-high-level-client</artifactId>-->
+<!--      <version>${opensearch-rest-high-level-client.version}</version>-->
+<!--    </dependency>-->
+
     <dependency>
       <groupId>org.opensearch.client</groupId>
-      <artifactId>opensearch-rest-high-level-client</artifactId>
-      <version>${opensearch-rest-high-level-client.version}</version>
+      <artifactId>opensearch-rest-client</artifactId>
+      <version>2.9.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.opensearch.client</groupId>
+      <artifactId>opensearch-java</artifactId>
+      <version>2.6.0</version>
     </dependency>
 
     <dependency>
