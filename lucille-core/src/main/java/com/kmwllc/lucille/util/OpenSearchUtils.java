@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.util;
 
 import com.typesafe.config.Config;
+import java.net.URI;
 import nl.altindag.ssl.SSLFactory;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -10,8 +11,6 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder.HttpClientConfigCallback;
-
-import java.net.URI;
 import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.transport.OpenSearchTransport;
