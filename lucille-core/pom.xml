@@ -17,13 +17,6 @@
   <name>Lucille Core</name>
 
   <dependencies>
-
-<!--    <dependency>-->
-<!--      <groupId>org.opensearch.client</groupId>-->
-<!--      <artifactId>opensearch-rest-high-level-client</artifactId>-->
-<!--      <version>${opensearch-rest-high-level-client.version}</version>-->
-<!--    </dependency>-->
-
     <dependency>
       <groupId>org.opensearch.client</groupId>
       <artifactId>opensearch-rest-client</artifactId>
