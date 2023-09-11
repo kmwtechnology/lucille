@@ -89,21 +89,26 @@ public class WeaviateIndexer extends Indexer {
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
       for (Document doc : documents) {
 
-        String id = doc.getId();
+        // initialize the docMap with all the fields from the document and set the id destination field instead of id field
         Map<String, Object> docMap = doc.asMap();
         docMap.remove(Document.ID_FIELD);
-        docMap.put(idDestinationName, id);
+        docMap.put(idDestinationName, doc.getId());
 
+        // set id and class name
         WeaviateObjectBuilder objectBuilder = WeaviateObject.builder()
             .className(weaviateClassName)
-            .id(UUID.nameUUIDFromBytes(id.getBytes()).toString())
-            .properties(docMap);
+            .id(generateDocumentUUID(doc));
 
+        // if vector field is specified set it and remove it from the docMap
         if (vectorField != null && doc.has(vectorField)) {
           objectBuilder = objectBuilder.vector(floatsToArray(doc.getFloatList(vectorField)));
+          docMap.remove(vectorField);
         }
 
-        WeaviateObject obj = objectBuilder.build();
+        // set properties and build object
+        WeaviateObject obj = objectBuilder
+            .properties(docMap)
+            .build();
         batcher.withObject(obj);
       }
 
@@ -126,6 +131,10 @@ public class WeaviateIndexer extends Indexer {
     } catch (Exception e) {
       throw new IndexerException(e.toString());
     }
+  }
+
+  private static String generateDocumentUUID(Document document) {
+    return UUID.nameUUIDFromBytes(document.getId().getBytes()).toString();
   }
 
   private static Float[] floatsToArray(List<Float> list) {
