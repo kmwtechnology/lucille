@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.weaviate.indexer;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
@@ -17,6 +18,7 @@ import io.weaviate.client.v1.batch.api.ObjectsBatcher;
 import io.weaviate.client.v1.batch.model.ObjectGetResponse;
 import io.weaviate.client.v1.batch.model.ObjectsGetResponseAO2Result.ErrorResponse;
 import io.weaviate.client.v1.data.model.WeaviateObject;
+import io.weaviate.client.v1.data.model.WeaviateObject.WeaviateObjectBuilder;
 import io.weaviate.client.v1.data.replication.model.ConsistencyLevel;
 import io.weaviate.client.v1.misc.model.Meta;
 import java.io.File;
@@ -41,6 +43,8 @@ public class WeaviateIndexer extends Indexer {
   // we store the document's original ID under an alternate name, specified via idDestinationName
   private final String idDestinationName;
 
+  private final String vectorField;
+
   public WeaviateIndexer(Config config, IndexerMessageManager manager, String metricsPrefix) {
     super(config, manager, metricsPrefix);
 
@@ -48,7 +52,9 @@ public class WeaviateIndexer extends Indexer {
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
         "id_original";
     io.weaviate.client.Config weaviateConfig =
-        new io.weaviate.client.Config("http", config.getString("weaviate.host"));
+        new io.weaviate.client.Config("https", config.getString("weaviate.host"));
+
+    this.vectorField = ConfigUtils.getOrDefault(config, "weaviate.vectorField", null);
 
     try {
       this.client = WeaviateAuthClient.apiKey(weaviateConfig, config.getString("weaviate.apiKey"));
@@ -66,7 +72,7 @@ public class WeaviateIndexer extends Indexer {
     Result<Meta> meta = client.misc().metaGetter().run();
 
     if (meta.getError() != null) {
-      log.error("Weaviate errors: %s\n", meta.getError().getMessages());
+      log.error(String.format("Weaviate errors: %s\n", meta.getError().getMessages()));
       return false;
     }
 
@@ -80,39 +86,58 @@ public class WeaviateIndexer extends Indexer {
   @Override
   protected void sendToIndex(List<Document> documents) throws Exception {
 
-    ObjectsBatcher batcher = client.batch().objectsBatcher();
+    try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
+      for (Document doc : documents) {
 
-    for (Document doc : documents) {
+        String id = doc.getId();
+        Map<String, Object> docMap = doc.asMap();
+        docMap.remove(Document.ID_FIELD);
+        docMap.put(idDestinationName, id);
 
-      String id = doc.getId();
-      Map docMap = doc.asMap();
-      docMap.remove(Document.ID_FIELD);
-      docMap.put("id_original", id);
+        WeaviateObjectBuilder objectBuilder = WeaviateObject.builder()
+            .className(weaviateClassName)
+            .id(UUID.nameUUIDFromBytes(id.getBytes()).toString())
+            .properties(docMap);
 
-      WeaviateObject obj = WeaviateObject.builder()
-          .className(weaviateClassName)
-          .id(UUID.nameUUIDFromBytes(id.getBytes()).toString())
-          .properties(docMap)
-          .build();
-      batcher.withObject(obj);
-    }
+        if (vectorField != null && doc.has(vectorField)) {
+          objectBuilder = objectBuilder.vector(floatsToArray(doc.getFloatList(vectorField)));
+        }
 
-    Result<ObjectGetResponse[]> result = batcher.withConsistencyLevel(ConsistencyLevel.ALL).run();
-
-    // result.hasErrors() may return false even if there are errors inside individual ObjectGetResponses
-    if (result.hasErrors()) {
-      throw new IndexerException(result.getError().toString());
-    }
-
-    // examine the responses for each object, looking for errors
-    ObjectGetResponse[] responses = result.getResult();
-    for (ObjectGetResponse response : responses) {
-      ErrorResponse errorResponse = response.getResult().getErrors();
-      if (errorResponse != null) {
-        // we fail the batch on the first error encountered
-        throw new IndexerException(errorResponse.toString());
+        WeaviateObject obj = objectBuilder.build();
+        batcher.withObject(obj);
       }
+
+      Result<ObjectGetResponse[]> result = batcher.withConsistencyLevel(ConsistencyLevel.ALL).run();
+
+      // result.hasErrors() may return false even if there are errors inside individual ObjectGetResponses
+      if (result.hasErrors()) {
+        throw new IndexerException(result.getError().toString());
+      }
+
+      // examine the responses for each object, looking for errors
+      ObjectGetResponse[] responses = result.getResult();
+      for (ObjectGetResponse response : responses) {
+        ErrorResponse errorResponse = response.getResult().getErrors();
+        if (errorResponse != null) {
+          // we fail the batch on the first error encountered
+          throw new IndexerException(errorResponse.toString());
+        }
+      }
+    } catch (Exception e) {
+      throw new IndexerException(e.toString());
     }
+  }
+
+  private static Float[] floatsToArray(List<Float> list) {
+    if (list == null) {
+      throw new IllegalArgumentException("expecting a non empty list of floats");
+    }
+    int size = list.size();
+    Float[] array = new Float[size];
+    for (int i = 0; i < size; i ++) {
+      array[i] = list.get(i);
+    }
+    return array;
   }
 
   @Override

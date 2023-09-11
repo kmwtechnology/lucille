@@ -43,6 +43,11 @@
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-pinecone</artifactId>
     </dependency>
+
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-weaviate</artifactId>
+    </dependency>
   </dependencies>
 
   <build>
