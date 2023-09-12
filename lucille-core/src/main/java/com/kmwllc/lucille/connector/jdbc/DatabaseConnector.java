@@ -120,8 +120,9 @@ public class DatabaseConnector extends AbstractConnector {
   public void execute(Publisher publisher) throws ConnectorException {
     ResultSet rs = null;
     ArrayList<ResultSet> otherResults = null;
+    Connection connection = null;
     try {
-      Connection connection = createConnection();
+      connection = createConnection();
       // run the pre-sql (if specified)
       runSql(connection, preSql);
       // TODO: make sure we cleanup result set/statement/connections properly.
@@ -200,9 +201,7 @@ public class DatabaseConnector extends AbstractConnector {
         publisher.publish(doc);
       }
 
-      // the post sql.
-      runSql(connection, postSql);
-      flush();
+
     } catch (Exception e) {
       throw new ConnectorException("Exception caught during connector execution", e);
     } finally {
@@ -224,13 +223,8 @@ public class DatabaseConnector extends AbstractConnector {
         }
       }
     }
-  }
-
-  private void flush() {
-    // TODO: possibly move to base class / interface
-    // lifecycle to be called after the last doc is processed..
-    // in case the connector is doing some batching to make sure it flushes the last batch.
-    // System.err.println("No Op flush for now.");
+    // the post sql.
+    runSql(connection, postSql);
   }
 
   private void iterateOtherSQL(ResultSet rs2, String[] columns2, Document doc, Integer joinId, int childId, String joinField) throws SQLException {
