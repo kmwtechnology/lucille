@@ -5,8 +5,6 @@ import com.github.vfss3.S3FileSystemConfigBuilder;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.filetraverser.FileTraverser;
-import com.kmwllc.lucille.filetraverser.data.producer.DefaultDocumentProducer;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -26,6 +24,12 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 public class VFSConnector extends AbstractConnector {
+
+  public static final String FILE_PATH = "file_path";
+  public static final String MODIFIED = "file_modification_date";
+  public static final String CREATED = "file_creation_date";
+  public static final String SIZE = "file_size_bytes";
+  public static final String CONTENT = "file_content";
 
   private static final Logger log = LoggerFactory.getLogger(VFSConnector.class);
 
@@ -80,14 +84,14 @@ public class VFSConnector extends AbstractConnector {
     final Document doc = Document.create(createDocId(docId));
 
     // Set up basic file properties on the doc
-    doc.setField(FileTraverser.FILE_PATH, fo.getName().getURI());
+    doc.setField(FILE_PATH, fo.getName().getURI());
 
     // get access to file content
     try (FileContent content = fo.getContent()) {
-      doc.setField(FileTraverser.MODIFIED, Instant.ofEpochMilli(content.getLastModifiedTime()).toString());
-      doc.setField(FileTraverser.CREATED, Instant.ofEpochMilli(content.getLastModifiedTime()).toString());
-      doc.setField(FileTraverser.SIZE, content.getSize());
-      doc.setField(DefaultDocumentProducer.CONTENT, content.getByteArray());
+      doc.setField(MODIFIED, Instant.ofEpochMilli(content.getLastModifiedTime()).toString());
+      doc.setField(CREATED, Instant.ofEpochMilli(content.getLastModifiedTime()).toString());
+      doc.setField(SIZE, content.getSize());
+      doc.setField(CONTENT, content.getByteArray());
     } catch (FileSystemException e) {
       doc.setField("error", e.toString());
       log.error("Issue getting file information from '" + fo.getName() + "'", e);
