@@ -15,20 +15,20 @@ public class KafkaDocumentTest {
     String json3 = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val3\"}";
 
     KafkaDocument doc1 = new KafkaDocument(
-      new ConsumerRecord("topic1", 0, 0, "123", json1));
+        new ConsumerRecord("topic1", 0, 0, "123", json1));
     KafkaDocument doc2 = new KafkaDocument(
-      new ConsumerRecord("topic1", 0, 0, "123", json2));
+        new ConsumerRecord("topic1", 0, 0, "123", json2));
     KafkaDocument doc3 = new KafkaDocument(
-      new ConsumerRecord("topic1", 0, 0, "123", json3));
+        new ConsumerRecord("topic1", 0, 0, "123", json3));
 
     KafkaDocument doc4 = new KafkaDocument(
-      new ConsumerRecord("topic1a", 0, 0, "123", json1));
+        new ConsumerRecord("topic1a", 0, 0, "123", json1));
     KafkaDocument doc5 = new KafkaDocument(
-      new ConsumerRecord("topic1", 1, 0, "123", json1));
+        new ConsumerRecord("topic1", 1, 0, "123", json1));
     KafkaDocument doc6 = new KafkaDocument(
-      new ConsumerRecord("topic1", 0, 1, "123", json1));
+        new ConsumerRecord("topic1", 0, 1, "123", json1));
     KafkaDocument doc7 = new KafkaDocument(
-      new ConsumerRecord("topic1", 0, 0, "124", json1));
+        new ConsumerRecord("topic1", 0, 0, "124", json1));
 
     assertTrue(doc1.equals(doc1));
     assertTrue(doc1.equals(doc2));

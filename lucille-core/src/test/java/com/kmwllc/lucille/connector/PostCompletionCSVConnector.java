@@ -30,7 +30,7 @@ public class PostCompletionCSVConnector extends CSVConnector {
   public void execute(Publisher publisher) throws ConnectorException {
     // this method may be called in different testing scenarios,
     // where a pipeline is configured and where it isn't; here we try to handle both
-    if (publisher==null) {
+    if (publisher == null) {
       return;
     } else {
       super.execute(publisher);
@@ -42,7 +42,10 @@ public class PostCompletionCSVConnector extends CSVConnector {
   public static boolean didPostCompletionActionsOccur() {
     return completionActionsOccurred;
   }
-  public static Instant getPostCompletionInstant() {return postCompletionInstant;}
+
+  public static Instant getPostCompletionInstant() {
+    return postCompletionInstant;
+  }
 
   public static void reset() {
     completionActionsOccurred = false;

@@ -41,7 +41,7 @@ public class ParseDate extends Stage {
 
   public ParseDate(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest")
-      .withOptionalProperties("format_strs", "update_mode", "formatters", "time_zone_id"));
+        .withOptionalProperties("format_strs", "update_mode", "formatters", "time_zone_id"));
 
     this.formatters = new ArrayList<>();
 
@@ -107,8 +107,9 @@ public class ParseDate extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField))
+      if (!doc.has(sourceField)) {
         continue;
+      }
 
       // For each String value in this field...
       List<String> outputValues = new ArrayList<>();

@@ -30,9 +30,9 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
   private final String pipelineName;
 
   public HybridWorkerMessageManager(Config config, String pipelineName,
-                                    LinkedBlockingQueue<Document> pipelineDest,
-                                    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
-                                    KafkaConsumer sourceConsumer) {
+      LinkedBlockingQueue<Document> pipelineDest,
+      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
+      KafkaConsumer sourceConsumer) {
     this.config = config;
     this.pipelineName = pipelineName;
     this.pipelineDest = pipelineDest;
@@ -42,8 +42,8 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
   }
 
   public HybridWorkerMessageManager(Config config, String pipelineName,
-                                    LinkedBlockingQueue<Document> pipelineDest,
-                                    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
+      LinkedBlockingQueue<Document> pipelineDest,
+      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
     this(config, pipelineName, pipelineDest, offsets, createSourceConsumer(config, pipelineName));
   }
 
@@ -77,7 +77,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
 
   @Override
   public void commitPendingDocOffsets() throws Exception {
-    Map<TopicPartition,OffsetAndMetadata> batchOffsets = null;
+    Map<TopicPartition, OffsetAndMetadata> batchOffsets = null;
     while ((batchOffsets = offsets.poll()) != null) {
       sourceConsumer.commitSync(batchOffsets);
     }
@@ -103,7 +103,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
     }
     String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
     RecordMetadata result = kafkaEventProducer.send(
-      new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+        new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
     kafkaEventProducer.flush();
   }
 

@@ -42,7 +42,7 @@ public class WorkerPoolTest {
     PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
     WorkerMessageManagerFactory factory = WorkerMessageManagerFactory.getConstantFactory(manager);
     WorkerPool pool = new WorkerPool(ConfigFactory.load("WorkerPoolTest/onePipeline.conf"),
-      "pipeline1", factory, "metricsPrefix");
+        "pipeline1", factory, "metricsPrefix");
     pool.start();
     pool.stop();
     pool.join();

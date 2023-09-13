@@ -24,7 +24,7 @@ public class KafkaDocument extends JsonDocument {
   }
 
   public KafkaDocument(ConsumerRecord<String, String> record) throws Exception {
-    super((ObjectNode)MAPPER.readTree(record.value()));
+    super((ObjectNode) MAPPER.readTree(record.value()));
     setKafkaMetadata(record);
   }
 
@@ -70,14 +70,14 @@ public class KafkaDocument extends JsonDocument {
       return true;
     }
     if (other instanceof KafkaDocument) {
-      KafkaDocument doc = (KafkaDocument)other;
+      KafkaDocument doc = (KafkaDocument) other;
 
       return
-        Objects.equals(topic, doc.topic) &&
-          Objects.equals(partition, doc.partition) &&
-          Objects.equals(offset, doc.offset) &&
-          Objects.equals(key, doc.key) &&
-          data.equals(doc.data);
+          Objects.equals(topic, doc.topic) &&
+              Objects.equals(partition, doc.partition) &&
+              Objects.equals(offset, doc.offset) &&
+              Objects.equals(key, doc.key) &&
+              data.equals(doc.data);
     }
     return false;
   }

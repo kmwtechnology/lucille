@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<properties>
+    <parsers>
+        <!-- Use a different parser for txt -->
+        <parser class="org.apache.tika.parser.EmptyParser">
+            <mime>application/pdf</mime>
+        </parser>
+    </parsers>
+</properties>

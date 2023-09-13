@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class DefaultDocumentProducer implements DocumentProducer {
+
   private static final Logger log = LogManager.getLogger(DefaultDocumentProducer.class);
   public static final String CONTENT = "file_content";
   private static final Base64.Decoder DECODER = Base64.getDecoder();
@@ -20,7 +21,8 @@ public class DefaultDocumentProducer implements DocumentProducer {
   /**
    * @param childCopyParentMetadata Not in use yet...
    */
-  public DefaultDocumentProducer(boolean childCopyParentMetadata) {}
+  public DefaultDocumentProducer(boolean childCopyParentMetadata) {
+  }
 
   @Override
   public List<Document> produceDocuments(Path file, Document doc) {

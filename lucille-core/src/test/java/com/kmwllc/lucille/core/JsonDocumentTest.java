@@ -30,7 +30,8 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   }
 
   @Override
-  public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
+  public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater)
+      throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 
@@ -44,7 +45,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
 
   @Test
   public void testByteArraySerialization() throws Exception {
-    byte[] value1 = new byte[]{ 0x3c, 0x4c, 0x5c, 0x3c, 0x4c, 0x5c, 0x3c, 0x4c, 0x5c };
+    byte[] value1 = new byte[]{0x3c, 0x4c, 0x5c, 0x3c, 0x4c, 0x5c, 0x3c, 0x4c, 0x5c};
 
     Document document = createDocument("doc");
     document.setField("field1", value1);
@@ -59,8 +60,8 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
 
   @Test
   public void testByteArraySerializationMultivalued() throws Exception {
-    byte[] value1 = new byte[]{ 0x3c, 0x4c, 0x5c };
-    byte[] value2 = new byte[]{ 0x4c, 0x4c, 0x5c };
+    byte[] value1 = new byte[]{0x3c, 0x4c, 0x5c};
+    byte[] value2 = new byte[]{0x4c, 0x4c, 0x5c};
     Document document = createDocument("doc");
     document.addToField("field1", value1);
     document.addToField("field1", value2);

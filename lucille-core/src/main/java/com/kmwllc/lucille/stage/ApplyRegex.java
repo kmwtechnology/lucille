@@ -37,6 +37,7 @@ import java.util.regex.Pattern;
  *   - literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.
  */
 public class ApplyRegex extends Stage {
+
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final String regexExpr;
@@ -51,7 +52,7 @@ public class ApplyRegex extends Stage {
 
   public ApplyRegex(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "regex")
-      .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
+        .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
@@ -87,19 +88,19 @@ public class ApplyRegex extends Stage {
 
     // Add the selected flags to the Pattern
     switch (flags.size()) {
-      case (1) :
+      case (1):
         pattern = Pattern.compile(regexExpr, flags.get(0));
         break;
-      case (2) :
+      case (2):
         pattern = Pattern.compile(regexExpr, flags.get(0) | flags.get(1));
         break;
-      case (3) :
+      case (3):
         pattern = Pattern.compile(regexExpr, flags.get(0) | flags.get(1) | flags.get(2));
         break;
-      case (4) :
+      case (4):
         pattern = Pattern.compile(regexExpr, flags.get(0) | flags.get(1) | flags.get(2) | flags.get(3));
         break;
-      default :
+      default:
         pattern = Pattern.compile(regexExpr);
         break;
     }
@@ -115,8 +116,9 @@ public class ApplyRegex extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField))
+      if (!doc.has(sourceField)) {
         continue;
+      }
 
       List<String> outputValues = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {

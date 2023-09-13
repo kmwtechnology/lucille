@@ -66,13 +66,13 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
   @Override
   public void sendCompleted(Document document) throws Exception {
     RecordMetadata result = kafkaDocumentProducer.send(
-      new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
+        new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
     kafkaDocumentProducer.flush();
   }
 
   public void sendFailed(Document document) throws Exception {
     ProducerRecord<String, Document> producerRecord =
-      new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
+        new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
     RecordMetadata metadata = kafkaDocumentProducer.send(producerRecord).get();
     kafkaDocumentProducer.flush();
   }
@@ -97,7 +97,7 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
     }
     String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
     RecordMetadata result = kafkaEventProducer.send(
-      new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+        new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
     kafkaEventProducer.flush();
   }
 

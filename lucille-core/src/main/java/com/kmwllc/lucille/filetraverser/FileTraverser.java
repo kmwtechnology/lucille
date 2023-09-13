@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class FileTraverser extends SimpleFileVisitor<Path> implements AutoCloseable {
+
   private static final Logger log = LogManager.getLogger(FileTraverser.class);
   public static final String FILE_PATH = "file_path";
   public static final String MODIFIED = "file_modification_date";
@@ -39,13 +40,13 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
   private final boolean binaryData;
 
   public FileTraverser(String[] paths, String topic, String brokerList, String[] includeRegex, String[] excludeRegex,
-                       boolean binaryData, String dataType, String childCopyParentMetadata) {
+      boolean binaryData, String dataType, String childCopyParentMetadata) {
     this.binaryData = binaryData;
 
     // Turn all provided paths into Path objects, replacing the "~" character with the user.home system property
     this.paths = Arrays.stream(paths).map(path ->
-      Path.of(path.replace("~", System.getProperty("user.home"))).toAbsolutePath().normalize())
-      .collect(Collectors.toList());
+            Path.of(path.replace("~", System.getProperty("user.home"))).toAbsolutePath().normalize())
+        .collect(Collectors.toList());
 
     // Require that provided paths exist
     if (!this.paths.stream().allMatch(Files::exists)) {
@@ -106,7 +107,7 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
       cli = new DefaultParser().parse(cliOptions, args);
     } catch (UnrecognizedOptionException | MissingOptionException e) {
       try (StringWriter writer = new StringWriter();
-           PrintWriter printer = new PrintWriter(writer)) {
+          PrintWriter printer = new PrintWriter(writer)) {
 
         String header = "Walk file tree and send files with info to a given Kafka topic";
         new HelpFormatter().printHelp(printer, 256, "FileTraverser", header, cliOptions,
@@ -162,7 +163,7 @@ public class FileTraverser extends SimpleFileVisitor<Path> implements AutoClosea
 
     // Skip file if any exclude regex patterns match or if no include regex patterns match
     if (excludes.parallelStream().anyMatch(pattern -> pattern.matcher(fileName).matches())
-    || (!includes.isEmpty() && includes.parallelStream().noneMatch(pattern -> pattern.matcher(fileName).matches()))) {
+        || (!includes.isEmpty() && includes.parallelStream().noneMatch(pattern -> pattern.matcher(fileName).matches()))) {
       log.debug("Skipping file because of include or exclude regex");
       return FileVisitResult.CONTINUE;
     }

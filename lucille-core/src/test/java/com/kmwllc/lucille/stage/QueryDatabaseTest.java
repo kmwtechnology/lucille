@@ -17,7 +17,7 @@ public class QueryDatabaseTest {
 
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("org.h2.Driver", "jdbc:h2:mem:test", "",
-    "", "db-test-start.sql", "db-test-end.sql");
+      "", "db-test-start.sql", "db-test-end.sql");
 
   @Test
   public void testSingleKeyField() throws StageException {

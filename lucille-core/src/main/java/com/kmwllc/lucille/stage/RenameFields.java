@@ -28,8 +28,8 @@ public class RenameFields extends Stage {
 
   public RenameFields(Config config) {
     super(config, new StageSpec()
-      .withOptionalProperties("update_mode")
-      .withRequiredParents("fieldMapping"));
+        .withOptionalProperties("update_mode")
+        .withRequiredParents("fieldMapping"));
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
   }
@@ -40,16 +40,18 @@ public class RenameFields extends Stage {
    */
   @Override
   public void start() throws StageException {
-    if (fieldMap.size() == 0)
+    if (fieldMap.size() == 0) {
       throw new StageException("field_mapping must have at least one source-dest pair for Rename Fields");
+    }
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // For each field, if this document has the source field, rename it to the destination field
     for (Entry<String, Object> fieldPair : fieldMap.entrySet()) {
-      if (!doc.has(fieldPair.getKey()))
+      if (!doc.has(fieldPair.getKey())) {
         continue;
+      }
 
       String dest = (String) fieldPair.getValue();
       doc.renameField(fieldPair.getKey(), dest, updateMode);

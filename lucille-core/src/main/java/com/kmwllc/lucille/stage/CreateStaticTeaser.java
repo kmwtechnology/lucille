@@ -33,8 +33,8 @@ public class CreateStaticTeaser extends Stage {
 
   public CreateStaticTeaser(Config config) {
     super(config, new StageSpec()
-            .withRequiredProperties("source", "dest", "maxLength")
-            .withOptionalProperties("update_mode"));
+        .withRequiredProperties("source", "dest", "maxLength")
+        .withOptionalProperties("update_mode"));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
@@ -59,8 +59,9 @@ public class CreateStaticTeaser extends Stage {
       String source = sourceFields.get(i);
       String dest = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(source))
+      if (!doc.has(source)) {
         continue;
+      }
 
       String fullText = doc.getStringList(source).get(0);
 

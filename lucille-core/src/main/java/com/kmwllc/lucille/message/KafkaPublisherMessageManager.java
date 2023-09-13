@@ -29,7 +29,7 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
   }
 
   public void initialize(String runId, String pipelineName) throws Exception {
-    if (this.runId!=null) {
+    if (this.runId != null) {
       throw new Exception("Already initialized.");
     }
     this.runId = runId;
@@ -52,7 +52,7 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
 
   public void sendForProcessing(Document document) throws Exception {
     RecordMetadata result = (RecordMetadata) kafkaProducer.send(
-      new ProducerRecord(KafkaUtils.getSourceTopicName(pipelineName, config), document.getId(), document)).get();
+        new ProducerRecord(KafkaUtils.getSourceTopicName(pipelineName, config), document.getId(), document)).get();
     kafkaProducer.flush();
   }
 
