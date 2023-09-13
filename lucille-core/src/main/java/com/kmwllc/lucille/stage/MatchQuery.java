@@ -23,24 +23,25 @@ import java.util.List;
 
 
 public class MatchQuery extends Stage {
+
   public static final String FIELDS_PARAM = "fields";
   public static final String QUERIES_PARAM = "queries";
   public static final String MATCHEDQUERIES_PARAM = "matchedQueriesField";
-  
+
   // the list of fields to run the queries against
   private final List<String> fieldsList;
-  
+
   // the list of queries to run
   private final List<? extends ConfigObject> queryList;
-  
+
   private final String matchedQueriesField;
 
   private Monitor monitor;
-  
-  
+
+
   public MatchQuery(Config config) {
     super(config, new StageSpec()
-      .withRequiredProperties(FIELDS_PARAM, QUERIES_PARAM, MATCHEDQUERIES_PARAM));
+        .withRequiredProperties(FIELDS_PARAM, QUERIES_PARAM, MATCHEDQUERIES_PARAM));
     fieldsList = config.getStringList(FIELDS_PARAM);
     queryList = config.getObjectList(QUERIES_PARAM);
     matchedQueriesField = config.getString(MATCHEDQUERIES_PARAM);
@@ -82,7 +83,7 @@ public class MatchQuery extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
       org.apache.lucene.document.Document luceneDoc = new org.apache.lucene.document.Document();
-      
+
       // add each configured field to the lucene document
       for (String field : this.fieldsList) {
         if (doc.has(field)) {

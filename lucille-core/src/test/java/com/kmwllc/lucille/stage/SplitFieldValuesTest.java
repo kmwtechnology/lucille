@@ -10,6 +10,7 @@ import java.util.Set;
 import static org.junit.Assert.assertEquals;
 
 public class SplitFieldValuesTest {
+
   private StageFactory factory = StageFactory.of(SplitFieldValues.class);
 
   @Test
@@ -21,13 +22,13 @@ public class SplitFieldValuesTest {
     stage.processDocument(doc);
 
     assertEquals(4, doc.getStringList("data").size());
-    
+
     assertEquals("this", doc.getStringList("data").get(0));
     assertEquals("that", doc.getStringList("data").get(1));
     assertEquals("the", doc.getStringList("data").get(2));
     assertEquals("other", doc.getStringList("data").get(3));
-    
-    
+
+
   }
 
   @Test

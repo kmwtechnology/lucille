@@ -19,6 +19,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
 public class ParseJsonTest {
+
   private StageFactory factory = StageFactory.of(ParseJson.class);
 
   @Test
@@ -45,7 +46,6 @@ public class ParseJsonTest {
       assertThat(doc.getString("aTime"), equalTo("2021-12-10T14:05:26Z"));
       assertThat(docMap.get("aDate"), equalTo("2021-12-10"));
       assertThat(docMap.get("aTime"), equalTo("2021-12-10T14:05:26Z"));
-
 
       assertThat(doc.getString("isFalse"), equalTo("false"));
       assertThat(doc.getString("isTrue"), equalTo("true"));
@@ -140,7 +140,6 @@ public class ParseJsonTest {
       assertThat(docMap.get("aDate"), equalTo("2021-12-10"));
       assertThat(docMap.get("aTime"), equalTo("2021-12-10T14:05:26Z"));
 
-
       assertThat(doc.getString("isFalse"), equalTo("false"));
       assertThat(doc.getString("isTrue"), equalTo("true"));
       assertThat(docMap.get("isFalse"), CoreMatchers.is(false));
@@ -211,6 +210,6 @@ public class ParseJsonTest {
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("ParseJson/config.conf");
     assertEquals(Set.of("src", "name", "sourceIsBase64", "conditions", "class"),
-      stage.getLegalProperties());
+        stage.getLegalProperties());
   }
 }

@@ -48,7 +48,7 @@ public class ElasticsearchUtils {
       String username = userInfo.substring(0, pos);
       String password = userInfo.substring(pos + 1);
       provider.setCredentials(AuthScope.ANY,
-        new UsernamePasswordCredentials(username, password));
+          new UsernamePasswordCredentials(username, password));
     }
 
     // needed to allow for local testing of HTTPS
@@ -56,8 +56,8 @@ public class ElasticsearchUtils {
     boolean allowInvalidCert = getAllowInvalidCert(config);
     if (allowInvalidCert) {
       sslFactoryBuilder
-        .withTrustingAllCertificatesWithoutValidation()
-        .withHostnameVerifier((host, session) -> true);
+          .withTrustingAllCertificatesWithoutValidation()
+          .withHostnameVerifier((host, session) -> true);
     } else {
       sslFactoryBuilder.withDefaultTrustMaterial();
     }
@@ -65,14 +65,14 @@ public class ElasticsearchUtils {
     SSLFactory sslFactory = sslFactoryBuilder.build();
 
     RestClientBuilder builder = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(),
-        hostUri.getScheme()))
-      .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
-        @Override
-        public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
-          return httpClientBuilder.setDefaultCredentialsProvider(provider).setSSLContext(sslFactory.getSslContext())
-            .setSSLHostnameVerifier(sslFactory.getHostnameVerifier());
-        }
-      });
+            hostUri.getScheme()))
+        .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
+          @Override
+          public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
+            return httpClientBuilder.setDefaultCredentialsProvider(provider).setSSLContext(sslFactory.getSslContext())
+                .setSSLHostnameVerifier(sslFactory.getHostnameVerifier());
+          }
+        });
 
     RestHighLevelClient client = new RestHighLevelClient(builder);
 
@@ -91,7 +91,7 @@ public class ElasticsearchUtils {
       String username = userInfo.substring(0, pos);
       String password = userInfo.substring(pos + 1);
       provider.setCredentials(AuthScope.ANY,
-        new UsernamePasswordCredentials(username, password));
+          new UsernamePasswordCredentials(username, password));
     }
 
     // needed to allow for local testing of HTTPS
@@ -99,8 +99,8 @@ public class ElasticsearchUtils {
     boolean allowInvalidCert = getAllowInvalidCert(config);
     if (allowInvalidCert) {
       sslFactoryBuilder
-        .withTrustingAllCertificatesWithoutValidation()
-        .withHostnameVerifier((host, session) -> true);
+          .withTrustingAllCertificatesWithoutValidation()
+          .withHostnameVerifier((host, session) -> true);
     } else {
       sslFactoryBuilder.withDefaultTrustMaterial();
     }
@@ -108,8 +108,9 @@ public class ElasticsearchUtils {
     SSLFactory sslFactory = sslFactoryBuilder.build();
 
     RestClient restClient = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
-      .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setDefaultCredentialsProvider(provider).setSSLContext(sslFactory.getSslContext())
-        .setSSLHostnameVerifier(sslFactory.getHostnameVerifier())).build();
+        .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setDefaultCredentialsProvider(provider)
+            .setSSLContext(sslFactory.getSslContext())
+            .setSSLHostnameVerifier(sslFactory.getHostnameVerifier())).build();
 
     ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
     return new ElasticsearchClient(transport);

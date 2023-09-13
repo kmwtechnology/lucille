@@ -10,6 +10,7 @@ import static org.junit.Assert.assertTrue;
 
 
 public class SolrUtilsTest {
+
   @Test
   public void requireAuthTest() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:SolrUtilsTest/auth.conf"));

@@ -30,7 +30,8 @@ public class WorkerThread extends Thread {
     this.enableHeartbeat = config.hasPath("worker.heartbeat") ? config.getBoolean("worker.heartbeat") : false;
     this.period = config.hasPath("worker.period") ? config.getInt("worker.period") : 1000;
     // maxProcessingSecs default should be at least 10 minutes
-    this.maxProcessingSecs = config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 10 * 60 * 1000;
+    this.maxProcessingSecs =
+        config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 10 * 60 * 1000;
     this.exitOnTimeout = config.hasPath("worker.exitOnTimeout") ? config.getBoolean("worker.exitOnTimeout") : false;
   }
 
@@ -60,8 +61,8 @@ public class WorkerThread extends Thread {
           heartbeatLog.info("Issuing heartbeat");
           if (heartbeatLog.isDebugEnabled()) {
             heartbeatLog.debug("Thread Dump:\n{}",
-              Arrays.toString(
-                ManagementFactory.getThreadMXBean().dumpAllThreads(true, true)));
+                Arrays.toString(
+                    ManagementFactory.getThreadMXBean().dumpAllThreads(true, true)));
           }
         }
         if (Duration.between(worker.getPreviousPollInstant().get(), Instant.now()).getSeconds() > maxProcessingSecs) {

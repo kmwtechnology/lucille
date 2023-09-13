@@ -50,7 +50,7 @@ public class NormalizeText extends Stage {
    */
   public NormalizeText(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "mode")
-      .withOptionalProperties("update_mode"));
+        .withOptionalProperties("update_mode"));
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.mode = config.getString("mode");
@@ -90,8 +90,9 @@ public class NormalizeText extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField))
+      if (!doc.has(sourceField)) {
         continue;
+      }
 
       List<String> outputValues = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {
@@ -108,7 +109,7 @@ public class NormalizeText extends Stage {
    * Transform the given String to all lowercase
    *
    * @param value The input String
-   * @return  lowercased String
+   * @return lowercased String
    */
   private String lowercaseNormalize(String value) {
     return value.toLowerCase();
@@ -118,7 +119,7 @@ public class NormalizeText extends Stage {
    * Transform the given String to all uppercase
    *
    * @param value The input String
-   * @return  uppercased String
+   * @return uppercased String
    */
   private String uppercaseNormalize(String value) {
     return value.toUpperCase();
@@ -130,7 +131,7 @@ public class NormalizeText extends Stage {
    * abbreviations or fully capitalized words. This can handle non latin languages.
    *
    * @param value the input String
-   * @return  the title cased String
+   * @return the title cased String
    */
   private String titleCaseNormalize(String value) {
     return WordUtils.capitalizeFully(value);
@@ -142,7 +143,7 @@ public class NormalizeText extends Stage {
    * abbreviations, fully capitalized words or proper nouns.
    *
    * @param value the input String
-   * @return  the sentence cased String
+   * @return the sentence cased String
    */
   private String sentenceCaseNormalize(String value) {
     // TODO : decide if we want to preserve original capitalization

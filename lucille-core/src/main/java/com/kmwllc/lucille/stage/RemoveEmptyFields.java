@@ -25,7 +25,7 @@ public class RemoveEmptyFields extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // get the field names
-    Map<String,Object> data = doc.asMap();
+    Map<String, Object> data = doc.asMap();
     Set<String> fieldNames = data.keySet();
     for (String fieldName : fieldNames) {
       if (StringUtils.isEmpty(doc.getString(fieldName))) {

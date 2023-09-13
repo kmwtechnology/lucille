@@ -73,12 +73,12 @@ public class PublisherImpl implements Publisher {
   private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
 
   public PublisherImpl(Config config, PublisherMessageManager manager, String runId,
-                       String pipelineName, String metricsPrefix, boolean isCollapsing) throws Exception {
+      String pipelineName, String metricsPrefix, boolean isCollapsing) throws Exception {
     this.manager = manager;
     this.runId = runId;
     this.pipelineName = pipelineName;
     this.timer =
-      SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).timer(metricsPrefix + ".timeBetweenPublishCalls");
+        SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).timer(metricsPrefix + ".timeBetweenPublishCalls");
     this.isCollapsing = isCollapsing;
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     manager.initialize(runId, pipelineName);
@@ -87,8 +87,8 @@ public class PublisherImpl implements Publisher {
   }
 
   public PublisherImpl(Config config, PublisherMessageManager manager, String runId,
-                       String pipelineName) throws Exception {
-    this(config, manager, runId, pipelineName, "default",false);
+      String pipelineName) throws Exception {
+    this(config, manager, runId, pipelineName, "default", false);
   }
 
   @Override
@@ -97,7 +97,7 @@ public class PublisherImpl implements Publisher {
       firstDocStopWatch.stop();
       log.info("First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
     }
-    if (timerContext!=null) {
+    if (timerContext != null) {
       // stop timing the duration since tha last call to publish;
       // the goal is to track the rate of publish() calls as well as the
       // average lag between them (which tells us how fast the connector produces each document)
@@ -116,7 +116,7 @@ public class PublisherImpl implements Publisher {
       return;
     }
 
-    if (previousDoc==null) {
+    if (previousDoc == null) {
       previousDoc = document;
       return;
     }
@@ -140,15 +140,15 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public void flush() throws Exception {
-    if (previousDoc!=null) {
+    if (previousDoc != null) {
       sendForProcessing(previousDoc);
     }
-    previousDoc=null;
+    previousDoc = null;
   }
 
   @Override
   public void close() throws Exception {
-    if (timerContext!=null) {
+    if (timerContext != null) {
       timerContext.stop();
     }
     manager.close();
@@ -229,8 +229,8 @@ public class PublisherImpl implements Publisher {
       // Regarding 3), we assume there are no more events if the previous call to manager.pollEvent() returned null
       // In a Kafka deployment, the publisher should be the only consumer of the event topic, and the topic should
       // have a single partition
-      if (!thread.isAlive() && !hasPending() && event==null) {
-        if (timerContext!=null) {
+      if (!thread.isAlive() && !hasPending() && event == null) {
+        if (timerContext != null) {
           timerContext.stop();
         }
         String collapseInfo = "";
@@ -238,22 +238,23 @@ public class PublisherImpl implements Publisher {
           collapseInfo = String.format(" (%d after collapsing)", numPublished);
         }
         log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
-          timer.getMeanRate(), timer.getSnapshot().getMean()/1000000));
+            timer.getMeanRate(), timer.getSnapshot().getMean() / 1000000));
         log.info(String.format("%d docs published%s. %d children created. %d success events. %d failure events. %d drop events.",
             timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped));
-        if (numPublished>0 && numFailed==0) {
+        if (numPublished > 0 && numFailed == 0) {
           log.info("All documents SUCCEEDED.");
         }
-        if (numFailed>0) {
+        if (numFailed > 0) {
           log.error(numFailed + " documents FAILED, but run will continue.");
         }
         return new PublisherResult(!thread.hasException(), null);
       }
 
-      if (ChronoUnit.SECONDS.between(lastLog, Instant.now())>logSeconds) {
+      if (ChronoUnit.SECONDS.between(lastLog, Instant.now()) > logSeconds) {
         if (thread.isAlive()) {
-          log.info(String.format("%d docs published. One minute rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc. Waiting on %d docs.",
-            timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000, numPending()));
+          log.info(String.format(
+              "%d docs published. One minute rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc. Waiting on %d docs.",
+              timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000, numPending()));
         } else {
           log.info(String.format("Connector complete. Waiting on %d docs.", numPending()));
         }

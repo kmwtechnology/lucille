@@ -36,6 +36,7 @@ import java.util.regex.Pattern;
  * - literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.
  */
 public class ReplacePatterns extends Stage {
+
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final List<String> regexExprs;
@@ -51,7 +52,7 @@ public class ReplacePatterns extends Stage {
 
   public ReplacePatterns(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "regex", "replacement")
-      .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
+        .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
 
     this.patterns = new ArrayList<>();
 
@@ -91,24 +92,29 @@ public class ReplacePatterns extends Stage {
     // Add the selected flags to the Pattern
     switch (flags.size()) {
       case (1):
-        for (String regexExpr : regexExprs)
+        for (String regexExpr : regexExprs) {
           patterns.add(Pattern.compile(regexExpr, flags.get(0)));
+        }
         break;
       case (2):
-        for (String regexExpr : regexExprs)
+        for (String regexExpr : regexExprs) {
           patterns.add(Pattern.compile(regexExpr, flags.get(0) | flags.get(1)));
+        }
         break;
       case (3):
-        for (String regexExpr : regexExprs)
+        for (String regexExpr : regexExprs) {
           patterns.add(Pattern.compile(regexExpr, flags.get(0) | flags.get(1) | flags.get(2)));
+        }
         break;
       case (4):
-        for (String regexExpr : regexExprs)
+        for (String regexExpr : regexExprs) {
           patterns.add(Pattern.compile(regexExpr, flags.get(0) | flags.get(1) | flags.get(2) | flags.get(3)));
+        }
         break;
       default:
-        for (String regexExpr : regexExprs)
+        for (String regexExpr : regexExprs) {
           patterns.add(Pattern.compile(regexExpr));
+        }
         break;
     }
 
@@ -123,8 +129,9 @@ public class ReplacePatterns extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField))
+      if (!doc.has(sourceField)) {
         continue;
+      }
 
       List<String> outputValues = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {
