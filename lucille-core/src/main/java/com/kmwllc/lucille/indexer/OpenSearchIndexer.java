@@ -113,14 +113,7 @@ public class OpenSearchIndexer extends Indexer {
 
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);
-
-      Function<UpdateOperation.Builder, ObjectBuilder<UpdateOperation>> fn = new Function<Builder, ObjectBuilder<UpdateOperation>>() {
-        @Override
-        public ObjectBuilder<UpdateOperation> apply(Builder builder) {
-          return null;
-        }
-      };
-
+      
       String routing = doc.getString(routingField);
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
         ? ((KafkaDocument) doc).getOffset()
