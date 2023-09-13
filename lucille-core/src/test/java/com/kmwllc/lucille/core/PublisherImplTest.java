@@ -194,7 +194,7 @@ public class PublisherImplTest {
 
     Thread publisherThread = new Thread() {
       public void run() {
-        for (int i=0; i<100; i++) {
+        for (int i = 0; i < 100; i++) {
           try {
             publisher.publish(Document.create("doc" + i));
           } catch (Exception e) {
@@ -224,7 +224,7 @@ public class PublisherImplTest {
 
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     PublisherImpl publisher =
-      new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1", "",true);
+        new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1", "", true);
 
     Document doc1 = Document.create("before");
 
@@ -265,7 +265,7 @@ public class PublisherImplTest {
 
     Document collapsedDoc = manager.getSavedDocumentsSentForProcessing().get(1);
     assertEquals("run1", collapsedDoc.getRunId());
-    assertEquals(Arrays.asList(new String[] {"val1", "val2"}), collapsedDoc.getStringList("field1"));
+    assertEquals(Arrays.asList(new String[]{"val1", "val2"}), collapsedDoc.getStringList("field1"));
   }
 
 }

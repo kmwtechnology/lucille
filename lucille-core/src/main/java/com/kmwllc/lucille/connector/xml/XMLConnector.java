@@ -92,7 +92,7 @@ public class XMLConnector extends AbstractConnector {
         }
         File f = new File(file);
         try (InputStream in = new URL("file://" + f.getAbsolutePath()).openStream();
-             RecordingInputStream ris = new RecordingInputStream(in);) {
+            RecordingInputStream ris = new RecordingInputStream(in);) {
           setUpAndParse(ris, xmlHandler, xmlReader);
         } catch (Exception e) {
           throw new ConnectorException("Error during XML parsing", e);
@@ -109,7 +109,7 @@ public class XMLConnector extends AbstractConnector {
       }
       log.info("Parsing file: {}", file);
       try (FileInputStream fis = new FileInputStream(file);
-           RecordingInputStream ris = new RecordingInputStream(fis)) {
+          RecordingInputStream ris = new RecordingInputStream(fis)) {
         setUpAndParse(ris, xmlHandler, xmlReader);
       } catch (Exception e) {
         throw new ConnectorException("Error during XML parsing", e);
@@ -118,7 +118,8 @@ public class XMLConnector extends AbstractConnector {
 
   }
 
-  public void setUpAndParse(RecordingInputStream ris, ChunkingXMLHandler xmlHandler, XMLReader xmlReader) throws ConnectorException {
+  public void setUpAndParse(RecordingInputStream ris, ChunkingXMLHandler xmlHandler, XMLReader xmlReader)
+      throws ConnectorException {
     ris.setEncoding(encoding);
     try (InputStreamReader inputStreamReader = new InputStreamReader(ris, encoding)) {
       InputSource xmlSource = new InputSource(inputStreamReader);

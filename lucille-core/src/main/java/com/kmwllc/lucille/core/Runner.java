@@ -80,23 +80,23 @@ public class Runner {
    */
   public static void main(String[] args) throws Exception {
     Options cliOptions = new Options()
-      .addOption(Option.builder("usekafka").hasArg(false)
-        .desc("Use Kafka for inter-component communication and don't execute pipelines locally").build())
-      .addOption(Option.builder("local").hasArg(false)
-        .desc("Modifies usekafka mode to execute pipelines locally").build())
-      .addOption(Option.builder("validate").hasArg(false)
-        .desc("Validate the configuration and exit").build());
+        .addOption(Option.builder("usekafka").hasArg(false)
+            .desc("Use Kafka for inter-component communication and don't execute pipelines locally").build())
+        .addOption(Option.builder("local").hasArg(false)
+            .desc("Modifies usekafka mode to execute pipelines locally").build())
+        .addOption(Option.builder("validate").hasArg(false)
+            .desc("Validate the configuration and exit").build());
 
     CommandLine cli = null;
     try {
       cli = new DefaultParser().parse(cliOptions, args);
     } catch (UnrecognizedOptionException | MissingOptionException e) {
       try (StringWriter writer = new StringWriter();
-           PrintWriter printer = new PrintWriter(writer)) {
+          PrintWriter printer = new PrintWriter(writer)) {
 
         String header = "Run a sequence of connectors";
         new HelpFormatter().printHelp(printer, 256, "Runner", header, cliOptions,
-          2, 10, "", true);
+            2, 10, "", true);
         log.info(writer.toString());
       }
       System.exit(1);
@@ -130,7 +130,7 @@ public class Runner {
 
       // log detailed metrics
       Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
-        .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
+          .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
 
       // log run summary
       log.info(result.toString());
@@ -168,15 +168,15 @@ public class Runner {
       log.info("Configuration is valid");
     } else {
       StringBuilder message = new StringBuilder("Configuration is invalid. " +
-        "Printing the list of exceptions for each pipeline\n");
+          "Printing the list of exceptions for each pipeline\n");
 
       for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
         message.append("\tConnector: ").append(entry.getKey()).append("\tError count: ")
-          .append(entry.getValue().size()).append("\n");
+            .append(entry.getValue().size()).append("\n");
         int i = 1;
         for (Exception e : entry.getValue()) {
           message.append("\t\tException ").append(i++).append(": ")
-            .append(e.getMessage()).append("\n");
+              .append(e.getMessage()).append("\n");
         }
       }
       log.error(message.delete(message.length() - 1, message.length()).toString());
@@ -192,7 +192,7 @@ public class Runner {
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
     for (Connector connector : Connector.fromConfig(config)) {
       log.info("Validating stages for connector \"" + connector.getName() +
-        "\" pipeline\" " + connector.getPipelineName() + "\"");
+          "\" pipeline\" " + connector.getPipelineName() + "\"");
       if (exceptionMap.containsKey(connector.getName())) {
         // todo this might not be necessary to add but better to be safe
         throw new RuntimeException("Duplicate connector name: " + connector.getName());
@@ -241,8 +241,8 @@ public class Runner {
       }
 
       ConnectorResult result =
-        runConnectorWithComponents(config, runId, connector,
-          workerMMFactory, indexerMMFactory, publisherMMFactory, startWorkerAndIndexer, bypassSolr);
+          runConnectorWithComponents(config, runId, connector,
+              workerMMFactory, indexerMMFactory, publisherMMFactory, startWorkerAndIndexer, bypassSolr);
 
       connectorResults.add(result);
 
@@ -302,7 +302,7 @@ public class Runner {
    */
   private static ConnectorResult runConnectorInternal(Config config, String runId, Connector connector, Publisher publisher) {
     log.info("Running connector " + connector.getName() + " feeding to pipeline " +
-      (connector.getPipelineName() == null ? "NOT CONFIGURED" : connector.getPipelineName()));
+        (connector.getPipelineName() == null ? "NOT CONFIGURED" : connector.getPipelineName()));
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
 
@@ -330,7 +330,7 @@ public class Runner {
         ConnectorThread connectorThread = new ConnectorThread(connector, publisher);
         connectorThread.start();
         final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
-          config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
+            config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
         pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
       } catch (Exception e) {
         log.error("waitForCompletion failed", e);
@@ -350,7 +350,7 @@ public class Runner {
     stopWatch.stop();
     double durationSecs = ((double) stopWatch.getTime(TimeUnit.MILLISECONDS)) / 1000;
     log.info(String.format("Connector %s feeding to pipeline %s complete. Time: %.2f secs.",
-      connector.getName(), connector.getPipelineName(), durationSecs));
+        connector.getName(), connector.getPipelineName(), durationSecs));
 
     boolean status = pubResult == null ? true : pubResult.getStatus();
     String msg = pubResult == null ? null : pubResult.getMessage();
@@ -362,13 +362,13 @@ public class Runner {
    * execution; specifically, a WorkerPool and an Indexer.
    */
   private static ConnectorResult runConnectorWithComponents(Config config,
-                                                            String runId,
-                                                            Connector connector,
-                                                            WorkerMessageManagerFactory workerMessageManagerFactory,
-                                                            IndexerMessageManagerFactory indexerMessageManagerFactory,
-                                                            PublisherMessageManagerFactory publisherMessageManagerFactory,
-                                                            boolean startWorkerAndIndexer,
-                                                            boolean bypassIndexer) throws Exception {
+      String runId,
+      Connector connector,
+      WorkerMessageManagerFactory workerMessageManagerFactory,
+      IndexerMessageManagerFactory indexerMessageManagerFactory,
+      PublisherMessageManagerFactory publisherMessageManagerFactory,
+      boolean startWorkerAndIndexer,
+      boolean bypassIndexer) throws Exception {
     String pipelineName = connector.getPipelineName();
     WorkerPool workerPool = null;
     Indexer indexer = null;
@@ -391,12 +391,19 @@ public class Runner {
           return new ConnectorResult(connector, publisher, false, "Error starting workers for pipeline " + pipelineName);
         }
 
-        IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
-        indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassIndexer, metricsPrefix);
+        try {
+          IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
+          indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassIndexer, metricsPrefix);
+        } catch (Exception e) {
+          log.error("Error creating indexer from config.", e);
+          return new ConnectorResult(connector, publisher, false, "Error creating indexer from config.");
+        }
 
         if (!indexer.validateConnection()) {
           String msg = "Indexer could not connect.";
           log.error(msg);
+          // clean up indexer lifecycle which was created but never run in a thread.
+          indexer.closeConnection();
           return new ConnectorResult(connector, publisher, false, msg);
         }
 
@@ -407,7 +414,7 @@ public class Runner {
       if (connector.getPipelineName() != null) {
         PublisherMessageManager publisherMessageManager = publisherMessageManagerFactory.create();
         publisher = new PublisherImpl(config, publisherMessageManager, runId,
-          connector.getPipelineName(), metricsPrefix, connector.requiresCollapsingPublisher());
+            connector.getPipelineName(), metricsPrefix, connector.requiresCollapsingPublisher());
       }
 
       return runConnector(config, runId, connector, publisher);
@@ -427,8 +434,8 @@ public class Runner {
   private static Slf4jReporter.LoggingLevel getMetricsLoggingLevel(Config config) {
     try {
       return config.hasPath("runner.metricsLoggingLevel") ?
-        Slf4jReporter.LoggingLevel.valueOf(config.getString("runner.metricsLoggingLevel")) :
-        Slf4jReporter.LoggingLevel.DEBUG;
+          Slf4jReporter.LoggingLevel.valueOf(config.getString("runner.metricsLoggingLevel")) :
+          Slf4jReporter.LoggingLevel.DEBUG;
     } catch (Exception e) {
       log.error("Error obtaining metrics logging level", e);
     }

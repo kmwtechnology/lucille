@@ -14,7 +14,7 @@ public class ErrorStage extends Stage {
 
   public ErrorStage(Config config) {
     super(config);
-    if (config.hasPath("exceptionOnStart")&&config.getBoolean("exceptionOnStart")) {
+    if (config.hasPath("exceptionOnStart") && config.getBoolean("exceptionOnStart")) {
       this.exceptionOnStart = true;
     }
   }

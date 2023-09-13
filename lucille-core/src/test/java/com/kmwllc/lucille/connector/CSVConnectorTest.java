@@ -164,6 +164,7 @@ public class CSVConnectorTest {
       successDir.delete();
     }
   }
+
   @Test
   public void testSemicolonSeparator() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/semicolons.conf"));

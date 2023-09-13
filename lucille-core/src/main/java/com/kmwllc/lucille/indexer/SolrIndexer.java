@@ -10,9 +10,7 @@ import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
-import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
-import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
@@ -21,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +38,10 @@ public class SolrIndexer extends Indexer {
 
   public SolrIndexer(
       Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
-    this(config, manager, getSolrClient(config, bypass), metricsPrefix);
+    super(config, manager, metricsPrefix);
+    // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
+    // to avoid problems where a client is created with no way to close it.
+    this.solrClient = getSolrClient(config, bypass);
   }
 
   private static SolrClient getSolrClient(Config config, boolean bypass) {
@@ -51,44 +53,27 @@ public class SolrIndexer extends Indexer {
     if (solrClient == null) {
       return true;
     }
-    if (solrClient instanceof CloudSolrClient
-        && ((CloudSolrClient) solrClient).getDefaultCollection() == null) {
-      // If we are indexing to multiple collections with the CloudSolrClient and the default
-      // collection is not set then
-      // we can't use ping. Instead, verify that we can connect to the cluster.
-      NamedList response;
-      try {
-        response = solrClient.request(new CollectionAdminRequest.ClusterStatus());
-      } catch (Exception e) {
-        log.error("Couldn't ping Solr ", e);
-        return false;
-      }
-      if (response == null) {
-        log.error("Null response when pinging solr");
-        return false;
-      }
-      Integer status = (Integer) ((SimpleOrderedMap) response.get("responseHeader")).get("status");
-      if (status != 0) {
-        log.error("Non zero response when pinging solr: " + status);
-        return false;
-      }
-      return true;
-    }
-    SolrPingResponse response;
+    // If we are indexing to multiple collections with the CloudSolrClient and the default
+    // collection is not set then
+    // we can't use ping. Instead, verify that we can connect to the cluster.
+    NamedList response;
     try {
-      response = solrClient.ping();
+      log.debug("Validating SolrIndexer connection by checking cluster status.");
+      response = solrClient.request(new CollectionAdminRequest.ClusterStatus());
     } catch (Exception e) {
-      log.error("Couldn't ping Solr ", e);
+      log.error("Couldn't check solr cluster status.", e);
       return false;
     }
     if (response == null) {
-      log.error("Null response when pinging solr");
+      log.error("Null response when checking solr cluster status.");
       return false;
     }
-    if (response.getStatus() != 0) {
-      log.error("Non zero response when pinging solr: " + response.getStatus());
+    Integer status = (Integer) ((SimpleOrderedMap) response.get("responseHeader")).get("status");
+    if (status != 0) {
+      log.error("Non zero response when checking solr cluster status: " + status);
       return false;
     }
+    log.debug("SolrIndexer connection successfully validated: {}", response);
     return true;
   }
 
@@ -128,7 +113,7 @@ public class SolrIndexer extends Indexer {
         solrDocRequestsByCollection.put(collection, new SolrDocRequests());
       }
       SolrDocRequests solrDocRequests = solrDocRequestsByCollection.get(collection);
-      String solrId = collection != null ? collection : doc.getId();
+      String solrId = idOverride != null ? idOverride : doc.getId();
 
       if (isDeletion(doc)) {
 
@@ -136,12 +121,24 @@ public class SolrIndexer extends Indexer {
         // immediately so the add/update
         // of the document is processed before this delete.
 
-        if (solrDocRequests.containsIdForAddUpdate(solrId)) {
+        if (solrDocRequests.containsIdForAddUpdate(solrId)
+            || (deleteByFieldField != null
+                && doc.has(deleteByFieldField)
+                && deleteByFieldValue != null
+                && doc.has(deleteByFieldValue))) {
           sendAddUpdateBatch(collection, solrDocRequests.getAddUpdateDocs());
           solrDocRequests.resetAddUpdates();
         }
 
-        solrDocRequests.addIdForDeletion(solrId);
+        if (deleteByFieldField != null
+            && doc.has(deleteByFieldField)
+            && deleteByFieldValue != null
+            && doc.has(deleteByFieldValue)) {
+          solrDocRequests.addDeleteByFieldValue(
+              doc.getString(deleteByFieldField), doc.getString(deleteByFieldValue));
+        } else {
+          solrDocRequests.addIdForDeletion(solrId);
+        }
 
       } else {
         SolrInputDocument solrDoc = toSolrDoc(doc, idOverride, collection);
@@ -150,8 +147,9 @@ public class SolrIndexer extends Indexer {
         // the delete is
         // processed before this document.
 
-        if (solrDocRequests.containsIdForDeletion(solrId)) {
-          sendDeletionBatch(collection, solrDocRequests.getDeleteIds());
+        if (solrDocRequests.containsIdForDeletion(solrId)
+            || solrDocRequests.containsAnyDeleteByField()) {
+          sendDeletionBatch(collection, solrDocRequests);
           solrDocRequests.resetDeletes();
         }
         solrDocRequests.addDocForAddUpdate(solrDoc);
@@ -160,7 +158,7 @@ public class SolrIndexer extends Indexer {
     for (String collection : solrDocRequestsByCollection.keySet()) {
       sendAddUpdateBatch(
           collection, solrDocRequestsByCollection.get(collection).getAddUpdateDocs());
-      sendDeletionBatch(collection, solrDocRequestsByCollection.get(collection).getDeleteIds());
+      sendDeletionBatch(collection, solrDocRequestsByCollection.get(collection));
     }
   }
 
@@ -176,13 +174,46 @@ public class SolrIndexer extends Indexer {
     }
   }
 
-  private void sendDeletionBatch(String collection, List<String> deletionIds)
+  private void sendDeletionBatch(String collection, SolrDocRequests requests)
       throws SolrServerException, IOException {
-    if (deletionIds.isEmpty()) {
+    if (requests.getDeleteIds().isEmpty() && requests.getValuesToDeleteByField().isEmpty()) {
       return;
     }
-    if (collection == null) {
-      solrClient.deleteById(deletionIds);
+
+    if (requests.getValuesToDeleteByField().isEmpty()) {
+      // All of the deletes are by ID. Simply delete by ID.
+      List<String> deletionIds = requests.getDeleteIds();
+      if (collection == null) {
+        solrClient.deleteById(deletionIds);
+      } else {
+        solrClient.deleteById(collection, deletionIds);
+      }
+    } else {
+      // At least some of the deletes are by field. Perform the deletes with a single request using
+      // terms queries.
+      List<String> termsQueries = new ArrayList<>();
+      if (!requests.getDeleteIds().isEmpty()) {
+        termsQueries.add(
+            String.format("(+{!terms f='id' v='%s'})", String.join(",", requests.getDeleteIds())));
+      }
+
+      requests
+          .getValuesToDeleteByField()
+          .entrySet()
+          .forEach(
+              entry ->
+                  termsQueries.add(
+                      String.format(
+                          "(+{!terms f='%s' v='%s'})",
+                          entry.getKey(), String.join(",", entry.getValue()))));
+
+      String queryToDelete = String.join(" OR ", termsQueries);
+
+      if (collection == null) {
+        solrClient.deleteByQuery(queryToDelete);
+      } else {
+        solrClient.deleteByQuery(collection, queryToDelete);
+      }
     }
   }
 

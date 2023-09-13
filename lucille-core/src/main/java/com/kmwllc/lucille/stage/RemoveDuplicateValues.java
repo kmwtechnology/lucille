@@ -28,8 +28,9 @@ public class RemoveDuplicateValues extends Stage {
 
   @Override
   public void start() throws StageException {
-    if (fieldMapping.size() == 0)
+    if (fieldMapping.size() == 0) {
       throw new StageException("Must supply at least one field to remove duplicate values from.");
+    }
   }
 
   @Override

@@ -32,10 +32,11 @@ public class ElasticsearchIndexer extends Indexer {
   private final String routingField;
 
   public ElasticsearchIndexer(Config config, IndexerMessageManager manager, ElasticsearchClient client,
-                              String metricsPrefix) {
+      String metricsPrefix) {
     super(config, manager, metricsPrefix);
     if (this.indexOverrideField != null) {
-      throw new IllegalArgumentException("Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
+      throw new IllegalArgumentException(
+          "Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
     }
     this.client = client;
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
@@ -75,14 +76,14 @@ public class ElasticsearchIndexer extends Indexer {
   @Override
   protected void sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
-    if (client == null) return;
+    if (client == null) {
+      return;
+    }
 
     BulkRequest.Builder br = new BulkRequest.Builder();
 
-
     for (Document doc : documents) {
       Map<String, Object> indexerDoc = doc.asMap();
-
 
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
       indexerDoc.remove(Document.CHILDREN_FIELD);
@@ -99,24 +100,22 @@ public class ElasticsearchIndexer extends Indexer {
 
       if (update) {
         br.operations(op -> op
-          .update(up -> up
-            .id(docId)
-            .index(index)
-            .routing(routing)
-            .action(upx -> upx
-              .doc(indexerDoc)
-            )));
+            .update(up -> up
+                .id(docId)
+                .index(index)
+                .routing(routing)
+                .action(upx -> upx
+                    .doc(indexerDoc)
+                )));
       } else {
         br.operations(op -> op
-          .index(idx -> idx
-            .id(docId)
-            .index(index)
-            .routing(routing)
-            .document(indexerDoc)
-          ));
+            .index(idx -> idx
+                .id(docId)
+                .index(index)
+                .routing(routing)
+                .document(indexerDoc)
+            ));
       }
-
-
     }
     client.bulk(br.build());
   }

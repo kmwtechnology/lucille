@@ -12,7 +12,7 @@ import java.util.List;
  * Intended for use in a testing context.
  */
 public class PersistingLocalMessageManager implements IndexerMessageManager, PublisherMessageManager,
-  WorkerMessageManager {
+    WorkerMessageManager {
 
   private final LocalMessageManager manager;
 

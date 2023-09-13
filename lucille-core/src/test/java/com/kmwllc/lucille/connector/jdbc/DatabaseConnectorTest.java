@@ -79,7 +79,6 @@ public class DatabaseConnectorTest {
     assertEquals("Matt", docsSentForProcessing.get(0).getStringList("name").get(0));
     assertEquals("Human", docsSentForProcessing.get(0).getStringList("type").get(0));
 
-
     assertEquals("2", docsSentForProcessing.get(1).getId());
     assertEquals("Sonny", docsSentForProcessing.get(1).getStringList("name").get(0));
     assertEquals("Cat", docsSentForProcessing.get(1).getStringList("type").get(0));
@@ -90,7 +89,6 @@ public class DatabaseConnectorTest {
 
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
-
   }
 
   @Test
@@ -172,7 +170,6 @@ public class DatabaseConnectorTest {
 
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
-
   }
 
   // TODO: not implemented yet.

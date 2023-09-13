@@ -29,6 +29,7 @@ import java.util.Map;
  * </ul>
  */
 public class XPathExtractor extends Stage {
+
   protected Map<String, Object> xpaths;
   private DocumentBuilder builder;
   private DocumentBuilderFactory factory;
@@ -44,7 +45,7 @@ public class XPathExtractor extends Stage {
    */
   public XPathExtractor(Config config) {
     super(config, new StageSpec().withOptionalProperties("xmlField")
-      .withRequiredParents("fieldMapping"));
+        .withRequiredParents("fieldMapping"));
     xpaths = config.getConfig("fieldMapping").root().unwrapped();
     factory = DocumentBuilderFactory.newInstance();
     XPathFactory xpathFactory = XPathFactory.newInstance();

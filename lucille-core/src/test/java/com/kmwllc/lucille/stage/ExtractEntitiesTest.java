@@ -37,7 +37,7 @@ public class ExtractEntitiesTest {
     assertEquals("Country names from input2 should be extracted to output", "Canada", tokens.get(2));
     assertEquals("Country names from input3 should be extracted to output", "Russia", tokens.get(3));
   }
-  
+
   @Test
   public void testExtractEntitiesAndPayloads() throws Exception {
     Document doc = Document.create("doc");

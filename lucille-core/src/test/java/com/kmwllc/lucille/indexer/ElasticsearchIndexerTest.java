@@ -30,6 +30,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 public class ElasticsearchIndexerTest {
+
   private ElasticsearchClient mockClient;
 
   @Before
@@ -162,7 +163,6 @@ public class ElasticsearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
     manager.sendCompleted(doc);
     indexer.run(1);
@@ -282,7 +282,7 @@ public class ElasticsearchIndexerTest {
   private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
 
     public ErroringElasticsearchIndexer(Config config, IndexerMessageManager manager,
-                                        ElasticsearchClient client, String metricsPrefix) {
+        ElasticsearchClient client, String metricsPrefix) {
       super(config, manager, client, "testing");
     }
 
