@@ -74,8 +74,8 @@ public class KafkaUtils {
   public static KafkaConsumer<String, KafkaDocument> createDocumentConsumer(Config config, String clientId) {
     Properties consumerProps = createConsumerProps(config, clientId);
     String deserializerClass = config.hasPath("kafka.documentDeserializer")
-      ? config.getString("kafka.documentDeserializer")
-      : KafkaDocumentDeserializer.class.getName();
+        ? config.getString("kafka.documentDeserializer")
+        : KafkaDocumentDeserializer.class.getName();
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializerClass);
     return new KafkaConsumer<>(consumerProps);
   }
@@ -105,8 +105,8 @@ public class KafkaUtils {
   public static KafkaProducer<String, Document> createDocumentProducer(Config config) {
     Properties producerProps = createProducerProps(config);
     String serializerClass = config.hasPath("kafka.documentSerializer")
-      ? config.getString("kafka.documentSerializer")
-      : KafkaDocumentSerializer.class.getName();
+        ? config.getString("kafka.documentSerializer")
+        : KafkaDocumentSerializer.class.getName();
     producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, serializerClass);
     return new KafkaProducer<>(producerProps);
   }
@@ -126,8 +126,8 @@ public class KafkaUtils {
 
   public static String getSourceTopicName(String pipelineName, Config config) {
     return config.hasPath("kafka.sourceTopic")
-      ? config.getString("kafka.sourceTopic")
-      : pipelineName + "_source";
+        ? config.getString("kafka.sourceTopic")
+        : pipelineName + "_source";
   }
 
   public static String getDestTopicName(String pipelineName) {
@@ -144,7 +144,8 @@ public class KafkaUtils {
     }
   }
 
-  public static void createEventTopic(Config config, String pipelineName, String runId) throws ExecutionException, InterruptedException {
+  public static void createEventTopic(Config config, String pipelineName, String runId)
+      throws ExecutionException, InterruptedException {
     String eventTopicName = KafkaUtils.getEventTopicName(pipelineName, runId);
 
     // create the event topic explicitly so we can guarantee that it will have 1 partition

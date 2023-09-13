@@ -35,10 +35,10 @@ public class QueryDatabase extends Stage {
 
   public QueryDatabase(Config config) {
     super(config, new StageSpec()
-      .withOptionalProperties("sql")
-      .withRequiredParents("fieldMapping")
-      .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword",
-        "keyFields", "inputTypes", "returnTypes"));
+        .withOptionalProperties("sql")
+        .withRequiredParents("fieldMapping")
+        .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword",
+            "keyFields", "inputTypes", "returnTypes"));
 
     driver = config.getString("driver");
     connectionString = config.getString("connectionString");

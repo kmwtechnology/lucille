@@ -64,8 +64,8 @@ public class ExtractEntities extends Stage {
 
   public ExtractEntities(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "dictionaries")
-      .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
-        "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field"));
+        .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
+            "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field"));
 
     // For the optional settings, we check if the config has this setting and then what the value is.
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
@@ -94,7 +94,7 @@ public class ExtractEntities extends Stage {
   /**
    * Generate a Trie to perform dictionary based entity extraction with
    *
-   * @return  a PayloadTrie capable of finding matches for its dictionary values
+   * @return a PayloadTrie capable of finding matches for its dictionary values
    */
   private PayloadTrie<String> buildTrie() throws StageException {
     PayloadTrie.PayloadTrieBuilder<String> trieBuilder = PayloadTrie.builder();
@@ -128,8 +128,9 @@ public class ExtractEntities extends Stage {
         String[] line;
         boolean ignore = false;
         while ((line = reader.readNext()) != null) {
-          if (line.length == 0)
+          if (line.length == 0) {
             continue;
+          }
 
           for (String term : line) {
             if (term.contains("\uFFFD")) {
@@ -168,8 +169,9 @@ public class ExtractEntities extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField))
+      if (!doc.has(sourceField)) {
         continue;
+      }
 
       // Parse the matches and then convert the PayloadEmits into a List of Strings, representing the payloads for
       // each match which occurred in the input string.
@@ -186,11 +188,12 @@ public class ExtractEntities extends Stage {
       } else {
         payloads = results.stream().map(PayloadEmit::getKeyword).collect(Collectors.toList());
       }
-      if (payloads.isEmpty())
+      if (payloads.isEmpty()) {
         continue;
+      }
 
       doc.update(destField, updateMode, payloads.toArray(new String[0]));
-      
+
       if (entityField != null && usePayloads) {
         payloads = results.stream().map(PayloadEmit::getKeyword).collect(Collectors.toList());
         if (payloads.isEmpty()) {

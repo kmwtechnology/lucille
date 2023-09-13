@@ -47,8 +47,8 @@ public class SolrUtils {
       return cloudSolrClient;
     } else {
       return requiresAuth(config) ?
-        new HttpSolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build() :
-        new HttpSolrClient.Builder(getSolrUrl(config)).build();
+          new HttpSolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build() :
+          new HttpSolrClient.Builder(getSolrUrl(config)).build();
     }
   }
 

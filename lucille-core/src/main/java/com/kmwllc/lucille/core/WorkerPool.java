@@ -37,11 +37,11 @@ public class WorkerPool {
     this.workerMessageManagerFactory = factory;
     this.metricsPrefix = metricsPrefix;
     try {
-       this.numWorkers = Pipeline.getIntProperty(config, pipelineName, "threads");
+      this.numWorkers = Pipeline.getIntProperty(config, pipelineName, "threads");
     } catch (PipelineException e) {
       log.error("Error reading pipeline config", e);
     }
-    if (this.numWorkers==null) {
+    if (this.numWorkers == null) {
       this.numWorkers = config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
     }
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
@@ -53,7 +53,7 @@ public class WorkerPool {
     }
     started = true;
     log.info("Starting " + numWorkers + " worker threads for pipeline " + pipelineName);
-    for (int i=0; i<numWorkers; i++) {
+    for (int i = 0; i < numWorkers; i++) {
       WorkerMessageManager manager = workerMessageManagerFactory.create();
       threads.add(Worker.startThread(config, manager, pipelineName, metricsPrefix));
     }
@@ -61,12 +61,13 @@ public class WorkerPool {
     logTimer.schedule(new TimerTask() {
       private final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
       private final com.codahale.metrics.Timer timer = metrics.timer(metricsPrefix + Worker.METRICS_SUFFIX);
+
       @Override
       public void run() {
         log.info(String.format("%d docs processed. One minute rate: %.2f docs/sec. Mean pipeline latency: %.2f ms/doc.",
-          timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean()/1000000));
+            timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000));
       }
-    }, logSeconds*1000, logSeconds*1000);
+    }, logSeconds * 1000, logSeconds * 1000);
 
   }
 
@@ -80,7 +81,7 @@ public class WorkerPool {
     // the output should be the same for any thread;
     // all threads get their metrics via a shared registry using the same naming scheme,
     // so the metrics are collected across all the threads
-    if (threads.size()>0) {
+    if (threads.size() > 0) {
       threads.get(0).logMetrics();
     }
   }

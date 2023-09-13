@@ -52,17 +52,22 @@ public class SolrConnector extends AbstractConnector {
   private final String actionFormat;
 
   public SolrConnector(Config config) {
+    this(config, SolrUtils.getSolrClient(config));
+  }
+
+  public SolrConnector(Config config, SolrClient client) {
     super(config);
+    this.client = client;
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
     this.actionFormat = config.hasPath("useXml") && config.getBoolean("useXml") ? "text/xml" : "text/json";
-    this.client = SolrUtils.getSolrClient(config);
 
     this.request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
     this.solrParams = new HashMap<>();
 
     // These parameters should only be set when a pipeline is also supplied
-    Set<Map.Entry<String, ConfigValue>> paramSet = config.hasPath("pipeline") ? config.getConfig("solrParams").entrySet() : new HashSet<>();
+    Set<Map.Entry<String, ConfigValue>> paramSet =
+        config.hasPath("pipeline") ? config.getConfig("solrParams").entrySet() : new HashSet<>();
     this.idField = config.hasPath("pipeline") ? config.getString("idField") : Document.ID_FIELD;
     this.replacedPreActions = new ArrayList<>();
     this.replacedPostActions = new ArrayList<>();
@@ -77,17 +82,13 @@ public class SolrConnector extends AbstractConnector {
         this.solrParams.put(e.getKey(), Collections.singletonList(String.valueOf(rawValues)));
       }
     }
-  }
 
-  public SolrConnector(Config config, SolrClient client) {
-    this(config);
-    this.client = client;
   }
 
   @Override
   public void preExecute(String runId) throws ConnectorException {
     replacedPreActions =
-      preActions.stream().map(x->x.replaceAll("\\{runId\\}", runId)).collect(Collectors.toList());
+        preActions.stream().map(x -> x.replaceAll("\\{runId\\}", runId)).collect(Collectors.toList());
     executeActions(replacedPreActions);
   }
 
@@ -103,7 +104,7 @@ public class SolrConnector extends AbstractConnector {
       String[] vals = e.getValue().toArray(new String[0]);
       q.add(e.getKey(), vals);
     }
-    q.add("sort",  idField + " asc");
+    q.add("sort", idField + " asc");
     q.set("cursorMark", "\\*");
 
     QueryResponse resp;
@@ -152,7 +153,7 @@ public class SolrConnector extends AbstractConnector {
   @Override
   public void postExecute(String runId) throws ConnectorException {
     replacedPostActions =
-      postActions.stream().map(x->x.replaceAll("\\{runId\\}", runId)).collect(Collectors.toList());
+        postActions.stream().map(x -> x.replaceAll("\\{runId\\}", runId)).collect(Collectors.toList());
     executeActions(replacedPostActions);
   }
 

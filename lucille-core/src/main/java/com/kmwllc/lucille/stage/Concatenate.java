@@ -36,9 +36,9 @@ public class Concatenate extends Stage {
 
   public Concatenate(Config config) {
     super(config, new StageSpec()
-      .withRequiredProperties("dest", "format_string")
-      .withOptionalProperties("update_mode")
-      .withOptionalParents("default_inputs"));
+        .withRequiredProperties("dest", "format_string")
+        .withOptionalProperties("update_mode")
+        .withOptionalParents("default_inputs"));
 
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");
@@ -52,7 +52,7 @@ public class Concatenate extends Stage {
   @Override
   public void start() throws StageException {
     Scanner scan = new Scanner(formatStr);
-    for (String s; (s = scan.findWithinHorizon("(?<=\\{).*?(?=})", 0)) != null;) {
+    for (String s; (s = scan.findWithinHorizon("(?<=\\{).*?(?=})", 0)) != null; ) {
       fields.add(s);
     }
   }
@@ -72,7 +72,6 @@ public class Concatenate extends Stage {
       } else {
         value = doc.getStringList(source).get(0);
       }
-
 
       // For each source field, add the field name and first value to our replacement map
       replacements.put(source, value);

@@ -23,7 +23,8 @@ public class ParseFloats extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
     if (doc.has(field)) {
       String value = doc.getString(this.field);
-      List<Float> floats = Arrays.stream(value.replaceAll("\\[", "").replaceAll("\\]", "").replaceAll(",", "").split(" ")).map(v -> Float.parseFloat(v)).collect(Collectors.toList());
+      List<Float> floats = Arrays.stream(value.replaceAll("\\[", "").replaceAll("\\]", "").replaceAll(",", "").split(" "))
+          .map(v -> Float.parseFloat(v)).collect(Collectors.toList());
       doc.removeField(this.field);
       for (Float d : floats) {
         doc.addToField(this.field, d);

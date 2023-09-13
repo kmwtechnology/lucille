@@ -48,6 +48,11 @@
         <artifactId>lucille-parquet</artifactId>
         <version>${project.version}</version>
       </dependency>
+      <dependency>
+        <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-tika</artifactId>
+        <version>${project.version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 </project>

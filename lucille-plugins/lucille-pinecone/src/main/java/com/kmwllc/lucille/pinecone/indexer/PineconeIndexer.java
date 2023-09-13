@@ -42,10 +42,10 @@ public class PineconeIndexer extends Indexer {
     this.metadataFields = new HashSet<>(config.getStringList("pinecone.metadataFields"));
     this.mode = config.hasPath("pinecone.mode") ? config.getString("pinecone.mode") : "upsert";
     PineconeClientConfig configuration = new PineconeClientConfig()
-      .withApiKey(config.getString("pinecone.apiKey"))
-      .withEnvironment(config.getString("pinecone.environment"))
-      .withProjectName(config.getString("pinecone.projectName"))
-      .withServerSideTimeoutSec(config.getInt("pinecone.timeout"));
+        .withApiKey(config.getString("pinecone.apiKey"))
+        .withEnvironment(config.getString("pinecone.environment"))
+        .withProjectName(config.getString("pinecone.projectName"))
+        .withServerSideTimeoutSec(config.getInt("pinecone.timeout"));
     this.client = new PineconeClient(configuration);
   }
 
@@ -68,31 +68,32 @@ public class PineconeIndexer extends Indexer {
     for (int i = 0; i < namespaces.size(); i++) {
       final int index = i;
       List<Vector> upsertVectors = documents.stream()
-        .map(doc -> Vector.newBuilder()
-          .addAllValues(doc.getFloatList(this.embeddingFields.get(index)))
-          .setMetadata(Struct.newBuilder().putAllFields(doc.asMap().entrySet().stream()
-              .filter(entry -> metadataFields.contains(entry.getKey()))
-              .collect(Collectors.toUnmodifiableMap(entry -> entry.getKey(), entry -> Value.newBuilder().setStringValue(entry.getValue().toString()).build())))
-            .build())
-          .setId(doc.getId())
-          .build())
-        .collect(Collectors.toList());
+          .map(doc -> Vector.newBuilder()
+              .addAllValues(doc.getFloatList(this.embeddingFields.get(index)))
+              .setMetadata(Struct.newBuilder().putAllFields(doc.asMap().entrySet().stream()
+                      .filter(entry -> metadataFields.contains(entry.getKey()))
+                      .collect(Collectors.toUnmodifiableMap(entry -> entry.getKey(),
+                          entry -> Value.newBuilder().setStringValue(entry.getValue().toString()).build())))
+                  .build())
+              .setId(doc.getId())
+              .build())
+          .collect(Collectors.toList());
 
       if (mode.equalsIgnoreCase("upsert")) {
         UpsertRequest request = UpsertRequest.newBuilder()
-          .addAllVectors(upsertVectors)
-          .setNamespace(this.namespaces.get(i))
-          .build();
+            .addAllVectors(upsertVectors)
+            .setNamespace(this.namespaces.get(i))
+            .build();
         connection.getBlockingStub().upsert(request);
       }
 
       if (mode.equalsIgnoreCase("update")) {
         documents.forEach(doc -> {
           UpdateRequest request = UpdateRequest.newBuilder()
-            .addAllValues(doc.getFloatList(this.embeddingFields.get(index)))
-            .setId(doc.getId())
-            .setNamespace(this.namespaces.get(index))
-            .build();
+              .addAllValues(doc.getFloatList(this.embeddingFields.get(index)))
+              .setId(doc.getId())
+              .setNamespace(this.namespaces.get(index))
+              .build();
           connection.getBlockingStub().update(request);
         });
 

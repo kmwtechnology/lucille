@@ -30,7 +30,8 @@ public abstract class DocumentTest {
     return createDocumentFromJson(json, null);
   }
 
-  public abstract Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException;
+  public abstract Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater)
+      throws DocumentException, JsonProcessingException;
 
   @Test(expected = NullPointerException.class)
   public void testCreateWithoutId1() {
@@ -100,14 +101,14 @@ public abstract class DocumentTest {
   @Test
   public void testIsMultiValued() throws DocumentException, JsonProcessingException {
     Document document =
-      createDocumentFromJson(
-        ""
-          + "{\"id\":\"123\", "
-          + "\"null\":null,"
-          + "\"single\":\"val1\", "
-          + "\"empty_arr\":[],"
-          + "\"arr1\":[\"val1\"],"
-          + "\"arr2\":[\"val1\", \"val2\"]}");
+        createDocumentFromJson(
+            ""
+                + "{\"id\":\"123\", "
+                + "\"null\":null,"
+                + "\"single\":\"val1\", "
+                + "\"empty_arr\":[],"
+                + "\"arr1\":[\"val1\"],"
+                + "\"arr2\":[\"val1\", \"val2\"]}");
 
     assertFalse(document.isMultiValued("id"));
     assertFalse(document.isMultiValued("null"));
@@ -1185,7 +1186,7 @@ public abstract class DocumentTest {
     public void testGetNullFieldExceptions() throws DocumentException, JsonProcessingException {
 
       Document document =
-        createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
+          createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
 
       List<Object> nullList = new ArrayList<>();
       nullList.add(null);
@@ -1264,7 +1265,7 @@ public abstract class DocumentTest {
 
   @Test
   public void testGetBytesSingleValued() {
-    byte[] value = new byte[]{ 0x3c, 0x4c, 0x5c };
+    byte[] value = new byte[]{0x3c, 0x4c, 0x5c};
     Document document = createDocument("doc");
     document.setField("bytes", value);
     assertFalse(document.isMultiValued("bytes"));
@@ -1281,9 +1282,9 @@ public abstract class DocumentTest {
 
   @Test
   public void testGetBytesListMultiValued() throws Exception {
-    byte[] value1 = new byte[]{ 0x3c, 0x4c, 0x5c };
-    byte[] value2 = new byte[]{ 0x4c, 0x4c, 0x5c };
-    byte[] value3 = new byte[]{ 0x5c, 0x4c, 0x5c };
+    byte[] value1 = new byte[]{0x3c, 0x4c, 0x5c};
+    byte[] value2 = new byte[]{0x4c, 0x4c, 0x5c};
+    byte[] value3 = new byte[]{0x5c, 0x4c, 0x5c};
     Document document = createDocument("doc");
     document.setField("bytes", value1);
     assertFalse(document.isMultiValued("bytes"));
@@ -1295,8 +1296,8 @@ public abstract class DocumentTest {
 
   @Test
   public void testGetBytesMultivalued() {
-    byte[] value1 = new byte[]{ 0x3c, 0x4c, 0x5c };
-    byte[] value2 = new byte[]{ 0x4c, 0x4c, 0x5c };
+    byte[] value1 = new byte[]{0x3c, 0x4c, 0x5c};
+    byte[] value2 = new byte[]{0x4c, 0x4c, 0x5c};
     Document document = createDocument("doc");
     document.addToField("field1", value1);
     document.addToField("field1", value2);

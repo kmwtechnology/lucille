@@ -53,8 +53,8 @@ public class DetectLanguage extends Stage {
 
   public DetectLanguage(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "language_field")
-      .withOptionalProperties("language_confidence_field", "min_length", "max_length",
-        "min_probability", "update_mode"));
+        .withOptionalProperties("language_confidence_field", "min_length", "max_length",
+            "min_probability", "update_mode"));
 
     this.sourceFields = config.getStringList("source");
     this.languageField = config.getString("language_field");
@@ -76,7 +76,8 @@ public class DetectLanguage extends Stage {
       // Copy the profiles from the classpath resources to the local file system.
       try {
         for (String profile : profiles) {
-          InputStream profileStream = DetectLanguage.class.getClassLoader().getResourceAsStream(profileResourcesLoc + "/" + profile);
+          InputStream profileStream = DetectLanguage.class.getClassLoader()
+              .getResourceAsStream(profileResourcesLoc + "/" + profile);
           File profFile = new File(profilesPath + "/" + profile);
           Files.copy(
               profileStream,
@@ -85,7 +86,7 @@ public class DetectLanguage extends Stage {
           profileStream.close();
         }
       } catch (Exception e) {
-        throw new StageException("Unable to copy profiles from resources to local file system." ,e);
+        throw new StageException("Unable to copy profiles from resources to local file system.", e);
       }
     }
   }
@@ -107,7 +108,7 @@ public class DetectLanguage extends Stage {
     try {
       DetectorFactory.loadProfile(profileDir);
     } catch (Exception e) {
-      throw new StageException("Unable to load language profiles" ,e);
+      throw new StageException("Unable to load language profiles", e);
     }
   }
 
@@ -117,25 +118,28 @@ public class DetectLanguage extends Stage {
       detector = DetectorFactory.create();
       detector.setMaxTextLength(maxLength);
     } catch (Exception e) {
-      throw new StageException("Unable to create new Language Detector" ,e);
+      throw new StageException("Unable to create new Language Detector", e);
     }
 
     StringBuilder builder = new StringBuilder();
     for (String source : sourceFields) {
 
-      if (!doc.has(source))
+      if (!doc.has(source)) {
         continue;
+      }
 
       for (String value : doc.getStringList(source)) {
         builder.append(value);
 
-        if (builder.length() > maxLength)
+        if (builder.length() > maxLength) {
           break;
+        }
       }
     }
 
-    if (builder.length() < minLength)
+    if (builder.length() < minLength) {
       return null;
+    }
 
     try {
       detector.append(builder.substring(0, Math.min(builder.length(), maxLength)));

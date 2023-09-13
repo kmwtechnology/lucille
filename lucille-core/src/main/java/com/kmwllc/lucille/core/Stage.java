@@ -104,15 +104,16 @@ public abstract class Stage {
   public void start() throws StageException {
   }
 
-  public void stop() throws StageException {}
+  public void stop() throws StageException {
+  }
 
   public void logMetrics() {
-    if (timer==null || childCounter==null || errorCounter==null) {
+    if (timer == null || childCounter == null || errorCounter == null) {
       LoggerFactory.getLogger(Stage.class).error("Metrics not initialized");
     } else {
       LoggerFactory.getLogger(Stage.class).info(
-        String.format("Stage %s metrics. Docs processed: %d. Mean latency: %.4f ms/doc. Children: %d. Errors: %d.",
-          name, timer.getCount(), timer.getSnapshot().getMean() / 1000000, childCounter.getCount(), errorCounter.getCount()));
+          String.format("Stage %s metrics. Docs processed: %d. Mean latency: %.4f ms/doc. Children: %d. Errors: %d.",
+              name, timer.getCount(), timer.getSnapshot().getMean() / 1000000, childCounter.getCount(), errorCounter.getCount()));
     }
   }
 
@@ -123,7 +124,7 @@ public abstract class Stage {
    * values were found in the fields.
    *
    * @param doc the doc to determine processing for
-   * @return  boolean representing - should we process this doc according to its conditionals?
+   * @return boolean representing - should we process this doc according to its conditionals?
    */
   public boolean shouldProcess(Document doc) {
     if (doc.isDropped()) {
@@ -136,12 +137,12 @@ public abstract class Stage {
    * Process this Document iff it adheres to our conditional requirements.
    *
    * @param doc the Document
-   * @return  a list of child documents resulting from this Stages processing
+   * @return a list of child documents resulting from this Stages processing
    * @throws StageException
    */
   public Iterator<Document> processConditional(Document doc) throws StageException {
     if (shouldProcess(doc)) {
-      if (timer!=null) {
+      if (timer != null) {
         context = timer.time();
       }
       try {
@@ -213,7 +214,6 @@ public abstract class Stage {
       }
     };
 
-
     return new IteratorChain(wrappedChildren, parent);
   }
 
@@ -228,7 +228,7 @@ public abstract class Stage {
 
       @Override
       public boolean hasNext() {
-        return (current !=null && current.hasNext()) || docs.hasNext();
+        return (current != null && current.hasNext()) || docs.hasNext();
       }
 
       @Override
@@ -277,14 +277,14 @@ public abstract class Stage {
    */
   private String getDisplayName() {
     return this.getClass().getName() +
-      ((this.getName()==null) ? "" : " (" + this.getName() + ")");
+        ((this.getName() == null) ? "" : " (" + this.getName() + ")");
   }
 
   /**
    * Initialize metrics and set the Stage's name based on the position if the name has not already been set.
    */
   public void initialize(int position, String metricsPrefix) throws StageException {
-    if (name==null) {
+    if (name == null) {
       this.name = "stage_" + position;
     }
 
@@ -304,7 +304,7 @@ public abstract class Stage {
       validateConfig(config, requiredProperties, optionalProperties, requiredParents, optionalParents);
 
       // validate conditions
-      if (config.hasPath("conditions"))  {
+      if (config.hasPath("conditions")) {
         for (Config condition : config.getConfigList("conditions")) {
           validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_SET, EMPTY_SET);
         }
@@ -316,21 +316,21 @@ public abstract class Stage {
 
   // this can be used in a specific stage to validate nested properties
   protected void validateConfig(
-    Config config, Set<String> requiredProperties, Set<String> optionalProperties,
-    Set<String> requiredParents, Set<String> optionalParents) {
+      Config config, Set<String> requiredProperties, Set<String> optionalProperties,
+      Set<String> requiredParents, Set<String> optionalParents) {
 
     // verifies that set intersection is empty
     if (!disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
       throw new IllegalArgumentException(getDisplayName()
-        + ": Properties and parents sets must be disjoint.");
+          + ": Properties and parents sets must be disjoint.");
     }
 
     // verifies all required properties are present
     Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
-    for (String property: requiredProperties) {
+    for (String property : requiredProperties) {
       if (!keys.contains(property)) {
         throw new IllegalArgumentException(getDisplayName() + ": Stage config must contain property "
-          + property);
+            + property);
       }
     }
 
@@ -339,17 +339,17 @@ public abstract class Stage {
     // 2. all required parents are present
     Set<String> observedRequiredParents = new HashSet<>();
     Set<String> legalProperties = mergeSets(requiredProperties, optionalProperties);
-    for (String key: keys) {
+    for (String key : keys) {
       if (!legalProperties.contains(key)) {
         String parent = getParent(key);
         if (parent == null) {
           throw new IllegalArgumentException(getDisplayName() + ": Stage config contains unknown property "
-            + key);
+              + key);
         } else if (requiredParents.contains(parent)) {
           observedRequiredParents.add(parent);
         } else if (!optionalParents.contains(parent)) {
           throw new IllegalArgumentException(getDisplayName() + ": Stage config contains unknown property "
-            + key);
+              + key);
         }
       }
     }
@@ -365,7 +365,7 @@ public abstract class Stage {
 
   private static String getParent(String property) {
     int dotIndex = property.indexOf('.');
-    if (dotIndex < 0 ||  dotIndex == property.length() - 1) {
+    if (dotIndex < 0 || dotIndex == property.length() - 1) {
       return null;
     }
     return property.substring(0, dotIndex);
@@ -396,7 +396,7 @@ public abstract class Stage {
   }
 
   @SafeVarargs
-  private static <T> Set<T> mergeSets(Set<T> ... sets) {
+  private static <T> Set<T> mergeSets(Set<T>... sets) {
     Set<T> merged = new HashSet<>();
     for (Set<T> set : sets) {
       merged.addAll(set);

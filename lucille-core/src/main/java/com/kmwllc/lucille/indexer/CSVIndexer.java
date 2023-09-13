@@ -6,6 +6,7 @@ import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
 import com.typesafe.config.Config;
+import java.io.File;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,21 +15,25 @@ import java.io.IOException;
 import java.util.List;
 
 public class CSVIndexer extends Indexer {
+
   private static final Logger log = LoggerFactory.getLogger(CSVIndexer.class);
 
   private final boolean bypass;
   private final ICSVWriter writer;
   private final List<String> columns;
+  private final boolean includeHeader;
 
 
   public CSVIndexer(Config config, IndexerMessageManager manager, ICSVWriter writer, boolean bypass, String metricsPrefix) {
     super(config, manager, metricsPrefix);
     if (this.indexOverrideField != null) {
-      throw new IllegalArgumentException("Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
+      throw new IllegalArgumentException(
+          "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
     }
     this.writer = writer;
     this.bypass = bypass;
     this.columns = config.getStringList("csv.columns");
+    this.includeHeader = config.hasPath("csv.includeHeader") ? config.getBoolean("csv.includeHeader") : true;
   }
 
   public CSVIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
@@ -36,9 +41,13 @@ public class CSVIndexer extends Indexer {
   }
 
   private static ICSVWriter getCsvWriter(Config config, boolean bypass) {
+    boolean append = config.hasPath("csv.append") ? config.getBoolean("csv.append") : false;
     try {
-      CSVWriterBuilder builder = new CSVWriterBuilder(new FileWriter(config.getString("csv.path")));
-      //TODO options from config?
+      File file = new File(config.getString("csv.path")).getAbsoluteFile();
+      if (!file.getParentFile().exists()) {
+        file.getParentFile().mkdirs();
+      }
+      CSVWriterBuilder builder = new CSVWriterBuilder(new FileWriter(file, append));
       return builder.build();
     } catch (IOException e) {
       log.error("Error initializing writer for CSVIndexer", e);
@@ -51,7 +60,9 @@ public class CSVIndexer extends Indexer {
     if (!bypass && writer == null) {
       return false;
     }
-    writer.writeNext(columns.toArray(new String[columns.size()]), true);
+    if (includeHeader) {
+      writer.writeNext(columns.toArray(new String[columns.size()]), true);
+    }
     return true;
   }
 

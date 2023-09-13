@@ -23,7 +23,7 @@ public class RunResult {
   }
 
   public RunResult(boolean status, List<Connector> connectors, List<ConnectorResult> connectorResults,
-                   Map<String, PersistingLocalMessageManager> history, String runId) {
+      Map<String, PersistingLocalMessageManager> history, String runId) {
     this(status, connectors, connectorResults, runId);
     this.history = history;
   }
@@ -41,7 +41,7 @@ public class RunResult {
   }
 
   private static String formatMessage(boolean status, List<Connector> connectors,
-                                      List<ConnectorResult> connectorResults) {
+      List<ConnectorResult> connectorResults) {
     boolean failingDocs = connectorResults.stream().anyMatch(cr -> cr.hasFailingDocs());
     boolean anyDocs = connectorResults.stream().anyMatch(cr -> cr.hasDocs());
     StringBuffer sb = new StringBuffer();
@@ -56,7 +56,7 @@ public class RunResult {
       sb.append("Failure.");
     }
     long succesfulConnectors = connectorResults.stream().filter(cr -> cr.getStatus()).count();
-    sb.append(" " + succesfulConnectors + "/" +  connectors.size() + " connectors complete. ");
+    sb.append(" " + succesfulConnectors + "/" + connectors.size() + " connectors complete. ");
     if (anyDocs) {
       if (failingDocs) {
         sb.append("Some docs failed.");
@@ -71,8 +71,8 @@ public class RunResult {
       sb.append(result.toString());
       sb.append("\n");
     }
-    if (connectors.size()>0 && connectors.size()>connectorResults.size()) {
-      for (int i=connectorResults.size(); i<connectors.size(); i++) {
+    if (connectors.size() > 0 && connectors.size() > connectorResults.size()) {
+      for (int i = connectorResults.size(); i < connectors.size(); i++) {
         sb.append(connectors.get(i).getName() + ": skipped.\n");
       }
     }

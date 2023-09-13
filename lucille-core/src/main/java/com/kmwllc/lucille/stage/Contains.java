@@ -34,8 +34,8 @@ public class Contains extends Stage {
 
   public Contains(Config config) {
     super(config, new StageSpec()
-            .withRequiredProperties("contains", "output", "value", "fields")
-            .withOptionalProperties("ignoreCase"));
+        .withRequiredProperties("contains", "output", "value", "fields")
+        .withOptionalProperties("ignoreCase"));
 
     this.contains = config.getStringList("contains");
     this.output = config.getString("output");
@@ -46,8 +46,9 @@ public class Contains extends Stage {
 
   @Override
   public void start() throws StageException {
-    if (contains.isEmpty())
+    if (contains.isEmpty()) {
       throw new StageException("Must supply at least one value to check on the field.");
+    }
 
     trie = buildTrie();
   }
@@ -72,8 +73,9 @@ public class Contains extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String field : fields) {
-      if (!doc.has(field))
+      if (!doc.has(field)) {
         continue;
+      }
 
       List<String> values = doc.getStringList(field);
       for (String value : values) {

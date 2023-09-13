@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 
 import static com.kmwllc.lucille.core.Document.validateFieldNames;
 
-@JsonIgnoreProperties(value = { "fieldNames", "runId", "dropped", "id", "children" })
+@JsonIgnoreProperties(value = {"fieldNames", "runId", "dropped", "id", "children"})
 public class HashMapDocument implements Document, Serializable {
 
   static final long serialVersionUID = 1L;
@@ -37,7 +37,7 @@ public class HashMapDocument implements Document, Serializable {
         if (value instanceof String) {
           return Integer.parseInt((String) value);
         } else {
-          return ((Number)value).intValue();
+          return ((Number) value).intValue();
         }
       };
 
@@ -75,7 +75,7 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   public HashMapDocument(MultiMap other) {
-    data = (LinkedMultiMap)other;
+    data = (LinkedMultiMap) other;
   }
 
   public HashMapDocument(ObjectNode data) throws DocumentException {
@@ -147,9 +147,9 @@ public class HashMapDocument implements Document, Serializable {
       case OBJECT:
         setOrAddGeneric(name, node);
         break;
-        //        throw new UnsupportedOperationException(name + " field is an object");
-        //        addGeneric(name, node); // todo does this have to be parsed?
-        //        break;
+      //        throw new UnsupportedOperationException(name + " field is an object");
+      //        addGeneric(name, node); // todo does this have to be parsed?
+      //        break;
       case ARRAY:
         data.putMany(name, new ArrayList<>()); // initialize because may be empty
         for (JsonNode item : node) {
@@ -386,22 +386,22 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public Double getDouble(String name) {
-    return getValue(name, value -> ((Number)value).doubleValue());
+    return getValue(name, value -> ((Number) value).doubleValue());
   }
 
   @Override
   public List<Double> getDoubleList(String name) {
-    return getValues(name, value -> ((Number)value).doubleValue());
+    return getValues(name, value -> ((Number) value).doubleValue());
   }
 
   @Override
   public Float getFloat(String name) {
-    return getValue(name, value -> ((Number)value).floatValue());
+    return getValue(name, value -> ((Number) value).floatValue());
   }
 
   @Override
   public List<Float> getFloatList(String name) {
-    return getValues(name, value -> ((Number)value).floatValue());
+    return getValues(name, value -> ((Number) value).floatValue());
   }
 
   @Override
@@ -416,12 +416,12 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public Long getLong(String name) {
-    return getValue(name, value -> ((Number)value).longValue());
+    return getValue(name, value -> ((Number) value).longValue());
   }
 
   @Override
   public List<Long> getLongList(String name) {
-    return getValues(name, value -> ((Number)value).longValue());
+    return getValues(name, value -> ((Number) value).longValue());
   }
 
   @Override
@@ -625,7 +625,7 @@ public class HashMapDocument implements Document, Serializable {
       return Collections.emptyList();
     }
     return (List<Document>) data.getMany(CHILDREN_FIELD).stream()
-        .map(child -> new HashMapDocument(new LinkedMultiMap((LinkedHashMap)child)))
+        .map(child -> new HashMapDocument(new LinkedMultiMap((LinkedHashMap) child)))
         .collect(Collectors.toList());
   }
 
@@ -675,8 +675,12 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
     return data.equals(((HashMapDocument) o).data);
   }
 

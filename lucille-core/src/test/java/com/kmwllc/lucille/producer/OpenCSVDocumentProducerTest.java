@@ -19,13 +19,15 @@ public class OpenCSVDocumentProducerTest {
   public void testRowsWithBlanks() throws Exception {
     OpenCSVDocumentProducer producer = new OpenCSVDocumentProducer(false);
     List<Document> docs = producer.produceDocuments(Paths.get(
-      ClassLoader.getSystemResource("test.csv").toURI()), Document.create("test1"));
-    assertEquals(5,docs.size());
+        ClassLoader.getSystemResource("test.csv").toURI()), Document.create("test1"));
+    assertEquals(5, docs.size());
 
-    Document doc1 = Document.createFromJson("{\"id\":\"1\",\"csvLineNumber\":1,\"field1\":\"foo\",\"field2\":\"bar\",\"field3\":\"baz\"}");
+    Document doc1 = Document.createFromJson(
+        "{\"id\":\"1\",\"csvLineNumber\":1,\"field1\":\"foo\",\"field2\":\"bar\",\"field3\":\"baz\"}");
     assertEquals(doc1, docs.get(0));
 
-    Document doc5 = Document.createFromJson("{\"id\":\"5\",\"csvLineNumber\":6,\"field1\":\"abc\",\"field2\":\"def\",\"field3\":\"ghi\"}");
+    Document doc5 = Document.createFromJson(
+        "{\"id\":\"5\",\"csvLineNumber\":6,\"field1\":\"abc\",\"field2\":\"def\",\"field3\":\"ghi\"}");
     assertEquals(doc5, docs.get(4));
   }
 
@@ -33,7 +35,7 @@ public class OpenCSVDocumentProducerTest {
   public void testHeaderOnly() throws Exception {
     OpenCSVDocumentProducer producer = new OpenCSVDocumentProducer(false);
     List<Document> docs = producer.produceDocuments(Paths.get(
-      ClassLoader.getSystemResource("test2.csv").toURI()), Document.create("test1"));
+        ClassLoader.getSystemResource("test2.csv").toURI()), Document.create("test1"));
     assertTrue(docs.isEmpty());
   }
 
@@ -41,7 +43,7 @@ public class OpenCSVDocumentProducerTest {
   public void testAllBlank() throws Exception {
     OpenCSVDocumentProducer producer = new OpenCSVDocumentProducer(false);
     List<Document> docs = producer.produceDocuments(Paths.get(
-      ClassLoader.getSystemResource("test3.csv").toURI()), Document.create("test1"));
+        ClassLoader.getSystemResource("test3.csv").toURI()), Document.create("test1"));
     assertTrue(docs.isEmpty());
   }
 

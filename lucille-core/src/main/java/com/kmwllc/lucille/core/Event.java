@@ -47,7 +47,7 @@ public class Event {
     this.message = message;
     this.type = type;
     if (document instanceof KafkaDocument) {
-      KafkaDocument kafkaDocument = (KafkaDocument)document;
+      KafkaDocument kafkaDocument = (KafkaDocument) document;
       this.topic = kafkaDocument.getTopic();
       this.partition = kafkaDocument.getPartition();
       this.offset = kafkaDocument.getOffset();
@@ -81,7 +81,9 @@ public class Event {
     return message;
   }
 
-  public Type getType() { return type; }
+  public Type getType() {
+    return type;
+  }
 
   public Instant getInstant() {
     return instant;
@@ -131,14 +133,14 @@ public class Event {
 
     Event e = (Event) o;
     return Objects.equals(documentId, e.documentId) &&
-      Objects.equals(runId, e.runId) &&
-      Objects.equals(message, e.message) &&
-      Objects.equals(type, e.type) &&
-      Objects.equals(instant, e.instant) &&
-      Objects.equals(topic, e.topic) &&
-      Objects.equals(partition, e.partition) &&
-      Objects.equals(offset, e.offset) &&
-      Objects.equals(key, e.key);
+        Objects.equals(runId, e.runId) &&
+        Objects.equals(message, e.message) &&
+        Objects.equals(type, e.type) &&
+        Objects.equals(instant, e.instant) &&
+        Objects.equals(topic, e.topic) &&
+        Objects.equals(partition, e.partition) &&
+        Objects.equals(offset, e.offset) &&
+        Objects.equals(key, e.key);
   }
 
   public int hashCode() {

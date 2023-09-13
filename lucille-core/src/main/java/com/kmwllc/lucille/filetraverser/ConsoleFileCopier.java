@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.Properties;
 
 public class ConsoleFileCopier implements AutoCloseable {
+
   private static final Logger log = LogManager.getLogger(ConsoleFileCopier.class);
   private final Path path;
   private final boolean fromBeginning;
@@ -56,7 +57,7 @@ public class ConsoleFileCopier implements AutoCloseable {
       cli = new DefaultParser().parse(cliOptions, args);
     } catch (UnrecognizedOptionException | MissingOptionException e) {
       try (StringWriter writer = new StringWriter();
-           PrintWriter printer = new PrintWriter(writer)) {
+          PrintWriter printer = new PrintWriter(writer)) {
 
         String header = "Read FileInfo objects from the given Kafka topic and write information to the " +
             "console and (optionally) disk.";
