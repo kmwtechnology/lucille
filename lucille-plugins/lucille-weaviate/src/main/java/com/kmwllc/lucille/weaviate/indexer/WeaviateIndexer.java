@@ -22,6 +22,7 @@ import io.weaviate.client.v1.data.model.WeaviateObject.WeaviateObjectBuilder;
 import io.weaviate.client.v1.data.replication.model.ConsistencyLevel;
 import io.weaviate.client.v1.misc.model.Meta;
 import java.io.File;
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,7 +39,7 @@ public class WeaviateIndexer extends Indexer {
   // the name of the object class in the Weaviate schema that we are creating or updating
   private final String weaviateClassName;
 
-  // "id" is a reserved property in Weaviate and it must be UUID
+  // "id" is a reserved property in Weaviate, and it must be UUID
   // this indexer creates UUIDs based on the document's original ID
   // we store the document's original ID under an alternate name, specified via idDestinationName
   private final String idDestinationName;
@@ -52,7 +53,7 @@ public class WeaviateIndexer extends Indexer {
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
         "id_original";
     io.weaviate.client.Config weaviateConfig =
-        new io.weaviate.client.Config("https", config.getString("weaviate.host"));
+        new io.weaviate.client.Config("https", config.getString("weaviate.host"), null, 6000, 6000, 6000);
 
     this.vectorField = ConfigUtils.getOrDefault(config, "weaviate.vectorField", null);
 
@@ -86,6 +87,11 @@ public class WeaviateIndexer extends Indexer {
   @Override
   protected void sendToIndex(List<Document> documents) throws Exception {
 
+    if (documents.isEmpty()) {
+      log.warn("No documents to index, skipping");
+      return;
+    }
+
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
       for (Document doc : documents) {
 
@@ -112,7 +118,18 @@ public class WeaviateIndexer extends Indexer {
         batcher.withObject(obj);
       }
 
+      if (batcherEmpty(batcher)) {
+        log.warn("No objects in batcher");
+        return;
+      }
+
+      // todo check the order of parquet files
+
       Result<ObjectGetResponse[]> result = batcher.withConsistencyLevel(ConsistencyLevel.ALL).run();
+
+      if (result.hasErrors()) {
+        result = batcher.withConsistencyLevel(ConsistencyLevel.ALL).run();
+      }
 
       // result.hasErrors() may return false even if there are errors inside individual ObjectGetResponses
       if (result.hasErrors()) {
@@ -130,6 +147,32 @@ public class WeaviateIndexer extends Indexer {
       }
     } catch (Exception e) {
       throw new IndexerException(e.toString());
+    }
+  }
+
+  private boolean batcherEmpty(ObjectsBatcher batcher) {
+    try {
+
+      // Create Field object
+      Field privateField = ObjectsBatcher.class.getDeclaredField("objects");
+
+      // Set the accessibility as true
+      privateField.setAccessible(true);
+
+      // Store the value of private field in variable
+      @SuppressWarnings("unchecked")
+      List<WeaviateObject> objects = (List<WeaviateObject>) privateField.get(batcher);
+
+      boolean isEmpty = objects.isEmpty();
+
+      // Set the accessibility as false
+      privateField.setAccessible(false);
+
+      // return whether is empty
+      return isEmpty;
+
+    } catch (IllegalAccessException | NoSuchFieldException e) {
+      throw new RuntimeException(e);
     }
   }
 
