@@ -121,6 +121,7 @@ public class DatabaseConnector extends AbstractConnector {
     ResultSet rs = null;
     ArrayList<ResultSet> otherResults = null;
     Connection connection = null;
+    Statement state = null;
     try {
       connection = createConnection();
       // run the pre-sql (if specified)
@@ -130,7 +131,8 @@ public class DatabaseConnector extends AbstractConnector {
       log.info("Running primary sql");
 
       try {
-        Statement state = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+        // state is closed at the end as it is still being used while gathering result sets
+        state = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
         if (fetchSize != null) {
           state.setFetchSize(fetchSize);
         }
@@ -144,6 +146,7 @@ public class DatabaseConnector extends AbstractConnector {
 
       otherResults = new ArrayList<>();
       ArrayList<String[]> otherColumns = new ArrayList<>();
+
       for (String otherSQL : otherSQLs) {
         log.info("Describing other result set... {}", otherSQL);
         // prepare the other sql query
@@ -200,8 +203,6 @@ public class DatabaseConnector extends AbstractConnector {
         // feed the accumulated document.
         publisher.publish(doc);
       }
-
-
     } catch (Exception e) {
       throw new ConnectorException("Exception caught during connector execution", e);
     } finally {
@@ -216,10 +217,19 @@ public class DatabaseConnector extends AbstractConnector {
       if (otherResults != null) {
         for (ResultSet ors : otherResults) {
           try {
-            ors.close();
+            if (ors != null) {
+              ors.close();
+            }
           } catch (SQLException e) {
             log.warn("Other result set is unable to be closed");
           }
+        }
+      }
+      if (state != null) {
+        try {
+          state.close();
+        } catch (SQLException e) {
+          log.warn("Unable to close Statement", e);
         }
       }
     }
@@ -284,7 +294,6 @@ public class DatabaseConnector extends AbstractConnector {
       // create a new connection instead of re-using this one because we're using forward only result sets
       Connection connection = null;
       try {
-        // TODO: clean up this connection .. we need to hold onto a handle of it
         connection = createConnection();
       } catch (ClassNotFoundException e) {
         log.error("Error creating connection.", e);
@@ -299,7 +308,7 @@ public class DatabaseConnector extends AbstractConnector {
       }
       rs2 = state2.executeQuery(sql);
     } catch (SQLException e) {
-      e.printStackTrace();
+      log.error("Error executing SQL", e);
       throw e;
     }
     log.info("Other SQL Executed.");
@@ -338,15 +347,12 @@ public class DatabaseConnector extends AbstractConnector {
   @Override
   public void close() throws ConnectorException {
     for (Connection connection : connections) {
-      if (connection == null) {
-        // no-op
-        continue;
-      }
-      try {
-        connection.close();
-      } catch (SQLException e) {
-        // We don't care if we can't close the connection.
-        continue;
+      if (connection != null) {
+        try {
+          connection.close();
+        } catch (SQLException e) {
+          log.warn("Connection could not be closed", e);
+        }
       }
     }
     // empty out the collections
