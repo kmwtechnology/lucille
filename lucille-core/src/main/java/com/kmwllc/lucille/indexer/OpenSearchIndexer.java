@@ -15,7 +15,9 @@ import java.util.Optional;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.VersionType;
 import org.opensearch.client.opensearch.core.BulkRequest;
+import org.opensearch.client.opensearch.core.BulkResponse;
 import org.opensearch.client.opensearch.core.bulk.BulkOperationBase;
+import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
 import org.opensearch.client.opensearch.core.bulk.UpdateOperation;
 import org.opensearch.client.opensearch.core.bulk.UpdateOperation.Builder;
 import org.opensearch.client.opensearch.core.search.SuggestBase.AbstractBuilder;
@@ -113,7 +115,7 @@ public class OpenSearchIndexer extends Indexer {
 
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);
-      
+
       String routing = doc.getString(routingField);
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
         ? ((KafkaDocument) doc).getOffset()
@@ -135,7 +137,12 @@ public class OpenSearchIndexer extends Indexer {
               return up.document(indexerDoc);}));
       }
     }
-    client.bulk(br.build());
+    BulkResponse response = client.bulk(br.build());
+    if (response.errors()) {
+      for (BulkResponseItem item : response.items()) {
+        log.error("OpenSearchIndexer response has received error(s)", item.error().reason());
+      }
+    }
   }
 
   private void addChildren(Document doc, Map<String, Object> indexerDoc) {
