@@ -87,11 +87,6 @@ public class WeaviateIndexer extends Indexer {
   @Override
   protected void sendToIndex(List<Document> documents) throws Exception {
 
-    if (documents.isEmpty()) {
-      log.warn("No documents to index, skipping");
-      return;
-    }
-
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
       for (Document doc : documents) {
 
@@ -107,7 +102,7 @@ public class WeaviateIndexer extends Indexer {
 
         // if vector field is specified set it and remove it from the docMap
         if (vectorField != null && doc.has(vectorField)) {
-          objectBuilder = objectBuilder.vector(floatsToArray(doc.getFloatList(vectorField)));
+          objectBuilder.vector(floatsToArray(doc.getFloatList(vectorField)));
           docMap.remove(vectorField);
         }
 
@@ -118,18 +113,7 @@ public class WeaviateIndexer extends Indexer {
         batcher.withObject(obj);
       }
 
-      if (batcherEmpty(batcher)) {
-        log.warn("No objects in batcher");
-        return;
-      }
-
-      // todo check the order of parquet files
-
       Result<ObjectGetResponse[]> result = batcher.withConsistencyLevel(ConsistencyLevel.ALL).run();
-
-      if (result.hasErrors()) {
-        result = batcher.withConsistencyLevel(ConsistencyLevel.ALL).run();
-      }
 
       // result.hasErrors() may return false even if there are errors inside individual ObjectGetResponses
       if (result.hasErrors()) {
@@ -147,32 +131,6 @@ public class WeaviateIndexer extends Indexer {
       }
     } catch (Exception e) {
       throw new IndexerException(e.toString());
-    }
-  }
-
-  private boolean batcherEmpty(ObjectsBatcher batcher) {
-    try {
-
-      // Create Field object
-      Field privateField = ObjectsBatcher.class.getDeclaredField("objects");
-
-      // Set the accessibility as true
-      privateField.setAccessible(true);
-
-      // Store the value of private field in variable
-      @SuppressWarnings("unchecked")
-      List<WeaviateObject> objects = (List<WeaviateObject>) privateField.get(batcher);
-
-      boolean isEmpty = objects.isEmpty();
-
-      // Set the accessibility as false
-      privateField.setAccessible(false);
-
-      // return whether is empty
-      return isEmpty;
-
-    } catch (IllegalAccessException | NoSuchFieldException e) {
-      throw new RuntimeException(e);
     }
   }
 
