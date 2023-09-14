@@ -138,7 +138,7 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
     BulkResponse response = client.bulk(br.build());
-    if (response.errors()) {
+    if (response != null && response.errors()) {
       for (BulkResponseItem item : response.items()) {
         log.error("OpenSearchIndexer response has received error(s)", item.error().reason());
       }
