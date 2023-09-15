@@ -27,7 +27,7 @@
     <opensearch.version>0.1.0</opensearch.version>
     <elasticsearch-rest-high-level-client.version>7.17.3</elasticsearch-rest-high-level-client.version>
     <elasticsearch.version>7.17.3</elasticsearch.version>
-    <sslcontext-kickstart.version>7.0.3</sslcontext-kickstart.version>
+    <sslcontext-kickstart.version>8.1.6</sslcontext-kickstart.version>
     <aws-java-sdk-sts.version>1.12.39</aws-java-sdk-sts.version>
     <vfs-s3.version>4.3.6</vfs-s3.version>
     <log4j.version>2.17.0</log4j.version>
