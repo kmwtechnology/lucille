@@ -59,8 +59,7 @@ public class DropIndexedDocuments extends Stage {
         ).withOptionalProperties(
             "weaviate.className",
             "weaviate.idDestinationName",
-            "batchSize",
-            "fileWithIds"
+            "batchSize"
         ));
 
     // optional
@@ -80,11 +79,11 @@ public class DropIndexedDocuments extends Stage {
     }
 
     // if given path to file with IDs, use that, otherwise get IDs from Weaviate and save them to a file with that path
-    ids = new File(fileWithIds).exists() ? getIdsFromFile(fileWithIds) : getIdsFromWeaviate();
+    ids = new File(fileWithIds).exists() ? getIdsFromFile() : getIdsFromWeaviate();
     log.info("Got {} IDs", ids.size());
   }
 
-  private Set<String> getIdsFromFile(String fileWithIds) {
+  private Set<String> getIdsFromFile() {
     try (BufferedReader reader = new BufferedReader(new FileReader(fileWithIds))) {
       Set<String> ids = new HashSet<>();
       String line;
@@ -108,32 +107,35 @@ public class DropIndexedDocuments extends Stage {
     String lastID = null;
 
     Set<String> ids = new HashSet<>(numIndexed);
-    while (numIndexed > 0) {
 
-      // get a batch of original ids and the last id in the batch
-      Pair<List<String>, String> batch = getBatchIds(lastID);
-
-      // extract batch original ids and last id from pair
-      List<String> batchIds = batch.getFirst();
-      lastID = batch.getSecond();
-
-      // add ids to set
-      ids.addAll(batchIds);
-
-      // update counter and number left to index
-      count++;
-      numIndexed -= batchSize;
-
-      log.info("Processed batch {} of {}", count, totalBatches);
-    }
-
-    // make a string of all the ids and write them to a file
-    StringBuilder sb = new StringBuilder();
-    for (String id : ids) {
-      sb.append(id).append("\n");
-    }
     try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileWithIds, false))) {
-      writer.write(sb.toString());
+
+      while (numIndexed > 0) {
+
+        // get a batch of original ids and the last id in the batch
+        Pair<List<String>, String> batch = getBatchIds(lastID);
+
+        // extract batch original ids and last id from pair
+        List<String> batchIds = batch.getFirst();
+        lastID = batch.getSecond();
+
+        // add ids to set
+        ids.addAll(batchIds);
+
+        // make a string of all the ids and write them to a file
+        StringBuilder sb = new StringBuilder();
+        for (String id : batchIds) {
+          sb.append(id).append("\n");
+        }
+        writer.write(sb.toString());
+        writer.flush();
+
+        // update counter and number left to index
+        count++;
+        numIndexed -= batchSize;
+
+        log.info("Processed batch {} of {}", count, totalBatches);
+      }
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -243,8 +245,15 @@ public class DropIndexedDocuments extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) {
-    if (ids.contains(doc.getId())) {
+    String id = doc.getId();
+
+    if (ids.contains(id)) {
+
+      // set drop document to true
       doc.setDropped(true);
+
+      // remove from set
+      ids.remove(id);
     }
     return null;
   }
