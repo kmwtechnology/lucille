@@ -37,17 +37,22 @@ import io.weaviate.client.v1.auth.exception.AuthException;
 
 public class DropIndexedDocuments extends Stage {
 
-  private static final Logger log = LoggerFactory.getLogger(DropIndexedDocuments.class);
+  private final static Logger log = LoggerFactory.getLogger(DropIndexedDocuments.class);
   private final static Gson GSON = new Gson();
 
+  // required
+  private final String weaviateHost;
+  private final String weaviateApiKey;
+
+  // optional
   private final String weaviateClassName;
   private final String idDestinationName;
   private final String fileWithIds;
-
   private final int batchSize;
 
-  private final Set<String> ids;
-  private final WeaviateClient client;
+  // initialized in start method
+  private WeaviateClient client;
+  private Set<String> ids;
 
   public DropIndexedDocuments(Config config) throws StageException {
 
@@ -62,18 +67,24 @@ public class DropIndexedDocuments extends Stage {
             "batchSize"
         ));
 
+    // required
+    fileWithIds = config.getString("fileWithIds");
+    weaviateHost = config.getString("weaviate.host");
+    weaviateApiKey = config.getString("weaviate.apiKey");
+
     // optional
     weaviateClassName = ConfigUtils.getOrDefault(config, "weaviate.className", "Document");
     idDestinationName = ConfigUtils.getOrDefault(config, "weaviate.idDestinationName", "id_original");
     batchSize = ConfigUtils.getOrDefault(config, "batchSize", 1000);
+  }
 
-    // required
-    fileWithIds = config.getString("fileWithIds");
+  @Override
+  public void start() throws StageException {
     io.weaviate.client.Config weaviateConfig =
-        new io.weaviate.client.Config("https", config.getString("weaviate.host"), null, 6000, 6000, 6000);
+        new io.weaviate.client.Config("https", weaviateHost, null, 6000, 6000, 6000);
 
     try {
-      this.client = WeaviateAuthClient.apiKey(weaviateConfig, config.getString("weaviate.apiKey"));
+      this.client = WeaviateAuthClient.apiKey(weaviateConfig, weaviateApiKey);
     } catch (AuthException e) {
       throw new RuntimeException("Couldn't connect to Weaviate instance", e);
     }
@@ -247,13 +258,9 @@ public class DropIndexedDocuments extends Stage {
   public Iterator<Document> processDocument(Document doc) {
     String id = doc.getId();
 
+    // set drop document to true if the id is in the set of ids
     if (ids.contains(id)) {
-
-      // set drop document to true
       doc.setDropped(true);
-
-      // remove from set
-      ids.remove(id);
     }
     return null;
   }
