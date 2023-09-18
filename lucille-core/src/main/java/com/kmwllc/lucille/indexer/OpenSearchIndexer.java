@@ -3,6 +3,7 @@ package com.kmwllc.lucille.indexer;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
@@ -141,6 +142,7 @@ public class OpenSearchIndexer extends Indexer {
     if (response != null && response.errors()) {
       for (BulkResponseItem item : response.items()) {
         log.error("OpenSearchIndexer response has received error(s)", item.error().reason());
+        throw new IndexerException(item.error().reason());
       }
     }
   }
