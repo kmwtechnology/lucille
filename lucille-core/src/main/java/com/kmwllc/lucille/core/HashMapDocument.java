@@ -597,7 +597,11 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public Map<String, Object> asMap() {
-    return data.getData();
+    // create a shallow copy of the document data
+    // adding, replacing, or removing entries in the returned map will not affect the original document
+    // however, updates made to an object inside the map (for example, changing the contents of an array value) will
+    // be evident when that same object is retrieved from the original document
+    return (Map<String, Object>)data.getData().clone();
   }
 
   @Override
