@@ -121,7 +121,7 @@ public class DatabaseConnector extends AbstractConnector {
     ResultSet rs = null;
     ArrayList<ResultSet> otherResults = null;
     Connection connection = null;
-    Statement state = null;
+    Statement statement = null;
     try {
       connection = createConnection();
       // run the pre-sql (if specified)
@@ -132,11 +132,11 @@ public class DatabaseConnector extends AbstractConnector {
 
       try {
         // state is closed at the end as it is still being used while gathering result sets
-        state = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+        statement = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
         if (fetchSize != null) {
-          state.setFetchSize(fetchSize);
+          statement.setFetchSize(fetchSize);
         }
-        rs = state.executeQuery(sql);
+        rs = statement.executeQuery(sql);
       } catch (SQLException e) {
         throw e;
       }
@@ -225,9 +225,9 @@ public class DatabaseConnector extends AbstractConnector {
           }
         }
       }
-      if (state != null) {
+      if (statement != null) {
         try {
-          state.close();
+          statement.close();
         } catch (SQLException e) {
           log.warn("Unable to close Statement", e);
         }
