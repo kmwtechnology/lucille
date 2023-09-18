@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.weaviate.stage;
 
+import java.io.FileNotFoundException;
 import java.util.Set;
 import java.util.List;
 import java.util.HashSet;
@@ -94,9 +95,25 @@ public class DropIndexedDocuments extends Stage {
     log.info("Got {} IDs", ids.size());
   }
 
+  private static int countLines(String filename) {
+    try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
+      int lines = 0;
+      while (reader.readLine() != null) {
+        lines++;
+      }
+      return lines;
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   private Set<String> getIdsFromFile() {
+
+    log.info("Getting IDs from " + fileWithIds);
+
     try (BufferedReader reader = new BufferedReader(new FileReader(fileWithIds))) {
-      Set<String> ids = new HashSet<>();
+      int lineCount = countLines(fileWithIds);
+      Set<String> ids = new HashSet<>((int) Math.ceil(lineCount / 0.75) + 1);
       String line;
       while ((line = reader.readLine()) != null) {
         ids.add(line);
@@ -110,7 +127,7 @@ public class DropIndexedDocuments extends Stage {
   private Set<String> getIdsFromWeaviate() throws StageException {
 
     int numIndexed = getCount();  // could be long but no need right now
-    log.info("Getting IDs of {} indexed documents", numIndexed);
+    log.info("Getting IDs of {} indexed documents from weaviate", numIndexed);
 
     int count = 0;
     int totalBatches = numIndexed / batchSize;
