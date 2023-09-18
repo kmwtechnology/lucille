@@ -12,9 +12,9 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>lucille-csv-example</artifactId>
+  <artifactId>lucille-simple-csv-solr-example</artifactId>
   <packaging>jar</packaging>
-  <name>Lucille Examples: File to File Example</name>
+  <name>Lucille Examples: Simple CSV to Solr Example</name>
 
   <dependencyManagement>
     <dependencies>
@@ -65,7 +65,7 @@
               <goal>single</goal>
             </goals>
             <configuration>
-              <finalName>lucille-file-to-file-example</finalName>
+              <finalName>lucille-simple-csv-solr-example</finalName>
               <descriptors>
                 <descriptor>assembly/assembly.xml</descriptor>
               </descriptors>
