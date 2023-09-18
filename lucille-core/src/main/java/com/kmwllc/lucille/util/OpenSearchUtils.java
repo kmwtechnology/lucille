@@ -63,21 +63,6 @@ public class OpenSearchUtils {
 
     SSLFactory sslFactory = sslFactoryBuilder.build();
 
-//    RestClient restClient = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
-//        .setHttpClientConfigCallback(new HttpClientConfigCallback() {
-//          @Override
-//          public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
-//            return httpClientBuilder.setDefaultCredentialsProvider(provider).setSSLContext(sslFactory.getSslContext())
-//                .setSSLHostnameVerifier(sslFactory.getHostnameVerifier());
-//          }
-//        }).build();
-//
-//    final OpenSearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
-//    final OpenSearchClient client = new OpenSearchClient(transport);
-//
-//    return client;
-
-
     ApacheHttpClient5TransportBuilder builder = ApacheHttpClient5TransportBuilder.builder(host);
     builder.setHttpClientConfigCallback(httpClientBuilder -> {
       final TlsStrategy tlsStrategy = ClientTlsStrategyBuilder.create()
