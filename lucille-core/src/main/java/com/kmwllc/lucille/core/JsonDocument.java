@@ -18,7 +18,6 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
-import static com.kmwllc.lucille.core.Document.validateFieldNames;
 
 /**
  * A record from a source system to be passed through a Pipeline, enriched,

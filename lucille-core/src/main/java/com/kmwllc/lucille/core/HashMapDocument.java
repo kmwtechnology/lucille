@@ -23,7 +23,6 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
-import static com.kmwllc.lucille.core.Document.validateFieldNames;
 
 @JsonIgnoreProperties(value = {"fieldNames", "runId", "dropped", "id", "children"})
 public class HashMapDocument implements Document, Serializable {

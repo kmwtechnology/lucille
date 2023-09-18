@@ -257,7 +257,7 @@ public interface Document {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 
-  static void validateFieldNames(String... names) throws IllegalArgumentException {
+  default void validateFieldNames(String... names) throws IllegalArgumentException {
     if (names == null) {
       throw new IllegalArgumentException("expecting string parameters");
     }
