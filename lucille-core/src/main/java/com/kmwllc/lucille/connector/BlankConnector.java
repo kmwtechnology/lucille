@@ -8,7 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Connector implementation that produces documents from the rows in a given CSV file.
+ * Connector implementation that produces blank documents given amount to produce
  */
 public class BlankConnector extends AbstractConnector {
 
