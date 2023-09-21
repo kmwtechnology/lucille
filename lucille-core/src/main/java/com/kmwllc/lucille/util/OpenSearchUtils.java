@@ -9,6 +9,7 @@ import javax.net.ssl.SSLEngine;
 import nl.altindag.ssl.SSLFactory;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
 import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.core5.function.Factory;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
@@ -41,12 +42,6 @@ public class OpenSearchUtils {
    */
   public static OpenSearchClient getOpenSearchRestClientInternal(Config config) {
     try {
-      var env = System.getenv();
-      var https = Boolean.parseBoolean(env.getOrDefault("HTTPS", "true"));
-      var hostname = env.getOrDefault("HOST", "localhost");
-      var port = Integer.parseInt(env.getOrDefault("PORT", "9200"));
-      var user = env.getOrDefault("USERNAME", "admin");
-      var pass = env.getOrDefault("PASSWORD", "admin");
 
       // get host uri
       URI hostUri = URI.create(getOpenSearchUrl(config));
@@ -80,10 +75,20 @@ public class OpenSearchUtils {
             }
 
             // Disable SSL/TLS verification as our local testing clusters use self-signed certificates
-            final var tlsStrategy = ClientTlsStrategyBuilder.create()
-                .setSslContext(sslContext)
-                .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-                .build();
+            boolean allowInvalidCert = getAllowInvalidCert(config);
+            TlsStrategy tlsStrategy = null;
+            if (allowInvalidCert) {
+              tlsStrategy = ClientTlsStrategyBuilder.create()
+                  .setSslContext(sslContext)
+                  .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                  .build();
+            } else {
+              tlsStrategy = ClientTlsStrategyBuilder.create()
+                  .setSslContext(sslContext)
+                  .setHostnameVerifier(new DefaultHostnameVerifier())
+                  .build();
+            }
+
 
             final var connectionManager = PoolingAsyncClientConnectionManagerBuilder.create()
                 .setTlsStrategy(tlsStrategy)
