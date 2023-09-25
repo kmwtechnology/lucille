@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.weaviate.stage;
 
-import java.io.FileNotFoundException;
 import java.util.Set;
 import java.util.List;
 import java.util.HashSet;
