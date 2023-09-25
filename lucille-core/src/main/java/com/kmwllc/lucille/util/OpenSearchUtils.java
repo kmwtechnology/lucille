@@ -63,7 +63,7 @@ public class OpenSearchUtils {
               }
             }
 
-            // Disable SSL/TLS verification as our local testing clusters use self-signed certificates
+            // Potentially disable SSL/TLS verification for when testing locally
             boolean allowInvalidCert = getAllowInvalidCert(config);
             TlsStrategy tlsStrategy = null;
             if (allowInvalidCert) {
@@ -93,65 +93,6 @@ public class OpenSearchUtils {
       System.out.println("failed to make transport client");
       return null;
     }
-
-//    //Establish credentials to use basic authentication.
-//    final BasicCredentialsProvider provider = new BasicCredentialsProvider();
-//
-//    // get user info from URI if present and setup BasicAuth credentials if needed
-//    String userInfo = hostUri.getUserInfo();
-//    HttpHost host = new HttpHost(hostUri.getScheme(), hostUri.getHost(), hostUri.getPort());
-//    if (userInfo != null) {
-//      int pos = userInfo.indexOf(":");
-//      String username = userInfo.substring(0, pos);
-//      String password = userInfo.substring(pos + 1);
-//      provider.setCredentials(new AuthScope(host),
-//          new UsernamePasswordCredentials(username, password.toCharArray()));
-//    }
-//
-//    // needed to allow for local testing of HTTPS
-//    SSLFactory.Builder sslFactoryBuilder = SSLFactory.builder();
-//    boolean allowInvalidCert = getAllowInvalidCert(config);
-//    if (allowInvalidCert) {
-//      sslFactoryBuilder
-//          .withTrustingAllCertificatesWithoutValidation()
-//          .withHostnameVerifier((sampleHost, sampleSession) -> true);
-//    } else {
-//      sslFactoryBuilder.withDefaultTrustMaterial();
-//    }
-//
-//    SSLFactory sslFactory = sslFactoryBuilder.build();
-//
-//    ApacheHttpClient5TransportBuilder builder = ApacheHttpClient5TransportBuilder.builder(host);
-//    builder.setHttpClientConfigCallback(httpClientBuilder -> {
-//      final TlsStrategy tlsStrategy = ClientTlsStrategyBuilder.create()
-//          //.setSslContext(SSLContextBuilder.create().build())
-//          .setSslContext(sslFactory.getSslContext())
-//          .setHostnameVerifier(sslFactory.getHostnameVerifier())
-//          .setTlsDetailsFactory(new Factory<SSLEngine, TlsDetails>() {
-//            @Override
-//            public TlsDetails create(final SSLEngine sslEngine) {
-//              return new TlsDetails(sslEngine.getSession(), sslEngine.getApplicationProtocol());
-//            }
-//  //            @Override
-//  //            public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
-//  //              return httpClientBuilder.setDefaultCredentialsProvider(provider).setSSLContext()
-//  //                  .setSSLHostnameVerifier(sslFactory.getHostnameVerifier());
-//  //            }
-//        }).build();
-//      final PoolingAsyncClientConnectionManager connectionManager = PoolingAsyncClientConnectionManagerBuilder
-//          .create()
-//          .setTlsStrategy(tlsStrategy)
-//          .build();
-//
-//      return httpClientBuilder
-//          .setDefaultCredentialsProvider(provider)
-//          .setConnectionManager(connectionManager);
-//    });
-//
-//    final OpenSearchTransport transport = ApacheHttpClient5TransportBuilder.builder(host).build();
-//    final OpenSearchClient client = new OpenSearchClient(transport);
-//
-//    return client;
   }
 
   public static String getOpenSearchUrl(Config config) {
