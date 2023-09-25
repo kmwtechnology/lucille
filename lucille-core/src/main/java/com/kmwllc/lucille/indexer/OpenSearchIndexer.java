@@ -17,16 +17,10 @@ import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.VersionType;
 import org.opensearch.client.opensearch.core.BulkRequest;
 import org.opensearch.client.opensearch.core.BulkResponse;
-import org.opensearch.client.opensearch.core.bulk.BulkOperationBase;
 import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
-import org.opensearch.client.opensearch.core.bulk.UpdateOperation;
-import org.opensearch.client.opensearch.core.bulk.UpdateOperation.Builder;
-import org.opensearch.client.opensearch.core.search.SuggestBase.AbstractBuilder;
-import org.opensearch.client.util.ObjectBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
-import java.util.function.Function;
 
 
 public class OpenSearchIndexer extends Indexer {
@@ -119,30 +113,41 @@ public class OpenSearchIndexer extends Indexer {
 
       String routing = doc.getString(routingField);
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
-        ? ((KafkaDocument) doc).getOffset()
-        : null;
+          ? ((KafkaDocument) doc).getOffset()
+          : null;
 
       if (update) {
         br.operations(op -> op
             .update((up) -> {
               up.index(index).id(docId);
-              if (routingField != null) up.routing(routing);
-              if (versionNum != null)  up.versionType(versionType).version(versionNum);
-              return up.document(indexerDoc);}));
+              if (routingField != null) {
+                up.routing(routing);
+              }
+              if (versionNum != null) {
+                up.versionType(versionType).version(versionNum);
+              }
+              return up.document(indexerDoc);
+            }));
       } else {
         br.operations(op -> op
             .index((up) -> {
               up.index(index).id(docId);
-              if (routingField != null) up.routing(routing);
-              if (versionNum != null)  up.versionType(versionType).version(versionNum);
-              return up.document(indexerDoc);}));
+              if (routingField != null) {
+                up.routing(routing);
+              }
+              if (versionNum != null) {
+                up.versionType(versionType).version(versionNum);
+              }
+              return up.document(indexerDoc);
+            }));
       }
     }
     BulkResponse response = client.bulk(br.build());
     if (response != null && response.errors()) {
       for (BulkResponseItem item : response.items()) {
-        log.error("OpenSearchIndexer response has received error(s)", item.error().reason());
-        throw new IndexerException(item.error().reason());
+        String reason = item.error().reason();
+        log.error("OpenSearchIndexer response has received error(s)", reason);
+        throw new IndexerException(reason);
       }
     }
   }
