@@ -68,35 +68,26 @@ public class OpenSearchUtils {
             boolean allowInvalidCert = getAllowInvalidCert(config);
             TlsStrategy tlsStrategy = null;
             SSLContext sslContext = null;
+            try {
             if (allowInvalidCert) {
-              try {
-                sslContext = SSLContextBuilder.create()
+              sslContext = SSLContextBuilder.create()
                     .loadTrustMaterial(null, (chains, authType) -> true)
                     .build();
-              } catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException(e);
-              } catch (KeyManagementException e) {
-                throw new RuntimeException(e);
-              } catch (KeyStoreException e) {
-                throw new RuntimeException(e);
-              }
+
               tlsStrategy = ClientTlsStrategyBuilder.create()
                   .setSslContext(sslContext)
                   .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
                   .build();
             } else {
-              try {
-                sslContext = SSLContextBuilder.create()
+              sslContext = SSLContextBuilder.create()
                     .build();
-              } catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException(e);
-              } catch (KeyManagementException e) {
-                throw new RuntimeException(e);
-              }
               tlsStrategy = ClientTlsStrategyBuilder.create()
                   .setSslContext(sslContext)
                   //.setHostnameVerifier(new DefaultHostnameVerifier())
                   .build();
+            }
+            } catch (NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
+              throw new RuntimeException(e);
             }
 
             final var connectionManager = PoolingAsyncClientConnectionManagerBuilder.create()
