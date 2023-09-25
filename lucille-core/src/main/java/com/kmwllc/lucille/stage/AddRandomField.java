@@ -53,7 +53,7 @@ public class AddRandomField extends Stage {
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
     this.minNumOfTerms = ConfigUtils.getOrDefault(config, "min_num_of_terms", null);
     this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "max_num_of_terms", null);
-    this.fieldtype = FieldType.valueOf(ConfigUtils.getOrDefault(config, "field_type", "default"));
+    this.fieldtype = FieldType.valueOf(ConfigUtils.getOrDefault(config, "field_type", "DEFAULT"));
     this.dataArr = this.inputDataPath != null ? getFileData(this.inputDataPath) : null;
     this.cardinality = ConfigUtils.getOrDefault(config, "cardinality",
         this.dataArr != null ? this.dataArr.size() : this.minNumOfTerms);
@@ -107,7 +107,7 @@ public class AddRandomField extends Stage {
     try {
       data = Files.readAllLines(Path.of(inputDataPath));
     } catch (IOException e) {
-      throw new StageException("Could not read provided file path");
+      throw new StageException("Could not read provided file path", e);
     }
     return data;
   }
