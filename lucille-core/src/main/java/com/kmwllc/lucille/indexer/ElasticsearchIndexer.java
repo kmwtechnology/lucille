@@ -1,11 +1,13 @@
 package com.kmwllc.lucille.indexer;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.VersionType;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
@@ -30,6 +32,7 @@ public class ElasticsearchIndexer extends Indexer {
   //flag for using partial update API when sending documents to elastic
   private final boolean update;
   private final String routingField;
+  private final VersionType versionType;
 
   public ElasticsearchIndexer(Config config, IndexerMessageManager manager, ElasticsearchClient client,
       String metricsPrefix) {
@@ -44,6 +47,7 @@ public class ElasticsearchIndexer extends Indexer {
 
     // todo consider making routing a Document class member
     this.routingField = ConfigUtils.getOrDefault(config, "indexer.routingField", null);
+    this.versionType = config.hasPath("indexer.versionType") ? versionTypeFromString(config.getString("indexer.versionType")) : null;
   }
 
   public ElasticsearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
@@ -95,25 +99,44 @@ public class ElasticsearchIndexer extends Indexer {
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);
 
-      // we don't have to worry about routing being null or not in the document since the indexer will ignore it
-      String routing = doc.getString(routingField);
+      Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
+          ? ((KafkaDocument) doc).getOffset()
+          : null;
 
       if (update) {
         br.operations(op -> op
-            .update(up -> up
-                .id(docId)
-                .index(index)
-                .routing(routing)
-                .action(upx -> upx
-                    .doc(indexerDoc)
-                )));
+            .update(updateBuilder -> {
+
+              if (routingField != null) {
+                updateBuilder.routing(doc.getString(routingField));
+              }
+              if (versionNum != null) {
+                updateBuilder.versionType(versionType).version(versionNum);
+              }
+
+              return updateBuilder
+                  .id(docId)
+                  .index(index)
+                  .action(upx -> upx
+                      .doc(indexerDoc)
+                  );
+            }));
       } else {
         br.operations(op -> op
-            .index(idx -> idx
-                .id(docId)
-                .index(index)
-                .routing(routing)
-                .document(indexerDoc)
+            .index(operationBuilder -> {
+
+                  if (routingField != null) {
+                    operationBuilder.routing(doc.getString(routingField));
+                  }
+                  if (versionNum != null) {
+                    operationBuilder.versionType(versionType).version(versionNum);
+                  }
+
+                  return operationBuilder
+                      .id(docId)
+                      .index(index)
+                      .document(indexerDoc);
+                }
             ));
       }
     }
@@ -148,6 +171,22 @@ public class ElasticsearchIndexer extends Indexer {
         indexerChildDoc.put(key, value);
       }
       // TODO: Do nothing for now, add support for child docs like SolrIndexer does in future (_childDocuments_)
+    }
+  }
+
+  private static VersionType versionTypeFromString(String versionType) {
+
+    switch (versionType) {
+      case "internal":
+        return VersionType.Internal;
+      case "external":
+        return VersionType.External;
+      case "external_gte":
+        return VersionType.ExternalGte;
+      case "force":
+        return VersionType.Force;
+      default:
+        throw new IllegalArgumentException("No version type match [" + versionType + "]");
     }
   }
 

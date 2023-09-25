@@ -5,15 +5,18 @@ import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.IndexOperation;
+import co.elastic.clients.elasticsearch._types.VersionType;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -277,6 +280,35 @@ public class ElasticsearchIndexerTest {
     assertEquals("doc1", indexRequest.id());
     assertEquals("routing1", indexRequest.routing());
     assertEquals(doc.asMap(), indexRequest.document());
+  }
+
+  @Test
+  public void testDocumentVersioning() throws Exception {
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/versioning.conf");
+
+    KafkaDocument doc = new KafkaDocument(
+        new ObjectMapper().createObjectNode()
+            .put("id", "doc1")
+            .put("field1", "value1"));
+    doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+
+    List<BulkOperation> requests = br.operations();
+    IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
+
+    assertEquals("doc1", indexRequest.id());
+    assertEquals(Long.valueOf(100), indexRequest.version());
+    assertEquals(VersionType.ExternalGte, indexRequest.versionType());
+    assertEquals(Map.of("id", "doc1", "field1", "value1"), indexRequest.document());
   }
 
   private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
