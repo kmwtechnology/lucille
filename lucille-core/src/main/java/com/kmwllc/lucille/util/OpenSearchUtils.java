@@ -2,6 +2,10 @@ package com.kmwllc.lucille.util;
 
 import com.typesafe.config.Config;
 import java.net.URI;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import javax.net.ssl.SSLContext;
 import org.apache.hc.client5.http.auth.AuthScope;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
@@ -43,9 +47,6 @@ public class OpenSearchUtils {
           new HttpHost(hostUri.getScheme(), hostUri.getHost(), hostUri.getPort())
       };
 
-      final var sslContext = SSLContextBuilder.create()
-          .loadTrustMaterial(null, (chains, authType) -> true)
-          .build();
 
       final var transport = ApacheHttpClient5TransportBuilder
           .builder(hosts)
@@ -66,15 +67,35 @@ public class OpenSearchUtils {
             // Potentially disable SSL/TLS verification for when testing locally
             boolean allowInvalidCert = getAllowInvalidCert(config);
             TlsStrategy tlsStrategy = null;
+            SSLContext sslContext = null;
             if (allowInvalidCert) {
+              try {
+                sslContext = SSLContextBuilder.create()
+                    .loadTrustMaterial(null, (chains, authType) -> true)
+                    .build();
+              } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException(e);
+              } catch (KeyManagementException e) {
+                throw new RuntimeException(e);
+              } catch (KeyStoreException e) {
+                throw new RuntimeException(e);
+              }
               tlsStrategy = ClientTlsStrategyBuilder.create()
                   .setSslContext(sslContext)
                   .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
                   .build();
             } else {
+              try {
+                sslContext = SSLContextBuilder.create()
+                    .build();
+              } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException(e);
+              } catch (KeyManagementException e) {
+                throw new RuntimeException(e);
+              }
               tlsStrategy = ClientTlsStrategyBuilder.create()
                   .setSslContext(sslContext)
-                  .setHostnameVerifier(new DefaultHostnameVerifier())
+                  //.setHostnameVerifier(new DefaultHostnameVerifier())
                   .build();
             }
 
