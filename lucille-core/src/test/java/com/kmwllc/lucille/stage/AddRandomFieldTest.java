@@ -17,6 +17,12 @@ import org.junit.Test;
 
 public class AddRandomFieldTest {
 
+  /*
+    TODO:
+     - Give some thought to whether the config file path to the foods.txt needs to be referenced via classpath or via relative path
+     -
+   */
+
   private StageFactory factory = StageFactory.of(AddRandomField.class);
 
   /**
@@ -35,6 +41,6 @@ public class AddRandomFieldTest {
       stage.processDocument(doc);
     }
 
-    assertEquals("Hi There!\n", doc1.getString("data"));
+    assertEquals("6", doc1.getString("data"));
   }
 }

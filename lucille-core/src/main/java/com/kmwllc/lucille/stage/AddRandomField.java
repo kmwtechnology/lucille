@@ -6,8 +6,10 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -53,7 +55,7 @@ public class AddRandomField extends Stage {
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
     this.minNumOfTerms = ConfigUtils.getOrDefault(config, "min_num_of_terms", null);
     this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "max_num_of_terms", null);
-    this.fieldtype = FieldType.valueOf(ConfigUtils.getOrDefault(config, "field_type", "DEFAULT"));
+    this.fieldtype = FieldType.valueOf(ConfigUtils.getOrDefault(config, "field_type", FieldType.DEFAULT.toString()));
     this.dataArr = this.inputDataPath != null ? getFileData(this.inputDataPath) : null;
     this.cardinality = ConfigUtils.getOrDefault(config, "cardinality",
         this.dataArr != null ? this.dataArr.size() : this.minNumOfTerms);
