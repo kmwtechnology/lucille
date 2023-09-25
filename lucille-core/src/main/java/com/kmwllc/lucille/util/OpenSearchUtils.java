@@ -2,28 +2,19 @@ package com.kmwllc.lucille.util;
 
 import com.typesafe.config.Config;
 import java.net.URI;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import javax.net.ssl.SSLEngine;
-import nl.altindag.ssl.SSLFactory;
-import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
-import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
-import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
-import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
-import org.apache.hc.core5.function.Factory;
-import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
-import org.apache.hc.core5.reactor.ssl.TlsDetails;
 import org.apache.hc.client5.http.auth.AuthScope;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
+import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.client.transport.OpenSearchTransport;
 import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
-import org.apache.hc.core5.http.HttpHost;
-import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
 
 /**
  * Utility methods for communicating with OpenSearch.
@@ -48,15 +39,13 @@ public class OpenSearchUtils {
 
       String userInfo = hostUri.getUserInfo();
 
-      final var hosts = new HttpHost[] {
+      final var hosts = new HttpHost[]{
           new HttpHost(hostUri.getScheme(), hostUri.getHost(), hostUri.getPort())
       };
-
 
       final var sslContext = SSLContextBuilder.create()
           .loadTrustMaterial(null, (chains, authType) -> true)
           .build();
-
 
       final var transport = ApacheHttpClient5TransportBuilder
           .builder(hosts)
@@ -88,7 +77,6 @@ public class OpenSearchUtils {
                   .setHostnameVerifier(new DefaultHostnameVerifier())
                   .build();
             }
-
 
             final var connectionManager = PoolingAsyncClientConnectionManagerBuilder.create()
                 .setTlsStrategy(tlsStrategy)
