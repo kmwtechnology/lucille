@@ -31,11 +31,11 @@ import java.util.Set;
  *  given datapath or from random numbers
  * minNumOfTerms (Integer, Optional) : minimum number of terms to be in the field, defaults to null
  * maxNumOfTerms (Integer, Optional) : maximum number of terms to be in the field, defaults to null
- * fieldType (FieldType, Optional) : setting for type of field, default or nested, allows for further settings to be easily added
+ * fieldStructure (FieldType, Optional) : setting for structure of field, default or nested, allows for further settings to be easily added
  */
 public class AddRandomField extends Stage {
 
-  enum FieldType {
+  enum FieldStructure {
     DEFAULT, NESTED
   }
 
@@ -44,7 +44,7 @@ public class AddRandomField extends Stage {
   private final int cardinality;
   private Integer minNumOfTerms;
   private Integer maxNumOfTerms;
-  private final FieldType fieldtype;
+  private final FieldStructure fieldStructure;
   private final List<String> dataArr;
   private final List<String> uniqueValues;
 
@@ -55,7 +55,7 @@ public class AddRandomField extends Stage {
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
     this.minNumOfTerms = ConfigUtils.getOrDefault(config, "min_num_of_terms", null);
     this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "max_num_of_terms", null);
-    this.fieldtype = FieldType.valueOf(ConfigUtils.getOrDefault(config, "field_type", FieldType.DEFAULT.toString()));
+    this.fieldStructure = FieldStructure.valueOf(ConfigUtils.getOrDefault(config, "field_type", FieldStructure.DEFAULT.toString()));
     this.dataArr = this.inputDataPath != null ? getFileData(this.inputDataPath) : null;
     this.cardinality = ConfigUtils.getOrDefault(config, "cardinality",
         this.dataArr != null ? this.dataArr.size() : this.minNumOfTerms);
@@ -79,8 +79,7 @@ public class AddRandomField extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     ArrayList<String> fieldDataArr = genFieldDataArr(uniqueValues, minNumOfTerms, maxNumOfTerms);
-    Document populatedDoc = null;
-    switch (fieldtype) {
+    switch (fieldStructure) {
       case NESTED:
         populateFieldsNested(fieldName, doc, fieldDataArr);
       case DEFAULT:
