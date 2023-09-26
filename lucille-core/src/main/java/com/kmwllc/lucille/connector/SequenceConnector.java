@@ -10,22 +10,22 @@ import org.slf4j.LoggerFactory;
 /**
  * Connector implementation that produces blank documents given amount to produce
  */
-public class BlankConnector extends AbstractConnector {
+public class SequenceConnector extends AbstractConnector {
 
-  private static final Logger log = LoggerFactory.getLogger(BlankConnector.class);
-  private final int docNum;
-  private final int docStartNum;
+  private static final Logger log = LoggerFactory.getLogger(SequenceConnector.class);
+  private final int numDocs;
+  private final int startWith;
 
-  public BlankConnector(Config config) {
+  public SequenceConnector(Config config) {
     super(config);
-    this.docNum = config.getInt("docNum");
-    this.docStartNum = config.hasPath("docStartNum") ? config.getInt("docStartNum") : 0;
+    this.numDocs = config.getInt("numDocs");
+    this.startWith = config.hasPath("docStartNum") ? config.getInt("docStartNum") : 0;
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    for (int i = 0; i < docNum; i++) {
-      Document doc = Document.create(createDocId(Integer.toString(i + docStartNum)));
+    for (int i = 0; i < numDocs; i++) {
+      Document doc = Document.create(createDocId(Integer.toString(i + startWith)));
       try {
         publisher.publish(doc);
       } catch (Exception e) {

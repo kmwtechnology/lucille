@@ -12,14 +12,14 @@ import com.typesafe.config.ConfigFactory;
 import java.util.List;
 import org.junit.Test;
 
-public class BlankConnectorTest {
+public class SequenceConnectorTest {
 
   @Test
   public void testExecute() throws Exception {
-    Config config = ConfigFactory.load("BlankConnectorTest/config.conf");
+    Config config = ConfigFactory.load("SequenceConnectorTest/config.conf");
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
     Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
-    Connector connector = new BlankConnector(config);
+    Connector connector = new SequenceConnector(config);
     connector.execute(publisher);
 
     List<Document> docs = manager.getSavedDocumentsSentForProcessing();
