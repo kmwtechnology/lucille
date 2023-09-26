@@ -258,6 +258,32 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testAsMapReturnsCopy() {
+    // confirm that modifying the map returned by Document.asMap does not affect the original document
+    // this assumption is important in various Indexers where a Document is converted to a Map and then
+    // various "ignoreFields" are removed from that map before indexing. The list of "ignoreFields" might include
+    // the id field. But we never want the id of the _original_ document to be removed. In particular, that ID
+    // is needed later in the workflow for accounting.
+    Document document = createDocument("123");
+    document.setField("myField", "hello");
+    Map docMap = document.asMap();
+    docMap.remove(Document.ID_FIELD);
+    docMap.remove("myField");
+    docMap.put("myField2", "hello2");
+    assertEquals("123", document.getId());
+    assertEquals("hello", document.getString("myField"));
+    assertFalse(document.has("myField2"));
+
+    // Note that we do not currently test whether asMap returns a shallow or deep copy of the document data.
+    // For example, modifying the contents of an array value inside the Map might or might not affect the contents
+    // of that same array in the original document. Deep copying could be tested as follows but HashMapDocument would not pass:
+    // byte[] myBytes = new byte[]{0x3c, 0x4c, 0x5c};
+    // document.setField("myBytes", myBytes);
+    // ((byte[])docMap.get("myBytes"))[0] = 0x5c;
+    // assertEquals(0x5c, document.getBytes("myBytes")[0]);
+  }
+
+  @Test
   public void testAddToField() {
     Document document = createDocument("123");
     assertFalse(document.has("field1"));
