@@ -11,7 +11,6 @@ import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
-import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
 import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
@@ -25,17 +24,13 @@ import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBui
  */
 public class OpenSearchUtils {
 
-  public static OpenSearchClient getOpenSearchRestClient(Config config) {
-    return getOpenSearchRestClientInternal(config);
-  }
-
   /**
-   * Generate a RestHighLevelClient from the given config file. Supports Http OpenSearchClients.
+   * Generate a RestHighLevelClient from the given config file. Supports Apache Http OpenSearchClient
    *
    * @param config The configuration file to generate a client from
    * @return the RestHighLevelClient client
    */
-  public static OpenSearchClient getOpenSearchRestClientInternal(Config config) {
+  public static OpenSearchClient getOpenSearchRestClient(Config config) {
     try {
 
       // get host uri
@@ -48,6 +43,11 @@ public class OpenSearchUtils {
       };
 
 
+      // code for Apache Client is taken from following link:
+      // https://github.com/opensearch-project/opensearch-java/blob/main/samples/src/main/java/org/opensearch/client/samples/SampleClient.java
+      // When comparing to example code, here are differences:
+      //  - We gather data from our config rather than providing directly
+      //  - We disable TLS/SSL verification only if acceptInvalidCerts is true (from config)
       final var transport = ApacheHttpClient5TransportBuilder
           .builder(hosts)
           .setMapper(new JacksonJsonpMapper())
@@ -69,23 +69,22 @@ public class OpenSearchUtils {
             TlsStrategy tlsStrategy = null;
             SSLContext sslContext = null;
             try {
-            if (allowInvalidCert) {
-              sslContext = SSLContextBuilder.create()
+              if (allowInvalidCert) {
+                sslContext = SSLContextBuilder.create()
                     .loadTrustMaterial(null, (chains, authType) -> true)
                     .build();
 
-              tlsStrategy = ClientTlsStrategyBuilder.create()
-                  .setSslContext(sslContext)
-                  .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-                  .build();
-            } else {
-              sslContext = SSLContextBuilder.create()
+                tlsStrategy = ClientTlsStrategyBuilder.create()
+                    .setSslContext(sslContext)
+                    .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
                     .build();
-              tlsStrategy = ClientTlsStrategyBuilder.create()
-                  .setSslContext(sslContext)
-                  //.setHostnameVerifier(new DefaultHostnameVerifier())
-                  .build();
-            }
+              } else {
+                sslContext = SSLContextBuilder.create()
+                    .build();
+                tlsStrategy = ClientTlsStrategyBuilder.create()
+                    .setSslContext(sslContext)
+                    .build();
+              }
             } catch (NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
               throw new RuntimeException(e);
             }
