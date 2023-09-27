@@ -39,6 +39,10 @@ public class OpenSearchIndexerTest {
     setupOpenSearchClient();
   }
 
+  // TODO:
+  // - see if there's a modern way to skip before test or mark individual tests that need it / don't need it
+  // - try to override when statement with new when that returns a BulkResponse that has Errors in it
+  // - if that doesn't work, make new client
   private void setupOpenSearchClient() throws IOException {
     mockClient = Mockito.mock(OpenSearchClient.class);
 
