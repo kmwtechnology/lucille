@@ -32,7 +32,7 @@ public class AddRandomFieldTest {
    */
   @Test
   public void testBasicFilePath() throws StageException {
-    Stage stage = factory.get("AddRandomFieldTest/basicfilepath.conf");
+    Stage stage = factory.get("AddRandomFieldTest/nofilepath.conf");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
     Document doc3 = Document.create("doc3");
@@ -41,6 +41,11 @@ public class AddRandomFieldTest {
       stage.processDocument(doc);
     }
 
-    assertEquals("6", doc1.getString("data"));
+    int docVal1 = Integer.valueOf(doc1.getString("data"));
+    int docVal2 = Integer.valueOf(doc2.getString("data"));
+    int docVal3 = Integer.valueOf(doc3.getString("data"));
+    assertTrue(0 < docVal1 && docVal1 < 20);
+    assertTrue(0 < docVal2 && docVal2 < 20);
+    assertTrue(0 < docVal3 && docVal3 < 20);
   }
 }

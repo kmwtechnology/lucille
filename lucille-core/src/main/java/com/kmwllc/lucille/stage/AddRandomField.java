@@ -17,6 +17,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 /**
@@ -41,12 +43,12 @@ public class AddRandomField extends Stage {
 
   private final String inputDataPath;
   private final String fieldName;
-  private final int cardinality;
+  private Integer cardinality;
   private Integer minNumOfTerms;
   private Integer maxNumOfTerms;
   private final FieldStructure fieldStructure;
-  private final List<String> dataArr;
-  private final List<String> uniqueValues;
+  private List<String> dataArr;
+  private List<String> uniqueValues;
 
   public AddRandomField(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("input_data_path", "field_name", "cardinality", "min_num_of_terms",
@@ -55,11 +57,10 @@ public class AddRandomField extends Stage {
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
     this.minNumOfTerms = ConfigUtils.getOrDefault(config, "min_num_of_terms", null);
     this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "max_num_of_terms", null);
-    this.fieldStructure = FieldStructure.valueOf(ConfigUtils.getOrDefault(config, "field_type", FieldStructure.DEFAULT.toString()));
-    this.dataArr = this.inputDataPath != null ? getFileData(this.inputDataPath) : null;
-    this.cardinality = ConfigUtils.getOrDefault(config, "cardinality",
-        this.dataArr != null ? this.dataArr.size() : this.minNumOfTerms);
-    this.uniqueValues = getUniqueValues(this.dataArr != null, this.dataArr);
+    this.fieldStructure = FieldStructure.valueOf(ConfigUtils.getOrDefault(config, "field_structure", FieldStructure.DEFAULT.toString()));
+    this.dataArr = null;
+    this.cardinality = null;
+    this.uniqueValues = null;
 
     if (this.minNumOfTerms == null ^ this.maxNumOfTerms == null) {
       throw new StageException("Both minimum and maximum number of terms must be specified");
@@ -71,7 +72,16 @@ public class AddRandomField extends Stage {
     if (this.minNumOfTerms > this.maxNumOfTerms) {
       throw new StageException("Minimum number of terms must be less than or equal to maximum");
     }
-    if (this.dataArr.size() < this.cardinality) {
+  }
+
+  @Override
+  public void start() throws StageException {
+    this.dataArr = this.inputDataPath != null ? getFileData(this.inputDataPath) : null;
+    this.cardinality = ConfigUtils.getOrDefault(config, "cardinality",
+        this.dataArr != null ? this.dataArr.size() : this.maxNumOfTerms);
+    this.uniqueValues = getUniqueValues(this.dataArr != null, this.dataArr);
+
+    if (this.dataArr != null && this.cardinality < this.dataArr.size()) {
       throw new StageException("Cardinality must be less than the number of lines in given file");
     }
   }
@@ -113,10 +123,10 @@ public class AddRandomField extends Stage {
     return data;
   }
 
-  private ArrayList<String> getUniqueValues(boolean dataExists, List<String> inputData) {
-    ArrayList<String> uniqueValues = null;
-    if (!dataExists) {
+  private List<String> getUniqueValues(boolean dataExists, List<String> inputData) {
+    List<String> uniqueValues = null;
 
+    if (dataExists) {
       // create set of unique values based on given cardinality and input data
       Set<String> uniqueValuesSet = new HashSet<>();
       for (int i = 0; i < cardinality; i++) {
@@ -126,11 +136,10 @@ public class AddRandomField extends Stage {
       }
       uniqueValues = new ArrayList<>(uniqueValuesSet);
     } else {
-      uniqueValues = new ArrayList<>();
-      for (int i = 0; i < cardinality; i++) {
-        int randomPos = (int) (Math.random() * cardinality);
-        uniqueValues.add(Integer.toString(randomPos));
-      }
+      // create sequential list of numbers ending at cardinality
+      List<Integer> seqList = IntStream.rangeClosed(1, cardinality)
+          .boxed().collect(Collectors.toList());
+      uniqueValues = seqList.stream().map(i -> i.toString()).collect(Collectors.toList());
     }
     return uniqueValues;
   }
