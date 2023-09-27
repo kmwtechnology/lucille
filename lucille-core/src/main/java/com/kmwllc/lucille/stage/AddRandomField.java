@@ -13,6 +13,7 @@ import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -46,18 +47,18 @@ public class AddRandomField extends Stage {
   private Integer cardinality;
   private Integer minNumOfTerms;
   private Integer maxNumOfTerms;
-  private final FieldStructure fieldStructure;
+  private final boolean isNested;
   private List<String> dataArr;
   private List<String> uniqueValues;
 
   public AddRandomField(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("input_data_path", "field_name", "cardinality", "min_num_of_terms",
-        "max_num_of_terms", "field_type"));
+        "max_num_of_terms", "is_nested"));
     this.inputDataPath = ConfigUtils.getOrDefault(config, "input_data_path", null);
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
     this.minNumOfTerms = ConfigUtils.getOrDefault(config, "min_num_of_terms", null);
     this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "max_num_of_terms", null);
-    this.fieldStructure = FieldStructure.valueOf(ConfigUtils.getOrDefault(config, "field_structure", FieldStructure.DEFAULT.toString()));
+    this.isNested = ConfigUtils.getOrDefault(config, "is_nested", false);
     this.dataArr = null;
     this.cardinality = null;
     this.uniqueValues = null;
@@ -81,7 +82,7 @@ public class AddRandomField extends Stage {
         this.dataArr != null ? this.dataArr.size() : this.maxNumOfTerms);
     this.uniqueValues = getUniqueValues(this.dataArr != null, this.dataArr);
 
-    if (this.dataArr != null && this.cardinality < this.dataArr.size()) {
+    if (this.dataArr != null && this.cardinality > this.dataArr.size()) {
       throw new StageException("Cardinality must be less than the number of lines in given file");
     }
   }
@@ -89,11 +90,10 @@ public class AddRandomField extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     ArrayList<String> fieldDataArr = genFieldDataArr(uniqueValues, minNumOfTerms, maxNumOfTerms);
-    switch (fieldStructure) {
-      case NESTED:
-        populateFieldsNested(fieldName, doc, fieldDataArr);
-      case DEFAULT:
-        populateFieldsDefault(fieldName, doc, fieldDataArr);
+    if (isNested) {
+      populateFieldsNested(fieldName, doc, fieldDataArr);
+    } else {
+      populateFieldsDefault(fieldName, doc, fieldDataArr);
     }
     return null;
   }
@@ -125,14 +125,14 @@ public class AddRandomField extends Stage {
 
   private List<String> getUniqueValues(boolean dataExists, List<String> inputData) {
     List<String> uniqueValues = null;
-
     if (dataExists) {
+      List<String> initialData = new ArrayList<>(inputData);
       // create set of unique values based on given cardinality and input data
       Set<String> uniqueValuesSet = new HashSet<>();
       for (int i = 0; i < cardinality; i++) {
-        int randomPos = (int) (Math.random() * inputData.size());
-        uniqueValuesSet.add(inputData.get(randomPos));
-        inputData.remove(randomPos);
+        int randomPos = (int) (Math.random() * initialData.size());
+        uniqueValuesSet.add(initialData.get(randomPos));
+        initialData.remove(randomPos);
       }
       uniqueValues = new ArrayList<>(uniqueValuesSet);
     } else {
@@ -146,7 +146,6 @@ public class AddRandomField extends Stage {
 
   private ArrayList<String> genFieldDataArr(List<String> uniqueValues, int minNumOfTerms, int maxNumOfTerms) {
     ArrayList<String> fieldData = new ArrayList<>();
-
     int fieldDataSize = (int) ((Math.random() * (maxNumOfTerms - minNumOfTerms)) + minNumOfTerms);
     for (int i = 0; i < fieldDataSize; i++) {
       fieldData.add(uniqueValues.get((int) (Math.random() * uniqueValues.size())));
