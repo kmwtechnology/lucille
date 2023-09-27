@@ -17,12 +17,6 @@ import org.junit.Test;
 
 public class AddRandomFieldTest {
 
-  /*
-    TODO:
-     - Give some thought to whether the config file path to the foods.txt needs to be referenced via classpath or via relative path
-     -
-   */
-
   private StageFactory factory = StageFactory.of(AddRandomField.class);
 
   /**
@@ -31,7 +25,7 @@ public class AddRandomFieldTest {
    * @throws StageException
    */
   @Test
-  public void testBasicFilePath() throws StageException {
+  public void testNumeric() throws StageException {
     Stage stage = factory.get("AddRandomFieldTest/nofilepath.conf");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
@@ -41,11 +35,36 @@ public class AddRandomFieldTest {
       stage.processDocument(doc);
     }
 
-    int docVal1 = Integer.valueOf(doc1.getString("data"));
-    int docVal2 = Integer.valueOf(doc2.getString("data"));
-    int docVal3 = Integer.valueOf(doc3.getString("data"));
+    int docVal1 = Integer.valueOf(doc1.getStringList("data"));
+    int docVal2 = Integer.valueOf(doc2.getStringList("data"));
+    int docVal3 = Integer.valueOf(doc3.getStringList("data"));
     assertTrue(0 < docVal1 && docVal1 < 20);
     assertTrue(0 < docVal2 && docVal2 < 20);
     assertTrue(0 < docVal3 && docVal3 < 20);
   }
+
+  @Test
+  public void testBasicFilePath() throws StageException {
+    Stage stage = factory.get("AddRandomFieldTest/basicfilepath.conf");
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+    Document doc3 = Document.create("doc3");
+
+    for (Document doc : Arrays.asList(doc1, doc2, doc3)) {
+      stage.processDocument(doc);
+    }
+
+    String docVal1 = doc1.getString("data");
+    String docVal2 = doc2.getString("data");
+    String docVal3 = doc3.getString("data");
+    NumberFormatException thrown = assertThrows(NumberFormatException.class, () -> Integer.valueOf(docVal1));
+    assertTrue(thrown.getLocalizedMessage().startsWith("For input string"));
+
+    // TODO: load in foods.txt and check that the values exist as part of the arraylist from file
+  }
+
+  // TODO:
+  // - test to validate that cardinality works
+  // - test to validate that field name works
+  // - test to validate that min
 }
