@@ -45,7 +45,6 @@ public class ElasticsearchIndexer extends Indexer {
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
     this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
 
-    // todo consider making routing a Document class member
     this.routingField = ConfigUtils.getOrDefault(config, "indexer.routingField", null);
     this.versionType = config.hasPath("indexer.versionType") ? versionTypeFromString(config.getString("indexer.versionType")) : null;
   }
