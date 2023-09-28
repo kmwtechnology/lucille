@@ -46,7 +46,7 @@ public class ElasticsearchIndexer extends Indexer {
     this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
 
     this.routingField = ConfigUtils.getOrDefault(config, "indexer.routingField", null);
-    this.versionType = config.hasPath("indexer.versionType") ? versionTypeFromString(config.getString("indexer.versionType")) : null;
+    this.versionType = config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
   public ElasticsearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
@@ -173,22 +173,6 @@ public class ElasticsearchIndexer extends Indexer {
     }
   }
 
-  private static VersionType versionTypeFromString(String versionType) {
-
-    switch (versionType) {
-      case "internal":
-        return VersionType.Internal;
-      case "external":
-        return VersionType.External;
-      case "external_gte":
-        return VersionType.ExternalGte;
-      case "force":
-        return VersionType.Force;
-      default:
-        throw new IllegalArgumentException("No version type match [" + versionType + "]");
-    }
-  }
-
   public static void main(String[] args) throws Exception {
     Config config = ConfigUtils.loadConfig();
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
@@ -214,5 +198,4 @@ public class ElasticsearchIndexer extends Indexer {
       System.exit(0);
     });
   }
-
 }
