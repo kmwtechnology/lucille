@@ -19,7 +19,7 @@ import org.junit.Test;
 
 public class AddRandomFieldTest {
 
-  private StageFactory factory = StageFactory.of(AddRandomField.class);
+  private final StageFactory factory = StageFactory.of(AddRandomField.class);
 
   /**
    * Tests

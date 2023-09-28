@@ -23,18 +23,30 @@ import java.util.stream.IntStream;
 
 
 /**
- * Fetches byte data of a given URL field and places data into a specified field
+ * Adds random data to a document field given parameters
  * <br>
  * Config Parameters -
  * <br>
- * inputDataPath (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
+ * <p>
+ * <b>inputDataPath</b> (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
  *  defaults to numeric data based on cardinality
- * fieldName (String, Optional) : Field name of field where data is placed, defaults to "data"
- * cardinality (int, Optional) : size of the subset of datapoints to be grabbed either from
+ * </p>
+ * <p>
+ * <b>fieldName</b> (String, Optional) : Field name of field where data is placed, defaults to "data"
+ *  </p>
+ * <p>
+ * <b>cardinality</b> (int, Optional) : size of the subset of datapoints to be grabbed either from
  *  given datapath or from random numbers
- * minNumOfTerms (Integer, Optional) : minimum number of terms to be in the field, defaults to null
- * maxNumOfTerms (Integer, Optional) : maximum number of terms to be in the field, defaults to null
- * fieldStructure (FieldType, Optional) : setting for structure of field, default or nested, allows for further settings to be easily added
+ * </p>
+ *  <p>
+ * <b>minNumOfTerms</b> (Integer, Optional) : minimum number of terms to be in the field, defaults to null
+ * </p>
+ * <p>
+ * <b>maxNumOfTerms</b> (Integer, Optional) : maximum number of terms to be in the field, defaults to null
+ * </p>
+ * <p>
+ * <b>fieldStructure</b> (FieldType, Optional) : setting for structure of field, default or nested, allows for further settings to be easily added
+ * </p>
  */
 public class AddRandomField extends Stage {
 
@@ -64,7 +76,7 @@ public class AddRandomField extends Stage {
     this.uniqueValues = null;
 
     if (this.minNumOfTerms == null ^ this.maxNumOfTerms == null) {
-      throw new StageException("Both minimum and maximum number of terms must be specified");
+      throw new StageException("Both minimum and maximum number of terms must be specified if either is specified");
     }
     if (this.minNumOfTerms == null && this.maxNumOfTerms == null) {
       this.minNumOfTerms = 1;
@@ -114,13 +126,12 @@ public class AddRandomField extends Stage {
   }
 
   private List<String> getFileData(String inputDataPath) throws StageException {
-    List<String> data = null;
     try {
-      data = Files.readAllLines(Path.of(inputDataPath));
+      List<String> data = Files.readAllLines(Path.of(inputDataPath));
+      return data;
     } catch (IOException e) {
       throw new StageException("Could not read provided file path", e);
     }
-    return data;
   }
 
   private List<String> getUniqueValues(boolean dataExists, List<String> inputData) {
