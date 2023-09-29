@@ -14,6 +14,7 @@ import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -23,10 +24,12 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch._types.ErrorCause;
 import org.opensearch.client.opensearch._types.VersionType;
 import org.opensearch.client.opensearch.core.BulkRequest;
 import org.opensearch.client.opensearch.core.BulkResponse;
 import org.opensearch.client.opensearch.core.bulk.BulkOperation;
+import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
 import org.opensearch.client.opensearch.core.bulk.IndexOperation;
 import org.opensearch.client.transport.endpoints.BooleanResponse;
 
@@ -40,7 +43,6 @@ public class OpenSearchIndexerTest {
   }
 
   // TODO:
-  // - see if there's a modern way to skip before test or mark individual tests that need it / don't need it
   // - try to override when statement with new when that returns a BulkResponse that has Errors in it
   // - if that doesn't work, make new client
   private void setupOpenSearchClient() throws IOException {
@@ -54,7 +56,19 @@ public class OpenSearchIndexerTest {
 
     BulkRequest.Builder mockRequestBuilder = Mockito.mock(BulkRequest.Builder.class);
     BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
-    Mockito.when(mockClient.bulk(mockRequestBuilder.build())).thenReturn(mockResponse);
+    BulkRequest mockBulkRequest = Mockito.mock(BulkRequest.class);
+    Mockito.when(mockRequestBuilder.build()).thenReturn(mockBulkRequest);
+    Mockito.when(mockClient.bulk(mockBulkRequest)).thenReturn(mockResponse);
+
+    // mocking for the bulk response items and error causes
+    BulkResponseItem.Builder mockItemBuilder = Mockito.mock(BulkResponseItem.Builder.class);
+    BulkResponseItem mockItem = Mockito.mock(BulkResponseItem.class);
+    ErrorCause mockError = new ErrorCause.Builder().reason("mock reason").type("mock-type").build();
+    Mockito.when(mockItemBuilder.build()).thenReturn(mockItem);
+    Mockito.when(mockItem.error()).thenReturn(mockError);
+
+    List<BulkResponseItem> bulkResponseItems = Arrays.asList(mockItem, mockItem);
+    Mockito.when(mockResponse.items()).thenReturn(bulkResponseItems);
   }
 
   /**
@@ -317,6 +331,28 @@ public class OpenSearchIndexerTest {
     assertEquals(expectedVersion, indexRequest.version());
     assertEquals(VersionType.ExternalGte, indexRequest.versionType());
     assertEquals(Map.of("id", "doc1", "field1", "value1"), map);
+  }
+
+  @Test
+  public void testBulkResponseErroring() throws Exception {
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
+
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+    manager.sendCompleted(doc);
+    manager.sendCompleted(doc2);
+    indexer.run(2);
+
+    indexer.sendToIndex(Arrays.asList(doc, doc2));
+
+    List<Event> events = manager.getSavedEvents();
+    for (int i = 1; i <= events.size(); i++) {
+      Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      Assert.assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
+    }
   }
 
   private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
