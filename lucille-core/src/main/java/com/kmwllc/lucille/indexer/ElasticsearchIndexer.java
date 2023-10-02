@@ -4,6 +4,8 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.VersionType;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
@@ -31,6 +33,7 @@ public class ElasticsearchIndexer extends Indexer {
 
   //flag for using partial update API when sending documents to elastic
   private final boolean update;
+  private final ElasticJoinData joinData;
   private final String routingField;
   private final VersionType versionType;
 
@@ -45,6 +48,7 @@ public class ElasticsearchIndexer extends Indexer {
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
     this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
 
+    joinData = ElasticJoinData.fromConfig(config);
     this.routingField = ConfigUtils.getOrDefault(config, "indexer.routingField", null);
     this.versionType = config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
@@ -86,6 +90,10 @@ public class ElasticsearchIndexer extends Indexer {
     BulkRequest.Builder br = new BulkRequest.Builder();
 
     for (Document doc : documents) {
+
+      // populate join data to document
+      joinData.populateJoinData(doc);
+
       Map<String, Object> indexerDoc = doc.asMap();
 
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
@@ -170,6 +178,81 @@ public class ElasticsearchIndexer extends Indexer {
         indexerChildDoc.put(key, value);
       }
       // TODO: Do nothing for now, add support for child docs like SolrIndexer does in future (_childDocuments_)
+    }
+  }
+
+  public static class ElasticJoinData {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private String joinFieldName;
+    private boolean isChild;
+    private String parentName;
+    private String childName;
+    private String parentDocumentIdSource;
+
+    public void populateJoinData(Document doc) {
+
+      // no need to do a join
+      if (joinFieldName == null) {
+        return;
+      }
+
+      // check that join field doesn't already exist
+      if (doc.has(joinFieldName)) {
+        throw new IllegalStateException("Document already has join field: " + joinFieldName);
+      }
+
+      // set a necessary join field
+      if (isChild) {
+        String parentId = doc.getString(parentDocumentIdSource);
+        doc.setField(joinFieldName, getChildNode(parentId));
+      } else {
+        doc.setField(joinFieldName, parentName);
+      }
+    }
+
+    private JsonNode getChildNode(String parentId) {
+      return MAPPER.createObjectNode()
+          .put("name", childName)
+          .put("parent", parentId);
+    }
+
+    private static String prefix() {
+      return prefix(null);
+    }
+
+    private static String prefix(String path) {
+      // todo consider abstracting adding prefix to config
+      StringBuilder builder = new StringBuilder("elasticsearch.join");
+      if (path == null || path.isEmpty()) {
+        return builder.toString();
+      }
+      return builder.append(".").append(path).toString();
+    }
+
+    public static ElasticJoinData fromConfig(Config config) {
+
+
+      ElasticJoinData data = new ElasticJoinData();
+
+      // if no join in config will initialize all join data to null and will be skipped in the code
+      if (config.hasPath(prefix())) {
+
+        // set fields for both parent and child
+        data.joinFieldName = config.getString(prefix("joinFieldName"));
+        data.isChild = ConfigUtils.getOrDefault(config, prefix("isChild"), false);
+
+        // set parent child specific fields
+        if (data.isChild) {
+          data.childName = config.getString(prefix("childName"));
+          data.parentDocumentIdSource = config.getString(prefix("parentDocumentIdSource"));
+        } else {
+          data.parentName = config.getString(prefix("parentName"));
+        }
+      }
+
+      return data;
     }
   }
 

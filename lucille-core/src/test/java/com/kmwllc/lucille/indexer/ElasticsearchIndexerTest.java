@@ -24,6 +24,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -256,6 +257,7 @@ public class ElasticsearchIndexerTest {
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
+
   @Test
   public void testRouting() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
@@ -309,6 +311,57 @@ public class ElasticsearchIndexerTest {
     assertEquals(Long.valueOf(100), indexRequest.version());
     assertEquals(VersionType.ExternalGte, indexRequest.versionType());
     assertEquals(Map.of("id", "doc1", "field1", "value1"), indexRequest.document());
+  }
+
+  private void testJoin(String configPath, Document doc, Map<String, Object> expected) throws Exception {
+
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load(configPath);
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient, "testing");
+    manager.sendCompleted(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
+
+    // add doc id to expected
+    expected.put("id", doc.getId());
+    assertEquals(expected, indexRequest.document());
+  }
+
+  @Test
+  public void testJoinParent() throws Exception {
+
+    Document doc = Document.create("doc1");
+
+    Map<String, Object> expected = new HashMap<>();
+    expected.put("my_join_field", "parentName1");
+
+    testJoin("ElasticsearchIndexerTest/joinParent.conf", doc, expected);
+  }
+
+  @Test
+  public void testJoinChild() throws Exception {
+
+    Document doc = Document.create("doc1");
+    // define parent id
+    doc.setField("parentDocumentIdSource1", "parentId1");
+
+    Map<String, Object> joinData = new HashMap<>();
+    joinData.put("name", "childName1");
+    joinData.put("parent", "parentId1");
+
+    Map<String, Object> expected = new HashMap<>();
+    expected.put("parentDocumentIdSource1", "parentId1");
+    expected.put("my_join_field", joinData);
+
+    testJoin("ElasticsearchIndexerTest/joinChild.conf", doc, expected);
   }
 
   private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
