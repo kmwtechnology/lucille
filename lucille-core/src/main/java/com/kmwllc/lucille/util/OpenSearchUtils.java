@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.util;
 
+import com.kmwllc.lucille.indexer.OpenSearchIndexer;
 import com.typesafe.config.Config;
 import java.net.URI;
 import java.security.KeyManagementException;
@@ -18,11 +19,15 @@ import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility methods for communicating with OpenSearch.
  */
 public class OpenSearchUtils {
+
+  private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
   /**
    * Generate a RestHighLevelClient from the given config file. Supports Apache Http OpenSearchClient
@@ -101,7 +106,7 @@ public class OpenSearchUtils {
 
       return new OpenSearchClient(transport);
     } catch (Exception e) {
-      System.out.println("failed to make transport client");
+      log.error("Failed to make transport client for open search indexer", e);
       return null;
     }
   }
