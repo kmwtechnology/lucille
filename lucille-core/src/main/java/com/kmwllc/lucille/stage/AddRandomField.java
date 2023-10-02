@@ -39,10 +39,10 @@ import java.util.stream.IntStream;
  *  given datapath or from random numbers
  * </p>
  *  <p>
- * <b>minNumOfTerms</b> (Integer, Optional) : minimum number of terms to be in the field, defaults to null
+ * <b>minNumOfTerms</b> (Integer, Optional) : minimum number of terms to be in the field, defaults to 1
  * </p>
  * <p>
- * <b>maxNumOfTerms</b> (Integer, Optional) : maximum number of terms to be in the field, defaults to null
+ * <b>maxNumOfTerms</b> (Integer, Optional) : maximum number of terms to be in the field, defaults to 1
  * </p>
  * <p>
  * <b>fieldStructure</b> (FieldType, Optional) : setting for structure of field, default or nested, allows for further settings to be easily added
