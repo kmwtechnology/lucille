@@ -29,13 +29,13 @@ import java.util.stream.IntStream;
  * <br>
  * <p>
  * <b>inputDataPath</b> (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
- *  defaults to numeric data based on cardinality
+ *  defaults to numeric data based on range size
  * </p>
  * <p>
  * <b>fieldName</b> (String, Optional) : Field name of field where data is placed, defaults to "data"
  *  </p>
  * <p>
- * <b>cardinality</b> (int, Optional) : size of the subset of datapoints to be grabbed either from
+ * <b>rangeSize</b> (int, Optional) : size of the subset of datapoints to be grabbed either from
  *  given datapath or from random numbers
  * </p>
  *  <p>
@@ -56,7 +56,7 @@ public class AddRandomField extends Stage {
 
   private final String inputDataPath;
   private final String fieldName;
-  private Integer cardinality;
+  private Integer rangeSize;
   private Integer minNumOfTerms;
   private Integer maxNumOfTerms;
   private final boolean isNested;
@@ -64,7 +64,7 @@ public class AddRandomField extends Stage {
   private List<String> uniqueValues;
 
   public AddRandomField(Config config) throws StageException {
-    super(config, new StageSpec().withOptionalProperties("input_data_path", "field_name", "cardinality", "min_num_of_terms",
+    super(config, new StageSpec().withOptionalProperties("input_data_path", "field_name", "range_size", "min_num_of_terms",
         "max_num_of_terms", "is_nested"));
     this.inputDataPath = ConfigUtils.getOrDefault(config, "input_data_path", null);
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
@@ -72,7 +72,7 @@ public class AddRandomField extends Stage {
     this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "max_num_of_terms", null);
     this.isNested = ConfigUtils.getOrDefault(config, "is_nested", false);
     this.dataArr = null;
-    this.cardinality = null;
+    this.rangeSize = null;
     this.uniqueValues = null;
 
     if (this.minNumOfTerms == null ^ this.maxNumOfTerms == null) {
@@ -90,12 +90,12 @@ public class AddRandomField extends Stage {
   @Override
   public void start() throws StageException {
     this.dataArr = this.inputDataPath != null ? getFileData(this.inputDataPath) : null;
-    this.cardinality = ConfigUtils.getOrDefault(config, "cardinality",
+    this.rangeSize = ConfigUtils.getOrDefault(config, "range_size",
         this.dataArr != null ? this.dataArr.size() : this.maxNumOfTerms);
     this.uniqueValues = getUniqueValues(this.dataArr != null, this.dataArr);
 
-    if (this.dataArr != null && this.cardinality > this.dataArr.size()) {
-      throw new StageException("Cardinality must be less than the number of lines in given file");
+    if (this.dataArr != null && this.rangeSize > this.dataArr.size()) {
+      throw new StageException("Range size must be less than the number of lines in given file");
     }
   }
 
@@ -138,17 +138,17 @@ public class AddRandomField extends Stage {
     List<String> uniqueValues = null;
     if (dataExists) {
       List<String> initialData = new ArrayList<>(inputData);
-      // create set of unique values based on given cardinality and input data
+      // create set of unique values based on given range size and input data
       Set<String> uniqueValuesSet = new HashSet<>();
-      for (int i = 0; i < cardinality; i++) {
+      for (int i = 0; i < rangeSize; i++) {
         int randomPos = (int) (Math.random() * initialData.size());
         uniqueValuesSet.add(initialData.get(randomPos));
         initialData.remove(randomPos);
       }
       uniqueValues = new ArrayList<>(uniqueValuesSet);
     } else {
-      // create sequential list of numbers ending at cardinality
-      List<Integer> seqList = IntStream.rangeClosed(1, cardinality)
+      // create sequential list of numbers ending at range size
+      List<Integer> seqList = IntStream.rangeClosed(1, rangeSize)
           .boxed().collect(Collectors.toList());
       uniqueValues = seqList.stream().map(i -> i.toString()).collect(Collectors.toList());
     }
