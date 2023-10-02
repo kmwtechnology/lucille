@@ -23,6 +23,7 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
+
 @JsonIgnoreProperties(value = {"fieldNames", "runId", "dropped", "id", "children"})
 public class HashMapDocument implements Document, Serializable {
 
@@ -121,7 +122,7 @@ public class HashMapDocument implements Document, Serializable {
   // todo consider what happens for nested arrays
   public void addNodeValueToField(String name, JsonNode node) {
 
-    Document.validateNotReservedField(name);
+    validateFieldNames(name);
 
     switch (node.getNodeType()) {
       case STRING:
@@ -171,13 +172,13 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public void removeField(String name) {
-    Document.validateNotReservedField(name);
+    validateFieldNames(name);
     data.remove(name);
   }
 
   @Override
   public void removeFromArray(String name, int index) {
-    Document.validateNotReservedField(name);
+    validateFieldNames(name);
     data.removeFromArray(name, index);
   }
 
@@ -194,7 +195,7 @@ public class HashMapDocument implements Document, Serializable {
    */
   @SafeVarargs
   private <T> void updateGeneric(String name, UpdateMode mode, T... values) {
-    Document.validateNotReservedField(name);
+    validateFieldNames(name);
     if (values.length == 0 || has(name) && mode == UpdateMode.SKIP) {
       return;
     }
@@ -267,7 +268,7 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   private <T> void setFieldGeneric(String name, T value) {
-    Document.validateNotReservedField(name);
+    validateFieldNames(name);
     data.putOne(name, value);
   }
 
@@ -318,7 +319,7 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
-    Document.validateNotReservedField(oldName, newName);
+    validateFieldNames(oldName, newName);
     if (oldName != null && oldName.equals(newName)) {
       return;
     }
@@ -477,7 +478,7 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   private <T> void addToFieldGeneric(String name, T value) {
-    Document.validateNotReservedField(name);
+    validateFieldNames(name);
     data.add(name, value);
   }
 
@@ -522,7 +523,7 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   private <T> void setOrAddGeneric(String name, T value) {
-    Document.validateNotReservedField(name);
+    validateFieldNames(name);
     data.setOrAdd(name, value);
   }
 
@@ -568,7 +569,7 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public void setOrAdd(String name, Document other) throws IllegalArgumentException {
-    Document.validateNotReservedField(name);
+    validateFieldNames(name);
 
     if (!other.has(name)) {
       return;
@@ -597,7 +598,11 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public Map<String, Object> asMap() {
-    return data.getData();
+    // create a shallow copy of the document data
+    // adding, replacing, or removing entries in the returned map will not affect the original document
+    // however, updates made to an object inside the map (for example, changing the contents of an array value) will
+    // be evident when that same object is retrieved from the original document
+    return (Map<String, Object>)data.getData().clone();
   }
 
   @Override
@@ -648,7 +653,7 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public void removeDuplicateValues(String source, String target) {
-    Document.validateNotReservedField(source);
+    validateFieldNames(source);
 
     if (target != null && !target.equals(source)) {
       data.putMany(target, new ArrayList<>(new LinkedHashSet<>(data.getMany(source))));
