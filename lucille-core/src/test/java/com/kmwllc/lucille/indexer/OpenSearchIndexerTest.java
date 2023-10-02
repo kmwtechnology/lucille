@@ -46,9 +46,6 @@ public class OpenSearchIndexerTest {
     setupOpenSearchClient();
   }
 
-  // TODO:
-  // - try to override when statement with new when that returns a BulkResponse that has Errors in it
-  // - if that doesn't work, make new client
   private void setupOpenSearchClient() throws IOException {
     mockClient = Mockito.mock(OpenSearchClient.class);
 
@@ -63,16 +60,6 @@ public class OpenSearchIndexerTest {
     BulkRequest mockBulkRequest = Mockito.mock(BulkRequest.class);
     Mockito.when(mockRequestBuilder.build()).thenReturn(mockBulkRequest);
     Mockito.when(mockClient.bulk(mockBulkRequest)).thenReturn(mockResponse);
-
-//    // mocking for the bulk response items and error causes
-//    BulkResponseItem.Builder mockItemBuilder = Mockito.mock(BulkResponseItem.Builder.class);
-//    BulkResponseItem mockItem = Mockito.mock(BulkResponseItem.class);
-//    ErrorCause mockError = new ErrorCause.Builder().reason("mock reason").type("mock-type").build();
-//    Mockito.when(mockItemBuilder.build()).thenReturn(mockItem);
-//    Mockito.when(mockItem.error()).thenReturn(mockError);
-//
-//    List<BulkResponseItem> bulkResponseItems = Arrays.asList(mockItem, mockItem);
-//    Mockito.when(mockResponse.items()).thenReturn(bulkResponseItems);
   }
 
   /**
@@ -351,7 +338,6 @@ public class OpenSearchIndexerTest {
     BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
     BulkRequest mockBulkRequest = Mockito.mock(BulkRequest.class);
     Mockito.when(mockRequestBuilder.build()).thenReturn(mockBulkRequest);
-    //Mockito.when(mockClient.bulk(mockBulkRequest)).thenReturn(mockResponse);
     Mockito.when(mockClient.bulk(ArgumentMatchers.any(BulkRequest.class))).thenReturn(mockResponse);
 
     // mocking for the bulk response items and error causes
