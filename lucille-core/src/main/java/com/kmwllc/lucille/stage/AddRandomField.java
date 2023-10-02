@@ -135,17 +135,15 @@ public class AddRandomField extends Stage {
   }
 
   private List<String> getUniqueValues(boolean dataExists, List<String> inputData) {
-    List<String> uniqueValues = null;
+    List<String> uniqueValues = new ArrayList<>();
     if (dataExists) {
-      List<String> initialData = new ArrayList<>(inputData);
+      List<String> initialData = new ArrayList(new HashSet<>(inputData));
       // create set of unique values based on given range size and input data
-      Set<String> uniqueValuesSet = new HashSet<>();
       for (int i = 0; i < rangeSize; i++) {
         int randomPos = (int) (Math.random() * initialData.size());
-        uniqueValuesSet.add(initialData.get(randomPos));
+        uniqueValues.add(initialData.get(randomPos));
         initialData.remove(randomPos);
       }
-      uniqueValues = new ArrayList<>(uniqueValuesSet);
     } else {
       // create sequential list of numbers ending at range size
       List<Integer> seqList = IntStream.rangeClosed(1, rangeSize)
