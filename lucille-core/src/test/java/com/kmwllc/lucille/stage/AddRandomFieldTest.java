@@ -22,7 +22,7 @@ public class AddRandomFieldTest {
   private final StageFactory factory = StageFactory.of(AddRandomField.class);
 
   /**
-   * Tests
+   * Tests stage without a file path
    *
    * @throws StageException
    */
@@ -45,6 +45,11 @@ public class AddRandomFieldTest {
     assertTrue(0 < docVal3 && docVal3 < 20);
   }
 
+  /**
+   * Tests stage with a basic file path
+   *
+   * @throws StageException
+   */
   @Test
   public void testBasicFilePath() throws StageException, IOException {
     Stage stage = factory.get("AddRandomFieldTest/basicfilepath.conf");
@@ -68,8 +73,13 @@ public class AddRandomFieldTest {
     assertTrue(data.contains(docVal3));
   }
 
+  /**
+   * Tests that the rangeSize option works as intended
+   *
+   * @throws StageException
+   */
   @Test
-  public void testCardinality() throws StageException, IOException {
+  public void testRangeSize() throws StageException {
     Stage stage = factory.get("AddRandomFieldTest/basicfilepath.conf");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
@@ -88,8 +98,13 @@ public class AddRandomFieldTest {
     }
   }
 
+  /**
+   * Tests that the min and max options work as intended
+   *
+   * @throws StageException
+   */
   @Test
-  public void testMinMax() throws StageException, IOException {
+  public void testMinMax() throws StageException {
     Stage stage = factory.get("AddRandomFieldTest/basicfilepath.conf");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
