@@ -78,12 +78,12 @@
     <dependency>
       <groupId>org.apache.lucene</groupId>
       <artifactId>lucene-analyzers-common</artifactId>
-      <version>${lucene-solr.version}</version>
+      <version>${lucene.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.lucene</groupId>
       <artifactId>lucene-monitor</artifactId>
-      <version>${lucene-solr.version}</version>
+      <version>${lucene.version}</version>
     </dependency>
 
     <!-- Add slf4j API frontend -->
@@ -160,7 +160,14 @@
     <dependency>
       <groupId>org.apache.solr</groupId>
       <artifactId>solr-solrj</artifactId>
-      <version>${lucene-solr.version}</version>
+      <version>${solr.version}</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.apache.solr</groupId>
+        <artifactId>solr-solrj-zookeeper</artifactId>
+        <version>${solr.version}</version>
+        <scope>runtime</scope>
     </dependency>
 
     <!-- SSL Context Kickstart -->
@@ -226,7 +233,7 @@
     <dependency>
       <groupId>org.apache.solr</groupId>
       <artifactId>solr-test-framework</artifactId>
-      <version>${lucene-solr.version}</version>
+      <version>${solr.version}</version>
       <scope>test</scope>
     </dependency>
 
