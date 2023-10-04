@@ -5,9 +5,10 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-import org.apache.commons.lang.text.StrSubstitutor;
+
 
 import java.util.*;
+import org.apache.commons.text.StringSubstitutor;
 
 /**
  * Replaces wildcards in a given format String with the value for the given field. To declare a wildcard,
@@ -79,7 +80,7 @@ public class Concatenate extends Stage {
 
     // TODO : Consider making Document a Map
     // Substitute all of the {field} formatters in the string with the field value.
-    StrSubstitutor sub = new StrSubstitutor(replacements, "{", "}");
+    StringSubstitutor sub = new StringSubstitutor(replacements, "{", "}");
     doc.update(destField, updateMode, sub.replace(formatStr));
 
     return null;

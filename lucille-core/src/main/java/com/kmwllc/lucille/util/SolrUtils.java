@@ -4,6 +4,7 @@ package com.kmwllc.lucille.util;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
 import com.typesafe.config.Config;
+import java.util.Map.Entry;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
@@ -14,12 +15,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
+import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
-import org.apache.solr.client.solrj.io.Tuple;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.apache.solr.client.solrj.io.Tuple;
 
 /**
  * Utility methods for communicating with Solr.
@@ -47,8 +49,8 @@ public class SolrUtils {
       return cloudSolrClient;
     } else {
       return requiresAuth(config) ?
-          new HttpSolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build() :
-          new HttpSolrClient.Builder(getSolrUrl(config)).build();
+          new Http2SolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build() :
+          new Http2SolrClient.Builder(getSolrUrl(config)).build();
     }
   }
 
@@ -82,8 +84,8 @@ public class SolrUtils {
    * @param config The configuration file to generate the HttpClient from.
    * @return the HttpClient
    */
-  public static HttpClient getHttpClient(Config config) {
-    HttpClientBuilder clientBuilder = HttpClientBuilder.create();
+  public static Http2SolrClient getHttpClient(Config config) {
+    Http2SolrClient.Builder clientBuilder = new Http2SolrClient.Builder();
 
     if (requiresAuth(config)) {
       CredentialsProvider provider = new BasicCredentialsProvider();
@@ -91,8 +93,10 @@ public class SolrUtils {
       String password = config.getString("solr.password");
       UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(userName, password);
       provider.setCredentials(AuthScope.ANY, credentials);
-      clientBuilder.setDefaultCredentialsProvider(provider);
-      clientBuilder.addInterceptorFirst(new PreemptiveAuthInterceptor());
+      clientBuilder.withBasicAuthCredentials(userName, password);
+      //clientBuilder.addInterceptorFirst(new PreemptiveAuthInterceptor());
+      //clientBuilder.withFollowRedirects(true);
+
     }
 
     return clientBuilder.build();
@@ -136,7 +140,7 @@ public class SolrUtils {
       throw new DocumentException("Unable to create Document from Tuple. No id field present.");
     }
 
-    for (Map.Entry<Object, Object> e : tuple.getFields().entrySet()) {
+    for (Entry<String, Object> e : tuple.getFields().entrySet()) {
       d.setOrAdd((String) e.getKey(), (String) e.getValue());
     }
 
