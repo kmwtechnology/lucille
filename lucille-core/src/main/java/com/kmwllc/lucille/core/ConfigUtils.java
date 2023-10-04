@@ -25,9 +25,9 @@ public class ConfigUtils {
 
     log.info("pipeline.env system property = " + envName);
     // Override default settings in application.conf with settings for the named environment.
-    // For example, if application.conf contains x=1 and dev.x=2, and if the the
+    // For example, if application.conf contains x=1 and dev.x=2, and if the
     // pipeline.env system property is set to "dev", then accessing "x" will return 2
-    // even though the "dev" prefix was not included
+    // even though the "dev" prefix was not provided when accessing "x"
     return originalConfig.getConfig(envName).withFallback(originalConfig);
 
   }
