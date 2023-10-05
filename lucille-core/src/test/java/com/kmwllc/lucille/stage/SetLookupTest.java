@@ -29,6 +29,12 @@ public class SetLookupTest {
     doc.setField("field", "hello world");
     stage.processDocument(doc);
     assertFalse(doc.getBoolean("setContains"));
+
+    // value preserved in the set after it was found
+    Document doc2 = Document.create("id2");
+    doc2.setField("field", "a");
+    stage.processDocument(doc2);
+    assertTrue(doc2.getBoolean("setContains"));
   }
 
   @Test
@@ -64,5 +70,21 @@ public class SetLookupTest {
     stage = factory.get("SetLookupTest/config_ignore_missing_source.conf");
     stage.processDocument(doc);
     assertTrue(doc.getBoolean("setContains"));
+  }
+
+  @Test
+  public void testDropFound() throws StageException {
+    Stage stage = factory.get("SetLookupTest/config_drop_found.conf");
+
+    Document doc = Document.create("id");
+    doc.setField("field", "a");
+    stage.processDocument(doc);
+    assertTrue(doc.getBoolean("setContains"));
+
+    // value removed from set after it was found
+    Document doc2 = Document.create("id2");
+    doc2.setField("field", "a");
+    stage.processDocument(doc2);
+    assertFalse(doc2.getBoolean("setContains"));
   }
 }

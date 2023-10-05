@@ -23,14 +23,17 @@ public class SetLookup extends Stage {
   private final String destination;
   private final boolean ignoreMissingSource;
   private final boolean ignoreCase;
+  private final boolean dropFound;
 
   private Set<String> values;
 
   public SetLookup(Config config) {
     super(config, new StageSpec()
         .withRequiredProperties("file_path", "source")
-        .withOptionalProperties("destination", "ignore_missing_source", "ignore_case")
+        .withOptionalProperties("destination", "ignore_missing_source", "ignore_case", "drop_found")
     );
+
+    // todo consider writing ids to file after indexing was successful
 
     // required
     file = config.getString("file_path");
@@ -40,6 +43,7 @@ public class SetLookup extends Stage {
     destination = ConfigUtils.getOrDefault(config, "destination", "setContains");
     ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignore_missing_source", false);
     ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
+    dropFound = ConfigUtils.getOrDefault(config, "drop_found", false);
   }
 
   @Override
@@ -75,7 +79,12 @@ public class SetLookup extends Stage {
       value = value.toLowerCase();
     }
 
-    doc.setField(destination, values.contains(value));
+    boolean found = values.contains(value);
+    doc.setField(destination, found);
+
+    if (found && dropFound) {
+      values.remove(value);
+    }
 
     return null;
   }
