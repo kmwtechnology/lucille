@@ -32,8 +32,6 @@ public class SetLookup extends Stage {
         .withOptionalProperties("destination", "ignore_missing_source", "ignore_case")
     );
 
-    // todo is it possible to abstract set type, have string by default and converters otherwise?
-
     // required
     file = config.getString("file_path");
     source = config.getString("source");
@@ -41,8 +39,6 @@ public class SetLookup extends Stage {
     // optional
     destination = ConfigUtils.getOrDefault(config, "destination", "setContains");
     ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignore_missing_source", false);
-
-    // todo not sure if this is necessary. DictionaryLookup has similar logic
     ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
   }
 
@@ -68,7 +64,6 @@ public class SetLookup extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-
 
     if (!doc.has(source)) {
       doc.setField(destination, ignoreMissingSource);
@@ -97,7 +92,6 @@ public class SetLookup extends Stage {
     }
   }
 
-  // todo what would be a good place to put this method to be used across Lucille?
   private static Reader getFileReader(String path) throws StageException {
     try {
       return FileUtils.getReader(path);
