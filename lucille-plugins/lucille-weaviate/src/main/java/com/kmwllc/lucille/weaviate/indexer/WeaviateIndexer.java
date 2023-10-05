@@ -52,6 +52,8 @@ public class WeaviateIndexer extends Indexer {
     this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
         "id_original";
+
+    // todo when parsing host, should we check for http/https and port? or be able not to provide it at all?
     io.weaviate.client.Config weaviateConfig =
         new io.weaviate.client.Config("https", config.getString("weaviate.host"), null, 6000, 6000, 6000);
 

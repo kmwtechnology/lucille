@@ -137,6 +137,8 @@ public class DropIndexedDocuments extends Stage {
 
     try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileWithIds, false))) {
 
+      // todo consider what happens while i am indexing at the same time or deleting documents
+      // todo consider adding a progress bar instead of logging the batches
       while (numIndexed > 0) {
 
         // get a batch of original ids and the last id in the batch
