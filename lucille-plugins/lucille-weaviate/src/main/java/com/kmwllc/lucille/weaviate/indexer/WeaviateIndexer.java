@@ -22,7 +22,6 @@ import io.weaviate.client.v1.data.model.WeaviateObject.WeaviateObjectBuilder;
 import io.weaviate.client.v1.data.replication.model.ConsistencyLevel;
 import io.weaviate.client.v1.misc.model.Meta;
 import java.io.File;
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -46,28 +45,35 @@ public class WeaviateIndexer extends Indexer {
 
   private final String vectorField;
 
-  public WeaviateIndexer(Config config, IndexerMessageManager manager, String metricsPrefix) {
+  public WeaviateIndexer(Config config, IndexerMessageManager manager, WeaviateClient client,
+      String metricsPrefix) {
     super(config, manager, metricsPrefix);
-
     this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
         "id_original";
+
+    this.vectorField = ConfigUtils.getOrDefault(config, "weaviate.vectorField", null);
+    this.client = client;
+  }
+
+  public WeaviateIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
+    this(config, manager, getClient(config, bypass) ,metricsPrefix);
+  }
+
+  private static WeaviateClient getClient(Config config, boolean bypass) {
+    if (bypass) {
+      return null;
+    }
 
     // todo when parsing host, should we check for http/https and port? or be able not to provide it at all?
     io.weaviate.client.Config weaviateConfig =
         new io.weaviate.client.Config("https", config.getString("weaviate.host"), null, 6000, 6000, 6000);
 
-    this.vectorField = ConfigUtils.getOrDefault(config, "weaviate.vectorField", null);
-
     try {
-      this.client = WeaviateAuthClient.apiKey(weaviateConfig, config.getString("weaviate.apiKey"));
+      return WeaviateAuthClient.apiKey(weaviateConfig, config.getString("weaviate.apiKey"));
     } catch (AuthException e) {
       throw new RuntimeException("Couldn't connect to Weaviate instance", e);
     }
-  }
-
-  public WeaviateIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
-    this(config, manager, metricsPrefix);
   }
 
   @Override
