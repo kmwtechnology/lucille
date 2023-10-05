@@ -49,4 +49,21 @@ public class DropDocumentTest {
     stage.processConditional(doc2);
     assertFalse(doc2.isDropped());
   }
+
+  @Test
+  public void testDroppedAfterLookup() throws StageException {
+
+    Stage lookupStage = StageFactory.of(SetLookup.class).get("SetLookupTest/config.conf");
+    Stage drop = factory.get("DropDocumentTest/conditional_lookup.conf");
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("field", "a");
+    assertFalse(doc1.isDropped());
+
+    lookupStage.processDocument(doc1);
+    assertTrue(doc1.getBoolean("setContains"));
+
+    drop.processConditional(doc1);
+    assertTrue(doc1.isDropped());
+  }
 }
