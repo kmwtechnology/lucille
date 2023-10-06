@@ -57,7 +57,7 @@ public class WeaviateIndexer extends Indexer {
   }
 
   public WeaviateIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
-    this(config, manager, getClient(config, bypass) ,metricsPrefix);
+    this(config, manager, getClient(config, bypass), metricsPrefix);
   }
 
   private static WeaviateClient getClient(Config config, boolean bypass) {
@@ -152,7 +152,7 @@ public class WeaviateIndexer extends Indexer {
     }
     int size = list.size();
     Float[] array = new Float[size];
-    for (int i = 0; i < size; i ++) {
+    for (int i = 0; i < size; i++) {
       array[i] = list.get(i);
     }
     return array;
