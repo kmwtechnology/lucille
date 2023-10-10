@@ -146,7 +146,7 @@ public class AddRandomField extends Stage {
       }
     } else {
       // create sequential list of numbers ending at range size
-      List<Integer> seqList = IntStream.rangeClosed(1, rangeSize)
+      List<Integer> seqList = IntStream.range(1, rangeSize)
           .boxed().collect(Collectors.toList());
       uniqueValues = seqList.stream().map(i -> i.toString()).collect(Collectors.toList());
     }
