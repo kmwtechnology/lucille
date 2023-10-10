@@ -14,6 +14,7 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
@@ -42,7 +43,7 @@ public class SolrUtils {
   public static SolrClient getSolrClient(Config config) {
     SSLUtils.setSSLSystemProperties(config);
     if (config.hasPath("solr.useCloudClient") && config.getBoolean("solr.useCloudClient")) {
-      CloudSolrClient cloudSolrClient = getCloudClient(config);
+      CloudHttp2SolrClient cloudSolrClient = getCloudClient(config);
       if (config.hasPath("solr.defaultCollection")) {
         cloudSolrClient.setDefaultCollection(config.getString("solr.defaultCollection"));
       }
@@ -54,8 +55,8 @@ public class SolrUtils {
     }
   }
 
-  private static CloudSolrClient getCloudClient(Config config) {
-    CloudSolrClient.Builder cloudBuilder;
+  private static CloudHttp2SolrClient getCloudClient(Config config) {
+    CloudHttp2SolrClient.Builder cloudBuilder;
     if (config.hasPath("solr.zkHosts")) {
 
       // optional property
@@ -66,9 +67,9 @@ public class SolrUtils {
         zkChroot = Optional.empty();
       }
 
-      cloudBuilder = new CloudSolrClient.Builder(config.getStringList("solr.zkHosts"), zkChroot);
+      cloudBuilder = new CloudHttp2SolrClient.Builder(config.getStringList("solr.zkHosts"), zkChroot);
     } else {
-      cloudBuilder = new CloudSolrClient.Builder(getSolrUrls(config));
+      cloudBuilder = new CloudHttp2SolrClient.Builder(getSolrUrls(config));
     }
 
     if (requiresAuth(config)) {
