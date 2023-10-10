@@ -40,9 +40,9 @@ public class AddRandomFieldTest {
     int docVal1 = Integer.valueOf(doc1.getString("data"));
     int docVal2 = Integer.valueOf(doc2.getString("data"));
     int docVal3 = Integer.valueOf(doc3.getString("data"));
-    assertTrue(0 < docVal1 && docVal1 < 20);
-    assertTrue(0 < docVal2 && docVal2 < 20);
-    assertTrue(0 < docVal3 && docVal3 < 20);
+    assertTrue(0 <= docVal1 && docVal1 < 20);
+    assertTrue(0 <= docVal2 && docVal2 < 20);
+    assertTrue(0 <= docVal3 && docVal3 < 20);
   }
 
   /**

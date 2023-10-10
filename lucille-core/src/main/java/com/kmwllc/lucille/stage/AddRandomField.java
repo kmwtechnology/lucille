@@ -29,7 +29,7 @@ import java.util.stream.IntStream;
  * <br>
  * <p>
  * <b>inputDataPath</b> (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
- *  defaults to numeric data based on range size
+ *  defaults to numeric data based on range size (0 -> rangeSize - 1)
  * </p>
  * <p>
  * <b>fieldName</b> (String, Optional) : Field name of field where data is placed, defaults to "data"
@@ -45,14 +45,10 @@ import java.util.stream.IntStream;
  * <b>maxNumOfTerms</b> (Integer, Optional) : maximum number of terms to be in the field, defaults to 1
  * </p>
  * <p>
- * <b>fieldStructure</b> (FieldType, Optional) : setting for structure of field, default or nested, allows for further settings to be easily added
+ * <b>isNested</b> (FieldType, Optional) : setting for structure of field, default or nested
  * </p>
  */
 public class AddRandomField extends Stage {
-
-  enum FieldStructure {
-    DEFAULT, NESTED
-  }
 
   private final String inputDataPath;
   private final String fieldName;
@@ -146,7 +142,7 @@ public class AddRandomField extends Stage {
       }
     } else {
       // create sequential list of numbers ending at range size
-      List<Integer> seqList = IntStream.range(1, rangeSize)
+      List<Integer> seqList = IntStream.range(0, rangeSize)
           .boxed().collect(Collectors.toList());
       uniqueValues = seqList.stream().map(i -> i.toString()).collect(Collectors.toList());
     }
