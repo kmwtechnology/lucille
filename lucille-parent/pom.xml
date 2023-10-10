@@ -31,8 +31,8 @@
     <sslcontext-kickstart.version>7.0.3</sslcontext-kickstart.version>
     <aws-java-sdk-sts.version>1.12.39</aws-java-sdk-sts.version>
     <vfs-s3.version>4.3.6</vfs-s3.version>
-    <log4j.version>2.17.0</log4j.version>
-    <slf4j.version>1.8.0-beta4</slf4j.version>
+    <log4j.version>2.20.0</log4j.version>
+    <slf4j.version>2.0.7</slf4j.version>
     <protobuf.version>3.19.2</protobuf.version>
     <netty.version>4.1.89.Final</netty.version>
     <grpc.version>1.53.0</grpc.version>
