@@ -53,7 +53,8 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
                         .getPath()))
             .configure();
 
-    CollectionAdminRequest.createCollection(COL, COL, 1, 1).process(cluster.getSolrClient());
+    CollectionAdminRequest.createCollection(COL, COL, 1, 1)
+        .process(cluster.getSolrClient());
   }
 
   @Before
