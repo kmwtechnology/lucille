@@ -37,6 +37,8 @@
     <vfs-s3.version>4.3.6</vfs-s3.version>
     <log4j.version>2.20.0</log4j.version>
     <slf4j.version>2.0.7</slf4j.version>
+    <apache-commons-lang3.version>3.9</apache-commons-lang3.version>
+    <apache-commons-text.version>1.10.0</apache-commons-text.version>
     <protobuf.version>3.19.2</protobuf.version>
     <netty.version>4.1.89.Final</netty.version>
     <grpc.version>1.53.0</grpc.version>

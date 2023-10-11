@@ -116,12 +116,12 @@
     <dependency>
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-lang3</artifactId>
-        <version>3.9</version>
+        <version>${apache-commons-lang3.version}</version>
     </dependency>
     <dependency>
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-text</artifactId>
-        <version>1.10.0</version>
+        <version>${apache-commons-text.version}</version>
     </dependency>
     <!-- Add slf4j API frontend -->
     <dependency>
