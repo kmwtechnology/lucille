@@ -1,73 +1,114 @@
 package com.kmwllc.lucille.util;
 
+import com.kmwllc.lucille.indexer.OpenSearchIndexer;
 import com.typesafe.config.Config;
-import nl.altindag.ssl.SSLFactory;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
-import org.opensearch.client.RestClient;
-import org.opensearch.client.RestClientBuilder;
-import org.opensearch.client.RestHighLevelClient;
-
 import java.net.URI;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import javax.net.ssl.SSLContext;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
+import org.apache.hc.core5.ssl.SSLContextBuilder;
+import org.opensearch.client.json.jackson.JacksonJsonpMapper;
+import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility methods for communicating with OpenSearch.
  */
 public class OpenSearchUtils {
 
+  private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
+
   /**
-   * Generate a RestHighLevelClient from the given config file. Supports Http OpenSearchClients.
+   * Generate a RestHighLevelClient from the given config file. Supports Apache Http OpenSearchClient
    *
    * @param config The configuration file to generate a client from
    * @return the RestHighLevelClient client
    */
-  public static RestHighLevelClient getOpenSearchRestClient(Config config) {
+  public static OpenSearchClient getOpenSearchRestClient(Config config) {
+    try {
 
-    // get host uri
-    URI hostUri = URI.create(getOpenSearchUrl(config));
+      // get host uri
+      URI hostUri = URI.create(getOpenSearchUrl(config));
 
-    //Establish credentials to use basic authentication.
-    final CredentialsProvider provider = new BasicCredentialsProvider();
+      String userInfo = hostUri.getUserInfo();
 
-    // get user info from URI if present and setup BasicAuth credentials if needed
-    String userInfo = hostUri.getUserInfo();
-    if (userInfo != null) {
-      int pos = userInfo.indexOf(":");
-      String username = userInfo.substring(0, pos);
-      String password = userInfo.substring(pos + 1);
-      provider.setCredentials(AuthScope.ANY,
-          new UsernamePasswordCredentials(username, password));
+      final var hosts = new HttpHost[]{
+          new HttpHost(hostUri.getScheme(), hostUri.getHost(), hostUri.getPort())
+      };
+
+
+      // code for Apache Client is taken from following link:
+      // https://github.com/opensearch-project/opensearch-java/blob/main/samples/src/main/java/org/opensearch/client/samples/SampleClient.java
+      // When comparing to example code, here are differences:
+      //  - We gather data from our config rather than providing directly
+      //  - We disable TLS/SSL verification only if acceptInvalidCerts is true (from config)
+      final var transport = ApacheHttpClient5TransportBuilder
+          .builder(hosts)
+          .setMapper(new JacksonJsonpMapper())
+          .setHttpClientConfigCallback(httpClientBuilder -> {
+            final var credentialsProvider = new BasicCredentialsProvider();
+            if (userInfo != null) {
+              int pos = userInfo.indexOf(":");
+              String username = userInfo.substring(0, pos);
+              String password = userInfo.substring(pos + 1);
+              for (final var host : hosts) {
+                credentialsProvider.setCredentials(
+                    new AuthScope(host),
+                    new UsernamePasswordCredentials(username, password.toCharArray()));
+              }
+            }
+
+            // Potentially disable SSL/TLS verification for when testing locally
+            boolean allowInvalidCert = getAllowInvalidCert(config);
+            TlsStrategy tlsStrategy = null;
+            SSLContext sslContext = null;
+            try {
+              if (allowInvalidCert) {
+                sslContext = SSLContextBuilder.create()
+                    .loadTrustMaterial(null, (chains, authType) -> true)
+                    .build();
+
+                tlsStrategy = ClientTlsStrategyBuilder.create()
+                    .setSslContext(sslContext)
+                    .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                    .build();
+              } else {
+                sslContext = SSLContextBuilder.create()
+                    .build();
+                tlsStrategy = ClientTlsStrategyBuilder.create()
+                    .setSslContext(sslContext)
+                    .build();
+              }
+            } catch (NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
+              throw new RuntimeException(e);
+            }
+
+            final var connectionManager = PoolingAsyncClientConnectionManagerBuilder.create()
+                .setTlsStrategy(tlsStrategy)
+                .build();
+
+            return httpClientBuilder
+                .setDefaultCredentialsProvider(credentialsProvider)
+                .setConnectionManager(connectionManager);
+          })
+          .build();
+
+      return new OpenSearchClient(transport);
+    } catch (Exception e) {
+      log.error("Failed to make transport client for open search indexer", e);
+      return null;
     }
-
-    // needed to allow for local testing of HTTPS
-    SSLFactory.Builder sslFactoryBuilder = SSLFactory.builder();
-    boolean allowInvalidCert = getAllowInvalidCert(config);
-    if (allowInvalidCert) {
-      sslFactoryBuilder
-          .withTrustingAllCertificatesWithoutValidation()
-          .withHostnameVerifier((host, session) -> true);
-    } else {
-      sslFactoryBuilder.withDefaultTrustMaterial();
-    }
-
-    SSLFactory sslFactory = sslFactoryBuilder.build();
-
-    RestClientBuilder builder = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
-        .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
-          @Override
-          public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
-            return httpClientBuilder.setDefaultCredentialsProvider(provider).setSSLContext(sslFactory.getSslContext())
-                .setSSLHostnameVerifier(sslFactory.getHostnameVerifier());
-          }
-        });
-
-    RestHighLevelClient client = new RestHighLevelClient(builder);
-
-    return client;
   }
 
   public static String getOpenSearchUrl(Config config) {

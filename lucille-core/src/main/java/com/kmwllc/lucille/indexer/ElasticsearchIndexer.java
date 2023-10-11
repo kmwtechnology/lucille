@@ -3,12 +3,15 @@ package com.kmwllc.lucille.indexer;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.VersionType;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
+import co.elastic.clients.elasticsearch.core.BulkResponse;
+import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
@@ -147,7 +150,15 @@ public class ElasticsearchIndexer extends Indexer {
             ));
       }
     }
-    client.bulk(br.build());
+    BulkResponse response = client.bulk(br.build());
+    // We're choosing not to check response.errors(), instead iterating to be sure whether errors exist
+    if (response != null) {
+      for (BulkResponseItem item : response.items()) {
+        if (item.error() != null) {
+          throw new IndexerException(item.error().reason());
+        }
+      }
+    }
   }
 
   @Override

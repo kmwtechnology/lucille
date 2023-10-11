@@ -1,9 +1,11 @@
 package com.kmwllc.lucille.indexer;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ErrorCause;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.elasticsearch.core.bulk.IndexOperation;
 import co.elastic.clients.elasticsearch._types.VersionType;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
@@ -11,11 +13,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.Event.Type;
+import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.Arrays;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
 import org.junit.Before;
@@ -29,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -362,6 +368,52 @@ public class ElasticsearchIndexerTest {
     expected.put("my_join_field", joinData);
 
     testJoin("ElasticsearchIndexerTest/joinChild.conf", doc, expected);
+  }
+
+  @Test
+  public void testBulkResponseErroring() throws Exception {
+    ElasticsearchClient mockClient2 = Mockito.mock(ElasticsearchClient.class);
+
+    // make first call to validateConnection succeed but subsequent calls to fail
+    Mockito.when(mockClient2.ping()).thenReturn(new BooleanResponse(true), new BooleanResponse(false));
+
+    BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(mockClient2.bulk(any(BulkRequest.class))).thenReturn(mockResponse);
+
+    // mocking for the bulk response items and error causes
+    BulkResponseItem.Builder mockItemBuilder = Mockito.mock(BulkResponseItem.Builder.class);
+    BulkResponseItem mockItemError = Mockito.mock(BulkResponseItem.class);
+    BulkResponseItem mockItemNoError = Mockito.mock(BulkResponseItem.class);
+    ErrorCause mockError = new ErrorCause.Builder().reason("mock reason").type("mock-type").build();
+    Mockito.when(mockItemBuilder.build()).thenReturn(mockItemError);
+    Mockito.when(mockItemError.error()).thenReturn(mockError);
+
+    List<BulkResponseItem> bulkResponseItems = Arrays.asList(mockItemNoError, mockItemError, mockItemNoError);
+    Mockito.when(mockResponse.items()).thenReturn(bulkResponseItems);
+
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
+
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+    Document doc3 = Document.create("doc3", "test_run");
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, manager, mockClient2, "testing");
+    manager.sendCompleted(doc);
+    manager.sendCompleted(doc2);
+    manager.sendCompleted(doc3);
+
+    indexer.run(3);
+
+    IndexerException exc = assertThrows(IndexerException.class, () -> indexer.sendToIndex(Arrays.asList(doc, doc2, doc3)));
+    assertEquals("mock reason", exc.getMessage());
+
+    List<Event> events = manager.getSavedEvents();
+    assertEquals(3, events.size());
+    for (int i = 1; i <= events.size(); i++) {
+      Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      Assert.assertEquals(Type.FAIL, events.get(i - 1).getType());
+    }
   }
 
   private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
