@@ -4,24 +4,18 @@ package com.kmwllc.lucille.util;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
 import com.typesafe.config.Config;
+import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
-import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
-import org.apache.solr.client.solrj.impl.HttpSolrClient;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import org.apache.solr.client.solrj.io.Tuple;
 
 /**
