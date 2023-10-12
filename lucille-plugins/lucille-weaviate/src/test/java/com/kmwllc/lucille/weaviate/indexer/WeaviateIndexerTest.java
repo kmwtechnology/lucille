@@ -59,4 +59,19 @@ public class WeaviateIndexerTest {
       Assert.assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
     }
   }
+
+  /*
+    private static class CorruptedWeaviateIndexer extends WeaviateIndexer {
+
+    public CorruptedWeaviateIndexer(Config config, IndexerMessageManager manager,
+        RestHighLevelClient client, String metricsPrefix) {
+      super(config, manager, client, "testing");
+    }
+
+    @Override
+    public void sendToIndex(List<Document> docs) throws Exception {
+      throw new Exception("Test that errors when sending to indexer are correctly handled");
+    }
+  }
+   */
 }
