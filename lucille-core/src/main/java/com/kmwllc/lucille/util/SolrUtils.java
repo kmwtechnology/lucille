@@ -52,7 +52,6 @@ public class SolrUtils {
   private static CloudHttp2SolrClient getCloudClient(Config config) {
     CloudHttp2SolrClient.Builder cloudBuilder;
     if (config.hasPath("solr.zkHosts")) {
-
       // optional property
       Optional<String> zkChroot;
       if (config.hasPath("solr.zkChroot")) {
@@ -89,9 +88,6 @@ public class SolrUtils {
       UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(userName, password);
       provider.setCredentials(AuthScope.ANY, credentials);
       clientBuilder.withBasicAuthCredentials(userName, password);
-      //clientBuilder.addInterceptorFirst(new PreemptiveAuthInterceptor());
-      //clientBuilder.withFollowRedirects(true);
-
     }
 
     return clientBuilder.build();
