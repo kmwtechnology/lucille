@@ -36,6 +36,14 @@ import static org.mockito.Mockito.mock;
 @ThreadLeakScope(ThreadLeakScope.Scope.SUITE)
 public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
 
+  /*
+  These tests are not comprehensive with regards to a real-life use case of indexing, seeing that these are using the
+  SolrCloudTestCase framework. We have noticed cases where these tests pass (along with all other tests in Lucille), but manually
+  testing Lucille via the SolrIndexer has shown errors. Config properties such as defaultCollection, zkHosts, and zkChroot will not
+  be considered in these tests and their relevant functionality may error in manual testing. Same is true for client verification
+  done by the Runner (.verifyConnection()). 
+   */
+
   private static MiniSolrCloudCluster cluster;
 
   private static final String COL = "test";
