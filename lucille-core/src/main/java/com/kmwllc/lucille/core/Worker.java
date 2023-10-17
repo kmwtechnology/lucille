@@ -5,6 +5,7 @@ import com.kmwllc.lucille.message.WorkerMessageManager;
 import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.apache.commons.collections4.IteratorUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -186,7 +187,7 @@ class Worker implements Runnable {
   }
 
   public static void main(String[] args) throws Exception {
-    Config config = ConfigUtils.loadConfig();
+    Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
     log.debug("Starting Workers for pipeline: " + pipelineName);
 

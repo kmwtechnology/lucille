@@ -11,7 +11,7 @@ public class ConfigUtils {
   public static final String ENV_PROP = "pipeline.env";
 
   private static final Logger log = LoggerFactory.getLogger(ConfigUtils.class);
-  
+
   /**
    * Get the value of the given setting from the config file, or a default value if the setting does not exist in the
    * config.
