@@ -66,7 +66,7 @@ public class SolrIndexer extends Indexer {
         }
         log.debug("SolrIndexer connection successfully validated: {}", resp);
         return true;
-      } catch (SolrServerException | IOException e) {
+      } catch (Exception e) {
         log.error("Couldn't ping solr cluster.", e);
         return false;
       }
