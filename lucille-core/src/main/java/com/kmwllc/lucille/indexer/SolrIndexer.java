@@ -8,6 +8,11 @@ import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
@@ -20,12 +25,6 @@ import org.apache.solr.common.util.SimpleOrderedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 public class SolrIndexer extends Indexer {
 
@@ -70,7 +69,7 @@ public class SolrIndexer extends Indexer {
         log.error("Couldn't ping solr cluster.", e);
         return false;
       }
-  } else if (solrClient instanceof CloudHttp2SolrClient) {
+    } else if (solrClient instanceof CloudHttp2SolrClient) {
       // If we are indexing to multiple collections with the CloudSolrClient and the default
       // collection is not set then
       // we can't use ping. Instead, verify that we can connect to the cluster.
@@ -144,9 +143,9 @@ public class SolrIndexer extends Indexer {
 
         if (solrDocRequests.containsIdForAddUpdate(solrId)
             || (deleteByFieldField != null
-                && doc.has(deleteByFieldField)
-                && deleteByFieldValue != null
-                && doc.has(deleteByFieldValue))) {
+            && doc.has(deleteByFieldField)
+            && deleteByFieldValue != null
+            && doc.has(deleteByFieldValue))) {
           sendAddUpdateBatch(collection, solrDocRequests.getAddUpdateDocs());
           solrDocRequests.resetAddUpdates();
         }
