@@ -39,14 +39,6 @@ import org.mockito.Mockito;
 @ThreadLeakScope(ThreadLeakScope.Scope.SUITE)
 public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
 
-  /*
-  These tests are not comprehensive with regards to a real-life use case of indexing, seeing that these are using the
-  SolrCloudTestCase framework. We have noticed cases where these tests pass (along with all other tests in Lucille), but manually
-  testing Lucille via the SolrIndexer has shown errors. Config properties such as defaultCollection, zkHosts, and zkChroot will not
-  be considered in these tests and their relevant functionality may error in manual testing. Same is true for client verification
-  done by the Runner (.verifyConnection()). 
-   */
-
   private static MiniSolrCloudCluster cluster;
 
   private static final String COL = "test";
@@ -305,11 +297,19 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
 
   @Test
   public void testValidateConnection() throws SolrServerException, IOException {
+    /*
+    We've found a case whereby the indexer.validateConnection tests for the SolrIndexer against the embedded Solr Server used in
+    this integration test will pass in a build, but not pass against a live Solr cluster / server. Config properties such as
+    defaultCollection, zkHosts, and zkChroot will not be considered in these tests and their relevant functionality
+    may error in manual testing. It is recommended that when making changes to related code to perform a manual test as well.
+     */
+
     Http2SolrClient mockHttp2Client = mock(Http2SolrClient.class);
     CloudHttp2SolrClient mockCloudHttp2Client = mock(CloudHttp2SolrClient.class);
 
     JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);
 
+    // Create a HTTP2SolrClient config
     Map<String, Object> mapHttp = new HashMap<>();
     mapHttp.put("solr.url", jetty.getBaseUrl().toString() + "/test");
     mapHttp.put("indexer.batchTimeout", 5000);
@@ -317,6 +317,7 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
     mapHttp.put("indexer.type", "solr");
     Config configHttp = ConfigFactory.parseMap(mapHttp);
 
+    // Create a CloudHTTP2SolrClient config
     Map<String, Object> mapCloud = new HashMap<>();
     mapCloud.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
     mapCloud.put("solr.useCloudClient", true);
