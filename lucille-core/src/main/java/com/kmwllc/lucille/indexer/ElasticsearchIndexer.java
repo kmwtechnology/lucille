@@ -1,11 +1,18 @@
 package com.kmwllc.lucille.indexer;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.VersionType;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
+import co.elastic.clients.elasticsearch.core.BulkResponse;
+import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
@@ -30,6 +37,9 @@ public class ElasticsearchIndexer extends Indexer {
 
   //flag for using partial update API when sending documents to elastic
   private final boolean update;
+  private final ElasticJoinData joinData;
+  private final String routingField;
+  private final VersionType versionType;
 
   public ElasticsearchIndexer(Config config, IndexerMessageManager manager, ElasticsearchClient client,
       String metricsPrefix) {
@@ -41,6 +51,10 @@ public class ElasticsearchIndexer extends Indexer {
     this.client = client;
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
     this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
+
+    joinData = ElasticJoinData.fromConfig(config);
+    this.routingField = ConfigUtils.getOrDefault(config, "indexer.routingField", null);
+    this.versionType = config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
   public ElasticsearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
@@ -80,6 +94,10 @@ public class ElasticsearchIndexer extends Indexer {
     BulkRequest.Builder br = new BulkRequest.Builder();
 
     for (Document doc : documents) {
+
+      // populate join data to document
+      joinData.populateJoinData(doc);
+
       Map<String, Object> indexerDoc = doc.asMap();
 
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
@@ -92,26 +110,56 @@ public class ElasticsearchIndexer extends Indexer {
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);
 
+      Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
+          ? ((KafkaDocument) doc).getOffset()
+          : null;
+
       if (update) {
         br.operations(op -> op
-            .update(up -> up
-                .id(docId)
-                .index(index)
-                .action(upx -> upx
-                    .doc(indexerDoc)
-                )));
+            .update(updateBuilder -> {
+
+              if (routingField != null) {
+                updateBuilder.routing(doc.getString(routingField));
+              }
+              if (versionNum != null) {
+                updateBuilder.versionType(versionType).version(versionNum);
+              }
+
+              return updateBuilder
+                  .id(docId)
+                  .index(index)
+                  .action(upx -> upx
+                      .doc(indexerDoc)
+                  );
+            }));
       } else {
         br.operations(op -> op
-            .index(idx -> idx
-                .index(index)
-                .id(docId)
-                .document(indexerDoc)
+            .index(operationBuilder -> {
+
+                  if (routingField != null) {
+                    operationBuilder.routing(doc.getString(routingField));
+                  }
+                  if (versionNum != null) {
+                    operationBuilder.versionType(versionType).version(versionNum);
+                  }
+
+                  return operationBuilder
+                      .id(docId)
+                      .index(index)
+                      .document(indexerDoc);
+                }
             ));
       }
-
-
     }
-    client.bulk(br.build());
+    BulkResponse response = client.bulk(br.build());
+    // We're choosing not to check response.errors(), instead iterating to be sure whether errors exist
+    if (response != null) {
+      for (BulkResponseItem item : response.items()) {
+        if (item.error() != null) {
+          throw new IndexerException(item.error().reason());
+        }
+      }
+    }
   }
 
   @Override
@@ -145,6 +193,81 @@ public class ElasticsearchIndexer extends Indexer {
     }
   }
 
+  public static class ElasticJoinData {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private String joinFieldName;
+    private boolean isChild;
+    private String parentName;
+    private String childName;
+    private String parentDocumentIdSource;
+
+    public void populateJoinData(Document doc) {
+
+      // no need to do a join
+      if (joinFieldName == null) {
+        return;
+      }
+
+      // check that join field doesn't already exist
+      if (doc.has(joinFieldName)) {
+        throw new IllegalStateException("Document already has join field: " + joinFieldName);
+      }
+
+      // set a necessary join field
+      if (isChild) {
+        String parentId = doc.getString(parentDocumentIdSource);
+        doc.setField(joinFieldName, getChildNode(parentId));
+      } else {
+        doc.setField(joinFieldName, parentName);
+      }
+    }
+
+    private JsonNode getChildNode(String parentId) {
+      return MAPPER.createObjectNode()
+          .put("name", childName)
+          .put("parent", parentId);
+    }
+
+    private static String prefix() {
+      return prefix(null);
+    }
+
+    private static String prefix(String path) {
+      // todo consider abstracting adding prefix to config
+      StringBuilder builder = new StringBuilder("elasticsearch.join");
+      if (path == null || path.isEmpty()) {
+        return builder.toString();
+      }
+      return builder.append(".").append(path).toString();
+    }
+
+    public static ElasticJoinData fromConfig(Config config) {
+
+
+      ElasticJoinData data = new ElasticJoinData();
+
+      // if no join in config will initialize all join data to null and will be skipped in the code
+      if (config.hasPath(prefix())) {
+
+        // set fields for both parent and child
+        data.joinFieldName = config.getString(prefix("joinFieldName"));
+        data.isChild = ConfigUtils.getOrDefault(config, prefix("isChild"), false);
+
+        // set parent child specific fields
+        if (data.isChild) {
+          data.childName = config.getString(prefix("childName"));
+          data.parentDocumentIdSource = config.getString(prefix("parentDocumentIdSource"));
+        } else {
+          data.parentName = config.getString(prefix("parentName"));
+        }
+      }
+
+      return data;
+    }
+  }
+
   public static void main(String[] args) throws Exception {
     Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
@@ -170,5 +293,4 @@ public class ElasticsearchIndexer extends Indexer {
       System.exit(0);
     });
   }
-
 }
