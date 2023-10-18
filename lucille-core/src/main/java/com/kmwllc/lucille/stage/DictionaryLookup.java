@@ -1,21 +1,20 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.stage.util.DictionaryManager;
 import com.kmwllc.lucille.util.StageUtils;
-import com.opencsv.CSVReader;
-import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Finds exact matches for given input values and extracts the payloads for each match to a given destination field.
@@ -38,10 +37,12 @@ public class DictionaryLookup extends Stage {
 
   private final List<String> sourceFields;
   private final List<String> destFields;
-  private final HashMap<String, String[]> dict;
+  private final String dictPath;
   private final boolean usePayloads;
   private final UpdateMode updateMode;
   private final boolean ignoreCase;
+
+  private Map<String, String[]> dict;
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -54,74 +55,14 @@ public class DictionaryLookup extends Stage {
     this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
     this.updateMode = UpdateMode.fromConfig(config);
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
-    this.dict = buildHashMap(config.getString("dict_path"));
+    this.dictPath = config.getString("dict_path");
   }
 
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Dictionary Lookup");
     StageUtils.validateFieldNumNotZero(destFields, "Dictionary Lookup");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Dictionary Lookup");
-  }
-
-  /**
-   * Create a HashMap matching key phrases from the dictionary to payloads
-   *
-   * @param dictPath  the path of the dictionary file
-   * @return the populated HashMap
-   */
-  private HashMap<String, String[]> buildHashMap(String dictPath) throws StageException {
-    HashMap<String, String[]> dict = new HashMap<>();
-    try (CSVReader reader = new CSVReader(FileUtils.getReader(dictPath))) {
-      // For each line of the dictionary file, add a keyword/payload pair to the Trie
-      String[] line;
-      boolean ignore = false;
-      while ((line = reader.readNext()) != null) {
-        if (line.length == 0) {
-          continue;
-        }
-
-        for (String term : line) {
-          if (term.contains("\uFFFD")) {
-            log.warn(String.format("Entry \"%s\" on line %d contained malformed characters which were removed. " +
-                "This dictionary entry will be ignored.", term, reader.getLinesRead()));
-            ignore = true;
-            break;
-          }
-        }
-
-        if (ignore) {
-          ignore = false;
-          continue;
-        }
-
-        // TODO : Add log messages for when encoding errors occur so that they can be fixed
-        if (line.length == 1) {
-          String word = line[0].trim();
-          if (ignoreCase) {
-            dict.put(word.toLowerCase(), new String[]{word});
-          } else {
-            dict.put(word, new String[]{word});
-          }
-        } else {
-          // Handle multiple payload values here.
-          String[] rest = Arrays.copyOfRange(line, 1, line.length);
-          for (int i = 0; i < rest.length; i++) {
-            rest[i] = rest[i].trim();
-          }
-          if (ignoreCase) {
-            dict.put(line[0].trim().toLowerCase(), rest);
-          } else {
-            dict.put(line[0].trim(), rest);
-          }
-        }
-      }
-    } catch (IOException e) {
-      throw new StageException("Failed to read from the given file.", e);
-    } catch (CsvValidationException e) {
-      throw new StageException("Error validating CSV", e);
-    }
-
-    return dict;
+    this.dict = DictionaryManager.getDictionary(dictPath, ignoreCase);
   }
 
   @Override
