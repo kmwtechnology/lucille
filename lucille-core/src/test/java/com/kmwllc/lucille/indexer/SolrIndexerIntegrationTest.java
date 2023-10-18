@@ -1,12 +1,23 @@
 package com.kmwllc.lucille.indexer;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
+import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.request.AbstractUpdateRequest;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.UpdateRequest;
@@ -19,15 +30,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import static org.mockito.Mockito.mock;
+import org.mockito.Mockito;
 
 /**
  * Contains test that verify the integration with a working MiniSolrCloudCluster using the
@@ -298,6 +301,41 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
         indexer.closeConnection();
       }
     }
+  }
+
+  @Test
+  public void testValidateConnection() throws SolrServerException, IOException {
+    Http2SolrClient mockHttp2Client = mock(Http2SolrClient.class);
+    CloudHttp2SolrClient mockCloudHttp2Client = mock(CloudHttp2SolrClient.class);
+
+    JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);
+
+    Map<String, Object> mapHttp = new HashMap<>();
+    mapHttp.put("solr.url", jetty.getBaseUrl().toString() + "/test");
+    mapHttp.put("indexer.batchTimeout", 5000);
+    mapHttp.put("indexer.batchSize", 2);
+    mapHttp.put("indexer.type", "solr");
+    Config configHttp = ConfigFactory.parseMap(mapHttp);
+
+    Map<String, Object> mapCloud = new HashMap<>();
+    mapCloud.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
+    mapCloud.put("solr.useCloudClient", true);
+    mapCloud.put("solr.defaultCollection", "test");
+    mapCloud.put("indexer.batchTimeout", 5000);
+    mapCloud.put("indexer.batchSize", 2);
+    mapCloud.put("indexer.type", "solr");
+    Config configCloud = ConfigFactory.parseMap(mapCloud);
+
+    IndexerMessageManager mockIndexerMessageManager = mock(IndexerMessageManager.class);
+
+    SolrIndexer indexer1 = new SolrIndexer(configHttp, mockIndexerMessageManager, mockHttp2Client, "solr");
+    SolrIndexer indexer2 = new SolrIndexer(configCloud, mockIndexerMessageManager, mockCloudHttp2Client, "solr");
+
+    indexer1.validateConnection();
+    indexer2.validateConnection();
+
+    verify(mockHttp2Client).ping();
+    verify(mockCloudHttp2Client).request(Mockito.any(CollectionAdminRequest.ClusterStatus.class));
   }
 
   @AfterClass
