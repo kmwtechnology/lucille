@@ -11,13 +11,6 @@ public class DropDocumentTest {
 
   private final StageFactory factory = StageFactory.of(DropDocument.class);
 
-
-  @Test
-  public void testPublisher() {
-    // todo see how to test that a documents was not published / indexed (move to the correct class but add a duplicate here)
-  }
-
-
   @Test
   public void testDropped() throws StageException {
 
