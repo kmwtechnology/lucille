@@ -53,7 +53,7 @@ public class DropDocumentTest {
   @Test
   public void testDroppedAfterLookup() throws StageException {
 
-    Stage lookupStage = StageFactory.of(SetLookup.class).get("SetLookupTest/config.conf");
+    Stage lookupStage = StageFactory.of(DictionaryLookup.class).get("DictionaryLookupTest/set_config.conf");
     Stage drop = factory.get("DropDocumentTest/conditional_lookup.conf");
 
     Document doc1 = Document.create("doc1");

@@ -6,6 +6,9 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import java.util.Iterator;
 
+/**
+ * A stage that drops all documents that pass through it. Intended to use with the conditional framework.
+ */
 public class DropDocument extends Stage {
 
   public DropDocument(Config config) {
@@ -14,9 +17,7 @@ public class DropDocument extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-
     doc.setDropped(true);
-
     return null;
   }
 }
