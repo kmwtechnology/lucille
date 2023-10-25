@@ -54,9 +54,9 @@ public class DictionaryLookup extends Stage {
   private final boolean setOnly;
   private final boolean ignoreMissingSource;
 
+  private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   // Dummy value to indicate that a key is present in the HashMap
   private static final String[] PRESENT = new String[0];
-  private static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   public DictionaryLookup(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "dict_path")
@@ -77,7 +77,7 @@ public class DictionaryLookup extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Dictionary Lookup");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Dictionary Lookup");
     if (ignoreMissingSource && !setOnly) {
-      LOG.warn("ignore_missing_source is only valid when set_only is true. Ignoring.");
+      log.warn("ignore_missing_source is only valid when set_only is true. Ignoring.");
     }
   }
 
@@ -89,7 +89,8 @@ public class DictionaryLookup extends Stage {
    */
   private HashMap<String, String[]> buildHashMap(String dictPath) throws StageException {
 
-    // count lines and create a set with correct capacity
+    // count lines and create a dictionary with correct capacity. hashmap support dynamic resizing, but it's more efficient
+    // to set the initial capacity especially when we know the number of lines in the file`
     int lineCount = countLines(dictPath);
     HashMap<String, String[]> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
 
@@ -104,7 +105,7 @@ public class DictionaryLookup extends Stage {
 
         for (String term : line) {
           if (term.contains("\uFFFD")) {
-            LOG.warn(String.format("Entry \"%s\" on line %d contained malformed characters which were removed. " +
+            log.warn(String.format("Entry \"%s\" on line %d contained malformed characters which were removed. " +
                 "This dictionary entry will be ignored.", term, reader.getLinesRead()));
             ignore = true;
             break;
@@ -124,7 +125,7 @@ public class DictionaryLookup extends Stage {
         if (line.length == 1) {
           value = setOnly ? PRESENT : new String[]{word};
         } else if (setOnly) {
-          LOG.warn(String.format("Entry \"%s\" on line %d contained payloads which were ignored. " +
+          log.warn(String.format("Entry \"%s\" on line %d contained payloads which were ignored. " +
               "This dictionary entry will be treated as a set.", word, reader.getLinesRead()));
           value = PRESENT;
         } else {
