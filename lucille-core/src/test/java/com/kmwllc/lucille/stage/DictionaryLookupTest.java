@@ -181,13 +181,19 @@ public class DictionaryLookupTest {
     stage1.processDocument(doc);
     assertTrue(doc.getBoolean("setContains"));
 
-    doc.removeField("field2");
     // document is missing one of the required fields
+    doc.removeField("field2");
     stage1.processDocument(doc);
     assertFalse(doc.getBoolean("setContains"));
 
-    doc.setField("field2", "Hello world");
     // document has one field that is not in the dictionary
+    doc.setField("field2", "Hello world");
+    stage1.processDocument(doc);
+    assertFalse(doc.getBoolean("setContains"));
+
+    // document is missing first required field
+    doc.removeField("field1");
+    doc.setField("field2", "a");
     stage1.processDocument(doc);
     assertFalse(doc.getBoolean("setContains"));
   }
@@ -195,25 +201,32 @@ public class DictionaryLookupTest {
   @Test
   public void testMultiSourceMultiDest() throws StageException {
     Stage stage1 = factory.get("DictionaryLookupTest/set_config_multi_field_multi_dest.conf");
-
     Document doc = Document.create("id");
+
+    // values of both fields are in the dictionary
     doc.setField("field1", "a");
     doc.setField("field2", "b");
-    // values of both fields are in the dictionary
     stage1.processDocument(doc);
     assertTrue(doc.getBoolean("setContains1"));
     assertTrue(doc.getBoolean("setContains2"));
 
-    doc.removeField("field2");
     // document is missing one of the required fields
+    doc.removeField("field2");
     stage1.processDocument(doc);
     assertTrue(doc.getBoolean("setContains1"));
     assertFalse(doc.getBoolean("setContains2"));
 
-    doc.setField("field2", "Hello world");
     // document has one field that is not in the dictionary
+    doc.setField("field2", "Hello world");
     stage1.processDocument(doc);
     assertTrue(doc.getBoolean("setContains1"));
     assertFalse(doc.getBoolean("setContains2"));
+
+    // document is missing first required field
+    doc.setField("field1", "hello world");
+    doc.setField("field2", "a");
+    stage1.processDocument(doc);
+    assertFalse(doc.getBoolean("setContains1"));
+    assertTrue(doc.getBoolean("setContains2"));
   }
 }

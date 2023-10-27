@@ -144,50 +144,55 @@ public class DictionaryLookup extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
 
-    // todo consider what should happen if using set and destination field is already populated
-    if (setOnly) {
-      for (String destField : destFields) {
-        doc.removeField(destField);
-      }
-    }
-
     for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one dest, use it. Otherwise, use the current source/dest.
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField)) {
-        if (setOnly) {
-          boolean currentValue = !doc.has(destField) || doc.getBoolean(destField);
-          doc.setField(destField, currentValue && ignoreMissingSource);
-        }
-        continue;
-      }
-
       if (setOnly) {
-        // check if all values in the source field are in the dictionary
-        boolean currentValue = !doc.has(destField) || doc.getBoolean(destField);
-        doc.setField(destField, currentValue && doc.getStringList(sourceField).stream()
-            .map(ignoreCase ? String::toLowerCase : String::toString)
-            .allMatch(dict::containsKey));
-        continue;
-      }
 
-      List<String> outputValues = new ArrayList<>();
-      for (String value : doc.getStringList(sourceField)) {
-        if (ignoreCase) {
-          value = value.toLowerCase();
+        // default value is true if this is the first field or if there are multiple fields
+        // in case where we have one destination field and multiple source fields we want to retrieve the current value
+        boolean defaultValue = true;
+        if (i != 0 && destFields.size() == 1) {
+          defaultValue = doc.getBoolean(destField);
         }
-        if (dict.containsKey(value)) {
-          if (usePayloads) {
-            outputValues.addAll(Arrays.asList(dict.get(value)));
-          } else {
-            outputValues.add(value);
+
+        boolean currentValue;
+        if (!doc.has(sourceField)) {
+          // if ignoreMissingSource is true, set the destination field to true if the source field is missing
+          currentValue = ignoreMissingSource;
+        } else {
+          // check if all values in the source field are in the dictionary
+          currentValue = doc.getStringList(sourceField).stream()
+              .map(ignoreCase ? String::toLowerCase : String::toString)
+              .allMatch(dict::containsKey);
+        }
+
+        doc.update(destField, updateMode, defaultValue && currentValue);
+
+      } else {
+
+        if (!doc.has(sourceField)) {
+          continue;
+        }
+
+        List<String> outputValues = new ArrayList<>();
+        for (String value : doc.getStringList(sourceField)) {
+          if (ignoreCase) {
+            value = value.toLowerCase();
+          }
+          if (dict.containsKey(value)) {
+            if (usePayloads) {
+              outputValues.addAll(Arrays.asList(dict.get(value)));
+            } else {
+              outputValues.add(value);
+            }
           }
         }
-      }
 
-      doc.update(destField, updateMode, outputValues.toArray(new String[0]));
+        doc.update(destField, updateMode, outputValues.toArray(new String[0]));
+      }
     }
 
     return null;
