@@ -92,9 +92,7 @@ public class DictionaryLookupTest {
   @Test
   public void testFileDoesNotExist() {
     Throwable e = assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/missing_file.conf"));
-    // todo should consider propagating the underlying exception message to root (right now I see it in e.cause.target)
-    // assertEquals("File does not exist: classpath:DictionaryLookupTest/missing.txt", e.getMessage());
-    assertEquals("Failed to instantiate stage: com.kmwllc.lucille.stage.DictionaryLookup", e.getMessage());
+     assertEquals("File does not exist: classpath:DictionaryLookupTest/missing.txt", e.getCause().getCause().getMessage());
   }
 
   @Test
