@@ -6,8 +6,6 @@ import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
-import java.io.BufferedReader;
-import java.io.Reader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -91,10 +89,10 @@ public class DictionaryLookup extends Stage {
 
     // count lines and create a dictionary with correct capacity. hashmap support dynamic resizing, but it's more efficient
     // to set the initial capacity especially when we know the number of lines in the file`
-    int lineCount = countLines(dictPath);
+    int lineCount = FileUtils.countLines(dictPath);
     HashMap<String, String[]> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
 
-    try (CSVReader reader = new CSVReader(getFileReader(dictPath))) {
+    try (CSVReader reader = new CSVReader(FileUtils.getFileReader(dictPath))) {
       // For each line of the dictionary file, add a keyword/payload pair to the hash map
       String[] line;
       boolean ignore = false;
@@ -193,41 +191,5 @@ public class DictionaryLookup extends Stage {
     }
 
     return null;
-  }
-
-  /**
-   * Get a Reader for the given path.
-   * todo consider moving this method to a utility class
-   *
-   * @param path file path
-   * @return Reader object
-   * @throws StageException if the file does not exist or cannot be read
-   */
-  private static Reader getFileReader(String path) throws StageException {
-    try {
-      return FileUtils.getReader(path);
-    } catch (NullPointerException | IOException e) {
-      throw new StageException("File does not exist: " + path);
-    }
-  }
-
-  /**
-   * Count the number of lines in a file.
-   * todo consider moving this method to a utility class
-   *
-   * @param filename file path
-   * @return number of lines
-   * @throws StageException if the file does not exist or cannot be read
-   */
-  private static int countLines(String filename) throws StageException {
-    try (BufferedReader reader = new BufferedReader(getFileReader(filename))) {
-      int lines = 0;
-      while (reader.readLine() != null) {
-        lines++;
-      }
-      return lines;
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
   }
 }

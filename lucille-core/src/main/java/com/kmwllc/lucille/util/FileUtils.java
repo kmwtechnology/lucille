@@ -1,9 +1,13 @@
 package com.kmwllc.lucille.util;
 
 
+import com.kmwllc.lucille.core.StageException;
 import java.io.*;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.stream.Stream;
 
 public class FileUtils {
 
@@ -67,6 +71,37 @@ public class FileUtils {
     return new FileInputStream(path);
   }
 
+  /**
+   * Get a Reader for the given path.
+   *
+   * @param path file path
+   * @return Reader object
+   * @throws StageException if the file does not exist or cannot be read
+   */
+  public static Reader getFileReader(String path) throws StageException {
+    try {
+      return getReader(path);
+    } catch (NullPointerException | IOException e) {
+      throw new StageException("File does not exist: " + path);
+    }
+  }
 
-
+  /**
+   * Count the number of lines in a file.
+   *
+   * @param filename file path
+   * @return number of lines
+   * @throws StageException if the file does not exist or cannot be read
+   */
+  public static int countLines(String filename) throws StageException {
+    try (BufferedReader reader = new BufferedReader(getFileReader(filename))) {
+      int lines = 0;
+      while (reader.readLine() != null) {
+        lines++;
+      }
+      return lines;
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
 }
