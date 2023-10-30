@@ -8,7 +8,12 @@ import com.typesafe.config.ConfigFactory;
 import io.weaviate.client.WeaviateClient;
 import io.weaviate.client.base.Response;
 import io.weaviate.client.base.Result;
+import io.weaviate.client.v1.batch.Batch;
+import io.weaviate.client.v1.batch.api.ObjectsBatcher;
 import io.weaviate.client.v1.batch.model.ObjectGetResponse;
+import io.weaviate.client.v1.data.replication.model.ConsistencyLevel;
+import io.weaviate.client.v1.misc.Misc;
+import io.weaviate.client.v1.misc.api.MetaGetter;
 import io.weaviate.client.v1.misc.model.Meta;
 import java.util.List;
 import org.junit.Assert;
@@ -29,13 +34,28 @@ public class WeaviateIndexerTest {
   private void setupWeaviateClient() {
     mockClient = Mockito.mock(WeaviateClient.class);
 
-    Mockito.when(mockClient.misc().metaGetter().run()).thenReturn(
-        new Result<>(new Response<>(200, new Meta(), null)),
-        new Result<>(new Response<>(404, new Meta(), null))
-    );
+    Misc mockMisc = Mockito.mock(Misc.class);
+    Mockito.when(mockClient.misc()).thenReturn(mockMisc);
+
+    MetaGetter mockMetaGetter = Mockito.mock(MetaGetter.class);
+    Mockito.when(mockMisc.metaGetter()).thenReturn(mockMetaGetter);
+
+    Result<Meta> mockMetaResult = Mockito.mock(Result.class);
+    Mockito.when(mockMetaGetter.run()).thenReturn(mockMetaResult);
+//    Mockito.when(mockMetaGetter.run()).thenReturn(
+//        new Result<>(new Response<>(200, new Meta(), null)),
+//        new Result<>(new Response<>(404, new Meta(), null))
+//    );
+
+    Batch mockBatch = Mockito.mock(Batch.class);
+    Mockito.when(mockClient.batch()).thenReturn(mockBatch);
+
+    ObjectsBatcher mockObjectsBatcher = Mockito.mock(ObjectsBatcher.class);
+    Mockito.when(mockBatch.objectsBatcher()).thenReturn(mockObjectsBatcher);
+    Mockito.when(mockObjectsBatcher.withConsistencyLevel(ConsistencyLevel.ALL)).thenReturn(mockObjectsBatcher);
 
     Result<ObjectGetResponse[]> mockResponse = Mockito.mock(Result.class);
-    Mockito.when(mockClient.batch().objectsBatcher().run()).thenReturn(mockResponse);
+    Mockito.when(mockObjectsBatcher.run()).thenReturn(mockResponse);
   }
 
   @Test
