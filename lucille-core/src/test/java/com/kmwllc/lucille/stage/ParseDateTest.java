@@ -112,11 +112,6 @@ public class ParseDateTest {
     }
   }
 
-  // todo test 2, 3 and 4 demonstrate how the data is modified in the stage with three different time zones
-  //  my thoughts:
-  //  1. we should not only allow start of day dates but correct time too. maybe add a separate ParseInstant stage
-  //  2. should we be able to specify the output timezone too?
-
   @Test
   public void test2() {
     String stringDate = "2021-02-02";
