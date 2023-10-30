@@ -40,8 +40,7 @@ public class ParseDate extends Stage {
   private final UpdateMode updateMode;
   private final String timeZoneId;
 
-  private static final String DEFAULT_TIME_ZONE_ID = Calendar.getInstance().getTimeZone().getID();
-//  private static final String DEFAULT_TIME_ZONE_ID = "UTC";
+  private static final String localTimeZoneId = Calendar.getInstance().getTimeZone().getID();
 
   public ParseDate(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest")
@@ -58,7 +57,7 @@ public class ParseDate extends Stage {
   }
 
   private static String getTimeZoneId(Config config) {
-    String timeZoneId = ConfigUtils.getOrDefault(config, "time_zone_id", DEFAULT_TIME_ZONE_ID);
+    String timeZoneId = ConfigUtils.getOrDefault(config, "time_zone_id", localTimeZoneId);
     if (Arrays.stream(TimeZone.getAvailableIDs()).noneMatch(timeZoneId::equals)) {
       throw new IllegalArgumentException("Invalid time zone ID: \"" + timeZoneId
           + "\", must be one of TimeZone.getAvailableIDs()");
