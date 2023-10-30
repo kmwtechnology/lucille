@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.indexer;
 
-import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
@@ -8,6 +7,7 @@ import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
