@@ -13,6 +13,7 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
+import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
@@ -848,9 +849,8 @@ public class SolrIndexerTest {
         .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
         .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef(List.of("localhost:2181")));
 
-    try (SolrClient httpClient = SolrUtils.getSolrClient(httpConfig); SolrClient cloudClient = SolrUtils.getSolrClient(
-        cloudConfig)) {
-      assertTrue(httpClient instanceof HttpSolrClient);
+    try (SolrClient httpClient = SolrUtils.getSolrClient(httpConfig); SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig);){
+      assertTrue(httpClient instanceof Http2SolrClient);
       assertTrue(cloudClient instanceof CloudSolrClient);
     }
   }

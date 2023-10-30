@@ -18,6 +18,8 @@ import org.apache.http.protocol.HttpCoreContext;
  */
 public class PreemptiveAuthInterceptor implements HttpRequestInterceptor {
 
+  // https://stackoverflow.com/questions/2014700/preemptive-basic-authentication-with-apache-httpclient-4
+  // ^ link to more information on this PreemptiveAuthInterceptor
   @Override
   public void process(HttpRequest request, HttpContext context) throws HttpException {
     AuthState authState = (AuthState) context.getAttribute(HttpClientContext.TARGET_AUTH_STATE);
