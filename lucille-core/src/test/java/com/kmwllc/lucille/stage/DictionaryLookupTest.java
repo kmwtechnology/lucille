@@ -229,4 +229,11 @@ public class DictionaryLookupTest {
     assertFalse(doc.getBoolean("setContains1"));
     assertTrue(doc.getBoolean("setContains2"));
   }
+
+  @Test
+  public void testInvalidSet() {
+    Throwable e = assertThrows(StageException.class, () ->factory.get("DictionaryLookupTest/set_config_invalid.conf"));
+    assertEquals("Comma separated values are not allowed when set_only=true: \"[USSR,  Russia]\" on line 5",
+        e.getCause().getCause().getMessage());
+  }
 }

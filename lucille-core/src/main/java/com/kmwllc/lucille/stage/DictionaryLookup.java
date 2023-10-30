@@ -123,9 +123,8 @@ public class DictionaryLookup extends Stage {
         if (line.length == 1) {
           value = setOnly ? PRESENT : new String[]{word};
         } else if (setOnly) {
-          log.warn(String.format("Entry \"%s\" on line %d contained payloads which were ignored. " +
-              "This dictionary entry will be treated as a set.", word, reader.getLinesRead()));
-          value = PRESENT;
+          throw new StageException(String.format("Comma separated values are not allowed when set_only=true: \"%s\" on line %d",
+              Arrays.toString(line), reader.getLinesRead()));
         } else {
           // Handle multiple payload values here.
           value = Arrays.stream(Arrays.copyOfRange(line, 1, line.length)).map(String::trim).toArray(String[]::new);
