@@ -112,66 +112,64 @@ public class ParseDateTest {
     }
   }
 
-//  @Test
-//  public void test2() {
-//    String stringDate = "2021-02-02";
-//    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-//
-//    Date date = format.parse(stringDate, new ParsePosition(0));
-//    assertEquals("Tue Feb 02 00:00:00 EST 2021", date.toString());
-//
-//    LocalDate localDate = date.toInstant().atZone(ZoneId.of("UTC")).toLocalDate();
-//    assertEquals("2021-02-02T05:00:00Z", date.toInstant().toString());
-//    assertEquals("2021-02-02T05:00Z[UTC]", date.toInstant().atZone(ZoneId.of("UTC")).toString());
-//    assertEquals("2021-02-02", localDate.toString());
-//
-//    String outputDate = DateTimeFormatter.ISO_INSTANT.format(localDate.atStartOfDay().toInstant(ZoneOffset.UTC));
-//    assertEquals("2021-02-02T00:00", localDate.atStartOfDay().toString());
-//    assertEquals("2021-02-02T00:00:00Z", localDate.atStartOfDay().toInstant(ZoneOffset.UTC).toString());
-//    assertEquals("2021-02-02T00:00:00Z", outputDate);
-//  }
-//
-//  @Test
-//  public void test3() {
-//    String stringDate = "2021-02-02";
-//    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-//
-//    // add timezone to format
-//    format.setTimeZone(TimeZone.getTimeZone("PST"));
-//
-//    Date date = format.parse(stringDate, new ParsePosition(0));
-//    assertEquals("Tue Feb 02 03:00:00 EST 2021", date.toString());
-//
-//    LocalDate localDate = date.toInstant().atZone(ZoneId.of("UTC")).toLocalDate();
-//    assertEquals("2021-02-02T08:00:00Z", date.toInstant().toString());
-//    assertEquals("2021-02-02T08:00Z[UTC]", date.toInstant().atZone(ZoneId.of("UTC")).toString());
-//    assertEquals("2021-02-02", localDate.toString());
-//
-//    String outputDate = DateTimeFormatter.ISO_INSTANT.format(localDate.atStartOfDay().toInstant(ZoneOffset.UTC));
-//    assertEquals("2021-02-02T00:00", localDate.atStartOfDay().toString());
-//    assertEquals("2021-02-02T00:00:00Z", localDate.atStartOfDay().toInstant(ZoneOffset.UTC).toString());
-//    assertEquals("2021-02-02T00:00:00Z", outputDate);
-//  }
-//
-//  @Test
-//  public void test4() {
-//    String stringDate = "2021-02-02";
-//    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-//
-//    // add timezone to format
-//    format.setTimeZone(TimeZone.getTimeZone("Europe/Rome"));
-//
-//    Date date = format.parse(stringDate, new ParsePosition(0));
-//    assertEquals("Mon Feb 01 18:00:00 EST 2021", date.toString());
-//
-//    LocalDate localDate = date.toInstant().atZone(ZoneId.of("UTC")).toLocalDate();
-//    assertEquals("2021-02-01T23:00:00Z", date.toInstant().toString());
-//    assertEquals("2021-02-01T23:00Z[UTC]", date.toInstant().atZone(ZoneId.of("UTC")).toString());
-//    assertEquals("2021-02-01", localDate.toString());
-//
-//    String outputDate = DateTimeFormatter.ISO_INSTANT.format(localDate.atStartOfDay().toInstant(ZoneOffset.UTC));
-//    assertEquals("2021-02-01T00:00", localDate.atStartOfDay().toString());
-//    assertEquals("2021-02-01T00:00:00Z", localDate.atStartOfDay().toInstant(ZoneOffset.UTC).toString());
-//    assertEquals("2021-02-01T00:00:00Z", outputDate);
-//  }
+  /* Examples of parsing date step by step based on a string and timezone
+
+  Example 1:
+
+    String stringDate = "2021-02-02";
+    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+    format.setTimeZone(TimeZone.getTimeZone("EST"));
+
+    Date date = format.parse(stringDate, new ParsePosition(0));
+    assertEquals("Tue Feb 02 00:00:00 EST 2021", date.toString());
+
+    LocalDate localDate = date.toInstant().atZone(ZoneId.of("UTC")).toLocalDate();
+    assertEquals("2021-02-02T05:00:00Z", date.toInstant().toString());
+    assertEquals("2021-02-02T05:00Z[UTC]", date.toInstant().atZone(ZoneId.of("UTC")).toString());
+    assertEquals("2021-02-02", localDate.toString());
+
+    String outputDate = DateTimeFormatter.ISO_INSTANT.format(localDate.atStartOfDay().toInstant(ZoneOffset.UTC));
+    assertEquals("2021-02-02T00:00", localDate.atStartOfDay().toString());
+    assertEquals("2021-02-02T00:00:00Z", localDate.atStartOfDay().toInstant(ZoneOffset.UTC).toString());
+    assertEquals("2021-02-02T00:00:00Z", outputDate);
+
+  Example 2:
+
+    String stringDate = "2021-02-02";
+    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+    format.setTimeZone(TimeZone.getTimeZone("PST"));
+
+    Date date = format.parse(stringDate, new ParsePosition(0));
+    assertEquals("Tue Feb 02 03:00:00 EST 2021", date.toString());
+
+    LocalDate localDate = date.toInstant().atZone(ZoneId.of("UTC")).toLocalDate();
+    assertEquals("2021-02-02T08:00:00Z", date.toInstant().toString());
+    assertEquals("2021-02-02T08:00Z[UTC]", date.toInstant().atZone(ZoneId.of("UTC")).toString());
+    assertEquals("2021-02-02", localDate.toString());
+
+    String outputDate = DateTimeFormatter.ISO_INSTANT.format(localDate.atStartOfDay().toInstant(ZoneOffset.UTC));
+    assertEquals("2021-02-02T00:00", localDate.atStartOfDay().toString());
+    assertEquals("2021-02-02T00:00:00Z", localDate.atStartOfDay().toInstant(ZoneOffset.UTC).toString());
+    assertEquals("2021-02-02T00:00:00Z", outputDate);
+
+  Example 3:
+
+    String stringDate = "2021-02-02";
+    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+    format.setTimeZone(TimeZone.getTimeZone("Europe/Rome"));
+
+    Date date = format.parse(stringDate, new ParsePosition(0));
+    assertEquals("Mon Feb 01 18:00:00 EST 2021", date.toString());
+
+    LocalDate localDate = date.toInstant().atZone(ZoneId.of("UTC")).toLocalDate();
+    assertEquals("2021-02-01T23:00:00Z", date.toInstant().toString());
+    assertEquals("2021-02-01T23:00Z[UTC]", date.toInstant().atZone(ZoneId.of("UTC")).toString());
+    assertEquals("2021-02-01", localDate.toString());
+
+    String outputDate = DateTimeFormatter.ISO_INSTANT.format(localDate.atStartOfDay().toInstant(ZoneOffset.UTC));
+    assertEquals("2021-02-01T00:00", localDate.atStartOfDay().toString());
+    assertEquals("2021-02-01T00:00:00Z", localDate.atStartOfDay().toInstant(ZoneOffset.UTC).toString());
+    assertEquals("2021-02-01T00:00:00Z", outputDate);
+
+   */
 }
