@@ -142,7 +142,7 @@ public class WeaviateIndexer extends Indexer {
     }
   }
 
-  private static String generateDocumentUUID(Document document) {
+  public static String generateDocumentUUID(Document document) {
     return UUID.nameUUIDFromBytes(document.getId().getBytes()).toString();
   }
 
