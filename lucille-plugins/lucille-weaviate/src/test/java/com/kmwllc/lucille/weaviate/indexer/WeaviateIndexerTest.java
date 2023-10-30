@@ -2,12 +2,15 @@ package com.kmwllc.lucille.weaviate.indexer;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.indexer.ElasticsearchIndexer;
+import com.kmwllc.lucille.message.IndexerMessageManager;
 import com.kmwllc.lucille.message.PersistingLocalMessageManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import io.weaviate.client.WeaviateClient;
 import io.weaviate.client.base.Response;
 import io.weaviate.client.base.Result;
+import io.weaviate.client.base.WeaviateError;
 import io.weaviate.client.v1.batch.Batch;
 import io.weaviate.client.v1.batch.api.ObjectsBatcher;
 import io.weaviate.client.v1.batch.model.ObjectGetResponse;
@@ -43,10 +46,16 @@ public class WeaviateIndexerTest {
 
     Result<Meta> mockMetaResult = Mockito.mock(Result.class);
     Mockito.when(mockMetaGetter.run()).thenReturn(mockMetaResult);
-//    Mockito.when(mockMetaGetter.run()).thenReturn(
-//        new Result<>(new Response<>(200, new Meta(), null)),
-//        new Result<>(new Response<>(404, new Meta(), null))
-//    );
+    // return null first and then 404 error
+    Mockito.when(mockMetaResult.getError()).thenReturn(null,
+        new WeaviateError(404, new ArrayList<>()));
+
+    Meta mockMeta = Mockito.mock(Meta.class);
+    Mockito.when(mockMeta.getHostname()).thenReturn("localhost");
+    Mockito.when(mockMeta.getVersion()).thenReturn("1.0.0");
+    Mockito.when(mockMeta.getModules()).thenReturn("modules");
+
+    Mockito.when(mockMetaResult.getResult()).thenReturn(mockMeta);
 
     Batch mockBatch = Mockito.mock(Batch.class);
     Mockito.when(mockClient.batch()).thenReturn(mockBatch);
@@ -82,11 +91,49 @@ public class WeaviateIndexerTest {
     }
   }
 
-  /*
-    private static class CorruptedWeaviateIndexer extends WeaviateIndexer {
+  @Test
+  public void testWeaviateIndexerException() throws Exception {
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");
+
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+    Document doc3 = Document.create("doc3", "test_run");
+    Document doc4 = Document.create("doc4", "test_run");
+    Document doc5 = Document.create("doc5", "test_run");
+
+    WeaviateIndexer indexer = new CorruptedWeaviateIndexer(config, manager, mockClient, "testing");
+    manager.sendCompleted(doc);
+    manager.sendCompleted(doc2);
+    manager.sendCompleted(doc3);
+    manager.sendCompleted(doc4);
+    manager.sendCompleted(doc5);
+    indexer.run(5);
+
+    List<Event> events = manager.getSavedEvents();
+    Assert.assertEquals(5, events.size());
+    for (int i = 1; i <= events.size(); i++) {
+      Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      Assert.assertEquals(Event.Type.FAIL, events.get(i - 1).getType());
+    }
+  }
+
+  @Test
+  public void testValidateConnection() throws Exception {
+    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");
+    WeaviateIndexer indexer = new WeaviateIndexer(config, manager, mockClient, "testing");
+    Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
+    Assert.assertFalse(indexer.validateConnection());
+    Assert.assertFalse(indexer.validateConnection());
+
+  }
+
+
+  private static class CorruptedWeaviateIndexer extends WeaviateIndexer {
 
     public CorruptedWeaviateIndexer(Config config, IndexerMessageManager manager,
-        RestHighLevelClient client, String metricsPrefix) {
+        WeaviateClient client, String metricsPrefix) {
       super(config, manager, client, "testing");
     }
 
@@ -95,5 +142,4 @@ public class WeaviateIndexerTest {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
   }
-   */
 }
