@@ -28,7 +28,7 @@ import java.util.function.Function;
  * - format_strs (List<String>, Optional) : A List of format Strings to try and apply to the dates. Defaults to an empty list.
  * - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  * Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
- * todo add comments about timezone
+ * - time_zone_id (String, Optional) : The time zone ID to use when parsing dates. Defaults to the system default. <a href="https://docs.oracle.com/javase/7/docs/api/java/util/TimeZone.html">See here for more info about time zone ids</a>
  */
 public class ParseDate extends Stage {
 
