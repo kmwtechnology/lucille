@@ -307,7 +307,7 @@ public class SolrIndexer extends Indexer {
   }
 
   public static void main(String[] args) throws Exception {
-    Config config = ConfigUtils.loadConfig();
+    Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
     log.info("Starting Indexer for pipeline: " + pipelineName);
     IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);
