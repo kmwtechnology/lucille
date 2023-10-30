@@ -14,6 +14,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Parses dates into ISO_INSTANT format to be ingested by Solr. If a given date cannot be parsed, it
@@ -68,7 +69,8 @@ public class ParseDate extends Stage {
   private List<DateFormat> getFormats(Config config) {
 
     // convert format strings to a set to remove duplicates
-    Set<String> formatStrings = new HashSet<>(ConfigUtils.getOrDefault(config, "format_strs", new ArrayList<>()));
+    List<String> formatStrings = !config.hasPath("format_strs") ? new ArrayList<>() :
+        config.getStringList("format_strs").stream().distinct().collect(Collectors.toList());
 
     // create date formatters from format strings with a timezone
     List<DateFormat> formats = new ArrayList<>();
