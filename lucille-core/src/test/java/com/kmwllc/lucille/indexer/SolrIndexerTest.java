@@ -46,8 +46,7 @@ public class SolrIndexerTest {
    */
   @Test
   public void testIndexerWithBatchSize1() throws Exception {
-    Config config =
-        ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
 
     Document doc = Document.create("doc1", "test_run");
@@ -61,17 +60,12 @@ public class SolrIndexerTest {
 
     // Each batch should be sent to Solr via a call to solrClient.add()
     // So, given 2 docs and a batch size of 1, there should be 2 batches and 2 calls to add()
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(2)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(2, captor.getAllValues().size());
-    assertEquals(
-        doc.getId(),
-        ((SolrInputDocument) captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
-    assertEquals(
-        doc2.getId(),
-        ((SolrInputDocument) captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
+    assertEquals(doc.getId(), getCapturedID(captor, 0, 0));
+    assertEquals(doc2.getId(), getCapturedID(captor, 1, 0));
 
     assertEquals(2, manager.getSavedEvents().size());
 
@@ -105,19 +99,12 @@ public class SolrIndexerTest {
 
     // Each batch should be sent to Solr via a call to solrClient.add()
     // So, given 2 docs and a batch size of 2, there should be 1 batch and 1 call to add()
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(1)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(1, captor.getAllValues().size());
-    assertEquals(
-        doc.getId(),
-        ((SolrInputDocument) captor.getAllValues().get(0).toArray()[0])
-            .getFieldValue(Document.ID_FIELD));
-    assertEquals(
-        doc2.getId(),
-        ((SolrInputDocument) captor.getAllValues().get(0).toArray()[1])
-            .getFieldValue(Document.ID_FIELD));
+    assertEquals(doc.getId(), getCapturedID(captor, 0, 0));
+    assertEquals(doc2.getId(), getCapturedID(captor, 0, 1));
 
     assertEquals(2, manager.getSavedEvents().size());
 
@@ -156,23 +143,15 @@ public class SolrIndexerTest {
     manager.sendCompleted(doc3);
     indexer.run(3);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(3)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(3, captor.getAllValues().size());
 
-    // confirm that doc1 and doc3 are sent with their overriden IDs, while doc2 is sent with its
-    // actual ID
-    assertEquals(
-        "doc1_overriden",
-        ((SolrInputDocument) captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
-    assertEquals(
-        doc2.getId(),
-        ((SolrInputDocument) captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
-    assertEquals(
-        "doc3_overriden",
-        ((SolrInputDocument) captor.getAllValues().get(2).toArray()[0]).getFieldValue("id"));
+    // confirm that doc1 and doc3 are sent with their overriden IDs, while doc2 is sent with its actual ID
+    assertEquals("doc1_overriden", getCapturedID(captor, 0, 0));
+    assertEquals(doc2.getId(), getCapturedID(captor, 1, 0));
+    assertEquals("doc3_overriden", getCapturedID(captor, 2, 0));
 
     assertEquals(3, manager.getSavedEvents().size());
 
@@ -209,8 +188,7 @@ public class SolrIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(1)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(1, captor.getAllValues().size());
@@ -263,9 +241,9 @@ public class SolrIndexerTest {
     manager.sendCompleted(doc4);
     indexer.run(4);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     ArgumentCaptor<String> colCaptor = ArgumentCaptor.forClass(String.class);
+
     verify(solrClient, times(4)).add(colCaptor.capture(), captor.capture());
     verify(solrClient, times(1)).close();
     assertEquals(4, captor.getAllValues().size());
@@ -328,7 +306,6 @@ public class SolrIndexerTest {
     indexer.run(1);
 
     ArgumentCaptor<List<String>> delCaptor = ArgumentCaptor.forClass(List.class);
-
     InOrder inOrder = inOrder(solrClient);
 
     inOrder.verify(solrClient).deleteById(delCaptor.capture());
@@ -363,9 +340,7 @@ public class SolrIndexerTest {
     manager.sendCompleted(doc2);
     indexer.run(2);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
-
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     InOrder inOrder = inOrder(solrClient);
 
     inOrder.verify(solrClient).add(captor.capture());
@@ -403,9 +378,7 @@ public class SolrIndexerTest {
     manager.sendCompleted(doc3);
     indexer.run(3);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
-
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     ArgumentCaptor<List<String>> delCaptor = ArgumentCaptor.forClass(List.class);
 
     InOrder inOrder = inOrder(solrClient);
@@ -605,9 +578,7 @@ public class SolrIndexerTest {
     manager.sendCompleted(doc3);
     indexer.run(3);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
-
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     ArgumentCaptor<List<String>> delCaptor = ArgumentCaptor.forClass(List.class);
 
     InOrder inOrder = inOrder(solrClient);
@@ -652,9 +623,7 @@ public class SolrIndexerTest {
     manager.sendCompleted(doc3);
     indexer.run(3);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
-
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     ArgumentCaptor<List<String>> delCaptor = ArgumentCaptor.forClass(List.class);
 
     InOrder inOrder = inOrder(solrClient);
@@ -707,8 +676,7 @@ public class SolrIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
@@ -737,8 +705,7 @@ public class SolrIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
@@ -765,8 +732,7 @@ public class SolrIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
@@ -795,8 +761,7 @@ public class SolrIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
@@ -823,8 +788,7 @@ public class SolrIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
@@ -853,8 +817,7 @@ public class SolrIndexerTest {
     manager.sendCompleted(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
     List<Event> events = manager.getSavedEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
@@ -885,12 +848,18 @@ public class SolrIndexerTest {
         .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
         .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef(List.of("localhost:2181")));
 
-    try (SolrClient httpClient = SolrUtils.getSolrClient(httpConfig); SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig);){
+    try (SolrClient httpClient = SolrUtils.getSolrClient(httpConfig); SolrClient cloudClient = SolrUtils.getSolrClient(
+        cloudConfig)) {
       assertTrue(httpClient instanceof HttpSolrClient);
       assertTrue(cloudClient instanceof CloudSolrClient);
     }
-
   }
+
+  private static String getCapturedID(ArgumentCaptor<Collection<SolrInputDocument>> captor, int index, int arrIndex) {
+    SolrInputDocument document = (SolrInputDocument) captor.getAllValues().get(index).toArray()[arrIndex];
+    return (String) document.getFieldValue(Document.ID_FIELD);
+  }
+
 
   private static class ErroringIndexer extends SolrIndexer {
 
