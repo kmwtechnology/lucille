@@ -88,7 +88,8 @@ public class DictionaryLookup extends Stage {
   private HashMap<String, String[]> buildHashMap(String dictPath) throws StageException {
 
     // count lines and create a dictionary with correct capacity. hashmap support dynamic resizing, but it's more efficient
-    // to set the initial capacity especially when we know the number of lines in the file`
+    // to set the initial capacity especially when we know the number of lines in the file.
+    // we observed a 10% time reduction on sets with sizes >= 1K
     int lineCount = FileUtils.countLines(dictPath);
     HashMap<String, String[]> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
 
