@@ -15,6 +15,7 @@ import io.weaviate.client.v1.data.replication.model.ConsistencyLevel;
 import io.weaviate.client.v1.misc.Misc;
 import io.weaviate.client.v1.misc.api.MetaGetter;
 import io.weaviate.client.v1.misc.model.Meta;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.Assert;
 import org.junit.Before;
@@ -56,6 +57,7 @@ public class WeaviateIndexerTest {
 
     Result<ObjectGetResponse[]> mockResponse = Mockito.mock(Result.class);
     Mockito.when(mockObjectsBatcher.run()).thenReturn(mockResponse);
+    Mockito.when(mockResponse.getResult()).thenReturn(new ObjectGetResponse[]{});
   }
 
   @Test
