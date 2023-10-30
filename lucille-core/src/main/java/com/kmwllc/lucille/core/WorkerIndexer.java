@@ -5,6 +5,7 @@ import com.kmwllc.lucille.message.HybridIndexerMessageManager;
 import com.kmwllc.lucille.message.HybridWorkerMessageManager;
 import com.kmwllc.lucille.message.LocalMessageManager;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
@@ -36,7 +37,7 @@ public class WorkerIndexer {
   private WorkerThread workerThread;
 
   public static void main(String[] args) throws Exception {
-    Config config = ConfigUtils.loadConfig();
+    Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
     WorkerIndexerPool pool = new WorkerIndexerPool(config, pipelineName, false, null);
     pool.start();
