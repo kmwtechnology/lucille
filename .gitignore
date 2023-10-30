@@ -24,8 +24,10 @@ target/
 dist/
 
 # JetBrains IDE
-.idea/
 *.iml
+.idea/*
+!.idea/codeStyleSettings.xml
+!.idea/codeStyles/
 
 # Unit test reports
 TEST*.xml
