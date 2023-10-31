@@ -202,16 +202,19 @@ public class CSVConnectorTest {
     "{}",12,"      # missing closing quote
     ",13,14        # missing closing quote
     ",hi,hello     # missing closing quote
+    15,16,17       # correct line
      */
 
     /* Log
-    23/10/31 16:38:56 INFO CSVConnector: Beginning to process file classpath:CSVConnectorTest/test_csv_error.csv
-    23/10/31 16:38:56 INFO PublisherImpl: First doc published after 79 ms
-    23/10/31 16:38:56 WARN CSVConnector: Line 3 of the csv has a different number of columns than columns in the header.
-    23/10/31 16:38:56 WARN CSVConnector: Line 6 of the csv has a different number of columns than columns in the header.
-    23/10/31 16:38:56 ERROR CSVConnector: Error reading line number 6 of the csv file. Skipping line.
-    ... (error trace)
-     23/10/31 16:38:56 WARN CSVConnector: Skipped 1 lines starting at line 6 due to errors.
+    23/10/31 17:00:10 INFO CSVConnector: Beginning to process file classpath:CSVConnectorTest/test_csv_error.csv
+    23/10/31 17:00:10 INFO PublisherImpl: First doc published after 76 ms
+    23/10/31 17:00:10 WARN CSVConnector: Line 3 of the csv has a different number of columns than columns in the header.
+    23/10/31 17:00:10 WARN CSVConnector: Line 6 of the csv has a different number of columns than columns in the header.
+    23/10/31 17:00:10 ERROR CSVConnector: Error reading line number 6 of the csv file. Skipping line.
+    com.opencsv.exceptions.CsvMalformedLineException: Unterminated quoted field at end of CSV line. Beginning of lost text: [,hi,hello
+    15,16,17
+    ] ... (stack trace)
+    23/10/31 17:00:10 WARN CSVConnector: Skipped 1 lines starting at line 6 due to errors.
      */
 
     List<Document> docs = manager.getSavedDocumentsSentForProcessing();
