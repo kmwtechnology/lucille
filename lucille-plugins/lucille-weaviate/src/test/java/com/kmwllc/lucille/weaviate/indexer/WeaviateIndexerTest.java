@@ -136,7 +136,7 @@ public class WeaviateIndexerTest {
   @Test
   public void testMultipleBatches() throws Exception {
     PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");
+    Config config = ConfigFactory.load("WeaviateIndexerTest/batching.conf");
     WeaviateIndexer indexer = new WeaviateIndexer(config, manager, mockClient, "testing");
 
     Document doc = Document.create("doc1", "test_run");
