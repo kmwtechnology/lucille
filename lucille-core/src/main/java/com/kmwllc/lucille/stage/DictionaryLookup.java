@@ -77,6 +77,9 @@ public class DictionaryLookup extends Stage {
     if (ignoreMissingSource && !setOnly) {
       log.warn("ignore_missing_source is only valid when set_only is true. Ignoring.");
     }
+    if (setOnly && updateMode != UpdateMode.OVERWRITE) {
+      throw new StageException("when set_only is true, update_mode must be set to overwrite");
+    }
   }
 
   /**

@@ -236,4 +236,13 @@ public class DictionaryLookupTest {
     assertEquals("Comma separated values are not allowed when set_only=true: \"[USSR,  Russia]\" on line 5",
         e.getCause().getCause().getMessage());
   }
+
+  @Test
+  public void testInvalidConfig() {
+    Throwable e = assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/set_config_invalid_update1.conf"));
+    assertEquals("when set_only is true, update_mode must be set to overwrite", e.getMessage());
+
+    e = assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/set_config_invalid_update2.conf"));
+    assertEquals("when set_only is true, update_mode must be set to overwrite", e.getMessage());
+  }
 }
