@@ -152,9 +152,11 @@ public class WeaviateIndexerTest {
     manager.sendCompleted(doc5);
     indexer.run(5);
 
-    ArgumentCaptor<WeaviateObject> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(WeaviateObject.class);
+    // the batcher will be run 3 times
+    verify(mockObjectsBatcher, times(3)).run();
 
-    // todo should i be capturing a different method to test that there were multiple batches?
+    ArgumentCaptor<WeaviateObject> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(WeaviateObject.class);
+    // five objects will be added to the batcher
     verify(mockObjectsBatcher, times(5)).withObject(bulkRequestArgumentCaptor.capture());
 
     List<WeaviateObject> bulkRequestValue = bulkRequestArgumentCaptor.getAllValues();
@@ -162,13 +164,6 @@ public class WeaviateIndexerTest {
 
     WeaviateObject object = bulkRequestArgumentCaptor.getValue();
     assertEquals(WeaviateIndexer.generateDocumentUUID(doc5), object.getId());
-
-// todo is there anything here i can reproduce?
-//    BulkRequest br = bulkRequestArgumentCaptor.getValue();
-//    List<BulkOperation> requests = br.operations();
-//    IndexOperation indexRequest = requests.get(0).index();
-//    assertEquals(doc5.getId(), indexRequest.id());
-
 
     Assert.assertEquals(5, manager.getSavedEvents().size());
     List<Event> events = manager.getSavedEvents();
