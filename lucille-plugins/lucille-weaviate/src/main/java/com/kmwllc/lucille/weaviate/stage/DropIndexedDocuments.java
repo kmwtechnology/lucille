@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.typesafe.config.Config;
@@ -142,11 +143,11 @@ public class DropIndexedDocuments extends Stage {
       while (numIndexed > 0) {
 
         // get a batch of original ids and the last id in the batch
-        Pair<List<String>, String> batch = getBatchIds(lastID);
+        ImmutablePair<List<String>, String> batch = getBatchIds(lastID);
 
         // extract batch original ids and last id from pair
-        List<String> batchIds = batch.getFirst();
-        lastID = batch.getSecond();
+        List<String> batchIds = batch.getLeft();
+        lastID = batch.getRight();
 
         // add ids to set
         ids.addAll(batchIds);
@@ -173,7 +174,7 @@ public class DropIndexedDocuments extends Stage {
     return ids;
   }
 
-  private Pair<List<String>, String> getBatchIds(String lastID) throws StageException {
+  private ImmutablePair<List<String>, String> getBatchIds(String lastID) throws StageException {
 
     // initialize fields to get from Weaviate
     Field[] fields = new Field[]{
@@ -228,7 +229,7 @@ public class DropIndexedDocuments extends Stage {
       }
     }
 
-    return new Pair<>(parsedIDs, lastID);
+    return new ImmutablePair<>(parsedIDs, lastID);
   }
 
   private int getCount() throws StageException {
@@ -281,24 +282,5 @@ public class DropIndexedDocuments extends Stage {
       doc.setDropped(true);
     }
     return null;
-  }
-
-  public static class Pair<A, B> {
-
-    private final A a;
-    private final B b;
-
-    public Pair(A a, B b) {
-      this.a = a;
-      this.b = b;
-    }
-
-    public A getFirst() {
-      return a;
-    }
-
-    public B getSecond() {
-      return b;
-    }
   }
 }
