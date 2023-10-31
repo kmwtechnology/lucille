@@ -118,7 +118,7 @@ public class CSVConnector extends AbstractConnector {
 
   private void processFile(String filePath, Publisher publisher) throws ConnectorException {
 
-    if(lineNum != 0) {
+    if (lineNum != 0) {
       throw new IllegalStateException("Csv connector has already been used.  Please create a new instance.");
     }
 
