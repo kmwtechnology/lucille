@@ -172,4 +172,32 @@ public class ParseDateTest {
     assertEquals("2021-02-01T00:00:00Z", outputDate);
 
    */
+
+  @Test
+  public void testTemp() throws StageException {
+    HashMap<String,Object> configValues = new HashMap<>();
+    configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
+    configValues.put("source", List.of("date1", "date2"));
+    configValues.put("dest", List.of("output1", "output2"));
+    configValues.put("format_strs", List.of("yyyy-MM-dd z", "yyyy-MM-dd"));
+    configValues.put("time_zone_id", "Europe/Rome");
+
+    // one date has a time zone, the other does not
+    Document doc = Document.create("doc");
+    doc.setField("date1", "2021-02-02");
+    doc.setField("date2", "2021-02-02 EST");
+
+    // for date with no timezone the time zone is set to the default time zone
+    factory.get(configValues).processDocument(doc);
+    assertEquals("2021-02-01T00:00:00Z", doc.getString("output1"));
+    assertEquals("2021-02-02T00:00:00Z", doc.getString("output2"));
+
+    // switch the order of format strings
+    configValues.put("format_strs", List.of("yyyy-MM-dd", "yyyy-MM-dd z"));
+
+    // todo notice that the time zone is set to the default for a date that has a timezone
+    factory.get(configValues).processDocument(doc);
+    assertEquals("2021-02-01T00:00:00Z", doc.getString("output1"));
+    assertEquals("2021-02-01T00:00:00Z", doc.getString("output2"));
+  }
 }
