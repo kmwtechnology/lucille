@@ -39,6 +39,8 @@ import io.weaviate.client.v1.auth.exception.AuthException;
 public class DropIndexedDocuments extends Stage {
 
   private final static Logger log = LoggerFactory.getLogger(DropIndexedDocuments.class);
+
+  // TODO check if can standardize this code to use Jackson for json parsing
   private final static Gson GSON = new Gson();
 
   // required
