@@ -23,6 +23,9 @@ import java.util.List;
  * the syntax "term, payload". If any occurrences are found, they will be extracted and their associated payloads will
  * be appended to the destination field.
  *
+ * Can also be used as a Set lookup by setting the set_only parameter to true. In this case, the destination field will
+ * be set to true if all values in the source field are present in the dictionary.
+ *
  * Config Parameters:
  *
  *   - source (List<String>) : list of source field names
@@ -33,6 +36,10 @@ import java.util.List;
  *   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not. Defaults to true.
  *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
+ *   - set_only (Boolean, Optional) : If true, the destination field will be set to true if all values in the source field
+ *      are present in the dictionary.
+ *   - ignore_missing_source (Boolean, Optional) : Intended to be used in combination with set_only. If true, the destination field
+ *      will be set to true if the source field is missing. Defaults to false.
  */
 public class DictionaryLookup extends Stage {
 
@@ -42,18 +49,24 @@ public class DictionaryLookup extends Stage {
   private final boolean usePayloads;
   private final UpdateMode updateMode;
   private final boolean ignoreCase;
+  private final boolean setOnly;
+  private final boolean ignoreMissingSource;
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+  // Dummy value to indicate that a key is present in the HashMap
+  private static final String[] PRESENT = new String[0];
 
   public DictionaryLookup(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "dict_path")
-        .withOptionalProperties("use_payloads", "update_mode", "ignore_case"));
+        .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "ignore_missing_source"));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
     this.updateMode = UpdateMode.fromConfig(config);
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
+    this.setOnly = ConfigUtils.getOrDefault(config, "set_only", false);
+    this.ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignore_missing_source", false);
     this.dict = buildHashMap(config.getString("dict_path"));
   }
 
@@ -61,6 +74,12 @@ public class DictionaryLookup extends Stage {
     StageUtils.validateFieldNumNotZero(sourceFields, "Dictionary Lookup");
     StageUtils.validateFieldNumNotZero(destFields, "Dictionary Lookup");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Dictionary Lookup");
+    if (ignoreMissingSource && !setOnly) {
+      log.warn("ignore_missing_source is only valid when set_only is true. Ignoring.");
+    }
+    if (setOnly && updateMode != UpdateMode.OVERWRITE) {
+      throw new StageException("when set_only is true, update_mode must be set to overwrite");
+    }
   }
 
   /**
@@ -70,9 +89,15 @@ public class DictionaryLookup extends Stage {
    * @return the populated HashMap
    */
   private HashMap<String, String[]> buildHashMap(String dictPath) throws StageException {
-    HashMap<String, String[]> dict = new HashMap<>();
-    try (CSVReader reader = new CSVReader(FileUtils.getReader(dictPath))) {
-      // For each line of the dictionary file, add a keyword/payload pair to the Trie
+
+    // count lines and create a dictionary with correct capacity. hashmap support dynamic resizing, but it's more efficient
+    // to set the initial capacity especially when we know the number of lines in the file.
+    // we observed a 10% time reduction on sets with sizes >= 1K
+    int lineCount = FileUtils.countLines(dictPath);
+    HashMap<String, String[]> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
+
+    try (CSVReader reader = new CSVReader(FileUtils.getFileReader(dictPath))) {
+      // For each line of the dictionary file, add a keyword/payload pair to the hash map
       String[] line;
       boolean ignore = false;
       while ((line = reader.readNext()) != null) {
@@ -94,64 +119,83 @@ public class DictionaryLookup extends Stage {
           continue;
         }
 
+        // save the first word for both single and multi-word lines
+        String word = line[0].trim();
+
         // TODO : Add log messages for when encoding errors occur so that they can be fixed
+        String[] value;
         if (line.length == 1) {
-          String word = line[0].trim();
-          if (ignoreCase) {
-            dict.put(word.toLowerCase(), new String[]{word});
-          } else {
-            dict.put(word, new String[]{word});
-          }
+          value = setOnly ? PRESENT : new String[]{word};
+        } else if (setOnly) {
+          throw new StageException(String.format("Comma separated values are not allowed when set_only=true: \"%s\" on line %d",
+              Arrays.toString(line), reader.getLinesRead()));
         } else {
           // Handle multiple payload values here.
-          String[] rest = Arrays.copyOfRange(line, 1, line.length);
-          for (int i = 0; i < rest.length; i++) {
-            rest[i] = rest[i].trim();
-          }
-          if (ignoreCase) {
-            dict.put(line[0].trim().toLowerCase(), rest);
-          } else {
-            dict.put(line[0].trim(), rest);
-          }
+          value = Arrays.stream(Arrays.copyOfRange(line, 1, line.length)).map(String::trim).toArray(String[]::new);
         }
+        // Add the word and its payload(s) to the dictionary
+        dict.put(ignoreCase ? word.toLowerCase() : word, value);
       }
     } catch (IOException e) {
       throw new StageException("Failed to read from the given file.", e);
     } catch (CsvValidationException e) {
       throw new StageException("Error validating CSV", e);
     }
-
     return dict;
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
+
     for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one dest, use it. Otherwise, use the current source/dest.
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField)) {
-        continue;
-      }
+      if (setOnly) {
 
-      List<String> outputValues = new ArrayList<>();
-      for (String value : doc.getStringList(sourceField)) {
-        if (ignoreCase) {
-          value = value.toLowerCase();
+        // default value is true if this is the first field or if there are multiple fields
+        // in case where we have one destination field and multiple source fields we want to retrieve the current value
+        boolean defaultValue = true;
+        if (i != 0 && destFields.size() == 1) {
+          defaultValue = doc.getBoolean(destField);
         }
-        if (dict.containsKey(value)) {
-          if (usePayloads) {
-            for (String v : dict.get(value)) {
-              outputValues.add(v);
+
+        boolean currentValue;
+        if (!doc.has(sourceField)) {
+          // if ignoreMissingSource is true, set the destination field to true if the source field is missing
+          currentValue = ignoreMissingSource;
+        } else {
+          // check if all values in the source field are in the dictionary
+          currentValue = doc.getStringList(sourceField).stream()
+              .map(ignoreCase ? String::toLowerCase : String::toString)
+              .allMatch(dict::containsKey);
+        }
+
+        doc.update(destField, updateMode, defaultValue && currentValue);
+
+      } else {
+
+        if (!doc.has(sourceField)) {
+          continue;
+        }
+
+        List<String> outputValues = new ArrayList<>();
+        for (String value : doc.getStringList(sourceField)) {
+          if (ignoreCase) {
+            value = value.toLowerCase();
+          }
+          if (dict.containsKey(value)) {
+            if (usePayloads) {
+              outputValues.addAll(Arrays.asList(dict.get(value)));
+            } else {
+              outputValues.add(value);
             }
-          } else {
-            outputValues.add(value);
           }
         }
-      }
 
-      doc.update(destField, updateMode, outputValues.toArray(new String[0]));
+        doc.update(destField, updateMode, outputValues.toArray(new String[0]));
+      }
     }
 
     return null;
