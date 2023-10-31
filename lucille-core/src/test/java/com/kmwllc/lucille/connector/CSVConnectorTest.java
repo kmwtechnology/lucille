@@ -194,14 +194,24 @@ public class CSVConnectorTest {
     connector.execute(publisher);
 
     /* contents of CSVConnectorTest/semicolons.conf
-    a,b,c
-    1,2,3
-    4,5
-    6,7,8
-    9,10,11
-    "{}",12,"
-    ",13,14
-    ",hi,hello
+    a,b,c          # header
+    1,2,3          # correct line
+    4,5            # missing field
+    6,7,8          # correct line
+    9,10,11        # correct line
+    "{}",12,"      # missing closing quote
+    ",13,14        # missing closing quote
+    ",hi,hello     # missing closing quote
+     */
+
+    /* Log
+    23/10/31 16:38:56 INFO CSVConnector: Beginning to process file classpath:CSVConnectorTest/test_csv_error.csv
+    23/10/31 16:38:56 INFO PublisherImpl: First doc published after 79 ms
+    23/10/31 16:38:56 WARN CSVConnector: Line 3 of the csv has a different number of columns than columns in the header.
+    23/10/31 16:38:56 WARN CSVConnector: Line 6 of the csv has a different number of columns than columns in the header.
+    23/10/31 16:38:56 ERROR CSVConnector: Error reading line number 6 of the csv file. Skipping line.
+    ... (error trace)
+     23/10/31 16:38:56 WARN CSVConnector: Skipped 1 lines starting at line 6 due to errors.
      */
 
     List<Document> docs = manager.getSavedDocumentsSentForProcessing();
