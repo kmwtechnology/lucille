@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.apache.solr.client.solrj.SolrClient;
@@ -26,8 +26,8 @@ public class SolrConnectorTest {
   public void testExecute() throws Exception {
     Config config = ConfigFactory.load("SolrConnectorTest/execute.conf");
     SolrClient mockClient = mock(SolrClient.class);
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
     when(mockClient.query(any(SolrQuery.class))).then(new Answer<>() {
       @Override
@@ -62,8 +62,8 @@ public class SolrConnectorTest {
 
     //verify(mockPublisher, times(2)).publish(testDoc);
 
-    assertEquals(2, manager.getSavedDocumentsSentForProcessing().size());
-    for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
+    assertEquals(2, messenger.getSavedDocumentsSentForProcessing().size());
+    for (Document doc : messenger.getSavedDocumentsSentForProcessing()) {
       assertEquals(testDoc, doc);
     }
   }

@@ -7,7 +7,7 @@ import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.RunResult;
 import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.Runner.RunType;
-import com.kmwllc.lucille.message.IndexerMessageManager;
+import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import io.weaviate.client.WeaviateAuthClient;
@@ -45,9 +45,9 @@ public class WeaviateIndexer extends Indexer {
 
   private final String vectorField;
 
-  public WeaviateIndexer(Config config, IndexerMessageManager manager, WeaviateClient client,
+  public WeaviateIndexer(Config config, IndexerMessenger messenger, WeaviateClient client,
       String metricsPrefix) {
-    super(config, manager, metricsPrefix);
+    super(config, messenger, metricsPrefix);
     this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
         "id_original";
@@ -56,8 +56,8 @@ public class WeaviateIndexer extends Indexer {
     this.client = client;
   }
 
-  public WeaviateIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
-    this(config, manager, getClient(config, bypass), metricsPrefix);
+  public WeaviateIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    this(config, messenger, getClient(config, bypass), metricsPrefix);
   }
 
   private static WeaviateClient getClient(Config config, boolean bypass) {

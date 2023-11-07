@@ -2,8 +2,8 @@ package com.kmwllc.lucille.core;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.kmwllc.lucille.message.WorkerMessageManager;
-import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
+import com.kmwllc.lucille.message.WorkerMessenger;
+import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
@@ -25,16 +25,16 @@ public class WorkerPool {
   private final Config config;
   private final String pipelineName;
   private Integer numWorkers = null;
-  private WorkerMessageManagerFactory workerMessageManagerFactory;
+  private WorkerMessengerFactory workerMessengerFactory;
   private boolean started = false;
   private final int logSeconds;
   private final Timer logTimer = new Timer();
   private final String metricsPrefix;
 
-  public WorkerPool(Config config, String pipelineName, WorkerMessageManagerFactory factory, String metricsPrefix) {
+  public WorkerPool(Config config, String pipelineName, WorkerMessengerFactory factory, String metricsPrefix) {
     this.config = config;
     this.pipelineName = pipelineName;
-    this.workerMessageManagerFactory = factory;
+    this.workerMessengerFactory = factory;
     this.metricsPrefix = metricsPrefix;
     try {
       this.numWorkers = Pipeline.getIntProperty(config, pipelineName, "threads");
@@ -54,8 +54,8 @@ public class WorkerPool {
     started = true;
     log.info("Starting " + numWorkers + " worker threads for pipeline " + pipelineName);
     for (int i = 0; i < numWorkers; i++) {
-      WorkerMessageManager manager = workerMessageManagerFactory.create();
-      threads.add(Worker.startThread(config, manager, pipelineName, metricsPrefix));
+      WorkerMessenger messenger = workerMessengerFactory.create();
+      threads.add(Worker.startThread(config, messenger, pipelineName, metricsPrefix));
     }
     // Timer to log a status message every minute
     logTimer.schedule(new TimerTask() {

@@ -16,14 +16,14 @@ import org.slf4j.LoggerFactory;
 import java.util.Collections;
 import java.util.List;
 
-public class KafkaIndexerMessageManager implements IndexerMessageManager {
+public class KafkaIndexerMessenger implements IndexerMessenger {
 
-  public static final Logger log = LoggerFactory.getLogger(KafkaIndexerMessageManager.class);
+  public static final Logger log = LoggerFactory.getLogger(KafkaIndexerMessenger.class);
   private final Consumer<String, KafkaDocument> destConsumer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
 
-  public KafkaIndexerMessageManager(Config config, String pipelineName) {
+  public KafkaIndexerMessenger(Config config, String pipelineName) {
     this.pipelineName = pipelineName;
     String kafkaClientId = "com.kmwllc.lucille-indexer-" + pipelineName;
     this.destConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);

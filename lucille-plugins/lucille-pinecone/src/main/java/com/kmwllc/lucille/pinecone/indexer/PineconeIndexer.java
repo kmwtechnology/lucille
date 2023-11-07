@@ -4,7 +4,7 @@ import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
-import com.kmwllc.lucille.message.IndexerMessageManager;
+import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import io.grpc.ConnectivityState;
 import io.pinecone.PineconeClient;
@@ -34,8 +34,8 @@ public class PineconeIndexer extends Indexer {
   private final String mode;
   private PineconeConnection connection;
 
-  public PineconeIndexer(Config config, IndexerMessageManager manager, String metricsPrefix) {
-    super(config, manager, metricsPrefix);
+  public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) {
+    super(config, messenger, metricsPrefix);
     this.index = config.getString("pinecone.index");
     this.namespaces = config.getStringList("pinecone.namespaces");
     this.embeddingFields = config.getStringList("pinecone.embeddingFields");
@@ -49,8 +49,8 @@ public class PineconeIndexer extends Indexer {
     this.client = new PineconeClient(configuration);
   }
 
-  public PineconeIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
-    this(config, manager, metricsPrefix);
+  public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    this(config, messenger, metricsPrefix);
   }
 
   @Override

@@ -2,7 +2,7 @@ package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.After;
@@ -40,7 +40,7 @@ public class CSVIndexerTest {
   public void testCSVIndexer() throws Exception {
     assertFalse(outputFile.exists());
 
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("CSVIndexerTest/config.conf");
 
     Document doc = Document.create("doc1", "test_run");
@@ -50,14 +50,14 @@ public class CSVIndexerTest {
     doc2.setField("f1","456");
     doc2.setField("f2","def");
 
-    CSVIndexer indexer = new CSVIndexer(config, manager, false,"testing");
-    manager.sendCompleted(doc);
-    manager.sendCompleted(doc2);
+    CSVIndexer indexer = new CSVIndexer(config, messenger, false,"testing");
+    messenger.sendCompleted(doc);
+    messenger.sendCompleted(doc2);
     indexer.run(2);
 
-    assertEquals(2, manager.getSavedEvents().size());
+    assertEquals(2, messenger.getSavedEvents().size());
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSavedEvents();
     for (int i = 1; i <= events.size(); i++) {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       assertEquals(Event.Type.FINISH, events.get(i - 1).getType());

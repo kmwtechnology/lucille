@@ -2,7 +2,7 @@ package com.kmwllc.lucille.core;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.kmwllc.lucille.message.PublisherMessageManager;
+import com.kmwllc.lucille.message.PublisherMessenger;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.time.StopWatch;
@@ -28,14 +28,14 @@ import java.util.concurrent.TimeUnit;
  * events in a separate thread from the one that is publishing documents (e.g. handleEvent() and publish() will
  * be called by separate threads) so that the publisher can stop tracking some documents even as it starts
  * tracking new ones. To achieve a memory of all the documents that were published,
- * a persisting implementation of PublisherMessageManager could be given to the Publisher at construction time,
- * and the history could be accessed from the message manager.
+ * a persisting implementation of PublisherMessenger could be given to the Publisher at construction time,
+ * and the history could be accessed from the messenger.
  */
 public class PublisherImpl implements Publisher {
 
   private static final Logger log = LoggerFactory.getLogger(PublisherImpl.class);
 
-  private final PublisherMessageManager manager;
+  private final PublisherMessenger messenger;
 
   private final String runId;
 
@@ -72,23 +72,23 @@ public class PublisherImpl implements Publisher {
   // List of child documents for which a terminal event has been received early, before the corresponding CREATE event
   private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
 
-  public PublisherImpl(Config config, PublisherMessageManager manager, String runId,
+  public PublisherImpl(Config config, PublisherMessenger messenger, String runId,
       String pipelineName, String metricsPrefix, boolean isCollapsing) throws Exception {
-    this.manager = manager;
+    this.messenger = messenger;
     this.runId = runId;
     this.pipelineName = pipelineName;
     this.timer =
         SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).timer(metricsPrefix + ".timeBetweenPublishCalls");
     this.isCollapsing = isCollapsing;
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
-    manager.initialize(runId, pipelineName);
+    messenger.initialize(runId, pipelineName);
     this.firstDocStopWatch = new StopWatch();
     this.firstDocStopWatch.start();
   }
 
-  public PublisherImpl(Config config, PublisherMessageManager manager, String runId,
+  public PublisherImpl(Config config, PublisherMessenger messenger, String runId,
       String pipelineName) throws Exception {
-    this(config, manager, runId, pipelineName, "default", false);
+    this(config, messenger, runId, pipelineName, "default", false);
   }
 
   @Override
@@ -133,7 +133,7 @@ public class PublisherImpl implements Publisher {
     document.initializeRunId(runId);
     // capture the docId before we make the document available for update by other threads
     String docId = document.getId();
-    manager.sendForProcessing(document);
+    messenger.sendForProcessing(document);
     docIdsToTrack.add(docId);
     numPublished++;
   }
@@ -151,7 +151,7 @@ public class PublisherImpl implements Publisher {
     if (timerContext != null) {
       timerContext.stop();
     }
-    manager.close();
+    messenger.close();
   }
 
   @Override
@@ -202,11 +202,11 @@ public class PublisherImpl implements Publisher {
     // finally stop the logging thread.
     while (true) {
 
-      // we assume that manager.pollEvent() is a blocking operation with a timeout in the range
+      // we assume that messenger.pollEvent() is a blocking operation with a timeout in the range
       // of several milliseconds to several seconds.
       // We want to avoid a busy wait; at the same time, we want to test the termination conditions of the loop
       // periodically even when there are no available events to process
-      Event event = manager.pollEvent();
+      Event event = messenger.pollEvent();
 
       if (event != null) {
         handleEvent(event);
@@ -226,7 +226,7 @@ public class PublisherImpl implements Publisher {
       // We are done if 1) the Connector thread has terminated and therefore no more Documents will be generated,
       // 2) all published Documents and their children are accounted for (none are pending),
       // 3) there are no more Events relating to the current run to consume
-      // Regarding 3), we assume there are no more events if the previous call to manager.pollEvent() returned null
+      // Regarding 3), we assume there are no more events if the previous call to messenger.pollEvent() returned null
       // In a Kafka deployment, the publisher should be the only consumer of the event topic, and the topic should
       // have a single partition
       if (!thread.isAlive() && !hasPending() && event == null) {

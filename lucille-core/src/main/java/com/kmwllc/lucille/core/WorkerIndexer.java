@@ -1,9 +1,9 @@
 package com.kmwllc.lucille.core;
 
 import com.kmwllc.lucille.indexer.IndexerFactory;
-import com.kmwllc.lucille.message.HybridIndexerMessageManager;
-import com.kmwllc.lucille.message.HybridWorkerMessageManager;
-import com.kmwllc.lucille.message.LocalMessageManager;
+import com.kmwllc.lucille.message.HybridIndexerMessenger;
+import com.kmwllc.lucille.message.HybridWorkerMessenger;
+import com.kmwllc.lucille.message.LocalMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -48,7 +48,7 @@ public class WorkerIndexer {
         // stopping the WorkerIndexer should close the kafka client connection
         // via workerThread.terminate() -> worker.terminate() which causes
         // the worker's run method to break out of its while loop and
-        // eventually call manager.close()
+        // eventually call messenger.close()
         pool.stop();
       } catch (Exception e) {
         log.error("Error stopping WorkerIndexer", e);
@@ -63,7 +63,7 @@ public class WorkerIndexer {
 
     // TODO: make queue capacity configurable
     LinkedBlockingQueue<Document> pipelineDest =
-        new LinkedBlockingQueue<>(LocalMessageManager.DEFAULT_QUEUE_CAPACITY);
+        new LinkedBlockingQueue<>(LocalMessenger.DEFAULT_QUEUE_CAPACITY);
 
     // TODO: should we place a capacity on the offsets queue?
     LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
@@ -79,11 +79,11 @@ public class WorkerIndexer {
 
     log.info("Starting WorkerIndexer for pipeline: " + pipelineName);
 
-    HybridWorkerMessageManager workerMessageManager =
-        new HybridWorkerMessageManager(config, pipelineName, pipelineDest, offsets);
+    HybridWorkerMessenger workerMessageManager =
+        new HybridWorkerMessenger(config, pipelineName, pipelineDest, offsets);
 
-    HybridIndexerMessageManager indexerMessageManager =
-        new HybridIndexerMessageManager(config, pipelineDest, offsets, idSet, pipelineName);
+    HybridIndexerMessenger indexerMessageManager =
+        new HybridIndexerMessenger(config, pipelineDest, offsets, idSet, pipelineName);
 
     indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, pipelineName);
 

@@ -11,10 +11,10 @@ import com.kmwllc.lucille.core.Event;
  * created, if a Document can't be processed, etc.)
  *
  */
-public interface WorkerMessageManager {
+public interface WorkerMessenger {
 
   /**
-   * Retrieve a Document that has been published (via PublisherMessageManager.sendForProcessing())
+   * Retrieve a Document that has been published (via PublisherMessenger.sendForProcessing())
    * and is now ready to be processed by a given pipeline; block if no such Document is available,
    * but apply a timeout of several milliseconds to several seconds so that this method can be called
    * from within a polling loop that periodically checks other conditions even when no Documents are available.
@@ -32,7 +32,7 @@ public interface WorkerMessageManager {
 
   /**
    * Submit a given Document so that it can be received by an Indexer component that
-   * would call IndexerMessageManager.pollCompleted()
+   * would call IndexerMessenger.pollCompleted()
    */
   void sendCompleted(Document document) throws Exception;
 
@@ -54,7 +54,7 @@ public interface WorkerMessageManager {
   void sendEvent(Event event) throws Exception;
 
   /**
-   * Close any connections opened by this WorkerMessageManager.
+   * Close any connections opened by this WorkerMessenger.
    */
   void close() throws Exception;
 }

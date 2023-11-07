@@ -5,7 +5,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Before;
@@ -30,7 +30,7 @@ public class DatabaseConnectorTest {
       "", "db-test-start.sql", "db-test-end.sql");
 
   private Publisher publisher;
-  private PersistingLocalMessageManager manager;
+  private TestMessenger messenger;
 
   private String testRunId = "testRunId";
   private String connectorName = "testConnector";
@@ -39,8 +39,8 @@ public class DatabaseConnectorTest {
   @Before
   public void initTestMode() throws Exception {
     // set com.kmwllc.lucille into loopback mode for local / standalone testing.
-    manager = new PersistingLocalMessageManager();
-    publisher = new PublisherImpl(ConfigFactory.empty(), manager, testRunId, pipelineName);
+    messenger = new TestMessenger();
+    publisher = new PublisherImpl(ConfigFactory.empty(), messenger, testRunId, pipelineName);
   }
 
   @Test
@@ -70,7 +70,7 @@ public class DatabaseConnectorTest {
     connector.execute(publisher);
 
     // Confirm there were 3 results.
-    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getSavedDocumentsSentForProcessing();
     assertEquals(3, docsSentForProcessing.size());
 
     // System.out.println(docsSentForProcessing.get(0));
@@ -113,7 +113,7 @@ public class DatabaseConnectorTest {
 
     connector.execute(publisher);
 
-    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getSavedDocumentsSentForProcessing();
     assertEquals(2, docsSentForProcessing.size());
 
     // The doc ID should have the 'company-' prefix
@@ -161,7 +161,7 @@ public class DatabaseConnectorTest {
     // run the connector
     connector.execute(publisher);
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
     assertEquals(3, docs.size());
 
     // TODO: better verification / edge cases.. also formalize the "children" docs.
@@ -197,7 +197,7 @@ public class DatabaseConnectorTest {
 
     connector.execute(publisher);
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
     assertEquals(3, docs.size());
 
     for (Document d : docs) {
@@ -312,7 +312,7 @@ public class DatabaseConnectorTest {
 
     connector.execute(publisher);
 
-    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getSavedDocumentsSentForProcessing();
     assertEquals(2, docsSentForProcessing.size());
 
     Document doc1 = docsSentForProcessing.get(0);

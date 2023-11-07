@@ -3,8 +3,8 @@ package com.kmwllc.lucille.indexer;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
-import com.kmwllc.lucille.message.IndexerMessageManager;
-import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
+import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -33,14 +33,14 @@ public class SolrIndexer extends Indexer {
   private final SolrClient solrClient;
 
   public SolrIndexer(
-      Config config, IndexerMessageManager manager, SolrClient solrClient, String metricsPrefix) {
-    super(config, manager, metricsPrefix);
+      Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix) {
+    super(config, messenger, metricsPrefix);
     this.solrClient = solrClient;
   }
 
   public SolrIndexer(
-      Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
-    super(config, manager, metricsPrefix);
+      Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    super(config, messenger, metricsPrefix);
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
     this.solrClient = getSolrClient(config, bypass);
@@ -310,8 +310,8 @@ public class SolrIndexer extends Indexer {
     Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
     log.info("Starting Indexer for pipeline: " + pipelineName);
-    IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);
-    Indexer indexer = new SolrIndexer(config, manager, false, pipelineName);
+    IndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
+    Indexer indexer = new SolrIndexer(config, messenger, false, pipelineName);
     if (!indexer.validateConnection()) {
       log.error("Indexer could not connect");
       System.exit(1);

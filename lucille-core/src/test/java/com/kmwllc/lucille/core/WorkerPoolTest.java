@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
-import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
+import com.kmwllc.lucille.message.TestMessenger;
+import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
@@ -32,21 +32,21 @@ public class WorkerPoolTest {
   }
 
   /**
-   * Confirm that a worker's message manager is closed when the worker stopped.
+   * Confirm that a worker's messenger is closed when the worker stopped.
    * This is important in kafka mode where we want to close any kafka client connections before
    * shutting down.
    *
    */
   @Test
   public void testManagerClose() throws Exception {
-    PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
-    WorkerMessageManagerFactory factory = WorkerMessageManagerFactory.getConstantFactory(manager);
+    TestMessenger messenger = Mockito.spy(new TestMessenger());
+    WorkerMessengerFactory factory = WorkerMessengerFactory.getConstantFactory(messenger);
     WorkerPool pool = new WorkerPool(ConfigFactory.load("WorkerPoolTest/onePipeline.conf"),
         "pipeline1", factory, "metricsPrefix");
     pool.start();
     pool.stop();
     pool.join();
-    verify(manager, times(1)).close();
+    verify(messenger, times(1)).close();
   }
 
 }

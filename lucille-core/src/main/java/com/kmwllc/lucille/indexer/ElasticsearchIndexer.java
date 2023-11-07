@@ -13,8 +13,8 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
-import com.kmwllc.lucille.message.IndexerMessageManager;
-import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
+import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -41,9 +41,9 @@ public class ElasticsearchIndexer extends Indexer {
   private final String routingField;
   private final VersionType versionType;
 
-  public ElasticsearchIndexer(Config config, IndexerMessageManager manager, ElasticsearchClient client,
+  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, ElasticsearchClient client,
       String metricsPrefix) {
-    super(config, manager, metricsPrefix);
+    super(config, messenger, metricsPrefix);
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
@@ -57,8 +57,8 @@ public class ElasticsearchIndexer extends Indexer {
     this.versionType = config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
-  public ElasticsearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
-    this(config, manager, getClient(config, bypass), metricsPrefix);
+  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    this(config, messenger, getClient(config, bypass), metricsPrefix);
   }
 
   private static ElasticsearchClient getClient(Config config, boolean bypass) {
@@ -272,8 +272,8 @@ public class ElasticsearchIndexer extends Indexer {
     Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
     log.info("Starting Indexer for pipeline: " + pipelineName);
-    IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);
-    Indexer indexer = new ElasticsearchIndexer(config, manager, false, pipelineName);
+    IndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
+    Indexer indexer = new ElasticsearchIndexer(config, messenger, false, pipelineName);
     if (!indexer.validateConnection()) {
       log.error("Indexer could not connect");
       System.exit(1);

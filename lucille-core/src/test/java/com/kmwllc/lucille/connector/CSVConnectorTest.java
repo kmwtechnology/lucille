@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -31,8 +31,8 @@ public class CSVConnectorTest {
     // property in the connector config; ConfigFactory.parseReader() does not consider system
     // properties like ConfigFactory.load() does
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/defaults.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
     connector.execute(publisher);
 
@@ -42,7 +42,7 @@ public class CSVConnectorTest {
     //  d, "e,f", g
     //  x, y, z
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
     assertEquals(3, docs.size());
 
     System.out.println(docs.get(1));
@@ -52,8 +52,8 @@ public class CSVConnectorTest {
   @Test
   public void testTabsAndNoninterpretedQuotes() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/tabs.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
     connector.execute(publisher);
 
@@ -64,7 +64,7 @@ public class CSVConnectorTest {
     //  x	y	z
 
     // verify that tabs takes precedence over specified separator character
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
     System.out.println(docs.get(1));
     assertEquals(3, docs.size());
     assertEquals("\"e,f", docs.get(1).getString("field2"));
@@ -73,8 +73,8 @@ public class CSVConnectorTest {
   @Test(expected = ConnectorException.class)
   public void testPathNotFound() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/pathNotFound.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
     connector.execute(publisher);
   }
@@ -82,8 +82,8 @@ public class CSVConnectorTest {
   @Test
   public void testBOMHandling() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/bom.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
     connector.execute(publisher);
 
@@ -93,7 +93,7 @@ public class CSVConnectorTest {
     // Pizza, 10, Italy
     // Tofu Soup, 12, Korea
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
     assertEquals(3, docs.size());
 
     // retrieve a document from the list and ensure that the first column does not contain the BOM
@@ -112,8 +112,8 @@ public class CSVConnectorTest {
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/faulty.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
 
     connector.execute(publisher);
@@ -143,8 +143,8 @@ public class CSVConnectorTest {
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/success.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
 
     connector.execute(publisher);
@@ -168,8 +168,8 @@ public class CSVConnectorTest {
   @Test
   public void testSemicolonSeparator() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/semicolons.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
     connector.execute(publisher);
 
@@ -179,7 +179,7 @@ public class CSVConnectorTest {
     //  d	f	g
     //  x	y	z
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
     assertEquals(3, docs.size());
     assertEquals("a", docs.get(0).getString("field1"));
   }

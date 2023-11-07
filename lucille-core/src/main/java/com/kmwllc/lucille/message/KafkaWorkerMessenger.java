@@ -5,65 +5,44 @@ import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.kafka.clients.consumer.*;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
-import java.util.Map;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.regex.Pattern;
 
-public class HybridWorkerMessageManager implements WorkerMessageManager {
+public class KafkaWorkerMessenger implements WorkerMessenger {
 
-  public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessageManager.class);
+  public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
+  private final KafkaProducer<String, Document> kafkaDocumentProducer;
   private final KafkaProducer<String, String> kafkaEventProducer;
-  private final LinkedBlockingQueue<Document> pipelineDest;
-  private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
-
   private final Config config;
   private final String pipelineName;
 
-  public HybridWorkerMessageManager(Config config, String pipelineName,
-      LinkedBlockingQueue<Document> pipelineDest,
-      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
-      KafkaConsumer sourceConsumer) {
+  public KafkaWorkerMessenger(Config config, String pipelineName) {
     this.config = config;
     this.pipelineName = pipelineName;
-    this.pipelineDest = pipelineDest;
-    this.offsets = offsets;
-    this.sourceConsumer = sourceConsumer;
+    this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
-  }
-
-  public HybridWorkerMessageManager(Config config, String pipelineName,
-      LinkedBlockingQueue<Document> pipelineDest,
-      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
-    this(config, pipelineName, pipelineDest, offsets, createSourceConsumer(config, pipelineName));
-  }
-
-  private static KafkaConsumer createSourceConsumer(Config config, String pipelineName) {
     // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
     // with the same client ID are started in separate worker threads
     String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
-    KafkaConsumer consumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
-    consumer.subscribe(Pattern.compile(KafkaUtils.getSourceTopicName(pipelineName, config)));
-
-    return consumer;
+    this.sourceConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
+    this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName, config)));
   }
 
   /**
    * Polls for a document that is waiting to be processed by the pipeline.
    *
-   * Does not commit offsets.
    */
   @Override
-  public KafkaDocument pollDocToProcess() throws Exception {
+  public Document pollDocToProcess() throws Exception {
     ConsumerRecords<String, KafkaDocument> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
@@ -77,10 +56,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
 
   @Override
   public void commitPendingDocOffsets() throws Exception {
-    Map<TopicPartition, OffsetAndMetadata> batchOffsets = null;
-    while ((batchOffsets = offsets.poll()) != null) {
-      sourceConsumer.commitSync(batchOffsets);
-    }
+    sourceConsumer.commitSync();
   }
 
   /**
@@ -89,13 +65,31 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
    */
   @Override
   public void sendCompleted(Document document) throws Exception {
-    pipelineDest.put(document);
+    RecordMetadata result = kafkaDocumentProducer.send(
+        new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
+    kafkaDocumentProducer.flush();
+  }
+
+  public void sendFailed(Document document) throws Exception {
+    ProducerRecord<String, Document> producerRecord =
+        new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
+    RecordMetadata metadata = kafkaDocumentProducer.send(producerRecord).get();
+    kafkaDocumentProducer.flush();
   }
 
   @Override
-  public void sendFailed(Document document) throws Exception {
+  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+    if (kafkaEventProducer == null) {
+      return;
+    }
+    Event event = new Event(document, message, type);
+    sendEvent(event);
   }
 
+  /**
+   * Sends an Event relating to a Document to the appropriate location for Events.
+   *
+   */
   @Override
   public void sendEvent(Event event) throws Exception {
     if (kafkaEventProducer == null) {
@@ -108,18 +102,12 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
-    if (kafkaEventProducer == null) {
-      return;
-    }
-    Event event = new Event(document, message, type);
-    sendEvent(event);
-  }
-
-  @Override
   public void close() throws Exception {
     if (sourceConsumer != null) {
       sourceConsumer.close();
+    }
+    if (kafkaDocumentProducer != null) {
+      kafkaDocumentProducer.close();
     }
     if (kafkaEventProducer != null) {
       kafkaEventProducer.close();
@@ -127,4 +115,3 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
   }
 
 }
-
