@@ -10,16 +10,16 @@ import com.kmwllc.lucille.core.Event;
  * relating to Documents it has published and their children.
  *
  */
-public interface PublisherMessageManager {
+public interface PublisherMessenger {
 
   /**
-   * Sets the Run ID and pipeline that this PublisherMessageManager should use.
+   * Sets the Run ID and pipeline that this PublisherMessenger should use.
    * Should be called exactly once.
    */
   void initialize(String runId, String pipelineName) throws Exception;
 
   /**
-   * Returns the ID of the Run in which this PublisherMessageManager instance is participating.
+   * Returns the ID of the Run in which this PublisherMessenger instance is participating.
    */
   String getRunId();
 
@@ -31,17 +31,17 @@ public interface PublisherMessageManager {
   /**
    * Retrieves and removes an Event waiting to be processed.
    * Should block if no events are available, but should apply a timeout which may
-   * be provided when a PublisherMessageManager implementation is instantiated.
+   * be provided when a PublisherMessenger implementation is instantiated.
    * Intended to be called in a polling loop where pollEvent() would periodically timeout
    * so that other conditions can be checked as the loop is waiting for the next event.
    *
-   * Events sent via WorkerMessageManager.sendEvent() and IndexMessageManager.sendEvent()
-   * are returned by the current method, PublisherMessageManager.pollEvent()
+   * Events sent via WorkerMessenger.sendEvent() and IndexMessageManager.sendEvent()
+   * are returned by the current method, PublisherMessenger.pollEvent()
    */
   Event pollEvent() throws Exception;
 
   /**
-   * Closes any connections opened by this PublisherMessageManager.
+   * Closes any connections opened by this PublisherMessenger.
    */
   void close();
 }

@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.message.LocalMessageManager;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.LocalMessenger;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
@@ -18,8 +18,8 @@ public class PublisherImplTest {
   @Test
   public void testOutOfOrderCreateEvents() throws Exception {
 
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     Event createEvent = new Event("doc1", "run1", "", Event.Type.CREATE);
     Event finishEvent = new Event("doc1", "run1", "", Event.Type.FINISH);
@@ -40,8 +40,8 @@ public class PublisherImplTest {
   @Test
   public void testCreateAndFinish() throws Exception {
 
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     Event createEvent = new Event("doc1", "run1", "", Event.Type.CREATE);
     Event finishEvent = new Event("doc1", "run1", "", Event.Type.FINISH);
@@ -59,8 +59,8 @@ public class PublisherImplTest {
   @Test
   public void testPublishAndFinish() throws Exception {
 
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     Document doc = Document.create("doc1");
     assertEquals(0, publisher.numPublished());
@@ -70,8 +70,8 @@ public class PublisherImplTest {
     assertEquals(1, publisher.numPublished());
     assertEquals(1, publisher.numPending());
 
-    assertEquals(1, manager.getSavedDocumentsSentForProcessing().size());
-    assertEquals(doc, manager.getSavedDocumentsSentForProcessing().get(0));
+    assertEquals(1, messenger.getSavedDocumentsSentForProcessing().size());
+    assertEquals(doc, messenger.getSavedDocumentsSentForProcessing().get(0));
 
     Event finishEvent = new Event(doc.getId(), "run1", "", Event.Type.FINISH);
     publisher.handleEvent(finishEvent);
@@ -90,8 +90,8 @@ public class PublisherImplTest {
   @Test
   public void testPublishAndError() throws Exception {
 
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     Document doc = Document.create("doc1");
     assertEquals(0, publisher.numPublished());
@@ -110,8 +110,8 @@ public class PublisherImplTest {
   @Test
   public void testRedundantDocIDs() throws Exception {
 
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     Document doc = Document.create("doc1");
     assertEquals(0, publisher.numPublished());
@@ -137,8 +137,8 @@ public class PublisherImplTest {
 
   @Test
   public void testSucceededFailedCreatedCounts() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     assertEquals(0, publisher.numPublished());
     assertEquals(0, publisher.numPending());
@@ -170,8 +170,8 @@ public class PublisherImplTest {
 
   @Test
   public void testRedundantFinishEvents() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     assertEquals(0, publisher.numSucceeded());
 
@@ -189,8 +189,8 @@ public class PublisherImplTest {
   @Test
   public void testBlockOnQueueCapacity() throws Exception {
     Config config = ConfigFactory.parseString("publisher {queueCapacity: 5}");
-    LocalMessageManager manager = new LocalMessageManager(config);
-    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1");
+    LocalMessenger messenger = new LocalMessenger(config);
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     Thread publisherThread = new Thread() {
       public void run() {
@@ -213,7 +213,7 @@ public class PublisherImplTest {
     assertEquals(5, publisher.numPublished());
 
     // create space in the queue and make sure the publisher is able to publish another document
-    manager.pollDocToProcess();
+    messenger.pollDocToProcess();
     publisher.publish(Document.create("doc6"));
     assertEquals(6, publisher.numPublished());
   }
@@ -222,9 +222,9 @@ public class PublisherImplTest {
   @Test
   public void testCollapse() throws Exception {
 
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher =
-        new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1", "", true);
+        new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1", "", true);
 
     Document doc1 = Document.create("before");
 
@@ -238,32 +238,32 @@ public class PublisherImplTest {
 
     assertEquals(0, publisher.numPublished());
     assertEquals(0, publisher.numPending());
-    assertEquals(0, manager.getSavedDocumentsSentForProcessing().size());
+    assertEquals(0, messenger.getSavedDocumentsSentForProcessing().size());
     publisher.publish(doc1);
     assertEquals(0, publisher.numPublished());
     assertEquals(0, publisher.numPending());
-    assertEquals(0, manager.getSavedDocumentsSentForProcessing().size());
+    assertEquals(0, messenger.getSavedDocumentsSentForProcessing().size());
     publisher.publish(doc2);
     assertEquals(1, publisher.numPublished());
     assertEquals(1, publisher.numPending());
-    assertEquals(1, manager.getSavedDocumentsSentForProcessing().size());
-    assertEquals("before", manager.getSavedDocumentsSentForProcessing().get(0).getId());
+    assertEquals(1, messenger.getSavedDocumentsSentForProcessing().size());
+    assertEquals("before", messenger.getSavedDocumentsSentForProcessing().get(0).getId());
     publisher.publish(doc3);
     assertEquals(1, publisher.numPublished());
     assertEquals(1, publisher.numPending());
-    assertEquals(1, manager.getSavedDocumentsSentForProcessing().size());
+    assertEquals(1, messenger.getSavedDocumentsSentForProcessing().size());
     publisher.publish(doc4);
     assertEquals(2, publisher.numPublished());
     assertEquals(2, publisher.numPending());
-    assertEquals(2, manager.getSavedDocumentsSentForProcessing().size());
-    assertEquals("collapseMe", manager.getSavedDocumentsSentForProcessing().get(1).getId());
+    assertEquals(2, messenger.getSavedDocumentsSentForProcessing().size());
+    assertEquals("collapseMe", messenger.getSavedDocumentsSentForProcessing().get(1).getId());
     publisher.flush();
     assertEquals(3, publisher.numPublished());
     assertEquals(3, publisher.numPending());
-    assertEquals(3, manager.getSavedDocumentsSentForProcessing().size());
-    assertEquals("after", manager.getSavedDocumentsSentForProcessing().get(2).getId());
+    assertEquals(3, messenger.getSavedDocumentsSentForProcessing().size());
+    assertEquals("after", messenger.getSavedDocumentsSentForProcessing().get(2).getId());
 
-    Document collapsedDoc = manager.getSavedDocumentsSentForProcessing().get(1);
+    Document collapsedDoc = messenger.getSavedDocumentsSentForProcessing().get(1);
     assertEquals("run1", collapsedDoc.getRunId());
     assertEquals(Arrays.asList(new String[]{"val1", "val2"}), collapsedDoc.getStringList("field1"));
   }

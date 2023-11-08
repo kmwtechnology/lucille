@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.message.LocalMessageManager;
-import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
+import com.kmwllc.lucille.message.LocalMessenger;
+import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
@@ -30,7 +30,7 @@ public class HeartbeatTest {
 
     Config config = ConfigFactory.load("WorkerPoolTest/watcher.conf");
     WorkerPool pool1 = new WorkerPool(config, "pipeline1",
-        WorkerMessageManagerFactory.getConstantFactory(new LocalMessageManager()), "");
+        WorkerMessengerFactory.getConstantFactory(new LocalMessenger()), "");
 
     pool1.start();
 

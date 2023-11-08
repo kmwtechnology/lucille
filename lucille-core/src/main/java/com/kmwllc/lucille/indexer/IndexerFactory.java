@@ -2,7 +2,7 @@ package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
-import com.kmwllc.lucille.message.IndexerMessageManager;
+import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +18,7 @@ public class IndexerFactory {
   /**
    * Instantiates an Indexer from the designated Config.
    */
-  public static Indexer fromConfig(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix)
+  public static Indexer fromConfig(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix)
       throws IndexerException {
 
     if (bypass == false) {
@@ -40,19 +40,19 @@ public class IndexerFactory {
 
     // handle type class instantiation or throw exception for unknown type
     if (typeName.equalsIgnoreCase("Solr")) {
-      return new SolrIndexer(config, manager, bypass, metricsPrefix);
+      return new SolrIndexer(config, messenger, bypass, metricsPrefix);
     } else if (typeName.equalsIgnoreCase("OpenSearch")) {
-      return new OpenSearchIndexer(config, manager, bypass, metricsPrefix);
+      return new OpenSearchIndexer(config, messenger, bypass, metricsPrefix);
     } else if (typeName.equalsIgnoreCase("Elasticsearch")) {
-      return new ElasticsearchIndexer(config, manager, bypass, metricsPrefix);
+      return new ElasticsearchIndexer(config, messenger, bypass, metricsPrefix);
     } else if (typeName.equalsIgnoreCase("CSV")) {
-      return new CSVIndexer(config, manager, bypass, metricsPrefix);
+      return new CSVIndexer(config, messenger, bypass, metricsPrefix);
     } else if (config.hasPath("indexer.class")) {
       String className = config.getString("indexer.class");
       try {
         Class<?> clazz = Class.forName(className);
-        Constructor<?> constructor = clazz.getConstructor(Config.class, IndexerMessageManager.class, Boolean.TYPE, String.class);
-        return (Indexer) constructor.newInstance(config, manager, bypass, metricsPrefix);
+        Constructor<?> constructor = clazz.getConstructor(Config.class, IndexerMessenger.class, Boolean.TYPE, String.class);
+        return (Indexer) constructor.newInstance(config, messenger, bypass, metricsPrefix);
       } catch (ClassNotFoundException | NoSuchMethodException | InvocationTargetException | InstantiationException |
                IllegalAccessException e) {
         throw new IndexerException("Problem initializing indexer.class configuration of: '" + className + "'", e);

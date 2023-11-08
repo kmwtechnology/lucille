@@ -6,7 +6,7 @@ import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.List;
@@ -17,12 +17,12 @@ public class SequenceConnectorTest {
   @Test
   public void testExecute() throws Exception {
     Config config = ConfigFactory.load("SequenceConnectorTest/config.conf");
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new SequenceConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
     assertEquals(100, docs.size());
 
     // prefix should be applied to doc ids and run_id should be added

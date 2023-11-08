@@ -18,7 +18,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 
-public class HybridIndexerMessageManager implements IndexerMessageManager {
+public class HybridIndexerMessenger implements IndexerMessenger {
 
   private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
@@ -33,7 +33,7 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
   // before all offsets have been committed)
   private final Set idSet;
 
-  public HybridIndexerMessageManager(Config config,
+  public HybridIndexerMessenger(Config config,
       LinkedBlockingQueue<Document> pipelineDest,
       LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
       Set<String> idSet,
@@ -47,7 +47,7 @@ public class HybridIndexerMessageManager implements IndexerMessageManager {
 
   @Override
   public Document pollCompleted() throws Exception {
-    return pipelineDest.poll(LocalMessageManager.POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    return pipelineDest.poll(LocalMessenger.POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
   @Override

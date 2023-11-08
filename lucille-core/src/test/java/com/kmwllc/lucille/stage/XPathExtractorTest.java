@@ -2,7 +2,7 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.connector.xml.XMLConnector;
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -112,12 +112,12 @@ public class XPathExtractorTest {
   public void withXMLConnectorTest() throws Exception {
     // pass XML document through XMLConnector first
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/staff.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
 
     Stage stage = factory.get("XMLConnectorTest/joint.conf");
     stage.processDocument(docs.get(0));

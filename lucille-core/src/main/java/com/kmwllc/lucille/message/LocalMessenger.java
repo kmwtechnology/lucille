@@ -12,12 +12,12 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Implementation of the message manager APIs used by Indexers, Publishers, and Workers, suitable for
+ * Implementation of the messenger APIs used by Indexers, Publishers, and Workers, suitable for
  * sharing among those three components when executing Lucille in "local" mode.
  */
-public class LocalMessageManager implements IndexerMessageManager, PublisherMessageManager, WorkerMessageManager {
+public class LocalMessenger implements IndexerMessenger, PublisherMessenger, WorkerMessenger {
 
-  public static final Logger log = LoggerFactory.getLogger(LocalMessageManager.class);
+  public static final Logger log = LoggerFactory.getLogger(LocalMessenger.class);
 
   public static final int POLL_TIMEOUT_MS = 50;
   public static final int DEFAULT_QUEUE_CAPACITY = 100;
@@ -26,17 +26,17 @@ public class LocalMessageManager implements IndexerMessageManager, PublisherMess
   private final BlockingQueue<Document> pipelineSource;
   private final BlockingQueue<Document> pipelineDest;
 
-  public LocalMessageManager() {
+  public LocalMessenger() {
     this.pipelineSource = new LinkedBlockingQueue<>();
     this.pipelineDest = new LinkedBlockingQueue<>();
   }
 
-  public LocalMessageManager(int capacity) {
+  public LocalMessenger(int capacity) {
     this.pipelineSource = new LinkedBlockingQueue<>(capacity);
     this.pipelineDest = new LinkedBlockingQueue<>(capacity);
   }
 
-  public LocalMessageManager(Config config) {
+  public LocalMessenger(Config config) {
     this.pipelineSource = config.hasPath("publisher.queueCapacity") ?
         new LinkedBlockingQueue<>(config.getInt("publisher.queueCapacity")) :
         new LinkedBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);

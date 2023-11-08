@@ -4,7 +4,7 @@ import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Assert;
@@ -18,14 +18,14 @@ public class VFSConnectorTest {
   @Test
   public void testExecuteWithLocalFiles() throws Exception {
     Config config = ConfigFactory.load("VFSConnectorTest/localfs.conf");
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new VFSConnector(config);
     connector.execute(publisher);
     String[] fileNames = {"a.json", "b.json", "c.json", "d.json",
         "subdir1/e.json", "subdir1/e.json.gz", "subdir1/e.yaml", "subdir1/f.jsonl"};
     int docCount = 0;
-    for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
+    for (Document doc : messenger.getSavedDocumentsSentForProcessing()) {
       String docId = doc.getId();
       String filePath = doc.getString(VFSConnector.FILE_PATH);
       // skip if it's an automatically generated Finder file because the directory was opened
@@ -48,13 +48,13 @@ public class VFSConnectorTest {
   @Test
   public void testExecuteWithLocalFilesFiltered() throws Exception {
     Config config = ConfigFactory.load("VFSConnectorTest/localfs_filtered.conf");
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new VFSConnector(config);
     connector.execute(publisher);
-    Assert.assertEquals(3, manager.getSavedDocumentsSentForProcessing().size());
+    Assert.assertEquals(3, messenger.getSavedDocumentsSentForProcessing().size());
     String[] fileNames = {"a.json", "b.json", "c.json"};
-    for (Document doc : manager.getSavedDocumentsSentForProcessing()) {
+    for (Document doc : messenger.getSavedDocumentsSentForProcessing()) {
       String docId = doc.getId();
       String filePath = doc.getString(VFSConnector.FILE_PATH);
       String content = new String(doc.getBytes(VFSConnector.CONTENT));
