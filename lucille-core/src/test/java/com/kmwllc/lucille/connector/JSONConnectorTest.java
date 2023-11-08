@@ -28,7 +28,7 @@ public class JSONConnectorTest {
     // {"id": "2", "field3":"val3", "field2":["val2-2a", "val2-2b"]}
     // {"id": "3", "field4":"val4", "field5":"val5"}
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(3, docs.size());
 
     // prefix should be applied to doc ids and run_id should be added

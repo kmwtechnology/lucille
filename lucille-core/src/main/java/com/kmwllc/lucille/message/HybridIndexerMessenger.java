@@ -46,7 +46,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   }
 
   @Override
-  public Document pollCompleted() throws Exception {
+  public Document pollDocToIndex() throws Exception {
     return pipelineDest.poll(LocalMessenger.POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 

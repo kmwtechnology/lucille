@@ -64,7 +64,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
    *
    */
   @Override
-  public void sendCompleted(Document document) throws Exception {
+  public void sendForIndexing(Document document) throws Exception {
     RecordMetadata result = kafkaDocumentProducer.send(
         new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
     kafkaDocumentProducer.flush();

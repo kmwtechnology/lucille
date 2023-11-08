@@ -70,7 +70,7 @@ public class DatabaseConnectorTest {
     connector.execute(publisher);
 
     // Confirm there were 3 results.
-    List<Document> docsSentForProcessing = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(3, docsSentForProcessing.size());
 
     // System.out.println(docsSentForProcessing.get(0));
@@ -113,7 +113,7 @@ public class DatabaseConnectorTest {
 
     connector.execute(publisher);
 
-    List<Document> docsSentForProcessing = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(2, docsSentForProcessing.size());
 
     // The doc ID should have the 'company-' prefix
@@ -161,7 +161,7 @@ public class DatabaseConnectorTest {
     // run the connector
     connector.execute(publisher);
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(3, docs.size());
 
     // TODO: better verification / edge cases.. also formalize the "children" docs.
@@ -197,7 +197,7 @@ public class DatabaseConnectorTest {
 
     connector.execute(publisher);
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(3, docs.size());
 
     for (Document d : docs) {
@@ -312,7 +312,7 @@ public class DatabaseConnectorTest {
 
     connector.execute(publisher);
 
-    List<Document> docsSentForProcessing = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(2, docsSentForProcessing.size());
 
     Document doc1 = docsSentForProcessing.get(0);

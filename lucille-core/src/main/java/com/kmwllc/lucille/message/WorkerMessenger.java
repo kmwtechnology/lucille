@@ -34,7 +34,7 @@ public interface WorkerMessenger {
    * Submit a given Document so that it can be received by an Indexer component that
    * would call IndexerMessenger.pollCompleted()
    */
-  void sendCompleted(Document document) throws Exception;
+  void sendForIndexing(Document document) throws Exception;
 
   /**
    * Submit a given Document to a "Dead Letter Queue" for Documents that cannot be processed.

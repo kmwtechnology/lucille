@@ -22,7 +22,7 @@ public class SequenceConnectorTest {
     Connector connector = new SequenceConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(100, docs.size());
 
     // prefix should be applied to doc ids and run_id should be added

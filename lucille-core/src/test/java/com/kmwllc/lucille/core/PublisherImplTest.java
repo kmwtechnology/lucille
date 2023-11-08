@@ -70,8 +70,8 @@ public class PublisherImplTest {
     assertEquals(1, publisher.numPublished());
     assertEquals(1, publisher.numPending());
 
-    assertEquals(1, messenger.getSavedDocumentsSentForProcessing().size());
-    assertEquals(doc, messenger.getSavedDocumentsSentForProcessing().get(0));
+    assertEquals(1, messenger.getDocsSentForProcessing().size());
+    assertEquals(doc, messenger.getDocsSentForProcessing().get(0));
 
     Event finishEvent = new Event(doc.getId(), "run1", "", Event.Type.FINISH);
     publisher.handleEvent(finishEvent);
@@ -238,32 +238,32 @@ public class PublisherImplTest {
 
     assertEquals(0, publisher.numPublished());
     assertEquals(0, publisher.numPending());
-    assertEquals(0, messenger.getSavedDocumentsSentForProcessing().size());
+    assertEquals(0, messenger.getDocsSentForProcessing().size());
     publisher.publish(doc1);
     assertEquals(0, publisher.numPublished());
     assertEquals(0, publisher.numPending());
-    assertEquals(0, messenger.getSavedDocumentsSentForProcessing().size());
+    assertEquals(0, messenger.getDocsSentForProcessing().size());
     publisher.publish(doc2);
     assertEquals(1, publisher.numPublished());
     assertEquals(1, publisher.numPending());
-    assertEquals(1, messenger.getSavedDocumentsSentForProcessing().size());
-    assertEquals("before", messenger.getSavedDocumentsSentForProcessing().get(0).getId());
+    assertEquals(1, messenger.getDocsSentForProcessing().size());
+    assertEquals("before", messenger.getDocsSentForProcessing().get(0).getId());
     publisher.publish(doc3);
     assertEquals(1, publisher.numPublished());
     assertEquals(1, publisher.numPending());
-    assertEquals(1, messenger.getSavedDocumentsSentForProcessing().size());
+    assertEquals(1, messenger.getDocsSentForProcessing().size());
     publisher.publish(doc4);
     assertEquals(2, publisher.numPublished());
     assertEquals(2, publisher.numPending());
-    assertEquals(2, messenger.getSavedDocumentsSentForProcessing().size());
-    assertEquals("collapseMe", messenger.getSavedDocumentsSentForProcessing().get(1).getId());
+    assertEquals(2, messenger.getDocsSentForProcessing().size());
+    assertEquals("collapseMe", messenger.getDocsSentForProcessing().get(1).getId());
     publisher.flush();
     assertEquals(3, publisher.numPublished());
     assertEquals(3, publisher.numPending());
-    assertEquals(3, messenger.getSavedDocumentsSentForProcessing().size());
-    assertEquals("after", messenger.getSavedDocumentsSentForProcessing().get(2).getId());
+    assertEquals(3, messenger.getDocsSentForProcessing().size());
+    assertEquals("after", messenger.getDocsSentForProcessing().get(2).getId());
 
-    Document collapsedDoc = messenger.getSavedDocumentsSentForProcessing().get(1);
+    Document collapsedDoc = messenger.getDocsSentForProcessing().get(1);
     assertEquals("run1", collapsedDoc.getRunId());
     assertEquals(Arrays.asList(new String[]{"val1", "val2"}), collapsedDoc.getStringList("field1"));
   }

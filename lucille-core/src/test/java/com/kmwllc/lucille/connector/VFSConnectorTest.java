@@ -25,7 +25,7 @@ public class VFSConnectorTest {
     String[] fileNames = {"a.json", "b.json", "c.json", "d.json",
         "subdir1/e.json", "subdir1/e.json.gz", "subdir1/e.yaml", "subdir1/f.jsonl"};
     int docCount = 0;
-    for (Document doc : messenger.getSavedDocumentsSentForProcessing()) {
+    for (Document doc : messenger.getDocsSentForProcessing()) {
       String docId = doc.getId();
       String filePath = doc.getString(VFSConnector.FILE_PATH);
       // skip if it's an automatically generated Finder file because the directory was opened
@@ -52,9 +52,9 @@ public class VFSConnectorTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new VFSConnector(config);
     connector.execute(publisher);
-    Assert.assertEquals(3, messenger.getSavedDocumentsSentForProcessing().size());
+    Assert.assertEquals(3, messenger.getDocsSentForProcessing().size());
     String[] fileNames = {"a.json", "b.json", "c.json"};
-    for (Document doc : messenger.getSavedDocumentsSentForProcessing()) {
+    for (Document doc : messenger.getDocsSentForProcessing()) {
       String docId = doc.getId();
       String filePath = doc.getString(VFSConnector.FILE_PATH);
       String content = new String(doc.getBytes(VFSConnector.CONTENT));
