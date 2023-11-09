@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
  */
 public class DateYearOnlyFormatter implements Function<String, LocalDate> {
 
-  private static final Pattern datePattern = Pattern.compile("\\d{1,4}");
+  private static final Pattern datePattern = Pattern.compile("^\\d{2,4}$");
 
   @Override
   public LocalDate apply(String value) {
