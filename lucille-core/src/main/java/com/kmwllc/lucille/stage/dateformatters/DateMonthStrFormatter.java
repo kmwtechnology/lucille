@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage.dateformatters;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.function.Function;
@@ -23,7 +24,7 @@ public class DateMonthStrFormatter implements Function<String, LocalDateTime> {
       return null;
     } else {
       String dateStr = matcher.group();
-      return LocalDateTime.parse(dateStr, formatter);
+      return LocalDate.parse(dateStr, formatter).atStartOfDay();
     }
   }
 }

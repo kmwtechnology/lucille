@@ -43,13 +43,13 @@ public class ParseDateTest {
     doc3.setField("date1", "90/Jul/17");
     doc3.setField("date2", "2023-06-21");
     stage.processDocument(doc3);
-    assertEquals("1990-07-17T00:00:00Z", doc3.getStringList("output1").get(0));
-    assertEquals("2023-06-21T00:00:00Z", doc3.getStringList("output2").get(0));
+    assertEquals("1990-07-17T04:00:00Z", doc3.getStringList("output1").get(0));
+    assertEquals("2023-06-21T04:00:00Z", doc3.getStringList("output2").get(0));
 
     Document doc4 = Document.create("doc4");
     doc4.setField("date1", "1696109846000");
     stage.processDocument(doc4);
-    assertEquals("2023-09-30T00:00:00Z", doc4.getStringList("output1").get(0));
+    assertEquals("2023-09-30T21:37:26Z", doc4.getStringList("output1").get(0));
 
   }
 
@@ -90,10 +90,10 @@ public class ParseDateTest {
 
     // create a map of time zones to expected formatted dates
     Map<String, String> timeZoneToFormattedDate = Map.of(
-        "EST", "2021-02-02T00:00:00Z",
+        "EST", "2021-02-02T05:00:00Z",
         "Universal", "2021-02-02T00:00:00Z",
-        "Europe/Rome", "2021-02-01T00:00:00Z",
-        "Australia/Brisbane", "2021-02-01T00:00:00Z"
+        "Europe/Rome", "2021-02-01T23:00:00Z",
+        "Australia/Brisbane", "2021-02-01T14:00:00Z"
     );
 
     for (Map.Entry<String, String> entry: timeZoneToFormattedDate.entrySet()) {
@@ -134,16 +134,16 @@ public class ParseDateTest {
 
     // for date with no timezone the time zone is set to the default time zone
     factory.get(configValues).processDocument(doc);
-    assertEquals("2021-02-01T00:00:00Z", doc.getString("output1"));
-    assertEquals("2021-02-02T00:00:00Z", doc.getString("output2"));
+    assertEquals("2021-02-01T23:00:00Z", doc.getString("output1"));
+    assertEquals("2021-02-02T05:00:00Z", doc.getString("output2"));
 
     // switch the order of format strings
     configValues.put("format_strs", List.of("yyyy-MM-dd", "yyyy-MM-dd z"));
 
     // notice that the time zone is set to the default for a date that has a timezone because a more general format string is used
     factory.get(configValues).processDocument(doc);
-    assertEquals("2021-02-01T00:00:00Z", doc.getString("output1"));
-    assertEquals("2021-02-01T00:00:00Z", doc.getString("output2"));
+    assertEquals("2021-02-01T23:00:00Z", doc.getString("output1"));
+    assertEquals("2021-02-01T23:00:00Z", doc.getString("output2"));
   }
 
   /* Examples of parsing date step by step based on a string and timezone
