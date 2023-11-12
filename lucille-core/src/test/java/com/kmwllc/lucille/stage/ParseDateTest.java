@@ -45,6 +45,12 @@ public class ParseDateTest {
     stage.processDocument(doc3);
     assertEquals("1990-07-17T00:00:00Z", doc3.getStringList("output1").get(0));
     assertEquals("2023-06-21T00:00:00Z", doc3.getStringList("output2").get(0));
+
+    Document doc4 = Document.create("doc4");
+    doc4.setField("date1", "1696109846000");
+    stage.processDocument(doc4);
+    assertEquals("2023-09-30T00:00:00Z", doc4.getStringList("output1").get(0));
+
   }
 
   @Test
