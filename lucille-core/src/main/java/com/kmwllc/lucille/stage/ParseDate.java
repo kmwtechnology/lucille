@@ -9,6 +9,7 @@ import java.text.DateFormat;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -33,7 +34,7 @@ import java.util.stream.Collectors;
  */
 public class ParseDate extends Stage {
 
-  private final List<Function<String, LocalDate>> formatters;
+  private final List<Function<String, LocalDateTime>> formatters;
   private final List<DateFormat> formats;
   private final List<String> sourceFields;
   private final List<String> destFields;
@@ -95,7 +96,7 @@ public class ParseDate extends Stage {
         try {
           Class<?> clazz = Class.forName(c.getString("class"));
           Constructor<?> constructor = clazz.getConstructor();
-          Function<String, LocalDate> formatter = (Function<String, LocalDate>) constructor.newInstance();
+          Function<String, LocalDateTime> formatter = (Function<String, LocalDateTime>) constructor.newInstance();
           formatters.add(formatter);
         } catch (Exception e) {
           throw new StageException("Unable to instantiate date formatters.", e);
@@ -107,7 +108,7 @@ public class ParseDate extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     for (int i = 0; i < sourceFields.size(); i++) {
-      LocalDate date = null;
+      LocalDateTime date = null;
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
@@ -123,14 +124,14 @@ public class ParseDate extends Stage {
           Date candidate = format.parse(value, new ParsePosition(0));
 
           if (candidate != null) {
-            date = candidate.toInstant().atZone(ZoneId.of("UTC")).toLocalDate();
+            date = candidate.toInstant().atZone(ZoneId.of("UTC")).toLocalDateTime();
             break;
           }
         }
 
         // Apply all of the date formatters
         if (date == null) {
-          for (Function<String, LocalDate> formatter : formatters) {
+          for (Function<String, LocalDateTime> formatter : formatters) {
             date = formatter.apply(value);
 
             if (date != null) {
@@ -145,7 +146,8 @@ public class ParseDate extends Stage {
 
         // Convert the returned LocalDate into a String in the ISO_INSTANT format for Solr
         // TODO : Potentially add Date object to Document
-        String dateStr = DateTimeFormatter.ISO_INSTANT.format(date.atStartOfDay().toInstant(ZoneOffset.UTC));
+        // String dateStr = DateTimeFormatter.ISO_INSTANT.format(date.atStartOfDay().toInstant(ZoneOffset.UTC));
+        String dateStr = DateTimeFormatter.ISO_INSTANT.format(date.toInstant(ZoneOffset.UTC));
         outputValues.add(dateStr);
       }
       if (outputValues.isEmpty() && destField.equals(sourceField)) {

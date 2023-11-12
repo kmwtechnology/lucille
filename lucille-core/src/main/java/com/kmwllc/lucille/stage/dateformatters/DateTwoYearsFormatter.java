@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage.dateformatters;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -11,12 +11,12 @@ import java.util.regex.Pattern;
  *  Since no month or date are specified, they will default to January 1 of the given year.
  *  Will return null of the there are no dates formatted in it's style within the String.
  */
-public class DateTwoYearsFormatter implements Function<String, LocalDate> {
+public class DateTwoYearsFormatter implements Function<String, LocalDateTime> {
 
   private static final Pattern datePattern = Pattern.compile("\\d{1,4}\\W\\d{1,4}");
 
   @Override
-  public LocalDate apply(String value) {
+  public LocalDateTime apply(String value) {
     Matcher matcher = datePattern.matcher(value);
 
     if (!matcher.find()) {
@@ -25,7 +25,7 @@ public class DateTwoYearsFormatter implements Function<String, LocalDate> {
       String dateStr = matcher.group();
       String firstYear = dateStr.substring(0, 4);
 
-      return LocalDate.of(Integer.parseInt(firstYear), 1, 1);
+      return LocalDateTime.of(Integer.parseInt(firstYear), 1, 1,0,0,0);
     }
 
   }
