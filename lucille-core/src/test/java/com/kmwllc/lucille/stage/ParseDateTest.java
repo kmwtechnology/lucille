@@ -1,20 +1,25 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import org.junit.Test;
-
-import java.text.ParsePosition;
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
+import java.time.zone.ZoneRulesException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+import org.junit.Test;
 
 public class ParseDateTest {
 
@@ -43,13 +48,13 @@ public class ParseDateTest {
     doc3.setField("date1", "90/Jul/17");
     doc3.setField("date2", "2023-06-21");
     stage.processDocument(doc3);
-    assertEquals("1990-07-17T00:00:00Z", doc3.getStringList("output1").get(0));
+    assertEquals("2090-07-17T00:00:00Z", doc3.getStringList("output1").get(0));
     assertEquals("2023-06-21T00:00:00Z", doc3.getStringList("output2").get(0));
 
     Document doc4 = Document.create("doc4");
     doc4.setField("date1", "1696109846000");
     stage.processDocument(doc4);
-    assertEquals("2023-09-30T00:00:00Z", doc4.getStringList("output1").get(0));
+    assertEquals("2023-09-30T21:37:26Z", doc4.getStringList("output1").get(0));
 
   }
 
@@ -74,8 +79,7 @@ public class ParseDateTest {
   public void testInvalidTimeZoneId() {
     Throwable exception = assertThrows(StageException.class, () -> factory.get("ParseDateTest/invalidTimeZoneConfig.conf"));
     Throwable cause = exception.getCause().getCause();
-    assertEquals(IllegalArgumentException.class, cause.getClass());
-    assertEquals("Invalid time zone ID: \"invalid\", must be one of TimeZone.getAvailableIDs()", cause.getMessage());
+    assertEquals(ZoneRulesException.class, cause.getClass());
   }
 
   @Test
@@ -89,20 +93,12 @@ public class ParseDateTest {
     configValues.put("format_strs", List.of("yyyy-MM-dd"));
 
     // create a map of time zones to expected formatted dates
-    Map<String, String> timeZoneToFormattedDate = Map.of(
-        "EST", "2021-02-02T00:00:00Z",
-        "Universal", "2021-02-02T00:00:00Z",
-        "Europe/Rome", "2021-02-01T00:00:00Z",
-        "Australia/Brisbane", "2021-02-01T00:00:00Z"
-    );
+    List<String> zones = List.of("America/New_York", "Universal", "Europe/Rome", "Australia/Brisbane");
 
-    for (Map.Entry<String, String> entry: timeZoneToFormattedDate.entrySet()) {
-
-      // get time zone id from the map
-      String timeZoneId = entry.getKey();
+    for (String zone : zones) {
 
       // add a time zone to the config values map
-      configValues.put("time_zone_id", timeZoneId);
+      configValues.put("time_zone_id", zone);
 
       // create a stage off the config values map
       Stage stage = factory.get(configValues);
@@ -113,8 +109,79 @@ public class ParseDateTest {
 
       // parse date and confirm it matches the expected formatted date
       stage.processDocument(doc);
-      assertEquals("Failed for time_zone_id=" + timeZoneId,
-          entry.getValue(), doc.getString("output"));
+
+      TemporalAccessor parsed = new DateTimeFormatterBuilder().appendPattern("yyyy-MM-dd")
+          .parseDefaulting(ChronoField.HOUR_OF_DAY, 0)
+          .toFormatter()
+          .withZone(ZoneId.of(zone)).parse("2021-02-02");
+      String expected = DateTimeFormatter.ISO_INSTANT.format(parsed);
+
+      assertEquals("Failed for time_zone_id=" + zone,
+          expected, doc.getString("output"));
+    }
+  }
+
+  @Test
+  public void testParseDateWithTime() throws StageException {
+    HashMap<String,Object> configValues = new HashMap<>();
+    configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
+    configValues.put("source", List.of("date"));
+    configValues.put("dest", List.of("output"));
+    configValues.put("format_strs", List.of("yyyy-MM-dd'T'HH:mm:ssxxxxx[VV]"));
+    String dateString = "2011-12-03T10:15:31+01:00:00[Europe/Paris]";
+
+    Stage stage = factory.get(configValues);
+    Document doc = Document.create("doc");
+    doc.setField("date", dateString);
+    stage.processDocument(doc);
+    String expected = DateTimeFormatter.ISO_INSTANT.format(ZonedDateTime.parse(dateString,
+        DateTimeFormatter.ISO_ZONED_DATE_TIME));
+    assertEquals(expected, doc.getString("output"));
+  }
+
+  @Test
+  public void testParseDateAndReconstruct() throws StageException {
+    Random random = new Random();
+
+    // iterate through all available time zones
+    for (String zoneIdStr: ZoneId.getAvailableZoneIds()) {
+
+      // create a ParseDate stage with the given time_zone_id specified in the config
+      HashMap<String, Object> configValues = new HashMap<>();
+      configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
+      configValues.put("source", List.of("date"));
+      configValues.put("dest", List.of("output"));
+      configValues.put("format_strs", List.of("yyyy-MM-dd"));
+      configValues.put("time_zone_id", zoneIdStr);
+      Stage stage = factory.get(configValues);
+
+      // create a random date string in yyyy-MM-dd format and add it to a document
+      int year = random.nextInt(2023 - 1900 + 1) + 1900;
+      int month = random.nextInt(12) + 1;
+      int maxDay = LocalDate.of(year, month, 1).lengthOfMonth();
+      int day = random.nextInt(maxDay) + 1;
+      LocalDate randomDate = LocalDate.of(year, month, day);
+      DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+      String input = randomDate.format(formatter);
+      Document doc = Document.create("doc");
+      doc.setField("date", input);
+
+      // process the document and get the output string which should
+      // be in Zulu format and look like 2021-02-01T23:00:00Z
+      stage.processDocument(doc);
+      String output = doc.getString("output");
+
+      // parse the output string into a ZonedDateTime which will be in UTC
+      ZonedDateTime parsedOutput = DateTimeFormatter.ISO_ZONED_DATE_TIME.parse(output, ZonedDateTime::from);
+      assertEquals(ZoneOffset.UTC, parsedOutput.getZone());
+
+      // convert the UTC date to have the original time zone that the stage was configured with
+      ZonedDateTime parsedOutputInOriginalZone = parsedOutput.withZoneSameInstant(ZoneId.of(zoneIdStr));
+
+      // put it in yyyy-MM-dd format and make sure it matches the input provided to the stage
+      // if the ParseDate logic weren't working right we could see an input like 1945-05-22 come out as 1945-05-21
+      String reconstructedInput = parsedOutputInOriginalZone.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+      assertEquals(input, reconstructedInput);
     }
   }
 
@@ -134,76 +201,16 @@ public class ParseDateTest {
 
     // for date with no timezone the time zone is set to the default time zone
     factory.get(configValues).processDocument(doc);
-    assertEquals("2021-02-01T00:00:00Z", doc.getString("output1"));
-    assertEquals("2021-02-02T00:00:00Z", doc.getString("output2"));
+    assertEquals("2021-02-01T23:00:00Z", doc.getString("output1"));
+    assertEquals("2021-02-02T05:00:00Z", doc.getString("output2"));
 
     // switch the order of format strings
     configValues.put("format_strs", List.of("yyyy-MM-dd", "yyyy-MM-dd z"));
 
-    // notice that the time zone is set to the default for a date that has a timezone because a more general format string is used
+    // notice that the time zone is set to the configured default (Europe/Rome) for a date that
+    // contains a timezone (EST) because a more general format string occurs first in the  list of format strings
     factory.get(configValues).processDocument(doc);
-    assertEquals("2021-02-01T00:00:00Z", doc.getString("output1"));
-    assertEquals("2021-02-01T00:00:00Z", doc.getString("output2"));
+    assertEquals("2021-02-01T23:00:00Z", doc.getString("output1"));
+    assertEquals("2021-02-01T23:00:00Z", doc.getString("output2"));
   }
-
-  /* Examples of parsing date step by step based on a string and timezone
-
-  Example 1:
-
-    String stringDate = "2021-02-02";
-    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-    format.setTimeZone(TimeZone.getTimeZone("EST"));
-
-    Date date = format.parse(stringDate, new ParsePosition(0));
-    assertEquals("Tue Feb 02 00:00:00 EST 2021", date.toString());
-
-    LocalDate localDate = date.toInstant().atZone(ZoneId.of("UTC")).toLocalDate();
-    assertEquals("2021-02-02T05:00:00Z", date.toInstant().toString());
-    assertEquals("2021-02-02T05:00Z[UTC]", date.toInstant().atZone(ZoneId.of("UTC")).toString());
-    assertEquals("2021-02-02", localDate.toString());
-
-    String outputDate = DateTimeFormatter.ISO_INSTANT.format(localDate.atStartOfDay().toInstant(ZoneOffset.UTC));
-    assertEquals("2021-02-02T00:00", localDate.atStartOfDay().toString());
-    assertEquals("2021-02-02T00:00:00Z", localDate.atStartOfDay().toInstant(ZoneOffset.UTC).toString());
-    assertEquals("2021-02-02T00:00:00Z", outputDate);
-
-  Example 2:
-
-    String stringDate = "2021-02-02";
-    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-    format.setTimeZone(TimeZone.getTimeZone("PST"));
-
-    Date date = format.parse(stringDate, new ParsePosition(0));
-    assertEquals("Tue Feb 02 03:00:00 EST 2021", date.toString());
-
-    LocalDate localDate = date.toInstant().atZone(ZoneId.of("UTC")).toLocalDate();
-    assertEquals("2021-02-02T08:00:00Z", date.toInstant().toString());
-    assertEquals("2021-02-02T08:00Z[UTC]", date.toInstant().atZone(ZoneId.of("UTC")).toString());
-    assertEquals("2021-02-02", localDate.toString());
-
-    String outputDate = DateTimeFormatter.ISO_INSTANT.format(localDate.atStartOfDay().toInstant(ZoneOffset.UTC));
-    assertEquals("2021-02-02T00:00", localDate.atStartOfDay().toString());
-    assertEquals("2021-02-02T00:00:00Z", localDate.atStartOfDay().toInstant(ZoneOffset.UTC).toString());
-    assertEquals("2021-02-02T00:00:00Z", outputDate);
-
-  Example 3:
-
-    String stringDate = "2021-02-02";
-    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-    format.setTimeZone(TimeZone.getTimeZone("Europe/Rome"));
-
-    Date date = format.parse(stringDate, new ParsePosition(0));
-    assertEquals("Mon Feb 01 18:00:00 EST 2021", date.toString());
-
-    LocalDate localDate = date.toInstant().atZone(ZoneId.of("UTC")).toLocalDate();
-    assertEquals("2021-02-01T23:00:00Z", date.toInstant().toString());
-    assertEquals("2021-02-01T23:00Z[UTC]", date.toInstant().atZone(ZoneId.of("UTC")).toString());
-    assertEquals("2021-02-01", localDate.toString());
-
-    String outputDate = DateTimeFormatter.ISO_INSTANT.format(localDate.atStartOfDay().toInstant(ZoneOffset.UTC));
-    assertEquals("2021-02-01T00:00", localDate.atStartOfDay().toString());
-    assertEquals("2021-02-01T00:00:00Z", localDate.atStartOfDay().toInstant(ZoneOffset.UTC).toString());
-    assertEquals("2021-02-01T00:00:00Z", outputDate);
-
-   */
 }
