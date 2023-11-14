@@ -51,13 +51,13 @@ public class CSVIndexerTest {
     doc2.setField("f2","def");
 
     CSVIndexer indexer = new CSVIndexer(config, messenger, false,"testing");
-    messenger.sendCompleted(doc);
-    messenger.sendCompleted(doc2);
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
     indexer.run(2);
 
-    assertEquals(2, messenger.getSavedEvents().size());
+    assertEquals(2, messenger.getSentEvents().size());
 
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     for (int i = 1; i <= events.size(); i++) {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       assertEquals(Event.Type.FINISH, events.get(i - 1).getType());

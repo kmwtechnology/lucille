@@ -35,7 +35,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
    * Polls for a document that has been processed by the pipeine and is waiting to be indexed.
    */
   @Override
-  public Document pollCompleted() throws Exception {
+  public Document pollDocToIndex() throws Exception {
     ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {

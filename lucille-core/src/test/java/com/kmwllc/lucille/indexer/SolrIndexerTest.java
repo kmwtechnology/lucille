@@ -54,8 +54,8 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc);
-    messenger.sendCompleted(doc2);
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
     indexer.run(2);
 
     // Each batch should be sent to Solr via a call to solrClient.add()
@@ -67,9 +67,9 @@ public class SolrIndexerTest {
     assertEquals(doc.getId(), getCapturedID(captor, 0, 0));
     assertEquals(doc2.getId(), getCapturedID(captor, 1, 0));
 
-    assertEquals(2, messenger.getSavedEvents().size());
+    assertEquals(2, messenger.getSentEvents().size());
 
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     for (int i = 1; i <= events.size(); i++) {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
@@ -93,8 +93,8 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc);
-    messenger.sendCompleted(doc2);
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
     indexer.run(2);
 
     // Each batch should be sent to Solr via a call to solrClient.add()
@@ -106,9 +106,9 @@ public class SolrIndexerTest {
     assertEquals(doc.getId(), getCapturedID(captor, 0, 0));
     assertEquals(doc2.getId(), getCapturedID(captor, 0, 1));
 
-    assertEquals(2, messenger.getSavedEvents().size());
+    assertEquals(2, messenger.getSentEvents().size());
 
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     for (int i = 1; i <= events.size(); i++) {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
@@ -138,9 +138,9 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc);
-    messenger.sendCompleted(doc2);
-    messenger.sendCompleted(doc3);
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
     indexer.run(3);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
@@ -153,10 +153,10 @@ public class SolrIndexerTest {
     assertEquals(doc2.getId(), getCapturedID(captor, 1, 0));
     assertEquals("doc3_overriden", getCapturedID(captor, 2, 0));
 
-    assertEquals(3, messenger.getSavedEvents().size());
+    assertEquals(3, messenger.getSentEvents().size());
 
     // confirm that events are sent using original doc IDs, not overriden ones
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     for (int i = 1; i <= events.size(); i++) {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
@@ -185,7 +185,7 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc);
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
@@ -206,8 +206,8 @@ public class SolrIndexerTest {
     // the children should have been added via solrDoc.addChildDocument
     assertFalse(solrDoc.containsKey(Document.CHILDREN_FIELD));
 
-    assertEquals(1, messenger.getSavedEvents().size());
-    List<Event> events = messenger.getSavedEvents();
+    assertEquals(1, messenger.getSentEvents().size());
+    List<Event> events = messenger.getSentEvents();
     assertEquals(1, events.size());
     assertEquals("doc1", events.get(0).getDocumentId());
     assertEquals(Event.Type.FINISH, events.get(0).getType());
@@ -235,10 +235,10 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc1);
-    messenger.sendCompleted(doc2);
-    messenger.sendCompleted(doc3);
-    messenger.sendCompleted(doc4);
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
+    messenger.sendForIndexing(doc4);
     indexer.run(4);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
@@ -251,7 +251,7 @@ public class SolrIndexerTest {
     // confirm that docs are sent to the correct collection
     Map<String, List<SolrInputDocument>> collectionDocs = new HashMap<>();
 
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     for (int i = 0; i < 4; i++) {
       SolrInputDocument sDoc = captor.getAllValues().get(i).stream().findFirst().get();
       String collection = colCaptor.getAllValues().get(i);
@@ -302,7 +302,7 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc1);
+    messenger.sendForIndexing(doc1);
     indexer.run(1);
 
     ArgumentCaptor<List<String>> delCaptor = ArgumentCaptor.forClass(List.class);
@@ -336,8 +336,8 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc1);
-    messenger.sendCompleted(doc2);
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
     indexer.run(2);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
@@ -373,9 +373,9 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc1);
-    messenger.sendCompleted(doc2);
-    messenger.sendCompleted(doc3);
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
     indexer.run(3);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
@@ -446,10 +446,10 @@ public class SolrIndexerTest {
         .thenReturn(mock(UpdateResponse.class));
 
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(otherDoc1);
-    messenger.sendCompleted(doc1);
-    messenger.sendCompleted(doc2);
-    messenger.sendCompleted(doc3);
+    messenger.sendForIndexing(otherDoc1);
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
     indexer.run(4);
 
     InOrder inOrder = inOrder(solrClient);
@@ -521,9 +521,9 @@ public class SolrIndexerTest {
         .thenReturn(mock(UpdateResponse.class));
 
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc1);
-    messenger.sendCompleted(doc2);
-    messenger.sendCompleted(doc3);
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
     indexer.run(3);
 
     InOrder inOrder = inOrder(solrClient);
@@ -573,9 +573,9 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc1);
-    messenger.sendCompleted(doc2);
-    messenger.sendCompleted(doc3);
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
     indexer.run(3);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
@@ -618,9 +618,9 @@ public class SolrIndexerTest {
     SolrClient solrClient = mock(SolrClient.class);
 
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc1);
-    messenger.sendCompleted(doc2);
-    messenger.sendCompleted(doc3);
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
     indexer.run(3);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
@@ -645,14 +645,14 @@ public class SolrIndexerTest {
     Document doc5 = Document.create("doc5", "test_run");
 
     Indexer indexer = new ErroringIndexer(config, messenger, true);
-    messenger.sendCompleted(doc);
-    messenger.sendCompleted(doc2);
-    messenger.sendCompleted(doc3);
-    messenger.sendCompleted(doc4);
-    messenger.sendCompleted(doc5);
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
+    messenger.sendForIndexing(doc4);
+    messenger.sendForIndexing(doc5);
     indexer.run(5);
 
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertEquals(5, events.size());
     for (int i = 1; i <= events.size(); i++) {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
@@ -673,12 +673,12 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc);
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
     MatcherAssert.assertThat(
         "Attempting to index a document with a nested object field to solr should result in an "
@@ -702,12 +702,12 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc);
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
     MatcherAssert.assertThat(
         "Attempting to index a document with a nested object field to solr should result in an "
@@ -729,12 +729,12 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc);
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
     MatcherAssert.assertThat(
         "Attempting to index a document with a nested object field to solr should result in an "
@@ -758,12 +758,12 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc);
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
     MatcherAssert.assertThat(
         "Attempting to index a document with a nested object field to solr should result in an "
@@ -785,12 +785,12 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc);
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
     MatcherAssert.assertThat(
         "Attempting to index a document with a nested object field to solr should result in an "
@@ -814,12 +814,12 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
-    messenger.sendCompleted(doc);
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
     ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
     MatcherAssert.assertThat(
         "Attempting to index a document with a nested object field to solr should result in an "

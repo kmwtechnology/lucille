@@ -113,7 +113,7 @@ class Worker implements Runnable {
             messenger.sendEvent(result, null, Event.Type.DROP);
           } else {
             // send the completed document to the queue for indexing
-            messenger.sendCompleted(result);
+            messenger.sendForIndexing(result);
           }
         }
 

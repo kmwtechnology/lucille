@@ -35,7 +35,7 @@ public interface PublisherMessenger {
    * Intended to be called in a polling loop where pollEvent() would periodically timeout
    * so that other conditions can be checked as the loop is waiting for the next event.
    *
-   * Events sent via WorkerMessenger.sendEvent() and IndexMessageManager.sendEvent()
+   * Events sent via WorkerMessenger.sendEvent() and IndexMessenger.sendEvent()
    * are returned by the current method, PublisherMessenger.pollEvent()
    */
   Event pollEvent() throws Exception;

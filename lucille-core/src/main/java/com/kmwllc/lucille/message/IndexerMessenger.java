@@ -22,7 +22,7 @@ public interface IndexerMessenger {
    * to several seconds so that this method can be called from within a polling loop that
    * periodically checks other conditions even when no Documents are available.
    */
-  Document pollCompleted() throws Exception;
+  Document pollDocToIndex() throws Exception;
 
   /**
    * Make the designated Event available to the Publisher or any other component that is listening for

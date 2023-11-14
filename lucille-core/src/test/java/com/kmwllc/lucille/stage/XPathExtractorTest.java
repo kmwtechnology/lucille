@@ -117,7 +117,7 @@ public class XPathExtractorTest {
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     Stage stage = factory.get("XMLConnectorTest/joint.conf");
     stage.processDocument(docs.get(0));

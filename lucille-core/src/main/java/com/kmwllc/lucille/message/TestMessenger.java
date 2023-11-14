@@ -29,8 +29,8 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
   }
 
   @Override
-  public Document pollCompleted() throws Exception {
-    return messenger.pollCompleted();
+  public Document pollDocToIndex() throws Exception {
+    return messenger.pollDocToIndex();
   }
 
   @Override
@@ -44,9 +44,9 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
   }
 
   @Override
-  public void sendCompleted(Document document) throws Exception {
+  public void sendForIndexing(Document document) throws Exception {
     savedDestMessages.add(document);
-    messenger.sendCompleted(document);
+    messenger.sendForIndexing(document);
   }
 
   @Override
@@ -98,15 +98,24 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
     messenger.batchComplete(batch);
   }
 
-  public List<Event> getSavedEvents() {
+  /**
+   * Returns the ordered history of all Events sent via sendEvent().
+   */
+  public List<Event> getSentEvents() {
     return savedEventMessages;
   }
 
-  public List<Document> getSavedDocumentsSentForProcessing() {
+  /**
+   * Returns the ordered history of all Documents sent via sendForProcessing().
+   */
+  public List<Document> getDocsSentForProcessing() {
     return savedSourceMessages;
   }
 
-  public List<Document> getSavedCompletedDocuments() {
+  /**
+   * Returns the ordered history of all Documents sent via sendForIndexing().
+   */
+  public List<Document> getDocsSentForIndexing() {
     return savedDestMessages;
   }
 

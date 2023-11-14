@@ -7,8 +7,8 @@ import com.kmwllc.lucille.core.Event;
  * API that a Worker uses to exchange messages with other components.
  *
  * A Worker needs a way to 1) receive Documents to process, 2) send processed Documents to
- * a destination, and 3) send Events relating to Documents being processed (e.g. if a child Document is
- * created, if a Document can't be processed, etc.)
+ * a destination where they can wait for indexing, and 3) send Events relating to
+ * Documents being processed (e.g. if a child Document is created, if a Document can't be processed, etc.)
  *
  */
 public interface WorkerMessenger {
@@ -34,7 +34,7 @@ public interface WorkerMessenger {
    * Submit a given Document so that it can be received by an Indexer component that
    * would call IndexerMessenger.pollCompleted()
    */
-  void sendCompleted(Document document) throws Exception;
+  void sendForIndexing(Document document) throws Exception;
 
   /**
    * Submit a given Document to a "Dead Letter Queue" for Documents that cannot be processed.

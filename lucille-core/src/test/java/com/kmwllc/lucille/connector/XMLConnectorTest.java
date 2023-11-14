@@ -27,7 +27,7 @@ public class XMLConnectorTest {
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     assertEquals(2, docs.size());
 
@@ -49,7 +49,7 @@ public class XMLConnectorTest {
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     // ensure that in a nested scenario, the nested tag does not get included
     assertEquals(2, docs.size());
@@ -65,7 +65,7 @@ public class XMLConnectorTest {
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     assertEquals(1, docs.size());
 
@@ -87,7 +87,7 @@ public class XMLConnectorTest {
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     assertEquals(1, docs.size());
 
@@ -108,7 +108,7 @@ public class XMLConnectorTest {
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     assertEquals(1, docs.size());
 
@@ -130,7 +130,7 @@ public class XMLConnectorTest {
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     assertEquals(2, docs.size());
 
