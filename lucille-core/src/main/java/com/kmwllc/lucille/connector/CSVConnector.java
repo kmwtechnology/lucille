@@ -176,7 +176,7 @@ public class CSVConnector extends AbstractConnector {
         if (line.length != header.length) {
           // the line/row number reported here may differ from the physical line number in the file, if the CSV contains
           // a quoted value that spans multiple lines
-          log.warn(String.format("Logical row %d of the csv has a different number of columns than the header.", lineNum));
+          log.warn("Logical row {} of the csv has a different number of columns than the header.", lineNum);
           continue;
         }
         String docId = "";
@@ -211,12 +211,12 @@ public class CSVConnector extends AbstractConnector {
         moveFile(filePath, moveToAfterProcessing);
       }
     } catch (CsvException e) { // base class for most opencsv exceptions
-      log.error("Error during CSV processing at line " + e.getLineNumber(), e);
+      log.error("Error during CSV processing at line {}", e.getLineNumber(), e);
       if (moveToErrorFolder != null) {
         moveFile(filePath, moveToErrorFolder);
       }
     } catch (CsvMalformedLineException e) { // an IOException, not a CsvException
-      log.error("Error during CSV processing at line " + e.getLineNumber(), e);
+      log.error("Error during CSV processing at line {}", e.getLineNumber(), e);
       if (moveToErrorFolder != null) {
         moveFile(filePath, moveToErrorFolder);
       }
