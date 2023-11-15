@@ -100,7 +100,7 @@ public class WorkerIndexer {
 
   public void stop() throws Exception {
 
-    // it is important to terminate the indexer wait for its thread to stop
+    // it is important to terminate the indexer and wait for its thread to stop
     // before we terminate the worker. This allows the worker to process
     // any offsets that the indexer added to the offset queue upon termination
 

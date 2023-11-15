@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
  * A run should stop if any Connector fails.
  * A Connector is considered to have failed if any of its lifecycle methods throw an Exception.
  * Importantly, a connector is NOT considered to have failed if one or more of the documents it publishes
- * encountere an error during pipeline exeuction or indexing.
+ * encounter an error during pipeline execution or indexing.
  * <p>
  * In a distributed deployment, there will be one or more Worker processes and one or more Indexer processes
  * that stay alive indefinitely and constantly poll for work. A Runner can then execute
