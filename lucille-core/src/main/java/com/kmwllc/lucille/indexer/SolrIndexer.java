@@ -1,28 +1,30 @@
 package com.kmwllc.lucille.indexer;
 
-import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
-import com.kmwllc.lucille.message.IndexerMessageManager;
-import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
+import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
+import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
+import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 public class SolrIndexer extends Indexer {
 
@@ -31,14 +33,14 @@ public class SolrIndexer extends Indexer {
   private final SolrClient solrClient;
 
   public SolrIndexer(
-      Config config, IndexerMessageManager manager, SolrClient solrClient, String metricsPrefix) {
-    super(config, manager, metricsPrefix);
+      Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix) {
+    super(config, messenger, metricsPrefix);
     this.solrClient = solrClient;
   }
 
   public SolrIndexer(
-      Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
-    super(config, manager, metricsPrefix);
+      Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    super(config, messenger, metricsPrefix);
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
     this.solrClient = getSolrClient(config, bypass);
@@ -53,28 +55,46 @@ public class SolrIndexer extends Indexer {
     if (solrClient == null) {
       return true;
     }
-    // If we are indexing to multiple collections with the CloudSolrClient and the default
-    // collection is not set then
-    // we can't use ping. Instead, verify that we can connect to the cluster.
-    NamedList response;
-    try {
-      log.debug("Validating SolrIndexer connection by checking cluster status.");
-      response = solrClient.request(new CollectionAdminRequest.ClusterStatus());
-    } catch (Exception e) {
-      log.error("Couldn't check solr cluster status.", e);
-      return false;
+    if (solrClient instanceof Http2SolrClient) {
+      try {
+        SolrPingResponse resp = solrClient.ping();
+        int status = resp.getStatus();
+        if (status != 0) {
+          log.error("Non zero response when checking solr cluster status: " + status);
+          return false;
+        }
+        log.debug("SolrIndexer connection successfully validated: {}", resp);
+        return true;
+      } catch (Exception e) {
+        log.error("Couldn't ping solr cluster.", e);
+        return false;
+      }
+    } else if (solrClient instanceof CloudHttp2SolrClient) {
+      // If we are indexing to multiple collections with the CloudSolrClient and the default
+      // collection is not set then
+      // we can't use ping. Instead, verify that we can connect to the cluster.
+      NamedList response;
+      try {
+        log.debug("Validating SolrIndexer connection by checking cluster status.");
+        response = solrClient.request(new CollectionAdminRequest.ClusterStatus());
+      } catch (Exception e) {
+        log.error("Couldn't check solr cluster status.", e);
+        return false;
+      }
+      if (response == null) {
+        log.error("Null response when checking solr cluster status.");
+        return false;
+      }
+      Integer status = (Integer) ((SimpleOrderedMap) response.get("responseHeader")).get("status");
+      if (status != 0) {
+        log.error("Non zero response when checking solr cluster status: " + status);
+        return false;
+      }
+      log.debug("SolrIndexer connection successfully validated: {}", response);
+      return true;
+    } else {
+      throw new UnsupportedOperationException("Client type is not supported");
     }
-    if (response == null) {
-      log.error("Null response when checking solr cluster status.");
-      return false;
-    }
-    Integer status = (Integer) ((SimpleOrderedMap) response.get("responseHeader")).get("status");
-    if (status != 0) {
-      log.error("Non zero response when checking solr cluster status: " + status);
-      return false;
-    }
-    log.debug("SolrIndexer connection successfully validated: {}", response);
-    return true;
   }
 
   @Override
@@ -123,9 +143,9 @@ public class SolrIndexer extends Indexer {
 
         if (solrDocRequests.containsIdForAddUpdate(solrId)
             || (deleteByFieldField != null
-                && doc.has(deleteByFieldField)
-                && deleteByFieldValue != null
-                && doc.has(deleteByFieldValue))) {
+            && doc.has(deleteByFieldField)
+            && deleteByFieldValue != null
+            && doc.has(deleteByFieldValue))) {
           sendAddUpdateBatch(collection, solrDocRequests.getAddUpdateDocs());
           solrDocRequests.resetAddUpdates();
         }
@@ -287,11 +307,11 @@ public class SolrIndexer extends Indexer {
   }
 
   public static void main(String[] args) throws Exception {
-    Config config = ConfigUtils.loadConfig();
+    Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
     log.info("Starting Indexer for pipeline: " + pipelineName);
-    IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);
-    Indexer indexer = new SolrIndexer(config, manager, false, pipelineName);
+    IndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
+    Indexer indexer = new SolrIndexer(config, messenger, false, pipelineName);
     if (!indexer.validateConnection()) {
       log.error("Indexer could not connect");
       System.exit(1);

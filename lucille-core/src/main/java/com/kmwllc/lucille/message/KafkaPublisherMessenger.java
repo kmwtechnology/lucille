@@ -14,9 +14,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 
-public class KafkaPublisherMessageManager implements PublisherMessageManager {
+public class KafkaPublisherMessenger implements PublisherMessenger {
 
-  public static final Logger log = LoggerFactory.getLogger(KafkaPublisherMessageManager.class);
+  public static final Logger log = LoggerFactory.getLogger(KafkaPublisherMessenger.class);
 
   private final Config config;
   private KafkaProducer<String, Document> kafkaProducer;
@@ -24,7 +24,7 @@ public class KafkaPublisherMessageManager implements PublisherMessageManager {
   private String runId;
   private String pipelineName;
 
-  public KafkaPublisherMessageManager(Config config) {
+  public KafkaPublisherMessenger(Config config) {
     this.config = config;
   }
 

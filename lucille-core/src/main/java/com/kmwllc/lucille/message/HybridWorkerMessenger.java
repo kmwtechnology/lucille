@@ -13,14 +13,13 @@ import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
 
-public class HybridWorkerMessageManager implements WorkerMessageManager {
+public class HybridWorkerMessenger implements WorkerMessenger {
 
-  public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessageManager.class);
+  public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final LinkedBlockingQueue<Document> pipelineDest;
@@ -29,7 +28,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
   private final Config config;
   private final String pipelineName;
 
-  public HybridWorkerMessageManager(Config config, String pipelineName,
+  public HybridWorkerMessenger(Config config, String pipelineName,
       LinkedBlockingQueue<Document> pipelineDest,
       LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
       KafkaConsumer sourceConsumer) {
@@ -41,7 +40,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
   }
 
-  public HybridWorkerMessageManager(Config config, String pipelineName,
+  public HybridWorkerMessenger(Config config, String pipelineName,
       LinkedBlockingQueue<Document> pipelineDest,
       LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
     this(config, pipelineName, pipelineDest, offsets, createSourceConsumer(config, pipelineName));
@@ -88,7 +87,7 @@ public class HybridWorkerMessageManager implements WorkerMessageManager {
    *
    */
   @Override
-  public void sendCompleted(Document document) throws Exception {
+  public void sendForIndexing(Document document) throws Exception {
     pipelineDest.put(document);
   }
 

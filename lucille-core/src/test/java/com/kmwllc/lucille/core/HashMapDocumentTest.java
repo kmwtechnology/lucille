@@ -4,19 +4,12 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.message.KafkaDocumentDeserializer;
-import com.kmwllc.lucille.message.KafkaDocumentSerializer;
-import org.apache.commons.lang.SerializationUtils;
 import org.junit.Ignore;
 import org.junit.Test;
-
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
 import static org.junit.Assert.*;
-import static org.junit.Assert.assertTrue;
 
 
 public class HashMapDocumentTest extends DocumentTest {

@@ -16,16 +16,16 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 
-public class KafkaWorkerMessageManager implements WorkerMessageManager {
+public class KafkaWorkerMessenger implements WorkerMessenger {
 
-  public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessageManager.class);
+  public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
   private final KafkaProducer<String, Document> kafkaDocumentProducer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final Config config;
   private final String pipelineName;
 
-  public KafkaWorkerMessageManager(Config config, String pipelineName) {
+  public KafkaWorkerMessenger(Config config, String pipelineName) {
     this.config = config;
     this.pipelineName = pipelineName;
     this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
@@ -64,7 +64,7 @@ public class KafkaWorkerMessageManager implements WorkerMessageManager {
    *
    */
   @Override
-  public void sendCompleted(Document document) throws Exception {
+  public void sendForIndexing(Document document) throws Exception {
     RecordMetadata result = kafkaDocumentProducer.send(
         new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
     kafkaDocumentProducer.flush();

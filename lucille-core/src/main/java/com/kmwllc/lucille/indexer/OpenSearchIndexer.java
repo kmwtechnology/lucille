@@ -1,14 +1,14 @@
 package com.kmwllc.lucille.indexer;
 
-import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
-import com.kmwllc.lucille.message.IndexerMessageManager;
-import com.kmwllc.lucille.message.KafkaIndexerMessageManager;
+import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,8 +37,8 @@ public class OpenSearchIndexer extends Indexer {
   //flag for using partial update API when sending documents to opensearch
   private final boolean update;
 
-  public OpenSearchIndexer(Config config, IndexerMessageManager manager, OpenSearchClient client, String metricsPrefix) {
-    super(config, manager, metricsPrefix);
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix) {
+    super(config, messenger, metricsPrefix);
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create OpenSearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by OpenSearchIndexer.");
@@ -51,8 +51,8 @@ public class OpenSearchIndexer extends Indexer {
         config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
-  public OpenSearchIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
-    this(config, manager, getClient(config, bypass), metricsPrefix);
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    this(config, messenger, getClient(config, bypass), metricsPrefix);
   }
 
   private static OpenSearchClient getClient(Config config, boolean bypass) {
@@ -174,11 +174,11 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   public static void main(String[] args) throws Exception {
-    Config config = ConfigUtils.loadConfig();
+    Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
     log.info("Starting Indexer for pipeline: " + pipelineName);
-    IndexerMessageManager manager = new KafkaIndexerMessageManager(config, pipelineName);
-    Indexer indexer = new OpenSearchIndexer(config, manager, false, pipelineName);
+    IndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
+    Indexer indexer = new OpenSearchIndexer(config, messenger, false, pipelineName);
     if (!indexer.validateConnection()) {
       log.error("Indexer could not connect");
       System.exit(1);

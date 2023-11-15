@@ -2,7 +2,7 @@ package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
-import com.kmwllc.lucille.message.IndexerMessageManager;
+import com.kmwllc.lucille.message.IndexerMessenger;
 import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
 import com.typesafe.config.Config;
@@ -24,8 +24,8 @@ public class CSVIndexer extends Indexer {
   private final boolean includeHeader;
 
 
-  public CSVIndexer(Config config, IndexerMessageManager manager, ICSVWriter writer, boolean bypass, String metricsPrefix) {
-    super(config, manager, metricsPrefix);
+  public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix) {
+    super(config, messenger, metricsPrefix);
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
@@ -36,8 +36,8 @@ public class CSVIndexer extends Indexer {
     this.includeHeader = config.hasPath("csv.includeHeader") ? config.getBoolean("csv.includeHeader") : true;
   }
 
-  public CSVIndexer(Config config, IndexerMessageManager manager, boolean bypass, String metricsPrefix) {
-    this(config, manager, getCsvWriter(config, bypass), bypass, metricsPrefix);
+  public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix);
   }
 
   private static ICSVWriter getCsvWriter(Config config, boolean bypass) {

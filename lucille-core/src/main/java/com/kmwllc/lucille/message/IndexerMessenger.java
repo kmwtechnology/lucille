@@ -14,7 +14,7 @@ import java.util.List;
  * An Indexer also needs to communicate with a destination system like Solr or Elasticsearch but
  * that communication is not included in this interface.
  */
-public interface IndexerMessageManager {
+public interface IndexerMessenger {
 
   /**
    * Retrieve and remove a Document that has been processed by a pipeline and is now ready to be
@@ -22,7 +22,7 @@ public interface IndexerMessageManager {
    * to several seconds so that this method can be called from within a polling loop that
    * periodically checks other conditions even when no Documents are available.
    */
-  Document pollCompleted() throws Exception;
+  Document pollDocToIndex() throws Exception;
 
   /**
    * Make the designated Event available to the Publisher or any other component that is listening for
@@ -37,7 +37,7 @@ public interface IndexerMessageManager {
   void sendEvent(Document document, String message, Event.Type type) throws Exception;
 
   /**
-   * Close any connections opened by this IndexerMessageManager.
+   * Close any connections opened by this IndexerMessenger.
    */
   void close() throws Exception;
 

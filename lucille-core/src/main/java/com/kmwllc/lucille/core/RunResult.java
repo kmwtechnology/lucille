@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.TestMessenger;
 
 import java.util.List;
 import java.util.Map;
@@ -13,7 +13,7 @@ public class RunResult {
   // true indicates success, false indicates failure
   private final boolean status;
   private final String message;
-  private Map<String, PersistingLocalMessageManager> history = null;
+  private Map<String, TestMessenger> history = null;
   private final String runId;
 
   public RunResult(boolean status, List<Connector> connectors, List<ConnectorResult> connectorResults, String runId) {
@@ -23,7 +23,7 @@ public class RunResult {
   }
 
   public RunResult(boolean status, List<Connector> connectors, List<ConnectorResult> connectorResults,
-      Map<String, PersistingLocalMessageManager> history, String runId) {
+      Map<String, TestMessenger> history, String runId) {
     this(status, connectors, connectorResults, runId);
     this.history = history;
   }
@@ -85,7 +85,7 @@ public class RunResult {
    * otherwise the return value will be null;
    *
    */
-  public Map<String, PersistingLocalMessageManager> getHistory() {
+  public Map<String, TestMessenger> getHistory() {
     return history;
   }
 }

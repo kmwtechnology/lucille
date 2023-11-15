@@ -5,15 +5,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
-import com.kmwllc.lucille.message.IndexerMessageManager;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
-import org.apache.solr.client.solrj.impl.HttpSolrClient;
+import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.hamcrest.MatcherAssert;
@@ -46,36 +46,30 @@ public class SolrIndexerTest {
    */
   @Test
   public void testIndexerWithBatchSize1() throws Exception {
-    Config config =
-        ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc);
-    manager.sendCompleted(doc2);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
     indexer.run(2);
 
     // Each batch should be sent to Solr via a call to solrClient.add()
     // So, given 2 docs and a batch size of 1, there should be 2 batches and 2 calls to add()
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(2)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(2, captor.getAllValues().size());
-    assertEquals(
-        doc.getId(),
-        ((SolrInputDocument) captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
-    assertEquals(
-        doc2.getId(),
-        ((SolrInputDocument) captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
+    assertEquals(doc.getId(), getCapturedID(captor, 0, 0));
+    assertEquals(doc2.getId(), getCapturedID(captor, 1, 0));
 
-    assertEquals(2, manager.getSavedEvents().size());
+    assertEquals(2, messenger.getSentEvents().size());
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     for (int i = 1; i <= events.size(); i++) {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
@@ -92,36 +86,29 @@ public class SolrIndexerTest {
   public void testIndexerWithBatchSize2() throws Exception {
     Config config =
         ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc);
-    manager.sendCompleted(doc2);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
     indexer.run(2);
 
     // Each batch should be sent to Solr via a call to solrClient.add()
     // So, given 2 docs and a batch size of 2, there should be 1 batch and 1 call to add()
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(1)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(1, captor.getAllValues().size());
-    assertEquals(
-        doc.getId(),
-        ((SolrInputDocument) captor.getAllValues().get(0).toArray()[0])
-            .getFieldValue(Document.ID_FIELD));
-    assertEquals(
-        doc2.getId(),
-        ((SolrInputDocument) captor.getAllValues().get(0).toArray()[1])
-            .getFieldValue(Document.ID_FIELD));
+    assertEquals(doc.getId(), getCapturedID(captor, 0, 0));
+    assertEquals(doc2.getId(), getCapturedID(captor, 0, 1));
 
-    assertEquals(2, manager.getSavedEvents().size());
+    assertEquals(2, messenger.getSentEvents().size());
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     for (int i = 1; i <= events.size(); i++) {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
@@ -139,7 +126,7 @@ public class SolrIndexerTest {
         ConfigFactory.empty()
             .withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("id_temp"))
             .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     // idOverrideField is set to id_temp
     // doc1 and doc2 have a value for id_temp, doc2 doesn't
@@ -150,34 +137,26 @@ public class SolrIndexerTest {
     doc3.setField("id_temp", "doc3_overriden");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc);
-    manager.sendCompleted(doc2);
-    manager.sendCompleted(doc3);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
     indexer.run(3);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(3)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(3, captor.getAllValues().size());
 
-    // confirm that doc1 and doc3 are sent with their overriden IDs, while doc2 is sent with its
-    // actual ID
-    assertEquals(
-        "doc1_overriden",
-        ((SolrInputDocument) captor.getAllValues().get(0).toArray()[0]).getFieldValue("id"));
-    assertEquals(
-        doc2.getId(),
-        ((SolrInputDocument) captor.getAllValues().get(1).toArray()[0]).getFieldValue("id"));
-    assertEquals(
-        "doc3_overriden",
-        ((SolrInputDocument) captor.getAllValues().get(2).toArray()[0]).getFieldValue("id"));
+    // confirm that doc1 and doc3 are sent with their overriden IDs, while doc2 is sent with its actual ID
+    assertEquals("doc1_overriden", getCapturedID(captor, 0, 0));
+    assertEquals(doc2.getId(), getCapturedID(captor, 1, 0));
+    assertEquals("doc3_overriden", getCapturedID(captor, 2, 0));
 
-    assertEquals(3, manager.getSavedEvents().size());
+    assertEquals(3, messenger.getSentEvents().size());
 
     // confirm that events are sent using original doc IDs, not overriden ones
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     for (int i = 1; i <= events.size(); i++) {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
@@ -193,7 +172,7 @@ public class SolrIndexerTest {
   public void testIndexerWithNestedChildDocs() throws Exception {
     Config config =
         ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
@@ -205,12 +184,11 @@ public class SolrIndexerTest {
     assertTrue(doc.has(Document.CHILDREN_FIELD));
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(1)).add((captor.capture()));
     verify(solrClient, times(1)).close();
     assertEquals(1, captor.getAllValues().size());
@@ -228,8 +206,8 @@ public class SolrIndexerTest {
     // the children should have been added via solrDoc.addChildDocument
     assertFalse(solrDoc.containsKey(Document.CHILDREN_FIELD));
 
-    assertEquals(1, manager.getSavedEvents().size());
-    List<Event> events = manager.getSavedEvents();
+    assertEquals(1, messenger.getSentEvents().size());
+    List<Event> events = messenger.getSentEvents();
     assertEquals(1, events.size());
     assertEquals("doc1", events.get(0).getDocumentId());
     assertEquals(Event.Type.FINISH, events.get(0).getType());
@@ -244,7 +222,7 @@ public class SolrIndexerTest {
             .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1))
             .withValue(
                 "indexer.indexOverrideField", ConfigValueFactory.fromAnyRef(indexOverrideField));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc1 = Document.create("doc1", "test_run");
     doc1.addToField(indexOverrideField, "col1");
@@ -256,16 +234,16 @@ public class SolrIndexerTest {
     doc4.addToField(indexOverrideField, "col2");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc1);
-    manager.sendCompleted(doc2);
-    manager.sendCompleted(doc3);
-    manager.sendCompleted(doc4);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
+    messenger.sendForIndexing(doc4);
     indexer.run(4);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     ArgumentCaptor<String> colCaptor = ArgumentCaptor.forClass(String.class);
+
     verify(solrClient, times(4)).add(colCaptor.capture(), captor.capture());
     verify(solrClient, times(1)).close();
     assertEquals(4, captor.getAllValues().size());
@@ -273,7 +251,7 @@ public class SolrIndexerTest {
     // confirm that docs are sent to the correct collection
     Map<String, List<SolrInputDocument>> collectionDocs = new HashMap<>();
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     for (int i = 0; i < 4; i++) {
       SolrInputDocument sDoc = captor.getAllValues().get(i).stream().findFirst().get();
       String collection = colCaptor.getAllValues().get(i);
@@ -317,18 +295,17 @@ public class SolrIndexerTest {
             .withValue(
                 "indexer.deletionMarkerFieldValue",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc1 = Document.create("doc1", "test_run");
     doc1.addToField(deletionMarkerField, deletionMarkerFieldValue);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc1);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc1);
     indexer.run(1);
 
     ArgumentCaptor<List<String>> delCaptor = ArgumentCaptor.forClass(List.class);
-
     InOrder inOrder = inOrder(solrClient);
 
     inOrder.verify(solrClient).deleteById(delCaptor.capture());
@@ -350,7 +327,7 @@ public class SolrIndexerTest {
             .withValue(
                 "indexer.deletionMarkerFieldValue",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc1 = Document.create("doc1", "test_run");
     doc1.addToField(deletionMarkerField, "false");
@@ -358,14 +335,12 @@ public class SolrIndexerTest {
     doc2.addToField(deletionMarkerField, "foo");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc1);
-    manager.sendCompleted(doc2);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
     indexer.run(2);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
-
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     InOrder inOrder = inOrder(solrClient);
 
     inOrder.verify(solrClient).add(captor.capture());
@@ -387,7 +362,7 @@ public class SolrIndexerTest {
             .withValue(
                 "indexer.deletionMarkerFieldValue",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc1 = Document.create("doc1", "test_run");
     doc1.addToField("version", 1);
@@ -397,15 +372,13 @@ public class SolrIndexerTest {
     doc3.addToField("version", 2);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc1);
-    manager.sendCompleted(doc2);
-    manager.sendCompleted(doc3);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
     indexer.run(3);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
-
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     ArgumentCaptor<List<String>> delCaptor = ArgumentCaptor.forClass(List.class);
 
     InOrder inOrder = inOrder(solrClient);
@@ -437,7 +410,7 @@ public class SolrIndexerTest {
             .withValue(
                 "indexer.deletionMarkerFieldValue",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document otherDoc1 = Document.create("doc2", "test_run");
     otherDoc1.addToField("version", 1);
@@ -472,11 +445,11 @@ public class SolrIndexerTest {
                 })))
         .thenReturn(mock(UpdateResponse.class));
 
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(otherDoc1);
-    manager.sendCompleted(doc1);
-    manager.sendCompleted(doc2);
-    manager.sendCompleted(doc3);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(otherDoc1);
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
     indexer.run(4);
 
     InOrder inOrder = inOrder(solrClient);
@@ -514,7 +487,7 @@ public class SolrIndexerTest {
             .withValue(
                 "indexer.deletionMarkerFieldValue",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc1 = Document.create("doc1", "test_run");
     doc1.addToField(deletionMarkerField, deletionMarkerFieldValue);
@@ -547,10 +520,10 @@ public class SolrIndexerTest {
                 })))
         .thenReturn(mock(UpdateResponse.class));
 
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc1);
-    manager.sendCompleted(doc2);
-    manager.sendCompleted(doc3);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
     indexer.run(3);
 
     InOrder inOrder = inOrder(solrClient);
@@ -589,7 +562,7 @@ public class SolrIndexerTest {
             .withValue(
                 "indexer.deletionMarkerFieldValue",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc1 = Document.create("doc1", "test_run");
     doc1.addToField(deletionMarkerField, deletionMarkerFieldValue);
@@ -599,15 +572,13 @@ public class SolrIndexerTest {
     doc3.addToField(deletionMarkerField, deletionMarkerFieldValue);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc1);
-    manager.sendCompleted(doc2);
-    manager.sendCompleted(doc3);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
     indexer.run(3);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
-
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     ArgumentCaptor<List<String>> delCaptor = ArgumentCaptor.forClass(List.class);
 
     InOrder inOrder = inOrder(solrClient);
@@ -635,7 +606,7 @@ public class SolrIndexerTest {
             .withValue(
                 "indexer.deletionMarkerFieldValue",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc1 = Document.create("doc1", "test_run");
     doc1.addToField("version", 1);
@@ -646,15 +617,13 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
 
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc1);
-    manager.sendCompleted(doc2);
-    manager.sendCompleted(doc3);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
     indexer.run(3);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
-
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     ArgumentCaptor<List<String>> delCaptor = ArgumentCaptor.forClass(List.class);
 
     InOrder inOrder = inOrder(solrClient);
@@ -666,7 +635,7 @@ public class SolrIndexerTest {
 
   @Test
   public void testSolrException() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("SolrIndexerTest/exception.conf");
 
     Document doc = Document.create("doc1", "test_run");
@@ -675,15 +644,15 @@ public class SolrIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    Indexer indexer = new ErroringIndexer(config, manager, true);
-    manager.sendCompleted(doc);
-    manager.sendCompleted(doc2);
-    manager.sendCompleted(doc3);
-    manager.sendCompleted(doc4);
-    manager.sendCompleted(doc5);
+    Indexer indexer = new ErroringIndexer(config, messenger, true);
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
+    messenger.sendForIndexing(doc4);
+    messenger.sendForIndexing(doc5);
     indexer.run(5);
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertEquals(5, events.size());
     for (int i = 1; i <= events.size(); i++) {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
@@ -695,7 +664,7 @@ public class SolrIndexerTest {
   public void testIndexerWithNestedJson() throws Exception {
     Config config =
         ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
@@ -703,14 +672,13 @@ public class SolrIndexerTest {
     doc.setField("myJsonField", jsonNode);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
     MatcherAssert.assertThat(
         "Attempting to index a document with a nested object field to solr should result in an "
@@ -723,7 +691,7 @@ public class SolrIndexerTest {
   public void testIndexerWithChildDocWithNestedJson() throws Exception {
     Config config =
         ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
     Document childDoc = Document.create("child1");
@@ -733,14 +701,13 @@ public class SolrIndexerTest {
     doc.addChild(childDoc);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
     MatcherAssert.assertThat(
         "Attempting to index a document with a nested object field to solr should result in an "
@@ -753,7 +720,7 @@ public class SolrIndexerTest {
   public void testIndexerWithNestedJsonMultivalued() throws Exception {
     Config config =
         ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
@@ -761,14 +728,13 @@ public class SolrIndexerTest {
     doc.setField("myJsonField", jsonNode);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
     MatcherAssert.assertThat(
         "Attempting to index a document with a nested object field to solr should result in an "
@@ -781,7 +747,7 @@ public class SolrIndexerTest {
   public void testIndexerWithChildDocWithNestedJsonMultivalued() throws Exception {
     Config config =
         ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
     Document childDoc = Document.create("child1");
@@ -791,14 +757,13 @@ public class SolrIndexerTest {
     doc.addChild(childDoc);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
     MatcherAssert.assertThat(
         "Attempting to index a document with a nested object field to solr should result in an "
@@ -811,7 +776,7 @@ public class SolrIndexerTest {
   public void testIndexerWithNestedJsonWithObjects() throws Exception {
     Config config =
         ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
     ObjectMapper mapper = new ObjectMapper();
@@ -819,14 +784,13 @@ public class SolrIndexerTest {
     doc.setField("myJsonField", jsonNode);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
     MatcherAssert.assertThat(
         "Attempting to index a document with a nested object field to solr should result in an "
@@ -839,7 +803,7 @@ public class SolrIndexerTest {
   public void testIndexerWithChildDocWithNestedJsonWithObjects() throws Exception {
     Config config =
         ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
     Document childDoc = Document.create("child1");
@@ -849,14 +813,13 @@ public class SolrIndexerTest {
     doc.addChild(childDoc);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, manager, solrClient, "");
-    manager.sendCompleted(doc);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
-    ArgumentCaptor<Collection<SolrInputDocument>> captor =
-        ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
     verify(solrClient, times(0)).add((captor.capture()));
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     MatcherAssert.assertThat(1, equalTo(events.size()));
     MatcherAssert.assertThat(
         "Attempting to index a document with a nested object field to solr should result in an "
@@ -871,8 +834,8 @@ public class SolrIndexerTest {
         .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
         // This should be a list of strings
         .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef("hello"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    new SolrIndexer(config, manager, false, "");
+    TestMessenger messenger = new TestMessenger();
+    new SolrIndexer(config, messenger, false, "");
   }
 
   @Test
@@ -886,16 +849,21 @@ public class SolrIndexerTest {
         .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef(List.of("localhost:2181")));
 
     try (SolrClient httpClient = SolrUtils.getSolrClient(httpConfig); SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig);){
-      assertTrue(httpClient instanceof HttpSolrClient);
+      assertTrue(httpClient instanceof Http2SolrClient);
       assertTrue(cloudClient instanceof CloudSolrClient);
     }
-
   }
+
+  private static String getCapturedID(ArgumentCaptor<Collection<SolrInputDocument>> captor, int index, int arrIndex) {
+    SolrInputDocument document = (SolrInputDocument) captor.getAllValues().get(index).toArray()[arrIndex];
+    return (String) document.getFieldValue(Document.ID_FIELD);
+  }
+
 
   private static class ErroringIndexer extends SolrIndexer {
 
-    public ErroringIndexer(Config config, IndexerMessageManager manager, boolean bypass) {
-      super(config, manager, bypass, "");
+    public ErroringIndexer(Config config, IndexerMessenger messenger, boolean bypass) {
+      super(config, messenger, bypass, "");
     }
 
     @Override

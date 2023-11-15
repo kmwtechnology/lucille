@@ -8,50 +8,50 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Wrapper around LocalMessageManager that stores message traffic so that it can be retrieved later.
+ * Wrapper around LocalMessenger that stores message traffic so that it can be retrieved later.
  * Intended for use in a testing context.
  */
-public class PersistingLocalMessageManager implements IndexerMessageManager, PublisherMessageManager,
-    WorkerMessageManager {
+public class TestMessenger implements IndexerMessenger, PublisherMessenger,
+    WorkerMessenger {
 
-  private final LocalMessageManager manager;
+  private final LocalMessenger messenger;
 
   private List<Event> savedEventMessages = Collections.synchronizedList(new ArrayList<Event>());
   private List<Document> savedSourceMessages = Collections.synchronizedList(new ArrayList<Document>());
   private List<Document> savedDestMessages = Collections.synchronizedList(new ArrayList<Document>());
 
-  public PersistingLocalMessageManager() {
-    this.manager = new LocalMessageManager();
+  public TestMessenger() {
+    this.messenger = new LocalMessenger();
   }
 
-  public PersistingLocalMessageManager(LocalMessageManager manager) {
-    this.manager = manager;
+  public TestMessenger(LocalMessenger messenger) {
+    this.messenger = messenger;
   }
 
   @Override
-  public Document pollCompleted() throws Exception {
-    return manager.pollCompleted();
+  public Document pollDocToIndex() throws Exception {
+    return messenger.pollDocToIndex();
   }
 
   @Override
   public Document pollDocToProcess() throws Exception {
-    return manager.pollDocToProcess();
+    return messenger.pollDocToProcess();
   }
 
   @Override
   public void commitPendingDocOffsets() throws Exception {
-    manager.commitPendingDocOffsets();
+    messenger.commitPendingDocOffsets();
   }
 
   @Override
-  public void sendCompleted(Document document) throws Exception {
+  public void sendForIndexing(Document document) throws Exception {
     savedDestMessages.add(document);
-    manager.sendCompleted(document);
+    messenger.sendForIndexing(document);
   }
 
   @Override
   public void sendFailed(Document document) throws Exception {
-    manager.sendFailed(document);
+    messenger.sendFailed(document);
   }
 
   @Override
@@ -63,50 +63,59 @@ public class PersistingLocalMessageManager implements IndexerMessageManager, Pub
   @Override
   public void sendEvent(Event event) throws Exception {
     savedEventMessages.add(event);
-    manager.sendEvent(event);
+    messenger.sendEvent(event);
   }
 
   @Override
   public Event pollEvent() throws Exception {
-    return manager.pollEvent();
+    return messenger.pollEvent();
   }
 
   @Override
   public void initialize(String runId, String pipelineName) throws Exception {
-    manager.initialize(runId, pipelineName);
+    messenger.initialize(runId, pipelineName);
   }
 
   @Override
   public String getRunId() {
-    return manager.getRunId();
+    return messenger.getRunId();
   }
 
 
   @Override
   public void sendForProcessing(Document document) throws Exception {
     savedSourceMessages.add(document);
-    manager.sendForProcessing(document);
+    messenger.sendForProcessing(document);
   }
 
   @Override
   public void close() {
-    manager.close();
+    messenger.close();
   }
 
   @Override
   public void batchComplete(List<Document> batch) throws Exception {
-    manager.batchComplete(batch);
+    messenger.batchComplete(batch);
   }
 
-  public List<Event> getSavedEvents() {
+  /**
+   * Returns the ordered history of all Events sent via sendEvent().
+   */
+  public List<Event> getSentEvents() {
     return savedEventMessages;
   }
 
-  public List<Document> getSavedDocumentsSentForProcessing() {
+  /**
+   * Returns the ordered history of all Documents sent via sendForProcessing().
+   */
+  public List<Document> getDocsSentForProcessing() {
     return savedSourceMessages;
   }
 
-  public List<Document> getSavedCompletedDocuments() {
+  /**
+   * Returns the ordered history of all Documents sent via sendForIndexing().
+   */
+  public List<Document> getDocsSentForIndexing() {
     return savedDestMessages;
   }
 
