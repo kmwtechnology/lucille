@@ -37,6 +37,8 @@ public class DictionaryManager {
   // a dictionary is named according to its CSV path plus a suffix indicating whether case is ignored
   private static final HashMap<String, Map<String, String[]>> dictionaries = new HashMap<>();
 
+  private static final String[] PRESENT = new String[0];
+
   // Private constructor to prevent instantiation.
   private DictionaryManager() {
   }
@@ -65,12 +67,12 @@ public class DictionaryManager {
    * made into a ConcurrentHashMap or being passed through Collections.synchronizedMap()).
    *
    */
-  public static synchronized Map<String, String[]> getDictionary(String path, boolean ignoreCase) throws StageException {
-    String key = path + "_IGNORECASE=" + ignoreCase;
+  public static synchronized Map<String, String[]> getDictionary(String path, boolean ignoreCase, boolean setOnly) throws StageException {
+    String key = path + "_IGNORECASE=" + ignoreCase + "_SETONLY=" + setOnly;
     if (dictionaries.containsKey(key)) {
       return dictionaries.get(key);
     }
-    HashMap<String, String[]> dictionary = buildHashMap(path, ignoreCase);
+    HashMap<String, String[]> dictionary = buildHashMap(path, ignoreCase, setOnly);
 
     // We create an unmodifiable view of the dictionary, which is represented as a HashMap;
     // This unmodifiable Map may be shared across Stage instances running in different threads;
@@ -92,8 +94,14 @@ public class DictionaryManager {
    * @param dictPath  the path of the dictionary file
    * @return the populated HashMap
    */
-  private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase) throws StageException {
-    HashMap<String, String[]> dict = new HashMap<>();
+  private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly) throws StageException {
+
+    // count file lines and create a HashMap with the correct capacity. HashMaps of course support dynamic resizing, but
+    // for files with >= 1K lines we observed a 10% time reduction in time to populate the HashMap when the
+    // initial capacity was set, even accounting for the overhead of the extra pass over the file to count the lines
+    int lineCount = FileUtils.countLines(dictPath);
+    HashMap<String, String[]> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
+
     try (CSVReader reader = new CSVReader(FileUtils.getReader(dictPath))) {
       // For each line of the dictionary file, add a keyword/payload pair
       String[] line;
@@ -117,26 +125,22 @@ public class DictionaryManager {
           continue;
         }
 
+        // save the first word for both single and multi-word lines
+        String word = line[0].trim();
+
         // TODO : Add log messages for when encoding errors occur so that they can be fixed
+        String[] value;
         if (line.length == 1) {
-          String word = line[0].trim();
-          if (ignoreCase) {
-            dict.put(word.toLowerCase(), new String[]{word});
-          } else {
-            dict.put(word, new String[]{word});
-          }
+          value = setOnly ? PRESENT : new String[]{word};
+        } else if (setOnly) {
+          throw new StageException(String.format("Comma separated values are not allowed when set_only=true: \"%s\" on line %d",
+              Arrays.toString(line), reader.getLinesRead()));
         } else {
           // Handle multiple payload values here.
-          String[] rest = Arrays.copyOfRange(line, 1, line.length);
-          for (int i = 0; i < rest.length; i++) {
-            rest[i] = rest[i].trim();
-          }
-          if (ignoreCase) {
-            dict.put(line[0].trim().toLowerCase(), rest);
-          } else {
-            dict.put(line[0].trim(), rest);
-          }
+          value = Arrays.stream(Arrays.copyOfRange(line, 1, line.length)).map(String::trim).toArray(String[]::new);
         }
+        // Add the word and its payload(s) to the dictionary
+        dict.put(ignoreCase ? word.toLowerCase() : word, value);
       }
     } catch (IOException e) {
       throw new StageException("Failed to read from the given file.", e);
