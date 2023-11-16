@@ -24,8 +24,10 @@ import org.apache.solr.client.solrj.request.UpdateRequest;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.cloud.MiniSolrCloudCluster;
 import org.apache.solr.cloud.SolrCloudTestCase;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.embedded.JettySolrRunner;
+import org.eclipse.jetty.util.MultiException;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -42,6 +44,7 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
   private static MiniSolrCloudCluster cluster;
 
   private static final String COL = "test";
+  private static final String COL_OTHER = "test_other";
 
   @BeforeClass
   public static void setupCluster() throws Exception {
@@ -337,6 +340,86 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
 
     verify(mockHttp2Client).ping();
     verify(mockCloudHttp2Client).request(Mockito.any(CollectionAdminRequest.ClusterStatus.class));
+  }
+
+  @Test
+  public void testAddToTwoCollectionsWhenOneDoesNotExist() throws SolrServerException, IOException {
+
+    JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
+    map.put("solr.useCloudClient", true);
+    map.put("indexer.batchTimeout", 5000);
+    map.put("indexer.batchSize", 2);
+    map.put("indexer.type", "solr");
+    map.put("indexer.sendEnabled", true);
+    map.put("indexer.indexOverrideField", "collection");
+
+    Config config = ConfigFactory.parseMap(map);
+
+    IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
+    final SolrIndexer indexer = new SolrIndexer(config, mockIndexerMessenger, false, "solr");
+
+    try {
+      assertTrue(indexer.validateConnection());
+
+      SolrQuery qr = new SolrQuery();
+      qr.set("q", "*:*");
+
+      assertEquals(
+          "The index should be empty.",
+          0,
+          cluster.getSolrClient().query(COL, qr).getResults().size());
+
+      // Send one document to the test collection.
+      Document doc1 = Document.create("id_1");
+      doc1.setField("foo", "bar");
+      doc1.setField("collection", COL);
+
+      // Send one document to a collection that doesn't exist.
+      Document doc2 = Document.create("id_2");
+      doc2.setField("foo", "baz");
+      doc2.setField("collection", "this-collection-does-not-exist");
+
+      // Send a second  document to the test collection.
+      Document doc3 = Document.create("id_3");
+      doc3.setField("foo", "bar");
+      doc3.setField("collection", "this-collection-also-does-not-exist");
+
+      Throwable exception = assertThrows(SolrException.class, () -> indexer.sendToIndex(List.of(doc1, doc2)));
+
+      cluster.getSolrClient().commit(COL);
+      QueryResponse response = cluster.getSolrClient().query(COL, qr);
+      assertEquals(
+          "The test document should have been indexed to the new collection",
+          1,
+          response.getResults().size());
+
+      cluster.getSolrClient().deleteByQuery(COL, "*:*");
+      cluster.getSolrClient().commit(COL);
+
+      assertEquals(
+          "The index should be empty.",
+          0,
+          cluster.getSolrClient().query(COL, qr).getResults().size());
+
+      //run the same test again with docs targeting both collections that do not exist with doc1 last.
+
+      exception = assertThrows(MultiException.class, () -> indexer.sendToIndex(List.of(doc3, doc2, doc1)));
+
+      cluster.getSolrClient().commit(COL);
+      response = cluster.getSolrClient().query(COL, qr);
+      assertEquals(
+          "The test document should have been indexed to the new collection",
+          1,
+          response.getResults().size());
+
+    } finally {
+      if (indexer != null) {
+        indexer.closeConnection();
+      }
+    }
   }
 
   @AfterClass
