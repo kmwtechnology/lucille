@@ -123,7 +123,7 @@ public abstract class Indexer implements Runnable {
    * call to the batch API provided by the search engine client, if available, as opposed to sending
    * each document individually.
    */
-  protected abstract void sendToIndex(List<Document> documents) throws Exception;
+  protected abstract List<Document> sendToIndex(List<Document> documents) throws Exception;
 
   /** Close the client or connection to the destination search engine. */
   public abstract void closeConnection();
@@ -197,10 +197,11 @@ public abstract class Indexer implements Runnable {
       return;
     }
 
+    List<Document> failedDocs;
     try {
       stopWatch.reset();
       stopWatch.start();
-      sendToIndex(batchedDocs);
+      failedDocs = sendToIndex(batchedDocs);
       stopWatch.stop();
       histogram.update(stopWatch.getNanoTime() / batchedDocs.size());
       meter.mark(batchedDocs.size());
@@ -211,27 +212,43 @@ public abstract class Indexer implements Runnable {
         try {
           messenger.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
         } catch (Exception e2) {
-          // TODO: The run won't be able to finish if this event isn't received; can we do something
-          // special here?
           log.error("Couldn't send failure event for doc " + d.getId(), e2);
         }
       }
-      return;
-    } finally {
+
       try {
-        // for now we add offsets whether or not the batch was successfully indexed
+        // we mark the batch complete even though it failed
         messenger.batchComplete(batchedDocs);
-      } catch (Exception e) {
-        log.error("Error marking batch complete.", e);
+      } catch (Exception e2) {
+        log.error("Error marking batch complete.", e2);
+      }
+
+      return;
+    }
+
+    try {
+      messenger.batchComplete(batchedDocs);
+    } catch (Exception e) {
+      log.error("Error marking batch complete.", e);
+    }
+
+    if (failedDocs != null) {
+      for (Document d : failedDocs) {
+        try {
+          messenger.sendEvent(d, "FAILED", Event.Type.FAIL);
+        } catch (Exception e) {
+          log.error("Couldn't send failure event for doc " + d.getId(), e);
+        }
       }
     }
 
     for (Document d : batchedDocs) {
+      if (failedDocs != null && failedDocs.contains(d)) {
+        continue;
+      }
       try {
         messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
       } catch (Exception e) {
-        // TODO: The run won't be able to finish if this event isn't received; can we do something
-        // special here?
         log.error("Error sending completion event for doc " + d.getId(), e);
       }
     }

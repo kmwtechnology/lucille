@@ -90,10 +90,10 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected List<Document> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) {
-      return;
+      return null;
     }
 
     BulkRequest.Builder br = new BulkRequest.Builder();
@@ -151,6 +151,7 @@ public class OpenSearchIndexer extends Indexer {
         }
       }
     }
+    return null;
   }
 
   private void addChildren(Document doc, Map<String, Object> indexerDoc) {
