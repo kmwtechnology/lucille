@@ -26,8 +26,11 @@ import org.slf4j.LoggerFactory;
  * returned upon subsequent requests.
  *
  * Stages that need to obtain a read-only dictionary from a CSV file can call
- * DictionaryManager.getDictionary("/path/to/dictionary.csv", ignoreCase)
+ * DictionaryManager.getDictionary("/path/to/dictionary.csv", ignoreCase, setOnly)
  *
+ * When requesting a dictionary from the same CSV but with different settings of ignoreCase and setOnly,
+ * a different dictionary instance will be created for each combination, because these settings
+ * affect the contents of the dictionary.
  */
 public class DictionaryManager {
 
@@ -49,14 +52,14 @@ public class DictionaryManager {
    * (indicating that the keyword is found in the given dictionary) or a sequence of payloads associated with
    * the keyword.
    *
-   * If a Map has already been populated for a given path (and given setting of ignoreCase),
+   * If a Map has already been populated for a given path (and given setting of ignoreCase and setOnly),
    * the first instance will be returned and a second instance will not be created.
    *
    * Each Stage instance that needs to acquire a dictionary should call this method once inside start().
    * Because Stage instances will not be calling this method more than once at startup time, we use a coarse-grained
    * approach of making the entire method synchronized. This is to ensure that at most one instance of each
    * named dictionary can be created. We are not concerned about the overhead of contention because
-   * this method is not called repeatedly in the Stage lifecycle; it os only called once at startup.
+   * this method is not called repeatedly in the Stage lifecycle; it is only called once at startup.
    *
    * This implementation explicitly DOES NOT permit the concurrent loading of different dictionaries by different threads.
    * Using this implementation, only one thread can enter getDictionary() at a time, meaning that only one dictionary
