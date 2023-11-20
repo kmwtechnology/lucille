@@ -181,7 +181,7 @@ public class SolrConnector extends AbstractConnector {
 
       try {
         NamedList<Object> resp = client.request(request);
-        log.info(String.format("Action \"%s\" complete, response: %s", action, resp.asShallowMap().get("responseHeader")));
+        log.info("Action \"{}\" complete, response: %s", action, resp.asShallowMap().get("responseHeader"));
       } catch (Exception e) {
         throw new ConnectorException("Failed to perform action: " + action, e);
       }

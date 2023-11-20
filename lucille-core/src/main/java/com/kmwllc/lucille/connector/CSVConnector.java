@@ -171,7 +171,7 @@ public class CSVConnector extends AbstractConnector {
           continue;
         }
         if (line.length != header.length) {
-          log.warn(String.format("Line %d of the csv has a different number of columns than columns in the header.", lineNum));
+          log.warn("Line {} of the csv has a different number of columns than columns in the header.", lineNum);
           continue;
         }
         String docId = "";
