@@ -23,8 +23,16 @@ import org.apache.parquet.io.RecordReader;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.Type;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.TreeSet;
 
 public class ParquetConnector extends AbstractConnector {
 
@@ -35,6 +43,8 @@ public class ParquetConnector extends AbstractConnector {
 
   private final String s3Key;
   private final String s3Secret;
+  
+  private final String seedUriFile;
 
   // non final
   private long start;
@@ -51,6 +61,7 @@ public class ParquetConnector extends AbstractConnector {
     this.s3Secret = config.hasPath("s3_secret") ? config.getString("s3_secret") : null;
     this.limit = config.hasPath("limit") ? config.getLong("limit") : -1;
     this.start = config.hasPath("start") ? config.getLong("start") : 0L;
+    this.seedUriFile = config.hasPath("seed_uri_file") ? config.getString("seed_uri_file") : null;
   }
 
   private boolean limitNotReached() {
@@ -76,6 +87,30 @@ public class ParquetConnector extends AbstractConnector {
       conf.setBoolean(AvroReadSupport.READ_INT96_AS_FIXED, true);
     }
 
+    TreeSet<String> seedUris = null;
+    // If there's a seed uri file.. we should open it and iterate that instead.
+    if (seedUriFile != null) {
+      seedUris = readLines(seedUriFile);
+      // TODO: process these instead
+      System.err.println("SEED URI FILE LOADED : " + seedUris.size());
+    }
+    
+    
+    // TODO: expose a location for this file.
+    String incrementalFile = getName() + "_incremental.dat";
+    // First read the incremental file in.. 
+    HashSet<String> alreadyProcessed = readAlreadyProcessedFile(incrementalFile);
+
+    FileWriter processLog = null;
+    try {
+      processLog = new FileWriter(incrementalFile, true);
+    } catch (IOException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+
+    BufferedWriter bw = new BufferedWriter(processLog);
+
     try (FileSystem fs = FileSystem.get(new URI(fsUri), conf)) {
       RemoteIterator<LocatedFileStatus> statusIterator = fs.listFiles(new Path(path), true);
       while (limitNotReached() && statusIterator.hasNext()) {
@@ -85,6 +120,26 @@ public class ParquetConnector extends AbstractConnector {
           continue;
         }
 
+        String fileUri = status.getPath().toUri().toString();
+        System.err.println("Scanning file :" + fileUri);
+        
+        //        bw.write(fileUri + "\n");
+        //        bw.flush();
+        //        if (true)
+        //          continue;
+        if (alreadyProcessed.contains(fileUri)) {
+          // We have already processed this file.. continue to the next one.
+          System.err.println("Already processed file, skipping: " + fileUri);
+          continue;
+        }
+
+        // now if we have a seedUriFile we should check if our uri is in there.
+        if (seedUris != null && !seedUris.contains(fileUri)) {
+          // skip this file.
+          System.err.println("Skipping file, it's not in the list. " + fileUri);
+          continue;
+        }
+        
         try (ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(status, conf))) {
 
           // check if we can skip this file
@@ -96,7 +151,7 @@ public class ParquetConnector extends AbstractConnector {
           List<Type> fields = schema.getFields();
           PageReadStore pages;
           while (limitNotReached() && (pages = reader.readNextRowGroup()) != null) {
-
+            
             // check if we can skip this row group
             long nRows = pages.getRowCount();
             if (canSkipAndUpdateStart(nRows)) {
@@ -109,33 +164,14 @@ public class ParquetConnector extends AbstractConnector {
             // at this point start is either 0 or < nRows, if later will update start to 0 after the loop
             while (limitNotReached() && nRows-- > 0) {
 
-              // read record regardless of the start parameter
+              // read record regardless of the st art parameter
               SimpleGroup simpleGroup = (SimpleGroup) recordReader.read();
               if (canSkipAndUpdateStart(1)) {
                 continue;
               }
 
               String id = simpleGroup.getString(idField, 0);
-              Document doc = Document.create(id);
-              for (int j = 0; j < fields.size(); j++) {
-
-                Type field = fields.get(j);
-                String fieldName = field.getName();
-                if (fieldName.equals(idField)) {
-                  continue;
-                }
-                if (field.isPrimitive()) {
-                  setDocField(doc, field, simpleGroup, j);
-                } else {
-                  for (int k = 0; k < simpleGroup.getGroup(j, 0).getFieldRepetitionCount(0); k++) {
-                    Group group = simpleGroup.getGroup(j, 0).getGroup(0, k);
-                    Type type = group.getType().getType(0);
-                    if (type.isPrimitive()) {
-                      addToField(doc, fieldName, type, group);
-                    }
-                  }
-                }
-              }
+              Document doc = simpleGroupToDocument(fields, simpleGroup, id);
               publisher.publish(doc);
               count++;
             }
@@ -143,10 +179,91 @@ public class ParquetConnector extends AbstractConnector {
         } catch (Exception e) {
           throw new ConnectorException("Problem running the connector.", e);
         }
+        // If we got here, the current file has been procssed.
+        bw.write(fileUri + "\n");
+        bw.flush();
       }
     } catch (Exception e) {
       throw new ConnectorException("Problem running the ParquetConnector", e);
     }
+    
+    try {
+      bw.close();
+    } catch (IOException e) {
+      //
+      e.printStackTrace();
+    }
+  }
+
+  private Document simpleGroupToDocument(List<Type> fields, SimpleGroup simpleGroup, String id) {
+    Document doc = Document.create(id);
+    for (int j = 0; j < fields.size(); j++) {
+
+      Type field = fields.get(j);
+      String fieldName = field.getName();
+      if (fieldName.equals(idField)) {
+        continue;
+      }
+      if (field.isPrimitive()) {
+        setDocField(doc, field, simpleGroup, j);
+      } else {
+        for (int k = 0; k < simpleGroup.getGroup(j, 0).getFieldRepetitionCount(0); k++) {
+          Group group = simpleGroup.getGroup(j, 0).getGroup(0, k);
+          Type type = group.getType().getType(0);
+          if (type.isPrimitive()) {
+            addToField(doc, fieldName, type, group);
+          }
+        }
+      }
+    }
+    return doc;
+  }
+
+  private static TreeSet<String> readLines(String seedUriFilename) {
+    TreeSet<String> lines = new TreeSet<String>();
+    // ArrayList<String> lines = new ArrayList<String>();
+    FileReader reader;
+    try {
+      reader = new FileReader(seedUriFilename);
+      BufferedReader br = new BufferedReader(reader);
+      String line;
+      while ((line = br.readLine()) != null) {
+        line = line.trim();
+        if (line.length() == 0) {
+          continue;
+        }
+        lines.add(line);
+      }
+      br.close();
+      reader.close();
+    } catch (IOException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+    return lines;
+  }
+  
+  private static HashSet<String> readAlreadyProcessedFile(String incrementalFile) {
+    HashSet<String> alreadyProcessed = new HashSet<String>();
+    FileReader reader;
+    try {
+      reader = new FileReader(incrementalFile);
+      BufferedReader br = new BufferedReader(reader);
+      String line;
+      while ((line = br.readLine()) != null) {
+        line = line.trim();
+        if (line.length() == 0) {
+          continue;
+        }
+        alreadyProcessed.add(line);
+      }
+      br.close();
+      reader.close();
+    } catch (IOException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+    return alreadyProcessed;
   }
 
   private static void setDocField(Document doc, Type field, SimpleGroup simpleGroup, int j) {
