@@ -30,7 +30,7 @@ public interface Publisher {
    * Returns the number of documents published so far.
    *
    */
-  int numPublished();
+  long numPublished();
 
   /**
    * Returns the number of documents for which we are still awaiting a terminal event.
@@ -38,31 +38,31 @@ public interface Publisher {
    * This number includes documents published via publish() as well as child documents generated
    * during pipeline execution.
    */
-  int numPending();
+  long numPending();
 
   /**
    * Returns the number of child documents that the publisher did not publish but was notified about via
    * a CREATE event passed to handleEvent().
    */
-  int numCreated();
+  long numCreated();
 
   /**
    * Returns the number of documents for which the publisher has been notified of successful completion.
    *
    */
-  int numSucceeded();
+  long numSucceeded();
 
   /**
    * Returns the number of documents for which the publisher has been notified of a failure.
    *
    */
-  int numFailed();
+  long numFailed();
 
   /**
    * Returns the number of documents for which the publisher has received a drop notification.
    *
    */
-  int numDropped();
+  long numDropped();
 
   /**
    * Returns true if there are published documents or generated children than have not yet reached an

@@ -2,7 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.connector.xml.XMLConnector;
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.stage.StageFactory;
 import com.kmwllc.lucille.stage.XPathExtractor;
 import com.kmwllc.lucille.util.FileUtils;
@@ -22,12 +22,12 @@ public class XMLConnectorTest {
   @Test
   public void testStaff() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/staff.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     assertEquals(2, docs.size());
 
@@ -44,12 +44,12 @@ public class XMLConnectorTest {
   @Test
   public void testNestedStaff() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/nestedstaff.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     // ensure that in a nested scenario, the nested tag does not get included
     assertEquals(2, docs.size());
@@ -60,12 +60,12 @@ public class XMLConnectorTest {
   @Test
   public void testKoreanEncoding() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/korean.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     assertEquals(1, docs.size());
 
@@ -82,12 +82,12 @@ public class XMLConnectorTest {
   @Test
   public void testJapaneseEncoding() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/japanese.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     assertEquals(1, docs.size());
 
@@ -103,12 +103,12 @@ public class XMLConnectorTest {
   @Test
   public void testChineseEncoding() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/chinese.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     assertEquals(1, docs.size());
 
@@ -125,12 +125,12 @@ public class XMLConnectorTest {
   @Test
   public void testURL() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/url.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     assertEquals(2, docs.size());
 
@@ -147,8 +147,8 @@ public class XMLConnectorTest {
   @Test(expected = ConnectorException.class)
   public void testEncodingError() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/encodingError.conf"));
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
   }

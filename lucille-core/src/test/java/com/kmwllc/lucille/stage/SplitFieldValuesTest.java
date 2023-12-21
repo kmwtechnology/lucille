@@ -28,9 +28,30 @@ public class SplitFieldValuesTest {
     assertEquals("the", doc.getStringList("data").get(2));
     assertEquals("other", doc.getStringList("data").get(3));
 
+  }
+
+  @Test
+  public void testMultiValuedField() throws Exception {
+    Stage stage = factory.get("SplitFieldValuesTest/config.conf");
+
+    Document doc = Document.create("doc");
+    doc.setField("data", "this,that, the ,other");
+    doc.addToField("data", "value2");
+    doc.addToField("data", "value3, value4");
+    stage.processDocument(doc);
+    
+    assertEquals(7, doc.getStringList("data").size());
+    assertEquals("this", doc.getStringList("data").get(0));
+    assertEquals("that", doc.getStringList("data").get(1));
+    assertEquals("the", doc.getStringList("data").get(2));
+    assertEquals("other", doc.getStringList("data").get(3));
+    assertEquals("value2", doc.getStringList("data").get(4));
+    assertEquals("value3", doc.getStringList("data").get(5));
+    assertEquals("value4", doc.getStringList("data").get(6));
 
   }
 
+  
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("SplitFieldValuesTest/config.conf");

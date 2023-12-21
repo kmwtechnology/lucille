@@ -6,8 +6,8 @@ import static org.mockito.Mockito.verify;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.message.IndexerMessageManager;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import io.weaviate.client.WeaviateClient;
@@ -76,20 +76,20 @@ public class WeaviateIndexerTest {
 
   @Test
   public void testWeaviateIndexer() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
-    WeaviateIndexer indexer = new WeaviateIndexer(config, manager, mockClient, "testing");
-    manager.sendCompleted(doc);
-    manager.sendCompleted(doc2);
+    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
     indexer.run(2);
 
-    Assert.assertEquals(2, manager.getSavedEvents().size());
+    Assert.assertEquals(2, messenger.getSentEvents().size());
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     for (int i = 1; i <= events.size(); i++) {
       Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       Assert.assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
@@ -98,7 +98,7 @@ public class WeaviateIndexerTest {
 
   @Test
   public void testWeaviateIndexerException() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");
 
     Document doc = Document.create("doc1", "test_run");
@@ -107,15 +107,15 @@ public class WeaviateIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    WeaviateIndexer indexer = new CorruptedWeaviateIndexer(config, manager, mockClient, "testing");
-    manager.sendCompleted(doc);
-    manager.sendCompleted(doc2);
-    manager.sendCompleted(doc3);
-    manager.sendCompleted(doc4);
-    manager.sendCompleted(doc5);
+    WeaviateIndexer indexer = new CorruptedWeaviateIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
+    messenger.sendForIndexing(doc4);
+    messenger.sendForIndexing(doc5);
     indexer.run(5);
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     Assert.assertEquals(5, events.size());
     for (int i = 1; i <= events.size(); i++) {
       Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
@@ -125,9 +125,9 @@ public class WeaviateIndexerTest {
 
   @Test
   public void testValidateConnection() {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");
-    WeaviateIndexer indexer = new WeaviateIndexer(config, manager, mockClient, "testing");
+    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
     Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
@@ -135,9 +135,9 @@ public class WeaviateIndexerTest {
 
   @Test
   public void testMultipleBatches() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("WeaviateIndexerTest/batching.conf");
-    WeaviateIndexer indexer = new WeaviateIndexer(config, manager, mockClient, "testing");
+    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
@@ -145,11 +145,11 @@ public class WeaviateIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    manager.sendCompleted(doc);
-    manager.sendCompleted(doc2);
-    manager.sendCompleted(doc3);
-    manager.sendCompleted(doc4);
-    manager.sendCompleted(doc5);
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
+    messenger.sendForIndexing(doc4);
+    messenger.sendForIndexing(doc5);
     indexer.run(5);
 
     // the batcher will be run 3 times
@@ -165,17 +165,17 @@ public class WeaviateIndexerTest {
     WeaviateObject object = bulkRequestArgumentCaptor.getValue();
     assertEquals(WeaviateIndexer.generateDocumentUUID(doc5), object.getId());
 
-    Assert.assertEquals(5, manager.getSavedEvents().size());
-    List<Event> events = manager.getSavedEvents();
+    Assert.assertEquals(5, messenger.getSentEvents().size());
+    List<Event> events = messenger.getSentEvents();
     Assert.assertEquals("doc1", events.get(0).getDocumentId());
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
   private static class CorruptedWeaviateIndexer extends WeaviateIndexer {
 
-    public CorruptedWeaviateIndexer(Config config, IndexerMessageManager manager,
+    public CorruptedWeaviateIndexer(Config config, IndexerMessenger messenger,
         WeaviateClient client, String metricsPrefix) {
-      super(config, manager, client, "testing");
+      super(config, messenger, client, "testing");
     }
 
     @Override

@@ -12,8 +12,8 @@ import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
-import com.kmwllc.lucille.message.IndexerMessageManager;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
@@ -69,20 +69,20 @@ public class OpenSearchIndexerTest {
    */
   @Test
   public void testOpenSearchIndexer() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
-    manager.sendCompleted(doc);
-    manager.sendCompleted(doc2);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
     indexer.run(2);
 
-    Assert.assertEquals(2, manager.getSavedEvents().size());
+    Assert.assertEquals(2, messenger.getSentEvents().size());
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     for (int i = 1; i <= events.size(); i++) {
       Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       Assert.assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
@@ -91,7 +91,7 @@ public class OpenSearchIndexerTest {
 
   @Test
   public void testOpenSearchIndexerException() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/exception.conf");
 
     Document doc = Document.create("doc1", "test_run");
@@ -100,15 +100,15 @@ public class OpenSearchIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    OpenSearchIndexer indexer = new ErroringOpenSearchIndexer(config, manager, mockClient, "testing");
-    manager.sendCompleted(doc);
-    manager.sendCompleted(doc2);
-    manager.sendCompleted(doc3);
-    manager.sendCompleted(doc4);
-    manager.sendCompleted(doc5);
+    OpenSearchIndexer indexer = new ErroringOpenSearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
+    messenger.sendForIndexing(doc4);
+    messenger.sendForIndexing(doc5);
     indexer.run(5);
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     Assert.assertEquals(5, events.size());
     for (int i = 1; i <= events.size(); i++) {
       Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
@@ -118,9 +118,9 @@ public class OpenSearchIndexerTest {
 
   @Test
   public void testValidateConnection() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
     Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
@@ -129,9 +129,9 @@ public class OpenSearchIndexerTest {
 
   @Test
   public void testMultipleBatches() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
@@ -139,11 +139,11 @@ public class OpenSearchIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    manager.sendCompleted(doc);
-    manager.sendCompleted(doc2);
-    manager.sendCompleted(doc3);
-    manager.sendCompleted(doc4);
-    manager.sendCompleted(doc5);
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
+    messenger.sendForIndexing(doc4);
+    messenger.sendForIndexing(doc5);
     indexer.run(5);
 
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(
@@ -160,16 +160,16 @@ public class OpenSearchIndexerTest {
 
     assertEquals(doc5.getId(), indexRequest.id());
 
-    Assert.assertEquals(5, manager.getSavedEvents().size());
+    Assert.assertEquals(5, messenger.getSentEvents().size());
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     Assert.assertEquals("doc1", events.get(0).getDocumentId());
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
   @Test
   public void testOpenSearchIndexerNestedJson() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
     Document doc = Document.create("doc1", "test_run");
@@ -177,8 +177,8 @@ public class OpenSearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
-    manager.sendCompleted(doc);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
@@ -194,16 +194,16 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), indexRequest.id());
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertEquals(1, manager.getSavedEvents().size());
+    Assert.assertEquals(1, messenger.getSentEvents().size());
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     Assert.assertEquals("doc1", events.get(0).getDocumentId());
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
   @Test
   public void testOpenSearchIndexerNestedJsonMultivalued() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
     Document doc = Document.create("doc1", "test_run");
@@ -211,8 +211,8 @@ public class OpenSearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
-    manager.sendCompleted(doc);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
@@ -227,16 +227,16 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertEquals(1, manager.getSavedEvents().size());
+    Assert.assertEquals(1, messenger.getSentEvents().size());
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     Assert.assertEquals("doc1", events.get(0).getDocumentId());
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
   @Test
   public void testOpenSearchIndexerNestedJsonWithObjects() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
     Document doc = Document.create("doc1", "test_run");
@@ -244,8 +244,8 @@ public class OpenSearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
     doc.setField("myJsonField", jsonNode);
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
-    manager.sendCompleted(doc);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
@@ -260,24 +260,24 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertEquals(1, manager.getSavedEvents().size());
+    Assert.assertEquals(1, messenger.getSentEvents().size());
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     Assert.assertEquals("doc1", events.get(0).getDocumentId());
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
   @Test
   public void testRouting() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/routing.conf");
 
     Document doc = Document.create("doc1");
     doc.setField("routing", "routing1");
     doc.setField("field1", "value1");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
-    manager.sendCompleted(doc);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
     indexer.run(1);
 
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
@@ -296,7 +296,7 @@ public class OpenSearchIndexerTest {
 
   @Test
   public void testDocumentVersioning() throws Exception {
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf");
 
     KafkaDocument doc = new KafkaDocument(
@@ -305,8 +305,8 @@ public class OpenSearchIndexerTest {
             .put("field1", "value1"));
     doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient, "testing");
-    manager.sendCompleted(doc);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
     indexer.run(1);
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
 
@@ -351,24 +351,24 @@ public class OpenSearchIndexerTest {
     List<BulkResponseItem> bulkResponseItems = Arrays.asList(mockItemNoError, mockItemError, mockItemNoError);
     Mockito.when(mockResponse.items()).thenReturn(bulkResponseItems);
 
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
+    TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
     Document doc3 = Document.create("doc3", "test_run");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, manager, mockClient2, "testing");
-    manager.sendCompleted(doc);
-    manager.sendCompleted(doc2);
-    manager.sendCompleted(doc3);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient2, "testing");
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
 
     indexer.run(3);
 
     IndexerException exc = assertThrows(IndexerException.class, () -> indexer.sendToIndex(Arrays.asList(doc, doc2, doc3)));
     assertEquals("mock reason", exc.getMessage());
 
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertEquals(3, events.size());
     for (int i = 1; i <= events.size(); i++) {
       Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
@@ -378,9 +378,9 @@ public class OpenSearchIndexerTest {
 
   private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
 
-    public ErroringOpenSearchIndexer(Config config, IndexerMessageManager manager,
+    public ErroringOpenSearchIndexer(Config config, IndexerMessenger messenger,
         OpenSearchClient client, String metricsPrefix) {
-      super(config, manager, client, "testing");
+      super(config, messenger, client, "testing");
     }
 
     @Override

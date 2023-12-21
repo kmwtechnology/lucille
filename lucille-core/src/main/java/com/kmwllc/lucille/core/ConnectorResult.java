@@ -9,8 +9,8 @@ public class ConnectorResult {
   // true indicates success, false indicates failure
   private final boolean status;
 
-  private final int numFailed;
-  private final int numSucceeded;
+  private final long numFailed;
+  private final long numSucceeded;
 
   private String message;
 

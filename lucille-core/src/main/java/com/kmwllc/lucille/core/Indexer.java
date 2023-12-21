@@ -4,7 +4,7 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.kmwllc.lucille.message.IndexerMessageManager;
+import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.time.StopWatch;
@@ -23,7 +23,7 @@ public abstract class Indexer implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
 
-  private final IndexerMessageManager manager;
+  private final IndexerMessenger messenger;
   private final Batch batch;
 
   private volatile boolean running = true;
@@ -51,8 +51,8 @@ public abstract class Indexer implements Runnable {
     log.debug("terminate");
   }
 
-  public Indexer(Config config, IndexerMessageManager manager, String metricsPrefix) {
-    this.manager = manager;
+  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix) {
+    this.messenger = messenger;
     this.idOverrideField =
         config.hasPath("indexer.idOverrideField")
             ? config.getString("indexer.idOverrideField")
@@ -129,11 +129,11 @@ public abstract class Indexer implements Runnable {
   public abstract void closeConnection();
 
   private void close() {
-    if (manager != null) {
+    if (messenger != null) {
       try {
-        manager.close();
+        messenger.close();
       } catch (Exception e) {
-        log.error("Error closing message manager", e);
+        log.error("Error closing messenger", e);
       }
     }
     closeConnection();
@@ -167,7 +167,7 @@ public abstract class Indexer implements Runnable {
     try {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
-      doc = manager.pollCompleted();
+      doc = messenger.pollDocToIndex();
     } catch (Exception e) {
       log.info("Indexer interrupted ", e);
       terminate();
@@ -209,7 +209,7 @@ public abstract class Indexer implements Runnable {
 
       for (Document d : batchedDocs) {
         try {
-          manager.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
+          messenger.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
         } catch (Exception e2) {
           // TODO: The run won't be able to finish if this event isn't received; can we do something
           // special here?
@@ -220,7 +220,7 @@ public abstract class Indexer implements Runnable {
     } finally {
       try {
         // for now we add offsets whether or not the batch was successfully indexed
-        manager.batchComplete(batchedDocs);
+        messenger.batchComplete(batchedDocs);
       } catch (Exception e) {
         log.error("Error marking batch complete.", e);
       }
@@ -228,7 +228,7 @@ public abstract class Indexer implements Runnable {
 
     for (Document d : batchedDocs) {
       try {
-        manager.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
+        messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
       } catch (Exception e) {
         // TODO: The run won't be able to finish if this event isn't received; can we do something
         // special here?

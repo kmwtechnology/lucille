@@ -7,7 +7,7 @@ import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
 import com.kmwllc.lucille.connector.RunSummaryMessageConnector;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.stage.StartStopCaptureStage;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
@@ -32,18 +32,18 @@ public class RunnerTest {
   @Test
   public void testRunnerWithNoDocs() throws Exception {
     // we should be able to run a connector that generates no documents
-    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/noDocs.conf");
+    Map<String, TestMessenger> map = Runner.runInTestMode("RunnerTest/noDocs.conf");
     assertEquals(1, map.size());
 
-    PersistingLocalMessageManager manager = map.get("connector1");
+    TestMessenger messenger = map.get("connector1");
 
-    assertEquals(0, manager.getSavedDocumentsSentForProcessing().size());
-    assertEquals(0, manager.getSavedCompletedDocuments().size());
-    assertEquals(0, manager.getSavedCompletedDocuments().size());
-    assertEquals(0, manager.getSavedEvents().size());
-    assertNull(manager.pollCompleted());
-    assertNull(manager.pollDocToProcess());
-    assertNull(manager.pollEvent());
+    assertEquals(0, messenger.getDocsSentForProcessing().size());
+    assertEquals(0, messenger.getDocsSentForIndexing().size());
+    assertEquals(0, messenger.getDocsSentForIndexing().size());
+    assertEquals(0, messenger.getSentEvents().size());
+    assertNull(messenger.pollDocToIndex());
+    assertNull(messenger.pollDocToProcess());
+    assertNull(messenger.pollEvent());
   }
 
   /**
@@ -52,38 +52,38 @@ public class RunnerTest {
   @Test
   public void testRunnerWithSingleDoc() throws Exception {
 
-    // run connectors and pipeline; acquire a persisting message manager that allows
+    // run connectors and pipeline; acquire a persisting message messenger that allows
     // for reviewing saved message traffic
-    PersistingLocalMessageManager manager =
+    TestMessenger messenger =
         Runner.runInTestMode("RunnerTest/singleDoc.conf").get("connector1");
 
     // confirm doc 1 sent for processing
-    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(1, docsSentForProcessing.size());
     assertEquals("1", docsSentForProcessing.get(0).getId());
 
     // confirm doc 1 was processed by the pipeline and sent to the destination topic
-    List<Document> docsCompleted = manager.getSavedCompletedDocuments();
+    List<Document> docsCompleted = messenger.getDocsSentForIndexing();
     assertEquals(1, docsCompleted.size());
     assertEquals("1", docsCompleted.get(0).getId());
 
     // confirm doc 1 was sent to solr
-    //List<Document> docsSentToSolr = manager.getSavedDocsSentToSolr();
+    //List<Document> docsSentToSolr = messenger.getSavedDocsSentToSolr();
     //assertEquals(1, docsSentToSolr.size());
     //assertEquals("1", docsSentToSolr.get(0).getId());
 
     // confirm that a terminal event was sent for doc 1 and is stamped with the proper run ID
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertEquals(1, events.size());
     assertEquals("1", events.get(0).getDocumentId());
-    assertNotNull(manager.getRunId());
-    assertEquals(manager.getRunId(), events.get(0).getRunId());
+    assertNotNull(messenger.getRunId());
+    assertEquals(messenger.getRunId(), events.get(0).getRunId());
     assertEquals(Event.Type.FINISH, events.get(0).getType());
 
     // confirm that topics are empty
-    assertNull(manager.pollCompleted());
-    assertNull(manager.pollDocToProcess());
-    assertNull(manager.pollEvent());
+    assertNull(messenger.pollDocToIndex());
+    assertNull(messenger.pollDocToProcess());
+    assertNull(messenger.pollEvent());
   }
 
   /**
@@ -94,44 +94,44 @@ public class RunnerTest {
   @Test
   public void testRunnerWithFailingDoc() throws Exception {
 
-    // run connectors and pipeline; acquire a persisting message manager that allows
+    // run connectors and pipeline; acquire a persisting message messenger that allows
     // for reviewing saved message traffic
-    PersistingLocalMessageManager manager =
+    TestMessenger messenger =
         Runner.runInTestMode("RunnerTest/threeDocsOneFailure.conf").get("connector1");
 
     // confirm doc 3 docs sent for processing but only 2 docs completed
-    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(3, docsSentForProcessing.size());
     assertEquals("1", docsSentForProcessing.get(0).getId());
     assertEquals("2", docsSentForProcessing.get(1).getId());
     assertEquals("3", docsSentForProcessing.get(2).getId());
 
-    assertEquals(2, manager.getSavedCompletedDocuments().size());
-    assertEquals("1", manager.getSavedCompletedDocuments().get(0).getId());
-    assertEquals("3", manager.getSavedCompletedDocuments().get(1).getId());
+    assertEquals(2, messenger.getDocsSentForIndexing().size());
+    assertEquals("1", messenger.getDocsSentForIndexing().get(0).getId());
+    assertEquals("3", messenger.getDocsSentForIndexing().get(1).getId());
 
     // confirm that the proper events were sent for all three documents
-    List<Event> events = manager.getSavedEvents();
-    assertNotNull(manager.getRunId());
+    List<Event> events = messenger.getSentEvents();
+    assertNotNull(messenger.getRunId());
     assertEquals(3, events.size());
 
     events.sort(Comparator.comparing(Event::getDocumentId));
     assertEquals("1", events.get(0).getDocumentId());
-    assertEquals(manager.getRunId(), events.get(0).getRunId());
+    assertEquals(messenger.getRunId(), events.get(0).getRunId());
     assertEquals(Event.Type.FINISH, events.get(0).getType());
 
     assertEquals("2", events.get(1).getDocumentId());
-    assertEquals(manager.getRunId(), events.get(1).getRunId());
+    assertEquals(messenger.getRunId(), events.get(1).getRunId());
     assertEquals(Event.Type.FAIL, events.get(1).getType());
 
     assertEquals("3", events.get(2).getDocumentId());
-    assertEquals(manager.getRunId(), events.get(2).getRunId());
+    assertEquals(messenger.getRunId(), events.get(2).getRunId());
     assertEquals(Event.Type.FINISH, events.get(2).getType());
 
     // confirm that topics are empty
-    assertNull(manager.pollCompleted());
-    assertNull(manager.pollDocToProcess());
-    assertNull(manager.pollEvent());
+    assertNull(messenger.pollDocToIndex());
+    assertNull(messenger.pollDocToProcess());
+    assertNull(messenger.pollEvent());
   }
 
   /**
@@ -143,8 +143,8 @@ public class RunnerTest {
 
     Config config = ConfigFactory.load("RunnerTest/singleDocTimeout.conf");
     Connector connector = Connector.fromConfig(config).get(0);
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", connector.getPipelineName());
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", connector.getPipelineName());
     Instant start = Instant.now();
     boolean result = Runner.runConnector(config, "run1", connector, publisher).getStatus();
     Instant end = Instant.now();
@@ -160,38 +160,38 @@ public class RunnerTest {
   @Test
   public void testChildHandling() throws Exception {
 
-    PersistingLocalMessageManager manager =
+    TestMessenger messenger =
         Runner.runInTestMode("RunnerTest/singleDocSingleChild.conf").get("connector1");
     ;
 
     // confirm doc 1 sent for processing
-    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(1, docsSentForProcessing.size());
     assertEquals("1", docsSentForProcessing.get(0).getId());
 
     // confirm doc 1 and its child were processed by the pipeline and sent to the destination topic
-    List<Document> docsCompleted = manager.getSavedCompletedDocuments();
+    List<Document> docsCompleted = messenger.getDocsSentForIndexing();
     assertEquals(2, docsCompleted.size());
 
     // confirm doc 1 and its child were sent to solr
-    //List<Document> docsSentToSolr = manager.getSavedDocsSentToSolr();
+    //List<Document> docsSentToSolr = messenger.getSavedDocsSentToSolr();
     //assertEquals(2, docsSentToSolr.size());
 
     // confirm that a CREATE event was sent for doc 1's child; followed by terminal events for both docs
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertEquals(3, events.size());
     assertEquals(Event.Type.CREATE, events.get(0).getType());
     assertEquals(Event.Type.FINISH, events.get(1).getType());
     assertEquals(Event.Type.FINISH, events.get(2).getType());
 
-    assertNotNull(manager.getRunId());
-    assertEquals(manager.getRunId(), events.get(1).getRunId());
-    assertEquals(manager.getRunId(), events.get(2).getRunId());
+    assertNotNull(messenger.getRunId());
+    assertEquals(messenger.getRunId(), events.get(1).getRunId());
+    assertEquals(messenger.getRunId(), events.get(2).getRunId());
 
     // confirm that topics are empty
-    assertNull(manager.pollCompleted());
-    assertNull(manager.pollDocToProcess());
-    assertNull(manager.pollEvent());
+    assertNull(messenger.pollDocToIndex());
+    assertNull(messenger.pollDocToProcess());
+    assertNull(messenger.pollEvent());
   }
 
   /**
@@ -201,12 +201,12 @@ public class RunnerTest {
   @Test
   public void testDropDocument() throws Exception {
 
-    PersistingLocalMessageManager manager =
+    TestMessenger messenger =
         Runner.runInTestMode("RunnerTest/twoChildrenDropParent.conf").get("connector1");
     ;
 
     // confirm doc 1 sent for processing
-    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(1, docsSentForProcessing.size());
     Document parent = docsSentForProcessing.get(0);
     assertEquals("1", parent.getId());
@@ -215,7 +215,7 @@ public class RunnerTest {
     assertFalse(parent.has("after2"));
 
     // confirm the two children were processed by the pipeline and sent to the destination topic
-    List<Document> docsCompleted = manager.getSavedCompletedDocuments();
+    List<Document> docsCompleted = messenger.getDocsSentForIndexing();
     assertEquals(2, docsCompleted.size());
     Document child1 = docsCompleted.get(0);
     Document child2 = docsCompleted.get(1);
@@ -230,7 +230,7 @@ public class RunnerTest {
 
     // confirm that a CREATE event was sent for the doc1's children
     // confirm that a DROP event was sent for doc1 no FINISH event was sent for it
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertEquals(5, events.size());
     assertEquals(Event.Type.CREATE, events.get(0).getType());
     assertEquals("1_child1", events.get(0).getDocumentId());
@@ -244,9 +244,9 @@ public class RunnerTest {
     assertEquals("1_child2", events.get(4).getDocumentId());
 
     // confirm that topics are empty
-    assertNull(manager.pollCompleted());
-    assertNull(manager.pollDocToProcess());
-    assertNull(manager.pollEvent());
+    assertNull(messenger.pollDocToIndex());
+    assertNull(messenger.pollDocToProcess());
+    assertNull(messenger.pollEvent());
   }
 
   /**
@@ -257,19 +257,19 @@ public class RunnerTest {
   @Test
   public void testDropChildDocument() throws Exception {
 
-    PersistingLocalMessageManager manager =
+    TestMessenger messenger =
         Runner.runInTestMode("RunnerTest/threeChildrenDropMiddle.conf").get("connector1");
     ;
 
     // confirm doc 1 sent for processing
-    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(1, docsSentForProcessing.size());
     Document parent = docsSentForProcessing.get(0);
     assertEquals("1", parent.getId());
 
     // confirm the two children were processed by the pipeline and sent to the destination topic,
     // while the middle one was dropped and not sent for processing
-    List<Document> docsCompleted = manager.getSavedCompletedDocuments();
+    List<Document> docsCompleted = messenger.getDocsSentForIndexing();
     assertEquals(3, docsCompleted.size());
     assertEquals("1_child1", docsCompleted.get(0).getId());
     assertEquals("1_child3", docsCompleted.get(1).getId());
@@ -277,7 +277,7 @@ public class RunnerTest {
 
     // confirm that a CREATE event was sent for doc1's children, including the dropped one;
     // confirm that a DROP event was sent for the middle child and no FINISH event was sent for it
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertEquals(7, events.size());
     assertEquals(Event.Type.CREATE, events.get(0).getType());
     assertEquals("1_child1", events.get(0).getDocumentId());
@@ -295,9 +295,9 @@ public class RunnerTest {
     assertEquals("1", events.get(6).getDocumentId());
 
     // confirm that topics are empty
-    assertNull(manager.pollCompleted());
-    assertNull(manager.pollDocToProcess());
-    assertNull(manager.pollEvent());
+    assertNull(messenger.pollDocToIndex());
+    assertNull(messenger.pollDocToProcess());
+    assertNull(messenger.pollEvent());
   }
 
   /**
@@ -307,18 +307,18 @@ public class RunnerTest {
   @Test
   public void testErrorGeneratingChildren() throws Exception {
 
-    PersistingLocalMessageManager manager =
+    TestMessenger messenger =
         Runner.runInTestMode("RunnerTest/failAfterTwoChildren.conf").get("connector1");
     ;
 
     // confirm doc 1 sent for processing
-    List<Document> docsSentForProcessing = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(1, docsSentForProcessing.size());
     Document parent = docsSentForProcessing.get(0);
     assertEquals("1", parent.getId());
 
     // confirm the two children were processed by the pipeline and sent to the destination topic
-    List<Document> docsCompleted = manager.getSavedCompletedDocuments();
+    List<Document> docsCompleted = messenger.getDocsSentForIndexing();
     assertEquals(2, docsCompleted.size());
     Document child1 = docsCompleted.get(0);
     Document child2 = docsCompleted.get(1);
@@ -332,7 +332,7 @@ public class RunnerTest {
     // the error in generating children is considered as a failure in processing the parent;
     // also note that the failure arises when requesting the 3rd child and therefore a CREATE event
     // is not sent for that 3rd child
-    List<Event> events = manager.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertEquals(5, events.size());
     assertEquals(Event.Type.CREATE, events.get(0).getType());
     assertEquals("1_child1", events.get(0).getDocumentId());
@@ -346,9 +346,9 @@ public class RunnerTest {
     assertEquals("1_child2", events.get(4).getDocumentId());
 
     // confirm that topics are empty
-    assertNull(manager.pollCompleted());
-    assertNull(manager.pollDocToProcess());
-    assertNull(manager.pollEvent());
+    assertNull(messenger.pollDocToIndex());
+    assertNull(messenger.pollDocToProcess());
+    assertNull(messenger.pollEvent());
   }
 
   /**
@@ -356,52 +356,52 @@ public class RunnerTest {
    */
   @Test
   public void testTwoConnectors() throws Exception {
-    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/twoConnectors.conf");
+    Map<String, TestMessenger> map = Runner.runInTestMode("RunnerTest/twoConnectors.conf");
 
     assertEquals(2, map.size());
 
-    PersistingLocalMessageManager manager1 = map.get("connector1");
-    PersistingLocalMessageManager manager2 = map.get("connector2");
+    TestMessenger messenger1 = map.get("connector1");
+    TestMessenger messenger2 = map.get("connector2");
 
     // confirm doc 1 sent for processing (via first connector) and doc 2 sent (via second connector)
-    assertEquals(1, manager1.getSavedDocumentsSentForProcessing().size());
-    assertEquals(1, manager2.getSavedDocumentsSentForProcessing().size());
-    assertEquals("1", manager1.getSavedDocumentsSentForProcessing().get(0).getId());
-    assertEquals("2", manager2.getSavedDocumentsSentForProcessing().get(0).getId());
+    assertEquals(1, messenger1.getDocsSentForProcessing().size());
+    assertEquals(1, messenger2.getDocsSentForProcessing().size());
+    assertEquals("1", messenger1.getDocsSentForProcessing().get(0).getId());
+    assertEquals("2", messenger2.getDocsSentForProcessing().get(0).getId());
 
     // confirm both docs were processed and sent to the destination topic
-    assertEquals(1, manager1.getSavedCompletedDocuments().size());
-    assertEquals(1, manager2.getSavedCompletedDocuments().size());
-    assertEquals("1", manager1.getSavedCompletedDocuments().get(0).getId());
-    assertEquals("2", manager2.getSavedCompletedDocuments().get(0).getId());
+    assertEquals(1, messenger1.getDocsSentForIndexing().size());
+    assertEquals(1, messenger2.getDocsSentForIndexing().size());
+    assertEquals("1", messenger1.getDocsSentForIndexing().get(0).getId());
+    assertEquals("2", messenger2.getDocsSentForIndexing().get(0).getId());
 
     // confirm both docs were sent to solr
-    //assertEquals(1, manager1.getSavedDocsSentToSolr().size());
-    //assertEquals(1, manager2.getSavedDocsSentToSolr().size());
-    //assertEquals("1", manager1.getSavedDocsSentToSolr().get(0).getId());
-    //assertEquals("2", manager2.getSavedDocsSentToSolr().get(0).getId());
+    //assertEquals(1, messenger1.getSavedDocsSentToSolr().size());
+    //assertEquals(1, messenger2.getSavedDocsSentToSolr().size());
+    //assertEquals("1", messenger1.getSavedDocsSentToSolr().get(0).getId());
+    //assertEquals("2", messenger2.getSavedDocsSentToSolr().get(0).getId());
 
     // confirm that terminal events were sent for both docs
-    assertEquals(1, manager1.getSavedEvents().size());
-    assertEquals(1, manager2.getSavedEvents().size());
-    assertEquals(Event.Type.FINISH, manager1.getSavedEvents().get(0).getType());
-    assertEquals(Event.Type.FINISH, manager2.getSavedEvents().get(0).getType());
-    assertEquals("1", manager1.getSavedEvents().get(0).getDocumentId());
-    assertEquals("2", manager2.getSavedEvents().get(0).getDocumentId());
+    assertEquals(1, messenger1.getSentEvents().size());
+    assertEquals(1, messenger2.getSentEvents().size());
+    assertEquals(Event.Type.FINISH, messenger1.getSentEvents().get(0).getType());
+    assertEquals(Event.Type.FINISH, messenger2.getSentEvents().get(0).getType());
+    assertEquals("1", messenger1.getSentEvents().get(0).getDocumentId());
+    assertEquals("2", messenger2.getSentEvents().get(0).getDocumentId());
 
-    assertNotNull(manager1.getRunId());
-    assertEquals(manager1.getRunId(), manager2.getRunId());
-    assertEquals(manager1.getRunId(), manager1.getSavedEvents().get(0).getRunId());
-    assertEquals(manager2.getRunId(), manager2.getSavedEvents().get(0).getRunId());
+    assertNotNull(messenger1.getRunId());
+    assertEquals(messenger1.getRunId(), messenger2.getRunId());
+    assertEquals(messenger1.getRunId(), messenger1.getSentEvents().get(0).getRunId());
+    assertEquals(messenger2.getRunId(), messenger2.getSentEvents().get(0).getRunId());
 
     // confirm that topics are empty
-    assertNull(manager1.pollCompleted());
-    assertNull(manager1.pollDocToProcess());
-    assertNull(manager1.pollEvent());
+    assertNull(messenger1.pollDocToIndex());
+    assertNull(messenger1.pollDocToProcess());
+    assertNull(messenger1.pollEvent());
 
-    assertNull(manager2.pollCompleted());
-    assertNull(manager2.pollDocToProcess());
-    assertNull(manager2.pollEvent());
+    assertNull(messenger2.pollDocToIndex());
+    assertNull(messenger2.pollDocToProcess());
+    assertNull(messenger2.pollEvent());
   }
 
   /**
@@ -410,7 +410,7 @@ public class RunnerTest {
    */
   @Test
   public void testThreeConnectorsWithFailure() throws Exception {
-    Map<String, PersistingLocalMessageManager> map =
+    Map<String, TestMessenger> map =
         Runner.runInTestMode("RunnerTest/threeConnectorsWithFailure.conf");
     assertEquals(2, map.size());
   }
@@ -441,7 +441,7 @@ public class RunnerTest {
    */
   @Test
   public void testThreeConnectorsWithStageStartFailure() throws Exception {
-    Map<String, PersistingLocalMessageManager> map =
+    Map<String, TestMessenger> map =
         Runner.runInTestMode("RunnerTest/threeConnectorsWithStageStartFailure.conf");
     assertEquals(2, map.size());
   }
@@ -452,9 +452,9 @@ public class RunnerTest {
   @Test
   public void testPostCompletionActions() throws Exception {
     PostCompletionCSVConnector.reset();
-    PersistingLocalMessageManager manager = Runner.runInTestMode("RunnerTest/postCompletionActions.conf").get("connector1");
+    TestMessenger messenger = Runner.runInTestMode("RunnerTest/postCompletionActions.conf").get("connector1");
     assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
-    List<Document> docs = manager.getSavedCompletedDocuments();
+    List<Document> docs = messenger.getDocsSentForIndexing();
     Instant stageInstant = Instant.parse(docs.get(0).getString("timestamp"));
     Instant postCompletionInstant = PostCompletionCSVConnector.getPostCompletionInstant();
     assertTrue(postCompletionInstant.isAfter(stageInstant));
@@ -466,8 +466,7 @@ public class RunnerTest {
   @Test
   public void testPostCompletionActionsWithoutPipeline() throws Exception {
     PostCompletionCSVConnector.reset();
-    PersistingLocalMessageManager manager =
-        Runner.runInTestMode("RunnerTest/postCompletionActionsWithoutPipeline.conf").get("connector1");
+    Runner.runInTestMode("RunnerTest/postCompletionActionsWithoutPipeline.conf").get("connector1");
     assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
   }
 
@@ -476,7 +475,7 @@ public class RunnerTest {
    */
   @Test
   public void testFailingPreCompletionActions() throws Exception {
-    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/failingPreCompletionActions.conf");
+    Map<String, TestMessenger> map = Runner.runInTestMode("RunnerTest/failingPreCompletionActions.conf");
     assertEquals(2, map.size());
   }
 
@@ -485,7 +484,7 @@ public class RunnerTest {
    */
   @Test
   public void testFailingPostCompletionActions() throws Exception {
-    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/failingPostCompletionActions.conf");
+    Map<String, TestMessenger> map = Runner.runInTestMode("RunnerTest/failingPostCompletionActions.conf");
     assertEquals(2, map.size());
   }
 
@@ -494,16 +493,16 @@ public class RunnerTest {
 
     // preExecute(), execute(), postExecute(), and close() should be called when running a connector
     NoOpConnector connector = mock(NoOpConnector.class);
-    PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
+    TestMessenger messenger = Mockito.spy(new TestMessenger());
     PublisherImpl publisher =
-        Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
+        Mockito.spy(new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1"));
     assertTrue(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
     verify(connector, times(1)).execute(any());
     verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
-    verify(manager, times(1)).close();
+    verify(messenger, times(1)).close();
   }
 
   @Test
@@ -511,9 +510,9 @@ public class RunnerTest {
 
     // if preExecute() throws an exception, execute() and postExecute() should not be called, but close() should be
     NoOpConnector connector = mock(NoOpConnector.class);
-    PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
+    TestMessenger messenger = Mockito.spy(new TestMessenger());
     PublisherImpl publisher =
-        Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
+        Mockito.spy(new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1"));
     doThrow(new ConnectorException()).when(connector).preExecute(any());
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
@@ -521,7 +520,7 @@ public class RunnerTest {
     verify(connector, times(0)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
-    verify(manager, times(1)).close();
+    verify(messenger, times(1)).close();
   }
 
   @Test
@@ -529,9 +528,9 @@ public class RunnerTest {
 
     // if execute() throws an exception, postExecute() should not be called, but close() should be
     NoOpConnector connector = mock(NoOpConnector.class);
-    PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
+    TestMessenger messenger = Mockito.spy(new TestMessenger());
     PublisherImpl publisher =
-        Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
+        Mockito.spy(new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1"));
     doThrow(new ConnectorException()).when(connector).execute(any());
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
@@ -539,7 +538,7 @@ public class RunnerTest {
     verify(connector, times(0)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
-    verify(manager, times(1)).close();
+    verify(messenger, times(1)).close();
   }
 
   @Test
@@ -547,9 +546,9 @@ public class RunnerTest {
 
     // if postExecute() throws an exception, close() should still be called
     NoOpConnector connector = mock(NoOpConnector.class);
-    PersistingLocalMessageManager manager = Mockito.spy(new PersistingLocalMessageManager());
+    TestMessenger messenger = Mockito.spy(new TestMessenger());
     PublisherImpl publisher =
-        Mockito.spy(new PublisherImpl(ConfigFactory.empty(), manager, "run1", "pipeline1"));
+        Mockito.spy(new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1"));
     doThrow(new ConnectorException()).when(connector).postExecute(any());
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
     verify(connector, times(1)).preExecute(any());
@@ -557,7 +556,7 @@ public class RunnerTest {
     verify(connector, times(1)).postExecute(any());
     verify(connector, times(1)).close();
     verify(publisher, times(1)).close();
-    verify(manager, times(1)).close();
+    verify(messenger, times(1)).close();
   }
 
   /**
@@ -649,7 +648,7 @@ public class RunnerTest {
     // currently we're not testing that these threads aren't started, but we're making sure this configuration
     // doesn't error out
     NoOpConnector.reset();
-    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/connectorWithoutPipeline.conf");
+    Map<String, TestMessenger> map = Runner.runInTestMode("RunnerTest/connectorWithoutPipeline.conf");
     assertEquals(2, map.size());
     assertNull(NoOpConnector.getSuppliedPublisher());
   }
@@ -658,14 +657,14 @@ public class RunnerTest {
   public void testConnectorExecutionFailureWithoutPipeline() throws Exception {
     // if a connector's execute() method fails, the run should fail,
     // even in the case where connector is not feeding to a pipeline
-    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/failingExecuteWithoutPipeline.conf");
+    Map<String, TestMessenger> map = Runner.runInTestMode("RunnerTest/failingExecuteWithoutPipeline.conf");
     // the run should have been aborted with the second connector; the third should not have have been run
     assertEquals(2, map.size());
   }
 
   @Test
   public void testConnectorsWithoutName() throws Exception {
-    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/connectorsWithoutName.conf");
+    Map<String, TestMessenger> map = Runner.runInTestMode("RunnerTest/connectorsWithoutName.conf");
     assertEquals(3, map.size());
     // when connector names are not provided in the config, they are assigned as "connector_N"
     assertTrue(map.containsKey("connector_1"));
@@ -702,33 +701,33 @@ public class RunnerTest {
     // 2,a,b,c
     // 1,non-consecutive,bar,baz
 
-    Map<String, PersistingLocalMessageManager> map = Runner.runInTestMode("RunnerTest/collapse.conf");
+    Map<String, TestMessenger> map = Runner.runInTestMode("RunnerTest/collapse.conf");
     assertEquals(2, map.size());
-    PersistingLocalMessageManager manager1 = map.get("connector1");
-    PersistingLocalMessageManager manager2 = map.get("connector2");
+    TestMessenger messenger1 = map.get("connector1");
+    TestMessenger messenger2 = map.get("connector2");
 
     // docs IDs should have the specified docIdPrefix;
     // when collapsing, the three consecutive docs with id=1 should be collapsed into one doc, but the fourth
     // doc with id=1 should not be collapsed because it is out of sequence;
     // so, when collapsing we expect a total of 4 docs, when not collapsing we expect 6
 
-    assertEquals(4, manager1.getSavedDocumentsSentForProcessing().size());
-    assertEquals(6, manager2.getSavedDocumentsSentForProcessing().size());
+    assertEquals(4, messenger1.getDocsSentForProcessing().size());
+    assertEquals(6, messenger2.getDocsSentForProcessing().size());
     List<String> expectedIdsFromCollapsingConnector =
         Arrays.asList(new String[]{"connector1-0", "connector1-1", "connector1-2", "connector1-1"});
     List<String> expectedIdsFromNonCollapsingConnector =
         Arrays.asList(new String[]{"connector2-0", "connector2-1", "connector2-1", "connector2-1", "connector2-2", "connector2-1"});
     assertEquals(expectedIdsFromCollapsingConnector,
-        manager1.getSavedDocumentsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
+        messenger1.getDocsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
     assertEquals(expectedIdsFromNonCollapsingConnector,
-        manager2.getSavedDocumentsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
-    assertEquals(4, manager1.getSavedEvents().size());
-    assertEquals(6, manager2.getSavedEvents().size());
+        messenger2.getDocsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
+    assertEquals(4, messenger1.getSentEvents().size());
+    assertEquals(6, messenger2.getSentEvents().size());
 
     assertEquals(Arrays.asList(new String[]{"foo", "foo", "foo2"}),
-        manager1.getSavedDocumentsSentForProcessing().get(1).getStringList("field1"));
+        messenger1.getDocsSentForProcessing().get(1).getStringList("field1"));
     assertEquals("non-consecutive",
-        manager1.getSavedDocumentsSentForProcessing().get(3).getString("field1"));
+        messenger1.getDocsSentForProcessing().get(3).getString("field1"));
   }
 
   @Test

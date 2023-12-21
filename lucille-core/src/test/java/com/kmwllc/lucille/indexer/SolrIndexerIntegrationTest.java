@@ -5,7 +5,7 @@ import static org.mockito.Mockito.verify;
 
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.message.IndexerMessageManager;
+import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
@@ -97,10 +97,10 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
     Config config = ConfigFactory.parseMap(map);
 
     SolrIndexer indexer = null;
-    IndexerMessageManager mockIndexerMessageManager = mock(IndexerMessageManager.class);
+    IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
     try {
-      indexer = new SolrIndexer(config, mockIndexerMessageManager, false, "solr");
+      indexer = new SolrIndexer(config, mockIndexerMessenger, false, "solr");
       assertTrue(indexer.validateConnection());
 
       SolrQuery qr = new SolrQuery();
@@ -169,10 +169,10 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
     Config config = ConfigFactory.parseMap(map);
 
     SolrIndexer indexer = null;
-    IndexerMessageManager mockIndexerMessageManager = mock(IndexerMessageManager.class);
+    IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
     try {
-      indexer = new SolrIndexer(config, mockIndexerMessageManager, false, "solr");
+      indexer = new SolrIndexer(config, mockIndexerMessenger, false, "solr");
       assertTrue(indexer.validateConnection());
 
       SolrQuery qr = new SolrQuery();
@@ -249,10 +249,10 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
     Config config = ConfigFactory.parseMap(map);
 
     SolrIndexer indexer = null;
-    IndexerMessageManager mockIndexerMessageManager = mock(IndexerMessageManager.class);
+    IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
     try {
-      indexer = new SolrIndexer(config, mockIndexerMessageManager, false, "solr");
+      indexer = new SolrIndexer(config, mockIndexerMessenger, false, "solr");
       assertTrue(indexer.validateConnection());
 
       SolrQuery qr = new SolrQuery();
@@ -327,10 +327,10 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
     mapCloud.put("indexer.type", "solr");
     Config configCloud = ConfigFactory.parseMap(mapCloud);
 
-    IndexerMessageManager mockIndexerMessageManager = mock(IndexerMessageManager.class);
+    IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
-    SolrIndexer indexer1 = new SolrIndexer(configHttp, mockIndexerMessageManager, mockHttp2Client, "solr");
-    SolrIndexer indexer2 = new SolrIndexer(configCloud, mockIndexerMessageManager, mockCloudHttp2Client, "solr");
+    SolrIndexer indexer1 = new SolrIndexer(configHttp, mockIndexerMessenger, mockHttp2Client, "solr");
+    SolrIndexer indexer2 = new SolrIndexer(configCloud, mockIndexerMessenger, mockCloudHttp2Client, "solr");
 
     indexer1.validateConnection();
     indexer2.validateConnection();

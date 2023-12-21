@@ -8,6 +8,9 @@ import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
+import com.opencsv.exceptions.CsvException;
+import com.opencsv.exceptions.CsvMalformedLineException;
+import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -171,7 +174,9 @@ public class CSVConnector extends AbstractConnector {
           continue;
         }
         if (line.length != header.length) {
-          log.warn("Line {} of the csv has a different number of columns than columns in the header.", lineNum);
+          // the line/row number reported here may differ from the physical line number in the file, if the CSV contains
+          // a quoted value that spans multiple lines
+          log.warn("Logical row {} of the csv has a different number of columns than the header.", lineNum);
           continue;
         }
         String docId = "";
@@ -205,13 +210,22 @@ public class CSVConnector extends AbstractConnector {
       if (moveToAfterProcessing != null) {
         moveFile(filePath, moveToAfterProcessing);
       }
+    } catch (CsvException e) { // base class for most opencsv exceptions
+      log.error("Error during CSV processing at line {}", e.getLineNumber(), e);
+      if (moveToErrorFolder != null) {
+        moveFile(filePath, moveToErrorFolder);
+      }
+    } catch (CsvMalformedLineException e) { // an IOException, not a CsvException
+      log.error("Error during CSV processing at line {}", e.getLineNumber(), e);
+      if (moveToErrorFolder != null) {
+        moveFile(filePath, moveToErrorFolder);
+      }
     } catch (Exception e) {
       log.error("Error during CSV processing", e);
       if (moveToErrorFolder != null) {
         moveFile(filePath, moveToErrorFolder);
       }
     }
-
   }
 
   private String createDocId(ArrayList<String> idColumnData) {

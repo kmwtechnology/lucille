@@ -153,10 +153,10 @@ public class Runner {
    * Run in a local mode where message traffic is kept in memory and there is no
    * communication with external systems like Kafka. Sending to solr is bypassed.
    * <p>
-   * Return a PersistingLocalMessageManager for each connector that
+   * Return a TestMessenger for each connector that
    * can be used to review the messages that were sent between various components during that connector's execution.
    */
-  public static Map<String, PersistingLocalMessageManager> runInTestMode(String configName) throws Exception {
+  public static Map<String, TestMessenger> runInTestMode(String configName) throws Exception {
     Config config = ConfigFactory.load(configName);
     RunResult result = run(config, RunType.TEST);
     return result.getHistory();
@@ -215,34 +215,34 @@ public class Runner {
     boolean startWorkerAndIndexer = !type.equals(RunType.KAFKA_DISTRIBUTED);
     boolean bypassSolr = type.equals(RunType.TEST);
 
-    Map<String, PersistingLocalMessageManager> history = type.equals(RunType.TEST) ? new HashMap<>() : null;
+    Map<String, TestMessenger> history = type.equals(RunType.TEST) ? new HashMap<>() : null;
 
     for (Connector connector : connectors) {
 
-      WorkerMessageManagerFactory workerMMFactory;
-      IndexerMessageManagerFactory indexerMMFactory;
-      PublisherMessageManagerFactory publisherMMFactory;
+      WorkerMessengerFactory workerMessengerFactory;
+      IndexerMessengerFactory indexerMessengerFactory;
+      PublisherMessengerFactory publisherMessengerFactory;
 
       if (RunType.TEST.equals(type)) {
-        PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-        history.put(connector.getName(), manager);
-        workerMMFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
-        indexerMMFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
-        publisherMMFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
+        TestMessenger messenger = new TestMessenger();
+        history.put(connector.getName(), messenger);
+        workerMessengerFactory = WorkerMessengerFactory.getConstantFactory(messenger);
+        indexerMessengerFactory = IndexerMessengerFactory.getConstantFactory(messenger);
+        publisherMessengerFactory = PublisherMessengerFactory.getConstantFactory(messenger);
       } else if (RunType.LOCAL.equals(type)) {
-        LocalMessageManager manager = new LocalMessageManager(config);
-        workerMMFactory = WorkerMessageManagerFactory.getConstantFactory(manager);
-        indexerMMFactory = IndexerMessageManagerFactory.getConstantFactory(manager);
-        publisherMMFactory = PublisherMessageManagerFactory.getConstantFactory(manager);
+        LocalMessenger messenger = new LocalMessenger(config);
+        workerMessengerFactory = WorkerMessengerFactory.getConstantFactory(messenger);
+        indexerMessengerFactory = IndexerMessengerFactory.getConstantFactory(messenger);
+        publisherMessengerFactory = PublisherMessengerFactory.getConstantFactory(messenger);
       } else { // RunType.KAFKA_LOCAL.equals(type) || RunType.KAFKA_DISTRIBUTED.equals(type)
-        workerMMFactory = WorkerMessageManagerFactory.getKafkaFactory(config, connector.getPipelineName());
-        indexerMMFactory = IndexerMessageManagerFactory.getKafkaFactory(config, connector.getPipelineName());
-        publisherMMFactory = PublisherMessageManagerFactory.getKafkaFactory(config);
+        workerMessengerFactory = WorkerMessengerFactory.getKafkaFactory(config, connector.getPipelineName());
+        indexerMessengerFactory = IndexerMessengerFactory.getKafkaFactory(config, connector.getPipelineName());
+        publisherMessengerFactory = PublisherMessengerFactory.getKafkaFactory(config);
       }
 
       ConnectorResult result =
           runConnectorWithComponents(config, runId, connector,
-              workerMMFactory, indexerMMFactory, publisherMMFactory, startWorkerAndIndexer, bypassSolr);
+              workerMessengerFactory, indexerMessengerFactory, publisherMessengerFactory, startWorkerAndIndexer, bypassSolr);
 
       connectorResults.add(result);
 
@@ -364,9 +364,9 @@ public class Runner {
   private static ConnectorResult runConnectorWithComponents(Config config,
       String runId,
       Connector connector,
-      WorkerMessageManagerFactory workerMessageManagerFactory,
-      IndexerMessageManagerFactory indexerMessageManagerFactory,
-      PublisherMessageManagerFactory publisherMessageManagerFactory,
+      WorkerMessengerFactory workerMessengerFactory,
+      IndexerMessengerFactory indexerMessengerFactory,
+      PublisherMessengerFactory publisherMessengerFactory,
       boolean startWorkerAndIndexer,
       boolean bypassIndexer) throws Exception {
     String pipelineName = connector.getPipelineName();
@@ -382,7 +382,7 @@ public class Runner {
       String metricsPrefix = connector.getName() + "." + connector.getPipelineName();
 
       if (startWorkerAndIndexer && connector.getPipelineName() != null) {
-        workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory, metricsPrefix);
+        workerPool = new WorkerPool(config, pipelineName, workerMessengerFactory, metricsPrefix);
 
         try {
           workerPool.start();
@@ -392,8 +392,8 @@ public class Runner {
         }
 
         try {
-          IndexerMessageManager indexerMessageManager = indexerMessageManagerFactory.create();
-          indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassIndexer, metricsPrefix);
+          IndexerMessenger indexerMessenger = indexerMessengerFactory.create();
+          indexer = IndexerFactory.fromConfig(config, indexerMessenger, bypassIndexer, metricsPrefix);
         } catch (Exception e) {
           log.error("Error creating indexer from config.", e);
           return new ConnectorResult(connector, publisher, false, "Error creating indexer from config.");
@@ -412,8 +412,8 @@ public class Runner {
       }
 
       if (connector.getPipelineName() != null) {
-        PublisherMessageManager publisherMessageManager = publisherMessageManagerFactory.create();
-        publisher = new PublisherImpl(config, publisherMessageManager, runId,
+        PublisherMessenger publisherMessenger = publisherMessengerFactory.create();
+        publisher = new PublisherImpl(config, publisherMessenger, runId,
             connector.getPipelineName(), metricsPrefix, connector.requiresCollapsingPublisher());
       }
 

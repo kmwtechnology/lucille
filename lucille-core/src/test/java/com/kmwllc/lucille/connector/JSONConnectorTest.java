@@ -4,7 +4,7 @@ import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
-import com.kmwllc.lucille.message.PersistingLocalMessageManager;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
@@ -18,8 +18,8 @@ public class JSONConnectorTest {
   @Test
   public void testExecute() throws Exception {
     Config config = ConfigFactory.load("JSONConnectorTest/config.conf");
-    PersistingLocalMessageManager manager = new PersistingLocalMessageManager();
-    Publisher publisher = new PublisherImpl(config, manager, "run1", "pipeline1");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new JSONConnector(config);
     connector.execute(publisher);
 
@@ -28,7 +28,7 @@ public class JSONConnectorTest {
     // {"id": "2", "field3":"val3", "field2":["val2-2a", "val2-2b"]}
     // {"id": "3", "field4":"val4", "field5":"val5"}
 
-    List<Document> docs = manager.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(3, docs.size());
 
     // prefix should be applied to doc ids and run_id should be added

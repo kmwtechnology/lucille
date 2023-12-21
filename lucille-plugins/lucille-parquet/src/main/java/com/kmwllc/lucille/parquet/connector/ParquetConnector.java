@@ -151,6 +151,11 @@ public class ParquetConnector extends AbstractConnector {
 
   private static void setDocField(Document doc, Type field, SimpleGroup simpleGroup, int j) {
 
+    // check if we have a field value before setting it.
+    if (simpleGroup.getFieldRepetitionCount(j) == 0) {
+      return;
+    }
+
     String fieldName = field.getName();
 
     switch (field.asPrimitiveType().getPrimitiveTypeName()) {

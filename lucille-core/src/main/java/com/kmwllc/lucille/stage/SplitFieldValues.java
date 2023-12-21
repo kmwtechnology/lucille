@@ -41,15 +41,18 @@ public class SplitFieldValues extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // operates only on the first value in the field at the moment?
     if (doc.has(inputField)) {
-      String[] values = doc.getString(inputField).split(delimiter);
+      List<String> fieldValues = doc.getStringList(inputField);
       if (inputField.equals(outputField)) {
         doc.removeField(outputField);
       }
-      for (String val : values) {
-        if (trimWhitespace) {
-          val = val.trim();
+      for (String value : fieldValues) {
+        String[] values = value.split(delimiter);
+        for (String val : values) {
+          if (trimWhitespace) {
+            val = val.trim();
+          }
+          doc.addToField(outputField, val);
         }
-        doc.addToField(outputField, val);
       }
     }
     return null;

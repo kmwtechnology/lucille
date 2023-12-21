@@ -1,23 +1,17 @@
 package com.kmwllc.lucille.core;
 
 import com.codahale.metrics.*;
-import com.kmwllc.lucille.message.WorkerMessageManager;
-import com.kmwllc.lucille.message.WorkerMessageManagerFactory;
+import com.kmwllc.lucille.message.WorkerMessenger;
+import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import org.apache.commons.collections4.IteratorUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
-import java.lang.management.ManagementFactory;
-import java.time.Duration;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.Iterator;
-import java.util.List;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
 class Worker implements Runnable {
@@ -26,7 +20,7 @@ class Worker implements Runnable {
   public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
-  private final WorkerMessageManager manager;
+  private final WorkerMessenger messenger;
 
   private final Pipeline pipeline;
 
@@ -43,8 +37,8 @@ class Worker implements Runnable {
     running = false;
   }
 
-  public Worker(Config config, WorkerMessageManager manager, String pipelineName, String metricsPrefix) throws Exception {
-    this.manager = manager;
+  public Worker(Config config, WorkerMessenger messenger, String pipelineName, String metricsPrefix) throws Exception {
+    this.messenger = messenger;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
     if (config.hasPath("worker.maxRetries")) {
       log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
@@ -67,7 +61,7 @@ class Worker implements Runnable {
         pollInstant.set(Instant.now());
         // blocking poll with a timeout which we assume to be in the range of
         // several milliseconds to several seconds
-        doc = manager.pollDocToProcess();
+        doc = messenger.pollDocToProcess();
       } catch (Exception e) {
         log.info("interrupted " + e);
         terminate();
@@ -82,13 +76,13 @@ class Worker implements Runnable {
       if (trackRetries && counter.add(doc)) {
         try {
           log.info("Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");
-          manager.sendFailed(doc);
+          messenger.sendFailed(doc);
         } catch (Exception e) {
           log.error("Failed to send doc to failure topic: " + doc.getId(), e);
         }
 
         try {
-          manager.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
+          messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
         } catch (Exception e) {
           log.error("Failed to send completion event for: " + doc.getId(), e);
         }
@@ -112,14 +106,14 @@ class Worker implements Runnable {
           // assumes the run is complete because the parent is complete and the Publisher didn't know
           // about the children. This code assumes the pipeline emits children before parents.
           if (!doc.getId().equals(result.getId())) {
-            manager.sendEvent(result, null, Event.Type.CREATE);
+            messenger.sendEvent(result, null, Event.Type.CREATE);
           }
 
           if (result.isDropped()) {
-            manager.sendEvent(result, null, Event.Type.DROP);
+            messenger.sendEvent(result, null, Event.Type.DROP);
           } else {
             // send the completed document to the queue for indexing
-            manager.sendCompleted(result);
+            messenger.sendForIndexing(result);
           }
         }
 
@@ -127,7 +121,7 @@ class Worker implements Runnable {
       } catch (Exception e) {
         log.error("Error processing document: " + doc.getId(), e);
         try {
-          manager.sendEvent(doc, null, Event.Type.FAIL);
+          messenger.sendEvent(doc, null, Event.Type.FAIL);
         } catch (Exception e2) {
           log.error("Error sending failure event for document: " + doc.getId(), e2);
         }
@@ -144,9 +138,9 @@ class Worker implements Runnable {
     commitOffsetsAndRemoveCounter(null);
 
     try {
-      manager.close();
+      messenger.close();
     } catch (Exception e) {
-      log.error("Error closing message manager", e);
+      log.error("Error closing messenger", e);
     }
 
     try {
@@ -164,7 +158,7 @@ class Worker implements Runnable {
 
   private void commitOffsetsAndRemoveCounter(Document doc) {
     try {
-      manager.commitPendingDocOffsets();
+      messenger.commitPendingDocOffsets();
       if (trackRetries && doc != null) {
         counter.remove(doc);
       }
@@ -177,10 +171,10 @@ class Worker implements Runnable {
     return pollInstant;
   }
 
-  public static WorkerThread startThread(Config config, WorkerMessageManager manager,
+  public static WorkerThread startThread(Config config, WorkerMessenger messenger,
       String pipelineName, String metricsPrefix) throws
       Exception {
-    Worker worker = new Worker(config, manager, pipelineName, metricsPrefix);
+    Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix);
     WorkerThread workerThread = new WorkerThread(worker, config);
     workerThread.start();
     return workerThread;
@@ -191,10 +185,10 @@ class Worker implements Runnable {
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
     log.debug("Starting Workers for pipeline: " + pipelineName);
 
-    WorkerMessageManagerFactory workerMessageManagerFactory =
-        WorkerMessageManagerFactory.getKafkaFactory(config, pipelineName);
+    WorkerMessengerFactory workerMessengerFactory =
+        WorkerMessengerFactory.getKafkaFactory(config, pipelineName);
 
-    WorkerPool workerPool = new WorkerPool(config, pipelineName, workerMessageManagerFactory, pipelineName);
+    WorkerPool workerPool = new WorkerPool(config, pipelineName, workerMessengerFactory, pipelineName);
     workerPool.start();
 
     Signal.handle(new Signal("INT"), signal -> {
