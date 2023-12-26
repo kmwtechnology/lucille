@@ -237,10 +237,11 @@ public class PublisherImpl implements Publisher {
         if (isCollapsing && numPublished < timer.getCount()) {
           collapseInfo = String.format(" (%d after collapsing)", numPublished);
         }
+        // Did not replace the following String.format with interpolation due to unique formatting (".2f")
         log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
             timer.getMeanRate(), timer.getSnapshot().getMean() / 1000000));
-        log.info(String.format("%d docs published%s. %d children created. %d success events. %d failure events. %d drop events.",
-            timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped));
+        log.info("{} docs published%s. {} children created. {} success events. {} failure events. {} drop events.",
+            timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped);
         if (numPublished > 0 && numFailed == 0) {
           log.info("All documents SUCCEEDED.");
         }
@@ -256,7 +257,7 @@ public class PublisherImpl implements Publisher {
               "%d docs published. One minute rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc. Waiting on %d docs.",
               timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000, numPending()));
         } else {
-          log.info(String.format("Connector complete. Waiting on %d docs.", numPending()));
+          log.info("Connector complete. Waiting on {} docs.", numPending());
         }
         lastLog = Instant.now();
       }
