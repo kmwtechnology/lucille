@@ -92,7 +92,7 @@ public class DictionaryLookupTest {
   @Test
   public void testFileDoesNotExist() {
     Throwable e = assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/missing_file.conf"));
-     assertEquals("File does not exist: classpath:DictionaryLookupTest/missing.txt", e.getCause().getCause().getMessage());
+    assertEquals("File does not exist: classpath:DictionaryLookupTest/missing.txt", e.getMessage());
   }
 
   @Test
@@ -234,7 +234,7 @@ public class DictionaryLookupTest {
   public void testInvalidSet() {
     Throwable e = assertThrows(StageException.class, () ->factory.get("DictionaryLookupTest/set_config_invalid.conf"));
     assertEquals("Comma separated values are not allowed when set_only=true: \"[USSR,  Russia]\" on line 5",
-        e.getCause().getCause().getMessage());
+        e.getMessage());
   }
 
   @Test
