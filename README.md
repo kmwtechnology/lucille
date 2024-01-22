@@ -32,6 +32,8 @@ To run this example, start an instance of Apache Solr on port 8983 and create a 
 
 Go to `lucille-examples/lucille-simple-csv-solr-example` in your working copy of Lucille and run:
 
+`mvn clean install`
+
 `./scripts/run_ingest.sh`
 
 This script executes Lucille with a configuration file named `simple-csv-solr-example.conf` that tells Lucille to read a CSV of top songs and send each row as a document to Solr.
