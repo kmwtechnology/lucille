@@ -164,23 +164,26 @@ public class Runner {
 
   private static Map<String, List<Exception>> logValidation(Config config) throws Exception {
     Map<String, List<Exception>> exceptions = validatePipelines(config);
-    if (exceptions.isEmpty()) {
-      log.info("Configuration is valid");
-    } else {
-      StringBuilder message = new StringBuilder("Configuration is invalid. " +
-          "Printing the list of exceptions for each pipeline\n");
 
-      for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
-        message.append("\tConnector: ").append(entry.getKey()).append("\tError count: ")
-            .append(entry.getValue().size()).append("\n");
-        int i = 1;
-        for (Exception e : entry.getValue()) {
-          message.append("\t\tException ").append(i++).append(": ")
-              .append(e.getMessage()).append("\n");
+    for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
+      if (!entry.getValue().isEmpty()) {
+        StringBuilder message =
+            new StringBuilder("Configuration is invalid. " + "Printing the list of exceptions for each pipeline\n");
+
+        for (Map.Entry<String, List<Exception>> entryInner : exceptions.entrySet()) {
+          message.append("\tConnector: ").append(entryInner.getKey()).append("\tError count: ").append(entryInner.getValue().size())
+              .append("\n");
+          int i = 1;
+          for (Exception e : entryInner.getValue()) {
+            message.append("\t\tException ").append(i++).append(": ").append(e.getMessage()).append("\n");
+          }
         }
+
+        log.error(message.delete(message.length() - 1, message.length()).toString());
+        return exceptions; 
       }
-      log.error(message.delete(message.length() - 1, message.length()).toString());
     }
+    log.info("Configuration is valid");
     return exceptions;
   }
 
