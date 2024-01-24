@@ -46,7 +46,7 @@ public class PineconeIndexerTest {
 
   @Before
   public void setup() {
-    setUpPineconeClient();
+    setUpConnections();
     setUpDocuments();
   }
 
@@ -67,12 +67,11 @@ public class PineconeIndexerTest {
     doc1.update("vector-for-namespace2", UpdateMode.OVERWRITE, doc1ForNamespace2.toArray(new Float[0]));
     doc1.update("metaString1", UpdateMode.OVERWRITE, "some string data 2");
     doc1.update("metaString2", UpdateMode.OVERWRITE, "some more string data 2");
-    doc1.update("metaList", UpdateMode.OVERWRITE, 1, 2, 3);
+    doc1.update("metaList", UpdateMode.OVERWRITE, 4, 5, 6);
   }
 
-  private void setUpPineconeClient() {
+  private void setUpConnections() {
     stub = Mockito.mock(VectorServiceGrpc.VectorServiceBlockingStub.class);
-
 
     goodConnection = Mockito.mock(PineconeConnection.class);
     ManagedChannel goodChannel = Mockito.mock(ManagedChannel.class);
@@ -112,9 +111,7 @@ public class PineconeIndexerTest {
       assertEquals("environment", config.getEnvironment());
       assertEquals("projectName", config.getProjectName());
       assertEquals(100, config.getServerSideTimeoutSec());
-
     }
-
   }
 
   @Test
@@ -179,12 +176,6 @@ public class PineconeIndexerTest {
       indexerUpsert.validateConnection();
       indexerUpdate.validateConnection();
 
-
-      Document doc0 = Document.create("doc0");
-      Document doc1 = Document.create("doc1");
-      doc0.update("doc0", UpdateMode.OVERWRITE, 1.0, 2.0);
-      doc1.update("doc1", UpdateMode.OVERWRITE, 3.0, 4.0);
-
       messenger.sendForIndexing(doc0);
       messenger.sendForIndexing(doc1);
       messenger2.sendForIndexing(doc0);
@@ -195,7 +186,6 @@ public class PineconeIndexerTest {
       // assert that no upserts or updates have happened
       Mockito.verify(stub, Mockito.times(0)).update(Mockito.any());
       Mockito.verify(stub, Mockito.times(0)).upsert(Mockito.any());
-
     }
   }
 
@@ -270,7 +260,7 @@ public class PineconeIndexerTest {
       assertEquals(namespace1Upsert.getVectorsList().get(1).getMetadata().getFields().get("metaString1").toString(),
           "string_value: \"some string data 2\"\n");
       assertEquals(namespace1Upsert.getVectorsList().get(1).getMetadata().getFields().get("metaList").toString(),
-          "string_value: \"[1, 2, 3]\"\n");
+          "string_value: \"[4, 5, 6]\"\n");
       assertEquals(namespace2Upsert.getVectorsList().get(0).getMetadata().getFields().get("metaString1").toString(),
           "string_value: \"some string data\"\n");
       assertEquals(namespace2Upsert.getVectorsList().get(0).getMetadata().getFields().get("metaList").toString(),
@@ -278,7 +268,13 @@ public class PineconeIndexerTest {
       assertEquals(namespace2Upsert.getVectorsList().get(1).getMetadata().getFields().get("metaString1").toString(),
           "string_value: \"some string data 2\"\n");
       assertEquals(namespace2Upsert.getVectorsList().get(1).getMetadata().getFields().get("metaList").toString(),
-          "string_value: \"[1, 2, 3]\"\n");
+          "string_value: \"[4, 5, 6]\"\n");
+
+      // make sure there are no additional metadata fields
+      assertEquals(2, namespace1Upsert.getVectorsList().get(0).getMetadata().getFields().entrySet().size());
+      assertEquals(2, namespace1Upsert.getVectorsList().get(1).getMetadata().getFields().entrySet().size());
+      assertEquals(2, namespace2Upsert.getVectorsList().get(0).getMetadata().getFields().entrySet().size());
+      assertEquals(2, namespace2Upsert.getVectorsList().get(1).getMetadata().getFields().entrySet().size());
     }
   }
 
@@ -314,7 +310,6 @@ public class PineconeIndexerTest {
     try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
       Mockito.when(mock.connect("good")).thenReturn(goodConnection);
     })) {
-
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/two-namespaces-update.conf");
       PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
@@ -324,7 +319,7 @@ public class PineconeIndexerTest {
       messenger.sendForIndexing(doc1);
       indexerGood.run(2);
 
-      // make sure four updates were made
+      // make sure four updates were made (one update per document per namespace)
       ArgumentCaptor<UpdateRequest> updateRequest = ArgumentCaptor.forClass(UpdateRequest.class);
       Mockito.verify(stub, Mockito.times(4)).update(updateRequest.capture());
       // make sure no upserts were made
@@ -341,13 +336,13 @@ public class PineconeIndexerTest {
       assertEquals("namespace-2", namespace2Request1.getNamespace());
       assertEquals("namespace-2", namespace2Request2.getNamespace());
 
-
       // make sure vectors are correct for each document and namespace
       assertEquals(doc0ForNamespace1, namespace1Request1.getValuesList());
       assertEquals(doc1ForNamespace1, namespace1Request2.getValuesList());
       assertEquals(doc0ForNamespace2, namespace2Request1.getValuesList());
       assertEquals(doc1ForNamespace2, namespace2Request2.getValuesList());
 
+      // No metadata is provided when doin updates so testing is unecessary
     }
   }
 }
