@@ -215,16 +215,13 @@ public class PineconeIndexerTest {
       messenger.sendForIndexing(doc1);
       indexerGood.run(2);
 
+      // make sure no updates were made
       ArgumentCaptor<UpdateRequest> updateRequest = ArgumentCaptor.forClass(UpdateRequest.class);
       Mockito.verify(stub, Mockito.times(0)).update(Mockito.any());
+      // make sure two upserts were made
       ArgumentCaptor<UpsertRequest> upsertRequest = ArgumentCaptor.forClass(UpsertRequest.class);
       Mockito.verify(stub, Mockito.times(2)).upsert(upsertRequest.capture());
 
-      // make sure no updates were made
-      assertTrue(updateRequest.getAllValues().isEmpty());
-
-      // make sure two upserts were made
-      assertTrue(upsertRequest.getAllValues().size() == 2);
       UpsertRequest namespace1Upsert = upsertRequest.getAllValues().get(0);
       UpsertRequest namespace2Upsert = upsertRequest.getAllValues().get(1);
 
@@ -327,16 +324,13 @@ public class PineconeIndexerTest {
       messenger.sendForIndexing(doc1);
       indexerGood.run(2);
 
+      // make sure four updates were made
       ArgumentCaptor<UpdateRequest> updateRequest = ArgumentCaptor.forClass(UpdateRequest.class);
       Mockito.verify(stub, Mockito.times(4)).update(updateRequest.capture());
+      // make sure no upserts were made
       ArgumentCaptor<UpsertRequest> upsertRequest = ArgumentCaptor.forClass(UpsertRequest.class);
       Mockito.verify(stub, Mockito.times(0)).upsert(upsertRequest.capture());
 
-      // make sure no upserts were made
-      assertTrue(upsertRequest.getAllValues().isEmpty());
-
-      // make sure two updates were made
-      assertTrue(updateRequest.getAllValues().size() == 4);
       UpdateRequest namespace1Request1 = updateRequest.getAllValues().get(0);
       UpdateRequest namespace1Request2 = updateRequest.getAllValues().get(1);
       UpdateRequest namespace2Request1 = updateRequest.getAllValues().get(2);
