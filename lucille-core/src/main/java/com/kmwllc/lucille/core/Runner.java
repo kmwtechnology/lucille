@@ -175,7 +175,7 @@ public class Runner {
     return exceptions;
   }
 
-  private static String stringifyValidation(Map<String, List<Exception>> exceptions) {
+  public static String stringifyValidation(Map<String, List<Exception>> exceptions) {
     if (exceptions.entrySet().stream().allMatch(e -> e.getValue().isEmpty())) {
       return "Configuration is valid";
     } else {
