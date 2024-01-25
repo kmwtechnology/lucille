@@ -59,37 +59,32 @@ public class ConfigValidationTest {
   }
 
   // asserts that if two connectors use the same pipeline it is only validated once
-  @Test 
-  public void testDuplicatePipeline() throws Exception{
-     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("duplicate-pipeline.conf"));
-     assertEquals(1, exceptions.size());
-  
-     List<Exception> exceptions1 = exceptions.get("pipeline1");
-     assertEquals(2, exceptions1.size());
-  
-  
-     testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NoopStage: " +
-         "Stage config contains unknown property invalid_property");
-  
-     testException(exceptions1.get(1), IllegalArgumentException.class,
-         "Stage config must contain property fields");
+  @Test
+  public void testDuplicatePipeline() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("duplicate-pipeline.conf"));
+    assertEquals(1, exceptions.size());
+
+    List<Exception> exceptions1 = exceptions.get("pipeline1");
+    assertEquals(2, exceptions1.size());
+
+    testException(exceptions1.get(0), IllegalArgumentException.class,
+        "com.kmwllc.lucille.stage.NoopStage: " + "Stage config contains unknown property invalid_property");
+    testException(exceptions1.get(1), IllegalArgumentException.class, "Stage config must contain property fields");
   }
 
   // asserts that if no connectors use a pipeline it is still validated
-  @Test 
-  public void testUnusedPipeline() throws Exception{
-     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("no-used-pipelines.conf"));
-     assertEquals(1, exceptions.size());
-  
-     List<Exception> exceptions1 = exceptions.get("pipeline1");
-     assertEquals(2, exceptions1.size());
-  
-  
-     testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NoopStage: " +
-         "Stage config contains unknown property invalid_property");
-  
-     testException(exceptions1.get(1), IllegalArgumentException.class,
-         "Stage config must contain property fields");
+  @Test
+  public void testUnusedPipeline() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("no-used-pipelines.conf"));
+    assertEquals(1, exceptions.size());
+
+    List<Exception> exceptions1 = exceptions.get("pipeline1");
+    assertEquals(2, exceptions1.size());
+
+    testException(exceptions1.get(0), IllegalArgumentException.class,
+        "com.kmwllc.lucille.stage.NoopStage: " + "Stage config contains unknown property invalid_property");
+
+    testException(exceptions1.get(1), IllegalArgumentException.class, "Stage config must contain property fields");
   }
 
   @Test
