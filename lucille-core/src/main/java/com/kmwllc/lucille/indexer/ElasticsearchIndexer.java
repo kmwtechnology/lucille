@@ -85,10 +85,10 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected List<Document> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) {
-      return;
+      return null;
     }
 
     BulkRequest.Builder br = new BulkRequest.Builder();
@@ -160,6 +160,7 @@ public class ElasticsearchIndexer extends Indexer {
         }
       }
     }
+    return null;
   }
 
   @Override

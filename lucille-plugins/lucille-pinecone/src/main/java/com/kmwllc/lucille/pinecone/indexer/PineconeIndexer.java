@@ -63,7 +63,7 @@ public class PineconeIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) {
+  protected List<Document> sendToIndex(List<Document> documents) {
 
     for (int i = 0; i < namespaces.size(); i++) {
       final int index = i;
@@ -101,6 +101,7 @@ public class PineconeIndexer extends Indexer {
       }
     }
 
+    return null;
   }
 
   @Override
