@@ -34,7 +34,6 @@ public class PineconeIndexerTest {
   private PineconeConnection failureConnection;
   private PineconeConnection shutdownConnection;
 
-
   private Document doc0;
   private Document doc1;
 
@@ -42,7 +41,6 @@ public class PineconeIndexerTest {
   private List<Float> doc0ForNamespace2;
   private List<Float> doc1ForNamespace1;
   private List<Float> doc1ForNamespace2;
-
 
   @Before
   public void setup() {
@@ -148,23 +146,22 @@ public class PineconeIndexerTest {
     })) {
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/good-config.conf");
-
       PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+
       indexerGood.closeConnection();
       Mockito.verify(goodConnection, Mockito.times(0)).close();
+
       indexerGood.validateConnection();
       indexerGood.closeConnection();
       Mockito.verify(goodConnection, Mockito.times(1)).close();
     }
   }
 
-
   @Test
   public void testUpsertAndUpdateNoNamespacesProvided() throws Exception {
     try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
       Mockito.when(mock.connect("good")).thenReturn(goodConnection);
     })) {
-
       TestMessenger messenger = new TestMessenger();
       TestMessenger messenger2 = new TestMessenger();
       Config configUpsert = ConfigFactory.load("PineconeIndexerTest/no-namespaces.conf");
@@ -195,7 +192,6 @@ public class PineconeIndexerTest {
     try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
       Mockito.when(mock.connect("good")).thenReturn(goodConnection);
     })) {
-
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/two-namespaces.conf");
       PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
@@ -221,13 +217,11 @@ public class PineconeIndexerTest {
       assertEquals(2, namespace1Upsert.getVectorsList().size());
       assertEquals(2, namespace2Upsert.getVectorsList().size());
 
-
       // make sure vectors are correct for each document and namespace
       assertEquals(doc0ForNamespace1, namespace1Upsert.getVectorsList().get(0).getValuesList());
       assertEquals(doc1ForNamespace1, namespace1Upsert.getVectorsList().get(1).getValuesList());
       assertEquals(doc0ForNamespace2, namespace2Upsert.getVectorsList().get(0).getValuesList());
       assertEquals(doc1ForNamespace2, namespace2Upsert.getVectorsList().get(1).getValuesList());
-
     }
   }
 
@@ -236,7 +230,6 @@ public class PineconeIndexerTest {
     try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
       Mockito.when(mock.connect("good")).thenReturn(goodConnection);
     })) {
-
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/two-namespaces.conf");
       PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
@@ -250,7 +243,6 @@ public class PineconeIndexerTest {
       Mockito.verify(stub, Mockito.times(2)).upsert(upsertRequest.capture());
       UpsertRequest namespace1Upsert = upsertRequest.getAllValues().get(0);
       UpsertRequest namespace2Upsert = upsertRequest.getAllValues().get(1);
-
 
       // make sure metadata is correct
       assertEquals(namespace1Upsert.getVectorsList().get(0).getMetadata().getFields().get("metaString1").toString(),
@@ -283,7 +275,6 @@ public class PineconeIndexerTest {
     try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
       Mockito.when(mock.connect("good")).thenReturn(goodConnection);
     })) {
-
       TestMessenger messenger = new TestMessenger();
       Config config = ConfigFactory.load("PineconeIndexerTest/incorrect-fields.conf");
       PineconeIndexer indexer = new PineconeIndexer(config, messenger, "testing");
@@ -296,11 +287,9 @@ public class PineconeIndexerTest {
       assertThrows(IndexOutOfBoundsException.class, () -> {
         indexer2.sendToIndex(List.of(doc0, doc1));
       });
-
       assertThrows(IndexOutOfBoundsException.class, () -> {
         indexer.sendToIndex(List.of(doc0, doc1));
       });
-
     }
   }
 
@@ -342,7 +331,7 @@ public class PineconeIndexerTest {
       assertEquals(doc0ForNamespace2, namespace2Request1.getValuesList());
       assertEquals(doc1ForNamespace2, namespace2Request2.getValuesList());
 
-      // No metadata is provided when doin updates so testing is unecessary
+      // No metadata is provided when doing updates so testing is unecessary
     }
   }
 }
