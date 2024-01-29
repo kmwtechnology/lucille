@@ -8,38 +8,43 @@ import com.typesafe.config.Config;
 import com.kmwllc.lucille.core.*;
 
 /**
- * Computes sizes of given byte array field and adds a field with that size
- *
- * Config Paramters:
- *   - sourceField (String) : The field containing the byte array 
- *   - outputField (String) : The name of the field which will be added to store the size. Will overwrite value if field already 
- *                            exists
+ * Computes size of given byte array field and adds a field with that size
+ * <br>
+ * Config Parameters -
+ * <br>
+ * <p>
+ * <b>source</b> (String) : The field containing the byte array
+ * </p>
+ * <p>
+ * <b>destination</b> (String) : The name of the field which will be added to store the size. Will overwrite value if field already
+ * exists
+ * </p>
  */
 public class ComputeFieldSize extends Stage {
 
-  private final String sourceField;
-  private final String outputField;
+  private final String source;
+  private final String destination;
 
   public ComputeFieldSize(Config config) {
-    super(config, new StageSpec().withRequiredProperties("sourceField", "outputField"));
+    super(config, new StageSpec().withRequiredProperties("source", "destination"));
 
-    this.sourceField = config.getString("sourceField");
-    this.outputField = config.getString("outputField");
+    this.source = config.getString("source");
+    this.destination = config.getString("destination");
   }
 
   /**
    * {@inheritDoc}
    * Here it processes document by computing and adding the correct field. 
-   * @throws StageException If {@link ComputeFieldSize#sourceField} does not exist in document
-   * @throws NullPointerException If {@link ComputeFieldSize#sourceField} is not a byte array in document
+   * @throws StageException If {@link ComputeFieldSize#source} does not exist in document
+   * @throws NullPointerException If {@link ComputeFieldSize#source} is not a byte array in document
    */
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    if (!doc.has(sourceField)) {
-      throw new StageException(String.format("Document does not have source field: %s", sourceField));
+    if (!doc.has(source)) {
+      throw new StageException(String.format("Document does not have source field: %s", source));
     }
 
-    doc.update(outputField, UpdateMode.OVERWRITE, doc.getBytes(sourceField).length);
+    doc.update(destination, UpdateMode.OVERWRITE, doc.getBytes(source).length);
     return null;
   }
 }
