@@ -186,7 +186,6 @@ public class PineconeIndexerTest {
     }
   }
 
-
   @Test
   public void testUpsertMultipleNamespaces() throws Exception {
     try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
@@ -292,7 +291,6 @@ public class PineconeIndexerTest {
       });
     }
   }
-
 
   @Test
   public void testUpdateMultipleNamespaces() throws Exception {
