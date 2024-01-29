@@ -162,28 +162,24 @@ public class Runner {
     return result.getHistory();
   }
 
+  // Returns a mapping from pipeline names to the list of exceptions produced when validating them.
   private static Map<String, List<Exception>> logValidation(Config config) throws Exception {
     Map<String, List<Exception>> exceptions = validatePipelines(config);
 
-    // Necessary to log the message seperatetly based on if it is an error or not
-    String stringified = stringifyValidation(exceptions);
-    if(stringified.contains("Error")) {
-      log.error(stringified);
-    } else {
-      log.info(stringified);
-    }
+    log.info(stringifyValidation(exceptions));
     return exceptions;
   }
 
+  /**
+   * Returns a stringified version of the given map of exceptions. 
+   */
   public static String stringifyValidation(Map<String, List<Exception>> exceptions) {
     if (exceptions.entrySet().stream().allMatch(e -> e.getValue().isEmpty())) {
       return "Configuration is valid";
     } else {
-      StringBuilder message =
-          new StringBuilder("Configuration is invalid. Printing the list of exceptions for each pipeline\n");
+      StringBuilder message = new StringBuilder("Configuration is invalid. Printing the list of exceptions for each pipeline\n");
 
-      //TODO: Possibly add list of connectors which are being used, their piplines, and if those pipelines are valid
-      //
+      // TODO: Possibly add list of connectors which are being used, their piplines, and if those pipelines are valid
       for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
         message.append("\tPipeline: ").append(entry.getKey()).append("\tError count: ").append(entry.getValue().size())
             .append("\n");
@@ -195,13 +191,11 @@ public class Runner {
       }
       return message.delete(message.length() - 1, message.length()).toString();
     }
-
   }
 
   public static Map<String, List<Exception>> runInValidationMode(String configName) throws Exception {
     return logValidation(ConfigFactory.load(configName));
   }
-
 
   /**
    * Returns a mapping from pipline names to the list of exceptions produced when validating them.
@@ -213,10 +207,13 @@ public class Runner {
 
       if (!exceptionMap.containsKey(name)) {
         exceptionMap.put(name, Pipeline.validateStages(config, name));
+      } else {
+        exceptionMap.get(name).add(new Exception("There exists a pipeline with the same name"));
       }
     }
     return exceptionMap;
   }
+
   /**
    * Generates a run ID and performs an end-to-end run of the designated type.
    */
