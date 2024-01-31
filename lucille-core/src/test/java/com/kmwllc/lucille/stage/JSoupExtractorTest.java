@@ -2,8 +2,6 @@ package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
-import java.io.File;
-import java.io.IOError;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -131,7 +129,6 @@ public class JSoupExtractorTest {
     assertEquals("content 3", doc.getString("destination3"));
   }
 
-
   @Test
   public void testBasicCssSelectorsBytes() throws StageException, IOException {
     Stage stage = factory.get("JSoupExtractorTest/basic-bytes.conf");
@@ -156,12 +153,10 @@ public class JSoupExtractorTest {
     doc.setField("bytes", bytes);
     stage.processDocument(doc);
 
-    System.out.print("asdfasdfasdfasdf" + doc.getFieldNames());
     assertEquals(4, doc.getFieldNames().size());
     assertEquals("doc1", doc.getString("id"));
     assertEquals(bytes, doc.getBytes("bytes"));
     assertEquals("link", doc.getString("destinationText"));
     assertEquals("google.com", doc.getString("destinationAttribute"));
   }
-
 }

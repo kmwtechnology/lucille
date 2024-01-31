@@ -26,12 +26,14 @@ import com.typesafe.config.Config;
  * </p>
  * <p>
  * <b>byteArrayField</b> (String, Optional): field name which contains a byte array of the html which will be processed (encoded in UTF-8).
- * byteArrayField and filePathField canno both be specified.
+ * byteArrayField and filePathField cannot both be specified. If a document does not have whichever field is specified in the config, then it is 
+ * not modified
  * </p>
  * <b>destinationFields</b> (Map<String, String>) : defines a mapping from css selectors to the destination fields 
  * in the processed document. If they already exist they are overwritten. Otherwise, they are created. If a selector returns 
- * multiple elements the destination field receives a list of processed elements. 
- * @see <a href="https://jsoup.org/cookbook/extracting-data/selector-syntax"> CSS selectors </a> for information on supported selectors.
+ * multiple elements the destination field receives a list of processed elements. If a selector returns no elements then the destination field is 
+ * not created
+ * @see <a href="https://jsoup.org/cookbook/extracting-data/selector-syntax"> CSS selectors </a> for information on supported selectors
  * </p>
  */
 public class JSoupExtractor extends Stage {
@@ -93,7 +95,7 @@ public class JSoupExtractor extends Stage {
             parser = (e) -> e.eachAttr(config.get("attribute"));
           }
 
-            doc.update(entry.getKey(), UpdateMode.OVERWRITE, parser.apply(jsoupDoc.select(selector)).toArray(new String[0]));
+          doc.update(entry.getKey(), UpdateMode.OVERWRITE, parser.apply(jsoupDoc.select(selector)).toArray(new String[0]));
         }
       } catch (IOException e) {
         throw new StageException("File parse failed: " + e.getMessage());
