@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
+import com.amazonaws.services.s3.model.SelectObjectContentEvent.ContinuationEvent;
 import com.kmwllc.lucille.core.*;
 
 /**
@@ -41,10 +42,14 @@ public class ComputeFieldSize extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     if (!doc.has(source)) {
-      throw new StageException(String.format("Document does not have source field: %s", source));
+      return null;
     }
 
-    doc.update(destination, UpdateMode.OVERWRITE, doc.getBytes(source).length);
+    try {
+      doc.update(destination, UpdateMode.OVERWRITE, doc.getBytes(source).length);
+    } catch (NullPointerException e) {
+      throw new StageException(String.format("Field: {} is not a byte array", source));
+    }
     return null;
   }
 }

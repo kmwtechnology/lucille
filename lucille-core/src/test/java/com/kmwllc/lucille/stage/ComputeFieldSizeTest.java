@@ -27,10 +27,10 @@ public class ComputeFieldSizeTest {
   public void testSourceFieldDoesNotExist() throws StageException {
     Stage stage = factory.get("ComputeFieldSizeTest/basic.conf");
     Document doc1 = Document.create("doc1");
+    stage.processDocument(doc1);
 
-    assertThrows(StageException.class, () -> {
-      stage.processDocument(doc1);
-    });
+    assertEquals(1, doc1.getFieldNames().size());
+    assertEquals("doc1", doc1.getString("id"));
   }
 
   @Test
@@ -39,7 +39,7 @@ public class ComputeFieldSizeTest {
     Document doc1 = Document.create("doc1");
     doc1.update("source", UpdateMode.OVERWRITE, "string");
 
-    assertThrows(NullPointerException.class, () -> {
+    assertThrows(StageException.class, () -> {
       stage.processDocument(doc1);
     });
   }
