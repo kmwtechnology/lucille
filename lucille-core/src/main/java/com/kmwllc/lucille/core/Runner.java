@@ -169,7 +169,7 @@ public class Runner {
       log.info("Configuration is valid");
     } else {
       StringBuilder message =
-          new StringBuilder("Configuration is invalid. " + "Printing the list of exceptions for each pipeline\n");
+          new StringBuilder("Configuration is invalid. Printing the list of exceptions for each pipeline\n");
 
       for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
         message.append("\tConnector: ").append(entry.getKey()).append("\tError count: ").append(entry.getValue().size())
