@@ -1,7 +1,15 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -14,39 +22,38 @@ import io.pinecone.proto.UpdateRequest;
 import io.pinecone.proto.UpsertRequest;
 import io.pinecone.proto.Vector;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 public class PineconeIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(PineconeIndexer.class);
 
   private final PineconeClient client;
   private final String index;
-  private final List<String> namespaces;
-  private final List<String> embeddingFields;
+  private final Map<String, Object> namespaces;
   private final Set<String> metadataFields;
   private final String mode;
   private PineconeConnection connection;
+  private final String defaultEmbeddingField;
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) {
     super(config, messenger, metricsPrefix);
     this.index = config.getString("pinecone.index");
-    this.namespaces = config.getStringList("pinecone.namespaces");
-    this.embeddingFields = config.getStringList("pinecone.embeddingFields");
+    this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
     this.metadataFields = new HashSet<>(config.getStringList("pinecone.metadataFields"));
     this.mode = config.hasPath("pinecone.mode") ? config.getString("pinecone.mode") : "upsert";
-    PineconeClientConfig configuration = new PineconeClientConfig()
-        .withApiKey(config.getString("pinecone.apiKey"))
-        .withEnvironment(config.getString("pinecone.environment"))
-        .withProjectName(config.getString("pinecone.projectName"))
+    this.defaultEmbeddingField = ConfigUtils.getOrDefault(config, "pinecone.defaultEmbeddingField", null);
+    PineconeClientConfig configuration = new PineconeClientConfig().withApiKey(config.getString("pinecone.apiKey"))
+        .withEnvironment(config.getString("pinecone.environment")).withProjectName(config.getString("pinecone.projectName"))
         .withServerSideTimeoutSec(config.getInt("pinecone.timeout"));
     this.client = new PineconeClient(configuration);
+
+    if(namespaces == null && defaultEmbeddingField == null) {
+      throw new IllegalArgumentException(
+          "either a mapping of namespaces to embedding fields or a defaultEmbeddingField must be provided");
+    }
+
+    if(namespaces != null && namespaces.isEmpty()) {
+      throw new IllegalArgumentException("namespaces mapping must not be empty if provided");
+    }
   }
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
@@ -64,43 +71,38 @@ public class PineconeIndexer extends Indexer {
 
   @Override
   protected void sendToIndex(List<Document> documents) {
-
-    for (int i = 0; i < namespaces.size(); i++) {
-      final int index = i;
-      List<Vector> upsertVectors = documents.stream()
-          .map(doc -> Vector.newBuilder()
-              .addAllValues(doc.getFloatList(this.embeddingFields.get(index)))
-              .setMetadata(Struct.newBuilder().putAllFields(doc.asMap().entrySet().stream()
-                      .filter(entry -> metadataFields.contains(entry.getKey()))
-                      .collect(Collectors.toUnmodifiableMap(entry -> entry.getKey(),
-                          entry -> Value.newBuilder().setStringValue(entry.getValue().toString()).build())))
-                  .build())
-              .setId(doc.getId())
-              .build())
-          .collect(Collectors.toList());
-
-      if (mode.equalsIgnoreCase("upsert")) {
-        UpsertRequest request = UpsertRequest.newBuilder()
-            .addAllVectors(upsertVectors)
-            .setNamespace(this.namespaces.get(i))
-            .build();
-        connection.getBlockingStub().upsert(request);
+    if (namespaces != null) {
+      for (Map.Entry<String, Object> entry : namespaces.entrySet()) {
+        uploadDocuments(documents, (String) entry.getValue(), entry.getKey());
       }
+    } else {
+      uploadDocuments(documents, defaultEmbeddingField, "");
+    }
+  }
 
-      if (mode.equalsIgnoreCase("update")) {
-        documents.forEach(doc -> {
-          UpdateRequest request = UpdateRequest.newBuilder()
-              .addAllValues(doc.getFloatList(this.embeddingFields.get(index)))
-              .setId(doc.getId())
-              .setNamespace(this.namespaces.get(index))
-              .build();
-          connection.getBlockingStub().update(request);
-        });
+  private void uploadDocuments(List<Document> documents, String embeddingField, String namespace) {
+    List<Vector> upsertVectors = documents.stream()
+        .map(doc -> Vector.newBuilder().addAllValues(doc.getFloatList(embeddingField))
+            .setMetadata(Struct.newBuilder()
+                .putAllFields(doc.asMap().entrySet().stream().filter(entry -> metadataFields.contains(entry.getKey()))
+                    .collect(Collectors.toUnmodifiableMap(entry -> entry.getKey(),
+                        entry -> Value.newBuilder().setStringValue(entry.getValue().toString()).build())))
+                .build())
+            .setId(doc.getId()).build())
+        .collect(Collectors.toList());
 
-
-      }
+    if (mode.equalsIgnoreCase("upsert")) {
+      UpsertRequest request = UpsertRequest.newBuilder().addAllVectors(upsertVectors).setNamespace(namespace).build();
+      connection.getBlockingStub().upsert(request);
     }
 
+    if (mode.equalsIgnoreCase("update")) {
+      documents.forEach(doc -> {
+        UpdateRequest request = UpdateRequest.newBuilder().addAllValues(doc.getFloatList(embeddingField)).setId(doc.getId())
+            .setNamespace(namespace).build();
+        connection.getBlockingStub().update(request);
+      });
+    }
   }
 
   @Override
