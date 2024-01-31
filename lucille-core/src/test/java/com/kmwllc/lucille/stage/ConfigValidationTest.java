@@ -71,7 +71,7 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions1.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "com.kmwllc.lucille.stage.NoopStage:  Stage config contains unknown property invalid_property");
+        "com.kmwllc.lucille.stage.NoopStage: Stage config contains unknown property invalid_property");
     testException(exceptions1.get(1), IllegalArgumentException.class, "Stage config must contain property fields");
   }
 
@@ -97,8 +97,8 @@ public class ConfigValidationTest {
     exceptions.put("pipeline2", List.of(new Exception("exception 3")));
 
     String expected = "Configuration is invalid. Printing the list of exceptions for each pipeline\n"
-        + "\tPipeline: pipeline1\tError count: 2\n\t\tException 1: exception 1\n\t\tException 2: exception 2"
-        + "\tPipeline: pipeline2\tError count: 1\n\t\tException 1: exception 3\n";
+        + "\tPipeline: pipeline1\tError count: 2\n\t\tException 1: exception 1\n\t\tException 2: exception 2\n"
+        + "\tPipeline: pipeline2\tError count: 1\n\t\tException 1: exception 3";
     assertEquals(expected, Runner.stringifyValidation(exceptions));
   }
 
