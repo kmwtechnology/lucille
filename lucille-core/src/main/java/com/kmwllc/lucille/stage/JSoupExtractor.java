@@ -31,8 +31,8 @@ import com.typesafe.config.Config;
  * </p>
  * <b>destinationFields</b> (Map<String, String>) : defines a mapping from css selectors to the destination fields 
  * in the processed document. If they already exist they are overwritten. Otherwise, they are created. If a selector returns 
- * multiple elements the destination field receives a list of processed elements. If a selector returns no elements then the destination field is 
- * not created
+ * multiple elements the destination field receives a list of processed elements. If a selector returns no elements for a document then the 
+ * destination field is not created
  * @see <a href="https://jsoup.org/cookbook/extracting-data/selector-syntax"> CSS selectors </a> for information on supported selectors
  * </p>
  */
@@ -81,21 +81,17 @@ public class JSoupExtractor extends Stage {
             : Jsoup.parse(new String(doc.getBytes(byteArrayField), StandardCharsets.UTF_8));
         System.out.println(super.getName() + " " + destinationFields.entrySet());
         for (Map.Entry<String, Object> entry : destinationFields.entrySet()) {
-
           Object value = entry.getValue();
-          Function<Elements, List<String>> parser;
-          String selector;
 
           if (value instanceof String) {
-            selector = (String) value;
-            parser = (e) -> e.eachText();
+            // if the user specified a `desination -> selector` mapping
+            doc.update(entry.getKey(), UpdateMode.OVERWRITE, jsoupDoc.select((String) value).eachText().toArray(new String[0]));
           } else {
+            // if the user specified a `destination -> {selector: selector, attribute: attribute}` mapping
             Map<String, String> config = (Map<String, String>) value;
-            selector = config.get("selector");
-            parser = (e) -> e.eachAttr(config.get("attribute"));
+            doc.update(entry.getKey(), UpdateMode.OVERWRITE, jsoupDoc.select(config.get("selector")).eachAttr(config.get("attribute")).toArray(new String[0]));
           }
 
-          doc.update(entry.getKey(), UpdateMode.OVERWRITE, parser.apply(jsoupDoc.select(selector)).toArray(new String[0]));
         }
       } catch (IOException e) {
         throw new StageException("File parse failed: " + e.getMessage());
