@@ -19,7 +19,7 @@ public class ComputeFieldSizeTest {
       factory.get("ComputeFieldSizeTest/no-source.conf");
     });
     assertThrows(StageException.class, () -> {
-      factory.get("ComputeFieldSizeTest/no-output.conf");
+      factory.get("ComputeFieldSizeTest/no-destination.conf");
     });
   }
 
@@ -37,7 +37,7 @@ public class ComputeFieldSizeTest {
   public void testSourceNotByteArray() throws StageException {
     Stage stage = factory.get("ComputeFieldSizeTest/basic.conf");
     Document doc1 = Document.create("doc1");
-    doc1.update("sourceField", UpdateMode.OVERWRITE, "string");
+    doc1.update("source", UpdateMode.OVERWRITE, "string");
 
     assertThrows(NullPointerException.class, () -> {
       stage.processDocument(doc1);
@@ -51,17 +51,17 @@ public class ComputeFieldSizeTest {
     Document doc2 = Document.create("doc2");
     Document doc3 = Document.create("doc3");
 
-    doc1.update("sourceField", UpdateMode.OVERWRITE, new byte[0]);
-    doc2.update("sourceField", UpdateMode.OVERWRITE, new byte[5]);
-    doc3.update("sourceField", UpdateMode.OVERWRITE, new byte[10]);
+    doc1.update("source", UpdateMode.OVERWRITE, new byte[0]);
+    doc2.update("source", UpdateMode.OVERWRITE, new byte[5]);
+    doc3.update("source", UpdateMode.OVERWRITE, new byte[10]);
 
     for (Document doc : Arrays.asList(doc1, doc2, doc3)) {
       stage.processDocument(doc);
     }
 
-    assertEquals(0, doc1.getInt("outputField").intValue());
-    assertEquals(5, doc2.getInt("outputField").intValue());
-    assertEquals(10, doc3.getInt("outputField").intValue());
+    assertEquals(0, doc1.getInt("destination").intValue());
+    assertEquals(5, doc2.getInt("destination").intValue());
+    assertEquals(10, doc3.getInt("destination").intValue());
   }
 
   @Test
@@ -69,11 +69,11 @@ public class ComputeFieldSizeTest {
     Stage stage = factory.get("ComputeFieldSizeTest/basic.conf");
     Document doc1 = Document.create("doc1");
 
-    doc1.update("sourceField", UpdateMode.OVERWRITE, new byte[10]);
-    doc1.update("outputField", UpdateMode.OVERWRITE, "default");
+    doc1.update("source", UpdateMode.OVERWRITE, new byte[10]);
+    doc1.update("destination", UpdateMode.OVERWRITE, "default");
 
     stage.processDocument(doc1);
 
-    assertEquals(10, doc1.getInt("outputField").intValue());
+    assertEquals(10, doc1.getInt("destination").intValue());
   }
 }
