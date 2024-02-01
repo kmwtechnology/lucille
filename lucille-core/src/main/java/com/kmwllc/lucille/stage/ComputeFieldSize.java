@@ -4,9 +4,8 @@ import java.util.Iterator;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-import com.amazonaws.services.s3.model.SelectObjectContentEvent.ContinuationEvent;
-import com.kmwllc.lucille.core.*;
 
 /**
  * Computes size of given byte array field and adds a field with that size
@@ -45,11 +44,12 @@ public class ComputeFieldSize extends Stage {
       return null;
     }
 
-    try {
-      doc.update(destination, UpdateMode.OVERWRITE, doc.getBytes(source).length);
-    } catch (NullPointerException e) {
+    byte[] bytes = doc.getBytes(source);
+    if(bytes == null) {
       throw new StageException(String.format("Field: {} is not a byte array", source));
     }
+
+    doc.update(destination, UpdateMode.OVERWRITE, doc.getBytes(source).length);
     return null;
   }
 }
