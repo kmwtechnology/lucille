@@ -48,11 +48,11 @@ public class PineconeIndexer extends Indexer {
 
     if (namespaces == null && defaultEmbeddingField == null) {
       throw new IllegalArgumentException(
-          "either a mapping of namespaces to embedding fields or a defaultEmbeddingField must be provided");
+          "at least one of a defaultEmbeddingField or a non-empty namespaces mapping is required");
     }
 
     if (namespaces != null && namespaces.isEmpty()) {
-      throw new IllegalArgumentException("namespaces mapping must not be empty if provided");
+      throw new IllegalArgumentException("namespaces mapping must be non-empty if provided");
     }
   }
 
