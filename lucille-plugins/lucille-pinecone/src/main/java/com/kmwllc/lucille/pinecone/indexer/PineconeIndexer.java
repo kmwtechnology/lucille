@@ -46,12 +46,12 @@ public class PineconeIndexer extends Indexer {
         .withServerSideTimeoutSec(config.getInt("pinecone.timeout"));
     this.client = new PineconeClient(configuration);
 
-    if(namespaces == null && defaultEmbeddingField == null) {
+    if (namespaces == null && defaultEmbeddingField == null) {
       throw new IllegalArgumentException(
           "either a mapping of namespaces to embedding fields or a defaultEmbeddingField must be provided");
     }
 
-    if(namespaces != null && namespaces.isEmpty()) {
+    if (namespaces != null && namespaces.isEmpty()) {
       throw new IllegalArgumentException("namespaces mapping must not be empty if provided");
     }
   }
