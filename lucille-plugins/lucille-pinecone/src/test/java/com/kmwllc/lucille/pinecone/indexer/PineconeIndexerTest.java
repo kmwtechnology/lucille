@@ -158,31 +158,76 @@ public class PineconeIndexerTest {
   }
 
   @Test
-  public void testUpsertAndUpdateNoNamespacesProvided() throws Exception {
+  public void testUpsertAndUpdateEmptyNamespacesProvided() throws Exception {
     try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
       Mockito.when(mock.connect("good")).thenReturn(goodConnection);
     })) {
       TestMessenger messenger = new TestMessenger();
       TestMessenger messenger2 = new TestMessenger();
-      Config configUpsert = ConfigFactory.load("PineconeIndexerTest/no-namespaces.conf");
-      Config configUpdate = ConfigFactory.load("PineconeIndexerTest/no-namespaces-update.conf");
+      Config configUpsert = ConfigFactory.load("PineconeIndexerTest/empty-namespaces.conf");
+      Config configUpdate = ConfigFactory.load("PineconeIndexerTest/empty-namespaces-update.conf");
 
-      PineconeIndexer indexerUpdate = new PineconeIndexer(configUpdate, messenger, "testing");
-      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpsert, messenger2, "testing");
+      assertThrows(IllegalArgumentException.class, () -> {
+        new PineconeIndexer(configUpdate, messenger, "testing");
+      });
+
+      assertThrows(IllegalArgumentException.class, () -> {
+        new PineconeIndexer(configUpsert, messenger2, "testing");
+      });
+
+    }
+  }
+
+  @Test
+  public void testUpsertNoNamespacesProvided() throws Exception {
+    try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
+      Mockito.when(mock.connect("good")).thenReturn(goodConnection);
+    })) {
+      TestMessenger messenger = new TestMessenger();
+      Config configUpsert = ConfigFactory.load("PineconeIndexerTest/no-namespaces.conf");
+
+      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpsert, messenger, "testing");
 
       indexerUpsert.validateConnection();
-      indexerUpdate.validateConnection();
 
       messenger.sendForIndexing(doc0);
       messenger.sendForIndexing(doc1);
-      messenger2.sendForIndexing(doc0);
-      messenger2.sendForIndexing(doc1);
-      indexerUpdate.run(2);
       indexerUpsert.run(2);
 
-      // assert that no upserts or updates have happened
+      // assert that no updates have been made
       Mockito.verify(stub, Mockito.times(0)).update(Mockito.any());
+      // assert that an upsert was made
+      ArgumentCaptor<UpsertRequest> upsertRequest = ArgumentCaptor.forClass(UpsertRequest.class);
+      Mockito.verify(stub, Mockito.times(1)).upsert(upsertRequest.capture());
+
+      assertEquals("", upsertRequest.getAllValues().get(0).getNamespace());
+    }
+  }
+
+  @Test
+  public void testUpdateNoNamespacesProvided() throws Exception {
+    try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
+      Mockito.when(mock.connect("good")).thenReturn(goodConnection);
+    })) {
+      TestMessenger messenger = new TestMessenger();
+      Config configUpdate = ConfigFactory.load("PineconeIndexerTest/no-namespaces-update.conf");
+
+      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpdate, messenger, "testing");
+
+      indexerUpsert.validateConnection();
+
+      messenger.sendForIndexing(doc0);
+      messenger.sendForIndexing(doc1);
+      indexerUpsert.run(2);
+
+      // assert that an update was made
+      ArgumentCaptor<UpdateRequest> updateRequest = ArgumentCaptor.forClass(UpdateRequest.class);
+      Mockito.verify(stub, Mockito.times(2)).update(updateRequest.capture());
+      // assert that no upserts have been made
       Mockito.verify(stub, Mockito.times(0)).upsert(Mockito.any());
+
+      assertEquals("", updateRequest.getAllValues().get(0).getNamespace());
+      assertEquals("", updateRequest.getAllValues().get(1).getNamespace());
     }
   }
 
@@ -207,8 +252,8 @@ public class PineconeIndexerTest {
       ArgumentCaptor<UpsertRequest> upsertRequest = ArgumentCaptor.forClass(UpsertRequest.class);
       Mockito.verify(stub, Mockito.times(2)).upsert(upsertRequest.capture());
 
-      UpsertRequest namespace1Upsert = upsertRequest.getAllValues().get(0);
-      UpsertRequest namespace2Upsert = upsertRequest.getAllValues().get(1);
+      UpsertRequest namespace2Upsert = upsertRequest.getAllValues().get(0);
+      UpsertRequest namespace1Upsert = upsertRequest.getAllValues().get(1);
 
       assertEquals("namespace-1", namespace1Upsert.getNamespace());
       assertEquals("namespace-2", namespace2Upsert.getNamespace());
@@ -269,28 +314,6 @@ public class PineconeIndexerTest {
     }
   }
 
-  @Test
-  public void testUpsertAndUpdateIncorrectNumEmbeddingFields() throws Exception {
-    try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
-      Mockito.when(mock.connect("good")).thenReturn(goodConnection);
-    })) {
-      TestMessenger messenger = new TestMessenger();
-      Config config = ConfigFactory.load("PineconeIndexerTest/incorrect-fields.conf");
-      PineconeIndexer indexer = new PineconeIndexer(config, messenger, "testing");
-      TestMessenger messenger2 = new TestMessenger();
-      Config config2 = ConfigFactory.load("PineconeIndexerTest/incorrect-fields-update.conf");
-      PineconeIndexer indexer2 = new PineconeIndexer(config2, messenger2, "testing");
-      indexer2.validateConnection();
-      indexer.validateConnection();
-
-      assertThrows(IndexOutOfBoundsException.class, () -> {
-        indexer2.sendToIndex(List.of(doc0, doc1));
-      });
-      assertThrows(IndexOutOfBoundsException.class, () -> {
-        indexer.sendToIndex(List.of(doc0, doc1));
-      });
-    }
-  }
 
   @Test
   public void testUpdateMultipleNamespaces() throws Exception {
@@ -313,10 +336,10 @@ public class PineconeIndexerTest {
       ArgumentCaptor<UpsertRequest> upsertRequest = ArgumentCaptor.forClass(UpsertRequest.class);
       Mockito.verify(stub, Mockito.times(0)).upsert(upsertRequest.capture());
 
-      UpdateRequest namespace1Request1 = updateRequest.getAllValues().get(0);
-      UpdateRequest namespace1Request2 = updateRequest.getAllValues().get(1);
-      UpdateRequest namespace2Request1 = updateRequest.getAllValues().get(2);
-      UpdateRequest namespace2Request2 = updateRequest.getAllValues().get(3);
+      UpdateRequest namespace2Request1 = updateRequest.getAllValues().get(0);
+      UpdateRequest namespace2Request2 = updateRequest.getAllValues().get(1);
+      UpdateRequest namespace1Request1 = updateRequest.getAllValues().get(2);
+      UpdateRequest namespace1Request2 = updateRequest.getAllValues().get(3);
 
       assertEquals("namespace-1", namespace1Request1.getNamespace());
       assertEquals("namespace-1", namespace1Request2.getNamespace());
