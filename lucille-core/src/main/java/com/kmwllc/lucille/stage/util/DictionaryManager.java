@@ -116,8 +116,8 @@ public class DictionaryManager {
 
         for (String term : line) {
           if (term.contains("\uFFFD")) {
-            log.warn(String.format("Entry \"%s\" on line %d contained malformed characters which were removed. " +
-                "This dictionary entry will be ignored.", term, reader.getLinesRead()));
+            log.warn("Entry \"{}\" on line {} contained malformed characters which were removed. " +
+                "This dictionary entry will be ignored.", term, reader.getLinesRead());
             ignore = true;
             break;
           }
