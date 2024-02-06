@@ -240,7 +240,7 @@ public class PublisherImpl implements Publisher {
         // Did not replace the following String.format with interpolation due to unique formatting (".2f")
         log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
             timer.getMeanRate(), timer.getSnapshot().getMean() / 1000000));
-        log.info("{} docs published%s. {} children created. {} success events. {} failure events. {} drop events.",
+        log.info("{} docs published{}. {} children created. {} success events. {} failure events. {} drop events.",
             timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped);
         if (numPublished > 0 && numFailed == 0) {
           log.info("All documents SUCCEEDED.");

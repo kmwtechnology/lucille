@@ -81,13 +81,13 @@ public class WeaviateIndexer extends Indexer {
     Result<Meta> meta = client.misc().metaGetter().run();
 
     if (meta.getError() != null) {
-      log.error(String.format("Weaviate errors: %s\n", meta.getError().getMessages()));
+      log.error("Weaviate errors: {}\n", meta.getError().getMessages());
       return false;
     }
 
-    log.info(String.format("Weaviate meta.hostname: %s", meta.getResult().getHostname()));
-    log.info(String.format("Weaviate meta.version: %s", meta.getResult().getVersion()));
-    log.info(String.format("Weaviate meta.modules: %s", meta.getResult().getModules()));
+    log.info("Weaviate meta.hostname: {}", meta.getResult().getHostname());
+    log.info("Weaviate meta.version: {}", meta.getResult().getVersion());
+    log.info("Weaviate meta.modules: {}", meta.getResult().getModules());
 
     return true;
   }
