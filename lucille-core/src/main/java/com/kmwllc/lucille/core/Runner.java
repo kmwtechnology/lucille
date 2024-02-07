@@ -103,7 +103,7 @@ public class Runner {
     }
 
     if (cli.hasOption("validate")) {
-      logValidation(ConfigFactory.load());
+      logValidation(validatePipelines(ConfigFactory.load()));
       return;
     }
 
@@ -163,11 +163,8 @@ public class Runner {
   }
 
   // Returns a mapping from pipeline names to the list of exceptions produced when validating them.
-  private static Map<String, List<Exception>> logValidation(Config config) throws Exception {
-    Map<String, List<Exception>> exceptions = validatePipelines(config);
-
+  private static void logValidation(Map<String, List<Exception>> exceptions) {
     log.info(stringifyValidation(exceptions));
-    return exceptions;
   }
 
   /**
@@ -194,11 +191,14 @@ public class Runner {
   }
 
   public static Map<String, List<Exception>> runInValidationMode(String configName) throws Exception {
-    return logValidation(ConfigFactory.load(configName));
+    Map<String, List<Exception>> exceptions = validatePipelines(ConfigFactory.load(configName));
+    logValidation(exceptions);
+    return exceptions;
   }
 
   /**
-   * Returns a mapping from pipline names to the list of exceptions produced when validating them.
+   * Returns a mapping from pipline names to the list of exceptions produced when validating them. TODO: create a validateEverything(Config config) method 
+   * which makes a call to this method as well as calls which validate other parts of the config
    */
   public static Map<String, List<Exception>> validatePipelines(Config config) throws Exception {
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
