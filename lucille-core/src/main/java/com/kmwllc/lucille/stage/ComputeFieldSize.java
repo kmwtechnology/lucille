@@ -45,11 +45,11 @@ public class ComputeFieldSize extends Stage {
     }
 
     byte[] bytes = doc.getBytes(source);
-    if(bytes == null) {
+    if (bytes == null) {
       throw new StageException(String.format("Field: {} is not a byte array", source));
     }
 
-    doc.update(destination, UpdateMode.OVERWRITE, doc.getBytes(source).length);
+    doc.update(destination, UpdateMode.OVERWRITE, bytes.length);
     return null;
   }
 }
