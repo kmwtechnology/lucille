@@ -1,6 +1,8 @@
 package com.kmwllc.lucille.stage;
 
 import java.util.Iterator;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -15,13 +17,14 @@ import com.typesafe.config.Config;
  * Config Parameters -
  * <br>
  * <p>
- * <b>source</b> (String) : The field to be truncated. If this is not a string it is still parsed as a string to generate a result
+ * <b>source</b> (String) : The field to be truncated. If this is not a string it is still parsed as a string to generate a result.
+ * If a document does not have the field it will be skipped. If the fields contents cannot be interpreted as a String the document is also 
+ * skipped and this is logged as a warning.
  * </p>
  * <p>
  * <b>max_size</b> (int) : The maximum number of characters to truncate the input to. If this is negative a StageException 
  * is thrown. 
- *  </p>
- * <p>
+ * </p>
  * <p>
  * <b>destination</b> (String, Optional) : The field where the truncated data should be placed. If this is not provided the 
  * operation is done inplace. If this field already exists it is overwritten.
@@ -32,6 +35,8 @@ public class TruncateField extends Stage {
   private final String source;
   private final int maxSize;
   private final String destination;
+
+  private static final Logger log = LogManager.getLogger(TruncateField.class);
 
   public TruncateField(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "max_size").withOptionalProperties("destination"));
@@ -44,22 +49,25 @@ public class TruncateField extends Stage {
 
   @Override
   public void start() throws StageException {
-    if(maxSize < 0) {
+    if (maxSize < 0) {
       throw new StageException("max_size cannot be negative");
     }
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    if (doc.has(source)) {
-      String string = doc.getString(source);
-      if (string == null) {
-        throw new StageException(String.format("Field: {} does not contain a string", source));
-      }
-
-      String newString = string.length() <= maxSize ? string : string.substring(0, maxSize);
-      doc.update(destination != null ? destination : source, UpdateMode.OVERWRITE, newString);
+    if (!doc.has(source)) {
+      return null;
     }
+
+    String string = doc.getString(source);
+    if (string == null) {
+      log.warn("Field {} does not contain a String. Document is being skipped.", source);
+    }
+
+    String newString = string.length() <= maxSize ? string : string.substring(0, maxSize);
+    doc.update(destination != null ? destination : source, UpdateMode.OVERWRITE, newString);
+
     return null;
   }
 }
