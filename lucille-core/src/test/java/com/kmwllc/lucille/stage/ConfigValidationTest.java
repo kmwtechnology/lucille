@@ -64,7 +64,7 @@ public class ConfigValidationTest {
   // asserts that if two connectors use the same pipeline it is only validated once
   @Test
   public void testDuplicatePipeline() throws Exception {
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("duplicate-pipeline.conf"));
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("shared-pipeline.conf"));
     assertEquals(1, exceptions.size());
 
     List<Exception> exceptions1 = exceptions.get("pipeline1");
