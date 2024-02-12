@@ -26,10 +26,10 @@ public class ComputeFieldSize extends Stage {
   private final String destination;
 
   public ComputeFieldSize(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "destination"));
+    super(config, new StageSpec().withRequiredProperties("source", "dest"));
 
     this.source = config.getString("source");
-    this.destination = config.getString("destination");
+    this.destination = config.getString("dest");
   }
 
   /**
