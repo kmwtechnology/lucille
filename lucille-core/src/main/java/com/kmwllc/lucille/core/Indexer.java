@@ -4,9 +4,13 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.kmwllc.lucille.indexer.IndexerFactory;
+import com.kmwllc.lucille.indexer.SolrIndexer;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +19,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import sun.misc.Signal;
 
 public abstract class Indexer implements Runnable {
 
@@ -266,5 +271,34 @@ public abstract class Indexer implements Runnable {
       ignoreFields.forEach(indexerDoc::remove);
     }
     return indexerDoc;
+  }
+
+  public static void main(String[] args) throws Exception {
+    Config config = ConfigFactory.load();
+    String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
+    log.info("Starting Indexer for pipeline: " + pipelineName);
+    IndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
+    Indexer indexer = IndexerFactory.fromConfig(config, messenger, false, pipelineName);
+
+    if (!indexer.validateConnection()) {
+      log.error("Indexer could not connect");
+      System.exit(1);
+    }
+
+    Thread indexerThread = new Thread(indexer);
+    indexerThread.start();
+
+    Signal.handle(
+        new Signal("INT"),
+        signal -> {
+          indexer.terminate();
+          log.info("Indexer shutting down");
+          try {
+            indexerThread.join();
+          } catch (InterruptedException e) {
+            log.error("Interrupted", e);
+          }
+          System.exit(0);
+        });
   }
 }
