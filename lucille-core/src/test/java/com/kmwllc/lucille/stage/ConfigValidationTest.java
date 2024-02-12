@@ -1,16 +1,20 @@
 package com.kmwllc.lucille.stage;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.kmwllc.lucille.core.*;
-import com.typesafe.config.ConfigFactory;
-import org.junit.Test;
-
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.Test;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.DocumentException;
+import com.kmwllc.lucille.core.RunResult;
+import com.kmwllc.lucille.core.Runner;
+import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import com.typesafe.config.ConfigFactory;
 
 public class ConfigValidationTest {
 
@@ -57,32 +61,79 @@ public class ConfigValidationTest {
     assertFalse(result.getStatus());
   }
 
+  // asserts that if two connectors use the same pipeline it is only validated once
   @Test
-  public void testValidationModeException() throws Exception {
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
-    assertEquals(2, exceptions.size());
+  public void testDuplicatePipeline() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("shared-pipeline.conf"));
+    assertEquals(1, exceptions.size());
 
-    List<Exception> exceptions1 = exceptions.get("connector1");
+    List<Exception> exceptions1 = exceptions.get("pipeline1");
     assertEquals(2, exceptions1.size());
 
-    List<Exception> exceptions2 = exceptions.get("connector2");
-    assertEquals(2, exceptions2.size());
-
-    testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NoopStage: " +
-        "Stage config contains unknown property invalid_property");
-
-    // TODO note that for the following two exceptions, the fields are retrieved before
-    //  the config validation is called
-
-    testException(exceptions1.get(1), IllegalArgumentException.class,
-        "Stage config must contain property fields");
-
-    testException(exceptions2.get(0), IllegalArgumentException.class,
-        "Stage config must contain property dest");
-
-    testException(exceptions2.get(1), IllegalArgumentException.class, "com.kmwllc.lucille.stage.Concatenate: " +
-        "Stage config contains unknown property default_inputs3");
+    testException(exceptions1.get(0), IllegalArgumentException.class,
+        "com.kmwllc.lucille.stage.NoopStage: Stage config contains unknown property invalid_property");
+    testException(exceptions1.get(1), IllegalArgumentException.class, "Stage config must contain property fields");
   }
+
+  // asserts that if no connectors use a pipeline it is still validated
+  @Test
+  public void testUnusedPipeline() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("no-used-pipelines.conf"));
+    assertEquals(1, exceptions.size());
+
+    List<Exception> exceptions1 = exceptions.get("pipeline1");
+    assertEquals(2, exceptions1.size());
+
+    testException(exceptions1.get(0), IllegalArgumentException.class,
+        "com.kmwllc.lucille.stage.NoopStage: Stage config contains unknown property invalid_property");
+
+    testException(exceptions1.get(1), IllegalArgumentException.class, "Stage config must contain property fields");
+  }
+
+  @Test
+  public void testStringifyValidationExceptions() {
+    Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
+    exceptions.put("pipeline1", List.of(new Exception("exception 1"), new Exception("exception 2")));
+    exceptions.put("pipeline2", List.of(new Exception("exception 3")));
+
+    String expected = "Configuration is invalid. Printing the list of exceptions for each pipeline\n"
+        + "\tPipeline: pipeline1\tError count: 2\n\t\tException 1: exception 1\n\t\tException 2: exception 2\n"
+        + "\tPipeline: pipeline2\tError count: 1\n\t\tException 1: exception 3";
+    assertEquals(expected, Runner.stringifyValidation(exceptions));
+  }
+
+  @Test
+  public void testStringifyValidationNoExceptions() {
+    Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
+    assertEquals("Configuration is valid", Runner.stringifyValidation(exceptions));
+  }
+
+   @Test
+   public void testValidationModeException() throws Exception {
+     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
+     assertEquals(2, exceptions.size());
+  
+     List<Exception> exceptions1 = exceptions.get("pipeline1");
+     assertEquals(2, exceptions1.size());
+  
+     List<Exception> exceptions2 = exceptions.get("pipeline2");
+     assertEquals(2, exceptions2.size());
+  
+     testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NoopStage: " +
+         "Stage config contains unknown property invalid_property");
+  
+     // TODO note that for the following two exceptions, the fields are retrieved before
+     //  the config validation is called
+  
+     testException(exceptions1.get(1), IllegalArgumentException.class,
+         "Stage config must contain property fields");
+  
+     testException(exceptions2.get(0), IllegalArgumentException.class,
+         "Stage config must contain property dest");
+  
+     testException(exceptions2.get(1), IllegalArgumentException.class, "com.kmwllc.lucille.stage.Concatenate: " +
+         "Stage config contains unknown property default_inputs3");
+   }
 
   private static void processDoc(Class<? extends Stage> stageClass, String config, Document doc)
       throws StageException {
