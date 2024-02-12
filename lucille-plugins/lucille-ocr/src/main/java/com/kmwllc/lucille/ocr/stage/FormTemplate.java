@@ -1,21 +1,31 @@
 package com.kmwllc.lucille.ocr.stage;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.io.Serializable;
 import java.util.List;
 
-public class FormTemplate {
+public class FormTemplate implements Serializable {
 
-  public String name;
-  public List<Rectangle> regions;
+  private String name;
+  private List<Rectangle> regions;
 
-  @JsonCreator
-  public FormTemplate(
-    @JsonProperty("name") String name,
-    @JsonProperty("regions") List<Rectangle> regions) {
+  public FormTemplate() {
+  }
+
+  public void setName(String name) {
     this.name = name;
+  }
+
+  public String getName() {
+    return this.name;
+  }
+
+  public void setRegions(List<Rectangle> regions) {
     this.regions = regions;
+  }
+
+  public List<Rectangle> getRegions() {
+    return this.regions;
   }
 
   @Override
