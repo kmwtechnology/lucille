@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -61,29 +62,41 @@ import com.typesafe.config.Config;
  */
 public class ApplyJSoup extends Stage {
 
-  private final String filePathField;
   private final Map<String, Object> destinationFields;
-  private final String byteArrayField;
-  private final String stringField;
   private final String charset;
+  private final String activeField;
+  private final Mode mode;
 
-  public ApplyJSoup(Config config) {
+  private enum Mode {
+    STRING, BYTE, FILE
+  }
+
+  public ApplyJSoup(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("filePathField", "byteArrayField", "stringField", "charset")
         .withRequiredParents("destinationFields"));
 
     this.destinationFields = config.getConfig("destinationFields").root().unwrapped();
-    this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", null);
-    this.byteArrayField = ConfigUtils.getOrDefault(config, "byteArrayField", null);
     this.charset = ConfigUtils.getOrDefault(config, "charset", null);
-    this.stringField = ConfigUtils.getOrDefault(config, "stringField", null);
+
+    if (!((config.hasPath("filePathField") ^ config.hasPath("byteArrayField") ^ config.hasPath("stringField")
+        ^ (config.hasPath("filePathField") && config.hasPath("byteArrayField") && config.hasPath("stringField"))))) {
+      throw new StageException("Stage must have one and only one of filePathField, stringField, or byteArrayField specified");
+    }
+
+    if (config.hasPath("filePathField")) {
+      activeField = config.getString("filePathField");
+      mode = Mode.FILE;
+    } else if (config.hasPath("byteArrayField")) {
+      activeField = config.getString("byteArrayField");
+      mode = Mode.BYTE;
+    } else {
+      activeField = config.getString("stringField");
+      mode = Mode.STRING;
+    }
   }
 
   @Override
   public void start() throws StageException {
-    if (!((this.filePathField != null ^ this.byteArrayField != null ^ this.stringField != null
-        ^ (this.filePathField != null && this.byteArrayField != null && this.stringField != null)))) {
-      throw new StageException("Stage must have one and only one of filePathField, stringField, or byteArrayField specified");
-    }
 
     for (Map.Entry<String, Object> entry : destinationFields.entrySet()) {
       Object value = entry.getValue();
@@ -103,36 +116,32 @@ public class ApplyJSoup extends Stage {
     }
   }
 
-  private String activeField() {
-    if (filePathField != null) {
-      return filePathField;
-    } else if (byteArrayField != null) {
-      return byteArrayField;
-    } else {
-      return stringField;
-    }
-  }
-
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    String field = activeField();
-    if (!doc.has(field)) {
+    if (!doc.has(activeField)) {
       return null;
     }
 
-    org.jsoup.nodes.Document jsoupDoc;
-    if (filePathField != null) {
-      try {
-        jsoupDoc = Jsoup.parse(new File(doc.getString(filePathField)), charset);
-      } catch (IOException e) {
-        // only the File creation can throw an IOException
-        throw new StageException("File parse failed: " + e.getMessage());
+    org.jsoup.nodes.Document jsoupDoc = null;
+    switch (mode) {
+      case FILE: {
+        try {
+          jsoupDoc = Jsoup.parse(new File(doc.getString(activeField)), charset);
+        } catch (IOException e) {
+          // only the File creation can throw an IOException
+          throw new StageException("File parse failed: " + e.getMessage());
+        }
+        break;
       }
-    } else if (byteArrayField != null) {
-      jsoupDoc = Jsoup
-          .parse(new String(doc.getBytes(byteArrayField), charset != null ? Charset.forName(charset) : StandardCharsets.UTF_8));
-    } else {
-      jsoupDoc = Jsoup.parse(doc.getString(stringField));
+      case BYTE: {
+        jsoupDoc =
+            Jsoup.parse(new String(doc.getBytes(activeField), charset != null ? Charset.forName(charset) : StandardCharsets.UTF_8));
+        break;
+      }
+      case STRING: {
+        jsoupDoc = Jsoup.parse(doc.getString(activeField));
+        break;
+      }
     }
 
     for (Map.Entry<String, Object> entry : destinationFields.entrySet()) {
