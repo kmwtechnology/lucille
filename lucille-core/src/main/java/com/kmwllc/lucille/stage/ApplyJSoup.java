@@ -97,10 +97,9 @@ public class ApplyJSoup extends Stage {
       if (!map.containsKey("selector")) {
         throw new StageException("selector map must contain a `selector` field");
       }
-      if(map.get("type").equals("attribute") && !map.containsKey("attribute")) {
+      if (map.get("type").equals("attribute") && !map.containsKey("attribute")) {
         throw new StageException("`attribute` field must be provided when doing attribute extraction");
-      } 
-
+      }
     }
   }
 
@@ -165,7 +164,7 @@ public class ApplyJSoup extends Stage {
         default:
           break;
       }
-      
+
       doc.update(entry.getKey(), UpdateMode.OVERWRITE, extractedText.toArray(new String[0]));
     }
 

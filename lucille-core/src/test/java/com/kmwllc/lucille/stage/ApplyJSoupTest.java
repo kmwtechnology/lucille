@@ -186,7 +186,7 @@ public class ApplyJSoupTest {
     assertEquals("bar", doc.getString("destination"));
   }
 
-  @Test 
+  @Test
   public void testExtractInnerHtml() throws StageException {
     Stage stage = factory.get("ApplyJSoupTest/inner-html.conf");
     Document doc = Document.create("doc1");
@@ -200,8 +200,7 @@ public class ApplyJSoupTest {
     assertEquals(html, doc.getString("string"));
   }
 
-
-  @Test 
+  @Test
   public void testExtractOuterHtml() throws StageException {
     Stage stage = factory.get("ApplyJSoupTest/outer-html.conf");
     Document doc = Document.create("doc1");
