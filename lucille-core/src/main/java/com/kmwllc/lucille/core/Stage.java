@@ -59,17 +59,19 @@ public abstract class Stage {
   private final Set<String> optionalProperties;
   private final Set<String> requiredParents;
   private final Set<String> optionalParents;
+  private final Set<Set<String>> exclusiveProperties;
+  private final Set<Set<String>> pairedProperties;
 
   public Stage(Config config) {
     this(config, new StageSpec());
   }
 
   protected Stage(Config config, StageSpec spec) {
-    this(config, spec.requiredProperties, spec.optionalProperties, spec.requiredParents, spec.optionalParents);
+    this(config, spec.requiredProperties, spec.optionalProperties, spec.requiredParents, spec.optionalParents, spec.exclusiveProperties, spec.pairedProperties);
   }
 
   private Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties,
-      Set<String> requiredParents, Set<String> optionalParents) {
+      Set<String> requiredParents, Set<String> optionalParents, Set<Set<String>> exclusiveProperties, Set<Set<String>> pairedProperties) {
 
     if (config == null) {
       throw new IllegalArgumentException("Config cannot be null");
@@ -82,6 +84,8 @@ public abstract class Stage {
     this.optionalParents = Collections.unmodifiableSet(optionalParents);
     this.requiredProperties = Collections.unmodifiableSet(requiredProperties);
     this.optionalProperties = mergeSets(OPTIONAL_PROPERTIES, optionalProperties);
+    this.exclusiveProperties = exclusiveProperties;
+    this.pairedProperties = pairedProperties;
 
     // validates the properties that were just assigned
     try {
@@ -357,6 +361,8 @@ public abstract class Stage {
       throw new IllegalArgumentException(getDisplayName() + ": Stage config is missing required parents: " +
           Sets.difference(requiredParents, observedRequiredParents));
     }
+
+
   }
 
   public Set<String> getLegalProperties() {
@@ -414,12 +420,16 @@ public abstract class Stage {
     private final Set<String> optionalProperties;
     private final Set<String> requiredParents;
     private final Set<String> optionalParents;
+    private final Set<Set<String>> exclusiveProperties;
+    private final Set<Set<String>> pairedProperties;
 
     public StageSpec() {
       requiredProperties = new HashSet<>();
       optionalProperties = new HashSet<>();
       requiredParents = new HashSet<>();
       optionalParents = new HashSet<>();
+      exclusiveProperties = new HashSet<>();
+      pairedProperties = new HashSet<>();
     }
 
     public StageSpec withRequiredProperties(String... properties) {
@@ -439,6 +449,17 @@ public abstract class Stage {
 
     public StageSpec withOptionalParents(String... properties) {
       optionalParents.addAll(Arrays.asList(properties));
+      return this;
+    }
+
+
+    public StageSpec withExclusiveProperties(String... properties) {
+      this.exclusiveProperties.add(new HashSet<>(Arrays.asList(properties)));
+      return this;
+    }
+
+    public StageSpec withPairedProperties(String... properties) {
+      this.pairedProperties.add(new HashSet<>(Arrays.asList(properties)));
       return this;
     }
   }
