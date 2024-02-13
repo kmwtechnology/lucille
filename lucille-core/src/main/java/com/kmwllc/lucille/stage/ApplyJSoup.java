@@ -4,9 +4,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -37,10 +41,21 @@ import com.typesafe.config.Config;
  * @see <a href="https://docs.oracle.com/javase/8/docs/api/java/nio/charset/Charset.html"> Charsets </a> for information on supported charsets and conventions for 
  * specifying them.
  * </p>
- * <b>destinationFields</b> (Map<String, String>) : defines a mapping from destination fields to css selectors.
+ * <b>destinationFields</b> (Map&lt;String, Map&lt;String, String&gt;&gt;) : defines a mapping from destination fields to selector maps. Selector maps have a `selector` field which takes 
+ * a css selector and a `type` field which takes one of the following: 'text', 'attribute', 'html', or 'outerHtml'. When doing attribute extraction an additional `attribute` with 
+ * the desired attribute must be specified. For example:
+ * <p>
+ *  destinationFields: {
+ *    destination1: {
+ *      type: "attribute",
+ *      selector: ".foo",
+ *      attribute: "href"
+ *    } 
+ *  }
+ * </p>
  * If a destination field already exists in the processed document it is overwritten. Otherwise, they are created. If a selector returns 
  * multiple elements the destination field receives a list of processed elements. If a selector returns no elements for a document then the 
- * destination field is not created
+ * destination field is not created.  
  * @see <a href="https://jsoup.org/cookbook/extracting-data/selector-syntax"> CSS selectors </a> for information on supported selectors
  * </p>
  */
@@ -72,17 +87,20 @@ public class ApplyJSoup extends Stage {
 
     for (Map.Entry<String, Object> entry : destinationFields.entrySet()) {
       Object value = entry.getValue();
-      if (value instanceof Map) {
-        Map<String, String> map = (Map<String, String>) value;
-        if (map.keySet().size() != 2) {
-          throw new StageException("map must contain two fields");
-        }
-        if (!map.containsKey("attribute") || !map.containsKey("selector")) {
-          throw new StageException("map must contain a attribute and selector fields");
-        }
-      } else if (!(value instanceof String)) {
-        throw new StageException("destinationFields mapping can only have strings or a map as its values");
+      if (!(value instanceof Map)) {
+        throw new StageException("destination fields must be mapped to a selector map");
       }
+      Map<String, String> map = (Map<String, String>) value;
+      if (!map.containsKey("type")) {
+        throw new StageException("selector map must contain a `type` field");
+      }
+      if (!map.containsKey("selector")) {
+        throw new StageException("selector map must contain a `selector` field");
+      }
+      if(map.get("type").equals("attribute") && !map.containsKey("attribute")) {
+        throw new StageException("`attribute` field must be provided when doing attribute extraction");
+      } 
+
     }
   }
 
@@ -119,17 +137,36 @@ public class ApplyJSoup extends Stage {
     }
 
     for (Map.Entry<String, Object> entry : destinationFields.entrySet()) {
-      Object value = entry.getValue();
+      Map<String, String> value = (Map<String, String>) entry.getValue();
+      Elements selected = jsoupDoc.select(value.get("selector"));
+      List<String> extractedText = new ArrayList<>();
 
-      if (value instanceof String) {
-        // if the user specified a `destination -> selector` mapping
-        doc.update(entry.getKey(), UpdateMode.OVERWRITE, jsoupDoc.select((String) value).eachText().toArray(new String[0]));
-      } else {
-        // if the user specified a `destination -> {selector: selector, attribute: attribute}` mapping
-        Map<String, String> config = (Map<String, String>) value;
-        doc.update(entry.getKey(), UpdateMode.OVERWRITE,
-            jsoupDoc.select(config.get("selector")).eachAttr(config.get("attribute")).toArray(new String[0]));
+      switch (value.get("type")) {
+        case "text": {
+          extractedText = selected.eachText();
+          break;
+        }
+        case "attribute": {
+          extractedText = selected.eachAttr(value.get("attribute"));
+          break;
+        }
+        case "html": {
+          for (Element e : selected) {
+            extractedText.add(e.html());
+          }
+          break;
+        }
+        case "outerHtml": {
+          for (Element e : selected) {
+            extractedText.add(e.outerHtml());
+          }
+          break;
+        }
+        default:
+          break;
       }
+      
+      doc.update(entry.getKey(), UpdateMode.OVERWRITE, extractedText.toArray(new String[0]));
     }
 
     return null;

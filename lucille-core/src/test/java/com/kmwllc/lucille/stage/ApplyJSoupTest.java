@@ -42,7 +42,7 @@ public class ApplyJSoupTest {
   }
 
   @Test
-  public void testDestinatinFieldsMapIncorrect() throws StageException {
+  public void testDestinationFieldsMapIncorrect() throws StageException {
     assertThrows(StageException.class, () -> {
       factory.get("ApplyJSoupTest/3-fields.conf");
     });
@@ -184,5 +184,34 @@ public class ApplyJSoupTest {
     assertEquals("doc1", doc.getString("id"));
     assertEquals(html, doc.getString("string"));
     assertEquals("bar", doc.getString("destination"));
+  }
+
+  @Test 
+  public void testExtractInnerHtml() throws StageException {
+    Stage stage = factory.get("ApplyJSoupTest/inner-html.conf");
+    Document doc = Document.create("doc1");
+    String html = "<html><div>foo</div><div>bar</div></html>";
+    doc.setField("string", html);
+    stage.processDocument(doc);;
+
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("doc1", doc.getString("id"));
+    assertEquals(List.of("foo", "bar"), doc.getStringList("destination"));
+    assertEquals(html, doc.getString("string"));
+  }
+
+
+  @Test 
+  public void testExtractOuterHtml() throws StageException {
+    Stage stage = factory.get("ApplyJSoupTest/outer-html.conf");
+    Document doc = Document.create("doc1");
+    String html = "<html><div>foo</div><div>bar</div></html>";
+    doc.setField("string", html);
+    stage.processDocument(doc);;
+
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("doc1", doc.getString("id"));
+    assertEquals(List.of("<div>\n foo\n</div>", "<div>\n bar\n</div>"), doc.getStringList("destination"));
+    assertEquals(html, doc.getString("string"));
   }
 }
