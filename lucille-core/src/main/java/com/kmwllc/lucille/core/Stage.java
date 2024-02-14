@@ -321,7 +321,7 @@ public abstract class Stage {
   // this can be used in a specific stage to validate nested properties
   protected void validateConfig(
       Config config, Set<String> requiredProperties, Set<String> optionalProperties,
-      Set<String> requiredParents, Set<String> optionalParents) {
+      Set<String> requiredParents, Set<String> optionalParents, Set<Set<String>> exclusiveProperties) {
 
     // verifies that set intersection is empty
     if (!disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
@@ -362,6 +362,12 @@ public abstract class Stage {
           Sets.difference(requiredParents, observedRequiredParents));
     }
 
+    for(Set<String> group : exclusiveProperties) {
+      int count = group.stream().map(prop -> keys.contains(prop) ? 1 : 0).reduce(0, Integer::sum);
+      if(count != 1) {
+        throw new IllegalArgumentException(getDisplayName() + ": Stage config must contain only one from the set of exlusive properties: " + group);
+      }
+    }
 
   }
 
