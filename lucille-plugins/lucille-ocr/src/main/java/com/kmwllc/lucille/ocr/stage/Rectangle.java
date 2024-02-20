@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Rectangle implements Serializable {
-	private String label;
+	private String dest;
 	private int x;
 	private int y;
 	private int width;
@@ -13,14 +13,14 @@ public class Rectangle implements Serializable {
 
 
 
-	public String getLabel() {
-    return label;
+	public String getDest() {
+    return dest;
   }
 
 
 
-  public void setLabel(String label) {
-    this.label = label;
+  public void setDest(String label) {
+    this.dest = label;
   }
 
 
@@ -76,7 +76,7 @@ public class Rectangle implements Serializable {
   @Override
 	public String toString() {
 		return "Rectangle{" +
-			"label='" + label + '\'' +
+			"label='" + dest + '\'' +
 			", x=" + x +
 			", y=" + y +
 			", width=" + width +

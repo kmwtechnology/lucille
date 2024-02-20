@@ -3,30 +3,25 @@ package com.kmwllc.lucille.ocr.stage;
 import static org.bytedeco.leptonica.global.leptonica.pixRead;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import javax.imageio.ImageIO;
 import org.apache.commons.io.FilenameUtils;
 import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.leptonica.PIX;
 import org.bytedeco.tesseract.TessBaseAPI;
-import org.eclipse.parsson.JsonMergePatchImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
@@ -35,17 +30,70 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigBeanFactory;
-import com.typesafe.config.ConfigFactory;
-import co.elastic.clients.json.JsonpMappingException;
 
+
+/**
+ * Applies optical character recognition to images. Additionally supports form extraction using 
+ * templates when used on pdfs. See README for a more detailed explanation.
+ * <br>
+ * Config Parameters -
+ * <br>
+ * <p>
+ * <b>lang</b> (String) : The language to use for OCR.
+ * </p>
+ * <p>
+ * <b>path_field</b> (String, Optional) : Field on document containing a path to the image used for extraction. The 
+ * extension is used to determine if the image is a pdf. If the document does not contain this field it is skipped.
+ *  </p>
+ * <p>
+ * <b>extract_all_dest</b> (String, Optional) : If this field is specified, ocr is applied to the entire image 
+ * and the result is stored in this field. For pdfs, ocr is applied to each page seperately and the field becomes multi-valued
+ * <p>
+ * <b>extraction_templates</b> (List&lt;FormTemplate&gt;, Optional) : A list of form templates defined as such:
+ * <p>
+ * <pre>
+ * {
+ *   name: "w2",
+ *   regions: [
+ *    {
+ *      x: 0,
+ *      y: 0,
+ *      width: 100,
+ *      height: 100,
+ *      dest: "field1"
+ *    },
+ *    {
+ *      x: 100,
+ *      y: 200,
+ *      width: 200,
+ *      height: 300,
+ *      dest: "field2"
+ *    }
+ *  ]
+ * }
+ * </pre>
+ * </p>
+ * The name field is the name of the template and regions is a list of rectangular portions of the pages to extract. They are each extracted to the field specified by `dest`
+ * and appended to a multivalued field if there is already something there.
+ * </p>
+ *  <p>
+ * <b>pages</b> (Map&lt;Integer,String&gt;, Optional) : A map from page numbers to template names allowing a user to statically specify 
+ * which types of forms are on which pages
+ * </p>
+ * <p>
+ * <b>pagesField</b> (String, Optional) : Field on document containing a JSON string used for dynamically applying templates to documents.
+ * This allows a user to specify on the document itself which types of forms the document is holding and on which pages. The JSON should be a map 
+ * from page numbers to template names. If a page appears in both the static and dynamic mapping, the dynamic one takes precedence.
+ * </p>
+ */
 public class ApplyOCR extends Stage {
 
+  public static final String TEMP_DIR = "luclle-ocr-temp";
   private static final Logger log = LoggerFactory.getLogger(ApplyOCR.class);
 
   private final String lang;
   private transient TessBaseAPI api = null;
   private final String pathField;
-  private final String byteArrayField;
   private final String pagesField;
   private final Map<Integer, String> pages;
   private final Map<String, FormTemplate> extractionTemplates;
@@ -53,14 +101,11 @@ public class ApplyOCR extends Stage {
 
 
   public ApplyOCR(Config config) throws StageException {
-    super(config,
-        new StageSpec()
-            .withOptionalProperties("pages_field", "extraction_templates", "path_field", "byte_array_field", "extract_all_dest")
-            .withRequiredProperties("lang").withOptionalParents("pages"));
+    super(config, new StageSpec().withOptionalProperties("pages_field", "extraction_templates", "extract_all_dest")
+        .withRequiredProperties("lang", "path_field").withOptionalParents("pages"));
 
     lang = config.getString("lang");
     pathField = ConfigUtils.getOrDefault(config, "path_field", null);
-    byteArrayField = ConfigUtils.getOrDefault(config, "byte_array_field", null);
     pagesField = ConfigUtils.getOrDefault(config, "pages_field", null);
     extractAllDest = ConfigUtils.getOrDefault(config, "extract_all_dest", null);
 
@@ -75,7 +120,6 @@ public class ApplyOCR extends Stage {
       extractionTemplates = null;
     }
 
-
     if (config.hasPath("pages")) {
       Map<String, Object> temp = config.getConfig("pages").root().unwrapped();
       pages = new LinkedHashMap<>();
@@ -86,48 +130,55 @@ public class ApplyOCR extends Stage {
       pages = null;
     }
 
-    if (pages != null && extractionTemplates == null) {
-      throw new StageException("extraction_templates must be specified when pages is");
+    if ((pages != null || pagesField != null) && extractionTemplates == null) {
+      throw new StageException("extraction_templates must be specified when pages or pages_field is specified");
     }
-    if (extractAllDest != null && extractionTemplates != null) {
-      throw new StageException("extract_all_dest and extraction_templates can not both be specified");
-    }
-
-    initModel(lang);
   }
 
-  private void initModel(String lang) {
+  @Override
+  public void start() throws StageException {
     api = new TessBaseAPI();
     String tessData = "TesseractOcr";
     // load the models
     if (api.Init(tessData, lang) != 0) {
-      System.out.println("Unable to load tesseract model.");
+      throw new StageException(String.format("Unable to load tesseract model: %s", lang));
     }
-
   }
 
   private String ocr(BufferedImage image) {
     // The tesseract api has some issues reading the image directly as a byte
     // array.
     // so for now... until that changes, we'll write a temp file to be ocr'd and
-    try {
 
-      String tempFilename = "tesseract." + UUID.randomUUID().toString() + ".png";
-      File tempFile = new File("data", tempFilename);
+    String tempFilename = "tesseract." + UUID.randomUUID().toString() + ".png";
+    File tempFile = null;
+    try {
+      new File(TEMP_DIR).mkdir();
+      tempFile = new File(TEMP_DIR, tempFilename);
       try (FileOutputStream fos = new FileOutputStream(tempFile)) {
         ImageIO.write(image, "png", fos);
       }
       String result = ocr(tempFile.getAbsolutePath());
-      tempFile.delete();
       return result;
     } catch (IOException e) {
       log.warn("IOException encountered while doing extraction: {}", e);
       return null;
+    } finally {
+      try {
+        if (tempFile != null) {
+          tempFile.delete();
+        }
+      } catch (Exception e) {
+        log.warn("Error deleting temp file: {}", e);
+      }
     }
   }
 
-  private String ocr(String filename) {
+  private String ocr(String filename) throws FileNotFoundException {
     try (PIX image = pixRead(filename)) {
+      if (image == null) {
+        throw new FileNotFoundException(String.format("%s cannot be opened", filename));
+      }
       api.SetImage(image);
       // single column of text
       api.SetPageSegMode(4);
@@ -142,12 +193,13 @@ public class ApplyOCR extends Stage {
     }
   }
 
-  public Map<String, String> extractTemplate(BufferedImage page, FormTemplate template) throws IOException {
+  // TODO: fix append behavior
+  private Map<String, String> extractTemplate(BufferedImage page, FormTemplate template) throws IOException {
     Map<String, String> results = new LinkedHashMap<>();
     for (Rectangle r : template.getRegions()) {
       BufferedImage roiCrop = FormUtils.cropImage(page, r);
       String result = ocr(roiCrop);
-      results.put(r.getLabel(), result);
+      results.put(r.getDest(), result);
     }
     return results;
   }
@@ -165,13 +217,14 @@ public class ApplyOCR extends Stage {
       try {
         extractedText = extractTemplate(images.get(entry.getKey()), template);
       } catch (IOException e) {
-        log.warn("Error while extracting: {}. Skipping template: {}...", e, template.getName());
+        log.warn("Skipping template: {}. Error while extracting: {}", template.getName(), e);
         continue;
       } catch (IndexOutOfBoundsException e) {
-        log.warn("Page: {}, does not exist", )
+        log.warn("Page: {}, does not exist on document with ID: {}. Skipping template.", entry.getKey(), doc.getId());
+        continue;
       }
 
-      extractedText.entrySet().stream().forEach((region) -> doc.update(region.getKey(), UpdateMode.OVERWRITE, region.getValue()));;
+      extractedText.entrySet().stream().forEach((region) -> doc.update(region.getKey(), UpdateMode.APPEND, region.getValue()));;
     }
   }
 
@@ -183,51 +236,67 @@ public class ApplyOCR extends Stage {
     String path = doc.getString(pathField);
     String type = FilenameUtils.getExtension(path);
 
-
-    if (type == "pdf") {
-      ArrayList<BufferedImage> images = new ArrayList<>();
-      try {
-        images = FormUtils.loadPdf(doc.getString(pathField));
-      } catch (IOException e) {
-        log.warn("Error while loading pdf: {}. Skipping this document...", e);
-        return null;
-      }
-
-      // do full extraction for pdfs
-      if (extractAllDest != null) {
-        doc.update(extractAllDest, UpdateMode.OVERWRITE,
-            images.stream().map(image -> ocr(image)).filter(Objects::nonNull).collect(Collectors.toList()).toArray(new String[0]));
-        return null;
-      } else {
-        // extract templates that are statically defined
-        if (pages != null) {
-          extractPagesToDoc(pages, images, doc);
-        }
-
-        // extract template that are dynamically defined on the document
-        if (pagesField != null && doc.has(pagesField)) {
-          ObjectMapper mapper = new ObjectMapper();
-          Map<Integer, String> pages = new LinkedHashMap<>();
-          try {
-            Map<String, Object> map = mapper.readValue(doc.getString(pagesField), new TypeReference<>() {});
-            for(Map.Entry<String, Object> entry : map.entrySet()) {
-              pages.put(Integer.parseInt(entry.getKey()), (String) entry.getValue());
-            }
-          } catch (Exception e) {
-            log.warn("Invalid json at field: {}. Skipping dynamic template extraction for this document.\n{}", pagesField, e);
-            return null;
-          }
-          extractPagesToDoc(pages, images, doc);
-        }
-      }
-    } else {
+    if (!type.equals("pdf")) {
       if (extractAllDest == null) {
         log.warn("Cannot do form extraction for non-pdf files. extract_all_dest field must be specified");
         return null;
       }
-      doc.update(extractAllDest, UpdateMode.OVERWRITE, ocr(pathField));
+
+      // do full extraction for non-pdfs
+      try {
+        doc.update(extractAllDest, UpdateMode.OVERWRITE, ocr(path));
+      } catch (FileNotFoundException e) {
+        log.warn("File not found: {}", e);
+      }
+      return null;
     }
+
+    // doing pdf extraction 
+    ArrayList<BufferedImage> images = new ArrayList<>();
+    try {
+      images = FormUtils.loadPdf(path);
+    } catch (IOException e) {
+      log.warn("Error while loading pdf: {}. Skipping this document...", e);
+      return null;
+    }
+
+    // do full extraction for pdfs
+    if (extractAllDest != null) {
+      doc.update(extractAllDest, UpdateMode.OVERWRITE,
+          images.stream().map(image -> ocr(image)).filter(Objects::nonNull).collect(Collectors.toList()).toArray(new String[0]));
+      return null;
+    }
+
+    Map<Integer, String> templatesToBeApplied = new LinkedHashMap<>();
+    // add templates that are statically defined
+    if (pages != null) {
+      templatesToBeApplied.putAll(pages);
+    }
+
+    // add templates that are dynamically defined on the document (overwriting static ones)
+    if (pagesField != null && doc.has(pagesField)) {
+      ObjectMapper mapper = new ObjectMapper();
+      Map<String, Object> json = null;
+      try {
+        json = mapper.readValue(doc.getString(pagesField), new TypeReference<>() {});
+      } catch (Exception e) {
+        log.warn("Invalid json at field: {}. Skipping dynamic template extraction for this document.\n{}", pagesField, e);
+      }
+
+      if (json != null) {
+        for (Map.Entry<String, Object> entry : json.entrySet()) {
+          try {
+            templatesToBeApplied.put(Integer.parseInt(entry.getKey()), (String) entry.getValue());
+          } catch (NumberFormatException e) {
+            log.warn("Invalid page number: {}", entry.getKey());
+            continue;
+          }
+        }
+      }
+    }
+
+    extractPagesToDoc(templatesToBeApplied, images, doc);
+
     return null;
   }
-
 }
