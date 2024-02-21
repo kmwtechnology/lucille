@@ -87,7 +87,6 @@ public class ApplyOCRTest {
     Stage stage = factory.get("ApplyOCRTest/staticTemplates.conf");
     Document doc = Document.create("doc1");
     String path = "src/test/resources/ApplyOCRTest/images/formEx1.pdf";
-    String json = "{\"\":}"
     doc.setField("path", path);
 
     stage.processDocument(doc);
