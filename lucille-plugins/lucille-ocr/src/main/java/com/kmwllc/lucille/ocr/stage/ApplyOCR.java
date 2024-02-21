@@ -78,10 +78,10 @@ import com.typesafe.config.ConfigBeanFactory;
  * </p>
  *  <p>
  * <b>pages</b> (Map&lt;Integer,String&gt;, Optional) : A map from page numbers to template names allowing a user to statically specify 
- * which types of forms are on which pages
+ * which types of forms are on which pages. 
  * </p>
  * <p>
- * <b>pagesField</b> (String, Optional) : Field on document containing a JSON string used for dynamically applying templates to documents.
+ * <b>pages_field</b> (String, Optional) : Field on document containing a JSON string used for dynamically applying templates to documents.
  * This allows a user to specify on the document itself which types of forms the document is holding and on which pages. The JSON should be a map 
  * from page numbers to template names. If a page appears in both the static and dynamic mapping, the dynamic one takes precedence.
  * </p>
@@ -231,6 +231,7 @@ public class ApplyOCR extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     if (!doc.has(pathField)) {
+      log.warn("Document with id: {} does not have field: {}", doc.getId(), pathField);
       return null;
     }
     String path = doc.getString(pathField);

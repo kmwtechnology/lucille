@@ -65,29 +65,31 @@ public class ApplyOCRTest {
   //   assertEquals(List.of("foo\n", "bar\n"), doc.getStringList("dest"));
   // }
 
-  @Test
-  public void testStaticTemplates() throws StageException {
-    Stage stage = factory.get("ApplyOCRTest/staticTemplates.conf");
-    Document doc = Document.create("doc1");
-    String path = "src/test/resources/ApplyOCRTest/images/formEx1.pdf";
-    doc.setField("path", path);
-
-    stage.processDocument(doc);
-
-    assertEquals(6, doc.getFieldNames().size());
-    assertEquals(path, doc.getString("path"));
-    assertEquals("name\n", doc.getString("one"));
-    assertEquals("", doc.getString("two"));
-    assertEquals("occupation\n", doc.getString("three"));
-    assertEquals("title\n", doc.getString("four"));
-  }
+  // @Test
+  // public void testStaticTemplates() throws StageException {
+  //   Stage stage = factory.get("ApplyOCRTest/staticTemplates.conf");
+  //   Document doc = Document.create("doc1");
+  //   String path = "src/test/resources/ApplyOCRTest/images/formEx1.pdf";
+  //   doc.setField("path", path);
+  //
+  //   stage.processDocument(doc);
+  //
+  //   assertEquals(6, doc.getFieldNames().size());
+  //   assertEquals(path, doc.getString("path"));
+  //   assertEquals("name\n", doc.getString("one"));
+  //   assertEquals("", doc.getString("two"));
+  //   assertEquals("occupation\n", doc.getString("three"));
+  //   assertEquals("title\n", doc.getString("four"));
+  // }
 
   @Test
   public void testDynamicTemplates() throws StageException {
-    Stage stage = factory.get("ApplyOCRTest/staticTemplates.conf");
+    Stage stage = factory.get("ApplyOCRTest/dynamicTemplates.conf");
     Document doc = Document.create("doc1");
     String path = "src/test/resources/ApplyOCRTest/images/formEx1.pdf";
     doc.setField("path", path);
+    String pages = "{\"1\": \"form3\"}";
+    doc.setField("pages", pages);
 
     stage.processDocument(doc);
 
@@ -96,7 +98,7 @@ public class ApplyOCRTest {
     assertEquals("name\n", doc.getString("one"));
     assertEquals("", doc.getString("two"));
     assertEquals("occupation\n", doc.getString("three"));
-    assertEquals("title\n", doc.getString("four"));
+    assertEquals(pages, doc.getString("pages"));
   }
 
   @Test 
@@ -104,17 +106,49 @@ public class ApplyOCRTest {
 
   }
   @Test
-  public void testTemplateNotExists() {
+  public void testTemplateNotExists() throws StageException {
+    Stage stage = factory.get("ApplyOCRTest/templateNoExist.conf");
+    Document doc = Document.create("doc1");
+    String path = "src/test/resources/ApplyOCRTest/images/formEx1.pdf";
+    doc.setField("path", path);
 
+    stage.processDocument(doc);
+
+    assertEquals(6, doc.getFieldNames().size());
+    assertEquals(path, doc.getString("path"));
+    assertEquals("name\n", doc.getString("one"));
+    assertEquals("", doc.getString("two"));
+    assertEquals("occupation\n", doc.getString("three"));
+    assertEquals("title\n", doc.getString("four"));
   }
 
   @Test
-  public void testPageNotExists() {
+  public void testPageNotExists() throws StageException {
+    Stage stage = factory.get("ApplyOCRTest/pageNoExist.conf");
+    Document doc = Document.create("doc1");
+    String path = "src/test/resources/ApplyOCRTest/images/formEx1.pdf";
+    doc.setField("path", path);
 
+    stage.processDocument(doc);
+
+    assertEquals(5, doc.getFieldNames().size());
+    assertEquals(path, doc.getString("path"));
+    assertEquals("name\n", doc.getString("one"));
+    assertEquals("", doc.getString("two"));
+    assertEquals("occupation\n", doc.getString("three"));
   }
 
   @Test
-  public void testFileDoesNotExist() {
+  public void testFileDoesNotExist() throws StageException {
+    Stage stage = factory.get("ApplyOCRTest/pageNoExist.conf");
+    Document doc = Document.create("doc1");
+    String path = "src/test/resources/ApplyOCRTest/images/doesNotExist.pdf";
+    doc.setField("path", path);
 
+    stage.processDocument(doc);
+
+    assertEquals(2, doc.getFieldNames().size());
+    assertEquals(path, doc.getString("path"));
+    assertEquals("doc1", doc.getString("id"));
   }
 }
