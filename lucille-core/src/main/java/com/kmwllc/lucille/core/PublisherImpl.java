@@ -45,12 +45,12 @@ public class PublisherImpl implements Publisher {
 
   // the actual number of documents sent for processing, which may be smaller
   // than the number of calls to publish() if isCollapsing==true
-  private int numPublished = 0;
+  private long numPublished = 0;
 
-  private int numCreated = 0;
-  private int numFailed = 0;
-  private int numSucceeded = 0;
-  private int numDropped = 0;
+  private long numCreated = 0;
+  private long numFailed = 0;
+  private long numSucceeded = 0;
+  private long numDropped = 0;
 
   private Instant start;
   private final Timer timer;
@@ -237,10 +237,11 @@ public class PublisherImpl implements Publisher {
         if (isCollapsing && numPublished < timer.getCount()) {
           collapseInfo = String.format(" (%d after collapsing)", numPublished);
         }
+        // Did not replace the following String.format with interpolation due to unique formatting (".2f")
         log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
             timer.getMeanRate(), timer.getSnapshot().getMean() / 1000000));
-        log.info(String.format("%d docs published%s. %d children created. %d success events. %d failure events. %d drop events.",
-            timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped));
+        log.info("{} docs published{}. {} children created. {} success events. {} failure events. {} drop events.",
+            timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped);
         if (numPublished > 0 && numFailed == 0) {
           log.info("All documents SUCCEEDED.");
         }
@@ -256,7 +257,7 @@ public class PublisherImpl implements Publisher {
               "%d docs published. One minute rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc. Waiting on %d docs.",
               timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000, numPending()));
         } else {
-          log.info(String.format("Connector complete. Waiting on %d docs.", numPending()));
+          log.info("Connector complete. Waiting on {} docs.", numPending());
         }
         lastLog = Instant.now();
       }
@@ -269,32 +270,32 @@ public class PublisherImpl implements Publisher {
   }
 
   @Override
-  public int numPending() {
+  public long numPending() {
     return docIdsToTrack.size();
   }
 
   @Override
-  public int numPublished() {
+  public long numPublished() {
     return numPublished;
   }
 
   @Override
-  public int numCreated() {
+  public long numCreated() {
     return numCreated;
   }
 
   @Override
-  public int numSucceeded() {
+  public long numSucceeded() {
     return numSucceeded;
   }
 
   @Override
-  public int numFailed() {
+  public long numFailed() {
     return numFailed;
   }
 
   @Override
-  public int numDropped() {
+  public long numDropped() {
     return numDropped;
   }
 }

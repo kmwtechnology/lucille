@@ -49,7 +49,7 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
   private String pipelineName;
 
   @Override
-  public Document pollCompleted() throws Exception {
+  public Document pollDocToIndex() throws Exception {
     return pipelineDest.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
@@ -63,7 +63,7 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
   }
 
   @Override
-  public void sendCompleted(Document document) throws Exception {
+  public void sendForIndexing(Document document) throws Exception {
     pipelineDest.put(document);
   }
 

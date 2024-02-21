@@ -103,7 +103,7 @@ public class Runner {
     }
 
     if (cli.hasOption("validate")) {
-      logValidation(ConfigFactory.load());
+      logValidation(validatePipelines(ConfigFactory.load()));
       return;
     }
 
@@ -162,42 +162,54 @@ public class Runner {
     return result.getHistory();
   }
 
-  private static Map<String, List<Exception>> logValidation(Config config) throws Exception {
-    Map<String, List<Exception>> exceptions = validatePipelines(config);
-    if (exceptions.isEmpty()) {
-      log.info("Configuration is valid");
-    } else {
-      StringBuilder message = new StringBuilder("Configuration is invalid. " +
-          "Printing the list of exceptions for each pipeline\n");
+  // Returns a mapping from pipeline names to the list of exceptions produced when validating them.
+  private static void logValidation(Map<String, List<Exception>> exceptions) {
+    log.info(stringifyValidation(exceptions));
+  }
 
+  /**
+   * Returns a stringified version of the given map of exceptions. 
+   */
+  public static String stringifyValidation(Map<String, List<Exception>> exceptions) {
+    if (exceptions.entrySet().stream().allMatch(e -> e.getValue().isEmpty())) {
+      return "Configuration is valid";
+    } else {
+      StringBuilder message = new StringBuilder("Configuration is invalid. Printing the list of exceptions for each pipeline\n");
+
+      // TODO: Possibly add list of connectors which are being used, their piplines, and if those pipelines are valid
       for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
-        message.append("\tConnector: ").append(entry.getKey()).append("\tError count: ")
-            .append(entry.getValue().size()).append("\n");
+        message.append("\tPipeline: ").append(entry.getKey()).append("\tError count: ").append(entry.getValue().size())
+            .append("\n");
         int i = 1;
+
         for (Exception e : entry.getValue()) {
-          message.append("\t\tException ").append(i++).append(": ")
-              .append(e.getMessage()).append("\n");
+          message.append("\t\tException ").append(i++).append(": ").append(e.getMessage()).append("\n");
         }
       }
-      log.error(message.delete(message.length() - 1, message.length()).toString());
+      return message.delete(message.length() - 1, message.length()).toString();
     }
-    return exceptions;
   }
 
   public static Map<String, List<Exception>> runInValidationMode(String configName) throws Exception {
-    return logValidation(ConfigFactory.load(configName));
+    Map<String, List<Exception>> exceptions = validatePipelines(ConfigFactory.load(configName));
+    logValidation(exceptions);
+    return exceptions;
   }
 
+  /**
+   * Returns a mapping from pipline names to the list of exceptions produced when validating them. TODO: create a validateEverything(Config config) method 
+   * which makes a call to this method as well as calls which validate other parts of the config
+   */
   public static Map<String, List<Exception>> validatePipelines(Config config) throws Exception {
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
-    for (Connector connector : Connector.fromConfig(config)) {
-      log.info("Validating stages for connector \"" + connector.getName() +
-          "\" pipeline\" " + connector.getPipelineName() + "\"");
-      if (exceptionMap.containsKey(connector.getName())) {
-        // todo this might not be necessary to add but better to be safe
-        throw new RuntimeException("Duplicate connector name: " + connector.getName());
+    for (Config pipelineConfig : config.getConfigList("pipelines")) {
+      String name = pipelineConfig.getString("name");
+
+      if (!exceptionMap.containsKey(name)) {
+        exceptionMap.put(name, Pipeline.validateStages(config, name));
+      } else {
+        exceptionMap.get(name).add(new Exception("There exists a pipeline with the same name"));
       }
-      exceptionMap.put(connector.getName(), Pipeline.validateStages(config, connector.getPipelineName()));
     }
     return exceptionMap;
   }

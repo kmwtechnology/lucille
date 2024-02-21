@@ -37,11 +37,11 @@ public class RunnerTest {
 
     TestMessenger messenger = map.get("connector1");
 
-    assertEquals(0, messenger.getSavedDocumentsSentForProcessing().size());
-    assertEquals(0, messenger.getSavedCompletedDocuments().size());
-    assertEquals(0, messenger.getSavedCompletedDocuments().size());
-    assertEquals(0, messenger.getSavedEvents().size());
-    assertNull(messenger.pollCompleted());
+    assertEquals(0, messenger.getDocsSentForProcessing().size());
+    assertEquals(0, messenger.getDocsSentForIndexing().size());
+    assertEquals(0, messenger.getDocsSentForIndexing().size());
+    assertEquals(0, messenger.getSentEvents().size());
+    assertNull(messenger.pollDocToIndex());
     assertNull(messenger.pollDocToProcess());
     assertNull(messenger.pollEvent());
   }
@@ -58,12 +58,12 @@ public class RunnerTest {
         Runner.runInTestMode("RunnerTest/singleDoc.conf").get("connector1");
 
     // confirm doc 1 sent for processing
-    List<Document> docsSentForProcessing = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(1, docsSentForProcessing.size());
     assertEquals("1", docsSentForProcessing.get(0).getId());
 
     // confirm doc 1 was processed by the pipeline and sent to the destination topic
-    List<Document> docsCompleted = messenger.getSavedCompletedDocuments();
+    List<Document> docsCompleted = messenger.getDocsSentForIndexing();
     assertEquals(1, docsCompleted.size());
     assertEquals("1", docsCompleted.get(0).getId());
 
@@ -73,7 +73,7 @@ public class RunnerTest {
     //assertEquals("1", docsSentToSolr.get(0).getId());
 
     // confirm that a terminal event was sent for doc 1 and is stamped with the proper run ID
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertEquals(1, events.size());
     assertEquals("1", events.get(0).getDocumentId());
     assertNotNull(messenger.getRunId());
@@ -81,7 +81,7 @@ public class RunnerTest {
     assertEquals(Event.Type.FINISH, events.get(0).getType());
 
     // confirm that topics are empty
-    assertNull(messenger.pollCompleted());
+    assertNull(messenger.pollDocToIndex());
     assertNull(messenger.pollDocToProcess());
     assertNull(messenger.pollEvent());
   }
@@ -100,18 +100,18 @@ public class RunnerTest {
         Runner.runInTestMode("RunnerTest/threeDocsOneFailure.conf").get("connector1");
 
     // confirm doc 3 docs sent for processing but only 2 docs completed
-    List<Document> docsSentForProcessing = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(3, docsSentForProcessing.size());
     assertEquals("1", docsSentForProcessing.get(0).getId());
     assertEquals("2", docsSentForProcessing.get(1).getId());
     assertEquals("3", docsSentForProcessing.get(2).getId());
 
-    assertEquals(2, messenger.getSavedCompletedDocuments().size());
-    assertEquals("1", messenger.getSavedCompletedDocuments().get(0).getId());
-    assertEquals("3", messenger.getSavedCompletedDocuments().get(1).getId());
+    assertEquals(2, messenger.getDocsSentForIndexing().size());
+    assertEquals("1", messenger.getDocsSentForIndexing().get(0).getId());
+    assertEquals("3", messenger.getDocsSentForIndexing().get(1).getId());
 
     // confirm that the proper events were sent for all three documents
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertNotNull(messenger.getRunId());
     assertEquals(3, events.size());
 
@@ -129,7 +129,7 @@ public class RunnerTest {
     assertEquals(Event.Type.FINISH, events.get(2).getType());
 
     // confirm that topics are empty
-    assertNull(messenger.pollCompleted());
+    assertNull(messenger.pollDocToIndex());
     assertNull(messenger.pollDocToProcess());
     assertNull(messenger.pollEvent());
   }
@@ -165,12 +165,12 @@ public class RunnerTest {
     ;
 
     // confirm doc 1 sent for processing
-    List<Document> docsSentForProcessing = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(1, docsSentForProcessing.size());
     assertEquals("1", docsSentForProcessing.get(0).getId());
 
     // confirm doc 1 and its child were processed by the pipeline and sent to the destination topic
-    List<Document> docsCompleted = messenger.getSavedCompletedDocuments();
+    List<Document> docsCompleted = messenger.getDocsSentForIndexing();
     assertEquals(2, docsCompleted.size());
 
     // confirm doc 1 and its child were sent to solr
@@ -178,7 +178,7 @@ public class RunnerTest {
     //assertEquals(2, docsSentToSolr.size());
 
     // confirm that a CREATE event was sent for doc 1's child; followed by terminal events for both docs
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertEquals(3, events.size());
     assertEquals(Event.Type.CREATE, events.get(0).getType());
     assertEquals(Event.Type.FINISH, events.get(1).getType());
@@ -189,7 +189,7 @@ public class RunnerTest {
     assertEquals(messenger.getRunId(), events.get(2).getRunId());
 
     // confirm that topics are empty
-    assertNull(messenger.pollCompleted());
+    assertNull(messenger.pollDocToIndex());
     assertNull(messenger.pollDocToProcess());
     assertNull(messenger.pollEvent());
   }
@@ -206,7 +206,7 @@ public class RunnerTest {
     ;
 
     // confirm doc 1 sent for processing
-    List<Document> docsSentForProcessing = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(1, docsSentForProcessing.size());
     Document parent = docsSentForProcessing.get(0);
     assertEquals("1", parent.getId());
@@ -215,7 +215,7 @@ public class RunnerTest {
     assertFalse(parent.has("after2"));
 
     // confirm the two children were processed by the pipeline and sent to the destination topic
-    List<Document> docsCompleted = messenger.getSavedCompletedDocuments();
+    List<Document> docsCompleted = messenger.getDocsSentForIndexing();
     assertEquals(2, docsCompleted.size());
     Document child1 = docsCompleted.get(0);
     Document child2 = docsCompleted.get(1);
@@ -230,7 +230,7 @@ public class RunnerTest {
 
     // confirm that a CREATE event was sent for the doc1's children
     // confirm that a DROP event was sent for doc1 no FINISH event was sent for it
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertEquals(5, events.size());
     assertEquals(Event.Type.CREATE, events.get(0).getType());
     assertEquals("1_child1", events.get(0).getDocumentId());
@@ -244,7 +244,7 @@ public class RunnerTest {
     assertEquals("1_child2", events.get(4).getDocumentId());
 
     // confirm that topics are empty
-    assertNull(messenger.pollCompleted());
+    assertNull(messenger.pollDocToIndex());
     assertNull(messenger.pollDocToProcess());
     assertNull(messenger.pollEvent());
   }
@@ -262,14 +262,14 @@ public class RunnerTest {
     ;
 
     // confirm doc 1 sent for processing
-    List<Document> docsSentForProcessing = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(1, docsSentForProcessing.size());
     Document parent = docsSentForProcessing.get(0);
     assertEquals("1", parent.getId());
 
     // confirm the two children were processed by the pipeline and sent to the destination topic,
     // while the middle one was dropped and not sent for processing
-    List<Document> docsCompleted = messenger.getSavedCompletedDocuments();
+    List<Document> docsCompleted = messenger.getDocsSentForIndexing();
     assertEquals(3, docsCompleted.size());
     assertEquals("1_child1", docsCompleted.get(0).getId());
     assertEquals("1_child3", docsCompleted.get(1).getId());
@@ -277,7 +277,7 @@ public class RunnerTest {
 
     // confirm that a CREATE event was sent for doc1's children, including the dropped one;
     // confirm that a DROP event was sent for the middle child and no FINISH event was sent for it
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertEquals(7, events.size());
     assertEquals(Event.Type.CREATE, events.get(0).getType());
     assertEquals("1_child1", events.get(0).getDocumentId());
@@ -295,7 +295,7 @@ public class RunnerTest {
     assertEquals("1", events.get(6).getDocumentId());
 
     // confirm that topics are empty
-    assertNull(messenger.pollCompleted());
+    assertNull(messenger.pollDocToIndex());
     assertNull(messenger.pollDocToProcess());
     assertNull(messenger.pollEvent());
   }
@@ -312,13 +312,13 @@ public class RunnerTest {
     ;
 
     // confirm doc 1 sent for processing
-    List<Document> docsSentForProcessing = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(1, docsSentForProcessing.size());
     Document parent = docsSentForProcessing.get(0);
     assertEquals("1", parent.getId());
 
     // confirm the two children were processed by the pipeline and sent to the destination topic
-    List<Document> docsCompleted = messenger.getSavedCompletedDocuments();
+    List<Document> docsCompleted = messenger.getDocsSentForIndexing();
     assertEquals(2, docsCompleted.size());
     Document child1 = docsCompleted.get(0);
     Document child2 = docsCompleted.get(1);
@@ -332,7 +332,7 @@ public class RunnerTest {
     // the error in generating children is considered as a failure in processing the parent;
     // also note that the failure arises when requesting the 3rd child and therefore a CREATE event
     // is not sent for that 3rd child
-    List<Event> events = messenger.getSavedEvents();
+    List<Event> events = messenger.getSentEvents();
     assertEquals(5, events.size());
     assertEquals(Event.Type.CREATE, events.get(0).getType());
     assertEquals("1_child1", events.get(0).getDocumentId());
@@ -346,7 +346,7 @@ public class RunnerTest {
     assertEquals("1_child2", events.get(4).getDocumentId());
 
     // confirm that topics are empty
-    assertNull(messenger.pollCompleted());
+    assertNull(messenger.pollDocToIndex());
     assertNull(messenger.pollDocToProcess());
     assertNull(messenger.pollEvent());
   }
@@ -364,16 +364,16 @@ public class RunnerTest {
     TestMessenger messenger2 = map.get("connector2");
 
     // confirm doc 1 sent for processing (via first connector) and doc 2 sent (via second connector)
-    assertEquals(1, messenger1.getSavedDocumentsSentForProcessing().size());
-    assertEquals(1, messenger2.getSavedDocumentsSentForProcessing().size());
-    assertEquals("1", messenger1.getSavedDocumentsSentForProcessing().get(0).getId());
-    assertEquals("2", messenger2.getSavedDocumentsSentForProcessing().get(0).getId());
+    assertEquals(1, messenger1.getDocsSentForProcessing().size());
+    assertEquals(1, messenger2.getDocsSentForProcessing().size());
+    assertEquals("1", messenger1.getDocsSentForProcessing().get(0).getId());
+    assertEquals("2", messenger2.getDocsSentForProcessing().get(0).getId());
 
     // confirm both docs were processed and sent to the destination topic
-    assertEquals(1, messenger1.getSavedCompletedDocuments().size());
-    assertEquals(1, messenger2.getSavedCompletedDocuments().size());
-    assertEquals("1", messenger1.getSavedCompletedDocuments().get(0).getId());
-    assertEquals("2", messenger2.getSavedCompletedDocuments().get(0).getId());
+    assertEquals(1, messenger1.getDocsSentForIndexing().size());
+    assertEquals(1, messenger2.getDocsSentForIndexing().size());
+    assertEquals("1", messenger1.getDocsSentForIndexing().get(0).getId());
+    assertEquals("2", messenger2.getDocsSentForIndexing().get(0).getId());
 
     // confirm both docs were sent to solr
     //assertEquals(1, messenger1.getSavedDocsSentToSolr().size());
@@ -382,24 +382,24 @@ public class RunnerTest {
     //assertEquals("2", messenger2.getSavedDocsSentToSolr().get(0).getId());
 
     // confirm that terminal events were sent for both docs
-    assertEquals(1, messenger1.getSavedEvents().size());
-    assertEquals(1, messenger2.getSavedEvents().size());
-    assertEquals(Event.Type.FINISH, messenger1.getSavedEvents().get(0).getType());
-    assertEquals(Event.Type.FINISH, messenger2.getSavedEvents().get(0).getType());
-    assertEquals("1", messenger1.getSavedEvents().get(0).getDocumentId());
-    assertEquals("2", messenger2.getSavedEvents().get(0).getDocumentId());
+    assertEquals(1, messenger1.getSentEvents().size());
+    assertEquals(1, messenger2.getSentEvents().size());
+    assertEquals(Event.Type.FINISH, messenger1.getSentEvents().get(0).getType());
+    assertEquals(Event.Type.FINISH, messenger2.getSentEvents().get(0).getType());
+    assertEquals("1", messenger1.getSentEvents().get(0).getDocumentId());
+    assertEquals("2", messenger2.getSentEvents().get(0).getDocumentId());
 
     assertNotNull(messenger1.getRunId());
     assertEquals(messenger1.getRunId(), messenger2.getRunId());
-    assertEquals(messenger1.getRunId(), messenger1.getSavedEvents().get(0).getRunId());
-    assertEquals(messenger2.getRunId(), messenger2.getSavedEvents().get(0).getRunId());
+    assertEquals(messenger1.getRunId(), messenger1.getSentEvents().get(0).getRunId());
+    assertEquals(messenger2.getRunId(), messenger2.getSentEvents().get(0).getRunId());
 
     // confirm that topics are empty
-    assertNull(messenger1.pollCompleted());
+    assertNull(messenger1.pollDocToIndex());
     assertNull(messenger1.pollDocToProcess());
     assertNull(messenger1.pollEvent());
 
-    assertNull(messenger2.pollCompleted());
+    assertNull(messenger2.pollDocToIndex());
     assertNull(messenger2.pollDocToProcess());
     assertNull(messenger2.pollEvent());
   }
@@ -454,7 +454,7 @@ public class RunnerTest {
     PostCompletionCSVConnector.reset();
     TestMessenger messenger = Runner.runInTestMode("RunnerTest/postCompletionActions.conf").get("connector1");
     assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
-    List<Document> docs = messenger.getSavedCompletedDocuments();
+    List<Document> docs = messenger.getDocsSentForIndexing();
     Instant stageInstant = Instant.parse(docs.get(0).getString("timestamp"));
     Instant postCompletionInstant = PostCompletionCSVConnector.getPostCompletionInstant();
     assertTrue(postCompletionInstant.isAfter(stageInstant));
@@ -711,23 +711,23 @@ public class RunnerTest {
     // doc with id=1 should not be collapsed because it is out of sequence;
     // so, when collapsing we expect a total of 4 docs, when not collapsing we expect 6
 
-    assertEquals(4, messenger1.getSavedDocumentsSentForProcessing().size());
-    assertEquals(6, messenger2.getSavedDocumentsSentForProcessing().size());
+    assertEquals(4, messenger1.getDocsSentForProcessing().size());
+    assertEquals(6, messenger2.getDocsSentForProcessing().size());
     List<String> expectedIdsFromCollapsingConnector =
         Arrays.asList(new String[]{"connector1-0", "connector1-1", "connector1-2", "connector1-1"});
     List<String> expectedIdsFromNonCollapsingConnector =
         Arrays.asList(new String[]{"connector2-0", "connector2-1", "connector2-1", "connector2-1", "connector2-2", "connector2-1"});
     assertEquals(expectedIdsFromCollapsingConnector,
-        messenger1.getSavedDocumentsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
+        messenger1.getDocsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
     assertEquals(expectedIdsFromNonCollapsingConnector,
-        messenger2.getSavedDocumentsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
-    assertEquals(4, messenger1.getSavedEvents().size());
-    assertEquals(6, messenger2.getSavedEvents().size());
+        messenger2.getDocsSentForProcessing().stream().map(d -> d.getId()).collect(Collectors.toList()));
+    assertEquals(4, messenger1.getSentEvents().size());
+    assertEquals(6, messenger2.getSentEvents().size());
 
     assertEquals(Arrays.asList(new String[]{"foo", "foo", "foo2"}),
-        messenger1.getSavedDocumentsSentForProcessing().get(1).getStringList("field1"));
+        messenger1.getDocsSentForProcessing().get(1).getStringList("field1"));
     assertEquals("non-consecutive",
-        messenger1.getSavedDocumentsSentForProcessing().get(3).getString("field1"));
+        messenger1.getDocsSentForProcessing().get(3).getString("field1"));
   }
 
   @Test

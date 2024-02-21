@@ -42,7 +42,7 @@ public class CSVConnectorTest {
     //  d, "e,f", g
     //  x, y, z
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(3, docs.size());
 
     System.out.println(docs.get(1));
@@ -64,7 +64,7 @@ public class CSVConnectorTest {
     //  x	y	z
 
     // verify that tabs takes precedence over specified separator character
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
     System.out.println(docs.get(1));
     assertEquals(3, docs.size());
     assertEquals("\"e,f", docs.get(1).getString("field2"));
@@ -93,7 +93,7 @@ public class CSVConnectorTest {
     // Pizza, 10, Italy
     // Tofu Soup, 12, Korea
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(3, docs.size());
 
     // retrieve a document from the list and ensure that the first column does not contain the BOM
@@ -179,7 +179,7 @@ public class CSVConnectorTest {
     //  d	f	g
     //  x	y	z
 
-    List<Document> docs = messenger.getSavedDocumentsSentForProcessing();
+    List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(3, docs.size());
     assertEquals("a", docs.get(0).getString("field1"));
   }

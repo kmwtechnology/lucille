@@ -1,21 +1,21 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.stage.util.DictionaryManager;
 import com.kmwllc.lucille.util.StageUtils;
-import com.opencsv.CSVReader;
-import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Finds exact matches for given input values and extracts the payloads for each match to a given destination field.
@@ -45,16 +45,17 @@ public class DictionaryLookup extends Stage {
 
   private final List<String> sourceFields;
   private final List<String> destFields;
-  private final HashMap<String, String[]> dict;
+  private final String dictPath;
   private final boolean usePayloads;
   private final UpdateMode updateMode;
   private final boolean ignoreCase;
   private final boolean setOnly;
   private final boolean ignoreMissingSource;
 
+  private Map<String, String[]> dict;
+
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   // Dummy value to indicate that a key is present in the HashMap
-  private static final String[] PRESENT = new String[0];
 
   public DictionaryLookup(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "dict_path")
@@ -67,81 +68,22 @@ public class DictionaryLookup extends Stage {
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
     this.setOnly = ConfigUtils.getOrDefault(config, "set_only", false);
     this.ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignore_missing_source", false);
-    this.dict = buildHashMap(config.getString("dict_path"));
+    this.dictPath = config.getString("dict_path");
   }
 
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Dictionary Lookup");
     StageUtils.validateFieldNumNotZero(destFields, "Dictionary Lookup");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Dictionary Lookup");
+
     if (ignoreMissingSource && !setOnly) {
       log.warn("ignore_missing_source is only valid when set_only is true. Ignoring.");
     }
     if (setOnly && updateMode != UpdateMode.OVERWRITE) {
       throw new StageException("when set_only is true, update_mode must be set to overwrite");
     }
-  }
 
-  /**
-   * Create a HashMap matching key phrases from the dictionary to payloads
-   *
-   * @param dictPath  the path of the dictionary file
-   * @return the populated HashMap
-   */
-  private HashMap<String, String[]> buildHashMap(String dictPath) throws StageException {
-
-    // count lines and create a dictionary with correct capacity. hashmap support dynamic resizing, but it's more efficient
-    // to set the initial capacity especially when we know the number of lines in the file.
-    // we observed a 10% time reduction on sets with sizes >= 1K
-    int lineCount = FileUtils.countLines(dictPath);
-    HashMap<String, String[]> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
-
-    try (CSVReader reader = new CSVReader(FileUtils.getFileReader(dictPath))) {
-      // For each line of the dictionary file, add a keyword/payload pair to the hash map
-      String[] line;
-      boolean ignore = false;
-      while ((line = reader.readNext()) != null) {
-        if (line.length == 0) {
-          continue;
-        }
-
-        for (String term : line) {
-          if (term.contains("\uFFFD")) {
-            log.warn(String.format("Entry \"%s\" on line %d contained malformed characters which were removed. " +
-                "This dictionary entry will be ignored.", term, reader.getLinesRead()));
-            ignore = true;
-            break;
-          }
-        }
-
-        if (ignore) {
-          ignore = false;
-          continue;
-        }
-
-        // save the first word for both single and multi-word lines
-        String word = line[0].trim();
-
-        // TODO : Add log messages for when encoding errors occur so that they can be fixed
-        String[] value;
-        if (line.length == 1) {
-          value = setOnly ? PRESENT : new String[]{word};
-        } else if (setOnly) {
-          throw new StageException(String.format("Comma separated values are not allowed when set_only=true: \"%s\" on line %d",
-              Arrays.toString(line), reader.getLinesRead()));
-        } else {
-          // Handle multiple payload values here.
-          value = Arrays.stream(Arrays.copyOfRange(line, 1, line.length)).map(String::trim).toArray(String[]::new);
-        }
-        // Add the word and its payload(s) to the dictionary
-        dict.put(ignoreCase ? word.toLowerCase() : word, value);
-      }
-    } catch (IOException e) {
-      throw new StageException("Failed to read from the given file.", e);
-    } catch (CsvValidationException e) {
-      throw new StageException("Error validating CSV", e);
-    }
-    return dict;
+    this.dict = DictionaryManager.getDictionary(dictPath, ignoreCase, setOnly);
   }
 
   @Override

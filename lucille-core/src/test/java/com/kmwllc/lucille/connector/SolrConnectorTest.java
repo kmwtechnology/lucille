@@ -62,8 +62,8 @@ public class SolrConnectorTest {
 
     //verify(mockPublisher, times(2)).publish(testDoc);
 
-    assertEquals(2, messenger.getSavedDocumentsSentForProcessing().size());
-    for (Document doc : messenger.getSavedDocumentsSentForProcessing()) {
+    assertEquals(2, messenger.getDocsSentForProcessing().size());
+    for (Document doc : messenger.getDocsSentForProcessing()) {
       assertEquals(testDoc, doc);
     }
   }

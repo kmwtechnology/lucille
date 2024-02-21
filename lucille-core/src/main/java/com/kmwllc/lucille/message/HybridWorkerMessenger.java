@@ -87,7 +87,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    *
    */
   @Override
-  public void sendCompleted(Document document) throws Exception {
+  public void sendForIndexing(Document document) throws Exception {
     pipelineDest.put(document);
   }
 
