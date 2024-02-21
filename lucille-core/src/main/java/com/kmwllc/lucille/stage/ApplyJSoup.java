@@ -65,9 +65,9 @@ public class ApplyJSoup extends Stage {
   private final Map<String, Object> destinationFields;
   private final String charset;
   private final String activeField;
-  private final Mode mode;
+  private final InputType inputType;
 
-  private enum Mode {
+  private enum InputType {
     STRING, BYTE, FILE
   }
 
@@ -78,20 +78,23 @@ public class ApplyJSoup extends Stage {
     this.destinationFields = config.getConfig("destinationFields").root().unwrapped();
     this.charset = ConfigUtils.getOrDefault(config, "charset", null);
 
-    if (!((config.hasPath("filePathField") ^ config.hasPath("byteArrayField") ^ config.hasPath("stringField")
-        ^ (config.hasPath("filePathField") && config.hasPath("byteArrayField") && config.hasPath("stringField"))))) {
+    boolean a = config.hasPath("filePathField");
+    boolean b = config.hasPath("byteArrayField");
+    boolean c = config.hasPath("stringField");
+
+    if (!((a && !b && !c) || (!a && b && !c) || (!a && !b && c))) {
       throw new StageException("Stage must have one and only one of filePathField, stringField, or byteArrayField specified");
     }
 
-    if (config.hasPath("filePathField")) {
+    if (a) {
       activeField = config.getString("filePathField");
-      mode = Mode.FILE;
-    } else if (config.hasPath("byteArrayField")) {
+      inputType = InputType.FILE;
+    } else if (b) {
       activeField = config.getString("byteArrayField");
-      mode = Mode.BYTE;
+      inputType = InputType.BYTE;
     } else {
       activeField = config.getString("stringField");
-      mode = Mode.STRING;
+      inputType = InputType.STRING;
     }
   }
 
@@ -123,7 +126,7 @@ public class ApplyJSoup extends Stage {
     }
 
     org.jsoup.nodes.Document jsoupDoc = null;
-    switch (mode) {
+    switch (inputType) {
       case FILE: {
         try {
           jsoupDoc = Jsoup.parse(new File(doc.getString(activeField)), charset);
