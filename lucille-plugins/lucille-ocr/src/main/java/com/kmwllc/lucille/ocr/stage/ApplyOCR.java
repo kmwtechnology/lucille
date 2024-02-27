@@ -6,6 +6,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -34,7 +36,7 @@ import com.typesafe.config.ConfigBeanFactory;
 
 /**
  * Applies optical character recognition to images. Additionally supports form extraction using 
- * templates when used on pdfs. See README for a more detailed explanation.
+ * templates. See README for a more detailed explanation.
  * <br>
  * Config Parameters -
  * <br>
@@ -78,7 +80,7 @@ import com.typesafe.config.ConfigBeanFactory;
  * </p>
  *  <p>
  * <b>pages</b> (Map&lt;Integer,String&gt;, Optional) : A map from page numbers to template names allowing a user to statically specify 
- * which types of forms are on which pages. 
+ * which types of forms are on which pages. Page 0 is used to indicate the one and only page on non-pdf files.
  * </p>
  * <p>
  * <b>pages_field</b> (String, Optional) : Field on document containing a JSON string used for dynamically applying templates to documents.
@@ -193,13 +195,15 @@ public class ApplyOCR extends Stage {
     }
   }
 
-  // TODO: fix append behavior
-  private Map<String, String> extractTemplate(BufferedImage page, FormTemplate template) throws IOException {
-    Map<String, String> results = new LinkedHashMap<>();
+  private Map<String, List<String>> extractTemplate(BufferedImage page, FormTemplate template) throws IOException {
+    Map<String, List<String>> results = new LinkedHashMap<>();
     for (Rectangle r : template.getRegions()) {
+      if (!results.containsKey(r.getDest())) {
+        results.put(r.getDest(), new ArrayList<>());
+      }
       BufferedImage roiCrop = FormUtils.cropImage(page, r);
       String result = ocr(roiCrop);
-      results.put(r.getDest(), result);
+      results.get(r.getDest()).add(result);
     }
     return results;
   }
@@ -207,7 +211,7 @@ public class ApplyOCR extends Stage {
   private void extractPagesToDoc(Map<Integer, String> pages, ArrayList<BufferedImage> images, Document doc) {
 
     for (Map.Entry<Integer, String> entry : pages.entrySet()) {
-      Map<String, String> extractedText;
+      Map<String, List<String>> extractedText;
       FormTemplate template = extractionTemplates.get(entry.getValue());
       if (template == null) {
         log.warn("No template with name: {}. Skipping this template...", entry.getValue());
@@ -224,7 +228,8 @@ public class ApplyOCR extends Stage {
         continue;
       }
 
-      extractedText.entrySet().stream().forEach((region) -> doc.update(region.getKey(), UpdateMode.APPEND, region.getValue()));;
+      extractedText.entrySet().stream()
+          .forEach((region) -> doc.update(region.getKey(), UpdateMode.APPEND, region.getValue().toArray(new String[0])));
     }
   }
 
@@ -237,35 +242,34 @@ public class ApplyOCR extends Stage {
     String path = doc.getString(pathField);
     String type = FilenameUtils.getExtension(path);
 
-    if (!type.equals("pdf")) {
-      if (extractAllDest == null) {
-        log.warn("Cannot do form extraction for non-pdf files. extract_all_dest field must be specified");
-        return null;
-      }
 
-      // do full extraction for non-pdfs
-      try {
-        doc.update(extractAllDest, UpdateMode.OVERWRITE, ocr(path));
-      } catch (FileNotFoundException e) {
-        log.warn("File not found: {}", e);
-      }
-      return null;
-    }
-
-    // doing pdf extraction 
+    // doing pdf extraction
     ArrayList<BufferedImage> images = new ArrayList<>();
     try {
-      images = FormUtils.loadPdf(path);
+      if (type.equals("pdf")) {
+        images = FormUtils.loadPdf(path);
+      } else {
+        if (pagesField != null || pages != null) {
+          images.add(ImageIO.read(Files.newInputStream(Paths.get(path))));
+        }
+      }
     } catch (IOException e) {
-      log.warn("Error while loading pdf: {}. Skipping this document...", e);
+      log.warn("Error while loading file: {}. Skipping this document...", e);
       return null;
     }
 
-    // do full extraction for pdfs
+    // do full extraction
     if (extractAllDest != null) {
-      doc.update(extractAllDest, UpdateMode.OVERWRITE,
-          images.stream().map(image -> ocr(image)).filter(Objects::nonNull).collect(Collectors.toList()).toArray(new String[0]));
-      return null;
+      if (type.equals("pdf")) {
+        doc.update(extractAllDest, UpdateMode.OVERWRITE,
+            images.stream().map(image -> ocr(image)).filter(Objects::nonNull).collect(Collectors.toList()).toArray(new String[0]));
+      } else {
+        try {
+          doc.update(extractAllDest, UpdateMode.OVERWRITE, ocr(path));
+        } catch (FileNotFoundException e) {
+          log.warn("File not found: {}", e);
+        }
+      }
     }
 
     Map<Integer, String> templatesToBeApplied = new LinkedHashMap<>();

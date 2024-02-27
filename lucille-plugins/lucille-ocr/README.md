@@ -4,8 +4,8 @@ This stage uses [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) to e
 ## Usage 
 There are 3 ways in which the stage can be used all of which can be used simultaneously as defined in the config:
 1. Full extraction 
-2. Static form extraction (pdf only)
-3. Dynamic form extraction (pdf only)
+2. Static form extraction
+3. Dynamic form extraction
 
 ### Full Extraction 
 To enable full extraction add a `extract_all_dest` property to the config. For non-pdf files (determined by the file extension) the stage will extract all text present to this field. 
@@ -13,7 +13,7 @@ For pdf files each page will have extraction applied separately and the results 
 
 ### Static Form Extraction
 Static form extraction allows a user to statically (in the config) specify form templates and the pages they should be applied. To enable this, include an `extraction_templates` field containing the templates and 
-a `pages` field containing a map from page numbers to the name of the template to be applied. Templates themselves take the following form: 
+a `pages` field containing a map from page numbers to the name of the template to be applied (for non-pdf files a page number of 0 should be used to refer to the entire image). Templates themselves take the following form: 
 ```json 
   {
     name: "w2",
@@ -36,8 +36,8 @@ a `pages` field containing a map from page numbers to the name of the template t
   }
 ```
 The `name` property contains the name of the form and is used to refer to the template. The `regions` property contains an arbitrarily long list of rectangles whose interiors are extracted. The `dest` property within
-them is where the text is extracted to. If duplicate `dest` values are used, subsequent extractions are appended to the field rather than overwriting it. NOTE: all coordinates and distances are measured in pixels.
-additionally, if a page or template does not exist, this is logged, but subsequent page template mappings are still applied. Duplicate page entries in the map overwrites previous ones.
+them is where the text is extracted to. If duplicate `dest` values are used, subsequent extractions are appended to the field rather than overwriting it (this can be within one template or across multiple). NOTE: all coordinates and distances are measured in pixels.
+Additionally, if a page or template does not exist, this is logged, but subsequent page template mappings are still applied. Duplicate page entries in the map overwrites previous ones.
 
 ### Dynamic Form Extraction 
 This is identical to static form extraction but allows the documents themselves to specify which forms they contain and on which pages. To enable, include a `pages_field` property in the config which stores the field
