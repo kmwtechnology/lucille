@@ -49,11 +49,23 @@ public class WorkerIndexerPool {
     }
     started = true;
     log.info("Starting " + numWorkers + " WorkerIndexer thread pairs for pipeline " + pipelineName);
+
     for (int i = 0; i < numWorkers; i++) {
-      WorkerIndexer workerIndexer = new WorkerIndexer();
-      workerIndexer.start(config, pipelineName, bypassSearchEngine, idSet);
-      workerIndexers.add(workerIndexer);
+      try {
+        WorkerIndexer workerIndexer = new WorkerIndexer();
+        workerIndexer.start(config, pipelineName, bypassSearchEngine, idSet);
+        workerIndexers.add(workerIndexer);
+      } catch (Exception e) {
+        log.error("Exception caught when starting WorkerIndexer thread {}; aborting", i+1, e);
+        try {
+          stop();
+        } catch (Exception e2) {
+          log.error("Exception caught when attempting to stop WorkerIndexer threads because of a startup problem", e);
+        }
+        return;
+      }
     }
+
     // Timer to log a status message every minute
     logTimer.schedule(new TimerTask() {
       private final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);

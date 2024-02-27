@@ -53,10 +53,22 @@ public class WorkerPool {
     }
     started = true;
     log.info("Starting " + numWorkers + " worker threads for pipeline " + pipelineName);
+
     for (int i = 0; i < numWorkers; i++) {
-      WorkerMessenger messenger = workerMessengerFactory.create();
-      threads.add(Worker.startThread(config, messenger, pipelineName, metricsPrefix));
+      try {
+        WorkerMessenger messenger = workerMessengerFactory.create();
+        threads.add(Worker.startThread(config, messenger, pipelineName, metricsPrefix));
+      } catch (Exception e) {
+        log.error("Exception caught when starting Worker thread {}; aborting", i+1, e);
+        try {
+          stop();
+        } catch (Exception e2) {
+          log.error("Exception caught when attempting to stop Worker threads because of a startup problem", e);
+        }
+        return;
+      }
     }
+
     // Timer to log a status message every minute
     logTimer.schedule(new TimerTask() {
       private final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
