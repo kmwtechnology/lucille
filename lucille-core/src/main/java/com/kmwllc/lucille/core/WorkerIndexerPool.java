@@ -62,7 +62,7 @@ public class WorkerIndexerPool {
         } catch (Exception e2) {
           log.error("Exception caught when attempting to stop WorkerIndexer threads because of a startup problem", e);
         }
-        return;
+        throw e;
       }
     }
 
