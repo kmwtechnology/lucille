@@ -173,30 +173,4 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  public static void main(String[] args) throws Exception {
-    Config config = ConfigFactory.load();
-    String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
-    log.info("Starting Indexer for pipeline: " + pipelineName);
-    IndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
-    Indexer indexer = new OpenSearchIndexer(config, messenger, false, pipelineName);
-    if (!indexer.validateConnection()) {
-      log.error("Indexer could not connect");
-      System.exit(1);
-    }
-
-    Thread indexerThread = new Thread(indexer);
-    indexerThread.start();
-
-    Signal.handle(new Signal("INT"), signal -> {
-      indexer.terminate();
-      log.info("Indexer shutting down");
-      try {
-        indexerThread.join();
-      } catch (InterruptedException e) {
-        log.error("Interrupted", e);
-      }
-      System.exit(0);
-    });
-  }
-
 }
