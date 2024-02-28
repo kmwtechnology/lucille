@@ -84,7 +84,9 @@ public class WorkerIndexerPool {
 
   public void stop() throws Exception {
     log.debug("Stopping " + workerIndexers.size() + " worker threads");
-    logTimer.cancel();
+    if (logTimer != null) {
+      logTimer.cancel();
+    }
     for (WorkerIndexer workerIndexer : workerIndexers) {
       // stop each WorkerIndexer, one at a time;
       // make sure the indexer is stopped before the worker, so that the

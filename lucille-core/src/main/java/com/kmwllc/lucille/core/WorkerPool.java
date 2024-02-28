@@ -87,7 +87,9 @@ public class WorkerPool {
 
   public void stop() {
     log.debug("Stopping " + threads.size() + " worker threads");
-    logTimer.cancel();
+    if (logTimer != null) {
+      logTimer.cancel();
+    }
     for (WorkerThread workerThread : threads) {
       workerThread.terminate();
     }
