@@ -65,11 +65,9 @@ public class WorkerPoolTest {
     WorkerMessengerFactory factory = WorkerMessengerFactory.getConstantFactory(messenger);
     Config config = ConfigFactory.load("WorkerPoolTest/config.conf");
     // pipeline12345 is not present in config.conf
-    WorkerPool pool1 = new WorkerPool(config, "pipeline12345", factory, "");
+    WorkerPool pool = new WorkerPool(config, "pipeline12345", factory, "");
 
-    // no exception should be thrown here;
-    // errors should be logged and any new threads including timers should be stopped
-    pool1.start();
+    assertThrows(Exception.class, () -> { pool.start(); });
 
     Collection<Thread> nonSystemThreadsAfter =
         ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
@@ -81,11 +79,9 @@ public class WorkerPoolTest {
     Collection<Thread> nonSystemThreadsBefore =
         ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
     Config config = ConfigFactory.load("WorkerPoolTest/config.conf");
-    WorkerPool pool1 = new WorkerPool(config, "pipeline1", null, "");
+    WorkerPool pool = new WorkerPool(config, "pipeline1", null, "");
 
-    // no exception should be thrown here;
-    // errors should be logged and any new threads including timers should be stopped
-    pool1.start();
+    assertThrows(Exception.class, () -> { pool.start(); });
 
     Collection<Thread> nonSystemThreadsAfter =
         ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
