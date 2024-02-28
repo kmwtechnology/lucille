@@ -22,7 +22,7 @@ public class WorkerIndexerPool {
   private Integer numWorkers = null;
   private boolean started = false;
   private final int logSeconds;
-  private final Timer logTimer = new Timer();
+  private Timer logTimer;
   private final boolean bypassSearchEngine;
   private final Set<String> idSet;
 
@@ -67,6 +67,8 @@ public class WorkerIndexerPool {
     }
 
     // Timer to log a status message every minute
+    // the Timer should use a daemon thread so it doesn't prevent the jvm from exiting
+    logTimer = new Timer("WorkerIndexerPoolTimer", true);
     logTimer.schedule(new TimerTask() {
       private final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
       private final com.codahale.metrics.Timer timer = metrics.timer(pipelineName + Worker.METRICS_SUFFIX);
