@@ -59,13 +59,13 @@ public class WorkerPool {
         WorkerMessenger messenger = workerMessengerFactory.create();
         threads.add(Worker.startThread(config, messenger, pipelineName, metricsPrefix));
       } catch (Exception e) {
-        log.error("Exception caught when starting Worker thread {}; aborting", i+1, e);
+        log.error("Exception caught when starting Worker thread {}; aborting", i+1);
         try {
           stop();
         } catch (Exception e2) {
           log.error("Exception caught when attempting to stop Worker threads because of a startup problem", e);
         }
-        return;
+        throw e;
       }
     }
 
