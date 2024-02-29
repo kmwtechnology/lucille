@@ -56,11 +56,11 @@ public class WorkerIndexerPool {
         workerIndexer.start(config, pipelineName, bypassSearchEngine, idSet);
         workerIndexers.add(workerIndexer);
       } catch (Exception e) {
-        log.error("Exception caught when starting WorkerIndexer thread {}; aborting", i+1, e);
+        log.error("Exception caught when starting WorkerIndexer thread {}; aborting", i+1);
         try {
           stop();
         } catch (Exception e2) {
-          log.error("Exception caught when attempting to stop WorkerIndexer threads because of a startup problem", e);
+          log.error("Exception caught when attempting to stop WorkerIndexer threads because of a startup problem", e2);
         }
         throw e;
       }

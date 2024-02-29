@@ -63,7 +63,7 @@ public class WorkerPool {
         try {
           stop();
         } catch (Exception e2) {
-          log.error("Exception caught when attempting to stop Worker threads because of a startup problem", e);
+          log.error("Exception caught when attempting to stop Worker threads because of a startup problem", e2);
         }
         throw e;
       }
