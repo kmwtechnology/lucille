@@ -22,7 +22,7 @@ public class WorkerIndexerPool {
   private Integer numWorkers = null;
   private boolean started = false;
   private final int logSeconds;
-  private final Timer logTimer = new Timer();
+  private Timer logTimer;
   private final boolean bypassSearchEngine;
   private final Set<String> idSet;
 
@@ -49,12 +49,26 @@ public class WorkerIndexerPool {
     }
     started = true;
     log.info("Starting " + numWorkers + " WorkerIndexer thread pairs for pipeline " + pipelineName);
+
     for (int i = 0; i < numWorkers; i++) {
-      WorkerIndexer workerIndexer = new WorkerIndexer();
-      workerIndexer.start(config, pipelineName, bypassSearchEngine, idSet);
-      workerIndexers.add(workerIndexer);
+      try {
+        WorkerIndexer workerIndexer = new WorkerIndexer();
+        workerIndexer.start(config, pipelineName, bypassSearchEngine, idSet);
+        workerIndexers.add(workerIndexer);
+      } catch (Exception e) {
+        log.error("Exception caught when starting WorkerIndexer thread {}; aborting", i+1);
+        try {
+          stop();
+        } catch (Exception e2) {
+          log.error("Exception caught when attempting to stop WorkerIndexer threads because of a startup problem", e2);
+        }
+        throw e;
+      }
     }
+
     // Timer to log a status message every minute
+    // the Timer should use a daemon thread so it doesn't prevent the jvm from exiting
+    logTimer = new Timer("WorkerIndexerPoolTimer", true);
     logTimer.schedule(new TimerTask() {
       private final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
       private final com.codahale.metrics.Timer timer = metrics.timer(pipelineName + Worker.METRICS_SUFFIX);
@@ -70,7 +84,9 @@ public class WorkerIndexerPool {
 
   public void stop() throws Exception {
     log.debug("Stopping " + workerIndexers.size() + " worker threads");
-    logTimer.cancel();
+    if (logTimer != null) {
+      logTimer.cancel();
+    }
     for (WorkerIndexer workerIndexer : workerIndexers) {
       // stop each WorkerIndexer, one at a time;
       // make sure the indexer is stopped before the worker, so that the
