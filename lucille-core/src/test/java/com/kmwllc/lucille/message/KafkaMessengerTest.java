@@ -88,15 +88,10 @@ public class KafkaMessengerTest {
       }).thenReturn("foo2_event_id");
       KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, "foo");
       KafkaWorkerMessenger messenger2 = new KafkaWorkerMessenger(config2, "foo2");
-      Event event = new Event("doc1", "id", "bar", Type.CREATE);
-      try {
-        messenger.sendEvent(event);
-        assertTrue(true);
-      } catch (Exception e) {
-        // we want this to not throw an expection
-        assertTrue(false);
-      }
 
+      Event event = new Event("doc1", "id", "bar", Type.CREATE);
+        
+      messenger.sendEvent(event);
       messenger2.sendEvent(event);
       ArgumentCaptor<ProducerRecord> captor = ArgumentCaptor.forClass(ProducerRecord.class);
       Mockito.verify(mockProducer, Mockito.times(1)).send(captor.capture());
@@ -142,15 +137,10 @@ public class KafkaMessengerTest {
       }).thenReturn("foo2_event_id");
       KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, "foo");
       KafkaWorkerMessenger messenger2 = new KafkaWorkerMessenger(config2, "foo2");;
-      try {
-        messenger.sendEvent(doc, "message", Event.Type.FAIL);
-        assertTrue(true);
-      } catch (Exception e) {
-        // we want this to not throw an expection
-        assertTrue(false);
-      }
 
+      messenger.sendEvent(doc, "message", Event.Type.FAIL);
       messenger2.sendEvent(doc, "message", Event.Type.FAIL);
+
       ArgumentCaptor<ProducerRecord> captor = ArgumentCaptor.forClass(ProducerRecord.class);
       Mockito.verify(mockProducer, Mockito.times(1)).send(captor.capture());
       Mockito.verify(mockProducer, Mockito.times(1)).flush();
