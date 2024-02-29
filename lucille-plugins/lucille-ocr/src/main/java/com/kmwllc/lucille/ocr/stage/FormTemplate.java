@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.ocr.stage;
 
-
 import java.io.Serializable;
 import java.util.List;
 
@@ -9,8 +8,7 @@ public class FormTemplate implements Serializable {
   private String name;
   private List<Rectangle> regions;
 
-  public FormTemplate() {
-  }
+  public FormTemplate() {}
 
   public void setName(String name) {
     this.name = name;
@@ -30,9 +28,6 @@ public class FormTemplate implements Serializable {
 
   @Override
   public String toString() {
-    return "FormTemplate{" +
-      "name='" + name + '\'' +
-      ", regions=" + regions +
-      '}';
+    return "FormTemplate{" + "name='" + name + '\'' + ", regions=" + regions + '}';
   }
 }

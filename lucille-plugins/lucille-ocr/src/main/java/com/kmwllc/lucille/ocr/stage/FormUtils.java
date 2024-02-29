@@ -14,13 +14,13 @@ public class FormUtils {
   public static ArrayList<BufferedImage> loadPdf(String filename) throws IOException {
     // Loading an existing PDF document
     File file = new File(filename);
-    try(PDDocument document = PDDocument.load(file)) {
-     return loadPdf(document);
+    try (PDDocument document = PDDocument.load(file)) {
+      return loadPdf(document);
     }
   }
 
   public static ArrayList<BufferedImage> loadPdf(InputStream stream) throws IOException {
-    try(PDDocument document = PDDocument.load(stream)) {
+    try (PDDocument document = PDDocument.load(stream)) {
       return loadPdf(document);
     }
   }
@@ -30,7 +30,7 @@ public class FormUtils {
     // Instantiating the PDFRenderer class
     PDFRenderer renderer = new PDFRenderer(document);
     int numPages = document.getNumberOfPages();
-    for (int i = 0; i < numPages ; i++) {
+    for (int i = 0; i < numPages; i++) {
       // Rendering an image from the PDF document
       BufferedImage image = renderer.renderImageWithDPI(i, 300);
       images.add(image);
@@ -39,7 +39,7 @@ public class FormUtils {
     return images;
   }
 
-  public static BufferedImage cropImage(BufferedImage input, Rectangle roi ) {
+  public static BufferedImage cropImage(BufferedImage input, Rectangle roi) {
     BufferedImage subImg = input.getSubimage(roi.getX(), roi.getY(), roi.getWidth(), roi.getHeight());
     return subImg;
   }
