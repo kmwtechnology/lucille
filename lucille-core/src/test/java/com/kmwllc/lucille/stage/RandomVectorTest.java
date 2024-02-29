@@ -12,7 +12,7 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 
 public class RandomVectorTest {
-  StageFactory factory = StageFactory.of(RandomVector.class);
+  private StageFactory factory = StageFactory.of(RandomVector.class);
 
   @Test
   public void testMalformedConfig() {
