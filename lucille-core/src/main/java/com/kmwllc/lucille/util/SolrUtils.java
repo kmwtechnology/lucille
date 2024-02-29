@@ -3,6 +3,7 @@ package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import java.util.List;
 import java.util.Map.Entry;
@@ -11,6 +12,8 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.kafka.common.protocol.types.Field.Bool;
+import org.apache.kafka.common.protocol.types.Type.DocumentedType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.solr.client.solrj.SolrClient;
@@ -40,9 +43,8 @@ public class SolrUtils {
       CloudHttp2SolrClient cloudSolrClient = getCloudClient(config);
       return cloudSolrClient;
     } else {
-      return requiresAuth(config) ?
-          new Http2SolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build() :
-          new Http2SolrClient.Builder(getSolrUrl(config)).build();
+      return requiresAuth(config) ? new Http2SolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build()
+          : new Http2SolrClient.Builder(getSolrUrl(config)).build();
     }
   }
 
@@ -117,21 +119,58 @@ public class SolrUtils {
 
   /**
    * This method will convert a Tuple produced by a Solr Streaming Expression into a Lucille Document. The Tuple must
-   * have a value in its id field in order to be converted.
+   * have a value in its id field in order to be converted. The types of values are maintained in the conversion. Empty list 
+   * are not included in the created document
    *
    * @param tuple a Tuple from Solr
-   * @return a Document
+   * @throws DocumentException if {@param tuple} does not have a key called Document.ID_FIELD
+   * @return a Document whose id is the stringified version of the contents of Document.ID_FIELD in the tuple.
    */
   public static Document toDocument(Tuple tuple) throws DocumentException {
     Document d;
-    if (tuple.getString(Document.ID_FIELD) != null) {
+
+    if (tuple.getFields().containsKey(Document.ID_FIELD)) {
       d = Document.create(tuple.getString(Document.ID_FIELD));
     } else {
       throw new DocumentException("Unable to create Document from Tuple. No id field present.");
     }
 
     for (Entry<String, Object> e : tuple.getFields().entrySet()) {
-      d.setOrAdd((String) e.getKey(), (String) e.getValue());
+      Object val = e.getValue();
+      String key = e.getKey();
+
+      if (key.equals(Document.ID_FIELD)) {
+        continue;
+      }
+      DocumentException exception = new DocumentException(
+          String.format("Unable to create Document from Tuple. Class: %s is not supported in Documents", val.getClass()));
+
+      if (val instanceof String) {
+        d.setOrAdd(key, (String) val);
+      } else if (val instanceof Long) {
+        d.setOrAdd(key, (Long) val);
+      } else if (val instanceof Double) {
+        d.setOrAdd(key, (Double) val);
+      } else if (val instanceof Boolean) {
+        d.setOrAdd(key, (Boolean) val);
+      } else if (val instanceof List<?>) {
+        List<?> list = (List<?>) val;
+        if (!list.isEmpty()) {
+          if (list.get(0) instanceof String) {
+            d.update(key, UpdateMode.APPEND, tuple.getStrings(key).toArray(new String[0]));
+          } else if (list.get(0) instanceof Long) {
+            d.update(key, UpdateMode.APPEND, tuple.getLongs(key).toArray(new Long[0]));
+          } else if (list.get(0) instanceof Double) {
+            d.update(key, UpdateMode.APPEND, tuple.getDoubles(key).toArray(new Double[0]));
+          } else if (list.get(0) instanceof Boolean) {
+            d.update(key, UpdateMode.APPEND, tuple.getBools(key).toArray(new Boolean[0]));
+          } else {
+            throw exception;
+          }
+        }
+      } else {
+        throw exception;
+      }
     }
 
     return d;
