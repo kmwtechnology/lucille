@@ -24,14 +24,12 @@ public class WorkerTest {
     WorkerMessengerFactory mockFactory = new WorkerMessengerFactory() {
       @Override
       public WorkerMessenger create() {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'create'");
       }
     };
     WorkerMessengerFactory mockFactory2 = new WorkerMessengerFactory() {
       @Override
       public WorkerMessenger create() {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'create'");
       }
     };
@@ -55,7 +53,7 @@ public class WorkerTest {
         Worker.main(new String[0]);
         Worker.main(new String[] {"foo"});
       } catch (Exception e) {
-        System.out.println(e.toString());
+        // we do not want an exception to be thrown
         assertTrue(false);
       }
 
