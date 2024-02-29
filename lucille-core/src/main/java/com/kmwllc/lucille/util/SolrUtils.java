@@ -142,8 +142,6 @@ public class SolrUtils {
       if (key.equals(Document.ID_FIELD)) {
         continue;
       }
-      DocumentException exception = new DocumentException(
-          String.format("Unable to create Document from Tuple. Class: %s is not supported in Documents", val.getClass()));
 
       if (val instanceof String) {
         d.setOrAdd(key, (String) val);
@@ -165,11 +163,13 @@ public class SolrUtils {
           } else if (list.get(0) instanceof Boolean) {
             d.update(key, UpdateMode.APPEND, tuple.getBools(key).toArray(new Boolean[0]));
           } else {
-            throw exception;
+            throw new DocumentException(
+                String.format("Unable to create Document from Tuple. Class: %s is not supported in Documents", val.getClass()));
           }
         }
       } else {
-        throw exception;
+        throw new DocumentException(
+            String.format("Unable to create Document from Tuple. Class: %s is not supported in Documents", val.getClass()));
       }
     }
 
