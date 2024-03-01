@@ -16,6 +16,8 @@ public class ParseFloats extends Stage {
 
   private final String field;
   private static final Logger log = LogManager.getLogger(ParseFloats.class);
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final TypeReference<List<Float>> TYPE_REFERENCE = new TypeReference<List<Float>>() {};
 
   public ParseFloats(Config config) {
     super(config, new StageSpec().withRequiredProperties("field"));
@@ -28,8 +30,7 @@ public class ParseFloats extends Stage {
       String value = doc.getString(this.field);
       List<Float> floats;
       try {
-        ObjectMapper mapper = new ObjectMapper();
-        floats = mapper.readValue(value, new TypeReference<List<Float>>() {});
+        floats = MAPPER.readValue(value, TYPE_REFERENCE);
       } catch (Exception e) {
         log.warn("String: {} cannot be parsed.", value, e);
         return null;
