@@ -51,7 +51,6 @@ public class WorkerTest {
 
       Worker.main(new String[0]);
       Worker.main(new String[] {"foo"});
-      assertTrue(false);
 
       List<WorkerPool> constructed = workerPool.constructed();
       assertEquals(2, constructed.size());
