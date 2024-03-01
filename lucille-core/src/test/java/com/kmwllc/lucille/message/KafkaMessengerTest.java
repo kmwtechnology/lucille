@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.message;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import java.util.concurrent.Future;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
