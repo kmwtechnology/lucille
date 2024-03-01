@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -28,8 +30,8 @@ public class ParseFloats extends Stage {
       String value = doc.getString(this.field);
       List<Float> floats;
       try {
-        floats = Arrays.stream(value.replaceAll("\\[", "").replaceAll("\\]", "").replaceAll(",", "").split(" "))
-            .map(v -> Float.parseFloat(v)).collect(Collectors.toList());
+        ObjectMapper mapper = new ObjectMapper();
+        floats = mapper.readValue(value, new TypeReference<List<Float>>(){});
       } catch (Exception e) {
         log.warn("String: {} cannot be parsed.", value, e);
         return null;
