@@ -3,6 +3,7 @@ package com.kmwllc.lucille.stage;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.GetResponse;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -32,8 +33,8 @@ public class ElasticsearchLookup extends Stage {
     super(config, new StageSpec()
         .withOptionalProperties("update_mode")
         .withRequiredProperties("source", "dest", "elasticsearch.url", "elasticsearch.index")
-        .withOptionalProperties("elasticsearch.acceptInvalidCert", "update_mode")
-        .withRequiredParents("elasticsearch"));
+        .withOptionalProperties("elasticsearch.acceptInvalidCert", "update_mode"));
+
     this.client = ElasticsearchUtils.getElasticsearchOfficialClient(config);
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
 
@@ -80,7 +81,11 @@ public class ElasticsearchLookup extends Stage {
       if (response.found()) {
         ObjectNode json = response.source();
         for (int i = 0; i < sourceFields.size(); i++) {
-          doc.update(destFields.get(i), updateMode, json.get(sourceFields.get(i)).asText());
+          JsonNode node = json.get(sourceFields.get(i));
+          if (node == null) {
+             continue;
+          }
+          doc.update(destFields.get(i), updateMode, node.asText());
         }
       }
       return null;
