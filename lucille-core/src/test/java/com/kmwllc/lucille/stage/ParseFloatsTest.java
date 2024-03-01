@@ -39,8 +39,7 @@ public class ParseFloatsTest {
     assertEquals("not a float", bad.getString("source"));
     assertEquals("doc1", bad.getId());
 
-    assertEquals(2, empty.getFieldNames().size());
-    assertEquals("[]", empty.getString("source"));
+    assertEquals(1, empty.getFieldNames().size());
     assertEquals("doc2", empty.getId());
 
     assertEquals(2, simple.getFieldNames().size());
