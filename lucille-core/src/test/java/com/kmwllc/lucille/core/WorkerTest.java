@@ -18,7 +18,7 @@ import com.typesafe.config.ConfigFactory;
 public class WorkerTest {
 
   @Test
-  public void testMain() {
+  public void testMain() throws Exception {
     Map<WorkerPool, List<Object>> args = new HashMap<>();
     Config config = ConfigFactory.load("WorkerTest/config.conf");
     WorkerMessengerFactory mockFactory = new WorkerMessengerFactory() {
@@ -49,13 +49,9 @@ public class WorkerTest {
         WorkerMessengerFactory.getKafkaFactory(config, "foo2");
       }).thenReturn(mockFactory2);
 
-      try {
-        Worker.main(new String[0]);
-        Worker.main(new String[] {"foo"});
-      } catch (Exception e) {
-        // we do not want an exception to be thrown
-        assertTrue(false);
-      }
+      Worker.main(new String[0]);
+      Worker.main(new String[] {"foo"});
+      assertTrue(false);
 
       List<WorkerPool> constructed = workerPool.constructed();
       assertEquals(2, constructed.size());
@@ -67,7 +63,7 @@ public class WorkerTest {
 
       assertEquals(args.get(constructed.get(0)).get(2), mockFactory2);
       assertEquals(args.get(constructed.get(1)).get(2), mockFactory);
-      
+
       assertEquals(args.get(constructed.get(0)).get(3), "foo2");
       assertEquals(args.get(constructed.get(1)).get(3), "foo");
     }
