@@ -25,15 +25,21 @@ public class ParseFloatsTest {
     Document empty = Document.create("doc2");
     Document simple = Document.create("doc3");
     Document noField = Document.create("doc4");
+    Document floats = Document.create("doc5");
+    Document badList = Document.create("doc6");
 
     bad.setOrAdd("source", "not a float");
     empty.setOrAdd("source", "[]");
     simple.setOrAdd("source", "[1, 2, 3]");
+    floats.setOrAdd("source", "[1.2, 2.5, 3.1]");
+    badList.setOrAdd("source", "[1, a, 3]");
 
     stage.processDocument(bad);
     stage.processDocument(empty);
     stage.processDocument(simple);
     stage.processDocument(noField);
+    stage.processDocument(floats);
+    stage.processDocument(badList);
 
     assertEquals(2, bad.getFieldNames().size());
     assertEquals("not a float", bad.getString("source"));
@@ -48,5 +54,13 @@ public class ParseFloatsTest {
 
     assertEquals(1, noField.getFieldNames().size());
     assertEquals("doc4", noField.getId());
+
+    assertEquals(2, floats.getFieldNames().size());
+    assertEquals(List.of(1.2f, 2.5f, 3.1f), floats.getFloatList("source"));
+    assertEquals("doc5", floats.getId());
+
+    assertEquals(2, badList.getFieldNames().size());
+    assertEquals("[1, a, 3]", badList.getString("source"));
+    assertEquals("doc6", badList.getId());
   }
 }
