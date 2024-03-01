@@ -57,10 +57,10 @@ public class ElasticsearchLookupTest {
 
   @Test
   public void testStart() throws Exception {
-    Config config = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/basic.conf");
-    Config config2 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/basic2.conf");
-    Config config3 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/basic3.conf");
-    Config config4 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/basic4.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/append.conf");
+    Config config2 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/overwrite.conf");
+    Config config3 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/skip.conf");
+    Config config4 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/default.conf");
     try (MockedStatic<ElasticsearchUtils> mockedUtils = Mockito.mockStatic(ElasticsearchUtils.class)) {
       ElasticsearchClient noPing = mock(ElasticsearchClient.class);
       ElasticsearchClient nullPing = mock(ElasticsearchClient.class);
