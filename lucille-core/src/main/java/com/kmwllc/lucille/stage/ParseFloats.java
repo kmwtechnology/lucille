@@ -7,10 +7,8 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -31,7 +29,7 @@ public class ParseFloats extends Stage {
       List<Float> floats;
       try {
         ObjectMapper mapper = new ObjectMapper();
-        floats = mapper.readValue(value, new TypeReference<List<Float>>(){});
+        floats = mapper.readValue(value, new TypeReference<List<Float>>() {});
       } catch (Exception e) {
         log.warn("String: {} cannot be parsed.", value, e);
         return null;
