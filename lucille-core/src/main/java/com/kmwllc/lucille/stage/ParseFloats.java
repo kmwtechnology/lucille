@@ -2,6 +2,7 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -15,13 +16,15 @@ import org.apache.logging.log4j.Logger;
 public class ParseFloats extends Stage {
 
   private final String field;
+  private final String dest;
   private static final Logger log = LogManager.getLogger(ParseFloats.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<List<Float>> TYPE_REFERENCE = new TypeReference<List<Float>>() {};
 
   public ParseFloats(Config config) {
-    super(config, new StageSpec().withRequiredProperties("field"));
+    super(config, new StageSpec().withRequiredProperties("field").withOptionalProperties("dest"));
     this.field = config.getString("field");
+    this.dest = ConfigUtils.getOrDefault(config, "dest", null);
   }
 
   @Override
@@ -35,9 +38,9 @@ public class ParseFloats extends Stage {
         log.warn("String: {} cannot be parsed.", value, e);
         return null;
       }
-      doc.removeField(this.field);
+      doc.removeField(dest != null ? dest : field);
       for (Float d : floats) {
-        doc.addToField(this.field, d);
+        doc.addToField(dest != null ? dest : field, d);
       }
     }
     return null;
