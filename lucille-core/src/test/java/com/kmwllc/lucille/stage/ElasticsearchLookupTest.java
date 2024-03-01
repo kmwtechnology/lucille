@@ -31,9 +31,17 @@ import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
 import co.elastic.clients.util.ObjectBuilder;
 
-
 public class ElasticsearchLookupTest {
-  private StageFactory factory = StageFactory.of(ElasticsearchLookup.class);
+
+  private void assertMessage(String message, ThrowingRunnable run) throws Exception {
+    try {
+      run.run();
+      fail("Exception not thrown");
+    } catch (StageException e) {
+      assertEquals(message, e.getMessage());
+    }
+
+  }
 
   @Test
   public void testMalformedConfigs() throws Exception {
@@ -46,17 +54,6 @@ public class ElasticsearchLookupTest {
     assertThrows(IllegalArgumentException.class, () -> new ElasticsearchLookup(three));
     assertThrows(IllegalArgumentException.class, () -> new ElasticsearchLookup(four));
   }
-
-  private void assertMessage(String message, ThrowingRunnable run) throws Exception {
-    try {
-      run.run();
-      fail("Exception not thrown");
-    } catch (StageException e) {
-      assertEquals(message, e.getMessage());
-    }
-
-  }
-
 
   @Test
   public void testStart() throws Exception {
@@ -87,7 +84,6 @@ public class ElasticsearchLookupTest {
         new ElasticsearchLookup(config4).start();
         fail("Exception not thrown");
       } catch (StageException e) {
-        System.out.println(e.getMessage());
         assertEquals("Non true response when pinging Elasticsearch: " + response.toString(), e.getMessage());
       }
     }
@@ -165,9 +161,9 @@ public class ElasticsearchLookupTest {
 
       when(throwing.get((Function<GetRequest.Builder, ObjectBuilder<GetRequest>>) Mockito.any(), Mockito.any()))
           .thenThrow(new IOException("get failed"));
-      when(noResponse.get((Function<GetRequest.Builder, ObjectBuilder<GetRequest>>) Mockito.any(), (Class) Mockito.any()))
+      when(noResponse.get((Function<GetRequest.Builder, ObjectBuilder<GetRequest>>) Mockito.any(), (Class)Mockito.any()))
           .thenReturn(notFound);
-      when(foundClient.get((Function<GetRequest.Builder, ObjectBuilder<GetRequest>>) Mockito.any(), (Class) Mockito.any()))
+      when(foundClient.get((Function<GetRequest.Builder, ObjectBuilder<GetRequest>>) Mockito.any(), (Class)Mockito.any()))
           .thenReturn(found);
 
       mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config)).thenReturn(throwing);
@@ -178,7 +174,7 @@ public class ElasticsearchLookupTest {
       mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config6)).thenReturn(foundClient);
 
       assertThrows(StageException.class, () -> {
-        new ElasticsearchLookup(config).processDocument(doc);
+      new ElasticsearchLookup(config).processDocument(doc);
       });
       new ElasticsearchLookup(config2).processDocument(doc2);
       new ElasticsearchLookup(config3).processDocument(doc3);
@@ -202,6 +198,7 @@ public class ElasticsearchLookupTest {
 
       assertEquals(3, doc5.getFieldNames().size());
       assertEquals("empty", doc5.getString("foo"));
+      assertEquals("10", doc5.getString("foo2_dest"));
 
       assertEquals(3, doc4.getFieldNames().size());
       assertEquals("bar", doc4.getString("foo"));
