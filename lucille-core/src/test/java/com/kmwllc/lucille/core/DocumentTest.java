@@ -15,6 +15,7 @@ import java.util.function.BiConsumer;
 import java.util.function.UnaryOperator;
 
 import static com.kmwllc.lucille.core.Document.RESERVED_FIELDS;
+import static com.kmwllc.lucille.core.Document.create;
 import static org.junit.Assert.*;
 
 @RunWith(JUnit4.class)
@@ -61,12 +62,9 @@ public abstract class DocumentTest {
   @Test
   public void testEqualsAndHashcode() throws Exception {
 
-    Document doc1 =
-        createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
-    Document doc2 =
-        createDocumentFromJson("{\"id\":\"123\", \"field2\":\"val2\", \"field1\":\"val1\" }");
-    Document doc3 =
-        createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val3\"}");
+    Document doc1 = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+    Document doc2 = createDocumentFromJson("{\"id\":\"123\", \"field2\":\"val2\", \"field1\":\"val1\" }");
+    Document doc3 = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val3\"}");
 
     assertEquals(doc1, doc1);
     assertEquals(doc1, doc2);
@@ -100,15 +98,8 @@ public abstract class DocumentTest {
 
   @Test
   public void testIsMultiValued() throws DocumentException, JsonProcessingException {
-    Document document =
-        createDocumentFromJson(
-            ""
-                + "{\"id\":\"123\", "
-                + "\"null\":null,"
-                + "\"single\":\"val1\", "
-                + "\"empty_arr\":[],"
-                + "\"arr1\":[\"val1\"],"
-                + "\"arr2\":[\"val1\", \"val2\"]}");
+    Document document = createDocumentFromJson("" + "{\"id\":\"123\", " + "\"null\":null," + "\"single\":\"val1\", "
+        + "\"empty_arr\":[]," + "\"arr1\":[\"val1\"]," + "\"arr2\":[\"val1\", \"val2\"]}");
 
     assertFalse(document.isMultiValued("id"));
     assertFalse(document.isMultiValued("null"));
@@ -139,8 +130,7 @@ public abstract class DocumentTest {
   @Test
   public void testCreateFromJsonString() throws Exception {
     // {"id":"123", "field1":"val1", "field2":"val2"}
-    Document document =
-        createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+    Document document = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
     assertEquals("123", document.getString("id"));
     assertEquals("123", document.getId());
     assertEquals("val1", document.getString("field1"));
@@ -151,9 +141,7 @@ public abstract class DocumentTest {
   public void testCreateFromJsonStringWithUpdater() throws Exception {
     // {"id":"123", "field1":"val1", "field2":"val2"}
     UnaryOperator<String> updater = s -> "id_" + s;
-    Document document =
-        createDocumentFromJson(
-            "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}", updater);
+    Document document = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}", updater);
     assertEquals("id_123", document.getString("id"));
     assertEquals("id_123", document.getId());
     assertEquals("val1", document.getString("field1"));
@@ -192,8 +180,7 @@ public abstract class DocumentTest {
   @Test
   public void testRemoveField() throws DocumentException, JsonProcessingException {
     // {"id":"123", "field1":"val1", "field2":"val2"}
-    Document document =
-        createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+    Document document = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
     assertNotNull(document.getString("id"));
     assertNotNull(document.getString("field1"));
     assertNotNull(document.getString("field2"));
@@ -233,8 +220,7 @@ public abstract class DocumentTest {
   @Test
   public void testHasNonNull() throws DocumentException, JsonProcessingException {
     // {"id":"123", "field1":"val1", "field2":null}
-    Document document =
-        createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":null}");
+    Document document = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":null}");
     assertTrue(document.hasNonNull("id"));
     assertTrue(document.hasNonNull("field1"));
     assertFalse(document.hasNonNull("field2"));
@@ -295,6 +281,17 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testAddToFieldObject() throws Exception {
+    Document document = createDocument("123");
+    assertFalse(document.has("field1"));
+    document.addToField("field1", (Object) "val1");
+    document.addToField("field1", (Object) "val2");
+    document.addToField("field1", (Object) "val3");
+    List<String> expected = Arrays.asList("val1", "val2", "val3");
+    assertEquals(expected, document.getStringList("field1"));
+  }
+
+  @Test
   public void testWriteToField() {
     Document document = createDocument("doc");
     assertFalse(document.has("field"));
@@ -344,8 +341,7 @@ public abstract class DocumentTest {
   @Test
   public void testGetNullField() throws DocumentException, JsonProcessingException {
 
-    Document document =
-        createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
+    Document document = createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
 
     List<Object> nullList = new ArrayList<>();
     nullList.add(null);
@@ -579,9 +575,7 @@ public abstract class DocumentTest {
     document.setField("instant", Instant.ofEpochSecond(10000));
     assertFalse(document.isMultiValued("instant"));
     assertEquals(Instant.ofEpochSecond(10000), document.getInstant("instant"));
-    assertEquals(
-        Collections.singletonList(Instant.ofEpochSecond(10000)),
-        document.getInstantList("instant"));
+    assertEquals(Collections.singletonList(Instant.ofEpochSecond(10000)), document.getInstantList("instant"));
     assertEquals("1970-01-01T02:46:40Z", document.getString("instant"));
   }
 
@@ -599,11 +593,7 @@ public abstract class DocumentTest {
     document.addToField("instants", Instant.ofEpochSecond(1033000));
     assertTrue(document.isMultiValued("instants"));
     document.addToField("instants", Instant.ofEpochSecond(143242));
-    assertEquals(
-        Arrays.asList(
-            Instant.ofEpochSecond(44),
-            Instant.ofEpochSecond(1033000),
-            Instant.ofEpochSecond(143242)),
+    assertEquals(Arrays.asList(Instant.ofEpochSecond(44), Instant.ofEpochSecond(1033000), Instant.ofEpochSecond(143242)),
         document.getInstantList("instants"));
   }
 
@@ -789,12 +779,33 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testUpdateObjectString() throws Exception {
+    Document document = createDocument("id1");
+    document.update("myStringField", UpdateMode.OVERWRITE, (Object) "val1");
+    document.update("myStringField", UpdateMode.OVERWRITE, (Object) "val2");
+    document.update("myStringField", UpdateMode.APPEND, (Object) "val3");
+    document.update("myStringField", UpdateMode.SKIP, (Object) "val4");
+    assertEquals(List.of("val2", "val3"), valueListFromDocument(document, "myStringField"));
+  }
+
+  @Test
   public void testUpdateInt() {
     Document document = createDocument("id1");
     document.update("myIntField", UpdateMode.OVERWRITE, 1);
     document.update("myIntField", UpdateMode.OVERWRITE, 2);
     document.update("myIntField", UpdateMode.APPEND, 3);
     document.update("myIntField", UpdateMode.SKIP, 4);
+    assertEquals(List.of(2, 3), valueListFromDocument(document, "myIntField"));
+  }
+
+
+  @Test
+  public void testUpdateIntObject() throws Exception {
+    Document document = createDocument("id1");
+    document.update("myIntField", UpdateMode.OVERWRITE, (Object) 1);
+    document.update("myIntField", UpdateMode.OVERWRITE, (Object) 2);
+    document.update("myIntField", UpdateMode.APPEND, (Object) 3);
+    document.update("myIntField", UpdateMode.SKIP, (Object) 4);
     assertEquals(List.of(2, 3), valueListFromDocument(document, "myIntField"));
   }
 
@@ -809,12 +820,33 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testUpdateLongObject() throws Exception {
+    Document document = createDocument("id1");
+    document.update("myLongField", UpdateMode.OVERWRITE, (Object) 1L);
+    document.update("myLongField", UpdateMode.OVERWRITE, (Object) 2L);
+    document.update("myLongField", UpdateMode.APPEND, (Object) 3L);
+    document.update("myLongField", UpdateMode.SKIP, (Object) 4L);
+    assertEquals(List.of(2L, 3L), valueListFromDocument(document, "myLongField"));
+  }
+
+  @Test
   public void testUpdateDouble() {
     Document document = createDocument("id1");
     document.update("myDoubleField", UpdateMode.OVERWRITE, 1D);
     document.update("myDoubleField", UpdateMode.OVERWRITE, 2D);
     document.update("myDoubleField", UpdateMode.APPEND, 3D);
     document.update("myDoubleField", UpdateMode.SKIP, 4D);
+    assertEquals(List.of(2D, 3D), valueListFromDocument(document, "myDoubleField"));
+  }
+
+
+  @Test
+  public void testUpdateDoubleObject() throws Exception {
+    Document document = createDocument("id1");
+    document.update("myDoubleField", UpdateMode.OVERWRITE, (Object) 1D);
+    document.update("myDoubleField", UpdateMode.OVERWRITE, (Object) 2D);
+    document.update("myDoubleField", UpdateMode.APPEND, (Object) 3D);
+    document.update("myDoubleField", UpdateMode.SKIP, (Object) 4D);
     assertEquals(List.of(2D, 3D), valueListFromDocument(document, "myDoubleField"));
   }
 
@@ -829,6 +861,16 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testUpdateBooleanObject() throws Exception {
+    Document document = createDocument("id1");
+    document.update("myBooleanField", UpdateMode.OVERWRITE, (Object) true);
+    document.update("myBooleanField", UpdateMode.OVERWRITE, (Object) false);
+    document.update("myBooleanField", UpdateMode.APPEND, (Object) true);
+    document.update("myBooleanField", UpdateMode.SKIP, (Object) false);
+    assertEquals(List.of(false, true), valueListFromDocument(document, "myBooleanField"));
+  }
+
+  @Test
   public void testUpdateInstant() {
 
     Document document = createDocument("id1");
@@ -837,16 +879,19 @@ public abstract class DocumentTest {
     document.update("myInstantField", UpdateMode.APPEND, Instant.ofEpochSecond(3));
     document.update("myInstantField", UpdateMode.SKIP, Instant.ofEpochSecond(4));
 
-    assertEquals(
-        List.of(Instant.ofEpochSecond(2), Instant.ofEpochSecond(3)),
-        document.getInstantList("myInstantField"));
+    assertEquals(List.of(Instant.ofEpochSecond(2), Instant.ofEpochSecond(3)), document.getInstantList("myInstantField"));
+  }
 
-    // previous version of the test compares strings rather than instances
-    //    assertEquals(
-    //        Stream.of(Instant.ofEpochSecond(2), Instant.ofEpochSecond(3))
-    //            .map(Instant::toString)
-    //            .collect(Collectors.toList()),
-    //        valueListFromDocument(document, "myInstantField"));
+  @Test
+  public void testUpdateInstantObject() throws Exception {
+
+    Document document = createDocument("id1");
+    document.update("myInstantField", UpdateMode.OVERWRITE, (Object) Instant.ofEpochSecond(1));
+    document.update("myInstantField", UpdateMode.OVERWRITE, (Object) Instant.ofEpochSecond(2));
+    document.update("myInstantField", UpdateMode.APPEND, (Object) Instant.ofEpochSecond(3));
+    document.update("myInstantField", UpdateMode.SKIP, (Object) Instant.ofEpochSecond(4));
+
+    assertEquals(List.of(Instant.ofEpochSecond(2), Instant.ofEpochSecond(3)), document.getInstantList("myInstantField"));
   }
 
   @Test
@@ -870,6 +915,27 @@ public abstract class DocumentTest {
     assertTrue(document.isMultiValued("myStringField2"));
     document.update("myStringField2", UpdateMode.OVERWRITE, "val3");
     assertFalse(document.isMultiValued("myStringField2"));
+  }
+
+  @Test
+  public void testUpdateFailsInMiddle() throws Exception {
+    Document document = createDocument("id1");
+    assertThrows(Exception.class, () -> {
+      document.update("myInstantField", UpdateMode.OVERWRITE, (Object) 5, (Object) 6, List.of(1), (Object) 7);
+    });
+
+    assertEquals(2, document.getFieldNames().size());
+    assertEquals(List.of(5, 6), document.getIntList("myInstantField"));
+  }
+
+  @Test
+  public void testUpdateUnsupportedType() {
+    Document document = createDocument("id1");
+    assertThrows(Exception.class, () -> {
+      document.update("myInstantField", UpdateMode.OVERWRITE, List.of(1));
+    });
+
+    assertEquals(1, document.getFieldNames().size());
   }
 
   @Test(expected = Exception.class)
@@ -940,6 +1006,41 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testSetOrAddObject() throws Exception {
+
+    // confirm setOrAdd behaves as expected
+    Document document = createDocument("id1");
+    document.setOrAdd("field1", (Object) "value1");
+    assertFalse(document.isMultiValued("field1"));
+    assertEquals("value1", document.getString("field1"));
+    document.setOrAdd("field1", (Object) "value2");
+    assertTrue(document.isMultiValued("field1"));
+    assertEquals("value1", document.getStringList("field1").get(0));
+    assertEquals("value2", document.getStringList("field1").get(1));
+    assertEquals(2, document.getStringList("field1").size());
+
+    // compare with setField behavior
+    Document document2 = createDocument("id2");
+    document2.setField("field1", (Object) "value1");
+    assertFalse(document2.isMultiValued("field1"));
+    assertEquals("value1", document2.getString("field1"));
+    document2.setField("field1", (Object) "value2");
+    assertFalse(document2.isMultiValued("field1"));
+    assertEquals("value2", document2.getString("field1"));
+
+    // compare with addToField behavior
+    Document document3 = createDocument("id1");
+    document3.addToField("field1", (Object) "value1");
+    assertTrue(document3.isMultiValued("field1"));
+    assertEquals("value1", document3.getString("field1"));
+    document3.addToField("field1", (Object) "value2");
+    assertTrue(document3.isMultiValued("field1"));
+    assertEquals("value1", document3.getStringList("field1").get(0));
+    assertEquals("value2", document3.getStringList("field1").get(1));
+    assertEquals(2, document3.getStringList("field1").size());
+  }
+
+  @Test
   public void testSetOrAddInstant() {
     Document document = createDocument("id1");
     assertFalse(document.has("instant"));
@@ -949,6 +1050,19 @@ public abstract class DocumentTest {
     assertFalse(document.isMultiValued("instant"));
 
     document.setOrAdd("instant", Instant.ofEpochSecond(20000));
+    assertTrue(document.isMultiValued("instant"));
+  }
+
+  @Test
+  public void testSetOrAddInstantObject() throws Exception {
+    Document document = createDocument("id1");
+    assertFalse(document.has("instant"));
+
+    document.setOrAdd("instant", (Object) Instant.ofEpochSecond(10000));
+    assertTrue(document.has("instant"));
+    assertFalse(document.isMultiValued("instant"));
+
+    document.setOrAdd("instant", (Object) Instant.ofEpochSecond(20000));
     assertTrue(document.isMultiValued("instant"));
   }
 
@@ -1110,7 +1224,7 @@ public abstract class DocumentTest {
 
     // ensure that the numbers do not come out as Strings
     assertEquals("{\"id\":\"id\",\"field1\":[1,16,129]}", d.toString());
-//    compareToString("{\"id\":\"id\",\"field1\":[1,16,129]}", d.toString());
+    // compareToString("{\"id\":\"id\",\"field1\":[1,16,129]}", d.toString());
 
     d.setField("field2", "a");
     d.addToField("field2", "b");
@@ -1125,9 +1239,8 @@ public abstract class DocumentTest {
     assertEquals("c", values2.get(2));
 
     // ensure that the Strings do come out as Strings
-    assertEquals(
-        "{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
-    //    compareToString("{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
+    assertEquals("{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
+    // compareToString("{\"id\":\"id\",\"field1\":[1,16,129],\"field2\":[\"a\",\"b\",\"c\"]}", d.toString());
   }
 
   private void assertEqualsFromString(Document document, String string) {
@@ -1157,7 +1270,7 @@ public abstract class DocumentTest {
     // verify that the original field stays the same, while the output field contains the correct
     // values
     // todo does the order matter here?
-//    assertEquals("{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}", d.toString());
+    // assertEquals("{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}", d.toString());
     assertEqualsFromString(d, "{\"id\":\"id\",\"field1\":[1,1,16,129],\"output\":[1,16,129]}");
 
     Document d2 = createDocument("id2");
@@ -1175,13 +1288,12 @@ public abstract class DocumentTest {
 
     // verify in-place modification
     assertEquals("{\"id\":\"id2\",\"field2\":[\"a\",\"b\",\"c\"]}", d2.toString());
-//    compareToString("{\"id\":\"id2\",\"field2\":[\"a\",\"b\",\"c\"]}", d2.toString());
+    // compareToString("{\"id\":\"id2\",\"field2\":[\"a\",\"b\",\"c\"]}", d2.toString());
   }
 
   @Test
   public void testRemoveDuplicatesSameField() throws DocumentException, JsonProcessingException {
-    Document d =
-        createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":[\"1\"]}");
+    Document d = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":[\"1\"]}");
 
     // single valued
     d.removeDuplicateValues("field1", null);
@@ -1211,8 +1323,7 @@ public abstract class DocumentTest {
     @Test
     public void testGetNullFieldExceptions() throws DocumentException, JsonProcessingException {
 
-      Document document =
-          createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
+      Document document = createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
 
       List<Object> nullList = new ArrayList<>();
       nullList.add(null);
@@ -1291,7 +1402,7 @@ public abstract class DocumentTest {
 
   @Test
   public void testGetBytesSingleValued() {
-    byte[] value = new byte[]{0x3c, 0x4c, 0x5c};
+    byte[] value = new byte[] {0x3c, 0x4c, 0x5c};
     Document document = createDocument("doc");
     document.setField("bytes", value);
     assertFalse(document.isMultiValued("bytes"));
@@ -1308,9 +1419,9 @@ public abstract class DocumentTest {
 
   @Test
   public void testGetBytesListMultiValued() throws Exception {
-    byte[] value1 = new byte[]{0x3c, 0x4c, 0x5c};
-    byte[] value2 = new byte[]{0x4c, 0x4c, 0x5c};
-    byte[] value3 = new byte[]{0x5c, 0x4c, 0x5c};
+    byte[] value1 = new byte[] {0x3c, 0x4c, 0x5c};
+    byte[] value2 = new byte[] {0x4c, 0x4c, 0x5c};
+    byte[] value3 = new byte[] {0x5c, 0x4c, 0x5c};
     Document document = createDocument("doc");
     document.setField("bytes", value1);
     assertFalse(document.isMultiValued("bytes"));
@@ -1322,15 +1433,15 @@ public abstract class DocumentTest {
 
   @Test
   public void testGetBytesMultivalued() {
-    byte[] value1 = new byte[]{0x3c, 0x4c, 0x5c};
-    byte[] value2 = new byte[]{0x4c, 0x4c, 0x5c};
+    byte[] value1 = new byte[] {0x3c, 0x4c, 0x5c};
+    byte[] value2 = new byte[] {0x4c, 0x4c, 0x5c};
     Document document = createDocument("doc");
     document.addToField("field1", value1);
     document.addToField("field1", value2);
     assertEquals(value1, document.getBytes("field1"));
     assertEquals(Arrays.asList(value1, value2), document.getBytesList("field1"));
   }
-  
+
   @Test
   public void testRemoveChildren() {
     Document doc = createDocument("doc");
@@ -1357,59 +1468,43 @@ public abstract class DocumentTest {
     illegalFieldNames.add("");
 
     // build a list of functions that set, update, add, or remove fields
-    List<BiConsumer<String, Document>> setFunctions = List.of(
-        (fieldName, document) -> document.setField(fieldName, "val"),
-        (fieldName, document) -> document.setField(fieldName, 1L),
-        (fieldName, document) -> document.setField(fieldName, 1),
-        (fieldName, document) -> document.setField(fieldName, true),
-        (fieldName, document) -> document.setField(fieldName, 1.0),
-        (fieldName, document) -> document.setField(fieldName, 1.0f),
-        (fieldName, document) -> document.setField(fieldName, node),
+    List<BiConsumer<String, Document>> setFunctions = List.of((fieldName, document) -> document.setField(fieldName, "val"),
+        (fieldName, document) -> document.setField(fieldName, 1L), (fieldName, document) -> document.setField(fieldName, 1),
+        (fieldName, document) -> document.setField(fieldName, true), (fieldName, document) -> document.setField(fieldName, 1.0),
+        (fieldName, document) -> document.setField(fieldName, 1.0f), (fieldName, document) -> document.setField(fieldName, node),
         (fieldName, document) -> document.setField(fieldName, Instant.now()),
-        (fieldName, document) -> document.setField(fieldName, new byte[]{0x3c, 0x4c, 0x5c})
-    );
+        (fieldName, document) -> document.setField(fieldName, new byte[] {0x3c, 0x4c, 0x5c}));
 
-    List<BiConsumer<String, Document>> updateFunctions = List.of(
-        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, "val"),
-        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, 1L),
-        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, 1),
-        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, true),
-        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, 1.0),
-        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, 1.0f),
-// todo missing update for JsonNode
-//        (fieldName, document)-> document.update(fieldName, UpdateMode.DEFAULT, node),
-        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, Instant.now()),
-        (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, new byte[]{0x3c, 0x4c, 0x5c})
-    );
+    List<BiConsumer<String, Document>> updateFunctions =
+        List.of((fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, "val"),
+            (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, 1L),
+            (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, 1),
+            (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, true),
+            (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, 1.0),
+            (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, 1.0f),
+            // todo missing update for JsonNode
+            // (fieldName, document)-> document.update(fieldName, UpdateMode.DEFAULT, node),
+            (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, Instant.now()),
+            (fieldName, document) -> document.update(fieldName, UpdateMode.DEFAULT, new byte[] {0x3c, 0x4c, 0x5c}));
 
-    List<BiConsumer<String, Document>> addToFieldFunctions = List.of(
-        (fieldName, document) -> document.addToField(fieldName, "val"),
-        (fieldName, document) -> document.addToField(fieldName, 1L),
-        (fieldName, document) -> document.addToField(fieldName, 1),
-        (fieldName, document) -> document.addToField(fieldName, true),
-        (fieldName, document) -> document.addToField(fieldName, 1.0),
+    List<BiConsumer<String, Document>> addToFieldFunctions = List.of((fieldName, document) -> document.addToField(fieldName, "val"),
+        (fieldName, document) -> document.addToField(fieldName, 1L), (fieldName, document) -> document.addToField(fieldName, 1),
+        (fieldName, document) -> document.addToField(fieldName, true), (fieldName, document) -> document.addToField(fieldName, 1.0),
         (fieldName, document) -> document.addToField(fieldName, 1.0f),
-//        (fieldName, document) -> document.addToField(fieldName, node),
+        // (fieldName, document) -> document.addToField(fieldName, node),
         (fieldName, document) -> document.addToField(fieldName, Instant.now()),
-        (fieldName, document) -> document.addToField(fieldName, new byte[]{0x3c, 0x4c, 0x5c})
-    );
+        (fieldName, document) -> document.addToField(fieldName, new byte[] {0x3c, 0x4c, 0x5c}));
 
-    List<BiConsumer<String, Document>> setOrAddFunctions = List.of(
-        (fieldName, document) -> document.setOrAdd(fieldName, "val"),
-        (fieldName, document) -> document.setOrAdd(fieldName, 1L),
-        (fieldName, document) -> document.setOrAdd(fieldName, 1),
-        (fieldName, document) -> document.setOrAdd(fieldName, true),
-        (fieldName, document) -> document.setOrAdd(fieldName, 1.0),
+    List<BiConsumer<String, Document>> setOrAddFunctions = List.of((fieldName, document) -> document.setOrAdd(fieldName, "val"),
+        (fieldName, document) -> document.setOrAdd(fieldName, 1L), (fieldName, document) -> document.setOrAdd(fieldName, 1),
+        (fieldName, document) -> document.setOrAdd(fieldName, true), (fieldName, document) -> document.setOrAdd(fieldName, 1.0),
         (fieldName, document) -> document.setOrAdd(fieldName, 1.0f),
-//        (fieldName, document) -> document.setOrAdd(fieldName, node),
+        // (fieldName, document) -> document.setOrAdd(fieldName, node),
         (fieldName, document) -> document.setOrAdd(fieldName, Instant.now()),
-        (fieldName, document) -> document.setOrAdd(fieldName, new byte[]{0x3c, 0x4c, 0x5c})
-    );
+        (fieldName, document) -> document.setOrAdd(fieldName, new byte[] {0x3c, 0x4c, 0x5c}));
 
-    List<BiConsumer<String, Document>> removeFunctions = List.of(
-        (fieldName, document) -> document.removeField(fieldName),
-        (fieldName, document) -> document.removeFromArray(fieldName, 0)
-    );
+    List<BiConsumer<String, Document>> removeFunctions = List.of((fieldName, document) -> document.removeField(fieldName),
+        (fieldName, document) -> document.removeFromArray(fieldName, 0));
 
     // merge lists of functions
     List<BiConsumer<String, Document>> functions = new ArrayList<>();

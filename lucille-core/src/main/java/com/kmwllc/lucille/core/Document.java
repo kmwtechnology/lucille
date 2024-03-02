@@ -55,7 +55,7 @@ public interface Document {
 
   /**
    * @throws IllegalArgumentException if object is not supported*/
-  default void update(String name, UpdateMode mode, Object... values) throws Exception {
+  public default void update(String name, UpdateMode mode, Object... values) throws Exception {
     update(name, mode, (v) -> {
         callGenericUpdater("setField", name, v);
     }, (v) -> {
@@ -90,7 +90,7 @@ public interface Document {
     }
   }
 
-  private static void callGenericUpdater(String method, String name, Object value) throws Exception {
+  private void callGenericUpdater(String method, String name, Object value) throws Exception {
     Class<?> clazz = null;
 
     if (value instanceof String) {
@@ -111,7 +111,7 @@ public interface Document {
       throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
     }
 
-    Document.class.getMethod(method, String.class, clazz).invoke(name, value);
+    Document.class.getMethod(method, String.class, clazz).invoke(this, name, value);
   }
 
   void initializeRunId(String value);
