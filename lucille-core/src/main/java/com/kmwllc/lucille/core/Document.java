@@ -3,7 +3,7 @@ package com.kmwllc.lucille.core;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
@@ -11,7 +11,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
+import org.apache.kafka.common.protocol.types.Field.Bool;
 
 public interface Document {
 
@@ -51,6 +53,67 @@ public interface Document {
 
   void update(String name, UpdateMode mode, byte[]... values);
 
+  /**
+   * @throws IllegalArgumentException if object is not supported*/
+  default void update(String name, UpdateMode mode, Object... values) throws Exception {
+    update(name, mode, (v) -> {
+        callGenericUpdater("setField", name, v);
+    }, (v) -> {
+        callGenericUpdater("setOrAdd", name, v);
+    }, values);
+  }
+
+  // TODO: put this in its own file and make it private
+  interface ThrowingConsumer<T> {
+    void accept(T t) throws Exception ;
+  }
+
+  private void update(String name, UpdateMode mode, ThrowingConsumer setter, ThrowingConsumer adder, Object... values) throws Exception {
+
+    validateFieldNames(name);
+
+    if (values.length == 0) {
+      return;
+    }
+
+    if (has(name) && mode.equals(UpdateMode.SKIP)) {
+      return;
+    }
+
+    int i = 0;
+    if (mode.equals(UpdateMode.OVERWRITE)) {
+      setter.accept(values[0]);
+      i = 1;
+    }
+    for (; i < values.length; i++) {
+      adder.accept(values[i]);
+    }
+  }
+
+  private static void callGenericUpdater(String method, String name, Object value) throws Exception {
+    Class<?> clazz = null;
+
+    if (value instanceof String) {
+      clazz = String.class;
+    } else if (value instanceof Long) {
+      clazz = Long.class;
+    } else if (value instanceof Double) {
+      clazz = Double.class;
+    } else if (value instanceof Boolean) {
+      clazz = Boolean.class;
+    } else if (value instanceof Integer) {
+      clazz = Integer.class;
+    } else if (value instanceof Instant) {
+      clazz = Instant.class;
+    } else if (value instanceof byte[]) {
+      clazz = byte[].class;
+    } else {
+      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
+    }
+
+    Document.class.getMethod(method, String.class, clazz).invoke(name, value);
+  }
+
   void initializeRunId(String value);
 
   void clearRunId();
@@ -72,6 +135,10 @@ public interface Document {
   void setField(String name, Instant value);
 
   void setField(String name, byte[] value);
+
+  default void setField(String name, Object value) throws Exception {
+    callGenericUpdater("setField", name, value);
+  }
 
   void renameField(String oldName, String newName, UpdateMode mode);
 
@@ -142,6 +209,10 @@ public interface Document {
 
   void addToField(String name, Float value);
 
+  default void addToField(String name, Object value) throws Exception {
+    callGenericUpdater("addToField", name, value);
+  }
+
   /**
    * Converts a given date in Instant form to a string according to DateTimeFormatter.ISO_INSTANT,
    * it can then be accessed as a string via getString() or a converted back to an Instant via
@@ -173,6 +244,10 @@ public interface Document {
   void setOrAdd(String name, Double value);
 
   void setOrAdd(String name, Float value);
+
+  default void setOrAdd(String name, Object value) throws Exception {
+    callGenericUpdater("setOrAdd", name, value);
+  }
 
   /**
    * Adds a given date in Instant form to a document according to DateTimeFormatter.ISO_INSTANT, can
@@ -252,8 +327,7 @@ public interface Document {
     return createFromJson(json, null);
   }
 
-  static Document createFromJson(String json, UnaryOperator<String> idUpdater)
-      throws DocumentException, JsonProcessingException {
+  static Document createFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 
@@ -261,7 +335,7 @@ public interface Document {
     if (names == null) {
       throw new IllegalArgumentException("expecting string parameters");
     }
-    for (String name: names) {
+    for (String name : names) {
       if (name == null || name.isEmpty()) {
         throw new IllegalArgumentException("Field name cannot be null or empty");
       }
