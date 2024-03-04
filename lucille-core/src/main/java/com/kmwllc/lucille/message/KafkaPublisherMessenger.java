@@ -16,7 +16,7 @@ import java.util.Collections;
 
 public class KafkaPublisherMessenger implements PublisherMessenger {
 
-  public static final Logger log = LoggerFactory.getLogger(KafkaPublisherMessenger.class);
+  private static final Logger log = LoggerFactory.getLogger(KafkaPublisherMessenger.class);
 
   private final Config config;
   private KafkaProducer<String, Document> kafkaProducer;
