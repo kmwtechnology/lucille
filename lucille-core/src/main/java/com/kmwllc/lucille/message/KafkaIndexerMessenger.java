@@ -18,7 +18,7 @@ import java.util.List;
 
 public class KafkaIndexerMessenger implements IndexerMessenger {
 
-  public static final Logger log = LoggerFactory.getLogger(KafkaIndexerMessenger.class);
+  private static final Logger log = LoggerFactory.getLogger(KafkaIndexerMessenger.class);
   private final Consumer<String, KafkaDocument> destConsumer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;

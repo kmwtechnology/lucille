@@ -19,7 +19,7 @@ import java.util.regex.Pattern;
 
 public class HybridWorkerMessenger implements WorkerMessenger {
 
-  public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
+  private static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final LinkedBlockingQueue<Document> pipelineDest;
