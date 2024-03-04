@@ -16,7 +16,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 class Worker implements Runnable {
 
-  public static final int TIMEOUT_CHECK_MS = 1000;
   public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
