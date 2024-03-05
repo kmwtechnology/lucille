@@ -288,19 +288,19 @@ public interface Document {
    * @throws IllegalArgumentException if object is not supported*/
   default void addToField(String name, Object value) {
     if (value instanceof String) {
-      setOrAdd(name, (String) value);
+      addToField(name, (String) value);
     } else if (value instanceof Long) {
-      setOrAdd(name, (Long) value);
+      addToField(name, (Long) value);
     } else if (value instanceof Double) {
-      setOrAdd(name, (Double) value);
+      addToField(name, (Double) value);
     } else if (value instanceof Boolean) {
-      setOrAdd(name, (Boolean) value);
+      addToField(name, (Boolean) value);
     } else if (value instanceof Integer) {
-      setOrAdd(name, (Integer) value);
+      addToField(name, (Integer) value);
     } else if (value instanceof Instant) {
-      setOrAdd(name, (Instant) value);
+      addToField(name, (Instant) value);
     } else if (value instanceof byte[]) {
-      setOrAdd(name, (byte[]) value);
+      addToField(name, (byte[]) value);
     } else {
       throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
     }
