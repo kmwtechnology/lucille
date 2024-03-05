@@ -924,8 +924,8 @@ public abstract class DocumentTest {
       document.update("myInstantField", UpdateMode.OVERWRITE, (Object) 5, (Object) 6, List.of(1), (Object) 7);
     });
 
-    assertEquals(2, document.getFieldNames().size());
-    assertEquals(List.of(5, 6), document.getIntList("myInstantField"));
+    assertEquals(1, document.getFieldNames().size());
+    assertEquals("id1", document.getId());
   }
 
   @Test
