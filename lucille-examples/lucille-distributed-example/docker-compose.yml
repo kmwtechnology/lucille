@@ -1,0 +1,14 @@
+services:
+  zookeeper:
+    build: zookeeper/
+  kafka: 
+    build: kafka/
+  runner:
+    build: runner/
+  worker:
+    build: worker/
+  indexer: 
+    build: indexer/
+  
+networks:
+  lucille-net:
