@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.lang.reflect.Method;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import org.apache.kafka.common.protocol.types.Field.Bool;
 
@@ -37,38 +39,117 @@ public interface Document {
    *
    * <p>In all cases the field will be created if it doesn't already exist.
    */
-  void update(String name, UpdateMode mode, String... values);
-
-  void update(String name, UpdateMode mode, Long... values);
-
-  void update(String name, UpdateMode mode, Integer... values);
-
-  void update(String name, UpdateMode mode, Boolean... values);
-
-  void update(String name, UpdateMode mode, Double... values);
-
-  void update(String name, UpdateMode mode, Float... values);
-
-  void update(String name, UpdateMode mode, Instant... values);
-
-  void update(String name, UpdateMode mode, byte[]... values);
-
-  /**
-   * @throws IllegalArgumentException if object is not supported*/
-  public default void update(String name, UpdateMode mode, Object... values) throws Exception {
+  default void update(String name, UpdateMode mode, String... values) {
     update(name, mode, (v) -> {
-        callGenericUpdater("setField", name, v);
+      setField(name, (String) v);
     }, (v) -> {
-        callGenericUpdater("setOrAdd", name, v);
+      setOrAdd(name, (String) v);
     }, values);
   }
 
-  // TODO: put this in its own file and make it private
-  interface ThrowingConsumer<T> {
-    void accept(T t) throws Exception ;
+  default void update(String name, UpdateMode mode, Long... values) {
+    update(name, mode, (v) -> {
+      setField(name, (Long) v);
+    }, (v) -> {
+      setOrAdd(name, (Long) v);
+    }, values);
   }
 
-  private void update(String name, UpdateMode mode, ThrowingConsumer setter, ThrowingConsumer adder, Object... values) throws Exception {
+  default void update(String name, UpdateMode mode, Integer... values) {
+    update(name, mode, (v) -> {
+      setField(name, (Integer) v);
+    }, (v) -> {
+      setOrAdd(name, (Integer) v);
+    }, values);
+  }
+
+  default void update(String name, UpdateMode mode, Boolean... values) {
+    update(name, mode, (v) -> {
+      setField(name, (Boolean) v);
+    }, (v) -> {
+      setOrAdd(name, (Boolean) v);
+    }, values);
+  }
+
+  default void update(String name, UpdateMode mode, Double... values) {
+    update(name, mode, (v) -> {
+      setField(name, (Double) v);
+    }, (v) -> {
+      setOrAdd(name, (Double) v);
+    }, values);
+  }
+
+  default void update(String name, UpdateMode mode, Float... values) {
+    update(name, mode, (v) -> {
+      setField(name, (Float) v);
+    }, (v) -> {
+      setOrAdd(name, (Float) v);
+    }, values);
+  }
+
+  default void update(String name, UpdateMode mode, Instant... values) {
+    update(name, mode, (v) -> {
+      setField(name, (Instant) v);
+    }, (v) -> {
+      setOrAdd(name, (Instant) v);
+    }, values);
+  }
+
+  default void update(String name, UpdateMode mode, byte[]... values) {
+    update(name, mode, (v) -> {
+      setField(name, (byte[]) v);
+    }, (v) -> {
+      setOrAdd(name, (byte[]) v);
+    }, values);
+  }
+
+  /**
+   * @throws IllegalArgumentException if object is not supported*/
+  public default void update(String name, UpdateMode mode, Object... values) {
+    Object value = values[0];
+  
+    if (value instanceof String) {
+      validateAllSame(values, v -> v instanceof String);
+    } else if (value instanceof Long) {
+      validateAllSame(values, v -> v instanceof Long);
+    } else if (value instanceof Double) {
+      validateAllSame(values, v -> v instanceof Double);
+    } else if (value instanceof Boolean) {
+      validateAllSame(values, v -> v instanceof Boolean);
+    } else if (value instanceof Integer) {
+      validateAllSame(values, v -> v instanceof Integer);
+    } else if (value instanceof Instant) {
+      validateAllSame(values, v -> v instanceof Instant);
+    } else if (value instanceof byte[]) {
+      validateAllSame(values, v -> v instanceof byte[]);
+    } else {
+      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
+    }
+    update(name, mode, (v) -> {
+      setField(name, v);
+    }, (v) -> {
+        setOrAdd(name, v);
+    }, values);
+  }
+
+  private void validateAllSame(Object[] values, Predicate<? super Object> pred) {
+    if(!Arrays.stream(values).allMatch(pred)) {
+      throw new IllegalArgumentException("All Objects need to have the same subtype");
+    }
+  }
+
+  /**
+   * Private helper method used by different public versions of the overloaded update method.
+   *
+   * Expects two Consumers that invoke setField and addToField respectively on the named field, passing in
+   * a provided value.
+   *
+   * The Consumer / Lambda Expression approach is used here to avoid code duplication between the various
+   * update methods. It is not possible to make update() a generic method because ultimately it would need to call
+   * one of the specific setField or addToField methods which in turn call data.put(String, String),
+   * data.put(String, Long), data.put(String Boolean)
+   */
+  private void update(String name, UpdateMode mode, Consumer setter, Consumer adder, Object... values) {
 
     validateFieldNames(name);
 
@@ -88,30 +169,6 @@ public interface Document {
     for (; i < values.length; i++) {
       adder.accept(values[i]);
     }
-  }
-
-  private void callGenericUpdater(String method, String name, Object value) throws Exception {
-    Class<?> clazz = null;
-
-    if (value instanceof String) {
-      clazz = String.class;
-    } else if (value instanceof Long) {
-      clazz = Long.class;
-    } else if (value instanceof Double) {
-      clazz = Double.class;
-    } else if (value instanceof Boolean) {
-      clazz = Boolean.class;
-    } else if (value instanceof Integer) {
-      clazz = Integer.class;
-    } else if (value instanceof Instant) {
-      clazz = Instant.class;
-    } else if (value instanceof byte[]) {
-      clazz = byte[].class;
-    } else {
-      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
-    }
-
-    Document.class.getMethod(method, String.class, clazz).invoke(this, name, value);
   }
 
   void initializeRunId(String value);
@@ -136,8 +193,26 @@ public interface Document {
 
   void setField(String name, byte[] value);
 
-  default void setField(String name, Object value) throws Exception {
-    callGenericUpdater("setField", name, value);
+  /**
+   * @throws IllegalArgumentException if object is not supported*/
+  default void setField(String name, Object value) {
+    if (value instanceof String) {
+      setField(name, (String) value);
+    } else if (value instanceof Long) {
+      setField(name, (Long) value);
+    } else if (value instanceof Double) {
+      setField(name, (Double) value);
+    } else if (value instanceof Boolean) {
+      setField(name, (Boolean) value);
+    } else if (value instanceof Integer) {
+      setField(name, (Integer) value);
+    } else if (value instanceof Instant) {
+      setField(name, (Instant) value);
+    } else if (value instanceof byte[]) {
+      setField(name, (byte[]) value);
+    } else {
+      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
+    }
   }
 
   void renameField(String oldName, String newName, UpdateMode mode);
@@ -209,8 +284,26 @@ public interface Document {
 
   void addToField(String name, Float value);
 
-  default void addToField(String name, Object value) throws Exception {
-    callGenericUpdater("addToField", name, value);
+  /**
+   * @throws IllegalArgumentException if object is not supported*/
+  default void addToField(String name, Object value) {
+    if (value instanceof String) {
+      setOrAdd(name, (String) value);
+    } else if (value instanceof Long) {
+      setOrAdd(name, (Long) value);
+    } else if (value instanceof Double) {
+      setOrAdd(name, (Double) value);
+    } else if (value instanceof Boolean) {
+      setOrAdd(name, (Boolean) value);
+    } else if (value instanceof Integer) {
+      setOrAdd(name, (Integer) value);
+    } else if (value instanceof Instant) {
+      setOrAdd(name, (Instant) value);
+    } else if (value instanceof byte[]) {
+      setOrAdd(name, (byte[]) value);
+    } else {
+      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
+    }
   }
 
   /**
@@ -245,8 +338,24 @@ public interface Document {
 
   void setOrAdd(String name, Float value);
 
-  default void setOrAdd(String name, Object value) throws Exception {
-    callGenericUpdater("setOrAdd", name, value);
+  default void setOrAdd(String name, Object value) {
+    if (value instanceof String) {
+      setOrAdd(name, (String) value);
+    } else if (value instanceof Long) {
+      setOrAdd(name, (Long) value);
+    } else if (value instanceof Double) {
+      setOrAdd(name, (Double) value);
+    } else if (value instanceof Boolean) {
+      setOrAdd(name, (Boolean) value);
+    } else if (value instanceof Integer) {
+      setOrAdd(name, (Integer) value);
+    } else if (value instanceof Instant) {
+      setOrAdd(name, (Instant) value);
+    } else if (value instanceof byte[]) {
+      setOrAdd(name, (byte[]) value);
+    } else {
+      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
+    }
   }
 
   /**
