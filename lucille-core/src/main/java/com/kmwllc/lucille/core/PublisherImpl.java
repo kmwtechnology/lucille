@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.MDC;
 
 /**
  * Publisher implementation that maintains an in-memory list of pending documents.
@@ -93,6 +94,7 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public void publish(Document document) throws Exception {
+    MDC.put("docId", document.getId());
     if (firstDocStopWatch.isStarted()) {
       firstDocStopWatch.stop();
       log.info("First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
@@ -111,6 +113,7 @@ public class PublisherImpl implements Publisher {
   }
 
   private void publishInternal(Document document) throws Exception {
+    log.info("Publishing document with id {}", document.getId());
     if (!isCollapsing) {
       sendForProcessing(document);
       return;
@@ -122,6 +125,7 @@ public class PublisherImpl implements Publisher {
     }
 
     if (previousDoc.getId().equals(document.getId())) {
+      log.info("Sending document.");
       previousDoc.setOrAddAll(document);
     } else {
       sendForProcessing(previousDoc);

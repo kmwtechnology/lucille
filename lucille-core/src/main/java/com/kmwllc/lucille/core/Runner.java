@@ -16,6 +16,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.MDC;
 
 /**
  * Executes a Lucille run. A run is a sequential execution of one or more Connectors.
@@ -219,6 +220,7 @@ public class Runner {
    */
   public static RunResult run(Config config, RunType type) throws Exception {
     String runId = UUID.randomUUID().toString();
+    MDC.put("runId", runId);
     log.info("Starting run with id " + runId);
 
     List<Connector> connectors = Connector.fromConfig(config);

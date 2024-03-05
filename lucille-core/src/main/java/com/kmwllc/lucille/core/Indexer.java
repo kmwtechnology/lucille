@@ -183,7 +183,7 @@ public abstract class Indexer implements Runnable {
       sendToIndexWithAccounting(batch.flushIfExpired());
       return;
     }
-
+    log.debug("Indexing Doc {}", doc.getId());
     sendToIndexWithAccounting(batch.add(doc));
   }
 

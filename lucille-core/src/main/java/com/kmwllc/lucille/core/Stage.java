@@ -14,6 +14,7 @@ import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.slf4j.MDC;
 
 /**
  * An operation that can be performed on a Document.<br>
@@ -287,6 +288,7 @@ public abstract class Stage {
     if (name == null) {
       this.name = "stage_" + position;
     }
+    MDC.put("stage", this.name);
 
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     this.timer = metrics.timer(metricsPrefix + ".stage." + name + ".processDocumentTime");
