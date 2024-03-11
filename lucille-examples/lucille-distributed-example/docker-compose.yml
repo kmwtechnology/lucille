@@ -2,13 +2,88 @@ services:
   zookeeper:
     build: zookeeper/
   kafka: 
-    build: kafka/
+    build: 
+      context: .
+      dockerfile: ./kafka/Dockerfile
+    container_name: kafka
+    depends_on: 
+      - zookeeper
+    ports:
+      - 9092:9092
+    networks: 
+      - lucille-net
+    healthcheck:
+      test: ["CMD", "ls"]
+      interval: 10s
+  zookeeper: 
+    build: 
+      context: .
+      dockerfile: ./zookeeper/Dockerfile
+    container_name: zookeeper
+    ports:
+      - 2181:2181
+    networks: 
+      - lucille-net
   runner:
-    build: runner/
+    build:
+      context: .
+      dockerfile: ./runner/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks: 
+      - lucille-net
+    volumes:
+      - output:/output
   worker:
-    build: worker/
+    build:
+      context: .
+      dockerfile: ./worker/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks: 
+      - lucille-net
   indexer: 
-    build: indexer/
+    build:
+      context: .
+      dockerfile: ./indexer/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+      solr:
+        condition: service_healthy
+    networks: 
+      - lucille-net
+  solr:
+    image: solr:latest
+    container_name: solr
+    ports:
+      - 8983:8983
+    networks: 
+      - lucille-net
+    healthcheck:
+      test: ["CMD", "solr", "healthcheck", "-c", "quickstart"]
+    entrypoint:
+      - docker-entrypoint.sh
+      - solr
+      - start 
+      - -c
+  test:
+    image: ubuntu
+    command:
+      - tail 
+      - -f
+      - /dev/null
+    networks:
+      - lucille-net
   
 networks:
   lucille-net:
+volumes:
+  output:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: runner/output
