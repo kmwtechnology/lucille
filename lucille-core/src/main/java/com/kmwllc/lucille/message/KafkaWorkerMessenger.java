@@ -18,7 +18,7 @@ import java.util.Collections;
 
 public class KafkaWorkerMessenger implements WorkerMessenger {
 
-  public static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
+  private static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
   private final KafkaProducer<String, Document> kafkaDocumentProducer;
   private final KafkaProducer<String, String> kafkaEventProducer;
