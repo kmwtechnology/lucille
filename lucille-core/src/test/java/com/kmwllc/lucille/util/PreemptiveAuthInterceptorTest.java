@@ -24,36 +24,34 @@ import org.mockito.ArgumentCaptor;
 
 public class PreemptiveAuthInterceptorTest {
 
-  @Test 
+  @Test
   public void testProcess() throws Exception {
-    AuthState nullState = mock(AuthState.class);
-    AuthState  state = mock(AuthState.class);
-    
-    when(state.getAuthScheme()).thenReturn(new BasicScheme());
-    when(nullState.getAuthScheme()).thenReturn(null);
-
     Credentials credentials = mock(Credentials.class);
     CredentialsProvider credsProvider = mock(CredentialsProvider.class);
     when(credsProvider.getCredentials(new AuthScope("foo", 1))).thenReturn(credentials);
     when(credsProvider.getCredentials(new AuthScope("bar", 1))).thenReturn(null);
 
-    HttpHost targetHostFoo = new HttpHost("foo", 1);
-    HttpHost targetHostBar = new HttpHost("bar", 1);
-
+    AuthState nullState = mock(AuthState.class);
+    when(nullState.getAuthScheme()).thenReturn(null);
     HttpContext nullContext = mock(HttpContext.class);
-    HttpContext context = mock(HttpContext.class);
-    HttpContext errorContext = mock(HttpContext.class);
-
-    when(context.getAttribute(HttpClientContext.TARGET_AUTH_STATE)).thenReturn(state);
     when(nullContext.getAttribute(HttpClientContext.TARGET_AUTH_STATE)).thenReturn(nullState);
-    when(errorContext.getAttribute(HttpClientContext.TARGET_AUTH_STATE)).thenReturn(nullState);
+    HttpHost targetHostFoo = new HttpHost("foo", 1);
     when(nullContext.getAttribute(HttpClientContext.HTTP_TARGET_HOST)).thenReturn(targetHostFoo);
-    when(errorContext.getAttribute(HttpClientContext.HTTP_TARGET_HOST)).thenReturn(targetHostBar);
-    when(errorContext.getAttribute(HttpClientContext.CREDS_PROVIDER)).thenReturn(credsProvider);
     when(nullContext.getAttribute(HttpClientContext.CREDS_PROVIDER)).thenReturn(credsProvider);
 
+    AuthState state = mock(AuthState.class);
+    when(state.getAuthScheme()).thenReturn(new BasicScheme());
+    HttpContext context = mock(HttpContext.class);
+    when(context.getAttribute(HttpClientContext.TARGET_AUTH_STATE)).thenReturn(state);
+
+    HttpContext errorContext = mock(HttpContext.class);
+    when(errorContext.getAttribute(HttpClientContext.TARGET_AUTH_STATE)).thenReturn(nullState);
+    HttpHost targetHostBar = new HttpHost("bar", 1);
+    when(errorContext.getAttribute(HttpClientContext.HTTP_TARGET_HOST)).thenReturn(targetHostBar);
+    when(errorContext.getAttribute(HttpClientContext.CREDS_PROVIDER)).thenReturn(credsProvider);
+
     HttpRequest request = mock(HttpRequest.class);
-    
+
     new PreemptiveAuthInterceptor().process(request, context);
     new PreemptiveAuthInterceptor().process(request, nullContext);
     try {
