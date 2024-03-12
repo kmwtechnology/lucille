@@ -1,13 +1,13 @@
 package com.kmwllc.lucille.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.apache.http.Consts;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
@@ -54,18 +54,17 @@ public class PreemptiveAuthInterceptorTest {
 
     new PreemptiveAuthInterceptor().process(request, context);
     new PreemptiveAuthInterceptor().process(request, nullContext);
-    try {
-      new PreemptiveAuthInterceptor().process(request, errorContext);
-      fail("Error was expected");
-    } catch (HttpException e) {
-      assertEquals("No credentials provided for preemptive authentication.", e.getMessage());
-    }
 
+    HttpException exception = assertThrows(HttpException.class, () -> {new PreemptiveAuthInterceptor().process(request, errorContext);});
+    assertEquals("No credentials provided for preemptive authentication.", exception.getMessage());
+
+    // since state returns a non-null auth scheme it should not have update called on it
     verify(state, times(0)).update(any(), any());
 
     ArgumentCaptor<BasicScheme> schemeCaptor = ArgumentCaptor.forClass(BasicScheme.class);
     ArgumentCaptor<Credentials> credentialCaptor = ArgumentCaptor.forClass(Credentials.class);
 
+    // since nullState returns null for calls to getAuthScheme() update is called one
     verify(nullState, times(1)).update(schemeCaptor.capture(), credentialCaptor.capture());
     assertEquals(credentials, credentialCaptor.getValue());
     assertTrue(schemeCaptor.getValue() instanceof BasicScheme);
