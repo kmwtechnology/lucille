@@ -40,67 +40,35 @@ public interface Document {
    * <p>In all cases the field will be created if it doesn't already exist.
    */
   default void update(String name, UpdateMode mode, String... values) {
-    update(name, mode, (v) -> {
-      setField(name, (String) v);
-    }, (v) -> {
-      setOrAdd(name, (String) v);
-    }, values);
+    update(name, mode, v -> setField(name, (String) v), v -> setOrAdd(name, (String) v), values);
   }
 
   default void update(String name, UpdateMode mode, Long... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Long) v);
-    }, (v) -> {
-      setOrAdd(name, (Long) v);
-    }, values);
+    update(name, mode, v -> setField(name, (Long) v), v -> setOrAdd(name, (Long) v), values);
   }
 
   default void update(String name, UpdateMode mode, Integer... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Integer) v);
-    }, (v) -> {
-      setOrAdd(name, (Integer) v);
-    }, values);
+    update(name, mode, v -> setField(name, (Integer) v), v -> setOrAdd(name, (Integer) v), values);
   }
 
   default void update(String name, UpdateMode mode, Boolean... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Boolean) v);
-    }, (v) -> {
-      setOrAdd(name, (Boolean) v);
-    }, values);
+    update(name, mode, v -> setField(name, (Boolean) v), v -> setOrAdd(name, (Boolean) v), values);
   }
 
   default void update(String name, UpdateMode mode, Double... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Double) v);
-    }, (v) -> {
-      setOrAdd(name, (Double) v);
-    }, values);
+    update(name, mode, v -> setField(name, (Double) v), v -> setOrAdd(name, (Double) v), values);
   }
 
   default void update(String name, UpdateMode mode, Float... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Float) v);
-    }, (v) -> {
-      setOrAdd(name, (Float) v);
-    }, values);
+    update(name, mode, v -> setField(name, (Float) v), v -> setOrAdd(name, (Float) v), values);
   }
 
   default void update(String name, UpdateMode mode, Instant... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Instant) v);
-    }, (v) -> {
-      setOrAdd(name, (Instant) v);
-    }, values);
+    update(name, mode, v -> setField(name, (Instant) v), v -> setOrAdd(name, (Instant) v), values);
   }
 
   default void update(String name, UpdateMode mode, byte[]... values) {
-    update(name, mode, (v) -> {
-      setField(name, (byte[]) v);
-    }, (v) -> {
-      setOrAdd(name, (byte[]) v);
-    }, values);
+    update(name, mode, v -> setField(name, (byte[]) v), v -> setOrAdd(name, (byte[]) v), values);
   }
 
   /**
