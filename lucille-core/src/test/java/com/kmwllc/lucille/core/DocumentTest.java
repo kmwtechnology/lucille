@@ -917,22 +917,30 @@ public abstract class DocumentTest {
     assertFalse(document.isMultiValued("myStringField2"));
   }
 
+  /**
+   * Demonstrates that update method throws an IllegalArgumentException when one of the provided values
+   * is of an unsupported type (in this case, a List). In this case, updates that were made prior to
+   * encountering the illegal value will persist and will not be reverted. Type checking is done
+   * as each value is encountered and not in a single-pass at the beginning.
+   *
+   * @throws Exception
+   */
   @Test
   public void testUpdateFailsInMiddle() throws Exception {
     Document document = createDocument("id1");
-    assertThrows(Exception.class, () -> {
-      document.update("myInstantField", UpdateMode.OVERWRITE, (Object) 5, (Object) 6, List.of(1), (Object) 7);
+    Exception e = assertThrows(IllegalArgumentException.class, () -> {
+      document.update("myField", UpdateMode.OVERWRITE, (Object) 5, (Object) 6, List.of(1), (Object) 7);
     });
-
-    assertEquals(1, document.getFieldNames().size());
-    assertEquals("id1", document.getId());
+    assertEquals("Type " + List.of(1).getClass().getName() + " is not supported", e.getMessage());
+    assertEquals(2, document.getFieldNames().size());
+    assertEquals(List.of(5, 6), document.getIntList("myField"));
   }
 
   @Test
   public void testUpdateUnsupportedType() {
     Document document = createDocument("id1");
     assertThrows(Exception.class, () -> {
-      document.update("myInstantField", UpdateMode.OVERWRITE, List.of(1));
+      document.update("myField", UpdateMode.OVERWRITE, List.of(1));
     });
 
     assertEquals(1, document.getFieldNames().size());
