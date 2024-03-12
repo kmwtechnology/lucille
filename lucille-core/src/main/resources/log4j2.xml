@@ -18,12 +18,22 @@
             </Policies>
             <DefaultRolloverStrategy max="4" />
         </RollingFile>
+        <RollingFile name="elk" fileName="./log/com.kmwllc.lucille-json.log" filePattern="./log/com.kmwllc.lucille-json-%i.log">
+            <JsonTemplateLayout eventTemplateUri="classpath:EcsLayout.json"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 KB" />
+            </Policies>
+            <DefaultRolloverStrategy max="20" />
+        </RollingFile>
     </Appenders>
     <Loggers>
         <Root level="INFO">
             <AppenderRef ref="console" />
             <AppenderRef ref="file" />
         </Root>
+<!--        <Root level="DEBUG">-->
+<!--            <AppenderRef ref="elk" />-->
+<!--        </Root>-->
         <Logger name="com.kmwllc.com.kmwllc.lucille.core.Heartbeat" level="INFO" additivity="false">
             <AppenderRef ref="heartbeat" />
         </Logger>
