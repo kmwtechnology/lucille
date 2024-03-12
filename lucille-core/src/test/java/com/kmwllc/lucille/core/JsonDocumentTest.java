@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.time.Instant;
 import org.junit.Test;
 
 import java.util.Base64;
@@ -73,5 +74,32 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     Document document2 = createDocumentFromJson(document.toString());
     assertArrayEquals(value1, document2.getBytesList("field1").get(0));
     assertArrayEquals(value2, document2.getBytesList("field1").get(1));
+  }
+
+  /**
+   * Demonstrates that JsonDocument allows values of different types to be added
+   * to the same multivalued field; the list of values can then be retrieved with a type-specific
+   * getter (i.e. getStringList()) and type conversions will be performed as appropriate.
+   *
+   * The behavior of multivalued field on JsonDocument reflects the behavior of JsonArray,
+   * which JsonDocument uses to represent such fields. In turn, this behavior matches the way
+   * JSON itself works: arrays can contain elements of mixed type.
+   *
+   */
+  @Test
+  public void testAddMixedTypesToMultivaluedField() {
+    Document doc = createDocument("id1");
+
+    doc.addToField("field1", "my string");
+    doc.addToField("field1", 1L);
+    doc.addToField("field1", 2);
+    doc.addToField("field1", true);
+    doc.addToField("field1", 3D);
+    doc.addToField("field1", 4.0F);
+    doc.addToField("field1", Instant.parse("2024-03-12T16:09:32.231262Z"));
+    doc.addToField("field1", new byte[] {});
+
+    String[] expectedStringValues = {"my string", "1", "2", "true", "3.0", "4.0", "2024-03-12T16:09:32.231262Z", ""};
+    assertArrayEquals(expectedStringValues, doc.getStringList("field1").toArray());
   }
 }
