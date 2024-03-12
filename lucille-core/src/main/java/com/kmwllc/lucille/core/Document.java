@@ -3,9 +3,7 @@ package com.kmwllc.lucille.core;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import java.lang.reflect.Method;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -13,9 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
-import org.apache.kafka.common.protocol.types.Field.Bool;
 
 public interface Document {
 
@@ -72,38 +68,10 @@ public interface Document {
   }
 
   /**
-   * @throws IllegalArgumentException if object is not supported*/
-  public default void update(String name, UpdateMode mode, Object... values) {
-    Object value = values[0];
-  
-    if (value instanceof String) {
-      validateAllSame(values, v -> v instanceof String);
-    } else if (value instanceof Long) {
-      validateAllSame(values, v -> v instanceof Long);
-    } else if (value instanceof Double) {
-      validateAllSame(values, v -> v instanceof Double);
-    } else if (value instanceof Boolean) {
-      validateAllSame(values, v -> v instanceof Boolean);
-    } else if (value instanceof Integer) {
-      validateAllSame(values, v -> v instanceof Integer);
-    } else if (value instanceof Instant) {
-      validateAllSame(values, v -> v instanceof Instant);
-    } else if (value instanceof byte[]) {
-      validateAllSame(values, v -> v instanceof byte[]);
-    } else {
-      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
-    }
-    update(name, mode, (v) -> {
-      setField(name, v);
-    }, (v) -> {
-        setOrAdd(name, v);
-    }, values);
-  }
-
-  private void validateAllSame(Object[] values, Predicate<? super Object> pred) {
-    if(!Arrays.stream(values).allMatch(pred)) {
-      throw new IllegalArgumentException("All Objects need to have the same subtype");
-    }
+   * @throws IllegalArgumentException if any of the values is not of a supported type
+   **/
+  default void update(String name, UpdateMode mode, Object... values) {
+    update(name, mode, v -> setField(name, v), (v) -> setOrAdd(name, v), values);
   }
 
   /**
@@ -162,7 +130,8 @@ public interface Document {
   void setField(String name, byte[] value);
 
   /**
-   * @throws IllegalArgumentException if object is not supported*/
+   * @throws IllegalArgumentException if value is not of a supported type
+   **/
   default void setField(String name, Object value) {
     if (value instanceof String) {
       setField(name, (String) value);
@@ -179,7 +148,7 @@ public interface Document {
     } else if (value instanceof byte[]) {
       setField(name, (byte[]) value);
     } else {
-      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
+      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
   }
 
@@ -253,7 +222,8 @@ public interface Document {
   void addToField(String name, Float value);
 
   /**
-   * @throws IllegalArgumentException if object is not supported*/
+   * @throws IllegalArgumentException if value is not of a supported type
+   **/
   default void addToField(String name, Object value) {
     if (value instanceof String) {
       addToField(name, (String) value);
@@ -270,7 +240,7 @@ public interface Document {
     } else if (value instanceof byte[]) {
       addToField(name, (byte[]) value);
     } else {
-      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
+      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
   }
 
@@ -306,6 +276,9 @@ public interface Document {
 
   void setOrAdd(String name, Float value);
 
+  /**
+   * @throws IllegalArgumentException if value is not of a supported type
+   **/
   default void setOrAdd(String name, Object value) {
     if (value instanceof String) {
       setOrAdd(name, (String) value);
@@ -322,7 +295,7 @@ public interface Document {
     } else if (value instanceof byte[]) {
       setOrAdd(name, (byte[]) value);
     } else {
-      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
+      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
   }
 
