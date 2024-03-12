@@ -113,7 +113,7 @@ public class PublisherImpl implements Publisher {
   }
 
   private void publishInternal(Document document) throws Exception {
-    log.info("Publishing document with id {}", document.getId());
+    log.debug("Publishing document with id {}", document.getId());
     if (!isCollapsing) {
       sendForProcessing(document);
       return;
@@ -125,7 +125,7 @@ public class PublisherImpl implements Publisher {
     }
 
     if (previousDoc.getId().equals(document.getId())) {
-      log.info("Sending document.");
+      log.debug("Sending document.");
       previousDoc.setOrAddAll(document);
     } else {
       sendForProcessing(previousDoc);
