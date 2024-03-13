@@ -33,8 +33,6 @@ services:
         condition: service_healthy
     networks: 
       - lucille-net
-    volumes:
-      - output:/output
   worker:
     build:
       context: .
@@ -51,24 +49,26 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-      solr:
-        condition: service_healthy
+      # solr:
+      #   condition: service_healthy
     networks: 
       - lucille-net
-  solr:
-    image: solr:latest
-    container_name: solr
-    ports:
-      - 8983:8983
-    networks: 
-      - lucille-net
-    healthcheck:
-      test: ["CMD", "solr", "healthcheck", "-c", "quickstart"]
-    entrypoint:
-      - docker-entrypoint.sh
-      - solr
-      - start 
-      - -c
+    volumes:
+      - output:/output
+  # solr:
+  #   image: solr:latest
+  #   container_name: solr
+  #   ports:
+  #     - 8983:8983
+  #   networks: 
+  #     - lucille-net
+  #   healthcheck:
+  #     test: ["CMD", "solr", "healthcheck", "-c", "quickstart"]
+  #   entrypoint:
+  #     - docker-entrypoint.sh
+  #     - solr
+  #     - start 
+  #     - -c
   test:
     image: ubuntu
     command:
