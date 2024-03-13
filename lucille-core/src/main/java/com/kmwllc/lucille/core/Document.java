@@ -3,9 +3,7 @@ package com.kmwllc.lucille.core;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import java.lang.reflect.Method;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -13,9 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
-import org.apache.kafka.common.protocol.types.Field.Bool;
 
 public interface Document {
 
@@ -40,102 +36,42 @@ public interface Document {
    * <p>In all cases the field will be created if it doesn't already exist.
    */
   default void update(String name, UpdateMode mode, String... values) {
-    update(name, mode, (v) -> {
-      setField(name, (String) v);
-    }, (v) -> {
-      setOrAdd(name, (String) v);
-    }, values);
+    update(name, mode, v -> setField(name, (String) v), v -> setOrAdd(name, (String) v), values);
   }
 
   default void update(String name, UpdateMode mode, Long... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Long) v);
-    }, (v) -> {
-      setOrAdd(name, (Long) v);
-    }, values);
+    update(name, mode, v -> setField(name, (Long) v), v -> setOrAdd(name, (Long) v), values);
   }
 
   default void update(String name, UpdateMode mode, Integer... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Integer) v);
-    }, (v) -> {
-      setOrAdd(name, (Integer) v);
-    }, values);
+    update(name, mode, v -> setField(name, (Integer) v), v -> setOrAdd(name, (Integer) v), values);
   }
 
   default void update(String name, UpdateMode mode, Boolean... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Boolean) v);
-    }, (v) -> {
-      setOrAdd(name, (Boolean) v);
-    }, values);
+    update(name, mode, v -> setField(name, (Boolean) v), v -> setOrAdd(name, (Boolean) v), values);
   }
 
   default void update(String name, UpdateMode mode, Double... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Double) v);
-    }, (v) -> {
-      setOrAdd(name, (Double) v);
-    }, values);
+    update(name, mode, v -> setField(name, (Double) v), v -> setOrAdd(name, (Double) v), values);
   }
 
   default void update(String name, UpdateMode mode, Float... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Float) v);
-    }, (v) -> {
-      setOrAdd(name, (Float) v);
-    }, values);
+    update(name, mode, v -> setField(name, (Float) v), v -> setOrAdd(name, (Float) v), values);
   }
 
   default void update(String name, UpdateMode mode, Instant... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Instant) v);
-    }, (v) -> {
-      setOrAdd(name, (Instant) v);
-    }, values);
+    update(name, mode, v -> setField(name, (Instant) v), v -> setOrAdd(name, (Instant) v), values);
   }
 
   default void update(String name, UpdateMode mode, byte[]... values) {
-    update(name, mode, (v) -> {
-      setField(name, (byte[]) v);
-    }, (v) -> {
-      setOrAdd(name, (byte[]) v);
-    }, values);
+    update(name, mode, v -> setField(name, (byte[]) v), v -> setOrAdd(name, (byte[]) v), values);
   }
 
   /**
-   * @throws IllegalArgumentException if object is not supported*/
-  public default void update(String name, UpdateMode mode, Object... values) {
-    Object value = values[0];
-  
-    if (value instanceof String) {
-      validateAllSame(values, v -> v instanceof String);
-    } else if (value instanceof Long) {
-      validateAllSame(values, v -> v instanceof Long);
-    } else if (value instanceof Double) {
-      validateAllSame(values, v -> v instanceof Double);
-    } else if (value instanceof Boolean) {
-      validateAllSame(values, v -> v instanceof Boolean);
-    } else if (value instanceof Integer) {
-      validateAllSame(values, v -> v instanceof Integer);
-    } else if (value instanceof Instant) {
-      validateAllSame(values, v -> v instanceof Instant);
-    } else if (value instanceof byte[]) {
-      validateAllSame(values, v -> v instanceof byte[]);
-    } else {
-      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
-    }
-    update(name, mode, (v) -> {
-      setField(name, v);
-    }, (v) -> {
-        setOrAdd(name, v);
-    }, values);
-  }
-
-  private void validateAllSame(Object[] values, Predicate<? super Object> pred) {
-    if(!Arrays.stream(values).allMatch(pred)) {
-      throw new IllegalArgumentException("All Objects need to have the same subtype");
-    }
+   * @throws IllegalArgumentException if any of the values is not of a supported type
+   **/
+  default void update(String name, UpdateMode mode, Object... values) {
+    update(name, mode, v -> setField(name, v), (v) -> setOrAdd(name, v), values);
   }
 
   /**
@@ -194,7 +130,8 @@ public interface Document {
   void setField(String name, byte[] value);
 
   /**
-   * @throws IllegalArgumentException if object is not supported*/
+   * @throws IllegalArgumentException if value is not of a supported type
+   **/
   default void setField(String name, Object value) {
     if (value instanceof String) {
       setField(name, (String) value);
@@ -211,7 +148,7 @@ public interface Document {
     } else if (value instanceof byte[]) {
       setField(name, (byte[]) value);
     } else {
-      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
+      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
   }
 
@@ -285,7 +222,8 @@ public interface Document {
   void addToField(String name, Float value);
 
   /**
-   * @throws IllegalArgumentException if object is not supported*/
+   * @throws IllegalArgumentException if value is not of a supported type
+   **/
   default void addToField(String name, Object value) {
     if (value instanceof String) {
       addToField(name, (String) value);
@@ -302,7 +240,7 @@ public interface Document {
     } else if (value instanceof byte[]) {
       addToField(name, (byte[]) value);
     } else {
-      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
+      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
   }
 
@@ -338,6 +276,9 @@ public interface Document {
 
   void setOrAdd(String name, Float value);
 
+  /**
+   * @throws IllegalArgumentException if value is not of a supported type
+   **/
   default void setOrAdd(String name, Object value) {
     if (value instanceof String) {
       setOrAdd(name, (String) value);
@@ -354,7 +295,7 @@ public interface Document {
     } else if (value instanceof byte[]) {
       setOrAdd(name, (byte[]) value);
     } else {
-      throw new IllegalArgumentException(String.format("Type of Object: %s is not supported", value.toString()));
+      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
   }
 
