@@ -68,6 +68,13 @@ public interface Document {
   }
 
   /**
+   * Updates the designated field according to the provided UpdateMode. The provided values
+   * must be of supported types (String, Long, Double, Boolean, Integer, Instant, or byte[])
+   * but type uniformity is not enforced. If an unsupported type is encountered, an
+   * IllegalArgumentException will be thrown, but any values that had been added to the field
+   * will remain in place; that is to say, the partial update will not be reverted if a failure
+   * occurs in the middle.
+   *
    * @throws IllegalArgumentException if any of the values is not of a supported type
    **/
   default void update(String name, UpdateMode mode, Object... values) {
@@ -130,6 +137,10 @@ public interface Document {
   void setField(String name, byte[] value);
 
   /**
+   * Sets the designated field to the given value, overwriting any value
+   * that existed previously. The provided Object value must be a
+   * String, Long, Double, Boolean, Integer, Instant, or byte[]
+   *
    * @throws IllegalArgumentException if value is not of a supported type
    **/
   default void setField(String name, Object value) {
@@ -222,6 +233,11 @@ public interface Document {
   void addToField(String name, Float value);
 
   /**
+   * Adds the given value to the designated field,
+   * converting the field to a list if it was not already.
+   * The provided Object value must be a
+   * String, Long, Double, Boolean, Integer, Instant, or byte[]
+   *
    * @throws IllegalArgumentException if value is not of a supported type
    **/
   default void addToField(String name, Object value) {
