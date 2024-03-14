@@ -3,7 +3,6 @@ package com.kmwllc.lucille.core;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
@@ -11,6 +10,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 public interface Document {
@@ -35,21 +35,84 @@ public interface Document {
    *
    * <p>In all cases the field will be created if it doesn't already exist.
    */
-  void update(String name, UpdateMode mode, String... values);
+  default void update(String name, UpdateMode mode, String... values) {
+    update(name, mode, v -> setField(name, (String) v), v -> setOrAdd(name, (String) v), values);
+  }
 
-  void update(String name, UpdateMode mode, Long... values);
+  default void update(String name, UpdateMode mode, Long... values) {
+    update(name, mode, v -> setField(name, (Long) v), v -> setOrAdd(name, (Long) v), values);
+  }
 
-  void update(String name, UpdateMode mode, Integer... values);
+  default void update(String name, UpdateMode mode, Integer... values) {
+    update(name, mode, v -> setField(name, (Integer) v), v -> setOrAdd(name, (Integer) v), values);
+  }
 
-  void update(String name, UpdateMode mode, Boolean... values);
+  default void update(String name, UpdateMode mode, Boolean... values) {
+    update(name, mode, v -> setField(name, (Boolean) v), v -> setOrAdd(name, (Boolean) v), values);
+  }
 
-  void update(String name, UpdateMode mode, Double... values);
+  default void update(String name, UpdateMode mode, Double... values) {
+    update(name, mode, v -> setField(name, (Double) v), v -> setOrAdd(name, (Double) v), values);
+  }
 
-  void update(String name, UpdateMode mode, Float... values);
+  default void update(String name, UpdateMode mode, Float... values) {
+    update(name, mode, v -> setField(name, (Float) v), v -> setOrAdd(name, (Float) v), values);
+  }
 
-  void update(String name, UpdateMode mode, Instant... values);
+  default void update(String name, UpdateMode mode, Instant... values) {
+    update(name, mode, v -> setField(name, (Instant) v), v -> setOrAdd(name, (Instant) v), values);
+  }
 
-  void update(String name, UpdateMode mode, byte[]... values);
+  default void update(String name, UpdateMode mode, byte[]... values) {
+    update(name, mode, v -> setField(name, (byte[]) v), v -> setOrAdd(name, (byte[]) v), values);
+  }
+
+  /**
+   * Updates the designated field according to the provided UpdateMode. The provided values
+   * must be of supported types (String, Long, Double, Boolean, Integer, Instant, or byte[])
+   * but type uniformity is not enforced. If an unsupported type is encountered, an
+   * IllegalArgumentException will be thrown, but any values that had been added to the field
+   * will remain in place; that is to say, the partial update will not be reverted if a failure
+   * occurs in the middle.
+   *
+   * @throws IllegalArgumentException if any of the values is not of a supported type
+   **/
+  default void update(String name, UpdateMode mode, Object... values) {
+    update(name, mode, v -> setField(name, v), (v) -> setOrAdd(name, v), values);
+  }
+
+  /**
+   * Private helper method used by different public versions of the overloaded update method.
+   *
+   * Expects two Consumers that invoke setField and addToField respectively on the named field, passing in
+   * a provided value.
+   *
+   * The Consumer / Lambda Expression approach is used here to avoid code duplication between the various
+   * update methods. It is not possible to make update() a generic method because ultimately it would need to call
+   * one of the specific setField or addToField methods which in turn call data.put(String, String),
+   * data.put(String, Long), data.put(String Boolean)
+   */
+  private void update(String name, UpdateMode mode, Consumer setter, Consumer adder, Object... values) {
+
+    validateFieldNames(name);
+
+    if (values.length == 0) {
+      return;
+    }
+
+    if (has(name) && mode.equals(UpdateMode.SKIP)) {
+      return;
+    }
+
+    int i = 0;
+    if (mode.equals(UpdateMode.OVERWRITE)) {
+      setter.accept(values[0]);
+      i = 1;
+    }
+    for (; i < values.length; i++) {
+      adder.accept(values[i]);
+    }
+  }
 
   void initializeRunId(String value);
 
@@ -72,6 +135,33 @@ public interface Document {
   void setField(String name, Instant value);
 
   void setField(String name, byte[] value);
+
+  /**
+   * Sets the designated field to the given value, overwriting any value
+   * that existed previously. The provided Object value must be a
+   * String, Long, Double, Boolean, Integer, Instant, or byte[]
+   *
+   * @throws IllegalArgumentException if value is not of a supported type
+   **/
+  default void setField(String name, Object value) {
+    if (value instanceof String) {
+      setField(name, (String) value);
+    } else if (value instanceof Long) {
+      setField(name, (Long) value);
+    } else if (value instanceof Double) {
+      setField(name, (Double) value);
+    } else if (value instanceof Boolean) {
+      setField(name, (Boolean) value);
+    } else if (value instanceof Integer) {
+      setField(name, (Integer) value);
+    } else if (value instanceof Instant) {
+      setField(name, (Instant) value);
+    } else if (value instanceof byte[]) {
+      setField(name, (byte[]) value);
+    } else {
+      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
+    }
+  }
 
   void renameField(String oldName, String newName, UpdateMode mode);
 
@@ -143,6 +233,34 @@ public interface Document {
   void addToField(String name, Float value);
 
   /**
+   * Adds the given value to the designated field,
+   * converting the field to a list if it was not already.
+   * The provided Object value must be a
+   * String, Long, Double, Boolean, Integer, Instant, or byte[]
+   *
+   * @throws IllegalArgumentException if value is not of a supported type
+   **/
+  default void addToField(String name, Object value) {
+    if (value instanceof String) {
+      addToField(name, (String) value);
+    } else if (value instanceof Long) {
+      addToField(name, (Long) value);
+    } else if (value instanceof Double) {
+      addToField(name, (Double) value);
+    } else if (value instanceof Boolean) {
+      addToField(name, (Boolean) value);
+    } else if (value instanceof Integer) {
+      addToField(name, (Integer) value);
+    } else if (value instanceof Instant) {
+      addToField(name, (Instant) value);
+    } else if (value instanceof byte[]) {
+      addToField(name, (byte[]) value);
+    } else {
+      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
+    }
+  }
+
+  /**
    * Converts a given date in Instant form to a string according to DateTimeFormatter.ISO_INSTANT,
    * it can then be accessed as a string via getString() or a converted back to an Instant via
    * getInstant().
@@ -173,6 +291,29 @@ public interface Document {
   void setOrAdd(String name, Double value);
 
   void setOrAdd(String name, Float value);
+
+  /**
+   * @throws IllegalArgumentException if value is not of a supported type
+   **/
+  default void setOrAdd(String name, Object value) {
+    if (value instanceof String) {
+      setOrAdd(name, (String) value);
+    } else if (value instanceof Long) {
+      setOrAdd(name, (Long) value);
+    } else if (value instanceof Double) {
+      setOrAdd(name, (Double) value);
+    } else if (value instanceof Boolean) {
+      setOrAdd(name, (Boolean) value);
+    } else if (value instanceof Integer) {
+      setOrAdd(name, (Integer) value);
+    } else if (value instanceof Instant) {
+      setOrAdd(name, (Instant) value);
+    } else if (value instanceof byte[]) {
+      setOrAdd(name, (byte[]) value);
+    } else {
+      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
+    }
+  }
 
   /**
    * Adds a given date in Instant form to a document according to DateTimeFormatter.ISO_INSTANT, can
@@ -252,8 +393,7 @@ public interface Document {
     return createFromJson(json, null);
   }
 
-  static Document createFromJson(String json, UnaryOperator<String> idUpdater)
-      throws DocumentException, JsonProcessingException {
+  static Document createFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 
@@ -261,7 +401,7 @@ public interface Document {
     if (names == null) {
       throw new IllegalArgumentException("expecting string parameters");
     }
-    for (String name: names) {
+    for (String name : names) {
       if (name == null || name.isEmpty()) {
         throw new IllegalArgumentException("Field name cannot be null or empty");
       }
