@@ -134,13 +134,13 @@ public class SolrUtils {
     }
 
     for (Entry<String, Object> e : tuple.getFields().entrySet()) {
-      Object val = e.getValue();
       String key = e.getKey();
 
       if (key.equals(Document.ID_FIELD)) {
         continue;
       }
 
+      Object val = e.getValue();
       try {
         // check if value is a byte array so that bytes are not individually added as that is not supported
         if (val instanceof byte[]) {
