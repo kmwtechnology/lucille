@@ -1,34 +1,29 @@
 package com.kmwllc.lucille.util;
 
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.DocumentException;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import org.apache.http.client.HttpClient;
-import org.apache.log4j.Logger;
-import org.apache.log4j.spi.LoggerFactory;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
-import org.apache.solr.client.solrj.io.Tuple;
-import org.junit.Assert;
-import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import java.util.HashMap;
 import java.util.List;
-import javax.tools.DocumentationTool.DocumentationTask;
-
+import org.apache.log4j.Logger;
+import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.io.Tuple;
+import org.junit.Test;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.DocumentException;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 
 public class SolrUtilsTest {
 
   private static final Logger log = Logger.getLogger(SolrUtilsTest.class);
+
   @Test
   public void requireAuthTest() throws Exception {
     Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:SolrUtilsTest/auth.conf"));
     assertTrue(SolrUtils.requiresAuth(config));
   }
-
 
   @Test
   public void getHttpClientTest() throws Exception {
@@ -56,10 +51,11 @@ public class SolrUtilsTest {
     Tuple booleanListTuple = new Tuple(Document.ID_FIELD, "foo7", "booleanList", List.of(false, true));
     Tuple stringListTuple = new Tuple(Document.ID_FIELD, "foo8", "stringList", List.of("foo", "bar"));
     Tuple mapTuple = new Tuple(Document.ID_FIELD, "foo9", "map", new HashMap<>());
-    Tuple exceptionTuple = new Tuple(Document.ID_FIELD, "foo9", "bad", List.of(1, "string"));
+    Tuple mixedTuple = new Tuple(Document.ID_FIELD, "foo9", "mixed", List.of(1, "string"));
     Tuple unsupportedList = new Tuple(Document.ID_FIELD, "foo9", "bad", List.of(new HashMap<>()));
     Tuple emptyList = new Tuple(Document.ID_FIELD, "foo9", "empty", List.of());
-    
+    Tuple stringArray = new Tuple(Document.ID_FIELD, "foo10", "stringArray", new String[] {"one", "two"});
+
     Document justIdDoc = SolrUtils.toDocument(justId);
     Document longTupleDoc = SolrUtils.toDocument(longTuple);
     Document doubleTupleDoc = SolrUtils.toDocument(doubleTuple);
@@ -70,12 +66,11 @@ public class SolrUtilsTest {
     Document booleanListTupleDoc = SolrUtils.toDocument(booleanListTuple);
     Document stringListTupleDoc = SolrUtils.toDocument(stringListTuple);
     Document emptyListDoc = SolrUtils.toDocument(emptyList);
+    Document stringArrayDoc = SolrUtils.toDocument(stringArray);
+    Document mixedListDoc = SolrUtils.toDocument(mixedTuple);
 
     assertThrows(DocumentException.class, () -> {
       SolrUtils.toDocument(mapTuple);
-    });
-    assertThrows(DocumentException.class, () -> {
-      SolrUtils.toDocument(exceptionTuple);
     });
     assertThrows(DocumentException.class, () -> {
       SolrUtils.toDocument(unsupportedList);
@@ -118,5 +113,13 @@ public class SolrUtilsTest {
 
     assertEquals(1, emptyListDoc.getFieldNames().size());
     assertEquals("foo9", emptyListDoc.getString(Document.ID_FIELD));
+
+    assertEquals(2, stringArrayDoc.getFieldNames().size());
+    assertEquals("foo10", stringArrayDoc.getString(Document.ID_FIELD));
+    assertEquals(List.of("one", "two"), stringArrayDoc.getStringList("stringArray"));
+
+    assertEquals(2, mixedListDoc.getFieldNames().size());
+    assertEquals("foo9", mixedListDoc.getString(Document.ID_FIELD));
+    assertEquals(List.of("1", "string"), mixedListDoc.getStringList("mixed"));
   }
 }
