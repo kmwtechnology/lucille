@@ -5,6 +5,14 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import java.util.Objects;
 
+/**
+ * A Document that is retrieved from a Kafka topic and may therefore possess a Kafka topic name, partition, offset, and key
+ * along with typical Document field data.
+ *
+ * In Lucille, plain (non-Kafka) Documents are written to Kafka. Those same Documents are then retrieved/deserialized
+ * from kafka as KafkaDocuments. The topic, partition, offset, and key is copied from the Kafka ConsumerRecord onto the
+ * KafkaDocument after deserialization.
+ */
 public class KafkaDocument extends JsonDocument {
 
   private String topic;
