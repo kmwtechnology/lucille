@@ -30,6 +30,10 @@ CREATE TABLE companies(company_id VARCHAR, name VARCHAR);
 INSERT INTO companies VALUES ('1-1', 'Acme');
 INSERT INTO companies VALUES ('1-2', NULL);
 
+CREATE TABLE mixed(id VARCHAR, int_field INT, bool_field BIT, byte_field varbinary(3));
+INSERT INTO mixed VALUES ('1', 3, 1, PARSE_JSON('[1, 2, 3]'));
+INSERT INTO mixed VALUES ('2', 4, 0, PARSE_JSON('[3, 2, 1]'));
+
 create table table_with_id_column(id int, value int, other_id varchar(10));
 insert into table_with_id_column values (1, 1, 'id1');
 insert into table_with_id_column values (2, 2, 'id2');
