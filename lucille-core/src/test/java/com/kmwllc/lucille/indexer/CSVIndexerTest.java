@@ -84,9 +84,11 @@ public class CSVIndexerTest {
     doc2.setField("f2","def");
 
     CSVIndexer indexer = new CSVIndexer(config, messenger, false,"testing");
+    // uses sendToIndex() rather than run() to demonstrate the flushing behavior before the indexer is shut down.
     indexer.sendToIndex(List.of(doc, doc2));
 
     List<String> lines = Files.readAllLines(outputFile.toPath());
+    indexer.closeConnection();
     assertEquals(2, lines.size());
     assertEquals("\"doc1\",\"123\",\"abc\"", lines.get(0));
     assertEquals("\"doc2\",\"456\",\"def\"", lines.get(1));
