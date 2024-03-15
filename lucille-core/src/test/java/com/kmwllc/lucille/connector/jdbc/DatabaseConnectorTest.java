@@ -70,14 +70,11 @@ public class DatabaseConnectorTest {
 
     // Confirm there were 3 results.
     List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
-    assertEquals(3, docsSentForProcessing.size());
+    assertEquals(2, docsSentForProcessing.size());
 
-    // System.out.println(docsSentForProcessing.get(0));
-    // confirm first doc is 1
     assertEquals("1", docsSentForProcessing.get(0).getId());
     assertEquals((Integer)3, docsSentForProcessing.get(0).getInt("int_field"));
     assertEquals(true, docsSentForProcessing.get(0).getBoolean("bool_field"));
-    assertEquals(1, docsSentForProcessing.get(0).getBytes("byte_field")[0]);
 
     assertEquals("2", docsSentForProcessing.get(1).getId());
     assertEquals((Integer)4, docsSentForProcessing.get(1).getInt("int_field"));

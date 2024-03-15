@@ -186,7 +186,6 @@ public class DatabaseConnector extends AbstractConnector {
           }
 
           Object fieldValue = rs.getObject(i);
-          // log.info("Add Field {} Value {} -- Doc {}", fieldName, fieldValue, doc);
           if (fieldValue != null) {
             try {
               doc.setOrAdd(fieldName, fieldValue);
