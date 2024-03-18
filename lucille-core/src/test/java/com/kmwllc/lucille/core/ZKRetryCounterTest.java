@@ -32,7 +32,7 @@ public class ZKRetryCounterTest {
 
   @Test
   public void testRemove() throws Exception {
-    String jsonCounterString = "/LucilleCounters/bar//NON_KAFKA/runId2/jsonDoc";
+    String docCounterString = "/LucilleCounters/bar/NON_KAFKA/runId2/jsonDoc";
     String kafkaCounterString = "/LucilleCounters/bar/topic/runId/key___1_2";
     try (MockedStatic<CuratorFrameworkFactory> curatorStatic = mockStatic(CuratorFrameworkFactory.class)) {
       BackgroundVersionable backgroundVersionable = mock(BackgroundVersionable.class);
@@ -58,7 +58,7 @@ public class ZKRetryCounterTest {
 
       verify(backgroundVersionable, times(2)).forPath(captor.capture());
 
-      assertEquals(jsonCounterString, captor.getAllValues().get(0));
+      assertEquals(docCounterString, captor.getAllValues().get(0));
       assertEquals(kafkaCounterString, captor.getAllValues().get(1));
     }
   }
