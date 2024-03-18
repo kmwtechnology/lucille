@@ -190,7 +190,7 @@ public class DatabaseConnector extends AbstractConnector {
             try {
               doc.setOrAdd(fieldName, fieldValue);
             } catch (IllegalArgumentException e) {
-              log.warn("Error encountered while adding database object to Lucille document: {}", e);
+              log.warn("Error encountered while adding database object to Lucille document: ", e);
             }
           }
         }
