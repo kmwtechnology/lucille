@@ -58,6 +58,6 @@ public class ZKRetryCounter implements RetryCounter {
       return retryCounterPrefix + doc.getTopic() + "/" + doc.getRunId() + "/" + doc.getKey() + "___" + doc.getPartition() + "_"
           + doc.getOffset();
     }
-    return retryCounterPrefix + "/NON_KAFKA/" + document.getRunId() + "/" + document.getId();
+    return retryCounterPrefix + "NON_KAFKA/" + document.getRunId() + "/" + document.getId();
   }
 }
