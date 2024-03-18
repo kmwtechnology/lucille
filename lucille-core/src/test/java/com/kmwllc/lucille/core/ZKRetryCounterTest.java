@@ -47,12 +47,13 @@ public class ZKRetryCounterTest {
 
       KafkaDocument kafkaDoc = spy(new KafkaDocument(Document.create("kafkaDoc"), "topic", 1, 2, "key"));
       when(kafkaDoc.getRunId()).thenReturn("runId");
-      JsonDocument jsonDoc = new JsonDocument("jsonDoc", "runId2");
+      Document doc = Document.create("jsonDoc", "runId2");
+      assertTrue(!(doc instanceof KafkaDocument));
 
       ZKRetryCounter retry3 = new ZKRetryCounter(ConfigFactory.load("ZKRetryCounterTest/config.conf"));
       ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
 
-      retry3.remove(jsonDoc);
+      retry3.remove(doc);
       retry3.remove(kafkaDoc);
 
       verify(backgroundVersionable, times(2)).forPath(captor.capture());
@@ -75,14 +76,15 @@ public class ZKRetryCounterTest {
 
       KafkaDocument kafkaDoc = spy(new KafkaDocument(Document.create("kafkaDoc"), "topic", 1, 2, "key"));
       when(kafkaDoc.getRunId()).thenReturn("runId");
-      JsonDocument jsonDoc = new JsonDocument("jsonDoc", "runId2");
+      Document doc = Document.create("jsonDoc", "runId2");
+      assertTrue(!(doc instanceof KafkaDocument));
 
       ZKRetryCounter retry3 = new ZKRetryCounter(ConfigFactory.load("ZKRetryCounterTest/config.conf"));
       ZKRetryCounter retry10 = new ZKRetryCounter(ConfigFactory.load("ZKRetryCounterTest/retry10.conf"));
 
       assertTrue(retry3.add(kafkaDoc));
-      assertTrue(retry3.add(jsonDoc));
-      assertFalse(retry10.add(jsonDoc));
+      assertTrue(retry3.add(doc));
+      assertFalse(retry10.add(doc));
 
       assertEquals(3, sharedCount.constructed().size());
 
