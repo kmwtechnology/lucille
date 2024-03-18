@@ -116,7 +116,7 @@ public class SolrUtils {
   }
 
   /**
-   * This method will convert a Tuple produced by a Solr Streaming Expression into a Lucille Document. The Tuple must
+   * Converts a Tuple produced by a Solr Streaming Expression into a Lucille Document. The Tuple must
    * have a value in its id field in order to be converted. The types of values are maintained in the conversion. Empty list 
    * are not included in the created document. Array and List types become multivalued fields.
    *
