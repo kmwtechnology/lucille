@@ -71,6 +71,7 @@ public class CSVIndexer extends Indexer {
     for (Document doc : documents) {
       writer.writeNext(getLine(doc), true);
     }
+    writer.flushQuietly();
   }
 
   private String[] getLine(Document doc) {
