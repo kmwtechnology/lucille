@@ -1,9 +1,6 @@
 package com.kmwllc.lucille.util;
 
 
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.DocumentException;
-import com.typesafe.config.Config;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -17,6 +14,10 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.io.Tuple;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.DocumentException;
+import com.kmwllc.lucille.core.UpdateMode;
+import com.typesafe.config.Config;
 
 /**
  * Utility methods for communicating with Solr.
@@ -40,9 +41,8 @@ public class SolrUtils {
       CloudHttp2SolrClient cloudSolrClient = getCloudClient(config);
       return cloudSolrClient;
     } else {
-      return requiresAuth(config) ?
-          new Http2SolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build() :
-          new Http2SolrClient.Builder(getSolrUrl(config)).build();
+      return requiresAuth(config) ? new Http2SolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build()
+          : new Http2SolrClient.Builder(getSolrUrl(config)).build();
     }
   }
 
@@ -116,22 +116,45 @@ public class SolrUtils {
   }
 
   /**
-   * This method will convert a Tuple produced by a Solr Streaming Expression into a Lucille Document. The Tuple must
-   * have a value in its id field in order to be converted.
+   * Converts a Tuple produced by a Solr Streaming Expression into a Lucille Document. The Tuple must
+   * have a value in its id field in order to be converted. The types of values are maintained in the conversion. Empty list 
+   * are not included in the created document. Array and List types become multivalued fields.
    *
    * @param tuple a Tuple from Solr
-   * @return a Document
+   * @throws DocumentException if {@param tuple} does not have a key called Document.ID_FIELD
+   * @return a Document whose id is the stringified version of the contents of Document.ID_FIELD in the tuple.
    */
   public static Document toDocument(Tuple tuple) throws DocumentException {
     Document d;
-    if (tuple.getString(Document.ID_FIELD) != null) {
+
+    if (tuple.getFields().containsKey(Document.ID_FIELD)) {
       d = Document.create(tuple.getString(Document.ID_FIELD));
     } else {
       throw new DocumentException("Unable to create Document from Tuple. No id field present.");
     }
 
     for (Entry<String, Object> e : tuple.getFields().entrySet()) {
-      d.setOrAdd((String) e.getKey(), (String) e.getValue());
+      String key = e.getKey();
+
+      if (key.equals(Document.ID_FIELD)) {
+        continue;
+      }
+
+      Object val = e.getValue();
+      try {
+        // check if value is a byte array so that bytes are not individually added as that is not supported
+        if (val instanceof byte[]) {
+          d.setOrAdd(key, val);
+        } else if (val instanceof Object[]) {
+          d.update(key, UpdateMode.APPEND, (Object[]) val);
+        } else if (val instanceof List) {
+          ((List<Object>) val).stream().forEach(v -> d.setOrAdd(key, v));
+        } else {
+          d.setOrAdd(key, val);
+        }
+      } catch (IllegalArgumentException exception) {
+        throw new DocumentException(exception.getMessage());
+      }
     }
 
     return d;
