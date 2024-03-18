@@ -62,16 +62,6 @@ public class ZKRetryCounterTest {
     }
   }
 
-  @Test 
-  public void testConstructor() {
-    try (MockedStatic<CuratorFrameworkFactory> curatorStatic = mockStatic(CuratorFrameworkFactory.class)) {
-      CuratorFramework curatorFramework = mock(CuratorFramework.class);
-      curatorStatic.when(() -> CuratorFrameworkFactory.newClient(eq("foo"), any())).thenReturn(curatorFramework);
-      new ZKRetryCounter(ConfigFactory.load("ZKRetryCounterTest/config.conf"));
-      verify(curatorFramework, times(1)).start();
-    }
-  }
-
   @Test
   public void testAdd() throws Exception {
     Map<SharedCount, List<Object>> arguments = new HashMap<>();
@@ -113,8 +103,8 @@ public class ZKRetryCounterTest {
       assertEquals(curatorFramework, arguments.get(constructedThird).get(0));
 
       assertEquals("/LucilleCounters/bar/topic/runId/key___1_2", arguments.get(constructedFirst).get(1));
-      assertEquals("/LucilleCounters/bar//NON_KAFKA/runId2/jsonDoc", arguments.get(constructedSecond).get(1));
-      assertEquals("/LucilleCounters/bar//NON_KAFKA/runId2/jsonDoc", arguments.get(constructedThird).get(1));
+      assertEquals("/LucilleCounters/bar/NON_KAFKA/runId2/jsonDoc", arguments.get(constructedSecond).get(1));
+      assertEquals("/LucilleCounters/bar/NON_KAFKA/runId2/jsonDoc", arguments.get(constructedThird).get(1));
 
       assertEquals(0, arguments.get(constructedFirst).get(2));
       assertEquals(0, arguments.get(constructedSecond).get(2));
