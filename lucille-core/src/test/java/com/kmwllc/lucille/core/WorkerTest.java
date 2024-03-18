@@ -18,16 +18,10 @@ import com.typesafe.config.ConfigFactory;
 public class WorkerTest {
 
   @Test
-  public void testMain() throws Exception {
+  public void testMainArgs() throws Exception {
     Map<WorkerPool, List<Object>> args = new HashMap<>();
     Config config = ConfigFactory.load("WorkerTest/config.conf");
     WorkerMessengerFactory mockFactory = new WorkerMessengerFactory() {
-      @Override
-      public WorkerMessenger create() {
-        throw new UnsupportedOperationException("Unimplemented method 'create'");
-      }
-    };
-    WorkerMessengerFactory mockFactory2 = new WorkerMessengerFactory() {
       @Override
       public WorkerMessenger create() {
         throw new UnsupportedOperationException("Unimplemented method 'create'");
@@ -45,26 +39,49 @@ public class WorkerTest {
         WorkerMessengerFactory.getKafkaFactory(config, "foo");
       }).thenReturn(mockFactory);
 
+      Worker.main(new String[] {"foo"});
+
+      assertEquals(1, workerPool.constructed().size());
+      WorkerPool pool = workerPool.constructed().get(0);
+
+      assertEquals(args.get(pool).get(0), config);
+      assertEquals(args.get(pool).get(1), "foo");
+      assertEquals(args.get(pool).get(2), mockFactory);
+      assertEquals(args.get(pool).get(3), "foo");
+    }
+  }
+  @Test
+  public void testMainNoArgs() throws Exception {
+    Map<WorkerPool, List<Object>> args = new HashMap<>();
+    Config config = ConfigFactory.load("WorkerTest/config.conf");
+    WorkerMessengerFactory mockFactory2 = new WorkerMessengerFactory() {
+      @Override
+      public WorkerMessenger create() {
+        throw new UnsupportedOperationException("Unimplemented method 'create'");
+      }
+    };
+    try (MockedStatic<ConfigFactory> configFactory = Mockito.mockStatic(ConfigFactory.class);
+        MockedConstruction<WorkerPool> workerPool = Mockito.mockConstruction(WorkerPool.class, (mock, context) -> {
+          args.put(mock, new ArrayList<>(context.arguments()));
+        });
+        MockedStatic<WorkerMessengerFactory> factory = Mockito.mockStatic(WorkerMessengerFactory.class)) {
+
+      configFactory.when(ConfigFactory::load).thenReturn(config);
+
       factory.when(() -> {
         WorkerMessengerFactory.getKafkaFactory(config, "foo2");
       }).thenReturn(mockFactory2);
 
       Worker.main(new String[0]);
-      Worker.main(new String[] {"foo"});
 
       List<WorkerPool> constructed = workerPool.constructed();
-      assertEquals(2, constructed.size());
-      assertEquals(args.get(constructed.get(0)).get(0), config);
-      assertEquals(args.get(constructed.get(1)).get(0), config);
+      assertEquals(1, constructed.size());
+      WorkerPool pool = constructed.get(0);
 
-      assertEquals(args.get(constructed.get(0)).get(1), "foo2");
-      assertEquals(args.get(constructed.get(1)).get(1), "foo");
-
-      assertEquals(args.get(constructed.get(0)).get(2), mockFactory2);
-      assertEquals(args.get(constructed.get(1)).get(2), mockFactory);
-
-      assertEquals(args.get(constructed.get(0)).get(3), "foo2");
-      assertEquals(args.get(constructed.get(1)).get(3), "foo");
+      assertEquals(args.get(pool).get(0), config);
+      assertEquals(args.get(pool).get(1), "foo2");
+      assertEquals(args.get(pool).get(2), mockFactory2);
+      assertEquals(args.get(pool).get(3), "foo2");
     }
   }
 }
