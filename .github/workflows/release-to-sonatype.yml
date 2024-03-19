@@ -2,11 +2,11 @@ name: release-to-sonatype
 on:
   release:
     types: [created]
-#  workflow_dispatch:
-#    inputs:
-#      releaseversion:
-#        description: 'Release version'
-#        required: true
+  workflow_dispatch:
+    inputs:
+      releaseversion:
+        description: 'Release version'
+        required: true
 jobs:
   publish:
     runs-on: ubuntu-latest
