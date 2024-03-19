@@ -1,3 +1,4 @@
+name: distributed-lucille
 services:
   zookeeper:
     build: zookeeper/
@@ -33,6 +34,8 @@ services:
         condition: service_healthy
     networks: 
       - lucille-net
+    volumes:
+      - output:/output
   worker:
     build:
       context: .
@@ -49,34 +52,23 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-      # solr:
-      #   condition: service_healthy
+      solr:
+        condition: service_healthy
     networks: 
       - lucille-net
-    volumes:
-      - output:/output
-  # solr:
-  #   image: solr:latest
-  #   container_name: solr
-  #   ports:
-  #     - 8983:8983
-  #   networks: 
-  #     - lucille-net
-  #   healthcheck:
-  #     test: ["CMD", "solr", "healthcheck", "-c", "quickstart"]
-  #   entrypoint:
-  #     - docker-entrypoint.sh
-  #     - solr
-  #     - start 
-  #     - -c
-  test:
-    image: ubuntu
-    command:
-      - tail 
-      - -f
-      - /dev/null
+  solr:
+    build:
+      context: .
+      dockerfile: ./solr/Dockerfile
+    container_name: solr
+    ports:
+      - 8983:8983
+      - 9983:9983
     networks:
       - lucille-net
+    healthcheck:
+      test: ["CMD", "ls"]
+      interval: 10s
   
 networks:
   lucille-net:
