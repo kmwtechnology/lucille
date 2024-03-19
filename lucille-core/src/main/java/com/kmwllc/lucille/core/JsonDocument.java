@@ -20,8 +20,8 @@ import java.util.function.UnaryOperator;
 
 
 /**
- * A record from a source system to be passed through a Pipeline, enriched,
- * and sent to a destination system.
+ * Document implementation that functions as a lightweight wrapper around a piece of JSON.
+ * Stores all field data in Jackson ObjectNode.
  *
  */
 public class JsonDocument implements Document {
