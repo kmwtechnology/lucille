@@ -13,18 +13,260 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
+/**
+ * A record from a source system to be passed through an enrichment pipeline and sent to a destination system.
+ *
+ * Every Document has a String identifier or ID. A Document may also have a "Run ID," which identifies the batch ingest that
+ * produced the Document. Documents can be marked as "dropped," meaning they should not be sent to the destination system.
+ * Documents may contain nested or enclosed Documents which are known as "children."
+ *
+ * Documents contain named "fields" which can be single-valued or multi-valued.
+ * Supported field types include String, Boolean, Integer, Double, Float, Long, Instant, and byte[].
+ * A single field value, and/or the first value in a multi-valued field can be accessed via a getter of the form getString(), etc.
+ * A list including a single field value, or all the values in a multi-valued field, be accessed via a getter
+ * of the form getStringList(), etc.
+ *
+ * The Document API supports a variety of setters: setField() methods place a single value in a given field, overwriting
+ * any value(s) that were there previously. addToField() methods append a value a given field, converting the field
+ * into a list or multi-valued field if it was not already multi-valued. setOrAdd() methods either create the field
+ * as single-valued if the field did not exist previously, or append the value to the field if the field already existed.
+ * update() methods provide a convient way of toggling between the behaviors of the other setter types: they
+ * accept an UpdateMode which specifies the desired behavior and they accept varargs.
+ *
+ */
 public interface Document {
 
   String ID_FIELD = "id";
   String RUNID_FIELD = "run_id";
   String CHILDREN_FIELD = ".children";
   String DROP_FIELD = ".dropped";
-
   Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD));
 
-  void removeField(String name);
 
-  void removeFromArray(String name, int index);
+  /* --- SINGLE-VALUE GETTERS --- */
+
+  /**
+   * Returns the value of the designated field as a String. If the field is multivalued, the first value
+   * will be returned.
+   *
+   * Returns null in two cases: if the field is absent, or if the field is present but contains a null.
+   * To distinguish between these, use has().
+   */
+  String getString(String name);
+
+  Boolean getBoolean(String name);
+
+  Integer getInt(String name);
+
+  Double getDouble(String name);
+
+  Float getFloat(String name);
+
+  Long getLong(String name);
+
+  Instant getInstant(String name);
+
+  byte[] getBytes(String name);
+
+
+  /* --- LIST GETTERS --- */
+
+  /**
+   * Returns the value of the designated field as a List of Strings. If the field is single-valued, the single value
+   * will be placed inside a List.
+   *
+   * Returns null if the field is absent.
+   */
+  List<String> getStringList(String name);
+
+  List<Boolean> getBooleanList(String name);
+
+  List<Integer> getIntList(String name);
+
+  List<Double> getDoubleList(String name);
+
+  List<Float> getFloatList(String name);
+
+  List<Long> getLongList(String name);
+
+  List<Instant> getInstantList(String name);
+
+  List<byte[]> getBytesList(String name);
+
+
+  /* --- SINGLE-VALUE SETTERS --- */
+
+  /**
+   * Sets the designated field to the given value, overwriting any value
+   * that existed previously.
+   **/
+  void setField(String name, String value);
+
+  void setField(String name, Boolean value);
+
+  void setField(String name, Integer value);
+
+  void setField(String name, Double value);
+
+  void setField(String name, Float value);
+
+  void setField(String name, Long value);
+
+  /**
+   * Converts the given Instant to a String according to DateTimeFormatter.ISO_INSTANT and
+   * adds it to the designated field. The value can then be accessed as a String via getString()
+   * or a converted back to an Instant via getInstant().
+   */
+  void setField(String name, Instant value);
+
+  void setField(String name, byte[] value);
+
+  void setField(String name, JsonNode value);
+
+  /**
+   * Sets the designated field to the given value, overwriting any value
+   * that existed previously. The provided Object value must be a
+   * String, Long, Double, Boolean, Integer, Instant, or byte[]
+   *
+   * @throws IllegalArgumentException if value is not of a supported type
+   **/
+  default void setField(String name, Object value) {
+    if (value instanceof String) {
+      setField(name, (String) value);
+    } else if (value instanceof Long) {
+      setField(name, (Long) value);
+    } else if (value instanceof Double) {
+      setField(name, (Double) value);
+    } else if (value instanceof Boolean) {
+      setField(name, (Boolean) value);
+    } else if (value instanceof Integer) {
+      setField(name, (Integer) value);
+    } else if (value instanceof Instant) {
+      setField(name, (Instant) value);
+    } else if (value instanceof byte[]) {
+      setField(name, (byte[]) value);
+    } else {
+      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
+    }
+  }
+
+
+  /* --- LIST ADDERS --- */
+
+  /**
+   * Adds the given value to the designated field, converting the field to a list if it was not a list already.
+   **/
+  void addToField(String name, String value);
+
+  void addToField(String name, Boolean value);
+
+  void addToField(String name, Integer value);
+
+  void addToField(String name, Double value);
+
+  void addToField(String name, Float value);
+
+  void addToField(String name, Long value);
+
+  void addToField(String name, Instant value);
+
+  void addToField(String name, byte[] value);
+
+  /**
+   * Adds the given value to the designated field, converting the field to a list if it was not a list already.
+   * The provided Object value must be a String, Long, Double, Boolean, Integer, Instant, or byte[]
+   *
+   * @throws IllegalArgumentException if value is not of a supported type
+   **/
+  default void addToField(String name, Object value) {
+    if (value instanceof String) {
+      addToField(name, (String) value);
+    } else if (value instanceof Long) {
+      addToField(name, (Long) value);
+    } else if (value instanceof Double) {
+      addToField(name, (Double) value);
+    } else if (value instanceof Boolean) {
+      addToField(name, (Boolean) value);
+    } else if (value instanceof Integer) {
+      addToField(name, (Integer) value);
+    } else if (value instanceof Instant) {
+      addToField(name, (Instant) value);
+    } else if (value instanceof byte[]) {
+      addToField(name, (byte[]) value);
+    } else {
+      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
+    }
+  }
+
+
+  /* --- SINGLE-VALUE OR LIST ADDERS --- */
+
+  /**
+   * Sets the field to the given value if the field is not already present; otherwise adds it to the
+   * field.
+   *
+   * <p>If the field does not already exist and this method is called once, the field will be
+   * created as single-valued; if the field already exists and/or this method is called more than
+   * once, the field will be converted to a list of values.
+   */
+  void setOrAdd(String name, String value);
+
+  void setOrAdd(String name, Boolean value);
+
+  void setOrAdd(String name, Integer value);
+
+  void setOrAdd(String name, Double value);
+
+  void setOrAdd(String name, Float value);
+
+  void setOrAdd(String name, Long value);
+
+  void setOrAdd(String name, Instant value);
+
+  void setOrAdd(String name, byte[] value);
+
+  /**
+   * @throws IllegalArgumentException if value is not of a supported type
+   **/
+  default void setOrAdd(String name, Object value) {
+    if (value instanceof String) {
+      setOrAdd(name, (String) value);
+    } else if (value instanceof Long) {
+      setOrAdd(name, (Long) value);
+    } else if (value instanceof Double) {
+      setOrAdd(name, (Double) value);
+    } else if (value instanceof Boolean) {
+      setOrAdd(name, (Boolean) value);
+    } else if (value instanceof Integer) {
+      setOrAdd(name, (Integer) value);
+    } else if (value instanceof Instant) {
+      setOrAdd(name, (Instant) value);
+    } else if (value instanceof byte[]) {
+      setOrAdd(name, (byte[]) value);
+    } else {
+      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
+    }
+  }
+
+  /**
+   * Adds a given field from the designated "other" document to the current document. If a field is
+   * already present on the current document, the field is converted to a list.
+   *
+   * @param name the name of the field to add
+   * @param other the document to add the field from
+   * @throws IllegalArgumentException if this method is called with a reserved field like id
+   */
+  void setOrAdd(String name, Document other) throws IllegalArgumentException;
+
+  /**
+   * Adds all the fields of the designated "other" document to the current document, excluding
+   * reserved fields like id. If a field is already present on the current document, the field is
+   * converted to a list and the new value is appended.
+   */
+  void setOrAddAll(Document other);
+
+
+  /* --- UPDATERS --- */
 
   /**
    * Updates the designated field according to the provided UpdateMode.
@@ -39,16 +281,12 @@ public interface Document {
     update(name, mode, v -> setField(name, (String) v), v -> setOrAdd(name, (String) v), values);
   }
 
-  default void update(String name, UpdateMode mode, Long... values) {
-    update(name, mode, v -> setField(name, (Long) v), v -> setOrAdd(name, (Long) v), values);
+  default void update(String name, UpdateMode mode, Boolean... values) {
+    update(name, mode, v -> setField(name, (Boolean) v), v -> setOrAdd(name, (Boolean) v), values);
   }
 
   default void update(String name, UpdateMode mode, Integer... values) {
     update(name, mode, v -> setField(name, (Integer) v), v -> setOrAdd(name, (Integer) v), values);
-  }
-
-  default void update(String name, UpdateMode mode, Boolean... values) {
-    update(name, mode, v -> setField(name, (Boolean) v), v -> setOrAdd(name, (Boolean) v), values);
   }
 
   default void update(String name, UpdateMode mode, Double... values) {
@@ -57,6 +295,10 @@ public interface Document {
 
   default void update(String name, UpdateMode mode, Float... values) {
     update(name, mode, v -> setField(name, (Float) v), v -> setOrAdd(name, (Float) v), values);
+  }
+
+  default void update(String name, UpdateMode mode, Long... values) {
+    update(name, mode, v -> setField(name, (Long) v), v -> setOrAdd(name, (Long) v), values);
   }
 
   default void update(String name, UpdateMode mode, Instant... values) {
@@ -114,249 +356,25 @@ public interface Document {
     }
   }
 
-  void initializeRunId(String value);
 
-  void clearRunId();
-
-  void setField(String name, String value);
-
-  void setField(String name, Long value);
-
-  void setField(String name, Integer value);
-
-  void setField(String name, Boolean value);
-
-  void setField(String name, Double value);
-
-  void setField(String name, Float value);
-
-  void setField(String name, JsonNode value);
-
-  void setField(String name, Instant value);
-
-  void setField(String name, byte[] value);
+  /* --- FIELD UTILITIES --- */
 
   /**
-   * Sets the designated field to the given value, overwriting any value
-   * that existed previously. The provided Object value must be a
-   * String, Long, Double, Boolean, Integer, Instant, or byte[]
-   *
-   * @throws IllegalArgumentException if value is not of a supported type
-   **/
-  default void setField(String name, Object value) {
-    if (value instanceof String) {
-      setField(name, (String) value);
-    } else if (value instanceof Long) {
-      setField(name, (Long) value);
-    } else if (value instanceof Double) {
-      setField(name, (Double) value);
-    } else if (value instanceof Boolean) {
-      setField(name, (Boolean) value);
-    } else if (value instanceof Integer) {
-      setField(name, (Integer) value);
-    } else if (value instanceof Instant) {
-      setField(name, (Instant) value);
-    } else if (value instanceof byte[]) {
-      setField(name, (byte[]) value);
-    } else {
-      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
-    }
-  }
-
-  void renameField(String oldName, String newName, UpdateMode mode);
-
-  /**
-   * This will return null in two cases
-   * <ol>
-   *   <li>If the field is absent</li>
-   *   <li>IF the field is present but contains a null</li>
-   * </ol>
-   * To distinguish between these, you can call has(). Calling getString for a field which is
-   * multivalued will return the first value in the list of Strings.
-   * @param name The name of the field to get.
-   * @return The value of the field, or null if the field is absent or contains a null.
+   * Returns true if the field is present on this document; false otherwise.
    */
-  String getString(String name);
-
-  List<String> getStringList(String name);
-
-  Integer getInt(String name);
-
-  List<Integer> getIntList(String name);
-
-  Double getDouble(String name);
-
-  List<Double> getDoubleList(String name);
-
-  Float getFloat(String name);
-
-  List<Float> getFloatList(String name);
-
-  Boolean getBoolean(String name);
-
-  List<Boolean> getBooleanList(String name);
-
-  Long getLong(String name);
-
-  List<Long> getLongList(String name);
-
-  Instant getInstant(String name);
-
-  byte[] getBytes(String name);
-
-  List<Instant> getInstantList(String name);
-
-  List<byte[]> getBytesList(String name);
-
-  int length(String name);
-
-  String getId();
-
-  String getRunId();
-
   boolean has(String name);
 
   boolean hasNonNull(String name);
 
   boolean isMultiValued(String name);
 
-  void addToField(String name, String value);
+  int length(String name);
 
-  void addToField(String name, Long value);
+  void removeField(String name);
 
-  void addToField(String name, Integer value);
+  void removeFromArray(String name, int index);
 
-  void addToField(String name, Boolean value);
-
-  void addToField(String name, Double value);
-
-  void addToField(String name, Float value);
-
-  /**
-   * Adds the given value to the designated field,
-   * converting the field to a list if it was not already.
-   * The provided Object value must be a
-   * String, Long, Double, Boolean, Integer, Instant, or byte[]
-   *
-   * @throws IllegalArgumentException if value is not of a supported type
-   **/
-  default void addToField(String name, Object value) {
-    if (value instanceof String) {
-      addToField(name, (String) value);
-    } else if (value instanceof Long) {
-      addToField(name, (Long) value);
-    } else if (value instanceof Double) {
-      addToField(name, (Double) value);
-    } else if (value instanceof Boolean) {
-      addToField(name, (Boolean) value);
-    } else if (value instanceof Integer) {
-      addToField(name, (Integer) value);
-    } else if (value instanceof Instant) {
-      addToField(name, (Instant) value);
-    } else if (value instanceof byte[]) {
-      addToField(name, (byte[]) value);
-    } else {
-      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
-    }
-  }
-
-  /**
-   * Converts a given date in Instant form to a string according to DateTimeFormatter.ISO_INSTANT,
-   * it can then be accessed as a string via getString() or a converted back to an Instant via
-   * getInstant().
-   *
-   * @param name The name of the field to add to
-   * @param value The value to add to the field
-   */
-  void addToField(String name, Instant value);
-
-  void addToField(String name, byte[] value);
-
-  /**
-   * Sets the field to the given value if the field is not already present; otherwise adds it to the
-   * field.
-   *
-   * <p>If the field does not already exist and this method is called once, the field will be
-   * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will be converted to a list of values.
-   */
-  void setOrAdd(String name, String value);
-
-  void setOrAdd(String name, Long value);
-
-  void setOrAdd(String name, Integer value);
-
-  void setOrAdd(String name, Boolean value);
-
-  void setOrAdd(String name, Double value);
-
-  void setOrAdd(String name, Float value);
-
-  /**
-   * @throws IllegalArgumentException if value is not of a supported type
-   **/
-  default void setOrAdd(String name, Object value) {
-    if (value instanceof String) {
-      setOrAdd(name, (String) value);
-    } else if (value instanceof Long) {
-      setOrAdd(name, (Long) value);
-    } else if (value instanceof Double) {
-      setOrAdd(name, (Double) value);
-    } else if (value instanceof Boolean) {
-      setOrAdd(name, (Boolean) value);
-    } else if (value instanceof Integer) {
-      setOrAdd(name, (Integer) value);
-    } else if (value instanceof Instant) {
-      setOrAdd(name, (Instant) value);
-    } else if (value instanceof byte[]) {
-      setOrAdd(name, (byte[]) value);
-    } else {
-      throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
-    }
-  }
-
-  /**
-   * Adds a given date in Instant form to a document according to DateTimeFormatter.ISO_INSTANT, can
-   * then be accessed as a string via getString() or a converted back to an Instant via
-   * getInstant().
-   *
-   * @param name The name of the field set or add to
-   * @param value The value to set or add to the field
-   */
-  void setOrAdd(String name, Instant value);
-
-  void setOrAdd(String name, byte[] value);
-
-  /**
-   * Adds a given field from the designated "other" document to the current document. If a field is
-   * already present on the current document, the field is converted to a list.
-   *
-   * @param name the name of the field to add
-   * @param other the document to add the field from
-   * @throws IllegalArgumentException if this method is called with a reserved field like id
-   */
-  void setOrAdd(String name, Document other) throws IllegalArgumentException;
-
-  /**
-   * Adds all the fields of the designated "other" document to the current document, excluding
-   * reserved fields like id. If a field is already present on the current document, the field is
-   * converted to a list and the new value is appended.
-   */
-  void setOrAddAll(Document other);
-
-  Map<String, Object> asMap();
-
-  void addChild(Document document);
-
-  boolean hasChildren();
-
-  List<Document> getChildren();
-
-  Set<String> getFieldNames();
-
-  boolean isDropped();
-
-  void setDropped(boolean status);
+  void renameField(String oldName, String newName, UpdateMode mode);
 
   /**
    * A method to remove duplicate values from multivalued fields in a document and place the values
@@ -368,6 +386,35 @@ public interface Document {
    */
   void removeDuplicateValues(String fieldName, String targetFieldName);
 
+  default void validateFieldNames(String... names) throws IllegalArgumentException {
+    if (names == null) {
+      throw new IllegalArgumentException("expecting string parameters");
+    }
+    for (String name : names) {
+      if (name == null || name.isEmpty()) {
+        throw new IllegalArgumentException("Field name cannot be null or empty");
+      }
+      if (RESERVED_FIELDS.contains(name)) {
+        throw new IllegalArgumentException(name + " is a reserved field");
+      }
+    }
+  }
+
+
+  /* --- DOCUMENT-LEVEL UTILITIES --- */
+
+  String getId();
+
+  String getRunId();
+
+  void initializeRunId(String value);
+
+  void clearRunId();
+
+  boolean isDropped();
+
+  void setDropped(boolean status);
+
   Document deepCopy();
 
   /**
@@ -376,6 +423,24 @@ public interface Document {
   default Iterator<Document> iterator() {
     return Collections.singleton(this).iterator();
   }
+
+  Set<String> getFieldNames();
+
+  Map<String, Object> asMap();
+
+
+  /* --- CHILD HANDLING UTILITIES --- */
+
+  boolean hasChildren();
+
+  List<Document> getChildren();
+
+  void addChild(Document document);
+
+  void removeChildren();
+
+
+  /* --- CREATORS --- */
 
   static Document create(ObjectNode node) throws DocumentException {
     return new JsonDocument(node);
@@ -397,19 +462,4 @@ public interface Document {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 
-  default void validateFieldNames(String... names) throws IllegalArgumentException {
-    if (names == null) {
-      throw new IllegalArgumentException("expecting string parameters");
-    }
-    for (String name : names) {
-      if (name == null || name.isEmpty()) {
-        throw new IllegalArgumentException("Field name cannot be null or empty");
-      }
-      if (RESERVED_FIELDS.contains(name)) {
-        throw new IllegalArgumentException(name + " is a reserved field");
-      }
-    }
-  }
-
-  void removeChildren();
 }
