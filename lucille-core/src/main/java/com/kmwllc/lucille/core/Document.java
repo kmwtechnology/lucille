@@ -36,6 +36,8 @@ import java.util.function.UnaryOperator;
  */
 public interface Document {
 
+  /* --- NAMES OF RESERVED FIELDS --- */
+
   String ID_FIELD = "id";
   String RUNID_FIELD = "run_id";
   String CHILDREN_FIELD = ".children";
@@ -50,7 +52,7 @@ public interface Document {
    * will be returned.
    *
    * Returns null in two cases: if the field is absent, or if the field is present but contains a null.
-   * To distinguish between these, use has().
+   * To distinguish between these cases, use has() to see if the field exists.
    */
   String getString(String name);
 
@@ -73,7 +75,7 @@ public interface Document {
 
   /**
    * Returns the value of the designated field as a List of Strings. If the field is single-valued, the single value
-   * will be placed inside a List.
+   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
    *
    * Returns null if the field is absent.
    */
@@ -98,7 +100,7 @@ public interface Document {
 
   /**
    * Sets the designated field to the given value, overwriting any value
-   * that existed previously.
+   * that existed previously, and making the field single-valued.
    **/
   void setField(String name, String value);
 
@@ -114,7 +116,7 @@ public interface Document {
 
   /**
    * Converts the given Instant to a String according to DateTimeFormatter.ISO_INSTANT and
-   * adds it to the designated field. The value can then be accessed as a String via getString()
+   * places it in the designated field. The value can then be accessed as a String via getString()
    * or a converted back to an Instant via getInstant().
    */
   void setField(String name, Instant value);
@@ -125,8 +127,8 @@ public interface Document {
 
   /**
    * Sets the designated field to the given value, overwriting any value
-   * that existed previously. The provided Object value must be a
-   * String, Long, Double, Boolean, Integer, Instant, or byte[]
+   * that existed previously, and making the field single-valued.
+   * The provided Object value must be a String, Long, Double, Boolean, Integer, Instant, or byte[]
    *
    * @throws IllegalArgumentException if value is not of a supported type
    **/
@@ -154,7 +156,8 @@ public interface Document {
   /* --- LIST ADDERS --- */
 
   /**
-   * Adds the given value to the designated field, converting the field to a list if it was not a list already.
+   * Adds the given value to the designated field, converting the field to multivalued (i.e. a list)
+   * if it was not multivalued already.
    **/
   void addToField(String name, String value);
 
@@ -173,7 +176,8 @@ public interface Document {
   void addToField(String name, byte[] value);
 
   /**
-   * Adds the given value to the designated field, converting the field to a list if it was not a list already.
+   * Adds the given value to the designated field, converting the field to multivalued (i.e. a list)
+   * if it was not multivalued already.
    * The provided Object value must be a String, Long, Double, Boolean, Integer, Instant, or byte[]
    *
    * @throws IllegalArgumentException if value is not of a supported type
@@ -202,12 +206,11 @@ public interface Document {
   /* --- SINGLE-VALUE OR LIST ADDERS --- */
 
   /**
-   * Sets the field to the given value if the field is not already present; otherwise adds it to the
-   * field.
+   * Sets the field to the given value if the field is not already present; otherwise, adds the value to the field.
    *
    * <p>If the field does not already exist and this method is called once, the field will be
    * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will be converted to a list of values.
+   * once, the field will be converted to multivalued (i.e. a list of values).
    */
   void setOrAdd(String name, String value);
 
