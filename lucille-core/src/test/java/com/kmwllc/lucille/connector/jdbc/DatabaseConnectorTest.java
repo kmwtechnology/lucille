@@ -44,7 +44,6 @@ public class DatabaseConnectorTest {
 
   @Test
   public void testDatabaseConnectorMixed() throws Exception {
-
     // The only connection to the h2 database should be the dbHelper
     assertEquals(1, dbHelper.checkNumConnections());
 
@@ -79,7 +78,6 @@ public class DatabaseConnectorTest {
     assertEquals("2", docsSentForProcessing.get(1).getId());
     assertEquals((Integer)4, docsSentForProcessing.get(1).getInt("int_field"));
     assertEquals(false, docsSentForProcessing.get(1).getBoolean("bool_field"));
-
 
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
