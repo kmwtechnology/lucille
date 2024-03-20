@@ -151,7 +151,7 @@ public class ApplyOCR extends Stage {
     // The tesseract api has some issues reading the image directly as a byte
     // array.
     // so for now... until that changes, we'll write a temp file to be ocr'd and
-
+    
     String tempFilename = "tesseract." + UUID.randomUUID().toString() + ".png";
     File tempFile = null;
     try {
