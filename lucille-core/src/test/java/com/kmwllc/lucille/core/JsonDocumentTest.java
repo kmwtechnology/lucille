@@ -102,4 +102,27 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     String[] expectedStringValues = {"my string", "1", "2", "true", "3.0", "4.0", "2024-03-12T16:09:32.231262Z", ""};
     assertArrayEquals(expectedStringValues, doc.getStringList("field1").toArray());
   }
+
+  /**
+   * Demonstrates that JsonDocument allows a value to be added as one type and retrieved as a different type.
+   */
+  @Test
+  public void testTypeConversion() {
+    Document doc = createDocument("id1");
+
+    doc.setField("myIntField", 1);
+    doc.setField("myStringField", "2");
+    assertEquals(Integer.class, doc.asMap().get("myIntField").getClass());
+    assertEquals(String.class, doc.asMap().get("myStringField").getClass());
+
+    assertEquals("1", doc.getString("myIntField"));
+    assertEquals("2", doc.getString("myStringField"));
+    assertEquals(Integer.valueOf(1), doc.getInt("myIntField"));
+    assertEquals(Integer.valueOf(2), doc.getInt("myStringField"));
+
+    assertEquals("1", doc.getStringList("myIntField").get(0));
+    assertEquals("2", doc.getStringList("myStringField").get(0));
+    assertEquals(Integer.valueOf(1), doc.getIntList("myIntField").get(0));
+    assertEquals(Integer.valueOf(2), doc.getIntList("myStringField").get(0));
+  }
 }
