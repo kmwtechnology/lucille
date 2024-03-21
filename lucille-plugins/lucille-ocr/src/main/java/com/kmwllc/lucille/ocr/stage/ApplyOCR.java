@@ -2,6 +2,7 @@ package com.kmwllc.lucille.ocr.stage;
 
 import static org.bytedeco.leptonica.global.leptonica.pixRead;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -152,6 +153,8 @@ public class ApplyOCR extends Stage {
     // array.
     // so for now... until that changes, we'll write a temp file to be ocr'd and
     
+    byte[] bytes = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
+
     String tempFilename = "tesseract." + UUID.randomUUID().toString() + ".png";
     File tempFile = null;
     try {
