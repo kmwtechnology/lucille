@@ -24,7 +24,7 @@
     <jackson.version>2.12.2</jackson.version>
     <!-- todo if updated to version 9 will need to add solr-solrj-zookeeper dependency -->
     <lucene.version>9.7.0</lucene.version>
-    <solr.version>9.3.0</solr.version>
+    <solr.version>9.2.1</solr.version>
     <opensearch-rest-client.version>1.2.0</opensearch-rest-client.version>
     <opensearch.version>0.1.0</opensearch.version>
     <opensearch-java.version>2.6.0</opensearch-java.version>

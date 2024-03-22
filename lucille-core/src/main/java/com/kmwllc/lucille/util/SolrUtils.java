@@ -38,6 +38,9 @@ public class SolrUtils {
     SSLUtils.setSSLSystemProperties(config);
     if (config.hasPath("solr.useCloudClient") && config.getBoolean("solr.useCloudClient")) {
       CloudHttp2SolrClient cloudSolrClient = getCloudClient(config);
+      if (config.hasPath("solr.defaultCollection")) {
+        cloudSolrClient.setDefaultCollection(config.getString("solr.defaultCollection"));
+      }
       return cloudSolrClient;
     } else {
       return requiresAuth(config) ?
@@ -60,9 +63,6 @@ public class SolrUtils {
       cloudBuilder = new CloudHttp2SolrClient.Builder(config.getStringList("solr.zkHosts"), zkChroot);
     } else {
       cloudBuilder = new CloudHttp2SolrClient.Builder(getSolrUrls(config));
-    }
-    if (config.hasPath("solr.defaultCollection")) {
-      cloudBuilder.withDefaultCollection(config.getString("solr.defaultCollection"));
     }
     if (requiresAuth(config)) {
       cloudBuilder.withHttpClient(getHttpClient(config));
