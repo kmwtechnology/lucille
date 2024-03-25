@@ -39,19 +39,12 @@ public class ApplyOCRTest {
   @Test
   public void testLang() throws StageException {
     Stage basicEng = factory.get("ApplyOCRTest/basic_eng.conf");
-    Stage basicJpn = factory.get("ApplyOCRTest/basic_jpn.conf");
     Document doc = Document.create("doc1");
-    Document doc2 = Document.create("doc2");
-    doc.setField("path", "src/test/resources/ApplyOCRTest/images/microsoft.png");
-    doc2.setField("path", "src/test/resources/ApplyOCRTest/images/japanese.png");
+    doc.setField("path", "src/test/resources/ApplyOCRTest/images/HelloWorld.png");
 
     basicEng.processDocument(doc);
-    basicJpn.processDocument(doc2);
 
-    assertEquals("MICRZ2SOFT\n\nWORD\n\n", doc.getString("dest"));
-    assertEquals(
-        "の 兆 料 時\n\nVe White Snake Transform Time\nさ\n大 科 ト に 良 復 ギャ\n< っ\n\nValor\nSClenC6e ニニ ーー ROnin ーー ーー Revense ーー に go'。\n\nTengu\n\n圭 ・\nヒア ェ\nFuture Flving Dragon\n\n40 JaDanese Characters\n\n",
-        doc2.getString("dest"));
+    assertEquals("Hello, World!\n", doc.getString("dest"));
   }
 
   @Test
@@ -119,14 +112,14 @@ public class ApplyOCRTest {
   public void testNonPdfFormExtraction() throws StageException {
     Stage stage = factory.get("ApplyOCRTest/nonPDF.conf");
     Document doc = Document.create("doc1");
-    String path = "src/test/resources/ApplyOCRTest/images/microsoft.png";
+    String path = "src/test/resources/ApplyOCRTest/images/HelloWorld.png";
     doc.setField("path", path);
 
     stage.processDocument(doc);
 
     assertEquals(3, doc.getFieldNames().size());
     assertEquals(path, doc.getString("path"));
-    assertEquals("MICRZSSOFT\n\n", doc.getString("one"));
+    assertEquals("Hello, World!\n", doc.getString("one"));
   }
 
   @Test

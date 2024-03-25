@@ -2,13 +2,15 @@ package com.kmwllc.lucille.ocr.stage;
 
 import static org.bytedeco.leptonica.global.leptonica.pixRead;
 import java.awt.image.BufferedImage;
-import java.awt.image.DataBufferByte;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileAttribute;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -33,7 +35,6 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigBeanFactory;
-
 
 /**
  * Applies optical character recognition to images. Additionally supports form extraction using 
@@ -148,22 +149,16 @@ public class ApplyOCR extends Stage {
     }
   }
 
-  private String ocr(BufferedImage image) {
-    // The tesseract api has some issues reading the image directly as a byte
-    // array.
-    // so for now... until that changes, we'll write a temp file to be ocr'd and
-    
-    byte[] bytes = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
-
-    String tempFilename = "tesseract." + UUID.randomUUID().toString() + ".png";
+  private String applyOcr(BufferedImage image) {
     File tempFile = null;
     try {
-      new File(TEMP_DIR).mkdir();
-      tempFile = new File(TEMP_DIR, tempFilename);
+      File dir = new File(TEMP_DIR);
+      dir.mkdir();
+      tempFile = File.createTempFile("tesseract.", ".png", dir);
       try (FileOutputStream fos = new FileOutputStream(tempFile)) {
         ImageIO.write(image, "png", fos);
       }
-      String result = ocr(tempFile.getAbsolutePath());
+      String result = applyOcr(tempFile.getAbsolutePath());
       return result;
     } catch (IOException e) {
       log.warn("IOException encountered while doing extraction: {}", e);
@@ -179,7 +174,7 @@ public class ApplyOCR extends Stage {
     }
   }
 
-  private String ocr(String filename) throws FileNotFoundException {
+  private String applyOcr(String filename) throws FileNotFoundException {
     try (PIX image = pixRead(filename)) {
       if (image == null) {
         throw new FileNotFoundException(String.format("%s cannot be opened", filename));
@@ -191,7 +186,6 @@ public class ApplyOCR extends Stage {
       api.SetSourceResolution(300);
       // Get OCR result
       try (BytePointer outText = api.GetUTF8Text()) {
-        // log.info("OCR output:\n" + ret);
         // Destroy used object and release memory
         return outText.getString();
       }
@@ -205,7 +199,7 @@ public class ApplyOCR extends Stage {
         results.put(r.getDest(), new ArrayList<>());
       }
       BufferedImage roiCrop = FormUtils.cropImage(page, r);
-      String result = ocr(roiCrop);
+      String result = applyOcr(roiCrop);
       results.get(r.getDest()).add(result);
     }
     return results;
@@ -265,10 +259,10 @@ public class ApplyOCR extends Stage {
     if (extractAllDest != null) {
       if (type.equals("pdf")) {
         doc.update(extractAllDest, UpdateMode.OVERWRITE,
-            images.stream().map(image -> ocr(image)).filter(Objects::nonNull).collect(Collectors.toList()).toArray(new String[0]));
+            images.stream().map(image -> applyOcr(image)).filter(Objects::nonNull).collect(Collectors.toList()).toArray(new String[0]));
       } else {
         try {
-          doc.update(extractAllDest, UpdateMode.OVERWRITE, ocr(path));
+          doc.update(extractAllDest, UpdateMode.OVERWRITE, applyOcr(path));
         } catch (FileNotFoundException e) {
           log.warn("File not found: {}", e);
         }
