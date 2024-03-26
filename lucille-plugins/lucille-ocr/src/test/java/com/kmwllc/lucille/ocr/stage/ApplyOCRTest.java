@@ -8,7 +8,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.stage.StageFactory;
-import com.kmwllc.lucille.util.StageUtils;
 
 public class ApplyOCRTest {
 
