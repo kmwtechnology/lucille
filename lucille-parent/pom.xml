@@ -21,6 +21,7 @@
     <maven-shade-plugin.version>3.1.0</maven-shade-plugin.version>
     <maven-surefire-plugin.version>2.22.0</maven-surefire-plugin.version>
     <maven-javadoc-plugin.version>3.3.2</maven-javadoc-plugin.version>
+    <maven-source-plugin.version>3.3.0</maven-source-plugin.version>
     <jackson.version>2.12.2</jackson.version>
     <!-- todo if updated to version 9 will need to add solr-solrj-zookeeper dependency -->
     <lucene.version>9.7.0</lucene.version>
@@ -239,6 +240,20 @@
             </configuration>
           </execution>
 
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>${maven-source-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
         </executions>
       </plugin>
     </plugins>
