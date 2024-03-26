@@ -7,9 +7,7 @@ on:
       releaseversion:
         description: 'Release version'
         required: true
-  push:
-      branches:
-        - main
+
 jobs:
   publish:
     runs-on: ubuntu-latest
