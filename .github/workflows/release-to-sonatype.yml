@@ -7,11 +7,17 @@ on:
       releaseversion:
         description: 'Release version'
         required: true
+  push:
+      branches:
+        - main
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - run: echo "Release version ${{ github.event.inputs.releaseversion }}!"
+
       - uses: actions/checkout@v3
+
       - name: Set up Maven Central Repository
         uses: actions/setup-java@v3
         with:
@@ -20,6 +26,11 @@ jobs:
           server-id: ossrh
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
+
+      - if: github.event.push
+        name: Increment Maven version
+        run: mvn build-helper:parse-version versions:set "-DnewVersion=\${parsedVersion.majorVersion}.\${parsedVersion.minorVersion}.\${parsedVersion.nextIncrementalVersion}-SNAPSHOT versions:commit"
+
       - name: Publish package
         run: mvn --batch-mode deploy
         env:
