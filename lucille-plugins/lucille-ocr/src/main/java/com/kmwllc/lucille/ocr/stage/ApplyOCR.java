@@ -93,6 +93,7 @@ import com.typesafe.config.ConfigBeanFactory;
 public class ApplyOCR extends Stage {
 
   public static final String TEMP_DIR = "lucille-ocr-temp";
+  public static final int SOURCE_RESOLUTION = 300;
   private static final Logger log = LoggerFactory.getLogger(ApplyOCR.class);
 
   private final String lang;
@@ -183,7 +184,7 @@ public class ApplyOCR extends Stage {
       // single column of text
       api.SetPageSegMode(4);
       // tell tesseract about the resolution of the rendered page so it doesn't have to guess
-      api.SetSourceResolution(300);
+      api.SetSourceResolution(SOURCE_RESOLUTION);
       // Get OCR result
       try (BytePointer outText = api.GetUTF8Text()) {
         // Destroy used object and release memory
