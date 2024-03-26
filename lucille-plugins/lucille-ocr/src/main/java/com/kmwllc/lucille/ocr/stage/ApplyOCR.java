@@ -92,7 +92,7 @@ import com.typesafe.config.ConfigBeanFactory;
  */
 public class ApplyOCR extends Stage {
 
-  public static final String TEMP_DIR = "luclle-ocr-temp";
+  public static final String TEMP_DIR = "lucille-ocr-temp";
   private static final Logger log = LoggerFactory.getLogger(ApplyOCR.class);
 
   private final String lang;
