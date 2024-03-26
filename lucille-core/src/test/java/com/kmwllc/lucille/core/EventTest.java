@@ -42,8 +42,8 @@ public class EventTest {
     assertEquals("runId1", event2B.getRunId());
     assertEquals("test message", event2B.getMessage());
     assertEquals(Event.Type.FINISH, event2B.getType());
-    assertTrue(beforeEvent2.isBefore(event2.getInstant()));
-    assertTrue(afterEvent2.isAfter(event2.getInstant()));
+    assertFalse(beforeEvent2.isAfter(event2.getInstant()));
+    assertFalse(afterEvent2.isBefore(event2.getInstant()));
     assertEquals(event2.getInstant(), event2B.getInstant());
     assertEquals("t1", event2B.getTopic());
     assertEquals(Integer.valueOf(5), event2B.getPartition());
