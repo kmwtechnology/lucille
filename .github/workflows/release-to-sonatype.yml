@@ -28,7 +28,7 @@ jobs:
           server-password: MAVEN_PASSWORD
 
       - name: Increment Maven version
-        run: mvn build-helper:parse-version versions:set "-DnewVersion=\${parsedVersion.majorVersion}.\${parsedVersion.minorVersion}.\${parsedVersion.nextIncrementalVersion}-SNAPSHOT versions:commit"
+        run: mvn build-helper:parse-version org.codehaus.mojo:versions-maven-plugin:2.5:set "-DnewVersion=\${parsedVersion.majorVersion}.\${parsedVersion.minorVersion}.\${parsedVersion.nextIncrementalVersion}-SNAPSHOT versions:commit"
 
       - name: Publish package
         run: mvn --batch-mode deploy
