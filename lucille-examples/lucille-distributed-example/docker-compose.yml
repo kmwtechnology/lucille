@@ -1,7 +1,5 @@
 name: distributed-lucille
 services:
-  zookeeper:
-    build: zookeeper/
   kafka: 
     build: 
       context: .
@@ -14,8 +12,7 @@ services:
     networks: 
       - lucille-net
     healthcheck:
-      test: ["CMD", "ls"]
-      interval: 10s
+      test: ["CMD", "kafka_2.13-3.7.0/bin/kafka-topics.sh", "--bootstrap-server=kafka:9092", "--list"]
   zookeeper: 
     build: 
       context: .
@@ -67,8 +64,7 @@ services:
     networks:
       - lucille-net
     healthcheck:
-      test: ["CMD", "ls"]
-      interval: 10s
+      test: ["CMD", "/solr-9.5.0/bin/solr", "status"]
   
 networks:
   lucille-net:

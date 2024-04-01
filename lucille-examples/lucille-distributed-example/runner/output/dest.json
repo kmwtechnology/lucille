@@ -2,7 +2,7 @@
   "responseHeader":{
     "zkConnected":true,
     "status":0,
-    "QTime":25,
+    "QTime":22,
     "params":{
       "q":"*:*"
     }
@@ -16,52 +16,52 @@
       "source":["conf/source.csv"],
       "filename":["source.csv"],
       "csvLineNumber":[1],
-      "run_id":["e8c22083-5ad9-41d5-9b9d-af9a8ffad9db"],
+      "run_id":["dbae67ed-fc98-41a0-ad2f-5d0043e1727f"],
       "my_country":["Italy"],
       "my_price":[30],
       "my_name":["Carbonara"],
-      "_version_":1793969265599053824
+      "_version_":1794796579979264000
     },{
       "id":"source.csv-2",
       "source":["conf/source.csv"],
       "filename":["source.csv"],
       "csvLineNumber":[2],
-      "run_id":["e8c22083-5ad9-41d5-9b9d-af9a8ffad9db"],
+      "run_id":["dbae67ed-fc98-41a0-ad2f-5d0043e1727f"],
       "my_country":["Italy"],
       "my_price":[10],
       "my_name":["Pizza"],
-      "_version_":1793969265655676928
+      "_version_":1794796580026449920
     },{
       "id":"source.csv-3",
       "source":["conf/source.csv"],
       "filename":["source.csv"],
       "csvLineNumber":[3],
-      "run_id":["e8c22083-5ad9-41d5-9b9d-af9a8ffad9db"],
+      "run_id":["dbae67ed-fc98-41a0-ad2f-5d0043e1727f"],
       "my_country":["Korea"],
       "my_price":[12],
       "my_name":["Tofu Soup"],
-      "_version_":1793969265656725504
+      "_version_":1794796580027498496
     },{
       "id":"3",
-      "run_id":["e8c22083-5ad9-41d5-9b9d-af9a8ffad9db"],
+      "run_id":["dbae67ed-fc98-41a0-ad2f-5d0043e1727f"],
       "my_country":["USA"],
       "my_price":[30],
       "my_name":["Burger"],
-      "_version_":1793969270141485056
+      "_version_":1794796584455634944
     },{
       "id":"4",
-      "run_id":["e8c22083-5ad9-41d5-9b9d-af9a8ffad9db"],
+      "run_id":["dbae67ed-fc98-41a0-ad2f-5d0043e1727f"],
       "my_country":["USA"],
       "my_price":[10],
       "my_name":["Salad"],
-      "_version_":1793969270145679360
+      "_version_":1794796584460877824
     },{
       "id":"5",
-      "run_id":["e8c22083-5ad9-41d5-9b9d-af9a8ffad9db"],
+      "run_id":["dbae67ed-fc98-41a0-ad2f-5d0043e1727f"],
       "my_country":["France"],
       "my_price":[12],
       "my_name":["Wine"],
-      "_version_":1793969270145679361
+      "_version_":1794796584461926400
     }]
   }
 }
