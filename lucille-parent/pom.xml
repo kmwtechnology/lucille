@@ -41,6 +41,7 @@
     <maven-surefire-plugin.version>2.22.0</maven-surefire-plugin.version>
     <maven-javadoc-plugin.version>3.3.2</maven-javadoc-plugin.version>
     <maven-source-plugin.version>3.3.0</maven-source-plugin.version>
+    <maven-gpg-plugin.version>3.0.1</maven-gpg-plugin.version>
     <jackson.version>2.12.2</jackson.version>
     <!-- todo if updated to version 9 will need to add solr-solrj-zookeeper dependency -->
     <lucene.version>9.7.0</lucene.version>
@@ -274,6 +275,27 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+      	<artifactId>maven-gpg-plugin</artifactId>
+      	<version>${maven-gpg-plugin.version}</version>
+      	<executions>
+      	  <execution>
+      	    <id>sign-artifacts</id>
+      	    <phase>verify</phase>
+      	    <goals>
+      	      <goal>sign</goal>
+      	    </goals>
+      		<configuration>
+      		  <!-- This is necessary for gpg to not try to use the pinentry programs -->
+      		  <gpgArguments>
+      			  <arg>--pinentry-mode</arg>
+      			  <arg>loopback</arg>
+      		  </gpgArguments>
+      		</configuration>
+      	  </execution>
+      	</executions>
       </plugin>
     </plugins>
 
