@@ -44,7 +44,6 @@ public class DatabaseConnectorTest {
 
   @Test
   public void testDatabaseConnectorMixed() throws Exception {
-
     // The only connection to the h2 database should be the dbHelper
     assertEquals(1, dbHelper.checkNumConnections());
 
@@ -79,7 +78,6 @@ public class DatabaseConnectorTest {
     assertEquals("2", docsSentForProcessing.get(1).getId());
     assertEquals((Integer)4, docsSentForProcessing.get(1).getInt("int_field"));
     assertEquals(false, docsSentForProcessing.get(1).getBoolean("bool_field"));
-
 
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
@@ -205,7 +203,7 @@ public class DatabaseConnectorTest {
     assertEquals(3, docs.size());
 
     // TODO: better verification / edge cases.. also formalize the "children" docs.
-    String expected = "{\"id\":\"1\",\"name\":\"Matt\",\".children\":[{\"id\":\"0\",\"meal_id\":\"1\",\"animal_id\":\"1\",\"name\":\"breakfast\"},{\"id\":\"1\",\"meal_id\":\"2\",\"animal_id\":\"1\",\"name\":\"lunch\"},{\"id\":\"2\",\"meal_id\":\"3\",\"animal_id\":\"1\",\"name\":\"dinner\"}],\"run_id\":\"testRunId\"}";
+    String expected = "{\"id\":\"1\",\"name\":\"Matt\",\".children\":[{\"id\":\"0\",\"meal_id\":1,\"animal_id\":1,\"name\":\"breakfast\"},{\"id\":\"1\",\"meal_id\":2,\"animal_id\":1,\"name\":\"lunch\"},{\"id\":\"2\",\"meal_id\":3,\"animal_id\":1,\"name\":\"dinner\"}],\"run_id\":\"testRunId\"}";
     assertEquals(expected, docs.get(0).toString());
 
     connector.close();

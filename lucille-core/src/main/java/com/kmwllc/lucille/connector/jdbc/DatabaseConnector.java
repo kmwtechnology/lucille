@@ -274,7 +274,7 @@ public class DatabaseConnector extends AbstractConnector {
       Document child = Document.create(Integer.toString(childId));
       for (String c : columns2) {
         String fieldName = c.trim().toLowerCase();
-        String fieldValue = rs2.getString(c);
+        Object fieldValue = rs2.getObject(c);
         if (fieldValue != null) {
           child.setOrAdd(fieldName, fieldValue);
         }
