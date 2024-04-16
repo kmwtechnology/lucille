@@ -44,7 +44,7 @@
     <maven-gpg-plugin.version>3.0.1</maven-gpg-plugin.version>
     <jackson.version>2.13.5</jackson.version>
     <!-- todo if updated to version 9 will need to add solr-solrj-zookeeper dependency -->
-    <lucene.version>9.7.0</lucene.version>
+    <lucene.version>9.8.0</lucene.version>
     <solr.version>9.4.1</solr.version>
     <opensearch-rest-client.version>1.2.0</opensearch-rest-client.version>
     <opensearch.version>0.1.0</opensearch.version>
