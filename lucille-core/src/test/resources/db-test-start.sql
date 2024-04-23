@@ -34,6 +34,6 @@ CREATE TABLE mixed(id VARCHAR, int_field INT, bool_field BIT);
 INSERT INTO mixed VALUES ('1', 3, 1);
 INSERT INTO mixed VALUES ('2', 4, 0);
 
-create table table_with_id_column(id int, value int, other_id varchar(10));
+create table table_with_id_column(id int, `value` int, other_id varchar(10));
 insert into table_with_id_column values (1, 1, 'id1');
 insert into table_with_id_column values (2, 2, 'id2');
