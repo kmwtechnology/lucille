@@ -47,6 +47,8 @@ public class IndexerFactory {
       return new ElasticsearchIndexer(config, messenger, bypass, metricsPrefix);
     } else if (typeName.equalsIgnoreCase("CSV")) {
       return new CSVIndexer(config, messenger, bypass, metricsPrefix);
+    } else if (typeName.equalsIgnoreCase("SearchStax")) {
+      return new SearchStaxIndexer(config, messenger, bypass, metricsPrefix);
     } else if (config.hasPath("indexer.class")) {
       String className = config.getString("indexer.class");
       try {
