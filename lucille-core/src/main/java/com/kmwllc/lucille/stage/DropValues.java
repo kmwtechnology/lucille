@@ -14,8 +14,8 @@ import java.util.List;
  * they contain a blacklisted value, only if it is an exact match between the two Strings.
  * Config Parameters:
  *
- *   - source (List<String>) : List of source field names.
- *   - values (List<String>) : The values to be blacklisted and removed from the source fields.
+ *   - source (List&lt;String&gt;) : List of source field names.
+ *   - values (List&lt;String&gt;) : The values to be blacklisted and removed from the source fields.
  */
 public class DropValues extends Stage {
 
