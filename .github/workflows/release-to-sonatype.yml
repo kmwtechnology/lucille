@@ -8,6 +8,9 @@ on:
         description: 'Release version'
         required: true
 
+env:
+  release: ${{ github.event.inputs.releaseversion == null && github.event.release.tag_name || github.event.inputs.releaseversion}}
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -28,7 +31,7 @@ jobs:
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
       - name: Set Maven version
-        run: mvn versions:set -DnewVersion=${{ github.event.inputs.releaseversion }} -f lucille-parent/pom.xml
+        run: mvn versions:set -DnewVersion=${{ env.release }} -f lucille-parent/pom.xml
 
       - name: Publish package
         run: mvn --batch-mode deploy -Dgpg.passphrase="$MAVEN_GPG_PASSPHRASE" -Ddeploy
