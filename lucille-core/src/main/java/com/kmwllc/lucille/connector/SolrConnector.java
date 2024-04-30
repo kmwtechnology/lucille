@@ -27,8 +27,8 @@ import java.util.stream.Collectors;
  *
  * Connector Parameters:
  *
- *   - preActions (List<String>, Optional) : A list of requests to be issued to Solr. These actions will be performed first.
- *   - postActions (List<String>, Optional) : A list of requests to be issued to Solr. These actions will be performed second.
+ *   - preActions (List&lt;String&gt;, Optional) : A list of requests to be issued to Solr. These actions will be performed first.
+ *   - postActions (List&lt;String&gt;, Optional) : A list of requests to be issued to Solr. These actions will be performed second.
  *   - solr.url (String) : The url of the Solr instance for this Connector to issue its requests to.
  *   - useXml (boolean, Optional) : indicates whether actions are in xml or json format; defaults to json; note that
  *     Solr does more validation on json commands than xml ones (e.g. it rejects unrecognized JSON commands but

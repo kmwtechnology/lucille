@@ -15,7 +15,7 @@ import java.util.List;
  * <br>
  * Config Parameters -
  * <br>
- * fieldMapping (Map<String, Object>) : A mapping of fields to remove duplicates from and the field to output the result to.
+ * fieldMapping (Map&lt;String, Object&gt;) : A mapping of fields to remove duplicates from and the field to output the result to.
  */
 public class RemoveDuplicateValues extends Stage {
 

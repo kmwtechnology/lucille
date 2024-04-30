@@ -13,7 +13,7 @@ import java.util.List;
  * <br>
  * Config Parameters -
  * <br>
- * fields (List<String>) : The list of fields to be deleted.
+ * fields (List&lt;String&gt;) : The list of fields to be deleted.
  */
 public class DeleteFields extends Stage {
 

@@ -114,7 +114,7 @@ public class Pipeline {
 
   /**
    *
-   * The Config is expected to have a "pipeline.<name>.stages" element
+   * The Config is expected to have a "pipeline.&lt;name&gt;.stages" element
    * containing a List of stages and their settings. The list element for each Stage must specify the stage's class.
    */
   public static Pipeline fromConfig(Config config, String name, String metricsPrefix)

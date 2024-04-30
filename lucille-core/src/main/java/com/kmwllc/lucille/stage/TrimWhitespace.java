@@ -15,7 +15,7 @@ import java.util.List;
  * <p>
  * Config Parameters -
  * <ul>
- * <li>fields (List<String>) : The list of fields to trim whitespace from.</li>
+ * <li>fields (List&lt;String&gt;) : The list of fields to trim whitespace from.</li>
  * </ul>
  */
 public class TrimWhitespace extends Stage {
