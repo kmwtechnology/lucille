@@ -117,7 +117,7 @@ github_repo = "https://github.com/kmwtechnology/lucille"
 #github_project_repo = "https://github.com/kmwtechnology/lucille"
 
 # Specify a value here if your content directory is not in your repo's root directory
-github_subdir = "/tree/main/doc/site"
+github_subdir = "/doc/site"
 
 # Uncomment this if your GitHub repo does not have "main" as the default branch,
 # or specify a new value if you want to reference another branch in your GitHub links
