@@ -11,15 +11,27 @@ public class Condition implements Predicate<Document> {
 
   private final List<String> fields;
   private final Set<String> values;
-  private final String operator;
+  private final Operator operator;
+
+  private enum Operator {
+    MUST, MUST_NOT;
+
+    public static Operator getOperator(String op) {
+      switch(op) {
+        case "must": return Operator.MUST;
+        case "must_not": return Operator.MUST_NOT;
+        default: throw new IllegalArgumentException(op + " is not a legal value for operator");
+      }
+    }
+  }
 
   public Condition(Config config) {
     this(config.getStringList("fields"),
         new HashSet<>(config.getStringList("values")),
-        config.hasPath("operator") ? config.getString("operator") : "must");
+        config.hasPath("operator") ? Operator.getOperator(config.getString("operator")) : Operator.MUST);
   }
 
-  public Condition(List<String> fields, Set<String> values, String operator) {
+  public Condition(List<String> fields, Set<String> values, Operator operator) {
     this.fields = fields;
     this.values = values;
     this.operator = operator;
@@ -31,7 +43,7 @@ public class Condition implements Predicate<Document> {
 
   @Override
   public boolean test(Document doc) {
-    boolean resultWhenValueFound = operator.equalsIgnoreCase("must");
+    boolean resultWhenValueFound = operator.equals(Operator.MUST);
 
     if (fields.isEmpty()) {
       return true;
