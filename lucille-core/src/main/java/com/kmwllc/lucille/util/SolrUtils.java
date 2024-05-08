@@ -121,7 +121,7 @@ public class SolrUtils {
    * are not included in the created document. Array and List types become multivalued fields.
    *
    * @param tuple a Tuple from Solr
-   * @throws DocumentException if {@param tuple} does not have a key called Document.ID_FIELD
+   * @throws DocumentException if tuple does not have a key called Document.ID_FIELD
    * @return a Document whose id is the stringified version of the contents of Document.ID_FIELD in the tuple.
    */
   public static Document toDocument(Tuple tuple) throws DocumentException {

@@ -12,7 +12,7 @@ import org.apache.commons.text.StringSubstitutor;
 
 /**
  * Replaces wildcards in a given format String with the value for the given field. To declare a wildcard,
- * surround the name of the field with '{}'. EX: "{city}, {state}, {country}" -> "Boston, MA, USA". NOTE: If a given
+ * surround the name of the field with '{}'. EX: "{city}, {state}, {country}" -&gt; "Boston, MA, USA". NOTE: If a given
  * field is multivalued, this Stage will substitute the first value for every wildcard.
  *
  * Config Parameters:

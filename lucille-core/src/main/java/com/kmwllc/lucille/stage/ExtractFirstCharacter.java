@@ -17,7 +17,7 @@ import org.apache.commons.lang3.StringUtils;
  *
  * Config Parameters -
  *
- *   - fieldMapping (Map&lt;String, String&gt;) : A mapping of source->destination fields
+ *   - fieldMapping (Map&lt;String, String&gt;) : A mapping of source-&gt;destination fields
  *   - replacement (String, Optional) : The String to place in the output field if the first character is not a letter.
  *     If "SKIP" is supplied, the output field will not be set to anything. Defaults to "nonalpha".
  */
