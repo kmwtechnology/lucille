@@ -26,7 +26,7 @@ import java.util.stream.Stream;
  *   <li>conditional_fields (List&lt;String&gt;, Optional) : The fields which will be used to determine if
  *       this stage should be applied. Turns off conditional execution by default.
  *   <li>conditional_values (List&lt;String&gt;, Optional) : The values which we will search the
- *       conditional fields for. Should be set if conditional_fields is set.
+ *       conditional fields for. If not set, only the existence of fields is checked.
  *   <li>conditional_operator (String, Optional) : The operator to determine conditional execution.
  *       Can be 'must' or 'must_not'. Defaults to must.
  * </ul>
