@@ -42,8 +42,8 @@ import java.util.stream.Stream;
 public abstract class Stage {
 
   private static final Set<String> EMPTY_SET = Collections.emptySet();
-  private static final Set<String> CONDITIONS_OPTIONAL = Set.of("operator");
-  private static final Set<String> CONDITIONS_REQUIRED = Set.of("fields", "values");
+  private static final Set<String> CONDITIONS_OPTIONAL = Set.of("operator", "values");
+  private static final Set<String> CONDITIONS_REQUIRED = Set.of("fields");
   private static final Set<String> OPTIONAL_PROPERTIES = Set.of("class", "name", "conditions");
 
   protected Config config;
