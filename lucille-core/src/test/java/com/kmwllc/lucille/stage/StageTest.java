@@ -115,6 +115,24 @@ public class StageTest {
   }
 
   @Test
+  public void testNoValues() throws StageException {
+    Stage stage = factory.get("StageTest/noValues.conf");
+
+    // Check that the must condition is applied
+    Document doc1 = Document.create("doc1");
+    doc1.setField("country", "Russia");
+    assertProcessed(stage, doc1, false);
+    doc1.setField("long_country", "America");
+    assertProcessed(stage, doc1, true);
+
+    // adding state should stop processing regardless of value
+    doc1.setField("state", "MA");
+    assertProcessed(stage, doc1, false);
+    doc1.setField("state", "NJ");
+    assertProcessed(stage, doc1, false);
+  }
+
+  @Test
   public void testProcessMultipleConditions() throws StageException {
     Stage stage = factory.get("StageTest/multipleConditions.conf");
 

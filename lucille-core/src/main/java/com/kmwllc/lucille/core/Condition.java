@@ -34,7 +34,7 @@ public class Condition implements Predicate<Document> {
   }
 
   public Condition(Config config) {
-    this(config.getStringList("fields"), new HashSet<>(config.getStringList("values")),
+    this(config.getStringList("fields"), config.hasPath("values") ? new HashSet<>(config.getStringList("values")) : null,
         config.hasPath("operator") ? Operator.get(config.getString("operator")) : Operator.MUST);
   }
 
@@ -56,17 +56,26 @@ public class Condition implements Predicate<Document> {
       return true;
     }
 
-    for (String field : fields) {
-      if (!doc.has(field)) {
-        continue;
-      }
+    if (values != null) {
+      for (String field : fields) {
+        if (!doc.has(field)) {
+          continue;
+        }
 
-      for (String value : doc.getStringList(field)) {
-        if (values.contains(value)) {
-          return resultWhenValueFound;
+        for (String value : doc.getStringList(field)) {
+          if (values.contains(value)) {
+            return resultWhenValueFound;
+          }
         }
       }
+    } else {
+      if (resultWhenValueFound) {
+        return fields.stream().allMatch(field -> doc.has(field));
+      } else {
+        return fields.stream().allMatch(field -> !doc.has(field));
+      }
     }
+
 
     return !resultWhenValueFound;
   }

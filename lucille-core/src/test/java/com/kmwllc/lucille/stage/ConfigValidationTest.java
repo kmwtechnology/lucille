@@ -23,9 +23,6 @@ public class ConfigValidationTest {
     testException(NoopStage.class, "conditions-field-missing.conf");
     testException(NoopStage.class, "conditions-field-renamed.conf");
 
-    testException(NoopStage.class, "conditions-values-missing.conf");
-    testException(NoopStage.class, "conditions-values-renamed.conf");
-
     testException(NoopStage.class, "conditions-optional-unknown.conf");
     testException(NoopStage.class, "conditions-optional-renamed.conf");
 
