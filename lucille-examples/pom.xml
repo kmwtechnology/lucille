@@ -20,6 +20,7 @@
     <module>lucille-vector-ingest-example</module>
     <module>lucille-joining-db-connector-example</module>
     <module>lucille-file-to-file-example</module>
+    <module>lucille-distributed-example</module>
     <module>lucille-simple-csv-solr-example</module>
   </modules>
 </project>

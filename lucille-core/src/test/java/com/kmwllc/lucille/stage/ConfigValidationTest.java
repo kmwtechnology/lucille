@@ -20,12 +20,13 @@ public class ConfigValidationTest {
 
   @Test
   public void testConditions() {
-
     testException(NoopStage.class, "conditions-field-missing.conf");
     testException(NoopStage.class, "conditions-field-renamed.conf");
 
     testException(NoopStage.class, "conditions-optional-unknown.conf");
     testException(NoopStage.class, "conditions-optional-renamed.conf");
+
+    testException(NoopStage.class, "conditions-optional-wrong.conf");
   }
 
   @Test

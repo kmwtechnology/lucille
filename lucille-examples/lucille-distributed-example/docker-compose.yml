@@ -1,0 +1,77 @@
+name: distributed-lucille
+services:
+  kafka: 
+    build: 
+      context: .
+      dockerfile: ./kafka/Dockerfile
+    container_name: kafka
+    depends_on: 
+      - zookeeper
+    ports:
+      - 9092:9092
+    networks: 
+      - lucille-net
+    healthcheck:
+      test: ["CMD", "kafka_2.13-3.7.0/bin/kafka-topics.sh", "--bootstrap-server=kafka:9092", "--list"]
+  zookeeper: 
+    build: 
+      context: .
+      dockerfile: ./zookeeper/Dockerfile
+    container_name: zookeeper
+    ports:
+      - 2181:2181
+    networks: 
+      - lucille-net
+  runner:
+    build:
+      context: .
+      dockerfile: ./runner/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks: 
+      - lucille-net
+    volumes:
+      - output:/output
+  worker:
+    build:
+      context: .
+      dockerfile: ./worker/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks: 
+      - lucille-net
+  indexer: 
+    build:
+      context: .
+      dockerfile: ./indexer/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+      solr:
+        condition: service_healthy
+    networks: 
+      - lucille-net
+  solr:
+    build:
+      context: .
+      dockerfile: ./solr/Dockerfile
+    container_name: solr
+    ports:
+      - 8983:8983
+      - 9983:9983
+    networks:
+      - lucille-net
+    healthcheck:
+      test: ["CMD", "/solr-9.5.0/bin/solr", "status"]
+  
+networks:
+  lucille-net:
+volumes:
+  output:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: runner/output
