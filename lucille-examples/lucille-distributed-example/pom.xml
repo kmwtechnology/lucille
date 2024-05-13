@@ -60,40 +60,6 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>io.fabric8</groupId>
-        <artifactId>docker-maven-plugin</artifactId>
-        <configuration>
-          <images>
-            <image>
-              <alias>jolokia-war</alias>
-              <!-- Data image containing jolokia.war -->
-              <name>${project.groupId}/${project.artifactId}:latest</name>
-              <!-- <build> the image-->
-              <build>
-                <assembly>
-                  <inline>
-                    <id>jolokia</id>
-                    <dependencySets>
-                      <dependencySet>
-                        <includes>
-                          <include>org.jolokia:jolokia-war</include>
-                        </includes>
-                        <outputDirectory>.</outputDirectory>
-                        <outputFileNameMapping>jolokia.war</outputFileNameMapping>
-                      </dependencySet>
-                    </dependencySets>
-                  </inline>
-                </assembly>
-              </build>
-              <!-- The <run> part is taken from compose -->
-              <external>
-                <type>compose</type>
-              </external>
-            </image>
-          </images>
-        </configuration>
-      </plugin>
-      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
         <executions>
