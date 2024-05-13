@@ -31,6 +31,7 @@ public class SolrUtilsTest {
     Http2SolrClient client = SolrUtils.getHttpClient(config);
     // would like to inspect the solr client to confirm credentials are configured, but can’t do that so just checking it’s non-null
     assertNotNull(client);
+    client.close();
   }
 
   @Test

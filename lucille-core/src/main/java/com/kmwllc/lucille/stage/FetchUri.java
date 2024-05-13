@@ -29,7 +29,7 @@ import org.apache.http.util.EntityUtils;
  * source (String) : Field name of URL to be fetched; document will be skipped if the field with this name is absent or empty
  * dest (String) : Field name of destination for byte data; document will be skipped if the field with this name is absent or empty
  * size_suffix (String, Optional) : suffix to be appended to end of source field name for the size of data
- *  e.g. url --> url_(size_suffix) where source name is url
+ *  e.g. url --&gt; url_(size_suffix) where source name is url
  * status_suffix (String, Optional) : suffix to be appended to end of source field name for the status code of the fetch request
  * error_suffix (String, Optional) : suffix to be appended to end of source field name for any errors in process
  * max_size (Integer, Optional) : max size, in bytes, of data to be read from fetch

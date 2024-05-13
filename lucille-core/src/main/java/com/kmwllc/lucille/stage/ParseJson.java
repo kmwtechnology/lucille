@@ -28,7 +28,7 @@ import java.util.Map.Entry;
  * - src (String) : The field containing the JSON string to be parsed.
  * - sourceIsBase64: When set to true, indicates that the source field is base64 encoded. In this case the stage will decode
  * the field value before parsing.
- * - jsonFieldPaths (Map<String, Object>) : Defines the mapping from JsonPath expressions
+ * - jsonFieldPaths (Map&lt;String, Object&gt;) : Defines the mapping from JsonPath expressions
  * to the destination fields in the processed document.
  * </p>
  */

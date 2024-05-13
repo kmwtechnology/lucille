@@ -28,8 +28,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Utilities for interacting with Kafka: creating Kafka clients, determining Kafka topic names, etc.
- * <p>
- * <p>
  *  TODO: add config option for cleaning up kafka topics at end of run
  *  prepend run id to each topic name
  *  add separate config option to leave failure topic around

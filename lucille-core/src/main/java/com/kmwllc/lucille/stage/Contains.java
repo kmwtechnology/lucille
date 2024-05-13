@@ -16,11 +16,11 @@ import java.util.List;
  *
  * Config Parameters:
  *
- *   - contains (List<String>) : A list of values to search for
+ *   - contains (List&lt;String&gt;) : A list of values to search for
  *   - output (String) : The field to tag if a match is found
  *   - value (String) : The value to tag the output field with
  *   - ignoreCase (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true.
- *   - field (List<String>) : The fields to be searched
+ *   - field (List&lt;String&gt;) : The fields to be searched
  */
 public class Contains extends Stage {
 

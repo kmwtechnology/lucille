@@ -16,7 +16,7 @@ import java.util.Map;
  * <br>
  * Config Parameters -
  * <br>
- * fieldMapping (Map<String, String>) : A mapping of the field to check the size of to the name of the field to place the length into.
+ * fieldMapping (Map&lt;String, String&gt;) : A mapping of the field to check the size of to the name of the field to place the length into.
  */
 public class Length extends Stage {
 

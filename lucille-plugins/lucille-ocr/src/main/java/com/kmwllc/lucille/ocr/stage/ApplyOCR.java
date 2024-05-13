@@ -54,7 +54,7 @@ import com.typesafe.config.ConfigBeanFactory;
  * and the result is stored in this field. For pdfs, ocr is applied to each page seperately and the field becomes multi-valued
  * <p>
  * <b>extraction_templates</b> (List&lt;FormTemplate&gt;, Optional) : A list of form templates defined as such:
- * <p>
+ * </p>
  * <pre>
  * {
  *   name: "w2",
@@ -76,10 +76,8 @@ import com.typesafe.config.ConfigBeanFactory;
  *  ]
  * }
  * </pre>
- * </p>
  * The name field is the name of the template and regions is a list of rectangular portions of the pages to extract. They are each extracted to the field specified by `dest`
  * and appended to a multivalued field if there is already something there.
- * </p>
  *  <p>
  * <b>pages</b> (Map&lt;Integer,String&gt;, Optional) : A map from page numbers to template names allowing a user to statically specify 
  * which types of forms are on which pages. Page 0 is used to indicate the one and only page on non-pdf files.
