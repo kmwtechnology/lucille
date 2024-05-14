@@ -15,7 +15,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Release version ${{ github.event.inputs.releaseversion }}!"
+      - run: echo "Release version ${{ env.release }}!"
 
       - uses: actions/checkout@v4
 
