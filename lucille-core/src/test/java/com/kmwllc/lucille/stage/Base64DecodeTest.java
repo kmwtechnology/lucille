@@ -16,7 +16,6 @@ public class Base64DecodeTest {
   @Test
   public void testBase64Decode() throws Exception {
     Stage stage = factory.get("Base64DecodeTest/config.conf");
-    // Test placing one field value into the format String
     Document doc = Document.create("doc");
     doc.setField("input", "SGVsbG8gd29ybGQu");
     stage.processDocument(doc);
