@@ -368,6 +368,11 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   @Override
+  public JsonNode getJson(String name) {
+    return getValue(name, value -> (JsonNode) value);
+  }
+
+  @Override
   public List<Instant> getInstantList(String name) {
     return getValues(name, value -> (Instant) value);
   }
@@ -375,6 +380,11 @@ public class HashMapDocument implements Document, Serializable {
   @Override
   public List<byte[]> getBytesList(String name) {
     return getValues(name, value -> (byte[]) value);
+  }
+
+  @Override
+  public List<JsonNode> getJsonList(String name) {
+    return getValues(name, value -> (JsonNode) value);
   }
 
   @Override
@@ -456,6 +466,11 @@ public class HashMapDocument implements Document, Serializable {
     addToFieldGeneric(name, value);
   }
 
+  @Override
+  public void addToField(String name, JsonNode value) {
+    addToFieldGeneric(name, value);
+  }
+
   private <T> void setOrAddGeneric(String name, T value) {
     validateFieldNames(name);
     data.setOrAdd(name, value);
@@ -498,6 +513,11 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public void setOrAdd(String name, byte[] value) {
+    setOrAddGeneric(name, value);
+  }
+
+  @Override
+  public void setOrAdd(String name, JsonNode value) {
     setOrAddGeneric(name, value);
   }
 
