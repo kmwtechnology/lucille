@@ -38,6 +38,46 @@ public class ReplacePatternsTest {
     assertEquals("This should be untouched", doc3.getStringList("output3").get(0));
   }
 
+  @Test 
+  public void testIgnoreCase() throws Exception {
+    Stage stage = factory.get("ReplacePatternsTest/one.conf");
+
+    Document doc = Document.create("doc");
+    doc.setField("input1", "The term fAlse should be replaced.");
+    stage.processDocument(doc);
+    assertEquals("The term REPLACED should be replaced.", doc.getStringList("output1").get(0));
+  }
+
+  @Test 
+  public void testMultiline() throws Exception {
+    Stage stage = factory.get("ReplacePatternsTest/two.conf");
+
+    Document doc = Document.create("doc");
+    doc.setField("input1", "The term fAlse should be replaced,\n but not this false");
+    stage.processDocument(doc);
+    assertEquals("The term REPLACED should be replaced,\n but not this REPLACED", doc.getStringList("output1").get(0));
+  }
+
+  @Test 
+  public void testLiteral() throws Exception {
+    Stage stage = factory.get("ReplacePatternsTest/three.conf");
+
+    Document doc = Document.create("doc");
+    doc.setField("input1", "The term fAlse\\\\ should be replaced,\n but not this false");
+    stage.processDocument(doc);
+    assertEquals("The term REPLACED\\ should be replaced,\n but not this false", doc.getStringList("output1").get(0));
+  }
+
+  @Test 
+  public void testDotall() throws Exception {
+    Stage stage = factory.get("ReplacePatternsTest/four.conf");
+
+    Document doc = Document.create("doc");
+    doc.setField("input1", "The term f.Alse\\\\ should be replaced,\n but not this false");
+    stage.processDocument(doc);
+    assertEquals("The term REPLACED\\ should be replaced,\n but not this false", doc.getStringList("output1").get(0));
+  }
+
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("ReplacePatternsTest/config.conf");
