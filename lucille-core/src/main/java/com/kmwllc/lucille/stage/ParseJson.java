@@ -62,10 +62,6 @@ public class ParseJson extends Stage {
     this.jsonParseCtx = JsonPath.using(this.jsonPathConf);
   }
 
-  /**
-   * @param doc
-   * @return
-   */
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     DocumentContext ctx;
@@ -80,12 +76,10 @@ public class ParseJson extends Stage {
       ctx = this.jsonParseCtx.parse(doc.getString(this.src));
     }
     for (Entry<String, Object> entry : this.jsonFieldPaths.entrySet()) {
-      //JsonNode val = srcNode.at((String) entry.getValue());
       JsonNode val = ctx.read((String) entry.getValue(), JsonNode.class);
-
       doc.setField(entry.getKey(), val);
     }
-    doc.removeField(this.src);
+
     return null;
   }
 }
