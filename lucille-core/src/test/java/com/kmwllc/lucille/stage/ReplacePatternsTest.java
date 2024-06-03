@@ -39,8 +39,8 @@ public class ReplacePatternsTest {
   }
 
   @Test 
-  public void testIgnoreCase() throws Exception {
-    Stage stage = factory.get("ReplacePatternsTest/one.conf");
+  public void testOneFlag() throws Exception {
+    Stage stage = factory.get("ReplacePatternsTest/one_flag.conf");
 
     Document doc = Document.create("doc");
     doc.setField("input1", "The term fAlse should be replaced.");
@@ -49,8 +49,8 @@ public class ReplacePatternsTest {
   }
 
   @Test 
-  public void testMultiline() throws Exception {
-    Stage stage = factory.get("ReplacePatternsTest/two.conf");
+  public void testTwoFlag() throws Exception {
+    Stage stage = factory.get("ReplacePatternsTest/two_flags.conf");
 
     Document doc = Document.create("doc");
     doc.setField("input1", "The term fAlse should be replaced,\n but not this false");
@@ -59,8 +59,8 @@ public class ReplacePatternsTest {
   }
 
   @Test 
-  public void testLiteral() throws Exception {
-    Stage stage = factory.get("ReplacePatternsTest/three.conf");
+  public void testThreeFlag() throws Exception {
+    Stage stage = factory.get("ReplacePatternsTest/three_flag.conf");
 
     Document doc = Document.create("doc");
     doc.setField("input1", "The term fAlse\\\\ should be replaced,\n but not this false");
@@ -69,8 +69,8 @@ public class ReplacePatternsTest {
   }
 
   @Test 
-  public void testDotall() throws Exception {
-    Stage stage = factory.get("ReplacePatternsTest/four.conf");
+  public void testFourFlag() throws Exception {
+    Stage stage = factory.get("ReplacePatternsTest/four_flags.conf");
 
     Document doc = Document.create("doc");
     doc.setField("input1", "The term f.Alse\\\\ should be replaced,\n but not this false");
