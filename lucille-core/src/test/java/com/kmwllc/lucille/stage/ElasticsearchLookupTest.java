@@ -91,10 +91,10 @@ public class ElasticsearchLookupTest {
 
   @Test
   public void testStop() throws Exception {
-    Config config = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/default.conf");
-    Config config2 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/append.conf");
-    Config config3 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/overwrite.conf");
-    Config config4 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/skip.conf");
+    Config defaultConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/default.conf");
+    Config appendConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/append.conf");
+    Config overwriteConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/overwrite.conf");
+    Config skipConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/skip.conf");
     try (MockedStatic<ElasticsearchUtils> mockedUtils = Mockito.mockStatic(ElasticsearchUtils.class)) {
       ElasticsearchTransport badTransport = mock(ElasticsearchTransport.class);
       ElasticsearchTransport goodTransport = mock(ElasticsearchTransport.class);
@@ -109,15 +109,15 @@ public class ElasticsearchLookupTest {
       when(badTransportClient._transport()).thenReturn(badTransport);
       when(goodTransportClient._transport()).thenReturn(goodTransport);
 
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config)).thenReturn(null);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config2)).thenReturn(nullTransport);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config3)).thenReturn(badTransportClient);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config4)).thenReturn(goodTransportClient);
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(defaultConfig)).thenReturn(null);
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(appendConfig)).thenReturn(nullTransport);
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(overwriteConfig)).thenReturn(badTransportClient);
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(skipConfig)).thenReturn(goodTransportClient);
 
-      new ElasticsearchLookup(config).stop();
-      new ElasticsearchLookup(config2).stop();
-      new ElasticsearchLookup(config3).stop();
-      new ElasticsearchLookup(config4).stop();
+      new ElasticsearchLookup(defaultConfig).stop();
+      new ElasticsearchLookup(appendConfig).stop();
+      new ElasticsearchLookup(overwriteConfig).stop();
+      new ElasticsearchLookup(skipConfig).stop();
 
       verify(badTransport, times(1)).close();
       verify(goodTransport, times(1)).close();
@@ -127,19 +127,17 @@ public class ElasticsearchLookupTest {
 
   @Test
   public void testProcessDocument() throws Exception {
-    Config config = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/throwing.conf");
-    Config config2 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/noResponse.conf");
-    Config config3 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/append.conf");
-    Config config4 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/overwrite.conf");
-    Config config5 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/skip.conf");
-    Config config6 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/default.conf");
+    Config throwingConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/throwing.conf");
+    Config noResponseConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/noResponse.conf");
+    Config appendConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/append.conf");
+    Config overwriteConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/overwrite.conf");
+    Config skipConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/skip.conf");
+    Config defaultConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/default.conf");
     Function<GetRequest.Builder, ObjectBuilder<GetRequest>> fn = (g) -> g.index(null).id("doc");
-    ObjectNode example = new ObjectNode(JsonNodeFactory.instance);
-    example.put("foo", "bar");
-    example.put("foo2", 10);
     ObjectNode base = new ObjectNode(JsonNodeFactory.instance);
     base.put("foo", "empty");
     base.put("id", "doc");
+    // all docs are identical but seperate copies must be made
     Document doc = Document.createFromJson(base.toString());
     Document doc2 = Document.createFromJson(base.toString());
     Document doc3 = Document.createFromJson(base.toString());
@@ -147,62 +145,68 @@ public class ElasticsearchLookupTest {
     Document doc5 = Document.createFromJson(base.toString());
     Document doc6 = Document.createFromJson(base.toString());
     try (MockedStatic<ElasticsearchUtils> mockedUtils = Mockito.mockStatic(ElasticsearchUtils.class)) {
-
-      GetResponse<ObjectNode> notFound = (GetResponse<ObjectNode>) mock(GetResponse.class);
-      GetResponse<ObjectNode> found = (GetResponse<ObjectNode>) mock(GetResponse.class);
-
-      when(notFound.found()).thenReturn(false);
-      when(found.found()).thenReturn(true);
-      when(found.source()).thenReturn(example);
-
+      
+      // asserts that the stage behaves properly for ElasticSearchClients that throw IOExceptions
       ElasticsearchClient throwing = mock(ElasticsearchClient.class);
-      ElasticsearchClient noResponse = mock(ElasticsearchClient.class);
-      ElasticsearchClient foundClient = mock(ElasticsearchClient.class);
-
       when(throwing.get((Function<GetRequest.Builder, ObjectBuilder<GetRequest>>) Mockito.any(), Mockito.any()))
           .thenThrow(new IOException("get failed"));
-      when(noResponse.get((Function<GetRequest.Builder, ObjectBuilder<GetRequest>>) Mockito.any(), (Class)Mockito.any()))
-          .thenReturn(notFound);
-      when(foundClient.get((Function<GetRequest.Builder, ObjectBuilder<GetRequest>>) Mockito.any(), (Class)Mockito.any()))
-          .thenReturn(found);
-
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config)).thenReturn(throwing);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config2)).thenReturn(noResponse);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config3)).thenReturn(foundClient);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config4)).thenReturn(foundClient);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config5)).thenReturn(foundClient);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config6)).thenReturn(foundClient);
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(throwingConfig)).thenReturn(throwing);
 
       assertThrows(StageException.class, () -> {
-      new ElasticsearchLookup(config).processDocument(doc);
+        new ElasticsearchLookup(throwingConfig).processDocument(doc);
       });
-      new ElasticsearchLookup(config2).processDocument(doc2);
-      new ElasticsearchLookup(config3).processDocument(doc3);
-      new ElasticsearchLookup(config4).processDocument(doc4);
-      new ElasticsearchLookup(config5).processDocument(doc5);
-      new ElasticsearchLookup(config6).processDocument(doc6);
-
       assertEquals(2, doc.getFieldNames().size());
       assertEquals("empty", doc.getString("foo"));
 
+      // asserts that the stage behaves correctly when it receives no response from the elastic search client
+      ElasticsearchClient noResponse = mock(ElasticsearchClient.class);
+      GetResponse<ObjectNode> notFound = (GetResponse<ObjectNode>) mock(GetResponse.class);
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(noResponseConfig)).thenReturn(noResponse);
+      when(notFound.found()).thenReturn(false);
+      when(noResponse.get((Function<GetRequest.Builder, ObjectBuilder<GetRequest>>) Mockito.any(), (Class) Mockito.any()))
+          .thenReturn(notFound);
+      new ElasticsearchLookup(noResponseConfig).processDocument(doc2);
       assertEquals(2, doc2.getFieldNames().size());
       assertEquals("empty", doc2.getString("foo"));
 
+      // sets up client to send back an example document when lookups are performed
+      ElasticsearchClient foundClient = mock(ElasticsearchClient.class);
+      GetResponse<ObjectNode> found = (GetResponse<ObjectNode>) mock(GetResponse.class);
+      when(found.found()).thenReturn(true);
+      ObjectNode example = new ObjectNode(JsonNodeFactory.instance);
+      example.put("foo", "bar");
+      example.put("foo2", 10);
+      when(found.source()).thenReturn(example);
+      when(foundClient.get((Function<GetRequest.Builder, ObjectBuilder<GetRequest>>) Mockito.any(), (Class) Mockito.any()))
+          .thenReturn(found);
+
+      // tests that it works in append mode
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(appendConfig)).thenReturn(foundClient);
+      new ElasticsearchLookup(appendConfig).processDocument(doc3);
       assertEquals(3, doc3.getFieldNames().size());
       assertEquals(List.of("empty", "bar"), doc3.getStringList("foo"));
       assertEquals("10", doc3.getString("foo2_dest"));
 
+      // tests that it works in overwrite mode
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(overwriteConfig)).thenReturn(foundClient);
+      new ElasticsearchLookup(overwriteConfig).processDocument(doc4);
       assertEquals(3, doc4.getFieldNames().size());
       assertEquals("bar", doc4.getString("foo"));
       assertEquals("10", doc4.getString("foo2_dest"));
 
+      // tests that it works in skip mode
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(skipConfig)).thenReturn(foundClient);
+      new ElasticsearchLookup(skipConfig).processDocument(doc5);
       assertEquals(3, doc5.getFieldNames().size());
       assertEquals("empty", doc5.getString("foo"));
       assertEquals("10", doc5.getString("foo2_dest"));
 
-      assertEquals(3, doc4.getFieldNames().size());
-      assertEquals("bar", doc4.getString("foo"));
-      assertEquals("10", doc4.getString("foo2_dest"));
+      // tests that it works in the default mode
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(defaultConfig)).thenReturn(foundClient);
+      new ElasticsearchLookup(defaultConfig).processDocument(doc6);
+      assertEquals(3, doc6.getFieldNames().size());
+      assertEquals("bar", doc6.getString("foo"));
+      assertEquals("10", doc6.getString("foo2_dest"));
     }
   }
 }
