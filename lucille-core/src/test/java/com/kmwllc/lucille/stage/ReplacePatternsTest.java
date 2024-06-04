@@ -60,7 +60,7 @@ public class ReplacePatternsTest {
 
   @Test 
   public void testThreeFlag() throws Exception {
-    Stage stage = factory.get("ReplacePatternsTest/three_flag.conf");
+    Stage stage = factory.get("ReplacePatternsTest/three_flags.conf");
 
     Document doc = Document.create("doc");
     doc.setField("input1", "The term fAlse\\\\ should be replaced,\n but not this false");
