@@ -6,20 +6,23 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.BoundedInputStream;
+import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
+import org.apache.http.message.BasicHeader;
 
 /**
  * Fetches byte data of a given URL field and places data into a specified field
@@ -40,20 +43,29 @@ public class FetchUri extends Stage {
   private final String dest;
   private final String statusSuffix;
   private final String sizeSuffix;
-
   private final String errorSuffix;
   private final int maxDownloadSize;
+  private final Header[] headers;
   private CloseableHttpClient client;
 
   public FetchUri(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest")
-        .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix"));
+        .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix").withOptionalParents("headers"));
     this.source = config.getString("source");
     this.dest = config.getString("dest");
     this.statusSuffix = ConfigUtils.getOrDefault(config, "status_suffix", "status_code");
     this.sizeSuffix = ConfigUtils.getOrDefault(config, "size_suffix", "size");
     this.errorSuffix = ConfigUtils.getOrDefault(config, "error_suffix", "error");
     this.maxDownloadSize = ConfigUtils.getOrDefault(config, "max_size", Integer.MAX_VALUE);
+    this.headers = config.hasPath("headers") ? createHeaderArray(config.getConfig("headers").root().unwrapped()) : null;
+  }
+
+  private static Header[] createHeaderArray(Map<String, Object> map) {
+    List<Header> headerList = new ArrayList<>();
+    for (Map.Entry<String, Object> entry : map.entrySet()) {
+      headerList.add(new BasicHeader(entry.getKey(), (String) entry.getValue()));
+    }
+    return headerList.toArray(new Header[0]);
   }
 
   // Method exists for testing with mockito mocks
@@ -73,7 +85,6 @@ public class FetchUri extends Stage {
     }
     String url = doc.getString(source);
 
-    // Following checks for valid URL
     try {
       new URL(url).toURI();
     } catch (URISyntaxException e) {
@@ -85,6 +96,9 @@ public class FetchUri extends Stage {
     }
 
     HttpGet httpGet = new HttpGet(url);
+    if (this.headers != null) {
+      httpGet.setHeaders(this.headers);
+    }
 
     try (CloseableHttpResponse httpResponse = client.execute(httpGet)) {
       int statusCode = httpResponse.getStatusLine().getStatusCode();
