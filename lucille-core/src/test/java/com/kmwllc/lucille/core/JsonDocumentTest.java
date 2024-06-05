@@ -176,10 +176,10 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     d.addToField("jsonArray1", jsonObject2);
     assertEquals(jsonArray1WithObject2Added, d.getJson("jsonArray1"));
 
-    JsonNode arrayOfOjbect1AndObject2 = mapper.readTree("[{\"a\":1, \"b\": 2}, {\"c\":3, \"d\": 4}]");
+    JsonNode arrayOfObject1AndObject2 = mapper.readTree("[{\"a\":1, \"b\": 2}, {\"c\":3, \"d\": 4}]");
     d.setField("jsonObject1", jsonObject1);
     d.addToField("jsonObject1", jsonObject2);
-    assertEquals(arrayOfOjbect1AndObject2, d.getJson("jsonObject1"));
+    assertEquals(arrayOfObject1AndObject2, d.getJson("jsonObject1"));
     assertEquals(List.of(jsonObject1, jsonObject2), d.getJsonList("jsonObject1"));
 
     assertEquals(d, createDocumentFromJson(d.toString()));
