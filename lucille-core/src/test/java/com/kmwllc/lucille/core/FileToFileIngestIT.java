@@ -9,11 +9,11 @@ import org.junit.Test;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
-public class MainIT {
+public class FileToFileIngestIT {
   
   @Test 
   public void fullIT() throws Exception {
-    Config config = ConfigFactory.parseFile(new File("src/test/resources/MainIT/file-to-file-example.conf"));
+    Config config = ConfigFactory.parseFile(new File("src/test/resources/FileToFileIngestIT/file-to-file-example.conf"));
     Runner.runInTestMode(config);
 
     File f = new File("output/dest.csv");
@@ -27,6 +27,5 @@ public class MainIT {
     assertEquals("\"Salad\",\"USA\",\"10\"", reader.readLine());
     assertEquals("\"Wine\",\"France\",\"12\"", reader.readLine());
     reader.close();
-    assertTrue(true);
   }
 }
