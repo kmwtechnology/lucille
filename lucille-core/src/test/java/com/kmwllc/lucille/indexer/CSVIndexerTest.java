@@ -11,8 +11,9 @@ import org.junit.Test;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.util.HashMap;
 import java.util.List;
-
+import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
@@ -97,5 +98,16 @@ public class CSVIndexerTest {
     assertEquals(2, lines.size());
     assertEquals("\"doc1\",\"123\",\"abc\"", lines.get(0));
     assertEquals("\"doc2\",\"456\",\"def\"", lines.get(1));
+  }
+
+  @Test 
+  public void testValidateConnection() {
+    Map<String, Object> map = new HashMap<>();
+    map.put("csv.includeHeader", true);
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(map);
+
+    CSVIndexer indexer =  new CSVIndexer(config, messenger, writer, bypass, metricsPrefix)
   }
 }
