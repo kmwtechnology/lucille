@@ -62,69 +62,17 @@ public class ApplyJSONNata extends Stage {
   }
 
   @Override
-  public void start() throws StageException {
-  }
-
-  @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    ArrayList<String> fieldDataArr = genFieldDataArr(uniqueValues, minNumOfTerms, maxNumOfTerms);
-    if (isNested) {
-      populateFieldsNested(fieldName, doc, fieldDataArr);
-    } else {
-      populateFieldsDefault(fieldName, doc, fieldDataArr);
+    if (!doc.has(this.source)) {
+      return null;
     }
+    
+    Expressions.parse("string");
+    
+
+
+
     return null;
   }
 
-  private void populateFieldsNested(String fieldName, Document doc, ArrayList<String> fieldDataArr) {
-    ObjectMapper mapper = new ObjectMapper();
-    ArrayNode array = mapper.createArrayNode();
-    for (String value : fieldDataArr) {
-      array.add(mapper.createObjectNode().put("data", value));
-    }
-    doc.setField(fieldName, array);
-  }
-
-  private void populateFieldsDefault(String fieldName, Document doc, ArrayList<String> fieldDataArr) {
-    for (String value : fieldDataArr) {
-      doc.setOrAdd(fieldName, value);
-    }
-  }
-
-  private List<String> getFileData(String inputDataPath) throws StageException {
-    try {
-      List<String> data = Files.readAllLines(Path.of(inputDataPath));
-      return data;
-    } catch (IOException e) {
-      throw new StageException("Could not read provided file path", e);
-    }
-  }
-
-  private List<String> getUniqueValues(boolean dataExists, List<String> inputData) {
-    List<String> uniqueValues = new ArrayList<>();
-    if (dataExists) {
-      List<String> initialData = new ArrayList(new HashSet<>(inputData));
-      // create set of unique values based on given range size and input data
-      for (int i = 0; i < rangeSize; i++) {
-        int randomPos = (int) (Math.random() * initialData.size());
-        uniqueValues.add(initialData.get(randomPos));
-        initialData.remove(randomPos);
-      }
-    } else {
-      // create sequential list of numbers ending at range size
-      List<Integer> seqList = IntStream.range(0, rangeSize)
-          .boxed().collect(Collectors.toList());
-      uniqueValues = seqList.stream().map(i -> i.toString()).collect(Collectors.toList());
-    }
-    return uniqueValues;
-  }
-
-  private ArrayList<String> genFieldDataArr(List<String> uniqueValues, int minNumOfTerms, int maxNumOfTerms) {
-    ArrayList<String> fieldData = new ArrayList<>();
-    int fieldDataSize = (int) ((Math.random() * (maxNumOfTerms - minNumOfTerms)) + minNumOfTerms);
-    for (int i = 0; i < fieldDataSize; i++) {
-      fieldData.add(uniqueValues.get((int) (Math.random() * uniqueValues.size())));
-    }
-    return fieldData;
-  }
 }
