@@ -6,9 +6,9 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 
-public class CleanTextTest {
+public class RemoveDiacriticsTest {
 
-  private StageFactory factory = StageFactory.of(CleanText.class);
+  private StageFactory factory = StageFactory.of(RemoveDiacritics.class);
 
   @Test
   public void testAccentsAndDiacratics() throws StageException {
