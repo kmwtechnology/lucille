@@ -443,6 +443,40 @@ public class JsonDocument implements Document {
     return result;
   }
 
+  /**
+   * Returns a list of JsonNodes.
+   *
+   * If the field was set to a JsonArray value, a list containing contents of that JsonArray will be returned,
+   * as opposed to a List containing the JsonArray itself.
+   */
+  @Override
+  public List<JsonNode> getJsonList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getJson(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<JsonNode> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      result.add(node);
+    }
+    return result;
+  }
+
+  public JsonNode getJson(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+    // Json is handled differently from other value types
+    // we don't call getSingleNode(name) to retrieve the first value from a JsonArray
+    // instead, we simply return the internal JsonNode itself, whether it is an array or not
+    return data.get(name);
+  }
+
   private JsonNode getSingleNode(String name) {
     return isMultiValued(name) ? data.withArray(name).get(0) : data.get(name);
   }
@@ -579,6 +613,14 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public void addToField(String name, JsonNode value) {
+    validateFieldNames(name);
+    convertToList(name);
+    ArrayNode array = data.withArray(name);
+    array.add(value);
+  }
+
+  @Override
   public void setOrAdd(String name, String value) {
     if (has(name)) {
       addToField(name, value);
@@ -643,6 +685,15 @@ public class JsonDocument implements Document {
 
   @Override
   public void setOrAdd(String name, byte[] value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  @Override
+  public void setOrAdd(String name, JsonNode value) {
     if (has(name)) {
       addToField(name, value);
     } else {

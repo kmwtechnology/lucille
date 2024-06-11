@@ -70,6 +70,7 @@ public interface Document {
 
   byte[] getBytes(String name);
 
+  JsonNode getJson(String name);
 
   /* --- LIST GETTERS --- */
 
@@ -95,6 +96,7 @@ public interface Document {
 
   List<byte[]> getBytesList(String name);
 
+  List<JsonNode> getJsonList(String name);
 
   /* --- SINGLE-VALUE SETTERS --- */
 
@@ -147,6 +149,8 @@ public interface Document {
       setField(name, (Instant) value);
     } else if (value instanceof byte[]) {
       setField(name, (byte[]) value);
+    } else if (value instanceof JsonNode) {
+      setField(name, (JsonNode) value);
     } else {
       throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
@@ -175,6 +179,8 @@ public interface Document {
 
   void addToField(String name, byte[] value);
 
+  void addToField(String name, JsonNode value);
+
   /**
    * Adds the given value to the designated field, converting the field to multivalued (i.e. a list)
    * if it was not multivalued already.
@@ -197,6 +203,8 @@ public interface Document {
       addToField(name, (Instant) value);
     } else if (value instanceof byte[]) {
       addToField(name, (byte[]) value);
+    } else if (value instanceof JsonNode) {
+      addToField(name, (JsonNode) value);
     } else {
       throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
@@ -228,6 +236,8 @@ public interface Document {
 
   void setOrAdd(String name, byte[] value);
 
+  void setOrAdd(String name, JsonNode value);
+
   /**
    * @throws IllegalArgumentException if value is not of a supported type
    **/
@@ -246,6 +256,8 @@ public interface Document {
       setOrAdd(name, (Instant) value);
     } else if (value instanceof byte[]) {
       setOrAdd(name, (byte[]) value);
+    } else if (value instanceof JsonNode) {
+      setOrAdd(name, (JsonNode) value);
     } else {
       throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
@@ -310,6 +322,10 @@ public interface Document {
 
   default void update(String name, UpdateMode mode, byte[]... values) {
     update(name, mode, v -> setField(name, (byte[]) v), v -> setOrAdd(name, (byte[]) v), values);
+  }
+
+  default void update(String name, UpdateMode mode, JsonNode... values) {
+    update(name, mode, v -> setField(name, (JsonNode) v), v -> setOrAdd(name, (JsonNode) v), values);
   }
 
   /**

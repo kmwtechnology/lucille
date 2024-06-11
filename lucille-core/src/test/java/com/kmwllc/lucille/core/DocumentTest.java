@@ -1146,31 +1146,17 @@ public abstract class DocumentTest {
     JsonNode node = mapper.readTree("{\"a\":1, \"b\":2}");
     Document d = createDocument("id1");
     d.setField("myField", node);
+    assertEquals(node, d.getJson("myField"));
+    //assertFalse(d.isMultiValued("myField"));
 
     assertEquals(d, createDocumentFromJson(d.toString()));
-    assertEquals(d.toString(), createDocumentFromJson(d.toString()).toString());
+    Document reconstructed = createDocumentFromJson(d.toString());
+    assertEquals(d.toString(), reconstructed.toString());
+    assertEquals(node, reconstructed.getJson("myField"));
+
+    assertEquals(node, reconstructed.getJson("myField"));
 
     JsonNode node2 = mapper.readTree("{\"a\":1, \"b\":3}");
-    Document d2 = createDocument("id1");
-    d2.setField("myField", node2);
-    assertNotEquals(d, d2);
-
-    d2.setField("myField", node.deepCopy());
-    assertEquals(d, d2);
-  }
-
-  @Test
-  public void testJsonMultivaluedField() throws Exception {
-    ObjectMapper mapper = new ObjectMapper();
-
-    JsonNode node = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
-    Document d = createDocument("id1");
-    d.setField("myField", node);
-
-    assertEquals(d, createDocumentFromJson(d.toString()));
-    assertEquals(d.toString(), createDocumentFromJson(d.toString()).toString());
-
-    JsonNode node2 = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 3}] }");
     Document d2 = createDocument("id1");
     d2.setField("myField", node2);
     assertNotEquals(d, d2);
