@@ -12,9 +12,9 @@
       <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>lucille-tika</artifactId>
+    <artifactId>lucille-jsonnata</artifactId>
     <packaging>jar</packaging>
-     <name>Lucille Plugins: Lucille Tika</name>
+     <name>Lucille Plugins: Lucille JSONnata</name>
 
     <properties>
       <tika.version>2.7.0</tika.version>
@@ -22,17 +22,6 @@
       <maven.compiler.target>11</maven.compiler.target>
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
-
-    <dependencyManagement>
-      <dependencies>
-        <dependency>
-          <groupId>org.apache.tika</groupId>
-          <artifactId>tika-bom</artifactId>
-          <version>${tika.version}</version>
-          <type>pom</type>
-        </dependency>
-      </dependencies>
-    </dependencyManagement>
 
     <dependencies>
       <dependency>
