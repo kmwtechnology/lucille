@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.json.stage;
+package com.kmwllc.lucille.stage;
 
 import java.io.IOException;
 import java.util.Iterator;
