@@ -625,7 +625,7 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public void transform(Expressions expr) throws DocumentException {
-    throw new DocumentException("Transform is not supported for HashMap implementation of Document");
+    throw new UnsupportedOperationException("Transform is not supported for HashMap implementation of Document");
   }
 
   @Override
