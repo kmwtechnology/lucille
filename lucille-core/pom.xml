@@ -329,7 +329,7 @@
         <version>3.3.2</version>
         <executions>
           <execution>
-            <id>cleanup-output</id>
+            <id>cleanup-output-after</id>
             <phase>post-integration-phase</phase>
             <goals>
               <goal>clean</goal>
@@ -346,7 +346,7 @@
             </configuration>
           </execution>
           <execution>
-            <id>cleanup-output</id>
+            <id>cleanup-output-before</id>
             <phase>pre-integration-phase</phase>
             <goals>
               <goal>clean</goal>
