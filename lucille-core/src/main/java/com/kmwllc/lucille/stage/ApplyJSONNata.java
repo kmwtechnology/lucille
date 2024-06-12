@@ -10,6 +10,7 @@ import com.api.jsonata4java.expressions.ParseException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
@@ -43,6 +44,15 @@ public class ApplyJSONNata extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
+    if (source == null) {
+      try {
+        doc.transform(parsed);
+      } catch (DocumentException e) {
+        log.warn("Exception occured when applying transformation", e);
+      }
+      return null;
+    }
+
     if (!doc.has(source)) {
       return null;
     }
@@ -51,7 +61,7 @@ public class ApplyJSONNata extends Stage {
     try {
       output = parsed.evaluate(doc.getJson(source));
     } catch (EvaluateException e) {
-      log.warn("Evaluation exception when applying JSONNata: ", e);
+      log.warn("Evaluation exception occured when applying transformation: ", e);
       return null;
     }
 
