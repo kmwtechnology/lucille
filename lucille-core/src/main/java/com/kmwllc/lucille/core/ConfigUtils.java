@@ -1,8 +1,11 @@
 package com.kmwllc.lucille.core;
 
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigException;
-import com.typesafe.config.ConfigFactory;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import org.apache.http.Header;
+import org.apache.http.message.BasicHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,4 +33,17 @@ public class ConfigUtils {
     return fallback;
   }
 
+  /**
+   * Creates an array of org.apache.http.Headers given a map of header keys and values which can be used for http requests.
+   *
+   * @param map map containing the header values
+   * @return array of Header objects
+   */
+  public static Header[] createHeaderArray(Map<String, Object> map) {
+    List<Header> headerList = new ArrayList<>();
+    for (Map.Entry<String, Object> entry : map.entrySet()) {
+      headerList.add(new BasicHeader(entry.getKey(), (String) entry.getValue()));
+    }
+    return headerList.toArray(new Header[0]);
+  }
 }

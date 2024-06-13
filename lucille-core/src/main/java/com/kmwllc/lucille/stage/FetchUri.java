@@ -57,16 +57,8 @@ public class FetchUri extends Stage {
     this.sizeSuffix = ConfigUtils.getOrDefault(config, "size_suffix", "size");
     this.errorSuffix = ConfigUtils.getOrDefault(config, "error_suffix", "error");
     this.maxDownloadSize = ConfigUtils.getOrDefault(config, "max_size", Integer.MAX_VALUE);
-    this.headers = config.hasPath("headers") ? createHeaderArray(config.getConfig("headers").root().unwrapped()) : null;
-  }
-
-  private static Header[] createHeaderArray(Map<String, Object> map) {
-    List<Header> headerList = new ArrayList<>();
-    for (Map.Entry<String, Object> entry : map.entrySet()) {
-      headerList.add(new BasicHeader(entry.getKey(), (String) entry.getValue()));
-    }
-    return headerList.toArray(new Header[0]);
-  }
+    this.headers = config.hasPath("headers") ? ConfigUtils.createHeaderArray(config.getConfig("headers").root().unwrapped()) : null;
+   }
 
   // Method exists for testing with mockito mocks
   void setClient(CloseableHttpClient client) {
