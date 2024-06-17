@@ -329,23 +329,6 @@
         <version>3.3.2</version>
         <executions>
           <execution>
-            <id>cleanup-output-after</id>
-            <phase>post-integration-phase</phase>
-            <goals>
-              <goal>clean</goal>
-            </goals>
-            <configuration>
-              <filesets>
-                <fileset>
-                  <directory>output/</directory>
-                  <includes>
-                    <include>/*.csv</include>
-                  </includes>
-                </fileset>
-              </filesets>
-            </configuration>
-          </execution>
-          <execution>
             <id>cleanup-output-before</id>
             <phase>pre-integration-phase</phase>
             <goals>
