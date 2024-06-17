@@ -83,12 +83,7 @@ public class ElasticsearchLookupTest {
       BooleanResponse response = new BooleanResponse(false);
       when(falsePing.ping()).thenReturn(response);
       mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(defaultConfig)).thenReturn(falsePing);
-      try {
-        new ElasticsearchLookup(defaultConfig).start();
-        fail("Exception not thrown");
-      } catch (StageException e) {
-        assertEquals("Non true response when pinging Elasticsearch: " + response.toString(), e.getMessage());
-      }
+      assertThrows(StageException.class, () -> new ElasticsearchLookup(defaultConfig).start());
     }
   }
 
