@@ -57,31 +57,34 @@ public class ElasticsearchLookupTest {
 
   @Test
   public void testStart() throws Exception {
-    Config config = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/append.conf");
-    Config config2 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/overwrite.conf");
-    Config config3 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/skip.conf");
-    Config config4 = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/default.conf");
+    Config appendConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/append.conf");
+    Config overwriteConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/overwrite.conf");
+    Config skipConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/skip.conf");
+    Config defaultConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/default.conf");
     try (MockedStatic<ElasticsearchUtils> mockedUtils = Mockito.mockStatic(ElasticsearchUtils.class)) {
+      // test behavior when a client is not returned by the utils class
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(appendConfig)).thenReturn(null);
+      assertMessage("Client was not created.", () -> new ElasticsearchLookup(appendConfig).start());
+
+      // test behavior when there is an exception when trying to ping elastic search 
       ElasticsearchClient noPing = mock(ElasticsearchClient.class);
-      ElasticsearchClient nullPing = mock(ElasticsearchClient.class);
-      ElasticsearchClient falsePing = mock(ElasticsearchClient.class);
-
-      BooleanResponse response = new BooleanResponse(false);
-      when(nullPing.ping()).thenReturn(null);
-      when(falsePing.ping()).thenReturn(response);
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(overwriteConfig)).thenReturn(noPing);
       when(noPing.ping()).thenThrow(new RuntimeException("could not ping"));
+      assertMessage("Couldn't ping elasticsearch", () -> new ElasticsearchLookup(overwriteConfig).start());
 
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config)).thenReturn(null);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config2)).thenReturn(noPing);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config3)).thenReturn(nullPing);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config4)).thenReturn(falsePing);
+      // test behavior when the result of the ping is null
+      ElasticsearchClient nullPing = mock(ElasticsearchClient.class);
+      when(nullPing.ping()).thenReturn(null);
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(skipConfig)).thenReturn(nullPing);
+      assertMessage("Non true response when pinging Elasticsearch: null", () -> new ElasticsearchLookup(skipConfig).start());
 
-      assertMessage("Client was not created.", () -> new ElasticsearchLookup(config).start());
-      assertMessage("Couldn't ping elasticsearch", () -> new ElasticsearchLookup(config2).start());
-      assertMessage("Non true response when pinging Elasticsearch: null", () -> new ElasticsearchLookup(config3).start());
-
+      // test behavior when the result of the ping is false
+      ElasticsearchClient falsePing = mock(ElasticsearchClient.class);
+      BooleanResponse response = new BooleanResponse(false);
+      when(falsePing.ping()).thenReturn(response);
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(defaultConfig)).thenReturn(falsePing);
       try {
-        new ElasticsearchLookup(config4).start();
+        new ElasticsearchLookup(defaultConfig).start();
         fail("Exception not thrown");
       } catch (StageException e) {
         assertEquals("Non true response when pinging Elasticsearch: " + response.toString(), e.getMessage());
@@ -96,30 +99,31 @@ public class ElasticsearchLookupTest {
     Config overwriteConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/overwrite.conf");
     Config skipConfig = ConfigFactory.parseResourcesAnySyntax("ElasticsearchLookupTest/skip.conf");
     try (MockedStatic<ElasticsearchUtils> mockedUtils = Mockito.mockStatic(ElasticsearchUtils.class)) {
-      ElasticsearchTransport badTransport = mock(ElasticsearchTransport.class);
-      ElasticsearchTransport goodTransport = mock(ElasticsearchTransport.class);
-
-      doThrow(new RuntimeException("did not work")).when(badTransport).close();
-
-      ElasticsearchClient nullTransport = mock(ElasticsearchClient.class);
-      ElasticsearchClient badTransportClient = mock(ElasticsearchClient.class);
-      ElasticsearchClient goodTransportClient = mock(ElasticsearchClient.class);
-
-      when(nullTransport._transport()).thenReturn(null);
-      when(badTransportClient._transport()).thenReturn(badTransport);
-      when(goodTransportClient._transport()).thenReturn(goodTransport);
-
+      // assert that no exceptions occur when stopping a stage with null elastic search client
       mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(defaultConfig)).thenReturn(null);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(appendConfig)).thenReturn(nullTransport);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(overwriteConfig)).thenReturn(badTransportClient);
-      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(skipConfig)).thenReturn(goodTransportClient);
-
       new ElasticsearchLookup(defaultConfig).stop();
-      new ElasticsearchLookup(appendConfig).stop();
-      new ElasticsearchLookup(overwriteConfig).stop();
-      new ElasticsearchLookup(skipConfig).stop();
 
+      // assert that no exceptions occur when stopping a stage with a transport which returns null
+      ElasticsearchClient nullTransport = mock(ElasticsearchClient.class);
+      when(nullTransport._transport()).thenReturn(null);
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(appendConfig)).thenReturn(nullTransport);
+      new ElasticsearchLookup(appendConfig).stop();
+
+      // verify that even though the transport throws exceptions when it is used, it is still closed on stop
+      ElasticsearchTransport badTransport = mock(ElasticsearchTransport.class);
+      doThrow(new RuntimeException("did not work")).when(badTransport).close();
+      ElasticsearchClient badTransportClient = mock(ElasticsearchClient.class);
+      when(badTransportClient._transport()).thenReturn(badTransport);
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(overwriteConfig)).thenReturn(badTransportClient);
+      new ElasticsearchLookup(overwriteConfig).stop();
       verify(badTransport, times(1)).close();
+
+      // verify that transport is closed when stage is stopped
+      ElasticsearchTransport goodTransport = mock(ElasticsearchTransport.class);
+      ElasticsearchClient goodTransportClient = mock(ElasticsearchClient.class);
+      when(goodTransportClient._transport()).thenReturn(goodTransport);
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(skipConfig)).thenReturn(goodTransportClient);
+      new ElasticsearchLookup(skipConfig).stop();
       verify(goodTransport, times(1)).close();
     }
   }
