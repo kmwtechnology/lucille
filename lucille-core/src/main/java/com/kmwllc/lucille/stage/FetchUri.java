@@ -61,7 +61,7 @@ public class FetchUri extends Stage {
     this.sizeSuffix = ConfigUtils.getOrDefault(config, "size_suffix", "size");
     this.errorSuffix = ConfigUtils.getOrDefault(config, "error_suffix", "error");
     this.maxDownloadSize = ConfigUtils.getOrDefault(config, "max_size", Integer.MAX_VALUE);
-    this.headers = config.hasPath("headers") ? ConfigUtils.createHeaderArray(config.getConfig("headers").root().unwrapped()) : null;
+    this.headers = ConfigUtils.createHeaderArray(config, "headers");
     this.maxNumRetries = config.hasPath("max_retries") ? config.getInt("max_retries") : 0;
     this.initialExpiry = config.hasPath("initial_expiry_ms") ? config.getInt("initial_expiry_ms") : 100;
     this.maxExpiry = config.hasPath("max_expiry_ms") ? config.getInt("max_expiry_ms") : 10000;

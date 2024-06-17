@@ -34,14 +34,19 @@ public class ConfigUtils {
   }
 
   /**
-   * Creates an array of org.apache.http.Headers given a map of header keys and values which can be used for http requests.
+   * Creates an array of org.apache.http.Headers that can be used for http requests, given a config that contains a header mapping field.
+   * If the field doesn't exist, returns null.
    *
-   * @param map map containing the header values
-   * @return array of Header objects
+   * @param config the config to get the header text from
+   * @param name field in the config that we'll get the header data from
+   * @return the array of Headers
    */
-  public static Header[] createHeaderArray(Map<String, Object> map) {
+  public static Header[] createHeaderArray(Config config, String name) {
+    if (!config.hasPath(name)) {
+      return null;
+    }
     List<Header> headerList = new ArrayList<>();
-    for (Map.Entry<String, Object> entry : map.entrySet()) {
+    for (Map.Entry<String, Object> entry : config.getConfig(name).root().unwrapped().entrySet()) {
       headerList.add(new BasicHeader(entry.getKey(), (String) entry.getValue()));
     }
     return headerList.toArray(new Header[0]);
