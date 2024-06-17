@@ -12,7 +12,7 @@ public class RemoveDiacriticsTest {
 
   @Test
   public void testAccentsAndDiacratics() throws StageException {
-    Stage stage = factory.get("CleanTextTest/config.conf");
+    Stage stage = factory.get("RemoveDiacriticsTest/config.conf");
     Document doc = Document.create("id");
     doc.setField("foo", "āăąēîïĩíĝġńñšŝśûůŷ");
 
