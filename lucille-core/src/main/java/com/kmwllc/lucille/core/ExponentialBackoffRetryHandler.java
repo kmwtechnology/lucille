@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import org.apache.http.client.HttpRequestRetryHandler;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.protocol.HttpContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +27,8 @@ public class ExponentialBackoffRetryHandler implements HttpRequestRetryHandler {
       return false;
     } else {
       long delay = (long) Math.min(this.initialExpiry * Math.pow(2, numRetries - 1), this.maxExpiry);
-      log.info("Retrying request........waiting {}ms", delay);
+      HttpClientContext clientContext = HttpClientContext.adapt(httpContext);
+      log.info("Retrying request path '{}'........waiting {}ms", clientContext.getRequest().getRequestLine().getUri(), delay);
       try {
         Thread.sleep(delay);
       } catch (InterruptedException e) {
