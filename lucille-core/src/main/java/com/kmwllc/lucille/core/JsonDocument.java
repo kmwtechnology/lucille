@@ -854,17 +854,20 @@ public class JsonDocument implements Document {
   @Override
   public void transform(Expressions expr) throws DocumentException {
     HashMap<String, JsonNode> reserved = new HashMap<>();
-    RESERVED_FIELDS.stream().forEach(field -> reserved.put(field, data.get(field)));
+    RESERVED_FIELDS.stream().filter(field -> has(field)).forEach(field -> reserved.put(field, data.get(field)));
     JsonNode transformed = null;
     try {
       transformed = expr.evaluate(data);
     } catch (EvaluateException e) {
-      log.warn("Evaluation exception when applying transformation: ", e);
-      return;
-     }
+      throw new DocumentException("Evaluation exception when applying transformation: " + e.getLocalizedMessage());
+    }
+
+    if (!transformed.isObject()) {
+      throw new DocumentException("Transformation must return a JSON object, not array or literal");
+    }
 
     for (Map.Entry<String, JsonNode> entry : reserved.entrySet()) {
-      if (!entry.getValue().equals(reserved.get(entry.getKey()))) {
+      if (!entry.getValue().equals(transformed.get(entry.getKey()))) {
         throw new DocumentException("The given transformation mutates a reserved field");
       }
     }

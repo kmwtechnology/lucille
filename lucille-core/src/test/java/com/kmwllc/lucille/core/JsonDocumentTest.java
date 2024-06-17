@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.api.jsonata4java.expressions.Expressions;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,6 +15,7 @@ import java.util.function.UnaryOperator;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 
@@ -199,5 +201,27 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals(mapper.readTree("[{\"a\":1}, {\"a\":2}, {\"a\":3}]"), d.getJson("myJson"));
     d.update("myJson", UpdateMode.APPEND, mapper.readTree("{\"a\":4}"));
     assertEquals(mapper.readTree("[{\"a\":1}, {\"a\":2}, {\"a\":3}, {\"a\":4}]"), d.getJson("myJson"));
+  }
+
+  @Test
+  public void testTransform() throws Exception {
+    Document doc = createDocumentFromJson("{\"id\":\"id\",\"foo\": \"bar\"}");
+    
+    // test mutating a reserved field
+    Expressions mutateReservedExpr = Expressions.parse("{\"id\":\"diff\",\"foo\": \"bar\"}");
+    assertThrows(DocumentException.class, () -> doc.transform(mutateReservedExpr));
+
+    // test mutatation does not create object 
+    Expressions mutateIntoArray = Expressions.parse("[1, 2, 3]");
+    Expressions mutateIntoNum = Expressions.parse("3");
+    assertThrows(DocumentException.class, () -> doc.transform(mutateIntoArray));
+    assertThrows(DocumentException.class, () -> doc.transform(mutateIntoNum));
+
+    // test valid mutation 
+    Expressions mutateFoo = Expressions.parse("{\"id\":\"id\",\"foo\": \"diff\"}");
+    doc.transform(mutateFoo);
+    assertEquals(2, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("diff", doc.getString("foo"));
   }
 }
