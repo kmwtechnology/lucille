@@ -47,8 +47,8 @@ public class ApplyJSONNataTest {
 
   @Test 
   public void testApplyToField() throws StageException {
-    Stage withDest = factory.get("ApplyJSONNataTest/withDest.conf");
-    Stage withoutDest = factory.get("ApplyJSONNataTest/withoutDest.conf");
+    Stage stageWithDest = factory.get("ApplyJSONNataTest/withDest.conf");
+    Stage stageWithoutDest = factory.get("ApplyJSONNataTest/withoutDest.conf");
 
     JsonNode bar = mapper.convertValue("bar", JsonNode.class);
     JsonNode foo = mapper.convertValue("foo", JsonNode.class);
@@ -58,13 +58,13 @@ public class ApplyJSONNataTest {
     Document doc2 = Document.create("id");
     doc2.setField("source", bar);
 
-    withDest.processDocument(doc);
+    StageWithDest.processDocument(doc);
     assertEquals(3, doc.getFieldNames().size());
     assertEquals("id", doc.getId());
     assertEquals(bar, doc.getJson("source"));
     assertEquals(foo, doc.getJson("destination"));
 
-    withoutDest.processDocument(doc2);
+    stageWithoutDest.processDocument(doc2);
     System.out.println(doc2.toString());
     assertEquals(2, doc2.getFieldNames().size());
     assertEquals("id", doc2.getId());
