@@ -206,22 +206,32 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   @Test
   public void testTransform() throws Exception {
     Document doc = createDocumentFromJson("{\"id\":\"id\",\"foo\": \"bar\"}");
+    doc.setField("bytes", new byte[]{1, 2, 3});
     
     // test mutating a reserved field
     Expressions mutateReservedExpr = Expressions.parse("{\"id\":\"diff\",\"foo\": \"bar\"}");
     assertThrows(DocumentException.class, () -> doc.transform(mutateReservedExpr));
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("bar", doc.getString("foo"));
+    assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
 
     // test mutatation does not create object 
     Expressions mutateIntoArray = Expressions.parse("[1, 2, 3]");
     Expressions mutateIntoNum = Expressions.parse("3");
     assertThrows(DocumentException.class, () -> doc.transform(mutateIntoArray));
     assertThrows(DocumentException.class, () -> doc.transform(mutateIntoNum));
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("bar", doc.getString("foo"));
+    assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
 
     // test valid mutation 
-    Expressions mutateFoo = Expressions.parse("{\"id\":\"id\",\"foo\": \"diff\"}");
+    Expressions mutateFoo = Expressions.parse("$merge([$, {\"foo\": $substring(foo, 2)}])");
     doc.transform(mutateFoo);
-    assertEquals(2, doc.getFieldNames().size());
+    assertEquals(3, doc.getFieldNames().size());
     assertEquals("id", doc.getId());
-    assertEquals("diff", doc.getString("foo"));
+    assertEquals("r", doc.getString("foo"));
+    assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
   }
 }

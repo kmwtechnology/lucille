@@ -436,6 +436,12 @@ public interface Document {
 
   Document deepCopy();
 
+  /**
+   * Applies a JSONNata expression to this Document (as if it were a JSON object) and replaces this Document with the result. 
+   *
+   * @throws DocumentException if any reserved fields are mutated or if the result is not an object (primitive or array)
+   * @see <a href="https://github.com/IBM/JSONata4Java">JSONNata implementation</a>
+   */
   void transform(Expressions expr) throws DocumentException;
 
   /**
