@@ -15,8 +15,10 @@ public class FileToFileIngestIT {
     File f = null;
     try {
       Config config = ConfigFactory.parseFile(new File("src/test/resources/FileToFileIngestIT/file-to-file-example.conf"));
-      Runner.runInTestMode(config);
       f = new File("output/dest.csv");
+      f.delete();
+      f.createNewFile();
+      Runner.runInTestMode(config);
       List<String> lines = Files.readAllLines(f.toPath());
       assertEquals("\"my_name\",\"my_country\",\"my_price\"", lines.get(0));
       assertEquals("\"Carbonara\",\"Italy\",\"30\"", lines.get(1));
