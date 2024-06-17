@@ -26,33 +26,27 @@ public class ExponentialBackoffRetryHandlerTest {
     requestCounter = 0;
   }
 
-  private void createFailingHttpClient() {
+  @Test
+  public void test2retries() {
     this.httpClient = HttpClientBuilder
         .create()
         .addInterceptorFirst((HttpRequestInterceptor) (request, context) -> requestCounter++)
         .setRetryHandler(new ExponentialBackoffRetryHandler(2, 500, 10000))
         .addInterceptorLast((HttpResponseInterceptor) (response, context) -> { throw new IOException(); })
         .build();
-  }
 
-  @Test
-  public void test2retries() {
-    createFailingHttpClient();
     assertThrows(IOException.class, () -> httpClient.execute(new HttpGet("https://httpstat.us")));
     assertEquals(3, requestCounter);
   }
 
-  public void createHttpClientNoRetries() {
+  @Test
+  public void testNoRetries() throws IOException {
     this.httpClient = HttpClientBuilder
         .create()
         .addInterceptorFirst((HttpRequestInterceptor) (request, context) -> requestCounter++)
         .setRetryHandler(new ExponentialBackoffRetryHandler(0, 1000, 10000))
         .build();
-  }
 
-  @Test
-  public void testNoRetries() throws IOException {
-    createHttpClientNoRetries();
     HttpGet request = new HttpGet(URI.create("https://httpstat.us/500"));
 
     CloseableHttpResponse response = assertDoesNotThrow(() -> httpClient.execute(request));
