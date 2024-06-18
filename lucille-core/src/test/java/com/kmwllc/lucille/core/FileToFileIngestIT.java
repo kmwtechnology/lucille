@@ -15,6 +15,7 @@ public class FileToFileIngestIT {
     File f = null;
     try {
       Config config = ConfigFactory.parseFile(new File("src/test/resources/FileToFileIngestIT/file-to-file-example.conf"));
+      new File("output/").mkdir();
       f = new File("output/dest.csv");
       f.delete();
       f.createNewFile();
