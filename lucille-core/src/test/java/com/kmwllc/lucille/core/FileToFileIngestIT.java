@@ -34,6 +34,7 @@ public class FileToFileIngestIT {
     } finally {
       directory.delete();
       f.delete();
+      directory.delete();
     }
   }
 }
