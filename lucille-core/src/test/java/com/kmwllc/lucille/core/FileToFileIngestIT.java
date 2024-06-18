@@ -13,9 +13,12 @@ public class FileToFileIngestIT {
   @Test
   public void fullIT() throws Exception {
     File f = null;
+    File directory = null;
     try {
       Config config = ConfigFactory.parseFile(new File("src/test/resources/FileToFileIngestIT/file-to-file-example.conf"));
-      f = new File("output/dest.csv");
+      directory = new File("tempIntegrationTestOutput/");
+      directory.mkdir();
+      f = new File("tempIntegrationTestOutput/dest.csv");
       f.delete();
       f.createNewFile();
       Runner.runInTestMode(config);
@@ -30,6 +33,7 @@ public class FileToFileIngestIT {
       assertEquals("\"Wine\",\"France\",\"12\"", lines.get(7));
     } finally {
       f.delete();
+      directory.delete();
     }
   }
 }
