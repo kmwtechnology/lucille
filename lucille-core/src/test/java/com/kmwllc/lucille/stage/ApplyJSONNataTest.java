@@ -65,7 +65,6 @@ public class ApplyJSONNataTest {
     assertEquals(foo, doc.getJson("destination"));
 
     stageWithoutDest.processDocument(doc2);
-    System.out.println(doc2.toString());
     assertEquals(2, doc2.getFieldNames().size());
     assertEquals("id", doc2.getId());
     assertEquals(foo, doc2.getJson("source"));
