@@ -3,6 +3,8 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.StageException;
@@ -17,6 +19,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 
@@ -138,5 +141,22 @@ public class FetchUriTest {
     assertFalse(d.has("url_code"));
     assertFalse(d.has("url_length"));
     assertFalse(d.has("url_error_msg"));
+  }
+
+  @Test
+  public void testFetchUriWithHeaders() throws Exception {
+    FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/headers.conf");
+    s.setClient(mockClient);
+    Document d = Document.create("id");
+    d.setField("url", "https://example.com"); // uri field that is meant to be read
+    s.processDocument(d);
+
+    ArgumentCaptor<HttpGet> httpGetCaptor = ArgumentCaptor.forClass(HttpGet.class);
+    verify(mockClient, times(1)).execute(httpGetCaptor.capture());
+
+    HttpGet httpGet = httpGetCaptor.getValue();
+    assertEquals(2, httpGet.getAllHeaders().length);
+    assertEquals("header1-value", httpGet.getFirstHeader("header1-name").getValue());
+    assertEquals("header2-value", httpGet.getFirstHeader("header2-name").getValue());
   }
 }

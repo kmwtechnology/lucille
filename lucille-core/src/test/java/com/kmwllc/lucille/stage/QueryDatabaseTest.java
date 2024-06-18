@@ -1,15 +1,24 @@
 package com.kmwllc.lucille.stage;
-
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import com.kmwllc.lucille.connector.jdbc.DBTestHelper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Rule;
 import org.junit.Test;
-
+import org.mockito.MockedStatic;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
 public class QueryDatabaseTest {
 
@@ -91,5 +100,45 @@ public class QueryDatabaseTest {
             "class",
             "sql"),
         stage.getLegalProperties());
+  }
+
+  @Test
+  public void testStop() throws Exception {
+    try (MockedStatic<DriverManager> mockedStatic = mockStatic(DriverManager.class)) {
+      PreparedStatement statement = mock(PreparedStatement.class);
+      Connection connection = mock(Connection.class);
+      when(connection.prepareStatement("SELECT name FROM animal WHERE name = ?")).thenReturn(statement);
+      mockedStatic.when(() -> DriverManager.getConnection("jdbc:h2:mem:test", "", "")).thenReturn(connection);
+      Stage stage = factory.get("QueryDatabaseTest/animal.conf");
+      stage.stop();
+      verify(connection).close();
+      verify(statement).close();
+    }
+  }
+
+  @Test
+  public void testPreparedThrows() throws Exception {
+    try (MockedStatic<DriverManager> mockedStatic = mockStatic(DriverManager.class)) {
+      PreparedStatement statement = mock(PreparedStatement.class);
+      Connection connection = mock(Connection.class);
+      when(connection.prepareStatement("SELECT name FROM animal WHERE name = ?")).thenReturn(statement);
+      mockedStatic.when(() -> DriverManager.getConnection("jdbc:h2:mem:test", "", "")).thenReturn(connection);
+      doThrow(SQLException.class).when(statement).close();
+      Stage stage = factory.get("QueryDatabaseTest/animal.conf");
+      assertThrows(StageException.class, () -> stage.stop());
+    }
+  }
+
+  @Test
+  public void testStopConnectionThrows() throws Exception {
+    try (MockedStatic<DriverManager> mockedStatic = mockStatic(DriverManager.class)) {
+      PreparedStatement statement = mock(PreparedStatement.class);
+      Connection connection = mock(Connection.class);
+      when(connection.prepareStatement("SELECT name FROM animal WHERE name = ?")).thenReturn(statement);
+      mockedStatic.when(() -> DriverManager.getConnection("jdbc:h2:mem:test", "", "")).thenReturn(connection);
+      doThrow(SQLException.class).when(connection).close();
+      Stage stage = factory.get("QueryDatabaseTest/animal.conf");
+      assertThrows(StageException.class, () -> stage.stop());
+    }
   }
 }

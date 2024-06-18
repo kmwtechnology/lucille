@@ -17,6 +17,7 @@ import java.util.Set;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ParseJsonTest {
 
@@ -29,7 +30,10 @@ public class ParseJsonTest {
     try (InputStream in = ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/test.json")) {
       doc.setField("json", IOUtils.toString(in, StandardCharsets.UTF_8));
       stage.processDocument(doc);
-      //Get the map so we can assert on type
+
+      assertTrue(doc.has("json")); // ParseJson should not delete the designated src field
+
+      // Get the map so we can assert on type
       Map<String, Object> docMap = doc.asMap();
 
       assertThat(doc.getString("aNumber"), equalTo("1"));
@@ -41,7 +45,7 @@ public class ParseJsonTest {
       assertThat(doc.getString("menuValue"), equalTo("File"));
       assertThat(docMap.get("menuValue"), equalTo("File"));
 
-      //defer to ParseDate stage
+      // defer to ParseDate stage
       assertThat(doc.getString("aDate"), equalTo("2021-12-10"));
       assertThat(doc.getString("aTime"), equalTo("2021-12-10T14:05:26Z"));
       assertThat(docMap.get("aDate"), equalTo("2021-12-10"));
@@ -111,8 +115,6 @@ public class ParseJsonTest {
       // "/items/6" and "/items".get(6) should be equivalent
       assertThat(item7, equalTo(docMap.get("item7")));
     }
-
-
   }
 
   @Test
@@ -122,7 +124,10 @@ public class ParseJsonTest {
     try (InputStream in = ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/test.json")) {
       doc.setField("file_content", Base64.getEncoder().encodeToString(IOUtils.toByteArray(in)));
       stage.processDocument(doc);
-      //Get the map so we can assert on type
+
+      assertTrue(doc.has("file_content")); // ParseJson should not delete the designated src field
+
+      // Get the map so we can assert on type
       Map<String, Object> docMap = doc.asMap();
 
       assertThat(doc.getString("aNumber"), equalTo("1"));
