@@ -16,9 +16,9 @@ public class FileToFileIngestIT {
     File directory = null;
     try {
       Config config = ConfigFactory.parseFile(new File("src/test/resources/FileToFileIngestIT/file-to-file-example.conf"));
-      directory = new File("integration_test_output/");
+      directory = new File("tempIntegrationTestOutput/");
       directory.mkdir();
-      f = new File("integration_test_output/dest.csv");
+      f = new File("tempIntegrationTestOutput/dest.csv");
       f.delete();
       f.createNewFile();
       Runner.runInTestMode(config);
