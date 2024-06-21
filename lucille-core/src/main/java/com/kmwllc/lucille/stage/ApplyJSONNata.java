@@ -17,7 +17,7 @@ import com.typesafe.config.Config;
 
 /**
  * Applies a JSONNata expression to a JSON field or entire document treated as a JSON object. Since JSONNata is Turing complete this can 
- * theoretically carry out any transformation.
+ * theoretically carry out any transformation. NOTE: Applying a transformation to an entire document is an experimental feature and should be used with caution.
  * See <a href="https://github.com/IBM/JSONata4Java">Here</a> for JSONNata implementation.
  * <br>
  * Config Parameters -
