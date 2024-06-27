@@ -34,7 +34,7 @@
 <!--        <Root level="DEBUG">-->
 <!--            <AppenderRef ref="elk" />-->
 <!--        </Root>-->
-        <Logger name="com.kmwllc.com.kmwllc.lucille.core.Heartbeat" level="INFO" additivity="false">
+        <Logger name="com.kmwllc.lucille.core.Heartbeat" level="INFO" additivity="false">
             <AppenderRef ref="heartbeat" />
         </Logger>
     </Loggers>

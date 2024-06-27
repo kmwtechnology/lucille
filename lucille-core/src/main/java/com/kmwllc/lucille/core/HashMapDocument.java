@@ -182,72 +182,6 @@ public class HashMapDocument implements Document, Serializable {
     data.removeFromArray(name, index);
   }
 
-  /**
-   * Private helper method used by different public versions of the overloaded update method.
-   *
-   * <p>Expects two Consumers that invoke setField and addToField respectively on the named field,
-   * passing in a provided value.
-   *
-   * <p>The Consumer / Lambda Expression approach is used here to avoid code duplication between the
-   * various update methods. It is not possible to make update() a generic method because ultimately
-   * it would need to call one of the specific setField or addToField methods which in turn call
-   * data.put(String, String), data.put(String, Long), data.put(String Boolean)
-   */
-  @SafeVarargs
-  private <T> void updateGeneric(String name, UpdateMode mode, T... values) {
-    validateFieldNames(name);
-    if (values.length == 0 || has(name) && mode == UpdateMode.SKIP) {
-      return;
-    }
-    int start = 0;
-    if (mode == UpdateMode.OVERWRITE) {
-      setFieldGeneric(name, values[0]);
-      start++;
-    }
-    for (int i = start; i < values.length; i++) {
-      setOrAddGeneric(name, values[i]);
-    }
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, String... values) {
-    updateGeneric(name, mode, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Long... values) {
-    updateGeneric(name, mode, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Integer... values) {
-    updateGeneric(name, mode, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Boolean... values) {
-    updateGeneric(name, mode, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Double... values) {
-    updateGeneric(name, mode, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Float... values) {
-    updateGeneric(name, mode, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Instant... values) {
-    updateGeneric(name, mode, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, byte[]... values) {
-    updateGeneric(name, mode, values);
-  }
 
   @Override
   public void initializeRunId(String value) {
@@ -434,6 +368,11 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   @Override
+  public JsonNode getJson(String name) {
+    return getValue(name, value -> (JsonNode) value);
+  }
+
+  @Override
   public List<Instant> getInstantList(String name) {
     return getValues(name, value -> (Instant) value);
   }
@@ -441,6 +380,11 @@ public class HashMapDocument implements Document, Serializable {
   @Override
   public List<byte[]> getBytesList(String name) {
     return getValues(name, value -> (byte[]) value);
+  }
+
+  @Override
+  public List<JsonNode> getJsonList(String name) {
+    return getValues(name, value -> (JsonNode) value);
   }
 
   @Override
@@ -522,6 +466,11 @@ public class HashMapDocument implements Document, Serializable {
     addToFieldGeneric(name, value);
   }
 
+  @Override
+  public void addToField(String name, JsonNode value) {
+    addToFieldGeneric(name, value);
+  }
+
   private <T> void setOrAddGeneric(String name, T value) {
     validateFieldNames(name);
     data.setOrAdd(name, value);
@@ -564,6 +513,11 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public void setOrAdd(String name, byte[] value) {
+    setOrAddGeneric(name, value);
+  }
+
+  @Override
+  public void setOrAdd(String name, JsonNode value) {
     setOrAddGeneric(name, value);
   }
 

@@ -24,10 +24,10 @@ import org.slf4j.MDC;
  * Config Parameters:
  *
  * <ul>
- *   <li>conditional_fields (List<String>, Optional) : The fields which will be used to determine if
+ *   <li>conditional_fields (List&lt;String&gt;, Optional) : The fields which will be used to determine if
  *       this stage should be applied. Turns off conditional execution by default.
- *   <li>conditional_values (List<String>, Optional) : The values which we will search the
- *       conditional fields for. Should be set if conditional_fields is set.
+ *   <li>conditional_values (List&lt;String&gt;, Optional) : The values which we will search the
+ *       conditional fields for. If not set, only the existence of fields is checked.
  *   <li>conditional_operator (String, Optional) : The operator to determine conditional execution.
  *       Can be 'must' or 'must_not'. Defaults to must.
  * </ul>
@@ -43,8 +43,8 @@ import org.slf4j.MDC;
 public abstract class Stage {
 
   private static final Set<String> EMPTY_SET = Collections.emptySet();
-  private static final Set<String> CONDITIONS_OPTIONAL = Set.of("operator");
-  private static final Set<String> CONDITIONS_REQUIRED = Set.of("fields", "values");
+  private static final Set<String> CONDITIONS_OPTIONAL = Set.of("operator", "values");
+  private static final Set<String> CONDITIONS_REQUIRED = Set.of("fields");
   private static final Set<String> OPTIONAL_PROPERTIES = Set.of("class", "name", "conditions");
 
   protected Config config;

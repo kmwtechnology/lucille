@@ -8,9 +8,28 @@
   <groupId>com.kmwllc</groupId>
   <artifactId>lucille-parent</artifactId>
   <name>Lucille Parent</name>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.2.3-SNAPSHOT</version>
   <packaging>pom</packaging>
-
+  <description>Lucille is a production-grade Search ETL solution.</description>
+  <url>https://github.com/kmwtechnology/lucille</url>
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>KMW Technology</name>
+      <email>info@kmwllc.com</email>
+    </developer>
+  </developers>
+  <scm>
+    <url>https://github.com/kmwtechnology/lucille</url>
+    <connection>scm:git:git://github.com/kmwtechnology/lucille.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com:kmwtechnology/lucille.git</developerConnection>
+  </scm>
   <properties>
     <at>@</at>
     <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
@@ -21,10 +40,12 @@
     <maven-shade-plugin.version>3.1.0</maven-shade-plugin.version>
     <maven-surefire-plugin.version>2.22.0</maven-surefire-plugin.version>
     <maven-javadoc-plugin.version>3.3.2</maven-javadoc-plugin.version>
-    <jackson.version>2.12.2</jackson.version>
+    <maven-source-plugin.version>3.3.0</maven-source-plugin.version>
+    <maven-gpg-plugin.version>3.0.1</maven-gpg-plugin.version>
+    <jackson.version>2.17.0</jackson.version>
     <!-- todo if updated to version 9 will need to add solr-solrj-zookeeper dependency -->
-    <lucene.version>9.7.0</lucene.version>
-    <solr.version>9.3.0</solr.version>
+    <lucene.version>9.9.2</lucene.version>
+    <solr.version>9.5.0</solr.version>
     <opensearch-rest-client.version>1.2.0</opensearch-rest-client.version>
     <opensearch.version>0.1.0</opensearch.version>
     <opensearch-java.version>2.6.0</opensearch-java.version>
@@ -37,10 +58,10 @@
     <vfs-s3.version>4.3.6</vfs-s3.version>
     <log4j.version>2.20.0</log4j.version>
     <slf4j.version>2.0.7</slf4j.version>
-    <apache-commons-lang3.version>3.9</apache-commons-lang3.version>
+    <apache-commons-lang3.version>3.12.0</apache-commons-lang3.version>
     <apache-commons-text.version>1.10.0</apache-commons-text.version>
-    <protobuf.version>3.19.2</protobuf.version>
-    <netty.version>4.1.89.Final</netty.version>
+    <protobuf.version>3.25.3</protobuf.version>
+    <netty.version>4.1.108.Final</netty.version>
     <grpc.version>1.53.0</grpc.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
@@ -133,7 +154,7 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.13.1</version>
+      <version>4.13</version>
       <scope>test</scope>
     </dependency>
 
@@ -241,6 +262,20 @@
 
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>${maven-source-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
 
     <pluginManagement>
@@ -256,4 +291,52 @@
       </plugins>
     </pluginManagement>
   </build>
+
+<profiles>
+    <profile>
+      <id>deploy</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+        <property>
+          <name>deploy</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>${maven-gpg-plugin.version}</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+                <configuration>
+                  <!-- This is necessary for gpg to not try to use the pinentry programs -->
+                  <gpgArguments>
+                    <arg>--pinentry-mode</arg>
+                    <arg>loopback</arg>
+                  </gpgArguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+  <distributionManagement>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+    <repository>
+      <id>ossrh</id>
+      <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+  </distributionManagement>
 </project>

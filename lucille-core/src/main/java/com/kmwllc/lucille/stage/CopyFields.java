@@ -18,8 +18,8 @@ import java.util.List;
  *
  * Config Parameters:
  *
- *   - source (List<String>) : list of source field names
- *   - dest (List<String>) : list of destination field names. You can either supply the same number of source and destination fields
+ *   - source (List&lt;String&gt;) : list of source field names
+ *   - dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.

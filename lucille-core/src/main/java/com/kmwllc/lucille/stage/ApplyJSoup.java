@@ -39,12 +39,14 @@ import com.typesafe.config.Config;
  * <b>charset</b> (String, Optional) : the encoding of the html document. If none is provided when filePathField is provided the charset is detected from 
  * the byte-order-mark (BOM) or meta tags and defaults to UTF-8 if none is found. If no charset is provided when byteArrayField is provided the charset defaults 
  * to UTF-8 immediately. Has no effect if stringField is provided.
+ * </p>
  * @see <a href="https://docs.oracle.com/javase/8/docs/api/java/nio/charset/Charset.html"> Charsets </a> for information on supported charsets and conventions for 
  * specifying them.
- * </p>
+ * <p>
  * <b>destinationFields</b> (Map&lt;String, Map&lt;String, String&gt;&gt;) : defines a mapping from destination fields to selector maps. Selector maps have a `selector` field which takes 
  * a css selector and a `type` field which takes one of the following: 'text', 'attribute', 'html', or 'outerHtml'. When doing attribute extraction an additional `attribute` with 
  * the desired attribute must be specified. For example:
+ * </p>
  * <p>
  *  destinationFields: {
  *    destination1: {
@@ -58,7 +60,6 @@ import com.typesafe.config.Config;
  * multiple elements the destination field receives a list of processed elements. If a selector returns no elements for a document then the 
  * destination field is not created.  
  * @see <a href="https://jsoup.org/cookbook/extracting-data/selector-syntax"> CSS selectors </a> for information on supported selectors
- * </p>
  */
 public class ApplyJSoup extends Stage {
 

@@ -17,9 +17,9 @@ import java.util.regex.Pattern;
  * <br>
  * Config Parameters:
  *<br>
- *   - source (List<String>) : List of source field names.
+ *   - source (List&lt;String&gt;) : List of source field names.
  *   <br>
- *   - dest (List<String>) : List of destination field names. You can either supply the same number of source and destination fields.
+ *   - dest (List&lt;String&gt;) : List of destination field names. You can either supply the same number of source and destination fields.
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  *   <br>
  *   - regex (String) : A regex expression to find matches for. Matches will be extracted and placed in the destination fields.

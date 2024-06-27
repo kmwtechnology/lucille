@@ -159,6 +159,10 @@ public class Runner {
    */
   public static Map<String, TestMessenger> runInTestMode(String configName) throws Exception {
     Config config = ConfigFactory.load(configName);
+    return runInTestMode(config);
+  }
+
+  public static Map<String, TestMessenger> runInTestMode(Config config) throws Exception {
     RunResult result = run(config, RunType.TEST);
     return result.getHistory();
   }

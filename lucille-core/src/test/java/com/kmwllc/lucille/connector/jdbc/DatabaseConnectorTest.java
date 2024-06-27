@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector.jdbc;
 
-
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -44,7 +43,46 @@ public class DatabaseConnectorTest {
   }
 
   @Test
-  public void testDatabaseConnector() throws Exception {
+  public void testDatabaseConnectorMixed() throws Exception {
+    // The only connection to the h2 database should be the dbHelper
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    // Create the test config
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
+    configValues.put("idField", "id");
+
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // create the connector with the config
+    DatabaseConnector connector = new DatabaseConnector(config);
+
+    // start the connector
+    connector.execute(publisher);
+
+    // Confirm there were 3 results.
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
+    assertEquals(2, docsSentForProcessing.size());
+
+    assertEquals("1", docsSentForProcessing.get(0).getId());
+    assertEquals((Integer)3, docsSentForProcessing.get(0).getInt("int_field"));
+    assertEquals(true, docsSentForProcessing.get(0).getBoolean("bool_field"));
+
+    assertEquals("2", docsSentForProcessing.get(1).getId());
+    assertEquals((Integer)4, docsSentForProcessing.get(1).getInt("int_field"));
+    assertEquals(false, docsSentForProcessing.get(1).getBoolean("bool_field"));
+
+    connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+  @Test public void testDatabaseConnector() throws Exception {
 
     // The only connection to the h2 database should be the dbHelper
     assertEquals(1, dbHelper.checkNumConnections());
@@ -165,7 +203,7 @@ public class DatabaseConnectorTest {
     assertEquals(3, docs.size());
 
     // TODO: better verification / edge cases.. also formalize the "children" docs.
-    String expected = "{\"id\":\"1\",\"name\":\"Matt\",\".children\":[{\"id\":\"0\",\"meal_id\":\"1\",\"animal_id\":\"1\",\"name\":\"breakfast\"},{\"id\":\"1\",\"meal_id\":\"2\",\"animal_id\":\"1\",\"name\":\"lunch\"},{\"id\":\"2\",\"meal_id\":\"3\",\"animal_id\":\"1\",\"name\":\"dinner\"}],\"run_id\":\"testRunId\"}";
+    String expected = "{\"id\":\"1\",\"name\":\"Matt\",\".children\":[{\"id\":\"0\",\"meal_id\":1,\"animal_id\":1,\"name\":\"breakfast\"},{\"id\":\"1\",\"meal_id\":2,\"animal_id\":1,\"name\":\"lunch\"},{\"id\":\"2\",\"meal_id\":3,\"animal_id\":1,\"name\":\"dinner\"}],\"run_id\":\"testRunId\"}";
     assertEquals(expected, docs.get(0).toString());
 
     connector.close();
