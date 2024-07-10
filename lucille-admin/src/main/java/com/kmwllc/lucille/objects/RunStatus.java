@@ -11,6 +11,11 @@ public class RunStatus {
     this.isRunning = isRunning;
   }
 
+  public RunStatus(boolean isRunning) {
+    this.runId = "";
+    this.isRunning = true;
+  }
+
   public String getRunId() {
     return runId;
   }
