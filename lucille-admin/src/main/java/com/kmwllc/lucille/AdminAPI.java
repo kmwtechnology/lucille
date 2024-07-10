@@ -4,7 +4,6 @@ import com.kmwllc.lucille.resources.LucilleAdminResource;
 import com.kmwllc.lucille.resources.LucilleLivenessResource;
 import com.kmwllc.lucille.resources.LucilleReadinessResource;
 import io.dropwizard.core.Application;
-import io.dropwizard.core.Configuration;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
 import org.slf4j.Logger;
@@ -24,14 +23,16 @@ public class AdminAPI extends Application<LucilleAPIConfiguration> {
 
   @Override
   public void run(LucilleAPIConfiguration config, Environment env) throws Exception {
+    // Register our 3 Resources
     env.jersey().register(new LucilleAdminResource());
     env.jersey().register(new LucilleLivenessResource());
     env.jersey().register(new LucilleReadinessResource());
 
+    // Register the LivenessCheck as a HealthCheck
     env.healthChecks().register("LivenessCheck", new LucilleLivenessResource());
   }
 
-  public static void main(String[] args) {
-    System.out.println("Hello world!");
+  public static void main(String[] args) throws Exception {
+    new AdminAPI().run(args);
   }
 }
