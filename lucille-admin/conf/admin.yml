@@ -1,0 +1,4 @@
+# This is the DropWizard configuration file. For now we are not configuring anything, but we may want
+# to in prod. https://www.dropwizard.io/en/stable/manual/configuration.html#man-configuration
+server:
+  type: default

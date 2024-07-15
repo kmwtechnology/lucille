@@ -18,6 +18,8 @@ public class LucilleLivenessResource extends HealthCheck {
   }
 
 
+  // The Liveness endpoint can serve as both the 'livez' endpoint for Kubernetes and the
+  // HealthCheck endpoint for Dropwizard
   @Override
   public Result check() throws Exception {
     return Result.healthy();

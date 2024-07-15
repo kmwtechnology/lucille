@@ -1,4 +1,4 @@
-package com.kmwllc.lucille;
+package com.kmwllc.lucille.core;
 
 import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.Runner.RunType;
@@ -28,7 +28,7 @@ public class RunnerManager {
 
   private CompletableFuture<Void> future;
 
-  synchronized public void run(boolean local) {
+  synchronized public void run() {
     if (future != null && !future.isDone()) {
       log.warn("Skipping new run; previous lucille run is still in progress.");
       return;
@@ -42,8 +42,8 @@ public class RunnerManager {
 
         isRunning = true;
 
-        // For now we will never use kafka
-        RunType runType = Runner.getRunType(false, local);
+        // For now we will always use local mode without kafka
+        RunType runType = Runner.getRunType(false, true);
 
         Runner.runWithResultLog(config, runType);
       } catch (Exception e) {

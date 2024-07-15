@@ -1,5 +1,6 @@
 package endpoints;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.RunnerManager;
@@ -14,33 +15,14 @@ import org.mockito.junit.MockitoJUnitRunner;
 @RunWith(MockitoJUnitRunner.class)
 public class LucilleAdminResourceTest {
 
-  @Mock
-  RunnerManager manager = RunnerManager.getInstance();
-
-  @InjectMocks
   private static final LucilleAdminResource admin = new LucilleAdminResource();
 
   @Test
   public void testGetRunStatus() {
-    when(manager.isRunning()).thenReturn(true);
-
     Response status = admin.getRunStatus();
 
-    System.out.println(status.getEntity().toString());
+    assertEquals("{'isRunning': 'false', 'runId': ''}", status.getEntity().toString());
   }
 
-  @Test
-  public void testStartRunLocal() {
-  }
-
-  @Test
-  public void testStartRunNonLocal() {
-
-  }
-
-  @Test
-  public void testRunWithoutParameters() {
-
-  }
-
+  // TODO : Do we need to test the startRun() method here if we are testing it in the integration test
 }
