@@ -1,16 +1,19 @@
-package com.kmwllc.lucille.resources;
+package com.kmwllc.lucille.endpoints;
 
 import com.kmwllc.lucille.core.RunnerManager;
 import com.kmwllc.lucille.objects.RunStatus;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 
+import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.Response.Status;
 
+@Path("/admin")
+@Produces(MediaType.APPLICATION_JSON)
 public class LucilleAdminResource {
 
   private final RunnerManager rm;
@@ -29,14 +32,14 @@ public class LucilleAdminResource {
   }
 
   @POST
-  public Response startRun( @PathParam("local") boolean local) {
-    rm.run(local);
+  public Response startRun() {
+    rm.run();
 
     // TODO : Should we alert if the run was skipped?
     return Response.ok("Lucille run has been triggered.").build();
   }
 
-  @POST
+  @DELETE
   public Response stopRun() {
     // Return 'Not Implemented' status
     return Response.status(501).build();

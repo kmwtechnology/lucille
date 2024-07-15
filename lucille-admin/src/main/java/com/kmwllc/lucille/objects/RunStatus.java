@@ -13,7 +13,7 @@ public class RunStatus {
 
   public RunStatus(boolean isRunning) {
     this.runId = "";
-    this.isRunning = true;
+    this.isRunning = isRunning;
   }
 
   public String getRunId() {
@@ -22,6 +22,22 @@ public class RunStatus {
 
   public boolean isRunning() {
     return isRunning;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof RunStatus)) {
+      return false;
+    }
+
+    RunStatus status = (RunStatus) o;
+
+    return this.isRunning == status.isRunning && this.runId.equals(status.runId);
+  }
+
+  @Override
+  public String toString() {
+    return String.format("{'isRunning': '%s', 'runId': '%s'}", this.isRunning, this.runId);
   }
 
 }
