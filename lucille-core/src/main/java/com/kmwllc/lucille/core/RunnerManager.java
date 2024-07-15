@@ -1,11 +1,10 @@
-package com.kmwllc.lucille.core;
+package com.kmwllc.lucille;
 
+import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.Runner.RunType;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,24 +26,6 @@ public class RunnerManager {
     return isRunning;
   }
 
-  private static final Runnable RUN = (Function<Boolean, Void>) (local) ->  {
-    try {
-      log.info("Starting lucille run via the Runner Manager.");
-      Config config = ConfigFactory.load();
-
-      isRunning = true;
-
-      // For now we will never use kafka
-      RunType runType = Runner.getRunType(false, local);
-
-      Runner.runWithResultLog(config, runType);
-    } catch (Exception e) {
-      log.error("Failed to run lucille via the Runner Manager.", e);
-    } finally {
-      isRunning = false;
-    }
-  };
-
   private CompletableFuture<Void> future;
 
   synchronized public void run(boolean local) {
@@ -53,6 +34,23 @@ public class RunnerManager {
       return;
     }
 
-    future = CompletableFuture.runAsync(RUN);
+    future = CompletableFuture.runAsync(() -> {
+      try {
+        log.info("Starting lucille run via the Runner Manager.");
+        Config config = ConfigFactory.load();
+        log.info(config.entrySet().toString());
+
+        isRunning = true;
+
+        // For now we will never use kafka
+        RunType runType = Runner.getRunType(false, local);
+
+        Runner.runWithResultLog(config, runType);
+      } catch (Exception e) {
+        log.error("Failed to run lucille via the Runner Manager.", e);
+      } finally {
+        isRunning = false;
+      }
+    });
   }
 }

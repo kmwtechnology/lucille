@@ -1,0 +1,1 @@
+java -Dconfig.file=/Users/spencersolomon/KMW/repos/lucille/lucille-examples/lucille-simple-csv-solr-example/conf/simple-csv-solr-example.conf -jar /Users/spencersolomon/KMW/repos/lucille/lucille-admin/target/lucille-admin-0.2.3-SNAPSHOT.jar server

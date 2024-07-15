@@ -1,8 +1,8 @@
 package com.kmwllc.lucille;
 
-import com.kmwllc.lucille.resources.LucilleAdminResource;
-import com.kmwllc.lucille.resources.LucilleLivenessResource;
-import com.kmwllc.lucille.resources.LucilleReadinessResource;
+import com.kmwllc.lucille.endpoints.LucilleAdminResource;
+import com.kmwllc.lucille.endpoints.LucilleLivenessResource;
+import com.kmwllc.lucille.endpoints.LucilleReadinessResource;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
