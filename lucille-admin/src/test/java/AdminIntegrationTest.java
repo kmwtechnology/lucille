@@ -47,6 +47,9 @@ public class AdminIntegrationTest {
 
   @Test
   public void testLucilleStart() throws Exception {
+    // TODO: Right now this test just ensures that running a POST to the /admin endpoint will call RunnerManager.run()
+    // TODO : We should somehow mock the RunnerManager so that we can confirm getRunStatus() works before, during and after a lucille run
+
     try (Response status = client.target(url + "admin").request().post(null)) {
       status.bufferEntity();
       byte[] bytes = ((ByteArrayInputStream) status.getEntity()).readAllBytes();

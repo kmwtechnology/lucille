@@ -211,7 +211,6 @@ public class Runner {
    * Kicks off a new Lucille run and logs information about the run to the console after completion.
    */
   public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
-    // TODO : Abstract this out into new method
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
     RunResult result;
