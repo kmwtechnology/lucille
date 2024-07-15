@@ -14,8 +14,6 @@ public class RunnerManager {
 
   private static volatile RunnerManager instance = new RunnerManager();
 
-  protected static boolean isRunning = false;
-
   private RunnerManager() {}
 
   public static RunnerManager getInstance() {
@@ -23,13 +21,13 @@ public class RunnerManager {
   }
 
   public boolean isRunning() {
-    return isRunning;
+    return (future != null && !future.isDone());
   }
 
   private CompletableFuture<Void> future;
 
   synchronized public void run() {
-    if (future != null && !future.isDone()) {
+    if (isRunning()) {
       log.warn("Skipping new run; previous lucille run is still in progress.");
       return;
     }
@@ -40,16 +38,12 @@ public class RunnerManager {
         Config config = ConfigFactory.load();
         log.info(config.entrySet().toString());
 
-        isRunning = true;
-
         // For now we will always use local mode without kafka
         RunType runType = Runner.getRunType(false, true);
 
         Runner.runWithResultLog(config, runType);
       } catch (Exception e) {
         log.error("Failed to run lucille via the Runner Manager.", e);
-      } finally {
-        isRunning = false;
       }
     });
   }
