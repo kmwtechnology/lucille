@@ -35,13 +35,6 @@ public class LucilleAdminResource {
   public Response startRun() {
     rm.run();
 
-    // TODO : Should we alert if the run was skipped?
     return Response.ok("Lucille run has been triggered.").build();
-  }
-
-  @DELETE
-  public Response stopRun() {
-    // Return 'Not Implemented' status
-    return Response.status(501).build();
   }
 }

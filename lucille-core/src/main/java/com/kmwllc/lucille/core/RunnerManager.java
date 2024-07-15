@@ -12,6 +12,7 @@ public class RunnerManager {
 
   private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
 
+  // TODO : Check if we need volatile keyword
   private static volatile RunnerManager instance = new RunnerManager();
 
   private RunnerManager() {}
@@ -20,16 +21,20 @@ public class RunnerManager {
     return instance;
   }
 
-  public boolean isRunning() {
+  synchronized public boolean isRunning() {
     return (future != null && !future.isDone());
   }
 
   private CompletableFuture<Void> future;
 
-  synchronized public void run() {
+  /**
+   * TODO : Fill in JAva doc
+   * @return
+   */
+  synchronized public boolean run() {
     if (isRunning()) {
       log.warn("Skipping new run; previous lucille run is still in progress.");
-      return;
+      return false;
     }
 
     future = CompletableFuture.runAsync(() -> {
@@ -46,5 +51,7 @@ public class RunnerManager {
         log.error("Failed to run lucille via the Runner Manager.", e);
       }
     });
+
+    return true;
   }
 }
