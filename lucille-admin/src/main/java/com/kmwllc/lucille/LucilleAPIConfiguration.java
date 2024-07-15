@@ -6,3 +6,5 @@ import io.dropwizard.core.Configuration;
 // https://www.dropwizard.io/en/stable/manual/configuration.html#man-configuration
 public class LucilleAPIConfiguration extends Configuration {
 }
+
+// TODO : Add notes on Configuration to README

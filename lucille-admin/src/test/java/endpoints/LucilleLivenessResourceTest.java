@@ -16,16 +16,7 @@ public class LucilleLivenessResourceTest {
   public void testLivenessEndpoint() {
     Response response = liveness.isAlive();
 
-    System.out.println(response);
-    System.out.println(Response.ok().build());
-
     assertEquals(Response.ok().build().toString(), response.toString());
   }
 
-  @Test
-  public void testLivenessHealthCheck() throws Exception {
-    Result result = liveness.check();
-
-    assertEquals(Result.healthy(), result);
-  }
 }

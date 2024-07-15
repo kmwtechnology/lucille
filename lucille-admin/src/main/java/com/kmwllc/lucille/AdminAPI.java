@@ -27,9 +27,6 @@ public class AdminAPI extends Application<LucilleAPIConfiguration> {
     env.jersey().register(new LucilleAdminResource());
     env.jersey().register(new LucilleLivenessResource());
     env.jersey().register(new LucilleReadinessResource());
-
-    // Register the LivenessCheck as a HealthCheck
-    env.healthChecks().register("LivenessCheck", new LucilleLivenessResource());
   }
 
   public static void main(String[] args) throws Exception {
