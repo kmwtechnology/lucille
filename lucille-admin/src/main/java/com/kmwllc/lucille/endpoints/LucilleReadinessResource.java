@@ -8,6 +8,12 @@ import jakarta.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Lucille Readiness Health Check Endpoint:
+ *
+ * - endpoint: '/readyz'
+ *   - GET: lucille readiness status (always OK)
+ */
 @Path("/readyz")
 @Produces(MediaType.APPLICATION_JSON)
 public class LucilleReadinessResource {

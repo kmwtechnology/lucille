@@ -6,6 +6,8 @@ import static org.mockito.Mockito.when;
 import com.kmwllc.lucille.core.RunnerManager;
 import com.kmwllc.lucille.endpoints.LucilleAdminResource;
 import jakarta.ws.rs.core.Response;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
@@ -24,5 +26,17 @@ public class LucilleAdminResourceTest {
     assertEquals("{'isRunning': 'false', 'runId': ''}", status.getEntity().toString());
   }
 
-  // TODO : Do we need to test the startRun() method here if we are testing it in the integration test
+  @Test
+  public void testRun() {
+    // Ensure that a 200 OK is returned when the run is started
+    Response status = Response.status(404).build();
+
+    try {
+      status = admin.startRun();
+    } catch (Exception e) {
+      System.out.println(e);
+    }
+
+    assertEquals(200, status.getStatus());
+  }
 }

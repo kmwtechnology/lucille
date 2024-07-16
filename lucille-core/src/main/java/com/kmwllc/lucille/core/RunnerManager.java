@@ -8,11 +8,15 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Public API for starting lucille runs and viewing their status. Will be used by external resources, namely the Admin API to kick
+ * off lucille runs.
+ */
 public class RunnerManager {
 
   private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
 
-  // TODO : Check if we need volatile keyword
+  // Use the eager-initialization singleton pattern
   private static volatile RunnerManager instance = new RunnerManager();
 
   private RunnerManager() {}
@@ -21,6 +25,7 @@ public class RunnerManager {
     return instance;
   }
 
+  // Check whether the CompleteableFuture exists and is not done
   synchronized public boolean isRunning() {
     return (future != null && !future.isDone());
   }
@@ -28,13 +33,19 @@ public class RunnerManager {
   private CompletableFuture<Void> future;
 
   /**
-   * TODO : Fill in JAva doc
-   * @return
+   * Main entrypoint for kicking off lucille runs. This method spawns a new thread for lucille to run in, but will not start a new
+   * instance of lucille until the previous one terminates.
+   *
+   * @return boolean representing whether the lucille run was initiated or not. This will return false if and only if the lucille
+   * run was skipped due to the previous run still existing.
    */
   synchronized public boolean run() {
     return runWithConfig(ConfigFactory.load());
   }
 
+  /**
+   * Internal abstraction used to support testing.
+   */
   synchronized protected boolean runWithConfig(Config config) {
     if (isRunning()) {
       log.warn("Skipping new run; previous lucille run is still in progress.");

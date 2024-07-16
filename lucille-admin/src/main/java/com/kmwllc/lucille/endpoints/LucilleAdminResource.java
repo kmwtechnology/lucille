@@ -2,16 +2,21 @@ package com.kmwllc.lucille.endpoints;
 
 import com.kmwllc.lucille.core.RunnerManager;
 import com.kmwllc.lucille.objects.RunStatus;
-import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+/**
+ * Lucille Admin API Endpoint:
+ *
+ * - endpoint: '/admin'
+ *   - GET: obtain lucille run status
+ *   - POST: Kick off new lucille run, if one is not already running
+ */
 @Path("/admin")
 @Produces(MediaType.APPLICATION_JSON)
 public class LucilleAdminResource {

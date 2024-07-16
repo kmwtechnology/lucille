@@ -9,6 +9,9 @@ import io.dropwizard.core.setup.Environment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Main Class for the Lucille Admin API.
+ */
 public class AdminAPI extends Application<LucilleAPIConfiguration> {
 
   public static final Logger log = LoggerFactory.getLogger(AdminAPI.class);
