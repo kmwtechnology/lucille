@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.endpoints;
 
-import com.codahale.metrics.health.HealthCheck;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Produces;
@@ -9,6 +8,12 @@ import jakarta.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Lucille Liveness Health Check Endpoint:
+ *
+ * - endpoint: '/livez'
+ *   - GET: lucille liveness status (always OK)
+ */
 @Path("/livez")
 @Produces(MediaType.APPLICATION_JSON)
 public class LucilleLivenessResource {
