@@ -32,6 +32,10 @@ public class RunnerManager {
    * @return
    */
   synchronized public boolean run() {
+    return runWithConfig(ConfigFactory.load());
+  }
+
+  synchronized protected boolean runWithConfig(Config config) {
     if (isRunning()) {
       log.warn("Skipping new run; previous lucille run is still in progress.");
       return false;
@@ -40,7 +44,6 @@ public class RunnerManager {
     future = CompletableFuture.runAsync(() -> {
       try {
         log.info("Starting lucille run via the Runner Manager.");
-        Config config = ConfigFactory.load();
         log.info(config.entrySet().toString());
 
         // For now we will always use local mode without kafka
