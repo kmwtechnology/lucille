@@ -14,6 +14,8 @@
     </parent>
 
     <artifactId>lucille-admin</artifactId>
+    <packaging>jar</packaging>
+    <name>Lucille Admin</name>
 
     <dependencies>
       <!-- Dropwizard Core dependency for Lucille Admin API -->
@@ -34,19 +36,6 @@
           <groupId>io.dropwizard</groupId>
           <artifactId>dropwizard-http2</artifactId>
           <version>4.0.0</version>
-      </dependency>
-
-     <dependency>
-        <groupId>io.dropwizard</groupId>
-        <artifactId>dropwizard-testing</artifactId>
-        <version>4.0.0</version>
-        <scope>test</scope>
-        <exclusions>
-            <exclusion>
-                <groupId>junit</groupId>
-                <artifactId>junit</artifactId>
-            </exclusion>
-        </exclusions>
       </dependency>
 
      <dependency>
@@ -92,7 +81,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <configuration>
-                    <createDependencyReducedPom>true</createDependencyReducedPom>
+                    <createDependencyReducedPom>false</createDependencyReducedPom>
                     <filters>
                         <filter>
                             <artifact>*:*</artifact>

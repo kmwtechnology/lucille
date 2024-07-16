@@ -33,8 +33,12 @@ public class LucilleAdminResource {
 
   @POST
   public Response startRun() {
-    rm.run();
+    boolean status = rm.run();
 
-    return Response.ok("Lucille run has been triggered.").build();
+    if (status) {
+      return Response.ok("Lucille run has been triggered.").build();
+    } else {
+      return Response.ok("This lucille run has been skipped. An instance of lucille is already running.").build();
+    }
   }
 }
