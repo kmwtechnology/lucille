@@ -18,13 +18,6 @@
     <name>Lucille Admin</name>
 
     <dependencies>
-      <!-- Dropwizard Core dependency for Lucille Admin API -->
-      <dependency>
-        <groupId>io.dropwizard</groupId>
-        <artifactId>dropwizard-core</artifactId>
-        <version>4.0.0</version>
-      </dependency>
-
       <dependency>
         <groupId>com.kmwllc</groupId>
         <artifactId>lucille-core</artifactId>
@@ -32,16 +25,17 @@
         <scope>compile</scope>
       </dependency>
 
+      <!-- Dropwizard Core dependency for Lucille Admin API -->
       <dependency>
-          <groupId>io.dropwizard</groupId>
-          <artifactId>dropwizard-http2</artifactId>
-          <version>4.0.0</version>
+        <groupId>io.dropwizard</groupId>
+        <artifactId>dropwizard-core</artifactId>
+        <version>${dropwizard-core.version}</version>
       </dependency>
 
      <dependency>
         <groupId>io.dropwizard.modules</groupId>
         <artifactId>dropwizard-testing-junit4</artifactId>
-        <version>4.0.0</version>
+        <version>${dropwizard-core.version}</version>
         <scope>test</scope>
         <exclusions>
             <exclusion>
