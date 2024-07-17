@@ -175,9 +175,12 @@ public class KafkaUtils {
       CreateTopicsResult result = kafkaAdminClient.createTopics(List.of(eventTopic), new CreateTopicsOptions());
       KafkaFuture<Void> future = result.all();
       future.get();
-    } catch (Exception e) {
-      log.warn("Event topic {} already exists.", eventTopicName);
-      return false;
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof TopicExistsException) {
+        log.warn("Event topic {} already exists.", eventTopicName);
+        return false;
+      }
+      throw e;
     }
 
     return true;
