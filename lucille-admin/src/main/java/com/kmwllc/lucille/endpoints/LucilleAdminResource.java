@@ -21,15 +21,15 @@ import jakarta.ws.rs.core.Response;
 @Produces(MediaType.APPLICATION_JSON)
 public class LucilleAdminResource {
 
-  private final RunnerManager rm;
+  private final RunnerManager runnerManager;
 
-  public LucilleAdminResource() {
-    rm = RunnerManager.getInstance();
+  public LucilleAdminResource(RunnerManager runnerManager) {
+    this.runnerManager = runnerManager;
   }
 
   @GET
   public Response getRunStatus() {
-    boolean isRunning = rm.isRunning();
+    boolean isRunning = runnerManager.isRunning();
 
     RunStatus runStatus = new RunStatus(isRunning);
 
@@ -38,7 +38,7 @@ public class LucilleAdminResource {
 
   @POST
   public Response startRun() {
-    boolean status = rm.run();
+    boolean status = runnerManager.run();
 
     if (status) {
       return Response.ok("Lucille run has been triggered.").build();

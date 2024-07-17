@@ -1,5 +1,6 @@
 package com.kmwllc.lucille;
 
+import com.kmwllc.lucille.core.RunnerManager;
 import com.kmwllc.lucille.endpoints.LucilleAdminResource;
 import com.kmwllc.lucille.endpoints.LucilleLivenessResource;
 import com.kmwllc.lucille.endpoints.LucilleReadinessResource;
@@ -26,8 +27,10 @@ public class AdminAPI extends Application<LucilleAPIConfiguration> {
 
   @Override
   public void run(LucilleAPIConfiguration config, Environment env) throws Exception {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+
     // Register our 3 Resources
-    env.jersey().register(new LucilleAdminResource());
+    env.jersey().register(new LucilleAdminResource(runnerManager));
     env.jersey().register(new LucilleLivenessResource());
     env.jersey().register(new LucilleReadinessResource());
   }
