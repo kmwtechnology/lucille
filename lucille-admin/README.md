@@ -25,7 +25,7 @@ The available endpoints are as follows:
 
  |        | GET                                        | POST                                               | DELETE          |
  |--------|--------------------------------------------|----------------------------------------------------|-----------------|
- | admin  | Gets the status of the current lucille run | Kicks off a new lucille run, if one is not running | Not Implemented |
+ | lucille| Gets the status of the current lucille run | Kicks off a new lucille run, if one is not running | Not Implemented |
  | livez  | liveness health check endpoint             | Not Implemented                                    | Not Implemented |
  | readyz | readiness health check endpoint            | Not Implemented                                    | Not Implemented |
 

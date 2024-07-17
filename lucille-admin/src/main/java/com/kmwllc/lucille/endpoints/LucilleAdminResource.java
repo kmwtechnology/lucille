@@ -17,7 +17,7 @@ import jakarta.ws.rs.core.Response;
  *   - GET: obtain lucille run status
  *   - POST: Kick off new lucille run, if one is not already running
  */
-@Path("/admin")
+@Path("/lucille")
 @Produces(MediaType.APPLICATION_JSON)
 public class LucilleAdminResource {
 
@@ -43,7 +43,7 @@ public class LucilleAdminResource {
     if (status) {
       return Response.ok("Lucille run has been triggered.").build();
     } else {
-      return Response.ok("This lucille run has been skipped. An instance of lucille is already running.").build();
+      return Response.status(424).entity("This lucille run has been skipped. An instance of lucille is already running.").build();
     }
   }
 }
