@@ -52,4 +52,4 @@ ENV DROPWIZARD_CONF="conf/admin.yml"
 # Expose port 8080 so we can make requests to the API
 EXPOSE 8080
 
-ENTRYPOINT java -Dconfig.file=${LUCILLE_CONF} -jar target/lucille-admin-0.2.3-SNAPSHOT.jar server ${DROPWIZARD_CONF}
+ENTRYPOINT java -Dconfig.file=${LUCILLE_CONF} -jar target/lucille-admin.jar server ${DROPWIZARD_CONF}
