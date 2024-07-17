@@ -22,6 +22,10 @@ public class AdminAPI extends Application<LucilleAPIConfiguration> {
     return "lucille-admin-api";
   }
 
+  // Turn off the default Dropwizard Logging
+  @Override
+  protected void bootstrapLogging() {}
+
   @Override
   public void initialize(Bootstrap<LucilleAPIConfiguration> bootstrap) {}
 

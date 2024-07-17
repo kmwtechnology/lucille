@@ -2,3 +2,7 @@
 # to in prod. https://www.dropwizard.io/en/stable/manual/configuration.html#man-configuration
 server:
   type: default
+  requestLog:
+    type: external
+logging:
+  type: external
