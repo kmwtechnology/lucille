@@ -1,10 +1,14 @@
 package com.kmwllc.lucille.endpoints;
 
+import io.dropwizard.auth.Auth;
+import io.dropwizard.auth.PrincipalImpl;
+import jakarta.annotation.security.PermitAll;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,6 +20,7 @@ import org.slf4j.LoggerFactory;
  */
 @Path("/livez")
 @Produces(MediaType.APPLICATION_JSON)
+@PermitAll
 public class LucilleLivenessResource {
 
   private static final Logger log = LoggerFactory.getLogger(LucilleLivenessResource.class);
@@ -25,9 +30,12 @@ public class LucilleLivenessResource {
     super();
   }
 
-
   @GET
-  public Response isAlive() {
-    return Response.ok().build();
+  public Response isAlive(@Auth Optional<PrincipalImpl> user) {
+    if (user.isPresent()) {
+      return Response.ok().build();
+    } else {
+      return Response.status(401).build();
+    }
   }
 }
