@@ -1,17 +1,16 @@
 package com.kmwllc.lucille.auth;
 
-
 import io.dropwizard.auth.AuthenticationException;
 import io.dropwizard.auth.Authenticator;
 import io.dropwizard.auth.PrincipalImpl;
 import io.dropwizard.auth.basic.BasicCredentials;
 import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+/**
+ * Authenticator for Basic Auth, only checks that the password is correct and the creates a new user with the given name
+ */
 public class BasicAuthenticator implements Authenticator<BasicCredentials, PrincipalImpl> {
 
-  private static final Logger log = LoggerFactory.getLogger(BasicAuthenticator.class);
   private final String password;
 
   public BasicAuthenticator(String password) {
