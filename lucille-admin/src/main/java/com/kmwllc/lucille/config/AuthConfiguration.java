@@ -1,8 +1,10 @@
 package com.kmwllc.lucille.config;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.constraints.NotEmpty;
 
+/**
+ * Configure Authentication for the Lucille Admin API
+ */
 public final class AuthConfiguration {
 
   public enum AuthType {
