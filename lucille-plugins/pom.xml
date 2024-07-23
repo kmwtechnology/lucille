@@ -22,6 +22,7 @@
     <module>lucille-parquet</module>
     <module>lucille-tika</module>
     <module>lucille-ocr</module>
+    <module>lucille-opensearch</module>
   </modules>
 
   <dependencies>

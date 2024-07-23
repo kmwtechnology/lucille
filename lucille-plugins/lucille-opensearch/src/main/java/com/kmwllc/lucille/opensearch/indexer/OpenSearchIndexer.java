@@ -1,14 +1,12 @@
-package com.kmwllc.lucille.indexer;
+package com.kmwllc.lucille.opensearch.indexer;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.IndexerMessenger;
-import com.kmwllc.lucille.message.KafkaIndexerMessenger;
-import com.kmwllc.lucille.util.OpenSearchUtils;
+import com.kmwllc.lucille.opensearch.util.OpenSearchUtils;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +18,6 @@ import org.opensearch.client.opensearch.core.BulkResponse;
 import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.Signal;
 
 
 public class OpenSearchIndexer extends Indexer {

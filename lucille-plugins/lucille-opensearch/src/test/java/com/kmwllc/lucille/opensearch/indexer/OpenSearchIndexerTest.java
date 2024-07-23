@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.indexer;
+package com.kmwllc.lucille.opensearch.indexer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;

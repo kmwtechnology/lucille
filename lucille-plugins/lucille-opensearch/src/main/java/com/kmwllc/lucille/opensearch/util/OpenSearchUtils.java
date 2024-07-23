@@ -1,6 +1,6 @@
-package com.kmwllc.lucille.util;
+package com.kmwllc.lucille.opensearch.util;
 
-import com.kmwllc.lucille.indexer.OpenSearchIndexer;
+import com.kmwllc.lucille.opensearch.indexer.OpenSearchIndexer;
 import com.typesafe.config.Config;
 import java.net.URI;
 import java.security.KeyManagementException;
