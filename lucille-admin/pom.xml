@@ -75,40 +75,6 @@
 
     <build>
         <plugins>
-<!--            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <configuration>
-                    <finalName>lucille-admin</finalName>
-                    <archive>
-                        <manifest>
-                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-                            <mainClass>com.kmwllc.lucille.AdminAPI</mainClass>
-                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
-                        </manifest>
-                    </archive>
-                </configuration>
-            </plugin>-->
-<!--            <plugin>
-              <groupId>org.apache.maven.plugins</groupId>
-              <artifactId>maven-assembly-plugin</artifactId>
-              <executions>
-                <execution>
-                  <id>package-assembly</id>
-                  <phase>package</phase>
-                  <goals>
-                    <goal>single</goal>
-                  </goals>
-                  <configuration>
-                    <finalName>lucille-${project.version}</finalName>
-                    <descriptors>
-                      <descriptor>src/assembly/assembly.xml</descriptor>
-                    </descriptors>
-                  </configuration>
-                </execution>
-              </executions>
-            </plugin>-->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
