@@ -5,7 +5,7 @@
 1. Navigate into the `lucille-admin` module
 2. Run `mvn clean install` to generate the admin jar
 
-The API can be ran locally or in a Docker container:
+The API can be run locally or in a Docker container:
 
 ### Local Run:
 1. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#Configuration) for more information
