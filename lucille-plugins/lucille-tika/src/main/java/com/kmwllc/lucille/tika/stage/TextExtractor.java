@@ -136,6 +136,13 @@ public class TextExtractor extends Stage {
       parser.parse(inputStream, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
       log.warn("Tika Exception: {}", e.getMessage());
+    } finally {
+      // close the inputStream regardless if error is thrown
+      try {
+        inputStream.close();
+      } catch (IOException e) {
+        log.warn("Failed to close inputStream: {}", e.getMessage());
+      }
     }
 
     doc.addToField(textField, bch.toString());
