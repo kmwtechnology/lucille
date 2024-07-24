@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.indexer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -18,9 +19,11 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.solr.common.SolrInputDocument;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -290,8 +293,12 @@ public class OpenSearchIndexerTest {
     Map<String, Object> map = (Map<String, Object>) indexRequest.document();
 
     assertEquals("doc1", indexRequest.id());
+
+    // routing has been set appropriately even though routing field has been deleted by ignoreFields
+    // note that id is still in document even though it was in ignoreFields
+    // as the id is later added back to the document
     assertEquals("routing1", indexRequest.routing());
-    assertEquals(Map.of("field1", "value1", "id", "doc1", "routing", "routing1"), map);
+    assertEquals(Map.of("field1", "value1", "id", "doc1"), map);
   }
 
   @Test
@@ -374,6 +381,45 @@ public class OpenSearchIndexerTest {
       Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       Assert.assertEquals(Type.FAIL, events.get(i - 1).getType());
     }
+  }
+
+  /**
+   * Tests that the indexer correctly ignores fields stated in the ignoreFields portion of the config file
+   *
+   * @throws Exception
+   */
+  @Test
+  public void testIgnoreFieldsConfig() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/ignoreFields.conf");
+
+    Document doc = Document.create("doc1");
+
+    doc.setField("ignoreField1", "value1");
+    doc.setField("ignoreField2", "value2");
+    doc.setField("normalField", "normalValue");
+
+    // checking that document field has been set
+    assertNotNull(doc.getString("ignoreField1"));
+    assertNotNull(doc.getString("ignoreField2"));
+    assertNotNull(doc.getString("normalField"));
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    // verify that the bulk method has been called once by mockClient
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+
+    // check that ignoreField1 and ignoreField2 has been removed
+    assertEquals(Map.of("id", "doc1", "normalField", "normalValue"), map);
   }
 
   private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {

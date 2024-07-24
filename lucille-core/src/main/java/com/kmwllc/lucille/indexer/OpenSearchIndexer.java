@@ -99,7 +99,9 @@ public class OpenSearchIndexer extends Indexer {
     BulkRequest.Builder br = new BulkRequest.Builder();
 
     for (Document doc : documents) {
-      Map<String, Object> indexerDoc = doc.asMap();
+
+      // removing the fields mentioned in the ignoreFields setting in configurations
+      Map<String, Object> indexerDoc = getIndexerDoc(doc);
 
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
       indexerDoc.remove(Document.CHILDREN_FIELD);
@@ -110,8 +112,6 @@ public class OpenSearchIndexer extends Indexer {
 
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);
-
-      String routing = doc.getString(routingField);
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
           ? ((KafkaDocument) doc).getOffset()
           : null;
@@ -121,7 +121,7 @@ public class OpenSearchIndexer extends Indexer {
             .update((up) -> {
               up.index(index).id(docId);
               if (routingField != null) {
-                up.routing(routing);
+                up.routing(doc.getString(routingField));
               }
               if (versionNum != null) {
                 up.versionType(versionType).version(versionNum);
@@ -133,7 +133,7 @@ public class OpenSearchIndexer extends Indexer {
             .index((up) -> {
               up.index(index).id(docId);
               if (routingField != null) {
-                up.routing(routing);
+                up.routing(doc.getString(routingField));
               }
               if (versionNum != null) {
                 up.versionType(versionType).version(versionNum);

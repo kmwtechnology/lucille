@@ -98,7 +98,8 @@ public class ElasticsearchIndexer extends Indexer {
       // populate join data to document
       joinData.populateJoinData(doc);
 
-      Map<String, Object> indexerDoc = doc.asMap();
+      // removing the fields mentioned in the ignoreFields setting in configurations
+      Map<String, Object> indexerDoc = getIndexerDoc(doc);
 
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
       indexerDoc.remove(Document.CHILDREN_FIELD);
