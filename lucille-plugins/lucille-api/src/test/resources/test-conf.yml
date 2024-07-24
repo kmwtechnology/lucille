@@ -1,5 +1,7 @@
 server:
   type: simple
+  applicationContextPath: /
+
   requestLog:
     type: external
     enabled: false
