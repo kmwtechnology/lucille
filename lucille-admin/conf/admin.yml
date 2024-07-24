@@ -6,3 +6,7 @@ server:
     type: external
 logging:
   type: external
+
+auth:
+  type: "basicAuth"
+  password: "password"

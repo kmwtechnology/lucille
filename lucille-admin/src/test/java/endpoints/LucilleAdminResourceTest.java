@@ -6,7 +6,9 @@ import static org.mockito.Mockito.verify;
 
 import com.kmwllc.lucille.core.RunnerManager;
 import com.kmwllc.lucille.endpoints.LucilleAdminResource;
+import io.dropwizard.auth.PrincipalImpl;
 import jakarta.ws.rs.core.Response;
+import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -16,6 +18,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class LucilleAdminResourceTest {
 
   private final RunnerManager runnerManager = RunnerManager.getInstance();
+  private final Optional<PrincipalImpl> user = Optional.of(new PrincipalImpl("test"));
 
   @Before
   public void setUp() {
@@ -28,7 +31,7 @@ public class LucilleAdminResourceTest {
   @Test
   public void testGetRunStatus() {
     LucilleAdminResource admin = new LucilleAdminResource(runnerManager);
-    Response status = admin.getRunStatus();
+    Response status = admin.getRunStatus(user);
 
     assertEquals("{'isRunning': 'false', 'runId': ''}", status.getEntity().toString());
   }
@@ -39,7 +42,7 @@ public class LucilleAdminResourceTest {
 
     Response status = Response.status(404).build();
     try {
-      status = admin.startRun();
+      status = admin.startRun(user);
     } catch (Exception e) {
 
     } finally {
