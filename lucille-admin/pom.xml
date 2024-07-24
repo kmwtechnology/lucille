@@ -51,21 +51,6 @@
         <groupId>io.dropwizard</groupId>
         <artifactId>dropwizard-auth</artifactId>
         <version>${dropwizard-core.version}</version>
-
-<!--        <exclusions>
-          <exclusion>
-              <groupId>ch.qos.logback</groupId>
-              <artifactId>logback-classic</artifactId>
-          </exclusion>
-          <exclusion>
-              <groupId>ch.qos.logback</groupId>
-              <artifactId>logback-access</artifactId>
-          </exclusion>
-          <exclusion>
-              <groupId>org.slf4j</groupId>
-              <artifactId>log4j-over-slf4j</artifactId>
-          </exclusion>
-        </exclusions>-->
       </dependency>
 
      <dependency>
@@ -120,40 +105,6 @@
 
     <build>
         <plugins>
-<!--            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <configuration>
-                    <finalName>lucille-admin</finalName>
-                    <archive>
-                        <manifest>
-                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-                            <mainClass>com.kmwllc.lucille.AdminAPI</mainClass>
-                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
-                        </manifest>
-                    </archive>
-                </configuration>
-            </plugin>-->
-<!--            <plugin>
-              <groupId>org.apache.maven.plugins</groupId>
-              <artifactId>maven-assembly-plugin</artifactId>
-              <executions>
-                <execution>
-                  <id>package-assembly</id>
-                  <phase>package</phase>
-                  <goals>
-                    <goal>single</goal>
-                  </goals>
-                  <configuration>
-                    <finalName>lucille-${project.version}</finalName>
-                    <descriptors>
-                      <descriptor>src/assembly/assembly.xml</descriptor>
-                    </descriptors>
-                  </configuration>
-                </execution>
-              </executions>
-            </plugin>-->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
