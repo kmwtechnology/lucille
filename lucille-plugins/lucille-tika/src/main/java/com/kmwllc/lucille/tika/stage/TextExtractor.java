@@ -138,10 +138,12 @@ public class TextExtractor extends Stage {
       log.warn("Tika Exception: {}", e.getMessage());
     } finally {
       // close the inputStream regardless if error is thrown
-      try {
-        inputStream.close();
-      } catch (IOException e) {
-        log.warn("Failed to close inputStream: {}", e.getMessage());
+      if (inputStream != null) {
+        try {
+          inputStream.close();
+        } catch (IOException e2) {
+          log.warn("Failed to close inputStream: {}", e2.getMessage());
+        }
       }
     }
 
