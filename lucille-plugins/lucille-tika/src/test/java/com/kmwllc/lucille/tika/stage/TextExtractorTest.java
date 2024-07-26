@@ -29,13 +29,10 @@ public class TextExtractorTest {
   public void testFilePath() throws StageException {
     Stage stage = factory.get("TextExtractorTest/filepath.conf");
     Document doc = Document.create("doc1");
-    
-    // get current directory absolute path
-    Path currentRelativePath = Paths.get("");
-    String currentAbsolutePath = currentRelativePath.toAbsolutePath().toString();
 
     // set path as absolute Path
-    doc.setField("path", currentAbsolutePath + "/src/test/resources/TextExtractorTest/tika.txt");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
     stage.processDocument(doc);
     assertEquals("Hi There!\n", doc.getString("text"));
   }
@@ -66,12 +63,9 @@ public class TextExtractorTest {
     Stage stage = factory.get("TextExtractorTest/filepath.conf");
     Document doc = Document.create("doc1");
 
-    // get current directory absolute path
-    Path currentRelativePath = Paths.get("");
-    String currentAbsolutePath = currentRelativePath.toAbsolutePath().toString();
-
     // set path as absolute Path
-    doc.setField("path", currentAbsolutePath + "/src/test/resources/TextExtractorTest/tika.docx");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.docx").toAbsolutePath().toString());
+
     stage.processDocument(doc);
     assertEquals("Hi There!\n", doc.getString("text"));
     assertEquals("Microsoft Office Word", doc.getString("tika_extended_properties_application"));
@@ -87,12 +81,9 @@ public class TextExtractorTest {
     Stage stage = factory.get("TextExtractorTest/filepath.conf");
     Document doc = Document.create("doc1");
 
-    // get current directory absolute path
-    Path currentRelativePath = Paths.get("");
-    String currentAbsolutePath = currentRelativePath.toAbsolutePath().toString();
-
     // set path as absolute Path
-    doc.setField("path", currentAbsolutePath + "/src/test/resources/TextExtractorTest/tika.xlsx");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.xlsx").toAbsolutePath().toString());
+
     stage.processDocument(doc);
     assertEquals("Sheet1\n" +
         "\tHi There!\n" +
@@ -111,12 +102,9 @@ public class TextExtractorTest {
     Stage stage = factory.get("TextExtractorTest/tika-config.conf");
     Document doc = Document.create("doc1");
 
-    // get current directory absolute path
-    Path currentRelativePath = Paths.get("");
-    String currentAbsolutePath = currentRelativePath.toAbsolutePath().toString();
-
     // set path as absolute Path
-    doc.setField("path", currentAbsolutePath + "/src/test/resources/TextExtractorTest/tika.txt");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
     stage.processDocument(doc);
     assertEquals("Hi There!\n", doc.getString("text"));
   }
@@ -131,12 +119,9 @@ public class TextExtractorTest {
     Stage stage = factory.get("TextExtractorTest/tika-config2.conf");
     Document doc = Document.create("doc1");
 
-    // get current directory absolute path
-    Path currentRelativePath = Paths.get("");
-    String currentAbsolutePath = currentRelativePath.toAbsolutePath().toString();
-
     // set path as absolute Path
-    doc.setField("path", currentAbsolutePath + "/src/test/resources/TextExtractorTest/tika.pdf");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.pdf").toAbsolutePath().toString());
+
     stage.processDocument(doc);
     // verify that the open parser is what is used on pdfs
     assertTrue(doc.getStringList("mtdata_x_tika_parsed_by").contains("org.apache.tika.parser.EmptyParser"));
@@ -152,12 +137,9 @@ public class TextExtractorTest {
     Stage stage = factory.get("TextExtractorTest/tika-config2.conf");
     Document doc = Document.create("doc1");
 
-    // get current directory absolute path
-    Path currentRelativePath = Paths.get("");
-    String currentAbsolutePath = currentRelativePath.toAbsolutePath().toString();
-
     // set path as absolute Path
-    doc.setField("path", currentAbsolutePath + "/src/test/resources/TextExtractorTest/tika.pdf");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.pdf").toAbsolutePath().toString());
+
     stage.processDocument(doc);
     // verify that the open parser is what is used on pdfs
     assertTrue(doc.getStringList("mtdata_content_type").contains("application/pdf"));
@@ -172,24 +154,20 @@ public class TextExtractorTest {
   public void testTikaContentType() throws StageException {
     Stage stage = factory.get("TextExtractorTest/filepath.conf");
 
-    // get current directory absolute path
-    Path currentRelativePath = Paths.get("");
-    String currentAbsolutePath = currentRelativePath.toAbsolutePath().toString();
-
     Document doc1 = Document.create("doc1");
-    doc1.setField("path", currentAbsolutePath + "/src/test/resources/TextExtractorTest/tika.xlsx");
+    doc1.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.xlsx").toAbsolutePath().toString());
     stage.processDocument(doc1);
     assertTrue(
         doc1.getStringList("tika_content_type").contains("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
 
     Document doc2 = Document.create("doc2");
-    doc2.setField("path", currentAbsolutePath + "/src/test/resources/TextExtractorTest/tika.docx");
+    doc2.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.docx").toAbsolutePath().toString());
     stage.processDocument(doc2);
     assertTrue(doc2.getStringList("tika_content_type")
         .contains("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
 
     Document doc3 = Document.create("doc3");
-    doc3.setField("path", currentAbsolutePath + "/src/test/resources/TextExtractorTest/tika.txt");
+    doc3.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
     stage.processDocument(doc3);
     assertTrue(doc3.getStringList("tika_content_type").contains("text/plain; charset=ISO-8859-1"));
   }
@@ -204,12 +182,9 @@ public class TextExtractorTest {
     Stage stage = factory.get("TextExtractorTest/whitelist.conf");
     Document doc = Document.create("doc1");
 
-    // get current directory absolute path
-    Path currentRelativePath = Paths.get("");
-    String currentAbsolutePath = currentRelativePath.toAbsolutePath().toString();
-
     // set path as absolute Path
-    doc.setField("path", currentAbsolutePath + "/src/test/resources/TextExtractorTest/tika.txt");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
     stage.processDocument(doc);
     assertEquals("text/plain; charset=ISO-8859-1", doc.getStringList("tika_content_type").get(0));
     assertThrows(NullPointerException.class, () -> doc.getStringList("content_encoding").get(0));
@@ -226,11 +201,9 @@ public class TextExtractorTest {
     Stage stage = factory.get("TextExtractorTest/blacklist.conf");
     Document doc = Document.create("doc1");
 
-    // get current directory absolute path
-    Path currentRelativePath = Paths.get("");
-    String currentAbsolutePath = currentRelativePath.toAbsolutePath().toString();
+    // set path as absolute Path
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
 
-    doc.setField("path", currentAbsolutePath + "/src/test/resources/TextExtractorTest/tika.txt");
     stage.processDocument(doc);
     assertEquals("text/plain; charset=ISO-8859-1", doc.getStringList("tika_content_type").get(0));
     assertEquals("org.apache.tika.parser.DefaultParser", doc.getStringList("tika_x_tika_parsed_by").get(0));
