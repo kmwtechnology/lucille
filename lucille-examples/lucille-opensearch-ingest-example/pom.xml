@@ -34,8 +34,8 @@
       <artifactId>lucille-core</artifactId>
     </dependency>
     <dependency>
-          <groupId>com.kmwllc</groupId>
-          <artifactId>lucille-tika</artifactId>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-tika</artifactId>
     </dependency>
     <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
 <dependency>
