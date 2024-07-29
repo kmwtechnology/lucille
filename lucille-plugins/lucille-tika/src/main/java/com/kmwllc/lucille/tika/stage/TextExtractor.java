@@ -7,6 +7,7 @@ import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
@@ -127,7 +128,7 @@ public class TextExtractor extends Stage {
   }
 
   /**
-   * Parses given input stream and adds the text data and metadata to given document
+   * Parses given input stream, close it, and adds the text data and metadata to given document
    */
   public void parseInputStream(Document doc, InputStream inputStream) {
     Metadata metadata = new Metadata();
