@@ -41,8 +41,6 @@ public class IndexerFactory {
     // handle type class instantiation or throw exception for unknown type
     if (typeName.equalsIgnoreCase("Solr")) {
       return new SolrIndexer(config, messenger, bypass, metricsPrefix);
-    } else if (typeName.equalsIgnoreCase("OpenSearch")) {
-      return new OpenSearchIndexer(config, messenger, bypass, metricsPrefix);
     } else if (typeName.equalsIgnoreCase("Elasticsearch")) {
       return new ElasticsearchIndexer(config, messenger, bypass, metricsPrefix);
     } else if (typeName.equalsIgnoreCase("CSV")) {
