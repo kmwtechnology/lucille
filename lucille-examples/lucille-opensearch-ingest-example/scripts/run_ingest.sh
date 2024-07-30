@@ -19,7 +19,7 @@ if [ "$choice" = "e" ]; then
   sed -e "s,Path/To/Enron/MailDir,$path_to_maildir," conf/opensearch.conf > conf/opensearchEdit.conf
 
   # replace url setting in the new config file
-  sed -i '' "s,username:password,https://$credentials@localhost:9200," conf/opensearchEdit.conf
+  sed -i '' "s,username:password,$credentials," conf/opensearchEdit.conf
 
 elif [ "$choice" = "r" ]; then
     echo "Running the program with existing configuration..."
