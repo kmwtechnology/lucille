@@ -37,7 +37,6 @@
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-tika</artifactId>
     </dependency>
-
     <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
     <dependency>
         <groupId>mysql</groupId>

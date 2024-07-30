@@ -18,7 +18,7 @@ if [ "$choice" = "e" ]; then
   # change the vfsPath setting in the configuration file and create a new config file
   sed -e "s,Path/To/Enron/MailDir,$path_to_maildir," conf/opensearch.conf > conf/opensearchEdit.conf
 
-  # replace url setting in the new config file
+  # replace url setting in the new config file 
   sed -i '' "s,username:password,$credentials," conf/opensearchEdit.conf
 
 elif [ "$choice" = "r" ]; then
