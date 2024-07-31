@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import com.kmwllc.lucille.stage.StageFactory;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito.*;
 
@@ -257,4 +258,21 @@ public class TextExtractorTest {
     verify(inputStream, times(1)).close();
   }
 
+
+  /**
+   * Tests the TextExtractor getting inputStream from file method
+   *
+   */
+  @Test
+  public void testGetFileInputStream() throws StageException, IOException {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/getFileInputStream.conf");
+
+    // setting document to have a non existent path
+    Document doc = Document.create("doc1");
+    doc.addToField("path", Paths.get("src/test/resources/TextExtractorTest/nonExistentFile").toAbsolutePath().toString());
+
+    // parsing through the document would then be passed through and not parsed with log statements
+    stage.processDocument(doc);
+    Assert.assertNull(doc.getString("text"));
+  }
 }

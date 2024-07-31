@@ -3,16 +3,17 @@ package com.kmwllc.lucille.tika.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
-import org.apache.commons.vfs2.VFS;
+import org.apache.commons.vfs2.FileContent;
+import org.apache.commons.vfs2.FileObject;
+import org.apache.commons.vfs2.FileSystemException;
+import org.apache.commons.vfs2.impl.StandardFileSystemManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.tika.config.TikaConfig;
@@ -53,6 +54,7 @@ public class TextExtractor extends Stage {
   private List<String> metadataBlacklist;
   private Parser parser;
   private ParseContext parseCtx;
+  private StandardFileSystemManager fsManager;
 
   public TextExtractor(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
@@ -75,10 +77,16 @@ public class TextExtractor extends Stage {
       throw new StageException("Provided neither a file_path_field nor byte_array_field to the TextExtractor stage");
     }
     parseCtx = new ParseContext();
+    fsManager = new StandardFileSystemManager();
   }
 
   @Override
   public void start() throws StageException {
+    try {
+      fsManager.init();
+    } catch (FileSystemException e) {
+      throw new StageException("Could not initialize FileSystem in TextExtractor Stage", e);
+    }
     if (this.tikaConfigPath == null) {
       parser = new AutoDetectParser();
     } else {
@@ -91,6 +99,13 @@ public class TextExtractor extends Stage {
       }
     }
     parseCtx.set(Parser.class, parser);
+  }
+
+  @Override
+  public void stop() {
+    if (fsManager != null) {
+      fsManager.close();
+    }
   }
 
   @Override
@@ -107,14 +122,42 @@ public class TextExtractor extends Stage {
 
       String filePath = doc.getString(filePathField);
 
-      try {
-        InputStream inputStream = VFS.getManager().resolveFile(filePath).getContent().getInputStream();
-        parseInputStream(doc, inputStream);
-      } catch (IOException e) {
-        throw new StageException("InputStream cannot be parsed or created", e);
+      InputStream inputStream = getFileInputStream(filePath);
+      if (inputStream == null) {
+        log.warn("Error getting inputStream for file at : {}", filePath);
+        return null;
       }
+      parseInputStream(doc, inputStream);
     }
     return null;
+  }
+
+  private InputStream getFileInputStream(String filePath) {
+    FileObject file;
+    try {
+      file = fsManager.resolveFile(filePath);
+
+      if (file == null) {
+        log.warn("File object is null for path: {}", filePath);
+        return null;
+      }
+
+      if (!file.exists()) {
+        log.warn("File not found at: {}", filePath);
+        return null;
+      }
+
+      FileContent content = file.getContent();
+      try {
+        return content.getInputStream();
+      } catch (FileSystemException e) {
+        log.warn("Error opening input stream for file: {}", filePath, e);
+        return null;
+      }
+    } catch (FileSystemException e) {
+      log.warn("Error retrieving file contents: {}", filePath, e);
+      return null;
+    }
   }
 
   /**
