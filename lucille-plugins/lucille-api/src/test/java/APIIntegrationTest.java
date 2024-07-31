@@ -1,6 +1,6 @@
 import static org.junit.Assert.assertEquals;
 
-import com.kmwllc.lucille.AdminAPI;
+import com.kmwllc.lucille.APIApplication;
 import com.kmwllc.lucille.LucilleAPIConfiguration;
 import io.dropwizard.testing.ResourceHelpers;
 import io.dropwizard.testing.junit.DropwizardAppRule;
@@ -11,11 +11,11 @@ import java.nio.charset.StandardCharsets;
 import org.junit.ClassRule;
 import org.junit.Test;
 
-public class AdminIntegrationTest {
+public class APIIntegrationTest {
   // TODO : Improve Integration testing with better mocking
 
   @ClassRule
-  public static final DropwizardAppRule<LucilleAPIConfiguration> RULE = new DropwizardAppRule<>(AdminAPI.class, ResourceHelpers.resourceFilePath("test-conf.yml"));
+  public static final DropwizardAppRule<LucilleAPIConfiguration> RULE = new DropwizardAppRule<>(APIApplication.class, ResourceHelpers.resourceFilePath("test-conf.yml"));
 
   private final Client client = RULE.client();
   private final String url = String.format("http://localhost:%d/", RULE.getLocalPort());

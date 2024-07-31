@@ -2,13 +2,13 @@ package endpoints;
 
 import static org.junit.Assert.assertEquals;
 
-import com.kmwllc.lucille.endpoints.LucilleReadinessResource;
+import com.kmwllc.lucille.endpoints.ReadinessResource;
 import jakarta.ws.rs.core.Response;
 import org.junit.Test;
 
-public class LucilleReadinessResourceTest {
+public class ReadinessResourceTest {
 
-  private static final LucilleReadinessResource readiness = new LucilleReadinessResource();
+  private static final ReadinessResource readiness = new ReadinessResource();
 
   @Test
   public void testReadinessEndpoint() {

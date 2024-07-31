@@ -5,7 +5,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import com.kmwllc.lucille.core.RunnerManager;
-import com.kmwllc.lucille.endpoints.LucilleAdminResource;
+import com.kmwllc.lucille.endpoints.LucilleResource;
 import jakarta.ws.rs.core.Response;
 import org.junit.Before;
 import org.junit.Test;
@@ -13,7 +13,7 @@ import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
-public class LucilleAdminResourceTest {
+public class LucilleResourceTest {
 
   private final RunnerManager runnerManager = RunnerManager.getInstance();
 
@@ -27,7 +27,7 @@ public class LucilleAdminResourceTest {
 
   @Test
   public void testGetRunStatus() {
-    LucilleAdminResource admin = new LucilleAdminResource(runnerManager);
+    LucilleResource admin = new LucilleResource(runnerManager);
     Response status = admin.getRunStatus();
 
     assertEquals("{'isRunning': 'false', 'runId': ''}", status.getEntity().toString());
@@ -35,7 +35,7 @@ public class LucilleAdminResourceTest {
 
   @Test
   public void testRun() {
-    LucilleAdminResource admin = new LucilleAdminResource(runnerManager);
+    LucilleResource admin = new LucilleResource(runnerManager);
 
     Response status = Response.status(404).build();
     try {

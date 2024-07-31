@@ -17,6 +17,7 @@
   <name>Lucille Plugins</name>
 
   <modules>
+    <module>lucille-api</module>
     <module>lucille-pinecone</module>
     <module>lucille-weaviate</module>
     <module>lucille-parquet</module>

@@ -8,14 +8,14 @@
 
     <parent>
       <groupId>com.kmwllc</groupId>
-      <artifactId>lucille-parent</artifactId>
+      <artifactId>lucille-plugins</artifactId>
       <version>0.2.3-SNAPSHOT</version>
-      <relativePath>../lucille-parent/pom.xml</relativePath>
+      <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>lucille-admin</artifactId>
+    <artifactId>lucille-api</artifactId>
     <packaging>jar</packaging>
-    <name>Lucille Admin</name>
+    <name>Lucille API</name>
 
     <dependencies>
       <dependency>
@@ -103,7 +103,7 @@
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.kmwllc.lucille.AdminAPI</mainClass>
+                                    <mainClass>com.kmwllc.lucille.APIApplication</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
