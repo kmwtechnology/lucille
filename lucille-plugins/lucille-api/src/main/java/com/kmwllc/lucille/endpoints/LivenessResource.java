@@ -16,12 +16,12 @@ import org.slf4j.LoggerFactory;
  */
 @Path("/livez")
 @Produces(MediaType.APPLICATION_JSON)
-public class LucilleLivenessResource {
+public class LivenessResource {
 
-  private static final Logger log = LoggerFactory.getLogger(LucilleLivenessResource.class);
+  private static final Logger log = LoggerFactory.getLogger(LivenessResource.class);
 
 
-  public LucilleLivenessResource() {
+  public LivenessResource() {
     super();
   }
 

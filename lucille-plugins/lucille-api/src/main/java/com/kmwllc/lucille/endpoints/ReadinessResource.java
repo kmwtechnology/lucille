@@ -16,10 +16,10 @@ import org.slf4j.LoggerFactory;
  */
 @Path("/readyz")
 @Produces(MediaType.APPLICATION_JSON)
-public class LucilleReadinessResource {
-  private static final Logger log = LoggerFactory.getLogger(LucilleReadinessResource.class);
+public class ReadinessResource {
+  private static final Logger log = LoggerFactory.getLogger(ReadinessResource.class);
 
-  public LucilleReadinessResource() {
+  public ReadinessResource() {
     super();
   }
 

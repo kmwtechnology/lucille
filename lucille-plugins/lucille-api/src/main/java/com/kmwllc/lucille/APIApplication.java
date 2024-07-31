@@ -1,9 +1,9 @@
 package com.kmwllc.lucille;
 
 import com.kmwllc.lucille.core.RunnerManager;
-import com.kmwllc.lucille.endpoints.LucilleAdminResource;
-import com.kmwllc.lucille.endpoints.LucilleLivenessResource;
-import com.kmwllc.lucille.endpoints.LucilleReadinessResource;
+import com.kmwllc.lucille.endpoints.LivenessResource;
+import com.kmwllc.lucille.endpoints.LucilleResource;
+import com.kmwllc.lucille.endpoints.ReadinessResource;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
@@ -11,15 +11,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Main Class for the Lucille Admin API.
+ * Main Class for the Lucille API.
  */
-public class AdminAPI extends Application<LucilleAPIConfiguration> {
+public class APIApplication extends Application<LucilleAPIConfiguration> {
 
-  public static final Logger log = LoggerFactory.getLogger(AdminAPI.class);
+  public static final Logger log = LoggerFactory.getLogger(APIApplication.class);
 
   @Override
   public String getName() {
-    return "lucille-admin-api";
+    return "lucille-api";
   }
 
   // Turn off the default Dropwizard Logging
@@ -34,12 +34,12 @@ public class AdminAPI extends Application<LucilleAPIConfiguration> {
     RunnerManager runnerManager = RunnerManager.getInstance();
 
     // Register our 3 Resources
-    env.jersey().register(new LucilleAdminResource(runnerManager));
-    env.jersey().register(new LucilleLivenessResource());
-    env.jersey().register(new LucilleReadinessResource());
+    env.jersey().register(new LucilleResource(runnerManager));
+    env.jersey().register(new LivenessResource());
+    env.jersey().register(new ReadinessResource());
   }
 
   public static void main(String[] args) throws Exception {
-    new AdminAPI().run(args);
+    new APIApplication().run(args);
   }
 }

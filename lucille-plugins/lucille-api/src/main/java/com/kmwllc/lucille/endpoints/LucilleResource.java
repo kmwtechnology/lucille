@@ -13,17 +13,17 @@ import jakarta.ws.rs.core.Response;
 /**
  * Lucille Admin API Endpoint:
  *
- * - endpoint: '/admin'
+ * - endpoint: '/lucille'
  *   - GET: obtain lucille run status
  *   - POST: Kick off new lucille run, if one is not already running
  */
 @Path("/lucille")
 @Produces(MediaType.APPLICATION_JSON)
-public class LucilleAdminResource {
+public class LucilleResource {
 
   private final RunnerManager runnerManager;
 
-  public LucilleAdminResource(RunnerManager runnerManager) {
+  public LucilleResource(RunnerManager runnerManager) {
     this.runnerManager = runnerManager;
   }
 

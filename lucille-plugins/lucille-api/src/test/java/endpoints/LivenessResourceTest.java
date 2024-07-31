@@ -3,14 +3,13 @@ package endpoints;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.codahale.metrics.health.HealthCheck.Result;
-import com.kmwllc.lucille.endpoints.LucilleLivenessResource;
+import com.kmwllc.lucille.endpoints.LivenessResource;
 import jakarta.ws.rs.core.Response;
 import org.junit.Test;
 
-public class LucilleLivenessResourceTest {
+public class LivenessResourceTest {
 
-  private static final LucilleLivenessResource liveness = new LucilleLivenessResource();
+  private static final LivenessResource liveness = new LivenessResource();
 
   @Test
   public void testLivenessEndpoint() {
