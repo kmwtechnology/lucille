@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.objects;
 
+import java.util.Objects;
+
 public class RunStatus {
 
   private final String runId;
@@ -32,7 +34,7 @@ public class RunStatus {
 
     RunStatus status = (RunStatus) o;
 
-    return this.isRunning == status.isRunning && this.runId.equals(status.runId);
+    return this.isRunning == status.isRunning && Objects.equals(this.runId, status.runId);
   }
 
   @Override
