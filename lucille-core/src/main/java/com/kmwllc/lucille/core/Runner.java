@@ -195,7 +195,7 @@ public class Runner {
   /**
    * Derives the RunType for the new run from the 'useKafka' and 'local' parameters.
    */
-  protected static RunType getRunType(boolean useKafka, boolean local) {
+  static RunType getRunType(boolean useKafka, boolean local) {
     if (useKafka) {
       if (local) {
         return RunType.KAFKA_LOCAL;

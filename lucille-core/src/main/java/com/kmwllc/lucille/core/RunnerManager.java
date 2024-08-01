@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Runner.RunType;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +31,20 @@ public class RunnerManager {
     return (future != null && !future.isDone());
   }
 
-  private CompletableFuture<Void> future;
+  /**
+   * Blocks the calling thread until the current lucille run is completed.
+   *
+   * @return true if a lucille run was running when the method was called. false otherwise.
+   */
+  public boolean waitForRunCompletion() throws ExecutionException, InterruptedException {
+    boolean isRunning = this.isRunning();
+
+    future.get();
+
+    return isRunning;
+  }
+
+  private CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
 
   /**
    * Main entrypoint for kicking off lucille runs. This method spawns a new thread for lucille to run in, but will not start a new

@@ -36,14 +36,8 @@ public class LucilleResourceTest {
   @Test
   public void testRun() {
     LucilleResource admin = new LucilleResource(runnerManager);
-
-    Response status = Response.status(404).build();
-    try {
-      status = admin.startRun();
-    } catch (Exception e) {
-
-    } finally {
-      assertEquals(200, status.getStatus());
-    }
+    Response status = admin.startRun();
+    assertEquals(200, status.getStatus());
+    status.close();
   }
 }
