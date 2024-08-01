@@ -1,4 +1,4 @@
-# Lucille Admin API
+# Lucille API
 
 ## Running the API
 
@@ -9,12 +9,12 @@ The API can be run locally or in a Docker container:
 
 ### Local Run:
 1. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#Configuration) for more information
-2. `java -Dconfig.file=${LUCILLE_CONF} -jar target/lucille-admin-0.2.3-SNAPSHOT.jar server ${DROPWIZARD_CONF}`
+2. `java -Dconfig.file=${LUCILLE_CONF} -jar target/lucille-api-0.2.3-SNAPSHOT.jar server ${DROPWIZARD_CONF}`
 
 ### Dockerized Run:
-1. Create the docker image: `docker build -t lucille-admin-api .`
+1. Create the docker image: `docker build -t lucille-api .`
 2. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#Configuration) for more information
-3. Run the image: `docker run --env LUCILLE_CONF=${LUCILLE_CONF} --env DROPWIZARD_CONF=${DROPWIZARD_CONF} -p 8080:8080 lucille-admin-api`
+3. Run the image: `docker run --env LUCILLE_CONF=${LUCILLE_CONF} --env DROPWIZARD_CONF=${DROPWIZARD_CONF} -p 8080:8080 lucille-api`
 
 ## Available Endpoints
 
@@ -34,11 +34,11 @@ The available endpoints are as follows:
 ### Lucille Configuration
 
 The Lucille Configuration file can be supplied via the LUCILLE_CONF environment variable. If building via Docker, this file should 
-reside in the `lucille-admin/conf` directory, or be mounted as volume when starting the Docker container (more details in Dockerfile).
+reside in the `lucille-api/conf` directory, or be mounted as volume when starting the Docker container (more details in Dockerfile).
 
 ### DropWizard Configuration
 
-Dropwizard can be configured via the `conf/admin.yml` file. Details about available parameters can be found 
+Dropwizard can be configured via the `conf/api.yml` file. Details about available parameters can be found 
 [here](https://www.dropwizard.io/en/stable/manual/configuration.html#man-configuration).
 
 If configuration beyond what Dropwizard supplies is required, the functionality can be extended via the LucilleAPIConfiguration class.
@@ -48,4 +48,4 @@ Details on how can be found [here](https://www.dropwizard.io/en/stable/manual/co
 
 Any functionality exposed by the Admin API should be mirrored by an internal API in lucille-core which handles all of the logic. 
 Currently, this internal API class is the `RunnerManager`, but future expansions could require more classes. Business logic should 
-not go in the `lucille-admin` module and should all be contained within `lucille-core`.
+not go in the `lucille-api` module and should all be contained within `lucille-core`.
