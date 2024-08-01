@@ -10,7 +10,7 @@
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-plugins</artifactId>
       <version>0.2.3-SNAPSHOT</version>
-      <relativePath>../pom.xml</relativePath>
+<!--      <relativePath>../pom.xml</relativePath>-->
     </parent>
 
     <artifactId>lucille-api</artifactId>
