@@ -77,15 +77,18 @@ public class TextExtractor extends Stage {
       throw new StageException("Provided neither a file_path_field nor byte_array_field to the TextExtractor stage");
     }
     parseCtx = new ParseContext();
-    fsManager = new StandardFileSystemManager();
   }
 
   @Override
   public void start() throws StageException {
-    try {
-      fsManager.init();
-    } catch (FileSystemException e) {
-      throw new StageException("Could not initialize FileSystem in TextExtractor Stage", e);
+    // initialize fsManager only if file_path_field is used
+    if (filePathField != null) {
+      try {
+        fsManager = new StandardFileSystemManager();
+        fsManager.init();
+      } catch (FileSystemException e) {
+        throw new StageException("Could not initialize FileSystem in TextExtractor Stage", e);
+      }
     }
     if (this.tikaConfigPath == null) {
       parser = new AutoDetectParser();
