@@ -7,7 +7,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
-import java.util.Comparator;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.vfs2.*;
 import org.apache.commons.vfs2.impl.StandardFileSystemManager;
