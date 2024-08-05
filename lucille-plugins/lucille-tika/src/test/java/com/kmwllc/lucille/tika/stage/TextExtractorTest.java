@@ -3,16 +3,22 @@ package com.kmwllc.lucille.tika.stage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 
 import com.kmwllc.lucille.stage.StageFactory;
 import org.junit.Test;
+import org.mockito.Mockito.*;
 
 public class TextExtractorTest {
 
@@ -199,4 +205,30 @@ public class TextExtractorTest {
     stage.processDocument(doc);
     assertEquals("Hi ", doc.getString("text"));
   }
+
+
+  /**
+   * Tests the TextExtractor closes inputStream after Document is processed
+   *
+   * @throws StageException
+   */
+  @Test
+  public void testInputStreamClose() throws StageException, IOException {
+    // initialize the stage and parser
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/tika-config.conf");
+    stage.start();
+
+    // set up document
+    Document doc = Document.create("doc1");
+
+    // creating an inputStream
+    InputStream inputStream = spy(new ByteArrayInputStream("Hello World".getBytes()));
+
+    // go through parsing stage where inputStream is eventually closed
+    stage.parseInputStream(doc, inputStream);
+
+    // verify that close method is called on the inputStream
+    verify(inputStream, times(1)).close();
+  }
+
 }

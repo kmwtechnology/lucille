@@ -62,4 +62,4 @@ COPY conf/ /conf/
 # in this case, we are running lucille in local mode
 # the path to the config file is specified via a CONF environment variable that must be provided when launching the container
 ENV CONF=""
-ENTRYPOINT java -Dconfig.file=${CONF} -cp 'target/lib/*' com.kmwllc.lucille.core.Runner -local
+ENTRYPOINT java -Dconfig.file=${CONF} -cp 'target/lib/*' com.kmwllc.lucille.core.Runner

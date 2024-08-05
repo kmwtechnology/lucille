@@ -38,4 +38,10 @@ public class SequenceConnectorTest {
     assertEquals(doc99, docs.get(99));
   }
 
+  @Test
+  public void testLoadConfigWithLongNumDocs() throws Exception {
+    Config config = ConfigFactory.load("SequenceConnectorTest/configLargeNumDocs.conf");
+    Connector connector = new SequenceConnector(config);
+  }
+
 }

@@ -8,7 +8,7 @@
   <groupId>com.kmwllc</groupId>
   <artifactId>lucille-parent</artifactId>
   <name>Lucille Parent</name>
-  <version>0.2.3-SNAPSHOT</version>
+  <version>0.2.4-SNAPSHOT</version>
   <packaging>pom</packaging>
   <description>Lucille is a production-grade Search ETL solution.</description>
   <url>https://github.com/kmwtechnology/lucille</url>
@@ -48,9 +48,9 @@
     <solr.version>9.5.0</solr.version>
     <opensearch-rest-client.version>1.2.0</opensearch-rest-client.version>
     <opensearch.version>0.1.0</opensearch.version>
-    <opensearch-java.version>2.6.0</opensearch-java.version>
-    <httpcore5.version>5.1.5</httpcore5.version>
-    <httpclient5.version>5.1.4</httpclient5.version>
+    <opensearch-java.version>2.11.1</opensearch-java.version>
+    <httpcore5.version>5.2.4</httpcore5.version>
+    <httpclient5.version>5.3.1</httpclient5.version>
     <elasticsearch-rest-high-level-client.version>7.17.3</elasticsearch-rest-high-level-client.version>
     <elasticsearch.version>7.17.3</elasticsearch.version>
     <sslcontext-kickstart.version>8.1.6</sslcontext-kickstart.version>
@@ -223,7 +223,7 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.8.7</version>
+        <version>0.8.12</version>
         <executions>
           <execution>
             <id>prepare-agent</id>
