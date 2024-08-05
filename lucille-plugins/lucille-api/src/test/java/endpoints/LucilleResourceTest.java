@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import com.kmwllc.lucille.core.RunnerManager;
 import com.kmwllc.lucille.endpoints.LucilleResource;
 import jakarta.ws.rs.core.Response;
+import java.util.concurrent.ExecutionException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -17,16 +18,10 @@ public class LucilleResourceTest {
 
   private final RunnerManager runnerManager = RunnerManager.getInstance();
 
-  @Before
-  public void setUp() {
-    try {
-      Thread.sleep(500);
-    } catch (InterruptedException e) {
-    }
-  }
-
   @Test
-  public void testGetRunStatus() {
+  public void testGetRunStatus() throws InterruptedException, ExecutionException {
+    runnerManager.waitForRunCompletion();
+
     LucilleResource admin = new LucilleResource(runnerManager);
     Response status = admin.getRunStatus();
 
@@ -34,7 +29,9 @@ public class LucilleResourceTest {
   }
 
   @Test
-  public void testRun() {
+  public void testRun() throws InterruptedException, ExecutionException {
+    runnerManager.waitForRunCompletion();
+
     LucilleResource admin = new LucilleResource(runnerManager);
     Response status = admin.startRun();
     assertEquals(200, status.getStatus());

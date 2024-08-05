@@ -13,7 +13,7 @@
 
     <artifactId>lucille-api</artifactId>
     <packaging>jar</packaging>
-    <name>Lucille API</name>
+    <name>Lucille Plugins: Lucille API</name>
 
     <dependencies>
       <dependency>
@@ -78,7 +78,7 @@
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.2.4</version>
                 <configuration>
-                <finalName>lucille-admin</finalName>
+                <finalName>${project.artifactId}-plugin</finalName>
                     <createDependencyReducedPom>false</createDependencyReducedPom>
                     <filters>
                         <filter>
