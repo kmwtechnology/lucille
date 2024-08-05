@@ -261,13 +261,12 @@ public class TextExtractorTest {
 
   /**
    * Tests the TextExtractor getting inputStream from file method
-   *
    */
   @Test
-  public void testGetFileInputStream() throws StageException, IOException {
+  public void testGetFileInputStreamError() throws StageException, IOException {
     TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/getFileInputStream.conf");
 
-    // setting document to have a non existent path
+    // setting document to have a non-existent path
     Document doc = Document.create("doc1");
     doc.addToField("path", Paths.get("src/test/resources/TextExtractorTest/nonExistentFile").toAbsolutePath().toString());
 

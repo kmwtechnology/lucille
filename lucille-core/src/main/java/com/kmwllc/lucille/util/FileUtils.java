@@ -8,9 +8,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
+import org.apache.commons.vfs2.FileContent;
+import org.apache.commons.vfs2.FileObject;
+import org.apache.commons.vfs2.FileSystemException;
+import org.apache.commons.vfs2.FileSystemManager;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class FileUtils {
 
+  private static final Logger log = LogManager.getLogger(FileUtils.class);
   /**
    * Returns a Reader for the file at the given path. If the path begins with "classpath:" the prefix will be removed
    * and the file will be read from the classpath. If the path appears to be a URI, it will be accessed using VFS.
@@ -64,11 +71,47 @@ public class FileUtils {
    * @param path the path as a String
    * @return the correct InputStream
    */
-  public static InputStream getInputStream(String path) throws IOException {
+  public static InputStream getInputStream(String path, FileSystemManager fsManager) {
+    InputStream is;
+
+    // setting up VFS
     if (isValidURI(path)) {
-      return VFSInputStream.open(path);
+      FileObject file;
+      try {
+        file = fsManager.resolveFile(path);
+
+        if (file == null) {
+          log.warn("File object is null for path: {}", path);
+          return null;
+        }
+
+        if (!file.exists()) {
+          log.warn("File not found at: {}", path);
+          return null;
+        }
+
+        FileContent content = file.getContent();
+        try {
+          is = content.getInputStream();
+          return is;
+        } catch (FileSystemException e) {
+          log.warn("Error opening input stream for file: {}", path, e);
+          return null;
+        }
+      } catch (FileSystemException e) {
+        log.warn("Error retrieving file contents: {}", path, e);
+        return null;
+      }
     }
-    return new FileInputStream(path);
+
+    // setting up local file system manager
+    try {
+      is = new FileInputStream(path);
+      return is;
+    } catch (FileNotFoundException e) {
+      log.warn("File not found at: {}", path, e);
+      return null;
+    }
   }
 
   /**

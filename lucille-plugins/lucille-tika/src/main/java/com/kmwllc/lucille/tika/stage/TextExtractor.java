@@ -3,6 +3,7 @@ package com.kmwllc.lucille.tika.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -10,8 +11,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
-import org.apache.commons.vfs2.FileContent;
-import org.apache.commons.vfs2.FileObject;
 import org.apache.commons.vfs2.FileSystemException;
 import org.apache.commons.vfs2.impl.StandardFileSystemManager;
 import org.apache.logging.log4j.LogManager;
@@ -125,42 +124,16 @@ public class TextExtractor extends Stage {
 
       String filePath = doc.getString(filePathField);
 
-      InputStream inputStream = getFileInputStream(filePath);
+      // logging would be done in getInputStream
+      InputStream inputStream = FileUtils.getInputStream(filePath, fsManager);
+      // if inputStream null, don't process document
       if (inputStream == null) {
-        log.warn("Error getting inputStream for file at : {}", filePath);
         return null;
       }
+
       parseInputStream(doc, inputStream);
     }
     return null;
-  }
-
-  private InputStream getFileInputStream(String filePath) {
-    FileObject file;
-    try {
-      file = fsManager.resolveFile(filePath);
-
-      if (file == null) {
-        log.warn("File object is null for path: {}", filePath);
-        return null;
-      }
-
-      if (!file.exists()) {
-        log.warn("File not found at: {}", filePath);
-        return null;
-      }
-
-      FileContent content = file.getContent();
-      try {
-        return content.getInputStream();
-      } catch (FileSystemException e) {
-        log.warn("Error opening input stream for file: {}", filePath, e);
-        return null;
-      }
-    } catch (FileSystemException e) {
-      log.warn("Error retrieving file contents: {}", filePath, e);
-      return null;
-    }
   }
 
   /**
