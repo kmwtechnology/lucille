@@ -28,20 +28,16 @@ public class RunnerManager {
 
   // Check whether the CompleteableFuture exists and is not done
   synchronized public boolean isRunning() {
-    return (future != null && !future.isDone());
+    return !future.isDone();
   }
 
   /**
-   * Blocks the calling thread until the current lucille run is completed.
-   *
-   * @return true if a lucille run was running when the method was called. false otherwise.
+   * Blocks the calling thread until the current lucille run is completed. This method is primarily intended to be used for testing,
+   * but has been made public to facilitate testing in other modules, namely lucille-plugins/lucille-api. NOTE: This method will block
+   * all other synchronized methods in the class.
    */
-  public boolean waitForRunCompletion() throws ExecutionException, InterruptedException {
-    boolean isRunning = this.isRunning();
-
+  synchronized public void waitForRunCompletion() throws ExecutionException, InterruptedException {
     future.get();
-
-    return isRunning;
   }
 
   private CompletableFuture<Void> future = CompletableFuture.completedFuture(null);

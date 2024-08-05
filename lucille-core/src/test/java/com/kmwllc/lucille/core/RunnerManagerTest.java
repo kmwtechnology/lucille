@@ -40,13 +40,14 @@ public class RunnerManagerTest {
     RunnerManager runnerManager = RunnerManager.getInstance();
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
 
-    // Ensure the waitForCompletion method returns false if no lucille run is currently occurring
-    assertFalse(runnerManager.waitForRunCompletion());
+    // Ensure lucille is not running first
+    assertFalse(runnerManager.isRunning());
 
     runnerManager.runWithConfig(config);
 
-    // Wait for the first run to finish, and then assert a run is no longer occurring
-    assertTrue(runnerManager.waitForRunCompletion());
-    assertFalse(runnerManager.waitForRunCompletion());
+    // Ensure lucille is running, wait for it stop and ensure its stopped
+    assertTrue(runnerManager.isRunning());
+    runnerManager.waitForRunCompletion();
+    assertFalse(runnerManager.isRunning());
   }
 }
