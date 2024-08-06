@@ -466,9 +466,9 @@ public class ElasticsearchIndexerTest {
    * @throws Exception
    */
   @Test
-  public void testIgnoreFieldsWithOverride2() throws Exception {
+  public void testIgnoreFieldsWithOverride() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("ElasticsearchIndexerTest/ignoreFieldsWithOverride2.conf");
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/ignoreFieldsWithOverride.conf");
 
     Document doc = Document.create("doc1");
     doc.setField("normalField", "normalValue");
@@ -501,9 +501,9 @@ public class ElasticsearchIndexerTest {
    * @throws Exception
    */
   @Test
-  public void testIgnoreFieldsWithOverride() throws Exception {
+  public void testIgnoreFieldsWithOverride2() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("ElasticsearchIndexerTest/ignoreFieldsWithOverride.conf");
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/ignoreFieldsWithOverride2.conf");
 
     Document doc = Document.create("doc1");
     doc.setField("normalField", "normalValue");
