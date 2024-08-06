@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
@@ -436,12 +435,6 @@ public class ElasticsearchIndexerTest {
     doc.setField("ignoreField2", "value2");
     doc.setField("normalField", "normalValue");
 
-    // checking that document fields has been set
-    assertNotNull(doc.getString("id"));
-    assertNotNull(doc.getString("ignoreField1"));
-    assertNotNull(doc.getString("ignoreField2"));
-    assertNotNull(doc.getString("normalField"));
-
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
     messenger.sendForIndexing(doc);
     indexer.run(1);
@@ -474,11 +467,6 @@ public class ElasticsearchIndexerTest {
     doc.setField("normalField", "normalValue");
     doc.setField("other_id", "otherId");
 
-    // checking that document fields has been set
-    assertNotNull(doc.getString("id"));
-    assertNotNull(doc.getString("other_id"));
-    assertNotNull(doc.getString("normalField"));
-
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
     messenger.sendForIndexing(doc);
     indexer.run(1);
@@ -509,11 +497,6 @@ public class ElasticsearchIndexerTest {
     doc.setField("normalField", "normalValue");
     doc.setField("other_id", "otherId");
 
-    // checking that document fields has been set
-    assertNotNull(doc.getString("id"));
-    assertNotNull(doc.getString("other_id"));
-    assertNotNull(doc.getString("normalField"));
-
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
     messenger.sendForIndexing(doc);
     indexer.run(1);
@@ -542,10 +525,6 @@ public class ElasticsearchIndexerTest {
 
     Document doc = Document.create("doc1");
     doc.setField("other_id", "otherId");
-
-    // checking that document fields has been set
-    assertNotNull(doc.getString("id"));
-    assertNotNull(doc.getString("other_id"));
 
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
     messenger.sendForIndexing(doc);
