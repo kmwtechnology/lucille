@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.indexer;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -400,12 +399,6 @@ public class OpenSearchIndexerTest {
     doc.setField("ignoreField2", "value2");
     doc.setField("normalField", "normalValue");
 
-    // checking that document fields has been set
-    assertNotNull(doc.getString("id"));
-    assertNotNull(doc.getString("ignoreField1"));
-    assertNotNull(doc.getString("ignoreField2"));
-    assertNotNull(doc.getString("normalField"));
-
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
     messenger.sendForIndexing(doc);
     indexer.run(1);
@@ -441,11 +434,6 @@ public class OpenSearchIndexerTest {
     doc.setField("normalField", "normalValue");
     doc.setField("other_id", "otherId");
 
-    // checking that document fields has been set
-    assertNotNull(doc.getString("id"));
-    assertNotNull(doc.getString("normalField"));
-    assertNotNull(doc.getString("other_id"));
-
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
     messenger.sendForIndexing(doc);
     indexer.run(1);
@@ -479,11 +467,6 @@ public class OpenSearchIndexerTest {
     doc.setField("normalField", "normalValue");
     doc.setField("other_id", "otherId");
 
-    // checking that document fields has been set
-    assertNotNull(doc.getString("id"));
-    assertNotNull(doc.getString("normalField"));
-    assertNotNull(doc.getString("other_id"));
-
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
     messenger.sendForIndexing(doc);
     indexer.run(1);
@@ -515,10 +498,6 @@ public class OpenSearchIndexerTest {
     Document doc = Document.create("doc1");
 
     doc.setField("other_id", "otherId");
-
-    // checking that document fields has been set
-    assertNotNull(doc.getString("id"));
-    assertNotNull(doc.getString("other_id"));
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
     messenger.sendForIndexing(doc);
