@@ -108,8 +108,8 @@ public class ElasticsearchIndexer extends Indexer {
       String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
 
       // This condition below avoids adding id if ignoreFields contains it and edge cases:
-      // - Case 1: id and idOverride in ignoreFields -> idOverride used by Indexer, both removed from Document (tested in testIgnoreFieldsWithOverride2)
-      // - Case 2: id in ignoreFields, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testIgnoreFieldsWithOverride)
+      // - Case 1: id and idOverride in ignoreFields -> idOverride used by Indexer, both removed from Document (tested in testIgnoreFieldsWithOverride)
+      // - Case 2: id in ignoreFields, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testIgnoreFieldsWithOverride2)
       // - Case 3: id in ignoreFields, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
       // - Case 4: ignoreFields null, idOverride exists -> idOverride used by Indexer, id and idOverride field exist in Document (tested in testOverride)
       // - Case 5: ignoreFields null, idOverride null -> document id remains and used by Indexer (Default case & tested)
