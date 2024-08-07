@@ -276,7 +276,6 @@ public class ElasticsearchIndexerTest {
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
     messenger.sendForIndexing(doc);
     indexer.run(1);
-
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
     verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
 
@@ -286,8 +285,12 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     assertEquals("doc1", indexRequest.id());
+
+    // routing has been set appropriately even though routing field has been deleted by ignoreFields
+    // note that id has also been deleted from the document, but the id is still passed to the ElasticSearch Index
+    // to id documents.
     assertEquals("routing1", indexRequest.routing());
-    assertEquals(doc.asMap(), indexRequest.document());
+    assertEquals(Map.of("field1", "value1"), indexRequest.document());
   }
 
   @Test
@@ -414,6 +417,129 @@ public class ElasticsearchIndexerTest {
       Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       Assert.assertEquals(Type.FAIL, events.get(i - 1).getType());
     }
+  }
+
+  /**
+   * Tests that the indexer correctly ignores fields stated in the ignoreFields portion of the config file
+   * Note that indexer would even ignore the "id" field if configured, removing the id field in the Lucille document.
+   * However, the id would still be passed to the ElasticSearch index to id the documents.
+   * @throws Exception
+   */
+  @Test
+  public void testIgnoreFields() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/ignoreFields.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("ignoreField1", "value1");
+    doc.setField("ignoreField2", "value2");
+    doc.setField("normalField", "normalValue");
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    // verify that bulk has been called by the mockClient once
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
+
+    // check that ignoreField1, ignoreField2, and id has been removed
+    assertEquals(Map.of("normalField", "normalValue"), indexRequest.document());
+  }
+
+  /**
+   * Tests that the indexer correctly ignores fields stated in the ignoreFields portion of the config file
+   * In this case both id & idOverride is removed from the Lucille Document, but the idOverride is still
+   * used as the Document id for the Indexer
+   *
+   * @throws Exception
+   */
+  @Test
+  public void testIgnoreFieldsWithOverride() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/ignoreFieldsWithOverride.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("normalField", "normalValue");
+    doc.setField("other_id", "otherId");
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    // verify that bulk has been called by the mockClient once
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
+
+    // check that id and other_id has been removed
+    assertEquals(Map.of("normalField", "normalValue"), indexRequest.document());
+  }
+
+  /**
+   * Tests that the indexer correctly ignores fields stated in the ignoreFields portion of the config file
+   * Even if idOverride exists, id is still removed and Indexer will use the idOverride as document id
+   * @throws Exception
+   */
+  @Test
+  public void testIgnoreFieldsWithOverride2() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/ignoreFieldsWithOverride2.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("normalField", "normalValue");
+    doc.setField("other_id", "otherId");
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    // verify that bulk has been called by the mockClient once
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
+
+    // check that id has been removed and that other_id field remains
+    assertEquals(Map.of("other_id", "otherId", "normalField", "normalValue"), indexRequest.document());
+  }
+
+  /**
+   * Tests that the indexer correctly overrides the id if it exists in conf
+   * @throws Exception
+   */
+
+  @Test
+  public void testOverride() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/testOverride.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("other_id", "otherId");
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    // verify that bulk has been called by the mockClient once
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
+
+    // check that id has been overwritten and that other_id field remains
+    assertEquals(Map.of("id", "otherId", "other_id", "otherId"), indexRequest.document());
   }
 
   private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
