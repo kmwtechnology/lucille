@@ -66,50 +66,20 @@ public class FileUtils {
   }
 
   /**
-   * Takes a path and returns the correct InputStream depending on whether the path is a URI or URL.
+   * Takes a path and fsManager to retrieve the FileObject
    *
    * @param path the path as a String
-   * @return the correct InputStream
+   * @return the FileObject to retrieve content from
    */
-  public static InputStream getInputStream(String path, FileSystemManager fsManager) {
-    InputStream is;
-
-    // setting up VFS
-    if (isValidURI(path)) {
-      FileObject file;
-      try {
-        file = fsManager.resolveFile(path);
-
-        if (file == null) {
-          log.warn("File object is null for path: {}", path);
-          return null;
-        }
-
-        if (!file.exists()) {
-          log.warn("File not found at: {}", path);
-          return null;
-        }
-
-        FileContent content = file.getContent();
-        try {
-          is = content.getInputStream();
-          return is;
-        } catch (FileSystemException e) {
-          log.warn("Error opening input stream for file: {}", path, e);
-          return null;
-        }
-      } catch (FileSystemException e) {
-        log.warn("Error retrieving file contents: {}", path, e);
-        return null;
-      }
-    }
-
-    // setting up local file system manager
+  public static FileObject getFileObject(String path, FileSystemManager fsManager) {
     try {
-      is = new FileInputStream(path);
-      return is;
-    } catch (FileNotFoundException e) {
-      log.warn("File not found at: {}", path, e);
+      // transforming non-absolute path to absolute path if path is no absolute
+      if (!isValidURI(path)) {
+        path = Paths.get(path).toAbsolutePath().toString();
+      }
+      return fsManager.resolveFile(path);
+    } catch (FileSystemException e) {
+      log.warn("Error retrieving file contents: {}", path, e);
       return null;
     }
   }

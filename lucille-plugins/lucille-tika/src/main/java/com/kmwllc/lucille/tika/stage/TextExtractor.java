@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
+import org.apache.commons.vfs2.FileObject;
 import org.apache.commons.vfs2.FileSystemException;
 import org.apache.commons.vfs2.impl.StandardFileSystemManager;
 import org.apache.logging.log4j.LogManager;
@@ -121,17 +122,32 @@ public class TextExtractor extends Stage {
       parseInputStream(doc, inputStream);
 
     } else if (doc.has(filePathField)) {
-
+      // get fileObject from path
       String filePath = doc.getString(filePathField);
+      FileObject file = FileUtils.getFileObject(filePath, fsManager);
 
-      // logging would be done in getInputStream
-      InputStream inputStream = FileUtils.getInputStream(filePath, fsManager);
-      // if inputStream null, don't process document
-      if (inputStream == null) {
+      // if file null, don't process document
+      if (file == null) {
+        return null;
+      }
+
+      // getting inputStream and catching errors gracefully
+      InputStream inputStream;
+      try {
+        inputStream = file.getContent().getInputStream();
+      } catch(FileSystemException e) {
+        log.warn("Error getting inputStream from file at: {}", filePath, e);
         return null;
       }
 
       parseInputStream(doc, inputStream);
+
+      // close file after, do not need to check if file is null as we have already checked on line 130
+      try {
+        file.close();
+      } catch (FileSystemException e) {
+        log.warn("error closing file");
+      }
     }
     return null;
   }
