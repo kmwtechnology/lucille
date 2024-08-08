@@ -195,7 +195,11 @@ public class Runner {
   }
 
   public static Map<String, List<Exception>> runInValidationMode(String configName) throws Exception {
-    Map<String, List<Exception>> exceptions = validatePipelines(ConfigFactory.load(configName));
+    return runInValidationMode(ConfigFactory.load(configName));
+  }
+
+  public static Map<String, List<Exception>> runInValidationMode(Config config) throws Exception {
+    Map<String, List<Exception>> exceptions = validatePipelines(config);
     logValidation(exceptions);
     return exceptions;
   }

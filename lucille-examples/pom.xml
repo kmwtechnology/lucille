@@ -22,5 +22,6 @@
     <module>lucille-file-to-file-example</module>
     <module>lucille-distributed-example</module>
     <module>lucille-simple-csv-solr-example</module>
+    <module>lucille-opensearch-ingest-example</module>
   </modules>
 </project>
