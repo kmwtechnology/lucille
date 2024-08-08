@@ -7,6 +7,9 @@ import com.kmwllc.lucille.message.*;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
+import com.typesafe.config.ConfigValue;
+import java.util.Map.Entry;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
@@ -55,6 +58,8 @@ public class Runner {
 
   private static final Logger log = LoggerFactory.getLogger(Runner.class);
 
+  private static boolean toRenderConfig = false;
+
   public enum RunType {
     LOCAL, // launch Worker(s) and Indexer as threads; have all components communicate via in-memory queues
     TEST, // same as LOCAL, but bypass Solr, and store message traffic so it can be inspected after the run
@@ -77,6 +82,8 @@ public class Runner {
    * <p>
    * -local: modifies -usekafka so that workers and indexers are started as separate threads within the same JVM;
    * kafka is still used for communication between them.
+   * <p>
+   * -render: prints out the effective/actual config in the exact form it will be seen by Lucille during the run
    */
   public static void main(String[] args) throws Exception {
     Options cliOptions = new Options()
@@ -85,7 +92,9 @@ public class Runner {
         .addOption(Option.builder("local").hasArg(false)
             .desc("Modifies usekafka mode to execute pipelines locally").build())
         .addOption(Option.builder("validate").hasArg(false)
-            .desc("Validate the configuration and exit").build());
+            .desc("Validate the configuration and exit").build())
+        .addOption(Option.builder("render").hasArg(false)
+            .desc("Prints out the configuration file").build());
 
     CommandLine cli = null;
     try {
@@ -126,6 +135,11 @@ public class Runner {
 
       Config config = ConfigFactory.load();
 
+      // log config if render flag was given at runtime
+      if (cli.hasOption("render")) {
+        toRenderConfig = true;
+      }
+
       result = run(config, runType);
 
       // log detailed metrics
@@ -164,6 +178,11 @@ public class Runner {
   public static Map<String, TestMessenger> runInTestMode(Config config) throws Exception {
     RunResult result = run(config, RunType.TEST);
     return result.getHistory();
+  }
+
+  public static Map<String, TestMessenger> runInTestModeWithRender(String config, boolean toRender) throws Exception {
+    toRenderConfig = toRender;
+    return runInTestMode(config);
   }
 
   // Returns a mapping from pipeline names to the list of exceptions produced when validating them.
@@ -224,6 +243,14 @@ public class Runner {
   public static RunResult run(Config config, RunType type) throws Exception {
     String runId = UUID.randomUUID().toString();
     log.info("Starting run with id " + runId);
+
+    if (toRenderConfig) {
+      ConfigRenderOptions renderOptions = ConfigRenderOptions.defaults()
+          .setJson(true)
+          .setComments(false)
+          .setOriginComments(false);
+      log.info(config.root().render(renderOptions));
+    }
 
     List<Connector> connectors = Connector.fromConfig(config);
     List<ConnectorResult> connectorResults = new ArrayList<>();
