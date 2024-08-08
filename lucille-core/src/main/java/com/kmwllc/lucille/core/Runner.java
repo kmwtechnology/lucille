@@ -58,6 +58,8 @@ public class Runner {
 
   private static final Logger log = LoggerFactory.getLogger(Runner.class);
 
+  private static boolean toRenderConfig = false;
+
   public enum RunType {
     LOCAL, // launch Worker(s) and Indexer as threads; have all components communicate via in-memory queues
     TEST, // same as LOCAL, but bypass Solr, and store message traffic so it can be inspected after the run
@@ -135,11 +137,7 @@ public class Runner {
 
       // log config if render flag was given at runtime
       if (cli.hasOption("render")) {
-        ConfigRenderOptions renderOptions = ConfigRenderOptions.defaults()
-            .setJson(true)
-            .setComments(false)
-            .setOriginComments(false);
-         log.info(config.root().render(renderOptions));
+        toRenderConfig = true;
       }
 
       result = run(config, runType);
@@ -180,6 +178,11 @@ public class Runner {
   public static Map<String, TestMessenger> runInTestMode(Config config) throws Exception {
     RunResult result = run(config, RunType.TEST);
     return result.getHistory();
+  }
+
+  public static Map<String, TestMessenger> runInTestModeWithRender(String config, boolean toRender) throws Exception {
+    toRenderConfig = toRender;
+    return runInTestMode(config);
   }
 
   // Returns a mapping from pipeline names to the list of exceptions produced when validating them.
@@ -240,6 +243,14 @@ public class Runner {
   public static RunResult run(Config config, RunType type) throws Exception {
     String runId = UUID.randomUUID().toString();
     log.info("Starting run with id " + runId);
+
+    if (toRenderConfig) {
+      ConfigRenderOptions renderOptions = ConfigRenderOptions.defaults()
+          .setJson(true)
+          .setComments(false)
+          .setOriginComments(false);
+      log.info(config.root().render(renderOptions));
+    }
 
     List<Connector> connectors = Connector.fromConfig(config);
     List<ConnectorResult> connectorResults = new ArrayList<>();
