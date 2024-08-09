@@ -32,10 +32,13 @@ public class SolrIndexer extends Indexer {
 
   private final SolrClient solrClient;
 
+  private final String uniqueKey;
+
   public SolrIndexer(
       Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix) {
     super(config, messenger, metricsPrefix);
     this.solrClient = solrClient;
+    uniqueKey = config.hasPath("unique_key") ? config.getString("unique_key") : null;
   }
 
   public SolrIndexer(
@@ -44,6 +47,7 @@ public class SolrIndexer extends Indexer {
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
     this.solrClient = getSolrClient(config, bypass);
+    uniqueKey = config.hasPath("unique_key") ? config.getString("unique_key") : null;
   }
 
   private static SolrClient getSolrClient(Config config, boolean bypass) {
@@ -135,6 +139,11 @@ public class SolrIndexer extends Indexer {
       SolrDocRequests solrDocRequests = solrDocRequestsByCollection.get(collection);
       String solrId = idOverride != null ? idOverride : doc.getId();
 
+      // if user provided uniqueKey is in document use that as id, else continue with the original id
+      if (uniqueKey != null) {
+        solrId = doc.has(uniqueKey) ? doc.getString(uniqueKey) : solrId;
+      }
+
       if (isDeletion(doc)) {
 
         // if the add/update requests contain the ID of this delete, send the add/updates
@@ -161,6 +170,7 @@ public class SolrIndexer extends Indexer {
         }
 
       } else {
+        // note that solrDoc after this code block does not guarantee that "id" field is in document
         SolrInputDocument solrDoc = toSolrDoc(doc, idOverride, collection);
 
         // if the delete requests contain the ID of this document, send the deletes immediately so
@@ -172,7 +182,7 @@ public class SolrIndexer extends Indexer {
           sendDeletionBatch(collection, solrDocRequests);
           solrDocRequests.resetDeletes();
         }
-        solrDocRequests.addDocForAddUpdate(solrDoc);
+        solrDocRequests.addDocForAddUpdate(solrDoc, solrId);
       }
     }
     for (String collection : solrDocRequestsByCollection.keySet()) {
@@ -246,6 +256,7 @@ public class SolrIndexer extends Indexer {
 
   private SolrInputDocument toSolrDoc(Document doc, String idOverride, String indexOverride)
       throws IndexerException {
+    // removes fields from ignoredFields config, including id
     Map<String, Object> map = getIndexerDoc(doc);
     SolrInputDocument solrDoc = new SolrInputDocument();
 
@@ -254,7 +265,7 @@ public class SolrIndexer extends Indexer {
       if (Document.CHILDREN_FIELD.equals(key)) {
         continue;
       }
-
+      
       if (idOverride != null && Document.ID_FIELD.equals(key)) {
         solrDoc.setField(Document.ID_FIELD, idOverride);
         continue;
