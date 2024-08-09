@@ -163,6 +163,35 @@ public class SolrIndexerTest {
     }
   }
 
+
+  /**
+   * Tests that id would be deleted if stated in ignoreFields
+   *
+   * @throws Exception
+   */
+  @Test
+  public void testIgnoreIdInIgnoreFields() throws Exception {
+    Config config = ConfigFactory.load("SolrIndexerTest/ignoreId.conf");
+    TestMessenger messenger = new TestMessenger();
+
+    Document doc = Document.create("doc1", "test_run");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc); // seems to capture the document ID here before the indexing portion
+    indexer.run(1);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(1)).add((captor.capture()));
+    verify(solrClient, times(1)).close();
+    assertEquals(1, captor.getAllValues().size());
+    assertEquals(1, messenger.getSentEvents().size());
+
+    // confirm that the document id has been removed
+    SolrInputDocument solrDoc = (SolrInputDocument) captor.getAllValues().get(0).toArray()[0];
+    assertNull(solrDoc.getFieldValue("id"));
+  }
+
   /**
    * Tests that the indexer correctly handles nested child documents.
    *

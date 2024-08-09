@@ -35,9 +35,10 @@ public class SolrDocRequests {
     this.valuesToDeleteByField = valuesToDeleteByField;
   }
 
-  public void addDocForAddUpdate(SolrInputDocument doc) {
+  // we are explicitly using another argument for docId as the SolrInputDocument may no longer have the "id" field
+  public void addDocForAddUpdate(SolrInputDocument doc, String id) {
     docsToAddOrUpdate.add(doc);
-    idsToAddOrUpdate.add((String) doc.getFieldValue(Document.ID_FIELD));
+    idsToAddOrUpdate.add(id);
   }
 
   public void addIdForDeletion(String id) {
