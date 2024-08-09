@@ -6,9 +6,13 @@ import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import java.util.List;
 
-public class NoOpIndexer extends Indexer {
+/**
+ * The NopIndexer performs no operations and does not send documents to any index. It is intended to be used for testing or
+ * validating that a pipeline is properly configured without ingesting content.
+ */
+public class NopIndexer extends Indexer {
 
-  public NoOpIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+  public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
     super(config, messenger, metricsPrefix);
   }
 
@@ -19,6 +23,7 @@ public class NoOpIndexer extends Indexer {
 
   @Override
   protected void sendToIndex(List<Document> documents) throws Exception {
+    // no-op
   }
 
   @Override
