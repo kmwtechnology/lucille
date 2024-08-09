@@ -3,7 +3,7 @@ package com.kmwllc.lucille.core;
 import com.typesafe.config.Config;
 
 public enum ChunkingMethod {
-  FIXED("fixed"), CUSTOM("custom"), PARAGRAPH("paragraph"), ;
+  FIXED("fixed"), CUSTOM("custom"), PARAGRAPH("paragraph"), SENTENCE("sentence"), SEMANTIC("semantic");
 
   public static final String CONFIG_PATH = "chunking_method";
   public static final ChunkingMethod DEFAULT = FIXED;
