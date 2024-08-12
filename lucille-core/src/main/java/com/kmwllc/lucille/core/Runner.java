@@ -58,8 +58,6 @@ public class Runner {
 
   private static final Logger log = LoggerFactory.getLogger(Runner.class);
 
-  private static boolean toRenderConfig = false;
-
   public enum RunType {
     LOCAL, // launch Worker(s) and Indexer as threads; have all components communicate via in-memory queues
     TEST, // same as LOCAL, but bypass Solr, and store message traffic so it can be inspected after the run
@@ -94,7 +92,7 @@ public class Runner {
         .addOption(Option.builder("validate").hasArg(false)
             .desc("Validate the configuration and exit").build())
         .addOption(Option.builder("render").hasArg(false)
-            .desc("Prints out the configuration file").build());
+            .desc("Print out the configuration file with substitutions applied and exit").build());
 
     CommandLine cli = null;
     try {
@@ -111,8 +109,16 @@ public class Runner {
       System.exit(1);
     }
 
-    if (cli.hasOption("validate")) {
-      logValidation(validatePipelines(ConfigFactory.load()));
+    Config config = ConfigFactory.load();
+
+    // allow handling of both validate and render flags
+    if (cli.hasOption("validate") || cli.hasOption("render")) {
+      if (cli.hasOption("render")) {
+        renderConfig(config);
+      }
+      if (cli.hasOption("validate")) {
+        logValidation(validatePipelines(config));
+      }
       return;
     }
 
@@ -131,13 +137,6 @@ public class Runner {
         }
       } else {
         runType = RunType.LOCAL;
-      }
-
-      Config config = ConfigFactory.load();
-
-      // log config if render flag was given at runtime
-      if (cli.hasOption("render")) {
-        toRenderConfig = true;
       }
 
       result = run(config, runType);
@@ -178,11 +177,6 @@ public class Runner {
   public static Map<String, TestMessenger> runInTestMode(Config config) throws Exception {
     RunResult result = run(config, RunType.TEST);
     return result.getHistory();
-  }
-
-  public static Map<String, TestMessenger> runInTestModeWithRender(String config, boolean toRender) throws Exception {
-    toRenderConfig = toRender;
-    return runInTestMode(config);
   }
 
   // Returns a mapping from pipeline names to the list of exceptions produced when validating them.
@@ -237,20 +231,20 @@ public class Runner {
     return exceptionMap;
   }
 
+  public static void renderConfig(Config config) {
+    ConfigRenderOptions renderOptions = ConfigRenderOptions.defaults()
+        .setJson(true)
+        .setComments(false)
+        .setOriginComments(false);
+    log.info(config.root().render(renderOptions));
+  }
+
   /**
    * Generates a run ID and performs an end-to-end run of the designated type.
    */
   public static RunResult run(Config config, RunType type) throws Exception {
     String runId = UUID.randomUUID().toString();
     log.info("Starting run with id " + runId);
-
-    if (toRenderConfig) {
-      ConfigRenderOptions renderOptions = ConfigRenderOptions.defaults()
-          .setJson(true)
-          .setComments(false)
-          .setOriginComments(false);
-      log.info(config.root().render(renderOptions));
-    }
 
     List<Connector> connectors = Connector.fromConfig(config);
     List<ConnectorResult> connectorResults = new ArrayList<>();

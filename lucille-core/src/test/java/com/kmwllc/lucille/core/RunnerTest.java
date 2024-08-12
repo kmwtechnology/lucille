@@ -13,7 +13,6 @@ import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
-import org.junit.runner.Result;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
@@ -789,9 +788,9 @@ public class RunnerTest {
     // 2) metrics collected by Indexer, Worker, Publisher
   }
 
-
   @Test
   public void testRenderFlag() throws Exception {
-    Runner.runInTestModeWithRender("RunnerTest/render.conf", true);
+    Config config = ConfigFactory.load("RunnerTest/render.conf");
+    Runner.renderConfig(config);
   }
 }
