@@ -296,7 +296,9 @@ public class SolrIndexer extends Indexer {
       return;
     }
     for (Document child : children) {
-      Map<String, Object> map = child.asMap();
+      // remove key:value pair mappings if they appear in ignoreFields
+      Map<String, Object> map = getIndexerDoc(child);
+
       SolrInputDocument solrChild = new SolrInputDocument();
       for (String key : map.keySet()) {
         // we don't support children that contain nested children
