@@ -24,6 +24,7 @@
     <module>lucille-core</module>
     <module>lucille-plugins</module>
     <module>lucille-examples</module>
+    <module>lucille-admin</module>
   </modules>
 
   <repositories>

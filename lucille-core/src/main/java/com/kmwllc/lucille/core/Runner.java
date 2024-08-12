@@ -107,37 +107,11 @@ public class Runner {
       return;
     }
 
-    StopWatch stopWatch = new StopWatch();
-    stopWatch.start();
-    RunResult result;
+    Config config = ConfigFactory.load();
+    RunType runType = getRunType(cli.hasOption("useKafka"), cli.hasOption("local"));
 
-    try {
-
-      RunType runType;
-      if (cli.hasOption("usekafka")) {
-        if (cli.hasOption("local")) {
-          runType = RunType.KAFKA_LOCAL;
-        } else {
-          runType = RunType.KAFKA_DISTRIBUTED;
-        }
-      } else {
-        runType = RunType.LOCAL;
-      }
-
-      Config config = ConfigFactory.load();
-
-      result = run(config, runType);
-
-      // log detailed metrics
-      Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
-          .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
-
-      // log run summary
-      log.info(result.toString());
-    } finally {
-      stopWatch.stop();
-      log.info(String.format("Run took %.2f secs.", (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
-    }
+    // Kick off the run with a log of the result
+    RunResult result = runWithResultLog(config, runType);
 
     if (result.getStatus()) {
       System.exit(0);
@@ -216,6 +190,46 @@ public class Runner {
       }
     }
     return exceptionMap;
+  }
+
+  /**
+   * Derives the RunType for the new run from the 'useKafka' and 'local' parameters.
+   */
+  protected static RunType getRunType(boolean useKafka, boolean local) {
+    if (useKafka) {
+      if (local) {
+        return RunType.KAFKA_LOCAL;
+      } else {
+        return RunType.KAFKA_DISTRIBUTED;
+      }
+    } else {
+      return RunType.LOCAL;
+    }
+  }
+
+  /**
+   * Kicks off a new Lucille run and logs information about the run to the console after completion.
+   */
+  public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
+    StopWatch stopWatch = new StopWatch();
+    stopWatch.start();
+    RunResult result;
+
+    try {
+      result = run(config, runType);
+
+      // log detailed metrics
+      Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
+          .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
+
+      // log run summary
+      log.info(result.toString());
+
+      return result;
+    } finally {
+      stopWatch.stop();
+      log.info(String.format("Run took %.2f secs.", (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
+    }
   }
 
   /**

@@ -1,0 +1,13 @@
+server:
+  type: simple
+  applicationContextPath: /
+
+  requestLog:
+    type: external
+    enabled: false
+logging:
+  type: external
+
+auth:
+  type: basicAuth
+  password: test
