@@ -7,12 +7,14 @@ import com.kmwllc.lucille.endpoints.ReadinessResource;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
+import jdk.jfr.Experimental;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Main Class for the Lucille API.
  */
+@Experimental
 public class APIApplication extends Application<LucilleAPIConfiguration> {
 
   public static final Logger log = LoggerFactory.getLogger(APIApplication.class);
