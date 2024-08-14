@@ -144,7 +144,7 @@ public class TextExtractor extends Stage {
 
       parseInputStream(doc, inputStream);
 
-      // close file after, do not need to check if file is null as we have already checked on line 130
+      // close file after, do not need to check if file is null as we have already checked above
       try {
         // closes the file, and its content, including any open stream
         file.close();
