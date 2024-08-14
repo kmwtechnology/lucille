@@ -68,7 +68,8 @@ public class FileUtils {
   /**
    * Takes a path and fsManager to retrieve the FileObject
    *
-   * @param path the path as a String
+   * @param path the path to file as a String
+   * @param fsManager the fileSystem manager instance
    * @return the FileObject to retrieve content from
    */
   public static FileObject getFileObject(String path, FileSystemManager fsManager) {

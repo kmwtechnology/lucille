@@ -134,6 +134,8 @@ public class TextExtractor extends Stage {
       // getting inputStream and catching errors gracefully
       InputStream inputStream;
       try {
+        // file.getContent() never returns null
+        // https://commons.apache.org/proper/commons-vfs/commons-vfs2/apidocs/org/apache/commons/vfs2/FileObject.html#getContent--
         inputStream = file.getContent().getInputStream();
       } catch(FileSystemException e) {
         log.warn("Error getting inputStream from file at: {}", filePath, e);
@@ -144,6 +146,7 @@ public class TextExtractor extends Stage {
 
       // close file after, do not need to check if file is null as we have already checked on line 130
       try {
+        // closes the file, and its content, including any open stream
         file.close();
       } catch (FileSystemException e) {
         log.warn("error closing file");
