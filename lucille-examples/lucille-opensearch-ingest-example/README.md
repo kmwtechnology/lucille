@@ -6,7 +6,7 @@ This example configures Lucille to index the Enron email data into OpenSearch, w
 
 ### Requirements:
 
-- The Enron dataset, which can be found in this link
+- The Enron dataset, which can be found in this link: https://www.cs.cmu.edu/~enron/
 - An instance of OpenSearch server set up locally using Docker. Here is a link to get you started: https://opensearch.org/docs/latest/getting-started/
 - An index set up on OpenSearch
 
