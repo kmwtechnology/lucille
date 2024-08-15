@@ -140,8 +140,8 @@ public class SolrIndexer extends Indexer {
       String solrId = idOverride != null ? idOverride : doc.getId();
 
       // if user provided uniqueKey is in document use that as id, else continue with the original id
-      if (uniqueKey != null) {
-        solrId = doc.has(uniqueKey) ? doc.getString(uniqueKey) : solrId;
+      if (uniqueKey != null && doc.has(uniqueKey)) {
+        solrId = doc.getString(uniqueKey);
       }
 
       if (isDeletion(doc)) {
