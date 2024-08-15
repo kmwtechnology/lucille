@@ -14,9 +14,17 @@ This example configures Lucille to index the Enron email data into OpenSearch, w
 
 1. Head to the OpenSearch dashboard dev tools page. This would allow us to easily create and modify any indices that we will create. Sign in using the username and password set in the docker.yaml file when downloading OpenSearch. Or use the link to the dev tools page, replacing &lt;port&gt; with your port that is running the OpenSearch dashboard
     
-    [http://localhost](http://localhost/):&lt;port&gt;/app/dev_tools#/
+    http://localhost:&lt;port&gt;/app/dev_tools#/
     
-2. copy the json under mappings folder, place that into the devtools and run it. You should get a response back on the right panel. This would create the enron index with its respective mappings and configurations. The command should look like this: \
+2. copy the json under mappings folder, place that into the left panel of dev tools and run it. You should get a response back on the right panel. This command creates the Enron index with its respective mappings and configurations. The command should look like this: \
 PUT enron \
 {json}
-3. Navigate to the opensearch ingest folder and run ./scripts/run_ingest.sh
+3. Set up your environment variables PATH_TO_ENRON, OPENSEARCH_URL and OPENSEARCH_INDEX.  e.g.
+    
+    export OPENSEARCH_URL=”https://username:password@localhost:9200/”
+    
+    export OPENSEARCH_INDEX=”enron”
+    
+    export PATH_TO_ENRON=”&lt;Absolute path to the Enron folder&gt;”
+    
+4. Navigate to the OpenSearch ingest folder and run ./scripts/run_ingest.sh
