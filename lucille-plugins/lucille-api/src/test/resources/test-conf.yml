@@ -1,7 +1,11 @@
 server:
-  type: default
+  type: simple
   requestLog:
     type: external
     enabled: false
 logging:
   type: external
+
+auth:
+  type: basicAuth
+  password: test
