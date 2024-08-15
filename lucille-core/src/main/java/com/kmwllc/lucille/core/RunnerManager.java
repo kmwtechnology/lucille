@@ -33,10 +33,9 @@ public class RunnerManager {
 
   /**
    * Blocks the calling thread until the current lucille run is completed. This method is primarily intended to be used for testing,
-   * but has been made public to facilitate testing in other modules, namely lucille-plugins/lucille-api. NOTE: This method will block
-   * all other synchronized methods in the class.
+   * but has been made public to facilitate testing in other modules, namely lucille-plugins/lucille-api.
    */
-  synchronized public void waitForRunCompletion() throws ExecutionException, InterruptedException {
+  public void waitForRunCompletion() throws ExecutionException, InterruptedException {
     future.get();
   }
 
