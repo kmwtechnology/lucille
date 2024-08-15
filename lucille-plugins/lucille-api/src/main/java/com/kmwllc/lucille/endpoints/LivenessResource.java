@@ -32,10 +32,6 @@ public class LivenessResource {
 
   @GET
   public Response isAlive(@Auth Optional<PrincipalImpl> user) {
-    if (user.isPresent()) {
-      return Response.ok().build();
-    } else {
-      return Response.status(401).build();
-    }
+    return Response.ok().build();
   }
 }

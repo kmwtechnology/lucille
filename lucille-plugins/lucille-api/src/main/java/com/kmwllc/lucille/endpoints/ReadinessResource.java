@@ -30,10 +30,6 @@ public class ReadinessResource {
 
   @GET
   public Response isReady(@Auth Optional<PrincipalImpl> user) {
-    if (user.isPresent()) {
-      return Response.ok().build();
-    } else {
-      return Response.status(401).build();
-    }
+    return Response.ok().build();
   }
 }
