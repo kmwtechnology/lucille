@@ -113,18 +113,24 @@ public class Chunking extends Stage {
     switch (method) {
       case CUSTOM:
       case PARAGRAPH:
-        //paragraph regex taken from langchain4j splitting of paragraphs
+        // regex pattern for paragraph: find any consecutive newline characters within one unit of whitespace
         String regex = (method == ChunkingMethod.CUSTOM) ? separator : "\\s*(?>\\R)\\s*(?>\\R)\\s*";
         chunks = content.split(regex);
+
         break;
       case FIXED:
-        // currently does not work when there is \n in content so need to remove them
-        content = content.replaceAll("(?>\\R)", "");
+        // splitting by characterLimit does not work when there is newline characters in content so need to remove them before
+        content = content.replaceAll("(?>\\R)", " ");
         chunks = content.split("(?<=\\G.{" + characterLimit + "})");
         break;
       default: // SENTENCE
         chunks = sentenceDetector.sentDetect(content);
         break;
+    }
+
+    // replacing all newline characters in chunks
+    for (int i = 0; i < chunks.length; i++) {
+      chunks[i] = chunks[i].replaceAll("(?>\\R)", " ");
     }
 
     // overlap chunks if we have buffer set

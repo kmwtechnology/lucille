@@ -36,7 +36,6 @@ public class ChunkingTest {
     doc.setField("text", "This is a sentence. This is the second sentence. This is the third sentence.");
 
     stage.processDocument(doc);
-    System.out.println(doc);
     List<Document> childrenDocs = doc.getChildren();
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
@@ -115,7 +114,6 @@ public class ChunkingTest {
 
     stage.processDocument(doc);
     List<Document> childrenDocs = doc.getChildren();
-    System.out.println(childrenDocs);
 
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
@@ -146,7 +144,6 @@ public class ChunkingTest {
 
     stage.processDocument(doc);
     List<Document> childrenDocs = doc.getChildren();
-    System.out.println(childrenDocs);
 
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
@@ -177,7 +174,6 @@ public class ChunkingTest {
 
     stage.processDocument(doc);
     List<Document> childrenDocs = doc.getChildren();
-    System.out.println(childrenDocs);
 
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
@@ -214,7 +210,6 @@ public class ChunkingTest {
 
     stage.processDocument(doc);
     List<Document> childrenDocs = doc.getChildren();
-    System.out.println(childrenDocs);
 
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
@@ -240,7 +235,6 @@ public class ChunkingTest {
 
     stage.processDocument(doc);
     List<Document> childrenDocs = doc.getChildren();
-    System.out.println(childrenDocs);
 
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
@@ -266,7 +260,6 @@ public class ChunkingTest {
 
     stage.processDocument(doc);
     List<Document> childrenDocs = doc.getChildren();
-    System.out.println(childrenDocs);
 
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
@@ -289,7 +282,6 @@ public class ChunkingTest {
 
     stage.processDocument(doc);
     List<Document> childrenDocs = doc.getChildren();
-    System.out.println(childrenDocs);
 
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
@@ -349,7 +341,6 @@ public class ChunkingTest {
     stage.processDocument(doc);
 
     List<Document> childrenDocs = doc.getChildren();
-    System.out.println(childrenDocs);
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
     Document child3 = childrenDocs.get(2);
