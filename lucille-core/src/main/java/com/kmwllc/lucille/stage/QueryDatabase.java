@@ -1,12 +1,20 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.databind.node.NullNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.ZoneOffset;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
+import org.apache.commons.io.IOUtils;
 import java.sql.*;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -27,7 +35,6 @@ public class QueryDatabase extends Stage {
   private String sql;
   private List<String> keyFields;
   private List<PreparedStatementParameterType> inputTypes;
-  private List<PreparedStatementParameterType> returnTypes;
   private Map<String, Object> fieldMapping;
   protected Connection connection = null;
   private PreparedStatement preparedStatement;
@@ -38,7 +45,7 @@ public class QueryDatabase extends Stage {
         .withOptionalProperties("sql")
         .withRequiredParents("fieldMapping")
         .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword",
-            "keyFields", "inputTypes", "returnTypes"));
+            "keyFields", "inputTypes"));
 
     driver = config.getString("driver");
     connectionString = config.getString("connectionString");
@@ -51,11 +58,6 @@ public class QueryDatabase extends Stage {
     inputTypes = new ArrayList<>();
     for (String type : inputTypeList) {
       inputTypes.add(PreparedStatementParameterType.getType(type));
-    }
-    List<String> returnTypeList = config.getStringList("returnTypes");
-    returnTypes = new ArrayList<>();
-    for (String type : returnTypeList) {
-      returnTypes.add(PreparedStatementParameterType.getType(type));
     }
   }
 
@@ -70,10 +72,6 @@ public class QueryDatabase extends Stage {
 
     if (inputTypes.size() != keyFields.size()) {
       throw new StageException("mismatch between types provided and keyfields provided");
-    }
-
-    if (returnTypes.size() != fieldMapping.size()) {
-      throw new StageException("mismatch between return types provided and field mapping provided");
     }
   }
 
@@ -117,42 +115,77 @@ public class QueryDatabase extends Stage {
             throw new StageException("Type " + t + " not recognized");
         }
       }
-
       ResultSet result = preparedStatement.executeQuery();
       // now we need to iterate the results
       while (result.next()) {
-
-        // Need the ID column from the RS.
-        int index = 0;
+        // get the metadata of the results
+        ResultSetMetaData metadata = result.getMetaData();
         for (String key : fieldMapping.keySet()) {
+          // get the column type of that field
           String field = (String) fieldMapping.get(key);
-          PreparedStatementParameterType t = returnTypes.get(index);
-          switch (t) {
-            case STRING:
+          int columnIndex = result.findColumn(key);
+          int columnType = metadata.getColumnType(columnIndex);
+          // used this instead of passing object into doc via doc.setField(Object) because Object
+          // could be Date type, which needs to be converted into Instant type. Rather modify stage than
+          // document interface
+          // mapping of sql types to java
+          switch (columnType) {
+            case Types.CLOB:
+            case Types.NCLOB:
+            case Types.VARCHAR:
+            case Types.CHAR:
+            case Types.LONGVARCHAR:
+            case Types.NCHAR:
+            case Types.NVARCHAR:
+            case Types.LONGNVARCHAR:
               doc.addToField(field, result.getString(key));
               break;
-            case INTEGER:
+            case Types.TINYINT:
+            case Types.SMALLINT:
+            case Types.INTEGER:
               doc.addToField(field, result.getInt(key));
               break;
-            case LONG:
+            case Types.BIGINT:
               doc.addToField(field, result.getLong(key));
               break;
-            case DOUBLE:
+            case Types.DECIMAL:
+            case Types.NUMERIC:
+            case Types.DOUBLE:
               doc.addToField(field, result.getDouble(key));
               break;
-            case BOOLEAN:
+            case Types.FLOAT:
+            case Types.REAL:
+              doc.addToField(field, result.getFloat(key));
+              break;
+            case Types.BOOLEAN: // if Boolean is null, then the field would be false by result.getBoolean(key)
+            case Types.BIT:
               doc.addToField(field, result.getBoolean(key));
               break;
-            case DATE:
-              doc.addToField(field, result.getDate(key).toInstant());
+            case Types.DATE:
+            case Types.TIMESTAMP:
+            case Types.TIMESTAMP_WITH_TIMEZONE:
+              // DATE: sets nanoseconds & time to 0, then checks either JVM or DB server location, and converts to UTC
+              // - e.g. JVM or DB server is UTC-4, will convert to UTC by adding 4 hours.
+              // TIMESTAMP_WITH_TIMEZONE: converts it to UTC timing.
+              Timestamp timestamp = result.getTimestamp(key);
+              if (timestamp != null) {
+                doc.addToField(field, timestamp.toInstant());
+              }
+              break;
+            case Types.BLOB:
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+              doc.addToField(field, result.getBytes(key));
               break;
             default:
-              throw new StageException("Type " + t + " not recognized");
+              // for now jsonNode is not supported
+              throw new StageException("SQL Type " + columnType + " not recognized in documents");
           }
-          index++;
         }
       }
     } catch (SQLException e) {
+      log.info(e.getMessage());
       throw new StageException("Error handling SQL statements", e);
     }
     return null;
