@@ -347,9 +347,9 @@ public class ChunkingTest {
     Document child4 = childrenDocs.get(3);
 
     assertEquals("This is the fir", child1.getString("chunk"));
-    assertEquals("st paragraph.Th", child2.getString("chunk"));
-    assertEquals("is is the secon", child3.getString("chunk"));
-    assertEquals("d paragraph", child4.getString("chunk"));
+    assertEquals("st paragraph.  ", child2.getString("chunk"));
+    assertEquals("This is the sec", child3.getString("chunk"));
+    assertEquals("ond paragraph", child4.getString("chunk"));
   }
 
 
