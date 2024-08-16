@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.TimeZone;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.MockedStatic;
@@ -31,6 +32,12 @@ import static org.junit.Assert.assertThrows;
 public class QueryDatabaseTest {
 
   StageFactory factory = StageFactory.of(QueryDatabase.class);
+
+  @BeforeClass
+  static public void beforeClass() {
+    TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+  }
+
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("org.h2.Driver", "jdbc:h2:mem:test;", "",
       "", "db-test-start.sql", "db-test-end.sql");
@@ -117,8 +124,10 @@ public class QueryDatabaseTest {
     assertEquals(Float.valueOf("1.414214"), d1.getFloat("real_col"));
     assertEquals(true, d1.getBoolean("boolean_col"));
     assertEquals(true, d1.getBoolean("bit_col"));
-    assertEquals("2024-07-30T04:00:00Z", d1.getInstant("date_col").toString());
-    assertEquals("1970-01-01T05:00:01Z", d1.getInstant("timestamp_col").toString());
+    // note that we have set the TimeZone in this test class to be UTC
+    // if it is not set, then the values would change according to the JVM Timezone at runtime
+    assertEquals("2024-07-30T00:00:00Z", d1.getInstant("date_col").toString());
+    assertEquals("1970-01-01T00:00:01Z", d1.getInstant("timestamp_col").toString());
     assertEquals("1969-12-31T19:00:01Z", d1.getInstant("timestamp_w_timezone_col").toString());
     assertEquals(Integer.valueOf(0), d1.getInt("nullable_int"));
     assertNull(d1.getString("nullable_varchar"));
@@ -165,8 +174,10 @@ public class QueryDatabaseTest {
     assertEquals(Float.valueOf("3.141592"), d2.getFloat("real_col"));
     assertEquals(false, d2.getBoolean("boolean_col"));
     assertEquals(false, d2.getBoolean("bit_col"));
-    assertEquals("2023-01-01T05:00:00Z", d2.getInstant("date_col").toString());
-    assertEquals("2038-01-19T08:14:07Z", d2.getInstant("timestamp_col").toString());
+    // note that we have set the TimeZone in this test class to be UTC
+    // if it is not set, then the values would change according to the JVM Timezone at runtime
+    assertEquals("2023-01-01T00:00:00Z", d2.getInstant("date_col").toString());
+    assertEquals("2038-01-19T03:14:07Z", d2.getInstant("timestamp_col").toString());
     assertEquals("2038-01-19T08:14:07Z", d2.getInstant("timestamp_w_timezone_col").toString());
     assertEquals(Integer.valueOf(0), d2.getInt("nullable_int"));
     assertNull(d2.getString("nullable_varchar"));
