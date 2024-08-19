@@ -56,7 +56,7 @@ public class JDBCUtils {
         case Types.SMALLINT:
         case Types.INTEGER:
           int integer = rs.getInt(columnIndex);
-          // rs.getInt would return 0 if SQL value is null. This would to check that the field value is null
+          // rs.getInt would return 0 if SQL value is null. This would to check that the field value is not null
           if (!rs.wasNull()) {
             doc.setOrAdd(fieldName, integer);
           }
@@ -71,7 +71,7 @@ public class JDBCUtils {
         case Types.NUMERIC:
         case Types.DOUBLE:
           double doubleVal = rs.getDouble(columnIndex);
-          // rs.getDouble would return 0 if SQL value is null. This would to check that the field value is null
+          // rs.getDouble would return 0 if SQL value is null. This would to check that the field value is not null
           if (!rs.wasNull()) {
             doc.setOrAdd(fieldName, doubleVal);
           }
@@ -79,7 +79,7 @@ public class JDBCUtils {
         case Types.FLOAT:
         case Types.REAL:
           float floatVal = rs.getFloat(columnIndex);
-          // rs.getFloat would return 0 if SQL value is null. This would to check that the field value is null
+          // rs.getFloat would return 0 if SQL value is null. This would to check that the field value is not null
           if (!rs.wasNull()) {
             doc.setOrAdd(fieldName, floatVal);
           }
@@ -87,7 +87,7 @@ public class JDBCUtils {
         case Types.BOOLEAN:
         case Types.BIT:
           boolean boolVal = rs.getBoolean(columnIndex);
-          // rs.getBoolean would return false if SQL value is null. This would to check that the field value is null
+          // rs.getBoolean would return false if SQL value is null. This would to check that the field value is not null
           if (!rs.wasNull()) {
             doc.setOrAdd(fieldName, boolVal);
           }
