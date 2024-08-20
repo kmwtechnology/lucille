@@ -29,11 +29,15 @@ import org.apache.logging.log4j.Logger;
  *      - chunk itself
  *
  * Things to consider while processing:
- * Token limit (optional) -> hard limit. Truncate rest
- * chunk overlap (optional) -> user may want to overlap sentence to not "lose" information
+ * characterLimit (optional) -> hard limit. Truncate rest
+ * Overlapping of chunks:
+ *  - newChunkSize (optional, essentially window size) -> how many chunks to merge into one new Chunk
+ *    - newChunkSize will be default to 1, keeping the chunks the same.
+ *  - chunksToOverlap (optional, essentially setting window stride) -> how many smaller chunks to overlap between merged chunks -> to not "lose" information
+ *    - will default to null, which will move window stride by 1
  * Chunking Methods (Type Enum, default to fixed size)
  * 1. fixed size chunking -> split by character count
- * 2. paragraph chunking -> split by 2 consecutive \n with optional whitespaces
+ * 2. paragraph chunking -> split by 2 consecutive \n with optional whitespaces, \n\n \n \n
  * 3. Sentence chunking -> use sentence model for splitting
  * 4. custom chunking via RegEx -> separator option in config required
  * 5. TODO: maybe semantic chunking -> very intensive
@@ -44,8 +48,8 @@ import org.apache.logging.log4j.Logger;
 public class Chunking extends Stage {
 
   private final Integer characterLimit;
-  private final Integer chunkBufferSize;
-  private Integer bufferOverlapSize;
+  private final Integer newChunkSize;
+  private Integer chunksToOverlap;
   private final ChunkingMethod method;
   private final String separator;
   private final String outputName;
@@ -55,22 +59,22 @@ public class Chunking extends Stage {
 
   public Chunking(Config config) throws StageException {
     super(config, new StageSpec()
-        .withOptionalProperties("chunking_method", "chunk_buffer_size", "output_name", "separator", "character_limit",
-            "buffer_overlap_size")
+        .withOptionalProperties("chunking_method", "new_chunk_size", "output_name", "separator", "character_limit",
+            "chunks_to_overlap")
         .withRequiredProperties("text_field"));
     characterLimit = config.hasPath("character_limit") ? config.getInt("character_limit") : -1;
-    chunkBufferSize = config.hasPath("chunk_buffer_size") ? config.getInt("chunk_buffer_size") : 1;
-    bufferOverlapSize = config.hasPath("buffer_overlap_size") ? config.getInt("buffer_overlap_size") : null;
+    newChunkSize = config.hasPath("new_chunk_size") ? config.getInt("new_chunk_size") : 1;
+    chunksToOverlap = config.hasPath("chunks_to_overlap") ? config.getInt("chunks_to_overlap") : null;
     method = ChunkingMethod.fromConfig(config);
     separator = config.hasPath("separator") ? config.getString("separator") : "";
     text_field = config.getString("text_field");
     outputName = config.hasPath("output_name") ? config.getString("output_name") : "chunk";
 
-    if (chunkBufferSize < 1) {
-      throw new StageException("chunkBufferSize must be greater than 1.");
+    if (newChunkSize < 1) {
+      throw new StageException("newChunkSize must be greater than 1.");
     }
-    if (bufferOverlapSize != null && bufferOverlapSize > chunkBufferSize) {
-      throw new StageException("bufferOverlapSize must be smaller than chunkBufferSize.");
+    if (chunksToOverlap != null && chunksToOverlap > newChunkSize) {
+      throw new StageException("chunksToOverlap must be smaller than newChunkSize.");
     }
     if (characterLimit < -1) {
       throw new StageException("Character limit must be a positive integer");
@@ -116,7 +120,6 @@ public class Chunking extends Stage {
         // regex pattern for paragraph: find any consecutive newline characters within one unit of whitespace
         String regex = (method == ChunkingMethod.CUSTOM) ? separator : "\\s*(?>\\R)\\s*(?>\\R)\\s*";
         chunks = content.split(regex);
-
         break;
       case FIXED:
         // splitting by characterLimit does not work when there is newline characters in content so need to remove them before
@@ -133,13 +136,13 @@ public class Chunking extends Stage {
       chunks[i] = chunks[i].replaceAll("(?>\\R)", " ");
     }
 
-    // overlap chunks if we have buffer set
-    if (chunkBufferSize > 1) chunks = overlapChunks(chunks);
-
     // truncating if we have character limit set
     if (method != ChunkingMethod.FIXED && characterLimit > 0) {
       truncateRest(chunks, characterLimit);
     }
+
+    // overlap chunks if we have buffer set
+    if (newChunkSize > 1) chunks = overlapChunks(chunks);
 
     // for testing: log.info("number of chunks {} ", chunks.length);
 
@@ -175,7 +178,7 @@ public class Chunking extends Stage {
     // go through each window and merge them
     for (int i = 0, resultIndex = 0; i < endIndex; i += stepSize, resultIndex++) {
       sb.setLength(0);
-      for (int j = i; j < Math.min(i + chunkBufferSize, chunkLength); j++) {
+      for (int j = i; j < Math.min(i + newChunkSize, chunkLength); j++) {
         sb.append(chunks[j]).append(" ");
       }
       // for testing: log.info("{} {} {}", i, resultIndex, sb.toString());
@@ -191,15 +194,15 @@ public class Chunking extends Stage {
 
   // if chunks is null, empty or the chunkBufferSize is larger than the length then skip
   private boolean isInvalidInput(String[] chunks) {
-    return chunks == null || chunks.length == 0 || chunkBufferSize > chunks.length;
+    return chunks == null || chunks.length == 0 || newChunkSize > chunks.length;
   }
 
   private int calculateStepSize() {
-    return (bufferOverlapSize == null) ? 1 : Math.max(1, chunkBufferSize - bufferOverlapSize);
+    return (chunksToOverlap == null) ? 1 : Math.max(1, newChunkSize - chunksToOverlap);
   }
 
-  private int calculateEndIndex(int chunkLength) {
-    return (bufferOverlapSize == null) ? chunkLength - chunkBufferSize + 1 : chunkLength - bufferOverlapSize;
+  private int calculateEndIndex(int totalChunksLength) {
+    return (chunksToOverlap == null) ? totalChunksLength - newChunkSize + 1 : totalChunksLength - chunksToOverlap;
   }
 
 

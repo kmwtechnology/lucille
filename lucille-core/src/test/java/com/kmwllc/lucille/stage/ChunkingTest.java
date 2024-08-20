@@ -298,16 +298,21 @@ public class ChunkingTest {
     stage.start();
 
     Document doc = Document.create("id");
-    doc.setField("text", "This is the first paragraph of the document.\n\n This is the second paragraph of the document");
+    doc.setField("text", "This is the first\nparagraph of the document.\n\n This is the second paragraph of the document."
+        + "\n \n This is the third paragraph of the document. \n \n This is the fourth paragraph of the document.");
 
     stage.processDocument(doc);
 
     List<Document> childrenDocs = doc.getChildren();
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
+    Document child3 = childrenDocs.get(2);
+    Document child4 = childrenDocs.get(3);
 
     assertEquals("This is the first paragraph of the document.", child1.getString("chunk"));
-    assertEquals("This is the second paragraph of the document", child2.getString("chunk"));
+    assertEquals("This is the second paragraph of the document.", child2.getString("chunk"));
+    assertEquals("This is the third paragraph of the document.", child3.getString("chunk"));
+    assertEquals("This is the fourth paragraph of the document.", child4.getString("chunk"));
   }
 
 
@@ -336,7 +341,7 @@ public class ChunkingTest {
     stage.start();
 
     Document doc = Document.create("id");
-    doc.setField("text", "This is the first paragraph.\n\nThis is the second paragraph");
+    doc.setField("text", "This is the\nfirst paragraph.\n\nThis is the second paragraph");
 
     stage.processDocument(doc);
 
