@@ -16,6 +16,7 @@ import org.apache.commons.io.input.BoundedInputStream;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -36,6 +37,9 @@ import org.apache.http.impl.client.HttpClientBuilder;
  * max_retries (Integer, Optional) : max number of tries the request will be made. Defaults to 0 retries.
  * initial_expiry_ms (Integer, Optional) : number of milliseconds that would be waited before retrying the request. Defaults to 100ms.
  * max_expiry_ms (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.
+ * connection_request_timeout (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 5000ms, 5s.
+ * connect_timeout (Integer, Optional) : the connection timeout in milliseconds. Defaults to 5000ms, 5s.
+ * socket_timeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 5000ms, 5s.
  */
 public class FetchUri extends Stage {
 
@@ -49,11 +53,16 @@ public class FetchUri extends Stage {
   private final int maxNumRetries;
   private final int initialExpiry;
   private final int maxExpiry;
+  private final int connectionRequestTimeout;
+  private final int connectTimeout;
+  private final int socketTimeout;
+
   private CloseableHttpClient client;
 
   public FetchUri(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest")
-        .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix", "max_retries", "initial_expiry_ms", "max_expiry_ms")
+        .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix", "max_retries", "initial_expiry_ms",
+            "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout")
         .withOptionalParents("headers"));
     this.source = config.getString("source");
     this.dest = config.getString("dest");
@@ -62,9 +71,12 @@ public class FetchUri extends Stage {
     this.errorSuffix = ConfigUtils.getOrDefault(config, "error_suffix", "error");
     this.maxDownloadSize = ConfigUtils.getOrDefault(config, "max_size", Integer.MAX_VALUE);
     this.headers = ConfigUtils.createHeaderArray(config, "headers");
-    this.maxNumRetries = config.hasPath("max_retries") ? config.getInt("max_retries") : 0;
-    this.initialExpiry = config.hasPath("initial_expiry_ms") ? config.getInt("initial_expiry_ms") : 100;
-    this.maxExpiry = config.hasPath("max_expiry_ms") ? config.getInt("max_expiry_ms") : 10000;
+    this.maxNumRetries = ConfigUtils.getOrDefault(config, "max_retries", 0);
+    this.initialExpiry = ConfigUtils.getOrDefault(config, "initial_expiry_ms", 100);
+    this.maxExpiry = ConfigUtils.getOrDefault(config, "max_expiry_ms", 10000);
+    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connection_request_timeout", 5000);
+    this.connectTimeout = ConfigUtils.getOrDefault(config, "connect_timeout", 5000);
+    this.socketTimeout = ConfigUtils.getOrDefault(config, "socket_timeout", 5000);
   }
 
   // Method exists for testing with mockito mocks
@@ -74,8 +86,15 @@ public class FetchUri extends Stage {
 
   @Override
   public void start() throws StageException {
+    RequestConfig requestConfig = RequestConfig.custom()
+        .setConnectionRequestTimeout(this.connectionRequestTimeout)
+        .setConnectTimeout(this.connectTimeout)
+        .setSocketTimeout(this.socketTimeout)
+        .build();
+
     client = HttpClientBuilder
         .create()
+        .setDefaultRequestConfig(requestConfig)
         .setRetryHandler(new ExponentialBackoffRetryHandler(this.maxNumRetries, this.initialExpiry, this.maxExpiry))
         .build();
   }
