@@ -237,7 +237,21 @@
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-java-sdk-sts</artifactId>
+      <version>${aws-java-sdk-sts.version}</version>
+
+      <exclusions>
+        <exclusion>
+          <groupId>com.amazon.ion</groupId>
+          <artifactId>ion-java</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
+
+<!--    <dependency>
+      <groupId>com.amazon.ion</groupId>
+      <artifactId>ion-java</artifactId>
+      <version>${amazon-ion.version}</version>
+    </dependency>-->
 
     <!-- S3 Virtual File System Support -->
     <dependency>

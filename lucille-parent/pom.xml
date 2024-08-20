@@ -55,6 +55,7 @@
     <elasticsearch.version>7.17.3</elasticsearch.version>
     <sslcontext-kickstart.version>8.1.6</sslcontext-kickstart.version>
     <aws-java-sdk-sts.version>1.12.523</aws-java-sdk-sts.version>
+    <amazon-ion.version>1.10.5</amazon-ion.version>
     <vfs-s3.version>4.4.0</vfs-s3.version>
     <log4j.version>2.20.0</log4j.version>
     <slf4j.version>2.0.7</slf4j.version>
@@ -132,7 +133,7 @@
       <dependency>
         <groupId>com.amazonaws</groupId>
         <artifactId>aws-java-sdk-bom</artifactId>
-        <version>1.12.262</version>
+        <version>${aws-java-sdk-sts.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
