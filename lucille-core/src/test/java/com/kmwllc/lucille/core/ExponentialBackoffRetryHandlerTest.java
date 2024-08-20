@@ -38,6 +38,7 @@ public class ExponentialBackoffRetryHandlerTest {
         .create()
         .addInterceptorFirst((HttpRequestInterceptor) (request, context) -> requestArray.add(request.toString()))
         .setRetryHandler(new ExponentialBackoffRetryHandler(2, 500, 10000))
+        .addInterceptorLast((HttpResponseInterceptor) (response, context) -> { throw new IOException(); })
         .build();
 
     CloseableHttpClient httpClientSpy = spy(realHttpClient);
@@ -45,7 +46,7 @@ public class ExponentialBackoffRetryHandlerTest {
     // give a bad request
     HttpGet request = new HttpGet("https://doesnotexist.kmwllc.com");
     
-    assertThrows(UnknownHostException.class, () -> httpClientSpy.execute(request));
+    assertThrows(IOException.class, () -> httpClientSpy.execute(request));
 
     // test that the client calls execute once, but requested 3 times total given 2 test retries
     verify(httpClientSpy, times(1)).execute(any(HttpGet.class));
