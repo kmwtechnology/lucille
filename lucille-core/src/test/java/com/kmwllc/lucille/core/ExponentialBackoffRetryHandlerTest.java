@@ -64,7 +64,7 @@ public class ExponentialBackoffRetryHandlerTest {
     when(mockHttpClient.execute(any(HttpGet.class))).thenReturn(mockResponse);
     when(mockResponse.getStatusLine()).thenReturn(new BasicStatusLine(HttpVersion.HTTP_1_1, 500, "Internal Server Error"));
 
-    HttpGet request = new HttpGet(URI.create("https://httpstat.us/500"));
+    HttpGet request = new HttpGet(URI.create("https://kmwllc.com"));
     CloseableHttpResponse response = assertDoesNotThrow(() -> mockHttpClient.execute(request));
 
     assertEquals(500, response.getStatusLine().getStatusCode());
