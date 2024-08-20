@@ -12,7 +12,6 @@ import org.junit.ClassRule;
 import org.junit.Test;
 
 public class APIIntegrationTest {
-  // TODO : Improve Integration testing with better mocking
 
   @ClassRule
   public static final DropwizardAppRule<LucilleAPIConfiguration> RULE = new DropwizardAppRule<>(APIApplication.class, ResourceHelpers.resourceFilePath("test-conf.yml"));
