@@ -9,7 +9,7 @@ The API can be run locally or in a Docker container:
 
 ### Local Run:
 1. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#Configuration) for more information
-2. `java -Dconfig.file=${LUCILLE_CONF} -jar target/lucille-api-0.2.3-SNAPSHOT.jar server ${DROPWIZARD_CONF}`
+2. `java -Dconfig.file=${LUCILLE_CONF} -jar target/lucille-api-X.X.X-SNAPSHOT.jar server ${DROPWIZARD_CONF}`
 
 ### Dockerized Run:
 1. Create the docker image: `docker build -t lucille-api .`
