@@ -39,7 +39,7 @@ import org.apache.http.impl.client.HttpClientBuilder;
  * max_expiry_ms (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.
  * connection_request_timeout (Integer, Optional) : the connection request timeout in seconds. Defaults to 300s, 5m.
  * connect_timeout (Integer, Optional) : the connection timeout in seconds. Defaults to 300s, 5m.
- * socket_timeout (Integer, Optional) : the socket timeout in seconds. Defaults to 300s, 5s.
+ * socket_timeout (Integer, Optional) : the socket timeout in seconds. Defaults to 300s, 5m.
  */
 public class FetchUri extends Stage {
 
