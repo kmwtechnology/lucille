@@ -37,9 +37,9 @@ import org.apache.http.impl.client.HttpClientBuilder;
  * max_retries (Integer, Optional) : max number of tries the request will be made. Defaults to 0 retries.
  * initial_expiry_ms (Integer, Optional) : number of milliseconds that would be waited before retrying the request. Defaults to 100ms.
  * max_expiry_ms (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.
- * connection_request_timeout (Integer, Optional) : the connection request timeout in seconds. Defaults to 300s, 5m.
- * connect_timeout (Integer, Optional) : the connection timeout in seconds. Defaults to 300s, 5m.
- * socket_timeout (Integer, Optional) : the socket timeout in seconds. Defaults to 300s, 5m.
+ * connection_request_timeout (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 300000ms, 5m.
+ * connect_timeout (Integer, Optional) : the connection timeout in milliseconds. Defaults to 300000ms, 5m.
+ * socket_timeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 300000ms, 5m.
  */
 public class FetchUri extends Stage {
 
@@ -74,9 +74,9 @@ public class FetchUri extends Stage {
     this.maxNumRetries = ConfigUtils.getOrDefault(config, "max_retries", 0);
     this.initialExpiry = ConfigUtils.getOrDefault(config, "initial_expiry_ms", 100);
     this.maxExpiry = ConfigUtils.getOrDefault(config, "max_expiry_ms", 10000);
-    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connection_request_timeout", 300);
-    this.connectTimeout = ConfigUtils.getOrDefault(config, "connect_timeout", 300);
-    this.socketTimeout = ConfigUtils.getOrDefault(config, "socket_timeout", 300);
+    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connection_request_timeout", 300000);
+    this.connectTimeout = ConfigUtils.getOrDefault(config, "connect_timeout", 300000);
+    this.socketTimeout = ConfigUtils.getOrDefault(config, "socket_timeout", 300000);
   }
 
   // Method exists for testing with mockito mocks
@@ -87,9 +87,9 @@ public class FetchUri extends Stage {
   @Override
   public void start() throws StageException {
     RequestConfig requestConfig = RequestConfig.custom()
-        .setConnectionRequestTimeout(this.connectionRequestTimeout * 1000)
-        .setConnectTimeout(this.connectTimeout * 1000)
-        .setSocketTimeout(this.socketTimeout * 1000)
+        .setConnectionRequestTimeout(this.connectionRequestTimeout)
+        .setConnectTimeout(this.connectTimeout)
+        .setSocketTimeout(this.socketTimeout)
         .build();
 
     client = HttpClientBuilder
