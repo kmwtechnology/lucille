@@ -51,6 +51,9 @@ public class ExponentialBackoffRetryHandlerTest {
     // test that the client calls execute once, but requested 3 times total given 2 test retries
     verify(httpClientSpy, times(1)).execute(any(HttpGet.class));
     assertEquals(3, requestArray.size());
+
+    realHttpClient.close();
+    httpClientSpy.close();
   }
 
   @Test
@@ -69,5 +72,7 @@ public class ExponentialBackoffRetryHandlerTest {
     response.close();
 
     verify(mockHttpClient, times(1)).execute(any(HttpGet.class));
+
+    mockHttpClient.close();
   }
 }
