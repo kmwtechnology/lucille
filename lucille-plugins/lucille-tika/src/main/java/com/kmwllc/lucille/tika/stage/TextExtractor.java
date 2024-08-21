@@ -118,38 +118,33 @@ public class TextExtractor extends Stage {
 
       byte[] byteArray = doc.getBytes(byteArrayField);
 
-      InputStream inputStream = new ByteArrayInputStream(byteArray);
-      parseInputStream(doc, inputStream);
+      try (InputStream inputStream = new ByteArrayInputStream(byteArray)) {
+        parseInputStream(doc, inputStream);
+      } catch (IOException e) {
+        log.warn("Error getting/closing inputStream: ", e);
+        return null;
+      }
 
     } else if (doc.has(filePathField)) {
       // get fileObject from path
       String filePath = doc.getString(filePathField);
-      FileObject file = FileUtils.getFileObject(filePath, fsManager);
 
-      // if file null, don't process document
-      if (file == null) {
-        return null;
-      }
+      try (FileObject file = FileUtils.getFileObject(filePath, fsManager)) {
+        // if file is null error occurred while getting FileObject, don't process document
+        if (file == null) {
+          return null;
+        }
 
-      // getting inputStream and catching errors gracefully
-      InputStream inputStream;
-      try {
-        // file.getContent() never returns null
+        // file.getContent() never returns null, will not throw nullPointerException
         // https://commons.apache.org/proper/commons-vfs/commons-vfs2/apidocs/org/apache/commons/vfs2/FileObject.html#getContent--
-        inputStream = file.getContent().getInputStream();
-      } catch(FileSystemException e) {
-        log.warn("Error getting inputStream from file at: {}", filePath, e);
-        return null;
-      }
-
-      parseInputStream(doc, inputStream);
-
-      // close file after, do not need to check if file is null as we have already checked above
-      try {
-        // closes the file, and its content, including any open stream
-        file.close();
-      } catch (FileSystemException e) {
-        log.warn("error closing file");
+        try (InputStream inputStream = file.getContent().getInputStream()) {
+          parseInputStream(doc, inputStream);
+        } catch(FileSystemException e) {
+          log.warn("Error getting inputStream or content from file at: {}", filePath, e);
+          return null;
+        }
+      } catch (IOException e) { // catches IOExceptions for using try with resources
+        log.warn("Error closing inputstream or file object at: {}", filePath, e);
       }
     }
     return null;
