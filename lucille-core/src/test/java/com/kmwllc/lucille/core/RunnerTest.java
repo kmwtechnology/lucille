@@ -787,4 +787,10 @@ public class RunnerTest {
     // 1) other metrics collected by Stage beyond the counts in the processDocumentTime timer
     // 2) metrics collected by Indexer, Worker, Publisher
   }
+
+  @Test
+  public void testRenderFlag() throws Exception {
+    Config config = ConfigFactory.load("RunnerTest/render.conf");
+    Runner.renderConfig(config);
+  }
 }

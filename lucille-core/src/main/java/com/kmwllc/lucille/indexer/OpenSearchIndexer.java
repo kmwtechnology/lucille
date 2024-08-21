@@ -99,19 +99,28 @@ public class OpenSearchIndexer extends Indexer {
     BulkRequest.Builder br = new BulkRequest.Builder();
 
     for (Document doc : documents) {
-      Map<String, Object> indexerDoc = doc.asMap();
+
+      // removing the fields mentioned in the ignoreFields setting in configurations
+      Map<String, Object> indexerDoc = getIndexerDoc(doc);
 
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
       indexerDoc.remove(Document.CHILDREN_FIELD);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
       String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
-      indexerDoc.put(Document.ID_FIELD, docId);
+
+      // This condition below avoids adding id if ignoreFields contains it and edge cases:
+      // - Case 1: id and idOverride in ignoreFields -> idOverride used by Indexer, both removed from Document (tested in testIgnoreFieldsWithOverride)
+      // - Case 2: id in ignoreFields, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testIgnoreFieldsWithOverride2)
+      // - Case 3: id in ignoreFields, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
+      // - Case 4: ignoreFields null, idOverride exists -> idOverride used by Indexer, id and idOverride field exist in Document (tested in testOverride)
+      // - Case 5: ignoreFields null, idOverride null -> document id remains and used by Indexer (Default case & tested)
+      if (ignoreFields == null || !ignoreFields.contains(Document.ID_FIELD)) {
+        indexerDoc.put(Document.ID_FIELD, docId);
+      }
 
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);
-
-      String routing = doc.getString(routingField);
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
           ? ((KafkaDocument) doc).getOffset()
           : null;
@@ -121,7 +130,7 @@ public class OpenSearchIndexer extends Indexer {
             .update((up) -> {
               up.index(index).id(docId);
               if (routingField != null) {
-                up.routing(routing);
+                up.routing(doc.getString(routingField));
               }
               if (versionNum != null) {
                 up.versionType(versionType).version(versionNum);
@@ -133,7 +142,7 @@ public class OpenSearchIndexer extends Indexer {
             .index((up) -> {
               up.index(index).id(docId);
               if (routingField != null) {
-                up.routing(routing);
+                up.routing(doc.getString(routingField));
               }
               if (versionNum != null) {
                 up.versionType(versionType).version(versionNum);
