@@ -121,7 +121,7 @@ public class TextExtractor extends Stage {
       try (InputStream inputStream = new ByteArrayInputStream(byteArray)) {
         parseInputStream(doc, inputStream);
       } catch (IOException e) {
-        log.warn("Error getting/closing inputStream: ", e);
+        log.warn("Error closing inputStream: ", e);
         return null;
       }
 
