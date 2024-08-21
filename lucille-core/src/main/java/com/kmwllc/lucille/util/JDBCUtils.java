@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.core.Document;
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -93,17 +94,27 @@ public class JDBCUtils {
           }
           break;
         case Types.DATE:
-        case Types.TIMESTAMP:
-        case Types.TIMESTAMP_WITH_TIMEZONE:
-          // DATE: sets nanoseconds & time to 0, then checks either DB server local time (which might be from JVM), and converts to UTC
-          // -  JVM or DB server is UTC-4, will convert to UTC by adding 4 hours.
-          // e.g. 2023-01-01T00:00:00Z when UTC-4, will be stored as 2023-01-01T04:00:00Z in Document
-          // TIMESTAMP_WITH_TIMEZONE: converts it to UTC timing.
-          Timestamp timestamp = rs.getTimestamp(columnIndex);
-          if (timestamp != null) {
-            doc.setOrAdd(fieldName, timestamp.toInstant());
+          // Currently saving date types as Strings, as conversion to an Instant may change the value given
+          // Date to Timestamp: sets nanoseconds & time to 0, e.g. 2024-07-30 -> 2024-07-30 00:00:00.0
+          // Timestamp to Instant: checks either DB server local time (which might be from JVM), and converts to UTC,
+          //  e.g. 2024-07-30 00:00:00.0 UTC-4 -> 2024-07-30 04:00:00.0
+          Date dateVal = rs.getDate(columnIndex);
+          if (dateVal != null) {
+            doc.setOrAdd(fieldName, dateVal.toString());
           }
           break;
+        case Types.TIMESTAMP:
+          // saving timestamp as str to prevent conversion to UTC
+          // if TIMESTAMP = 2023-01-01T00:00:00Z when local time is UTC-4 in JVM or db,
+          // will be stored as 2023-01-01T04:00:00Z in Document if converted to Instant
+          Timestamp timestamp = rs.getTimestamp(columnIndex);
+          if (timestamp != null) {
+            doc.setOrAdd(fieldName, timestamp.toString());
+          }
+          break;
+        // case Types.TIMESTAMP_WITH_TIMEZONE:
+        // if TIMESTAMP_WITH_TIMEZONE = 2023-01-01T00:00:00-4, will be retrieved as 2023-01-01T04:00:00Z in getTimestamp()
+        // better not save it if it would be converted
         case Types.BLOB:
         case Types.BINARY:
         case Types.VARBINARY:

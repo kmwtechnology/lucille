@@ -7,6 +7,8 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -167,6 +169,130 @@ public class DatabaseConnectorTest {
 
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+  @Test
+  public void testRetrievingJDBCTypes() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select * from test_data_types");
+    configValues.put("idField", "id");
+
+    Config config = ConfigFactory.parseMap(configValues);
+
+    DatabaseConnector connector = new DatabaseConnector(config);
+
+    connector.execute(publisher);
+
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
+    assertEquals(2, docsSentForProcessing.size());
+
+    Document d1 = docsSentForProcessing.get(0);
+    Document d2 = docsSentForProcessing.get(1);
+
+    assertEquals("Test VARCHAR", d1.getString("varchar_col"));
+    // calling trim as char_col is storing fixed number of characters
+    assertEquals("CHAR Test", d1.getString("char_col").trim());
+    assertEquals("Long VARCHAR test data", d1.getString("longvarchar_col"));
+    // calling trim as nchar_col is storing fixed number of characters
+    assertEquals("\uD83D\uDE00", d1.getString("nchar_col").trim());
+    assertEquals("こんにちは、世界！", d1.getString("nvarchar_col"));
+    assertEquals("こんにちは、世界！長いテキストのテストです。", d1.getString("longnvarchar_col"));
+    assertEquals("test clob", d1.getString("clob_col"));
+    assertEquals("test nclob", d1.getString("nclob_col"));
+    assertEquals(Integer.valueOf(127), d1.getInt("tinyint_col"));
+    assertEquals(Integer.valueOf(32767), d1.getInt("smallint_col"));
+    assertEquals(Integer.valueOf(2147483647), d1.getInt("integer_col"));
+    assertEquals(Long.valueOf("9223372036854775807"), d1.getLong("bigint_col"));
+    assertEquals(Double.valueOf(3.14159265359), d1.getDouble("double_col"));
+    assertEquals(Double.valueOf(9877.0), d1.getDouble("decimal_col"));
+    assertEquals(Double.valueOf(1.0), d1.getDouble("numeric_col"));
+    assertEquals(Float.valueOf("2.71828"), d1.getFloat("float_col"));
+    assertEquals(Float.valueOf("1.414214"), d1.getFloat("real_col"));
+    assertEquals(true, d1.getBoolean("boolean_col"));
+    assertEquals(true, d1.getBoolean("bit_col"));
+    // note that we have set the TimeZone in this test class to be UTC
+    // if it is not set, then the values would change according to the JVM Timezone at runtime
+    assertEquals("2024-07-30", d1.getString("date_col"));
+    assertEquals("1970-01-01 00:00:01.0", d1.getString("timestamp_col"));
+    assertFalse(d1.has("nullable_int"));
+    assertNull(d1.getString("nullable_varchar"));
+    // date would not get added to docs if null
+    assertFalse(d1.has("nullable_date"));
+    // converting blob to Expected String
+    assertEquals("This is a test blob.", new String(d1.getBytes("blob_col"), StandardCharsets.UTF_8));
+    // converting binaryColBytes from array of 100 to 4 and comparing
+    byte[] binaryColBytes = d1.getBytes("binary_col");
+    byte[] expectedBytes = new byte[] {(byte)0xBE, (byte)0xEF, (byte)0xBE, (byte)0xEF};
+    assertArrayEquals(expectedBytes, Arrays.copyOf(binaryColBytes, 4));
+
+    byte[] varbinaryColBytes = d1.getBytes("varbinary_col");
+    byte[] expectedVarbinaryBytes = new byte[] {
+        0x01, 0x23, 0x45, 0x67, (byte)0x89, (byte)0xAB, (byte)0xCD, (byte)0xEF
+    };
+    assertArrayEquals(expectedVarbinaryBytes, varbinaryColBytes);
+
+    byte[] longVarbinaryColBytes = d1.getBytes("longvarbinary_col");
+    byte[] expectedLongVarbinaryBytes = new byte[] {
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, (byte)0x88, (byte)0x99, 0x00
+    };
+    assertArrayEquals(expectedLongVarbinaryBytes, longVarbinaryColBytes);
+
+
+    assertEquals("Another", d2.getString("varchar_col"));
+    // calling trim as char_col is storing fixed number of characters
+    assertEquals("Test", d2.getString("char_col").trim());
+    assertEquals("More long text here", d2.getString("longvarchar_col"));
+    // calling trim as nchar_col is storing fixed number of characters
+    assertEquals("\uD83D\uDE00", d2.getString("nchar_col").trim());
+    assertEquals("안녕하세요, 세계!", d2.getString("nvarchar_col"));
+    assertEquals("안녕하세요, 세계! 긴 텍스트 테스트입니다.", d2.getString("longnvarchar_col"));
+    assertEquals("test clob", d2.getString("clob_col"));
+    assertEquals("test nclob", d2.getString("nclob_col"));
+    assertEquals(Integer.valueOf(-128), d2.getInt("tinyint_col"));
+    assertEquals(Integer.valueOf(-32768), d2.getInt("smallint_col"));
+    assertEquals(Integer.valueOf(-2147483648), d2.getInt("integer_col"));
+    assertEquals(Long.valueOf("-9223372036854775808"), d2.getLong("bigint_col"));
+    assertEquals(Double.valueOf(1.41421356237), d2.getDouble("double_col"));
+    assertEquals(Double.valueOf(500.0), d2.getDouble("decimal_col"));
+    assertEquals(Double.valueOf(100000.0), d2.getDouble("numeric_col"));
+    assertEquals(Float.valueOf("1.61803"), d2.getFloat("float_col"));
+    assertEquals(Float.valueOf("3.141592"), d2.getFloat("real_col"));
+    assertEquals(false, d2.getBoolean("boolean_col"));
+    assertEquals(false, d2.getBoolean("bit_col"));
+    assertEquals("2023-01-01", d2.getString("date_col"));
+    assertEquals("2038-01-19 03:14:07.0", d2.getString("timestamp_col"));
+    assertFalse(d2.has("nullable_int"));
+    assertNull(d2.getString("nullable_varchar"));
+    // date would not get added to docs if null
+    assertFalse(d2.has("nullable_date"));
+    // converting blob to Expected String
+    assertEquals("This is a test blob2.", new String(d2.getBytes("blob_col"), StandardCharsets.UTF_8));
+    // converting binaryColBytes from array of 100 to 4 and comparing
+    binaryColBytes = d2.getBytes("binary_col");
+    expectedBytes = new byte[] {(byte)0xBE, (byte)0xEF, (byte)0xBE, (byte)0xEF};
+    assertArrayEquals(expectedBytes, Arrays.copyOf(binaryColBytes, 4));
+
+    varbinaryColBytes = d2.getBytes("varbinary_col");
+    expectedVarbinaryBytes = new byte[] {
+        (byte)0xFE, (byte)0xDC, (byte)0xBA, (byte)0x98,
+        0x76, 0x54, 0x32, 0x10
+    };
+    assertArrayEquals(expectedVarbinaryBytes, varbinaryColBytes);
+
+    longVarbinaryColBytes = d2.getBytes("longvarbinary_col");
+    expectedLongVarbinaryBytes = new byte[] {
+        (byte)0xAA, (byte)0xBB, (byte)0xCC, (byte)0xDD, (byte)0xEE, (byte)0xFF,
+        0x00, 0x11, 0x22, 0x33
+    };
+    assertArrayEquals(expectedLongVarbinaryBytes, longVarbinaryColBytes);
   }
 
   @Test

@@ -61,7 +61,6 @@ CREATE TABLE test_data_types (
     bit_col BIT,
     date_col DATE,
     timestamp_col TIMESTAMP,
-    timestamp_w_timezone_col TIMESTAMP WITH TIME ZONE,
     blob_col BLOB,
     binary_col BINARY(100),
     varbinary_col VARBINARY(255),
@@ -74,12 +73,12 @@ CREATE TABLE test_data_types (
 INSERT INTO test_data_types (
     varchar_col, char_col, longvarchar_col, nchar_col, nvarchar_col, longnvarchar_col, clob_col, nclob_col,
     tinyint_col, smallint_col, integer_col, bigint_col, double_col, decimal_col, numeric_col, float_col, real_col,
-    boolean_col, bit_col, date_col, timestamp_col, timestamp_w_timezone_col, blob_col, binary_col, varbinary_col, longvarbinary_col,
+    boolean_col, bit_col, date_col, timestamp_col, blob_col, binary_col, varbinary_col, longvarbinary_col,
     nullable_int, nullable_varchar, nullable_date
 ) VALUES (
     'Test VARCHAR', 'CHAR Test', 'Long VARCHAR test data', '😀', 'こんにちは、世界！', 'こんにちは、世界！長いテキストのテストです。', 'test clob', 'test nclob',
     127, 32767, 2147483647, 9223372036854775807, 3.14159265359, 9876.54, 1.0000, 2.71828, 1.414214,
-    TRUE, 1, '2024-07-30', '1970-01-01 00:00:01', '1970-01-01 00:00:01+05','This is a test blob.', X'BEEFBEEF', X'0123456789ABCDEF', X'0011223344556677889900',
+    TRUE, 1, '2024-07-30', '1970-01-01 00:00:01', 'This is a test blob.', X'BEEFBEEF', X'0123456789ABCDEF', X'0011223344556677889900',
     NULL, NULL, NULL
 );
 
@@ -87,12 +86,12 @@ INSERT INTO test_data_types (
 INSERT INTO test_data_types (
     varchar_col, char_col, longvarchar_col, nchar_col, nvarchar_col, longnvarchar_col, clob_col, nclob_col,
     tinyint_col, smallint_col, integer_col, bigint_col, double_col, decimal_col, numeric_col, float_col, real_col,
-    boolean_col, bit_col, date_col, timestamp_col, timestamp_w_timezone_col, blob_col, binary_col, varbinary_col, longvarbinary_col,
+    boolean_col, bit_col, date_col, timestamp_col, blob_col, binary_col, varbinary_col, longvarbinary_col,
     nullable_int, nullable_varchar, nullable_date
 ) VALUES (
     'Another', 'Test', 'More long text here', '😀', '안녕하세요, 세계!', '안녕하세요, 세계! 긴 텍스트 테스트입니다.', 'test clob', 'test nclob',
     -128, -32768, -2147483648, -9223372036854775808, 1.41421356237, 500.00, 100000, 1.61803, 3.141592,
-    FALSE, 0, '2023-01-01', '2038-01-19 03:14:07', '2038-01-19 03:14:07-05', 'This is a test blob2.', X'BEEFBEEF', X'FEDCBA9876543210', X'AABBCCDDEEFF00112233',
+    FALSE, 0, '2023-01-01', '2038-01-19 03:14:07', 'This is a test blob2.', X'BEEFBEEF', X'FEDCBA9876543210', X'AABBCCDDEEFF00112233',
     NULL, NULL, NULL
 );
 

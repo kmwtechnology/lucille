@@ -32,18 +32,6 @@ import static org.junit.Assert.assertThrows;
 public class QueryDatabaseTest {
 
   StageFactory factory = StageFactory.of(QueryDatabase.class);
-  private static TimeZone originalTimeZone;
-
-  @BeforeClass
-  static public void beforeClass() {
-    originalTimeZone = TimeZone.getDefault();
-    TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
-  }
-
-  @AfterClass
-  static public void afterClass() {
-    TimeZone.setDefault(originalTimeZone);
-  }
 
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("org.h2.Driver", "jdbc:h2:mem:test", "",
@@ -172,14 +160,9 @@ public class QueryDatabaseTest {
     d2.setField("get_row", 2);
     stage.processDocument(d1);
     stage.processDocument(d2);
-    /*
-      types to test: varchar_col, char_col, longvarchar_col, nchar_col, nvarchar_col, longnvarchar_col, clob_col, nclob_col,
-      tinyint_col, smallint_col, integer_col, bigint_col, double_col, decimal_col, numeric_col, float_col, real_col,
-      boolean_col, bit_col, date_col, timestamp_col, timestamp_w_timezone_col, blob_col, binary_col, varbinary_col, longvarbinary_col,
-      nullable_int, nullable_varchar, nullable_date
-    */
 
     // testing out d1
+
     assertEquals("Test VARCHAR", d1.getString("varchar_col"));
     // calling trim as char_col is storing fixed number of characters
     assertEquals("CHAR Test", d1.getString("char_col").trim());
@@ -203,9 +186,8 @@ public class QueryDatabaseTest {
     assertEquals(true, d1.getBoolean("bit_col"));
     // note that we have set the TimeZone in this test class to be UTC
     // if it is not set, then the values would change according to the JVM Timezone at runtime
-    assertEquals("2024-07-30T00:00:00Z", d1.getInstant("date_col").toString());
-    assertEquals("1970-01-01T00:00:01Z", d1.getInstant("timestamp_col").toString());
-    assertEquals("1969-12-31T19:00:01Z", d1.getInstant("timestamp_w_timezone_col").toString());
+    assertEquals("2024-07-30", d1.getString("date_col"));
+    assertEquals("1970-01-01 00:00:01.0", d1.getString("timestamp_col"));
     assertFalse(d1.has("nullable_int"));
     assertNull(d1.getString("nullable_varchar"));
     // date would not get added to docs if null
@@ -230,6 +212,7 @@ public class QueryDatabaseTest {
     assertArrayEquals(expectedLongVarbinaryBytes, longVarbinaryColBytes);
 
     // testing out d2
+
     assertEquals("Another", d2.getString("varchar_col"));
     // calling trim as char_col is storing fixed number of characters
     assertEquals("Test", d2.getString("char_col").trim());
@@ -251,11 +234,8 @@ public class QueryDatabaseTest {
     assertEquals(Float.valueOf("3.141592"), d2.getFloat("real_col"));
     assertEquals(false, d2.getBoolean("boolean_col"));
     assertEquals(false, d2.getBoolean("bit_col"));
-    // note that we have set the TimeZone in this test class to be UTC
-    // if it is not set, then the values would change according to the JVM Timezone at runtime
-    assertEquals("2023-01-01T00:00:00Z", d2.getInstant("date_col").toString());
-    assertEquals("2038-01-19T03:14:07Z", d2.getInstant("timestamp_col").toString());
-    assertEquals("2038-01-19T08:14:07Z", d2.getInstant("timestamp_w_timezone_col").toString());
+    assertEquals("2023-01-01", d2.getString("date_col"));
+    assertEquals("2038-01-19 03:14:07.0", d2.getString("timestamp_col"));
     assertFalse(d2.has("nullable_int"));
     assertNull(d2.getString("nullable_varchar"));
     // date would not get added to docs if null
