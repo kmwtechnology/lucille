@@ -74,7 +74,7 @@ public class Chunking extends Stage {
     if (newChunkSize < 1) {
       throw new StageException("newChunkSize must be greater than 1.");
     }
-    if (chunksToOverlap != null && chunksToOverlap > newChunkSize) {
+    if (chunksToOverlap != null && chunksToOverlap >= newChunkSize) {
       throw new StageException("chunksToOverlap must be smaller than newChunkSize.");
     }
     if (characterLimit < -1) {
@@ -202,10 +202,13 @@ public class Chunking extends Stage {
     return chunks == null || chunks.length == 0 || newChunkSize > chunks.length;
   }
 
+  // step size is new chunk size - chunksToOverlap. Set default to 1 if no overlap is defined
   private int calculateStepSize() {
-    return (chunksToOverlap == null) ? 1 : Math.max(1, newChunkSize - chunksToOverlap);
+    return (chunksToOverlap == null) ? 1 : newChunkSize - chunksToOverlap;
   }
 
+  // if no overlapping of chunks, means step size is 1, and the end index to stop moving window is totalChunksLength - newChunkSize + 1
+  // else when overlapping last index MUST contain new information (cannot just be the overlap parts of previous window)
   private int calculateEndIndex(int totalChunksLength) {
     return (chunksToOverlap == null) ? totalChunksLength - newChunkSize + 1 : totalChunksLength - chunksToOverlap;
   }
