@@ -16,7 +16,7 @@ public enum ChunkingMethod {
 
   public static ChunkingMethod fromString(String modeStr) {
     for (ChunkingMethod mode : ChunkingMethod.values()) {
-      if (modeStr.equals(mode.text)) {
+      if (modeStr.toLowerCase().equals(mode.text)) {
         return mode;
       }
     }

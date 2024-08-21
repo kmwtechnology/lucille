@@ -15,34 +15,35 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * Process of Chunking Stage:
- * - retrieve text information from a Lucille document field
- * - process text to chunks
- * - create child document for each chunk
- *  - child document fields:
- *      - id
- *      - id of parent Document
- *      - offset from start of document (character)
- *      - length (character)
- *      - chunk number
- *      - total chunk number
- *      - chunk itself
+ * Retrieves Text from a Lucille Document Field and breaks them into chunks by placing
+ * each chunk as a child Document.
  *
- * Things to consider while processing:
- * characterLimit (optional) -> hard limit. Truncate rest
- * Overlapping of chunks:
- *  - newChunkSize (optional, essentially window size) -> how many chunks to merge into one new Chunk
- *    - newChunkSize will be default to 1, keeping the chunks the same.
- *  - chunksToOverlap (optional, essentially setting window stride) -> how many smaller chunks to overlap between merged chunks -> to not "lose" information
- *    - will default to null, which will move window stride by 1
- * Chunking Methods (Type Enum, default to fixed size)
- * 1. fixed size chunking -> split by character count
- * 2. paragraph chunking -> split by 2 consecutive \n with optional whitespaces, \n\n \n \n
- * 3. Sentence chunking -> use sentence model for splitting
- * 4. custom chunking via RegEx -> separator option in config required
- * 5. TODO: maybe semantic chunking -> very intensive
- *  - threshold types: percentile, standard_deviation, interquartile
- *  -
+ * Config Parameters:
+ * - text_field (String) : field of which Chunking Stage will chunk the text.
+ * - character_limit (Integer, optional) : hard limit number of characters in a chunk. Truncate rest. Performed before overlap if
+ *   both are set.
+ * - new_chunk_size (Integer, optional) : how many chunks to merge into one new Chunk, essentially window size.
+*    defaults to 1, keeping the chunks the same.
+ * - chunks_to_overlap (Integer, optional) : how many smaller chunks to overlap between merged chunks, essentially setting window stride
+ *   defaults to null, which will move window stride by 1
+ * - output_name (String, optional): the name of the field that will hold the chunk contents in the children documents. Defaults to "chunk".
+ * - separator (String, optional, required if custom chunking): regEx that will be used to split chunks
+ * - chunking_method (Type Enum, optional) : how to split contents in text_field. Defaults to Sentence chunking
+ *  1. fixed chunking: split by character limit
+ *  2. paragraph chunking: split by 2 consecutive \n with optional whitespaces, e.g. \n\n \n \n
+ *  3. sentence chunking: use openNLP sentence model for splitting
+ *  4. custom chunking: separator option in config required, used as regular expression to split content
+ *  5. TODO: maybe semantic chunking? intensive to embed locally
+ *    - threshold types: percentile, standard_deviation, interquartile
+ *
+ *  - child document fields:
+ *       - "id" : the child id, in the format of "parent_id-chunk_number"
+ *       - "parent_id" : id of parent Document
+ *       - "offset" : number of character offset from start of document
+ *       - "length" : number of characters in this chunks
+ *       - "chunk_number" : chunk number
+ *       - "total_chunk_number" : total chunk number produced from parent document
+ *       - "chunk" : the chunk contents. field name can be changed with config option "output_name"
  */
 
 public class Chunking extends Stage {
@@ -117,12 +118,13 @@ public class Chunking extends Stage {
     switch (method) {
       case CUSTOM:
       case PARAGRAPH:
-        // regex pattern for paragraph: find any consecutive newline characters within one unit of whitespace
+        // regex pattern for paragraph: find any consecutive line break sequence (\n, \r, \r\n) within one unit of whitespace
         String regex = (method == ChunkingMethod.CUSTOM) ? separator : "\\s*(?>\\R)\\s*(?>\\R)\\s*";
         chunks = content.split(regex);
         break;
       case FIXED:
-        // splitting by characterLimit does not work when there is newline characters in content so need to remove them before
+        // splitting by characterLimit fails to split properly when there is line break sequence (\n, \r, \r\n) in content,
+        // so have decided to remove them before
         content = content.replaceAll("(?>\\R)", " ");
         chunks = content.split("(?<=\\G.{" + characterLimit + "})");
         break;
@@ -131,9 +133,12 @@ public class Chunking extends Stage {
         break;
     }
 
-    // replacing all newline characters in chunks
-    for (int i = 0; i < chunks.length; i++) {
-      chunks[i] = chunks[i].replaceAll("(?>\\R)", " ");
+    // fixed method has already replaced all newline characters with " " before splitting
+    if (method != ChunkingMethod.FIXED) {
+      // replacing all newline characters in chunks
+      for (int i = 0; i < chunks.length; i++) {
+        chunks[i] = chunks[i].replaceAll("(?>\\R)", " ");
+      }
     }
 
     // truncating if we have character limit set
@@ -211,7 +216,7 @@ public class Chunking extends Stage {
     if (chunks == null || chunks.length == 0) {
       return;
     }
-    // get the id of the parent
+
     String parentId = doc.getString(Document.ID_FIELD);
     int totalChunks = chunks.length;
     int offset = 0;

@@ -16,17 +16,6 @@ public class ChunkingTest {
 
   private StageFactory factory = StageFactory.of(Chunking.class);
 
-  /*
-  Cases to test:
-  - sentence done
-  - fixed done
-  - paragraph done
-  - regex done
-  With Limits done
-  With Overlap done
-  test children information is correct done
-   */
-
   @Test
   public void childrenInformation() throws StageException {
     Stage stage = factory.get("ChunkingTest/sentenceChunk.conf");
@@ -103,6 +92,7 @@ public class ChunkingTest {
 
   @Test
   public void testOverlap() throws StageException {
+    // chunk size 3, overlap 1
     Stage stage = factory.get("ChunkingTest/testOverlap.conf");
     stage.start();
 
@@ -133,6 +123,7 @@ public class ChunkingTest {
 
   @Test
   public void testOverlap2() throws StageException {
+    // chunk size 4, overlap 2
     Stage stage = factory.get("ChunkingTest/testOverlap2.conf");
     stage.start();
 
@@ -163,6 +154,7 @@ public class ChunkingTest {
 
   @Test
   public void testOverlap3() throws StageException {
+    // chunk size 4, overlap 3
     Stage stage = factory.get("ChunkingTest/testOverlap3.conf");
     stage.start();
 
@@ -199,6 +191,7 @@ public class ChunkingTest {
 
   @Test
   public void testOverlap4() throws StageException {
+    // chunk size 4, overlap 1
     Stage stage = factory.get("ChunkingTest/testOverlap4.conf");
     stage.start();
 
@@ -224,6 +217,7 @@ public class ChunkingTest {
 
   @Test
   public void testOverlap5() throws StageException {
+    // chunk size 5, overlap 2
     Stage stage = factory.get("ChunkingTest/testOverlap5.conf");
     stage.start();
 
@@ -249,6 +243,7 @@ public class ChunkingTest {
 
   @Test
   public void testOverlap6() throws StageException {
+    // chunk size 5, overlap 1
     Stage stage = factory.get("ChunkingTest/testOverlap6.conf");
     stage.start();
 
@@ -272,6 +267,7 @@ public class ChunkingTest {
 
   @Test
   public void testOverlapInvalid() throws StageException {
+    // new chunk size 4 for old 3 chunks
     Stage stage = factory.get("ChunkingTest/testOverlap3.conf");
     stage.start();
 
