@@ -9,8 +9,6 @@ import com.knuddels.jtokkit.api.Encoding;
 import com.knuddels.jtokkit.api.EncodingResult;
 import com.knuddels.jtokkit.api.ModelType;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigException.Null;
-import dev.langchain4j.model.output.FinishReason;
 import java.util.Iterator;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -54,7 +52,9 @@ public class OpenAiEmbedding extends Stage {
   private static final Logger log = LoggerFactory.getLogger(OpenAiEmbedding.class);
 
   public OpenAiEmbedding(Config config) throws StageException {
-    super(config, new StageSpec().withRequiredProperties("text_field", "embed_document", "embed_children", "api_key"));
+    super(config, new StageSpec()
+        .withRequiredProperties("text_field", "embed_document", "embed_children", "api_key")
+        .withOptionalProperties("embedding_field", "model_name", "dimensions"));
     textField = config.getString("text_field");
     embedDocument = config.getBoolean("embed_document");
     embedChildren = config.getBoolean("embed_children");
@@ -112,8 +112,7 @@ public class OpenAiEmbedding extends Stage {
     try {
       response = model.embed(content);
     } catch (RuntimeException e) {
-      log.warn("failed to get embedding", e);
-      return;
+      throw new StageException("failed to get embedding for document: " + doc.getId(), e);
     }
 
     Embedding embedding = response.content();
@@ -125,11 +124,12 @@ public class OpenAiEmbedding extends Stage {
 
   private String ensureContentIsWithinLimit(String content) {
     int tokenUsage = enc.countTokens(content);
-    String truncatedContent = null;
+
     if (tokenUsage > DEFAULT_OPENAI_TOKEN_LIMIT) {
       EncodingResult encoded = enc.encode(content, DEFAULT_OPENAI_TOKEN_LIMIT);
-      truncatedContent = enc.decode(encoded.getTokens());
+      return enc.decode(encoded.getTokens());
     }
-    return truncatedContent == null ? content : truncatedContent;
+
+    return content;
   }
 }
