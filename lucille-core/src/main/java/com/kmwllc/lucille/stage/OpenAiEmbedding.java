@@ -108,7 +108,7 @@ public class OpenAiEmbedding extends Stage {
     Response<Embedding> response;
 
     // model.embed will retry 3 times by default
-    // model.embed might throw runtimeException due to invalid API key and other errors.
+    // catching runtimeException for invalid API key and other errors.
     try {
       response = model.embed(content);
     } catch (RuntimeException e) {
