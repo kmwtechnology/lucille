@@ -9,6 +9,8 @@ import com.knuddels.jtokkit.api.Encoding;
 import com.knuddels.jtokkit.api.EncodingResult;
 import com.knuddels.jtokkit.api.ModelType;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException.Null;
+import dev.langchain4j.model.output.FinishReason;
 import java.util.Iterator;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -38,8 +40,8 @@ import org.slf4j.LoggerFactory;
 
 public class OpenAiEmbedding extends Stage {
   // this is the token limit for all embedding models from openai
-  public static final int DEFAULT_OPENAI_TOKEN_LIMIT = 8191;
-
+  private static final int DEFAULT_OPENAI_TOKEN_LIMIT = 8191;
+  private final String API_KEY;
   private EmbeddingModel model;
   private final String textField;
   private final boolean embedDocument;
@@ -52,16 +54,19 @@ public class OpenAiEmbedding extends Stage {
   private static final Logger log = LoggerFactory.getLogger(OpenAiEmbedding.class);
 
   public OpenAiEmbedding(Config config) throws StageException {
-    super(config, new StageSpec().withRequiredProperties("text_field", "embed_document", "embed_children"));
+    super(config, new StageSpec().withRequiredProperties("text_field", "embed_document", "embed_children", "api_key"));
     textField = config.getString("text_field");
     embedDocument = config.getBoolean("embed_document");
     embedChildren = config.getBoolean("embed_children");
+    API_KEY = config.getString("api_key");
     embeddingField = config.hasPath("embedding_field") ? config.getString("embedding_field") : "embeddings";
     modelName = OpenAIModels.fromConfig(config);
     dimensions = config.hasPath("dimensions") ? config.getInt("dimensions") : null;
-
     if (!embedDocument && !embedChildren) {
       throw new StageException("Both embed_document and embed_children are false.");
+    }
+    if (API_KEY.isEmpty()) {
+      throw new StageException("API key is empty.");
     }
   }
 
@@ -70,7 +75,7 @@ public class OpenAiEmbedding extends Stage {
     model = OpenAiEmbeddingModel.builder()
         .modelName(modelName.getModelName())
         .dimensions(dimensions)
-        .apiKey(System.getenv("OPENAI_API_KEY"))
+        .apiKey(API_KEY)
         .build();
 
     // retrieve encoding from modelName
@@ -100,7 +105,17 @@ public class OpenAiEmbedding extends Stage {
 
     String content = doc.getString(textField);
     content = ensureContentIsWithinLimit(content);
-    Response<Embedding> response = model.embed(content);
+    Response<Embedding> response;
+
+    // model.embed will retry 3 times by default
+    // model.embed might throw runtimeException due to invalid API key and other errors.
+    try {
+      response = model.embed(content);
+    } catch (RuntimeException e) {
+      log.warn("failed to get embedding", e);
+      return;
+    }
+
     Embedding embedding = response.content();
     float[] vectors = embedding.vector();
     for (float vector : vectors) {
