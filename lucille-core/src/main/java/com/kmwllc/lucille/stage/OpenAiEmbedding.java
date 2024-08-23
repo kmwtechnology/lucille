@@ -9,6 +9,8 @@ import com.knuddels.jtokkit.api.Encoding;
 import com.knuddels.jtokkit.api.EncodingResult;
 import com.knuddels.jtokkit.api.ModelType;
 import com.typesafe.config.Config;
+import dev.langchain4j.data.segment.TextSegment;
+import java.util.ArrayList;
 import java.util.Iterator;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -65,60 +67,90 @@ public class OpenAiEmbedding extends Stage {
     if (!embedDocument && !embedChildren) {
       throw new StageException("Both embed_document and embed_children are false.");
     }
-    if (API_KEY.isEmpty()) {
+    if (API_KEY.trim().isEmpty()) {
       throw new StageException("API key is empty.");
     }
   }
 
   @Override
   public void start() throws StageException {
+    log.info("using OpenAI model: {}", modelName.getModelName());
+
+    // will throw exception if API_KEY is null or empty but is already checked in constructor
     model = OpenAiEmbeddingModel.builder()
         .modelName(modelName.getModelName())
         .dimensions(dimensions)
         .apiKey(API_KEY)
         .build();
 
-    // retrieve encoding from modelName
+    // retrieve modelType from modelName
     ModelType modelType = ModelType.fromName(modelName.getModelName()).orElse(ModelType.TEXT_EMBEDDING_3_SMALL);
+
+    if (!modelName.getModelName().equals(modelType.getName())) {
+      log.info("using OpenAI {} encoding to count tokens", modelType.getName());
+      throw new StageException("Model used for embedding is different from model used for counting tokens. Check your model_name"
+          + "configuration. It should either be 'text-embedding-3-small', 'text-embedding-3-large' or 'text-embedding-ada-002'.");
+    }
+
     enc = Encodings.newDefaultEncodingRegistry().getEncodingForModel(modelType);
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    if (embedDocument) {
-      sendForEmbedding(doc);
+    List<Document> documentsToEmbed = new ArrayList<>();
+
+    // do not send doc for embedding if it does not contain text_field
+    if (embedDocument && doc.has(textField)) {
+      documentsToEmbed.add(doc);
     }
     if (embedChildren && doc.hasChildren()){
-      List<Document> childDocs = doc.getChildren();
-      for (Document childDoc : childDocs) {
-        sendForEmbedding(childDoc);
+      for (Document childDoc : doc.getChildren()) {
+        if (childDoc.has(textField)) {
+          documentsToEmbed.add(childDoc);
+        }
       }
     }
+
+    sendForBatchEmbedding(documentsToEmbed, doc);
     return null;
   }
 
-  private void sendForEmbedding(Document doc) throws StageException {
-    if (!doc.has(textField)) {
-      log.warn("{} does not exist, skipping document: {}", textField, doc);
+  private void sendForBatchEmbedding(List<Document> docsToEmbed, Document parentDoc) throws StageException {
+    // if there is no embedding done on this document, carry on with lucille-run with other documents
+    if (docsToEmbed.isEmpty()) {
+      log.warn("No documents to embed. Check your text_field, embed_children and embed_document setting in your config file if you"
+          + "expect docid {} or its children to be sent for embedding.", parentDoc.getId());
       return;
     }
 
-    String content = doc.getString(textField);
-    content = ensureContentIsWithinLimit(content);
-    Response<Embedding> response;
-
-    // model.embed will retry 3 times by default
-    // catching runtimeException for invalid API key and other errors.
-    try {
-      response = model.embed(content);
-    } catch (RuntimeException e) {
-      throw new StageException("failed to get embedding for document: " + doc.getId(), e);
+    List<TextSegment> textSegments = new ArrayList<>();
+    for (Document doc : docsToEmbed) {
+      String content = doc.getString(textField);
+      content = ensureContentIsWithinLimit(content);
+      textSegments.add(TextSegment.from(content));
     }
 
-    Embedding embedding = response.content();
-    float[] vectors = embedding.vector();
-    for (float vector : vectors) {
-      doc.setOrAdd(embeddingField, vector);
+    // RuntimeException is thrown for any request errors, and will only return if request is successful
+    // model.embed will retry 3 times before RuntimeException is thrown
+    Response<List<Embedding>> response;
+    try {
+      response = model.embedAll(textSegments);
+    } catch (RuntimeException e) {
+      throw new StageException("failed to get embedding for childDocs: ", e);
+    }
+
+    // checking that response is same size as number of documents sent for embedding
+    List<Embedding> embeddings = response.content();
+    if (embeddings.size() != docsToEmbed.size()) {
+      throw new StageException("embedding count mismatch after embedding");
+    }
+
+    for (int i = 0; i < embeddings.size(); i++) {
+      float[] vectors = embeddings.get(i).vector();
+      Document doc = docsToEmbed.get(i);
+      for (float vector : vectors) {
+        doc.setOrAdd(embeddingField, vector);
+      }
     }
   }
 
