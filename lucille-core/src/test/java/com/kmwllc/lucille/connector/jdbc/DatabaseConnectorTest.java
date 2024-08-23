@@ -171,8 +171,6 @@ public class DatabaseConnectorTest {
     assertEquals(1, dbHelper.checkNumConnections());
   }
 
-  /*
-   this test somehow fails to close connection after as all test after running this would fail assertion on connection number
   @Test
   public void testRetrievingJDBCTypes() throws Exception {
     assertEquals(1, dbHelper.checkNumConnections());
@@ -190,9 +188,7 @@ public class DatabaseConnectorTest {
     Config config = ConfigFactory.parseMap(configValues);
 
     DatabaseConnector connector = new DatabaseConnector(config);
-
     connector.execute(publisher);
-
     List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(2, docsSentForProcessing.size());
 
@@ -295,8 +291,10 @@ public class DatabaseConnectorTest {
         0x00, 0x11, 0x22, 0x33
     };
     assertArrayEquals(expectedLongVarbinaryBytes, longVarbinaryColBytes);
+
+    connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
   }
-   */
 
   @Test
   public void testJoiningDatabaseConnector() throws Exception {
