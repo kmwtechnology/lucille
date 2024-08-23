@@ -22,17 +22,19 @@ import org.apache.logging.log4j.Logger;
  * - text_field (String) : field of which Chunking Stage will chunk the text.
  * - character_limit (Integer, optional) : hard limit number of characters in a chunk. Truncate rest. Performed before overlap if
  *   both are set.
- * - new_chunk_size (Integer, optional) : how many chunks to merge into one new Chunk, essentially window size.
-*    defaults to 1, keeping the chunks the same.
- * - chunks_to_overlap (Integer, optional) : how many smaller chunks to overlap between merged chunks, essentially setting window stride
- *   defaults to null, which will move window stride by 1
- * - output_name (String, optional): the name of the field that will hold the chunk contents in the children documents. Defaults to "chunk".
- * - separator (String, optional, required if custom chunking): regEx that will be used to split chunks
+ * - final_chunk_size (Integer, optional) : how many chunks to merge into the final new Chunk, essentially window size.
+*    defaults to 1, keeping the chunks as they are after splitting.
+ * - chunks_to_overlap (Integer, optional) : how many smaller chunks to overlap between final chunks, defaults to null,
+ *   which will move window stride by 1
+ * - output_name (String, optional): the name of the field that will hold the chunk contents in the children documents.
+ *   Defaults to "chunk".
+ * - regex (String, optional, required if custom chunking): regEx that will be used to split chunks
  * - chunking_method (Type Enum, optional) : how to split contents in text_field. Defaults to Sentence chunking
  *  1. fixed chunking: split by character limit
- *  2. paragraph chunking: split by 2 consecutive \n with optional whitespaces, e.g. \n\n \n \n
+ *  2. paragraph chunking: split by 2 consecutive line break sequence (\n, \r, \r\n) with optional whitespaces between,
+ *     e.g. \n\n \n \n
  *  3. sentence chunking: use openNLP sentence model for splitting
- *  4. custom chunking: separator option in config required, used as regular expression to split content
+ *  4. custom chunking: regex option in config required, used to split content
  *  5. TODO: maybe semantic chunking? intensive to embed locally
  *    - threshold types: percentile, standard_deviation, interquartile
  *
@@ -49,10 +51,10 @@ import org.apache.logging.log4j.Logger;
 public class Chunking extends Stage {
 
   private final Integer characterLimit;
-  private final Integer newChunkSize;
-  private Integer chunksToOverlap;
+  private final Integer finalChunkSize;
+  private final Integer chunksToOverlap;
   private final ChunkingMethod method;
-  private final String separator;
+  private final String regEx;
   private final String outputName;
   private final String text_field;
   private SentenceDetector sentenceDetector;
@@ -60,34 +62,34 @@ public class Chunking extends Stage {
 
   public Chunking(Config config) throws StageException {
     super(config, new StageSpec()
-        .withOptionalProperties("chunking_method", "new_chunk_size", "output_name", "separator", "character_limit",
+        .withOptionalProperties("chunking_method", "final_chunk_size", "output_name", "regex", "character_limit",
             "chunks_to_overlap")
         .withRequiredProperties("text_field"));
     characterLimit = config.hasPath("character_limit") ? config.getInt("character_limit") : -1;
-    newChunkSize = config.hasPath("new_chunk_size") ? config.getInt("new_chunk_size") : 1;
+    finalChunkSize = config.hasPath("final_chunk_size") ? config.getInt("final_chunk_size") : 1;
     chunksToOverlap = config.hasPath("chunks_to_overlap") ? config.getInt("chunks_to_overlap") : null;
     method = ChunkingMethod.fromConfig(config);
-    separator = config.hasPath("separator") ? config.getString("separator") : "";
+    regEx = config.hasPath("regex") ? config.getString("regex") : "";
     text_field = config.getString("text_field");
     outputName = config.hasPath("output_name") ? config.getString("output_name") : "chunk";
 
-    if (newChunkSize < 1) {
-      throw new StageException("newChunkSize must be greater than 1.");
+    if (finalChunkSize < 1) {
+      throw new StageException("final chunk size must be greater than 1.");
     }
-    if (chunksToOverlap != null && chunksToOverlap >= newChunkSize) {
-      throw new StageException("chunksToOverlap must be smaller than newChunkSize.");
+    if (chunksToOverlap != null && chunksToOverlap >= finalChunkSize) {
+      throw new StageException("Chunks to overlap must be smaller than final chunk size.");
     }
     if (characterLimit < -1) {
-      throw new StageException("Character limit must be a positive integer");
+      throw new StageException("Character limit must be a positive integer if set.");
     }
     if (text_field == null) {
-      throw new StageException("text_field configuration where Chunk Stage would take as input is missing");
+      throw new StageException("Text field configuration is missing.");
     }
-    if (method == ChunkingMethod.CUSTOM && separator.isEmpty()) {
-      throw new StageException("Provide a non empty regEx for separator configuration");
+    if (method == ChunkingMethod.CUSTOM && regEx.isEmpty()) {
+      throw new StageException("Provide a non empty regex configuration.");
     }
     if (method == ChunkingMethod.FIXED && characterLimit <= 0) {
-      throw new StageException("Provide a positive character_limit for fixed sized chunking");
+      throw new StageException("Provide a positive character limit for fixed sized chunking.");
     }
   }
 
@@ -97,12 +99,12 @@ public class Chunking extends Stage {
     if (method == ChunkingMethod.SENTENCE) {
       try (InputStream sentModelIn = getClass().getResourceAsStream("/en-sent.bin")) {
         if (sentModelIn == null) {
-          throw new StageException("No sentence model found");
+          throw new StageException("No sentence model found.");
         }
         SentenceModel sentModel = new SentenceModel(sentModelIn);
         sentenceDetector = new SentenceDetectorME(sentModel);
       } catch (IOException e) {
-        throw new StageException("Could not load sentence model", e);
+        throw new StageException("Could not load sentence model.", e);
       }
     }
   }
@@ -117,10 +119,11 @@ public class Chunking extends Stage {
     String[] chunks;
     switch (method) {
       case CUSTOM:
+        chunks = content.split(regEx);
+        break;
       case PARAGRAPH:
-        // regex pattern for paragraph: find any consecutive line break sequence (\n, \r, \r\n) within one unit of whitespace
-        String regex = (method == ChunkingMethod.CUSTOM) ? separator : "\\s*(?>\\R)\\s*(?>\\R)\\s*";
-        chunks = content.split(regex);
+        // split any consecutive line break sequence (\n, \r, \r\n) within one unit of whitespace
+        chunks = content.split("\\s*(?>\\R)\\s*(?>\\R)\\s*");
         break;
       case FIXED:
         // splitting by characterLimit fails to split properly when there is line break sequence (\n, \r, \r\n) in content,
@@ -133,21 +136,14 @@ public class Chunking extends Stage {
         break;
     }
 
-    // fixed method has already replaced all newline characters with " " before splitting
-    if (method != ChunkingMethod.FIXED) {
-      // replacing all newline characters in chunks
-      for (int i = 0; i < chunks.length; i++) {
-        chunks[i] = chunks[i].replaceAll("(?>\\R)", " ");
-      }
-    }
+    // cleaning chunks output
+    cleanChunks(chunks);
 
     // truncating if we have character limit set
-    if (method != ChunkingMethod.FIXED && characterLimit > 0) {
-      truncateRest(chunks, characterLimit);
-    }
+    if (method != ChunkingMethod.FIXED && characterLimit > 0) truncateRest(chunks, characterLimit);
 
-    // overlap chunks if we have buffer set
-    if (newChunkSize > 1) chunks = overlapChunks(chunks);
+    // merge chunks if we have final chunk size set more than 1
+    if (finalChunkSize > 1) chunks = mergeAndOverlapChunks(chunks);
 
     // for testing: log.info("number of chunks {} ", chunks.length);
 
@@ -166,8 +162,18 @@ public class Chunking extends Stage {
     }
   }
 
-  private String[] overlapChunks(String[] chunks) {
-    // invalid if chunks is null/empty, or lesser than chunkBufferSize, no point overlapping
+  private void cleanChunks(String[] chunks) {
+    // fixed method has already replaced all newline characters with white space before splitting
+    if (method == ChunkingMethod.FIXED) return;
+
+    // replacing all new line characters with white spaces
+    for (int i = 0; i < chunks.length; i++) {
+      chunks[i] = chunks[i].replaceAll("(?>\\R)", " ");
+    }
+  }
+
+  private String[] mergeAndOverlapChunks(String[] chunks) {
+    // invalid if chunks is null/empty, or lesser than final chunk size, no point overlapping
     if (isInvalidInput(chunks)) {
       return chunks;
     }
@@ -183,7 +189,7 @@ public class Chunking extends Stage {
     // go through each window and merge them
     for (int i = 0, resultIndex = 0; i < endIndex; i += stepSize, resultIndex++) {
       sb.setLength(0);
-      for (int j = i; j < Math.min(i + newChunkSize, chunkLength); j++) {
+      for (int j = i; j < Math.min(i + finalChunkSize, chunkLength); j++) {
         sb.append(chunks[j]).append(" ");
       }
       // for testing: log.info("{} {} {}", i, resultIndex, sb.toString());
@@ -197,20 +203,20 @@ public class Chunking extends Stage {
     return (endIndex - 1) / stepSize + 1;
   }
 
-  // if chunks is null, empty or the chunkBufferSize is larger than the length then skip
+  // true if chunks is null, empty or the final chunk size is larger than the total chunks length
   private boolean isInvalidInput(String[] chunks) {
-    return chunks == null || chunks.length == 0 || newChunkSize > chunks.length;
+    return chunks == null || chunks.length == 0 || finalChunkSize > chunks.length;
   }
 
-  // step size is new chunk size - chunksToOverlap. Set default to 1 if no overlap is defined
+  // step size is final chunk size - chunksToOverlap. Set default to 1 if no overlap is defined
   private int calculateStepSize() {
-    return (chunksToOverlap == null) ? 1 : newChunkSize - chunksToOverlap;
+    return (chunksToOverlap == null) ? 1 : finalChunkSize - chunksToOverlap;
   }
 
-  // if no overlapping of chunks, means step size is 1, and the end index to stop moving window is totalChunksLength - newChunkSize + 1
-  // else when overlapping last index MUST contain new information (cannot just be the overlap parts of previous window)
+  // if no overlap is defined, means step size is 1, and the end index to stop moving window is totalChunksLength - newChunkSize + 1
+  // else last index MUST contain new information (last chunk cannot just contain overlap parts of previous window)
   private int calculateEndIndex(int totalChunksLength) {
-    return (chunksToOverlap == null) ? totalChunksLength - newChunkSize + 1 : totalChunksLength - chunksToOverlap;
+    return (chunksToOverlap == null) ? totalChunksLength - finalChunkSize + 1 : totalChunksLength - chunksToOverlap;
   }
 
 

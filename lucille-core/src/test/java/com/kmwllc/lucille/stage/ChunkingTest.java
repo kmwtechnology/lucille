@@ -351,6 +351,11 @@ public class ChunkingTest {
     assertEquals("st paragraph.  ", child2.getString("chunk"));
     assertEquals("This is the sec", child3.getString("chunk"));
     assertEquals("ond paragraph", child4.getString("chunk"));
+    assertEquals(15, child1.getString("chunk").length());
+    assertEquals(15, child2.getString("chunk").length());
+    assertEquals(15, child3.getString("chunk").length());
+    // remainder of the content is lesser than the character limit
+    assertEquals(13, child4.getString("chunk").length());
   }
 
 
