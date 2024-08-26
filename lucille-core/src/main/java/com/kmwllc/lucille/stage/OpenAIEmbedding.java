@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
  * - text_field (String) : field of which the embedding Stage will retrieve content from
  * - embed_document (Boolean) : Embeds the document's text_field if set to true.
  * - embed_children (Boolean): Embeds the document's children text_field if set to true.
+ * - api_key (String) : API key used for OpenAI requests
  * - embedding_field (String, Optional) : name of the field that will hold the embeddings
  * - model_name (String, Optional) : the name of the OpenAI embedding model to use, set default to text-embedding-3-small
  *    1. text-embedding-3-small
@@ -38,7 +39,7 @@ import org.slf4j.LoggerFactory;
  * and later models. Default set to null, which will call the model's default dimensions.
  */
 
-public class OpenAiEmbedding extends Stage {
+public class OpenAIEmbedding extends Stage {
   // this is the token limit for all embedding models from openai
   private static final int DEFAULT_OPENAI_TOKEN_LIMIT = 8191;
   private final String API_KEY;
@@ -51,9 +52,9 @@ public class OpenAiEmbedding extends Stage {
   private final Integer dimensions;
   private Encoding enc;
 
-  private static final Logger log = LoggerFactory.getLogger(OpenAiEmbedding.class);
+  private static final Logger log = LoggerFactory.getLogger(OpenAIEmbedding.class);
 
-  public OpenAiEmbedding(Config config) throws StageException {
+  public OpenAIEmbedding(Config config) throws StageException {
     super(config, new StageSpec()
         .withRequiredProperties("text_field", "embed_document", "embed_children", "api_key")
         .withOptionalProperties("embedding_field", "model_name", "dimensions"));
@@ -70,6 +71,11 @@ public class OpenAiEmbedding extends Stage {
     if (API_KEY.trim().isEmpty()) {
       throw new StageException("API key is empty.");
     }
+  }
+
+  // Method exists for testing with mockito mocks
+  void setModel(EmbeddingModel model) {
+    this.model = model;
   }
 
   @Override
@@ -104,6 +110,7 @@ public class OpenAiEmbedding extends Stage {
       documentsToEmbed.add(doc);
     }
     if (embedChildren && doc.hasChildren()){
+      // only way to retrieve children is to call getChildren() which returns a deep copy of current children
       for (Document childDoc : doc.getChildren()) {
         if (childDoc.has(textField)) {
           documentsToEmbed.add(childDoc);
@@ -111,16 +118,28 @@ public class OpenAiEmbedding extends Stage {
       }
     }
 
-    sendForBatchEmbedding(documentsToEmbed, doc);
+    List<Document> processedDocs = sendForBatchEmbedding(documentsToEmbed, doc);
+
+    // currently do not support modifying children, so now explicitly cloning (getChildren()), processing and replacing old children
+    if (embedChildren && doc.hasChildren()) {
+      doc.removeChildren();
+      for (Document processedDoc : processedDocs) {
+        if (processedDoc.getId().equals(doc.getId())) {
+          continue;
+        }
+        doc.addChild(processedDoc);
+      }
+    }
+
     return null;
   }
 
-  private void sendForBatchEmbedding(List<Document> docsToEmbed, Document parentDoc) throws StageException {
+  private List<Document> sendForBatchEmbedding(List<Document> docsToEmbed, Document parentDoc) throws StageException {
     // if there is no embedding done on this document, carry on with lucille-run with other documents
     if (docsToEmbed.isEmpty()) {
       log.warn("No documents to embed. Check your text_field, embed_children and embed_document setting in your config file if you"
-          + "expect docid {} or its children to be sent for embedding.", parentDoc.getId());
-      return;
+          + " expect docid {} or its children to be sent for embedding.", parentDoc.getId());
+      return docsToEmbed;
     }
 
     List<TextSegment> textSegments = new ArrayList<>();
@@ -148,10 +167,12 @@ public class OpenAiEmbedding extends Stage {
     for (int i = 0; i < embeddings.size(); i++) {
       float[] vectors = embeddings.get(i).vector();
       Document doc = docsToEmbed.get(i);
-      for (float vector : vectors) {
+      for (Float vector : vectors) {
         doc.setOrAdd(embeddingField, vector);
       }
     }
+
+    return docsToEmbed;
   }
 
   private String ensureContentIsWithinLimit(String content) {
