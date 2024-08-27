@@ -54,27 +54,15 @@ public class WorkerThread extends Thread {
     }
     executorService = startTimer(worker, maxProcessingSecs);
     log.info("started executorService");
-    try {
-      worker.run();
-    } finally {
-      if (executorService != null) {
-        try {
-          executorService.awaitTermination(5, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-          log.warn("interrupted while waiting for executor service to terminate");
-        }
-      }
-    }
+    worker.run();
   }
 
   public void terminate() {
-    /*
     if (executorService != null) {
       log.info("Terminating timer in thread {}", this.getName());
       shutdownAndAwaitTermination(executorService);
       log.info("Terminated timer in thread {}", this.getName());
     }
-     */
     worker.terminate();
   }
 
