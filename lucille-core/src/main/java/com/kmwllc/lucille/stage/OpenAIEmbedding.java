@@ -17,6 +17,8 @@ import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.model.output.Response;
 import java.util.List;
+import java.util.Random;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,14 +107,14 @@ public class OpenAIEmbedding extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
     List<Document> documentsToEmbed = new ArrayList<>();
 
-    // do not send doc for embedding if it does not contain text_field
-    if (embedDocument && doc.has(textField)) {
+    // send doc for embedding if it does contain textField with nonNull value and that textField is not empty
+    if (embedDocument && isValidDocument(doc)) {
       documentsToEmbed.add(doc);
     }
     if (embedChildren && doc.hasChildren()){
       // only way to retrieve children is to call getChildren() which returns a deep copy of current children
       for (Document childDoc : doc.getChildren()) {
-        if (childDoc.has(textField)) {
+        if (isValidDocument(childDoc)) {
           documentsToEmbed.add(childDoc);
         }
       }
@@ -132,6 +134,10 @@ public class OpenAIEmbedding extends Stage {
     }
 
     return null;
+  }
+
+  private boolean isValidDocument(Document doc) {
+    return doc.hasNonNull(textField) && !StringUtils.isBlank(doc.getString(textField));
   }
 
   private List<Document> sendForBatchEmbedding(List<Document> docsToEmbed, Document parentDoc) throws StageException {
