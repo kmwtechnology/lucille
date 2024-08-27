@@ -10,8 +10,10 @@ import com.kmwllc.lucille.connector.RunSummaryMessageConnector;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.stage.StartStopCaptureStage;
 import com.kmwllc.lucille.util.LogUtils;
+import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.apache.commons.lang3.ThreadUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -21,6 +23,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -28,7 +32,7 @@ import static org.mockito.Mockito.*;
 
 @RunWith(JUnit4.class)
 public class RunnerTest {
-
+  private static final Logger log = LoggerFactory.getLogger(RunnerTest.class);
   @Test
   public void testRunnerWithNoDocs() throws Exception {
     // we should be able to run a connector that generates no documents
@@ -677,15 +681,38 @@ public class RunnerTest {
     RunResult result =
         Runner.run(ConfigFactory.load("RunnerTest/pipelineNotFound.conf"), Runner.RunType.TEST);
     assertFalse(result.getStatus());
+
+    Collection<Thread> nonSystemThreadsAfter =
+        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
+
+    for (Thread thread : nonSystemThreadsAfter) {
+      log.info("THREAD testConnectorWithUnrecognizedPipeline AFTER: {}", thread.getName());
+      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+        fail("Lucille threads are still running");
+      }
+    }
   }
 
   @Test
   public void testStartStopCalledOnPipelineStages() throws Exception {
+    Collection<Thread> nonSystemThreadsBefore =
+        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
+
+
     StartStopCaptureStage.reset();
     Runner.runInTestMode("RunnerTest/stageStartStop.conf");
     assertTrue(StartStopCaptureStage.startCalled);
     assertTrue(StartStopCaptureStage.stopCalled);
     StartStopCaptureStage.reset();
+    Collection<Thread> nonSystemThreadsAfter =
+        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
+
+    for (Thread thread : nonSystemThreadsAfter) {
+      log.info("THREAD testStartStopCalledOnPipelineStages AFTER: {}", thread.getName());
+      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+        fail("Lucille threads are still running");
+      }
+    }
   }
 
 
@@ -736,13 +763,45 @@ public class RunnerTest {
     // handle the failure
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerConnectFailure.conf"),
         Runner.RunType.LOCAL).getStatus());
+
+    Collection<Thread> nonSystemThreadsAfter =
+        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
+
+    for (Thread thread : nonSystemThreadsAfter) {
+      log.info("THREAD testIndexerConnectFailure AFTER: {}", thread.getName());
+      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+        fail("Lucille threads are still running");
+      }
+    }
   }
 
   @Test
   public void testIndexerDeleteByFieldConfig() throws Exception {
+
+    Collection<Thread> nonSystemThreadsBefore =
+        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
+
+    for (Thread thread : nonSystemThreadsBefore) {
+      log.info("THREAD testIndexerDeleteByFieldConfig BEFORE: {}", thread.getName());
+      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+        fail("Lucille threads are still running");
+      }
+    }
+
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteByFieldInvalid1.conf"), Runner.RunType.LOCAL).getStatus());
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteByFieldInvalid2.conf"), Runner.RunType.LOCAL).getStatus());
+
     assertTrue(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteByFieldValid.conf"), Runner.RunType.LOCAL).getStatus());
+
+    Collection<Thread> nonSystemThreadsAfter =
+        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
+
+    for (Thread thread : nonSystemThreadsAfter) {
+      log.info("THREAD run3 AFTER: {}", thread.getName());
+      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+        fail("Lucille threads are still running");
+      }
+    }
   }
 
   @Test
@@ -750,6 +809,16 @@ public class RunnerTest {
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteInvalid1.conf"), Runner.RunType.LOCAL).getStatus());
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteInvalid2.conf"), Runner.RunType.LOCAL).getStatus());
     assertTrue(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteValid.conf"), Runner.RunType.LOCAL).getStatus());
+
+    Collection<Thread> nonSystemThreadsAfter =
+        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
+
+    for (Thread thread : nonSystemThreadsAfter) {
+      log.info("THREAD testIndexerDeleteMarkerConfig AFTER: {}", thread.getName());
+      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+        fail("Lucille threads are still running");
+      }
+    }
   }
 
   @Test

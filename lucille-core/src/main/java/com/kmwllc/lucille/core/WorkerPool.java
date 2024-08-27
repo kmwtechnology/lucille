@@ -5,6 +5,7 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
+import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,10 +58,12 @@ public class WorkerPool {
     for (int i = 0; i < numWorkers; i++) {
       try {
         WorkerMessenger messenger = workerMessengerFactory.create();
-        threads.add(Worker.startThread(config, messenger, pipelineName, metricsPrefix));
+        String name = ThreadNameUtils.getThreadName("Worker-" + (i+1));
+        threads.add(Worker.startThread(config, messenger, pipelineName, metricsPrefix, name));
       } catch (Exception e) {
         log.error("Exception caught when starting Worker thread {}; aborting", i+1);
         try {
+          log.info("Calling stop");
           stop();
         } catch (Exception e2) {
           log.error("Exception caught when attempting to stop Worker threads because of a startup problem", e2);
@@ -88,15 +91,19 @@ public class WorkerPool {
   public void stop() {
     log.debug("Stopping " + threads.size() + " worker threads");
     if (logTimer != null) {
+      log.info("cancelling logTimer");
       logTimer.cancel();
     }
+    log.info(String.valueOf(threads.size()));
     for (WorkerThread workerThread : threads) {
+      log.info("cancelling thread " + workerThread.getName());
       workerThread.terminate();
     }
     // tell one of the threads to log its metrics;
     // the output should be the same for any thread;
     // all threads get their metrics via a shared registry using the same naming scheme,
     // so the metrics are collected across all the threads
+    log.info("finish stopping threads");
     if (threads.size() > 0) {
       threads.get(0).logMetrics();
     }

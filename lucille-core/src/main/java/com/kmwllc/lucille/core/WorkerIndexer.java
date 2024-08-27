@@ -4,6 +4,7 @@ import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.HybridIndexerMessenger;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
 import com.kmwllc.lucille.message.LocalMessenger;
+import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -93,13 +94,13 @@ public class WorkerIndexer {
 
     indexerThread = new Thread(indexer);
     indexerThread.start();
-
+    String name = ThreadNameUtils.getThreadName("WorkerIndexer");
     workerThread =
-        Worker.startThread(config, workerMessageManager, pipelineName, pipelineName);
+        Worker.startThread(config, workerMessageManager, pipelineName, pipelineName, name);
   }
 
   public void stop() throws Exception {
-
+    log.info("Stopping WorkerIndexer");
     // it is important to terminate the indexer wait for its thread to stop
     // before we terminate the worker. This allows the worker to process
     // any offsets that the indexer added to the offset queue upon termination

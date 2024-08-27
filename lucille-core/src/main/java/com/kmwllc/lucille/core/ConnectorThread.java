@@ -7,7 +7,8 @@ public class ConnectorThread extends Thread {
 
   private volatile Exception exception;
 
-  public ConnectorThread(Connector connector, Publisher publisher) {
+  public ConnectorThread(Connector connector, Publisher publisher, String name) {
+    this.setName(name);
     this.connector = connector;
     this.publisher = publisher;
   }
