@@ -15,17 +15,17 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * Retrieves Text from a Lucille Document Field and breaks them into chunks by placing
- * each chunk as a child Document.
+ * Retrieves text from a Lucille document field, then breaks it into chunks,
+ * with each chunk added as a child document attached to the current document.
  *
  * Config Parameters:
  * - text_field (String) : field of which Chunking Stage will chunk the text.
- * - character_limit (Integer, optional) : hard limit number of characters in a chunk. Truncate rest. Performed before overlap if
- *   both are set.
+ * - character_limit (Integer, optional) : hard limit number of characters in a chunk. Truncate rest. Performed before
+ *   merging & overlapping if they are set.
  * - final_chunk_size (Integer, optional) : how many chunks to merge into the final new Chunk, essentially window size.
-*    defaults to 1, keeping the chunks as they are after splitting.
+*    defaults to 1, keeping the chunks as they were after splitting.
  * - chunks_to_overlap (Integer, optional) : how many smaller chunks to overlap between final chunks, defaults to null,
- *   which will move window stride by 1
+ *   creating no overlap between final chunks, essentially setting window stride as final chunk size
  * - output_name (String, optional): the name of the field that will hold the chunk contents in the children documents.
  *   Defaults to "chunk".
  * - regex (String, optional, required if custom chunking): regEx that will be used to split chunks
@@ -56,7 +56,7 @@ public class Chunking extends Stage {
   private final ChunkingMethod method;
   private final String regEx;
   private final String outputName;
-  private final String text_field;
+  private final String textField;
   private SentenceDetector sentenceDetector;
   private static final Logger log = LogManager.getLogger(Chunking.class);
 
@@ -70,7 +70,7 @@ public class Chunking extends Stage {
     chunksToOverlap = config.hasPath("chunks_to_overlap") ? config.getInt("chunks_to_overlap") : null;
     method = ChunkingMethod.fromConfig(config);
     regEx = config.hasPath("regex") ? config.getString("regex") : "";
-    text_field = config.getString("text_field");
+    textField = config.getString("text_field");
     outputName = config.hasPath("output_name") ? config.getString("output_name") : "chunk";
 
     if (finalChunkSize < 1) {
@@ -82,7 +82,7 @@ public class Chunking extends Stage {
     if (characterLimit < -1) {
       throw new StageException("Character limit must be a positive integer if set.");
     }
-    if (text_field == null) {
+    if (textField == null) {
       throw new StageException("Text field configuration is missing.");
     }
     if (method == ChunkingMethod.CUSTOM && regEx.isEmpty()) {
@@ -112,7 +112,7 @@ public class Chunking extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // retrieve content to chunk
-    String content = doc.getString(text_field);
+    String content = doc.getString(textField);
     // for testing: log.info("content retrieved {} ", content);
 
     // splitting up content based on chunking method
@@ -208,15 +208,16 @@ public class Chunking extends Stage {
     return chunks == null || chunks.length == 0 || finalChunkSize > chunks.length;
   }
 
-  // step size is final chunk size - chunksToOverlap. Set default to 1 if no overlap is defined
+  // step size is final chunk size - chunksToOverlap. Set default to final chunk size if no overlap is defined
   private int calculateStepSize() {
-    return (chunksToOverlap == null) ? 1 : finalChunkSize - chunksToOverlap;
+    return (chunksToOverlap == null) ? finalChunkSize : finalChunkSize - chunksToOverlap;
   }
 
-  // if no overlap is defined, means step size is 1, and the end index to stop moving window is totalChunksLength - newChunkSize + 1
+  // if no overlap is defined, means step size is same as final chunk size and the end index would be totalChunksLength to capture
+  // all including chunks that have lesser size than final chunk size
   // else last index MUST contain new information (last chunk cannot just contain overlap parts of previous window)
   private int calculateEndIndex(int totalChunksLength) {
-    return (chunksToOverlap == null) ? totalChunksLength - finalChunkSize + 1 : totalChunksLength - chunksToOverlap;
+    return (chunksToOverlap == null) ? totalChunksLength : totalChunksLength - chunksToOverlap;
   }
 
 

@@ -91,9 +91,9 @@ public class ChunkingTest {
 
 
   @Test
-  public void testOverlap() throws StageException {
+  public void testMerge3Overlap1() throws StageException {
     // chunk size 3, overlap 1
-    Stage stage = factory.get("ChunkingTest/testOverlap.conf");
+    Stage stage = factory.get("ChunkingTest/testMerge3Overlap1.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -122,9 +122,48 @@ public class ChunkingTest {
 
 
   @Test
-  public void testOverlap2() throws StageException {
+  public void testMerge3Overlap2() throws StageException {
+    // chunk size 3, overlap 1
+    Stage stage = factory.get("ChunkingTest/testMerge3Overlap2.conf");
+    stage.start();
+
+    Document doc = Document.create("id");
+    String sampleText = "The sun is bright. The sky is clear. Birds are singing. A dog barks. Children play. Trees sway."
+        + " Leaves rustle. A car drives by. The breeze is cool. Flowers bloom. A cat sleeps. The clock ticks.";
+
+    doc.setField("text", sampleText);
+
+    stage.processDocument(doc);
+    List<Document> childrenDocs = doc.getChildren();
+
+    Document child1 = childrenDocs.get(0);
+    Document child2 = childrenDocs.get(1);
+    Document child3 = childrenDocs.get(2);
+    Document child4 = childrenDocs.get(3);
+    Document child5 = childrenDocs.get(4);
+    Document child6 = childrenDocs.get(5);
+    Document child7 = childrenDocs.get(6);
+    Document child8 = childrenDocs.get(7);
+    Document child9 = childrenDocs.get(8);
+    Document child10 = childrenDocs.get(9);
+
+    assertEquals("The sun is bright. The sky is clear. Birds are singing.", child1.getString("chunk"));
+    assertEquals("The sky is clear. Birds are singing. A dog barks.", child2.getString("chunk"));
+    assertEquals("Birds are singing. A dog barks. Children play.", child3.getString("chunk"));
+    assertEquals("A dog barks. Children play. Trees sway.", child4.getString("chunk"));
+    assertEquals("Children play. Trees sway. Leaves rustle.", child5.getString("chunk"));
+    assertEquals("Trees sway. Leaves rustle. A car drives by.", child6.getString("chunk"));
+    assertEquals("Leaves rustle. A car drives by. The breeze is cool.", child7.getString("chunk"));
+    assertEquals("A car drives by. The breeze is cool. Flowers bloom.", child8.getString("chunk"));
+    assertEquals("The breeze is cool. Flowers bloom. A cat sleeps.", child9.getString("chunk"));
+    assertEquals("Flowers bloom. A cat sleeps. The clock ticks.", child10.getString("chunk"));
+  }
+
+
+  @Test
+  public void testMerge4Overlap2() throws StageException {
     // chunk size 4, overlap 2
-    Stage stage = factory.get("ChunkingTest/testOverlap2.conf");
+    Stage stage = factory.get("ChunkingTest/testMerge4Overlap2.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -153,14 +192,14 @@ public class ChunkingTest {
 
 
   @Test
-  public void testOverlap3() throws StageException {
+  public void testMerge4NoOverlap() throws StageException {
     // chunk size 4, overlap 3
-    Stage stage = factory.get("ChunkingTest/testOverlap3.conf");
+    Stage stage = factory.get("ChunkingTest/testMerge4NoOverlap.conf");
     stage.start();
 
     Document doc = Document.create("id");
     String sampleText = "The sun is bright. The sky is clear. Birds are singing. A dog barks. Children play. Trees sway."
-        + " Leaves rustle. A car drives by. The breeze is cool. Flowers bloom. A cat sleeps. The clock ticks.";
+        + " Leaves rustle. A car drives by. The breeze is cool. Flowers bloom. A cat sleeps. The clock ticks. A phone rings.";
 
     doc.setField("text", sampleText);
 
@@ -171,28 +210,17 @@ public class ChunkingTest {
     Document child2 = childrenDocs.get(1);
     Document child3 = childrenDocs.get(2);
     Document child4 = childrenDocs.get(3);
-    Document child5 = childrenDocs.get(4);
-    Document child6 = childrenDocs.get(5);
-    Document child7 = childrenDocs.get(6);
-    Document child8 = childrenDocs.get(7);
-    Document child9 = childrenDocs.get(8);
-
     assertEquals("The sun is bright. The sky is clear. Birds are singing. A dog barks.", child1.getString("chunk"));
-    assertEquals("The sky is clear. Birds are singing. A dog barks. Children play.", child2.getString("chunk"));
-    assertEquals("Birds are singing. A dog barks. Children play. Trees sway.", child3.getString("chunk"));
-    assertEquals("A dog barks. Children play. Trees sway. Leaves rustle.", child4.getString("chunk"));
-    assertEquals("Children play. Trees sway. Leaves rustle. A car drives by.", child5.getString("chunk"));
-    assertEquals("Trees sway. Leaves rustle. A car drives by. The breeze is cool.", child6.getString("chunk"));
-    assertEquals("Leaves rustle. A car drives by. The breeze is cool. Flowers bloom.", child7.getString("chunk"));
-    assertEquals("A car drives by. The breeze is cool. Flowers bloom. A cat sleeps.", child8.getString("chunk"));
-    assertEquals("The breeze is cool. Flowers bloom. A cat sleeps. The clock ticks.", child9.getString("chunk"));
+    assertEquals("Children play. Trees sway. Leaves rustle. A car drives by.", child2.getString("chunk"));
+    assertEquals("The breeze is cool. Flowers bloom. A cat sleeps. The clock ticks.", child3.getString("chunk"));
+    assertEquals("A phone rings.", child4.getString("chunk"));
   }
 
 
   @Test
-  public void testOverlap4() throws StageException {
+  public void testMerge4Overlap1() throws StageException {
     // chunk size 4, overlap 1
-    Stage stage = factory.get("ChunkingTest/testOverlap4.conf");
+    Stage stage = factory.get("ChunkingTest/testMerge4Overlap1.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -216,9 +244,9 @@ public class ChunkingTest {
   }
 
   @Test
-  public void testOverlap5() throws StageException {
+  public void testMerge5Overlap2() throws StageException {
     // chunk size 5, overlap 2
-    Stage stage = factory.get("ChunkingTest/testOverlap5.conf");
+    Stage stage = factory.get("ChunkingTest/testMerge5Overlap2.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -242,9 +270,9 @@ public class ChunkingTest {
   }
 
   @Test
-  public void testOverlap6() throws StageException {
+  public void testMerge5Overlap1() throws StageException {
     // chunk size 5, overlap 1
-    Stage stage = factory.get("ChunkingTest/testOverlap6.conf");
+    Stage stage = factory.get("ChunkingTest/testMerge5Overlap1.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -266,9 +294,31 @@ public class ChunkingTest {
   }
 
   @Test
+  public void testMerge5NoOverlap() throws StageException {
+    // chunk size 4, overlap 3
+    Stage stage = factory.get("ChunkingTest/testMerge5NoOverlap.conf");
+    stage.start();
+
+    Document doc = Document.create("id");
+    String sampleText = "The sun is bright. The sky is clear. Birds are singing. A dog barks. Children play. Trees sway."
+        + " Leaves rustle. A car drives by. The breeze is cool. Flowers bloom. A cat sleeps. The clock ticks. A phone rings. The clock ticks.";
+
+    doc.setField("text", sampleText);
+
+    stage.processDocument(doc);
+    List<Document> childrenDocs = doc.getChildren();
+    Document child1 = childrenDocs.get(0);
+    Document child2 = childrenDocs.get(1);
+    Document child3 = childrenDocs.get(2);
+    assertEquals("The sun is bright. The sky is clear. Birds are singing. A dog barks. Children play.", child1.getString("chunk"));
+    assertEquals("Trees sway. Leaves rustle. A car drives by. The breeze is cool. Flowers bloom.", child2.getString("chunk"));
+    assertEquals("A cat sleeps. The clock ticks. A phone rings. The clock ticks.", child3.getString("chunk"));
+  }
+
+  @Test
   public void testOverlapInvalid() throws StageException {
     // new chunk size 4 for old 3 chunks
-    Stage stage = factory.get("ChunkingTest/testOverlap3.conf");
+    Stage stage = factory.get("ChunkingTest/testMerge4NoOverlap.conf");
     stage.start();
 
     Document doc = Document.create("id");
