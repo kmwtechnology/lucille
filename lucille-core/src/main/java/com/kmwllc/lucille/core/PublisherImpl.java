@@ -213,8 +213,8 @@ public class PublisherImpl implements Publisher {
       }
 
       if (ChronoUnit.MILLIS.between(start, Instant.now()) > timeout) {
-        log.error("Exiting run with " + numPending() + " pending documents; publisher timed out (" + timeout + "ms)");
-        return new PublisherResult(false, "Publisher timeout.");
+        log.error("Exiting run with " + numPending() + " pending documents; connector timed out (" + timeout + "ms)");
+        return new PublisherResult(false, "Connector timeout.");
       }
 
       // stop waiting if the connector threw an exception

@@ -7,6 +7,9 @@ import com.kmwllc.lucille.message.*;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
+import com.typesafe.config.ConfigValue;
+import java.util.Map.Entry;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
@@ -77,6 +80,8 @@ public class Runner {
    * <p>
    * -local: modifies -usekafka so that workers and indexers are started as separate threads within the same JVM;
    * kafka is still used for communication between them.
+   * <p>
+   * -render: prints out the effective/actual config in the exact form it will be seen by Lucille during the run
    */
   public static void main(String[] args) throws Exception {
     Options cliOptions = new Options()
@@ -85,7 +90,9 @@ public class Runner {
         .addOption(Option.builder("local").hasArg(false)
             .desc("Modifies usekafka mode to execute pipelines locally").build())
         .addOption(Option.builder("validate").hasArg(false)
-            .desc("Validate the configuration and exit").build());
+            .desc("Validate the configuration and exit").build())
+        .addOption(Option.builder("render").hasArg(false)
+            .desc("Print out the configuration file with substitutions applied and exit").build());
 
     CommandLine cli = null;
     try {
@@ -102,8 +109,16 @@ public class Runner {
       System.exit(1);
     }
 
-    if (cli.hasOption("validate")) {
-      logValidation(validatePipelines(ConfigFactory.load()));
+    Config config = ConfigFactory.load();
+
+    // allow handling of both validate and render flags
+    if (cli.hasOption("validate") || cli.hasOption("render")) {
+      if (cli.hasOption("render")) {
+        renderConfig(config);
+      }
+      if (cli.hasOption("validate")) {
+        logValidation(validatePipelines(config));
+      }
       return;
     }
 
@@ -190,6 +205,14 @@ public class Runner {
       }
     }
     return exceptionMap;
+  }
+
+  public static void renderConfig(Config config) {
+    ConfigRenderOptions renderOptions = ConfigRenderOptions.defaults()
+        .setJson(true)
+        .setComments(false)
+        .setOriginComments(false);
+    log.info(config.root().render(renderOptions));
   }
 
   /**
