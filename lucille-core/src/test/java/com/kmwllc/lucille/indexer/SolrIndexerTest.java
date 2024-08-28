@@ -175,6 +175,7 @@ public class SolrIndexerTest {
     TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
+    doc.setField("myid", "my_new_id");
 
     SolrClient solrClient = mock(SolrClient.class);
     Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
@@ -190,6 +191,7 @@ public class SolrIndexerTest {
     // confirm that the document id has been removed
     SolrInputDocument solrDoc = (SolrInputDocument) captor.getAllValues().get(0).toArray()[0];
     assertNull(solrDoc.getFieldValue("id"));
+    assertEquals("my_new_id", solrDoc.getFieldValue("myid"));
   }
 
   /**

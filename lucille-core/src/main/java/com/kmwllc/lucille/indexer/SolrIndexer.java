@@ -32,13 +32,10 @@ public class SolrIndexer extends Indexer {
 
   private final SolrClient solrClient;
 
-  private final String uniqueKey;
-
   public SolrIndexer(
       Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix) {
     super(config, messenger, metricsPrefix);
     this.solrClient = solrClient;
-    uniqueKey = config.hasPath("unique_key") ? config.getString("unique_key") : null;
   }
 
   public SolrIndexer(
@@ -47,7 +44,6 @@ public class SolrIndexer extends Indexer {
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
     this.solrClient = getSolrClient(config, bypass);
-    uniqueKey = config.hasPath("unique_key") ? config.getString("unique_key") : null;
   }
 
   private static SolrClient getSolrClient(Config config, boolean bypass) {
@@ -138,11 +134,6 @@ public class SolrIndexer extends Indexer {
       }
       SolrDocRequests solrDocRequests = solrDocRequestsByCollection.get(collection);
       String solrId = idOverride != null ? idOverride : doc.getId();
-
-      // if user provided uniqueKey is in document use that as id, else continue with the original id
-      if (uniqueKey != null && doc.has(uniqueKey)) {
-        solrId = doc.getString(uniqueKey);
-      }
 
       if (isDeletion(doc)) {
 
