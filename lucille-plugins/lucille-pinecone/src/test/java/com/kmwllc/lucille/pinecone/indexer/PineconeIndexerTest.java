@@ -4,10 +4,17 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import io.pinecone.clients.Index;
+import io.pinecone.clients.Pinecone;
+import io.pinecone.configs.PineconeConfig;
+import io.pinecone.unsigned_indices_model.VectorWithUnsignedIndices;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Vector;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -18,21 +25,16 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import io.grpc.ConnectivityState;
-import io.grpc.ManagedChannel;
-import io.pinecone.PineconeClient;
-import io.pinecone.PineconeClientConfig;
-import io.pinecone.PineconeConnection;
 import io.pinecone.proto.UpdateRequest;
 import io.pinecone.proto.UpsertRequest;
 import io.pinecone.proto.VectorServiceGrpc;
+import org.openapitools.client.model.IndexModel;
+import org.openapitools.client.model.IndexModelStatus;
+import org.openapitools.client.model.IndexModelStatus.StateEnum;
 
 public class PineconeIndexerTest {
 
   private VectorServiceGrpc.VectorServiceBlockingStub stub;
-  private PineconeConnection goodConnection;
-  private PineconeConnection failureConnection;
-  private PineconeConnection shutdownConnection;
 
   private Document doc0;
   private Document doc1;
@@ -42,9 +44,16 @@ public class PineconeIndexerTest {
   private List<Float> doc1ForNamespace1;
   private List<Float> doc1ForNamespace2;
 
+  private IndexModel goodIndexModel;
+  private IndexModel shutdownIndexModel;
+  private IndexModel failureIndexModel;
+  private Index goodIndex;
+  private Index failureIndex;
+  private Index shutdownIndex;
+
   @Before
   public void setup() {
-    setUpConnections();
+    setUpIndexes();
     setUpDocuments();
   }
 
@@ -68,31 +77,31 @@ public class PineconeIndexerTest {
     doc1.update("metaList", UpdateMode.OVERWRITE, 4, 5, 6);
   }
 
-  private void setUpConnections() {
-    stub = Mockito.mock(VectorServiceGrpc.VectorServiceBlockingStub.class);
+  private void setUpIndexes() {
+    goodIndexModel = Mockito.mock(IndexModel.class);
+    goodIndex = Mockito.mock(Index.class);
+    IndexModelStatus goodStatus = Mockito.mock(IndexModelStatus.class);
+    Mockito.when(goodIndexModel.getStatus()).thenReturn(goodStatus);
+    Mockito.when(goodStatus.getState()).thenReturn(StateEnum.READY);
 
-    goodConnection = Mockito.mock(PineconeConnection.class);
-    ManagedChannel goodChannel = Mockito.mock(ManagedChannel.class);
-    Mockito.when(goodConnection.getChannel()).thenReturn(goodChannel);
-    Mockito.when(goodChannel.getState(true)).thenReturn(ConnectivityState.READY);
-    Mockito.when(goodConnection.getBlockingStub()).thenReturn(stub);
+    failureIndexModel = Mockito.mock(IndexModel.class);
+    failureIndex = Mockito.mock(Index.class);
+    IndexModelStatus failureStatus = Mockito.mock(IndexModelStatus.class);
+    Mockito.when(failureIndexModel.getStatus()).thenReturn(failureStatus);
+    Mockito.when(failureStatus.getState()).thenReturn(StateEnum.INITIALIZATIONFAILED);
 
-    failureConnection = Mockito.mock(PineconeConnection.class);
-    ManagedChannel failureChannel = Mockito.mock(ManagedChannel.class);
-    Mockito.when(failureConnection.getChannel()).thenReturn(failureChannel);
-    Mockito.when(failureChannel.getState(true)).thenReturn(ConnectivityState.TRANSIENT_FAILURE);
-
-    shutdownConnection = Mockito.mock(PineconeConnection.class);
-    ManagedChannel shutdownChannel = Mockito.mock(ManagedChannel.class);
-    Mockito.when(shutdownConnection.getChannel()).thenReturn(shutdownChannel);
-    Mockito.when(shutdownChannel.getState(true)).thenReturn(ConnectivityState.SHUTDOWN);
+    shutdownIndexModel = Mockito.mock(IndexModel.class);
+    shutdownIndex = Mockito.mock(Index.class);
+    IndexModelStatus shutdownStatus = Mockito.mock(IndexModelStatus.class);
+    Mockito.when(shutdownIndexModel.getStatus()).thenReturn(shutdownStatus);
+    Mockito.when(shutdownStatus.getState()).thenReturn(StateEnum.TERMINATING);
   }
 
   @Test
   public void testClientCreatedWithCorrectConfig() {
-    Map<PineconeClient, List<Object>> constructorArgs = new HashMap<>();
+    Map<Pinecone, List<Object>> constructorArgs = new HashMap<>();
 
-    try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
       constructorArgs.put(mock, new ArrayList<>(context.arguments()));
     })) {
       Config configGood = ConfigFactory.load("PineconeIndexerTest/good-config.conf");
@@ -100,24 +109,21 @@ public class PineconeIndexerTest {
       new PineconeIndexer(configGood, messenger, "testing");
 
       assertTrue(client.constructed().size() == 1);
-      PineconeClient constructed = client.constructed().get(0);
-      assertTrue(constructorArgs.get(constructed).get(0) instanceof PineconeClientConfig);
+      Pinecone constructed = client.constructed().get(0);
+      assertTrue(constructorArgs.get(constructed).get(0) instanceof PineconeConfig);
 
-      PineconeClientConfig config = (PineconeClientConfig) constructorArgs.get(constructed).get(0);
+      PineconeConfig config = (PineconeConfig) constructorArgs.get(constructed).get(0);
 
       assertEquals("apiKey", config.getApiKey());
-      assertEquals("environment", config.getEnvironment());
-      assertEquals("projectName", config.getProjectName());
-      assertEquals(100, config.getServerSideTimeoutSec());
     }
   }
 
   @Test
   public void testValidateConnection() {
-    try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
-      Mockito.when(mock.connect("good")).thenReturn(goodConnection);
-      Mockito.when(mock.connect("failure")).thenReturn(failureConnection);
-      Mockito.when(mock.connect("shutdown")).thenReturn(shutdownConnection);
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
+      Mockito.when(mock.describeIndex("good")).thenReturn(goodIndexModel);
+      Mockito.when(mock.describeIndex("failure")).thenReturn(failureIndexModel);
+      Mockito.when(mock.describeIndex("shutdown")).thenReturn(shutdownIndexModel);
     })) {
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/good-config.conf");
@@ -128,11 +134,6 @@ public class PineconeIndexerTest {
       PineconeIndexer indexerFailure = new PineconeIndexer(configFailure, messenger, "testing");
       PineconeIndexer indexerShutdown = new PineconeIndexer(configShutdown, messenger, "testing");
 
-      indexerGood.validateConnection();
-      Mockito.verify(client.constructed().get(0), Mockito.times(1)).connect("good");
-      indexerGood.validateConnection();
-      Mockito.verify(client.constructed().get(0), Mockito.times(1)).connect("good");
-
       assertTrue(indexerGood.validateConnection());
       assertFalse(indexerFailure.validateConnection());
       assertFalse(indexerShutdown.validateConnection());
@@ -141,26 +142,23 @@ public class PineconeIndexerTest {
 
   @Test
   public void testCloseConnection() {
-    try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
-      Mockito.when(mock.connect("good")).thenReturn(goodConnection);
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
+      Mockito.when(mock.getIndexConnection("good")).thenReturn(goodIndex);
     })) {
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/good-config.conf");
       PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
 
+      assertTrue(indexerGood.validateConnection());
       indexerGood.closeConnection();
-      Mockito.verify(goodConnection, Mockito.times(0)).close();
-
-      indexerGood.validateConnection();
-      indexerGood.closeConnection();
-      Mockito.verify(goodConnection, Mockito.times(1)).close();
+      Mockito.verify(goodIndex, Mockito.times(1)).close();
     }
   }
 
   @Test
   public void testUpsertAndUpdateEmptyNamespacesProvided() throws Exception {
-    try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
-      Mockito.when(mock.connect("good")).thenReturn(goodConnection);
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
+      Mockito.when(mock.getIndexConnection("good")).thenReturn(goodIndex);
     })) {
       TestMessenger messenger = new TestMessenger();
       TestMessenger messenger2 = new TestMessenger();
@@ -180,8 +178,8 @@ public class PineconeIndexerTest {
 
   @Test
   public void testUpsertNoNamespacesProvided() throws Exception {
-    try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
-      Mockito.when(mock.connect("good")).thenReturn(goodConnection);
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
+      Mockito.when(mock.getIndexConnection("good")).thenReturn(goodIndex);
     })) {
       TestMessenger messenger = new TestMessenger();
       Config configUpsert = ConfigFactory.load("PineconeIndexerTest/no-namespaces.conf");
@@ -206,8 +204,8 @@ public class PineconeIndexerTest {
 
   @Test
   public void testUpdateNoNamespacesProvided() throws Exception {
-    try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
-      Mockito.when(mock.connect("good")).thenReturn(goodConnection);
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
+      Mockito.when(mock.getIndexConnection("good")).thenReturn(goodIndex);
     })) {
       TestMessenger messenger = new TestMessenger();
       Config configUpdate = ConfigFactory.load("PineconeIndexerTest/no-namespaces-update.conf");
@@ -233,8 +231,9 @@ public class PineconeIndexerTest {
 
   @Test
   public void testUpsertMultipleNamespaces() throws Exception {
-    try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
-      Mockito.when(mock.connect("good")).thenReturn(goodConnection);
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
+      Mockito.when(mock.getIndexConnection("good")).thenReturn(goodIndex);
+      Mockito.when(mock.describeIndex("good")).thenReturn(goodIndexModel);
     })) {
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/two-namespaces.conf");
@@ -246,33 +245,34 @@ public class PineconeIndexerTest {
       indexerGood.run(2);
 
       // make sure no updates were made
-      ArgumentCaptor<UpdateRequest> updateRequest = ArgumentCaptor.forClass(UpdateRequest.class);
-      Mockito.verify(stub, Mockito.times(0)).update(Mockito.any());
+      Mockito.verify(goodIndex, Mockito.times(0)).update(Mockito.anyString(), Mockito.any(), Mockito.anyString());
       // make sure two upserts were made
-      ArgumentCaptor<UpsertRequest> upsertRequest = ArgumentCaptor.forClass(UpsertRequest.class);
-      Mockito.verify(stub, Mockito.times(2)).upsert(upsertRequest.capture());
+      ArgumentCaptor<List<VectorWithUnsignedIndices>> vectorCaptor = ArgumentCaptor.forClass(List.class);
+      ArgumentCaptor<String> namespaceCaptor = ArgumentCaptor.forClass(String.class);
+      Mockito.verify(goodIndex, Mockito.times(2)).upsert(vectorCaptor.capture(), namespaceCaptor.capture());
 
-      UpsertRequest namespace2Upsert = upsertRequest.getAllValues().get(0);
-      UpsertRequest namespace1Upsert = upsertRequest.getAllValues().get(1);
+      List<VectorWithUnsignedIndices> namespace2Upsert = vectorCaptor.getAllValues().get(0);
+      List<VectorWithUnsignedIndices> namespace1Upsert = vectorCaptor.getAllValues().get(2);
 
-      assertEquals("namespace-1", namespace1Upsert.getNamespace());
-      assertEquals("namespace-2", namespace2Upsert.getNamespace());
+      assertEquals("namespace-1", namespaceCaptor.getAllValues().get(1));
+      assertEquals("namespace-2", namespaceCaptor.getAllValues().get(0));
 
-      assertEquals(2, namespace1Upsert.getVectorsList().size());
-      assertEquals(2, namespace2Upsert.getVectorsList().size());
+      assertEquals(2, namespace1Upsert.size());
+      assertEquals(2, namespace2Upsert.size());
 
       // make sure vectors are correct for each document and namespace
-      assertEquals(doc0ForNamespace1, namespace1Upsert.getVectorsList().get(0).getValuesList());
-      assertEquals(doc1ForNamespace1, namespace1Upsert.getVectorsList().get(1).getValuesList());
-      assertEquals(doc0ForNamespace2, namespace2Upsert.getVectorsList().get(0).getValuesList());
-      assertEquals(doc1ForNamespace2, namespace2Upsert.getVectorsList().get(1).getValuesList());
+      assertEquals(doc0ForNamespace1, vectorCaptor.getAllValues().get(0));
+      assertEquals(doc1ForNamespace1, vectorCaptor.getAllValues().get(1));
+      assertEquals(doc0ForNamespace2, vectorCaptor.getAllValues().get(2));
+      assertEquals(doc1ForNamespace2, vectorCaptor.getAllValues().get(3));
     }
   }
 
   @Test
   public void testCorrectMetadata() throws Exception {
-    try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
-      Mockito.when(mock.connect("good")).thenReturn(goodConnection);
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
+      Mockito.when(mock.getIndexConnection("good")).thenReturn(goodIndex);
+      Mockito.when(mock.describeIndex("good")).thenReturn(goodIndexModel);
     })) {
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/two-namespaces.conf");
@@ -283,42 +283,42 @@ public class PineconeIndexerTest {
       messenger.sendForIndexing(doc1);
       indexerGood.run(2);
 
-      ArgumentCaptor<UpsertRequest> upsertRequest = ArgumentCaptor.forClass(UpsertRequest.class);
-      Mockito.verify(stub, Mockito.times(2)).upsert(upsertRequest.capture());
-      UpsertRequest namespace1Upsert = upsertRequest.getAllValues().get(0);
-      UpsertRequest namespace2Upsert = upsertRequest.getAllValues().get(1);
+      ArgumentCaptor<List<VectorWithUnsignedIndices>> captor = ArgumentCaptor.forClass(List.class);
+      Mockito.verify(goodIndex, Mockito.times(2)).upsert(captor.capture(), Mockito.anyString());
+      List<VectorWithUnsignedIndices> namespace1Upsert = captor.getAllValues().get(0);
+      List<VectorWithUnsignedIndices> namespace2Upsert = captor.getAllValues().get(1);
 
       // make sure metadata is correct
-      assertEquals(namespace1Upsert.getVectorsList().get(0).getMetadata().getFields().get("metaString1").toString(),
+      assertEquals(namespace1Upsert.get(0).getMetadata().getFields().get("metaString1").toString(),
           "string_value: \"some string data\"\n");
-      assertEquals(namespace1Upsert.getVectorsList().get(0).getMetadata().getFields().get("metaList").toString(),
+      assertEquals(namespace1Upsert.get(0).getMetadata().getFields().get("metaList").toString(),
           "string_value: \"[1, 2, 3]\"\n");
-      assertEquals(namespace1Upsert.getVectorsList().get(1).getMetadata().getFields().get("metaString1").toString(),
+      assertEquals(namespace1Upsert.get(1).getMetadata().getFields().get("metaString1").toString(),
           "string_value: \"some string data 2\"\n");
-      assertEquals(namespace1Upsert.getVectorsList().get(1).getMetadata().getFields().get("metaList").toString(),
+      assertEquals(namespace1Upsert.get(1).getMetadata().getFields().get("metaList").toString(),
           "string_value: \"[4, 5, 6]\"\n");
-      assertEquals(namespace2Upsert.getVectorsList().get(0).getMetadata().getFields().get("metaString1").toString(),
+      assertEquals(namespace2Upsert.get(0).getMetadata().getFields().get("metaString1").toString(),
           "string_value: \"some string data\"\n");
-      assertEquals(namespace2Upsert.getVectorsList().get(0).getMetadata().getFields().get("metaList").toString(),
+      assertEquals(namespace2Upsert.get(0).getMetadata().getFields().get("metaList").toString(),
           "string_value: \"[1, 2, 3]\"\n");
-      assertEquals(namespace2Upsert.getVectorsList().get(1).getMetadata().getFields().get("metaString1").toString(),
+      assertEquals(namespace2Upsert.get(1).getMetadata().getFields().get("metaString1").toString(),
           "string_value: \"some string data 2\"\n");
-      assertEquals(namespace2Upsert.getVectorsList().get(1).getMetadata().getFields().get("metaList").toString(),
+      assertEquals(namespace2Upsert.get(1).getMetadata().getFields().get("metaList").toString(),
           "string_value: \"[4, 5, 6]\"\n");
 
       // make sure there are no additional metadata fields
-      assertEquals(2, namespace1Upsert.getVectorsList().get(0).getMetadata().getFields().entrySet().size());
-      assertEquals(2, namespace1Upsert.getVectorsList().get(1).getMetadata().getFields().entrySet().size());
-      assertEquals(2, namespace2Upsert.getVectorsList().get(0).getMetadata().getFields().entrySet().size());
-      assertEquals(2, namespace2Upsert.getVectorsList().get(1).getMetadata().getFields().entrySet().size());
+      assertEquals(2, namespace1Upsert.get(0).getMetadata().getFields().entrySet().size());
+      assertEquals(2, namespace1Upsert.get(1).getMetadata().getFields().entrySet().size());
+      assertEquals(2, namespace2Upsert.get(0).getMetadata().getFields().entrySet().size());
+      assertEquals(2, namespace2Upsert.get(1).getMetadata().getFields().entrySet().size());
     }
   }
 
 
   @Test
   public void testUpdateMultipleNamespaces() throws Exception {
-    try (MockedConstruction<PineconeClient> client = Mockito.mockConstruction(PineconeClient.class, (mock, context) -> {
-      Mockito.when(mock.connect("good")).thenReturn(goodConnection);
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
+      Mockito.when(mock.getIndexConnection("good")).thenReturn(goodIndex);
     })) {
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/two-namespaces-update.conf");

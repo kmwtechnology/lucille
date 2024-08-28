@@ -1,10 +1,16 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
+import io.grpc.ConnectivityState;
+import io.pinecone.exceptions.PineconeException;
+import io.pinecone.proto.UpdateResponse;
+import io.pinecone.unsigned_indices_model.VectorWithUnsignedIndices;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.zookeeper.data.Stat;
+import org.openapitools.client.model.IndexModelStatus.StateEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.protobuf.Struct;
@@ -14,37 +20,35 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
-import io.grpc.ConnectivityState;
-import io.pinecone.PineconeClient;
-import io.pinecone.PineconeClientConfig;
-import io.pinecone.PineconeConnection;
-import io.pinecone.proto.UpdateRequest;
-import io.pinecone.proto.UpsertRequest;
-import io.pinecone.proto.Vector;
+import io.pinecone.clients.Index;
+import io.pinecone.clients.Pinecone;
+import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIndices;
+import org.openapitools.client.model.IndexModel;
 
 public class PineconeIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(PineconeIndexer.class);
 
-  private final PineconeClient client;
-  private final String index;
+  private final Pinecone client;
+  private final Index index;
+  private final String indexName;
   private final Map<String, Object> namespaces;
   private final Set<String> metadataFields;
   private final String mode;
-  private PineconeConnection connection;
   private final String defaultEmbeddingField;
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) {
     super(config, messenger, metricsPrefix);
-    this.index = config.getString("pinecone.index");
+    this.indexName = config.getString("pinecone.index");
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
     this.metadataFields = new HashSet<>(config.getStringList("pinecone.metadataFields"));
     this.mode = config.hasPath("pinecone.mode") ? config.getString("pinecone.mode") : "upsert";
     this.defaultEmbeddingField = ConfigUtils.getOrDefault(config, "pinecone.defaultEmbeddingField", null);
-    PineconeClientConfig configuration = new PineconeClientConfig().withApiKey(config.getString("pinecone.apiKey"))
-        .withEnvironment(config.getString("pinecone.environment")).withProjectName(config.getString("pinecone.projectName"))
-        .withServerSideTimeoutSec(config.getInt("pinecone.timeout"));
-    this.client = new PineconeClient(configuration);
+//    PineconeConfig configuration = new PineconeConfig(config.getString("pinecone.apiKey"))
+//        .withEnvironment(config.getString("pinecone.environment")).withProjectName(config.getString("pinecone.projectName"))
+//        .withServerSideTimeoutSec(config.getInt("pinecone.timeout"));
+    this.client = new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
+    this.index = this.client.getIndexConnection(this.indexName);
 
     if (namespaces == null && defaultEmbeddingField == null) {
       throw new IllegalArgumentException(
@@ -62,11 +66,8 @@ public class PineconeIndexer extends Indexer {
 
   @Override
   public boolean validateConnection() {
-    if (connection == null) {
-      connection = this.client.connect(this.index);
-    }
-    ConnectivityState state = connection.getChannel().getState(true);
-    return state != ConnectivityState.TRANSIENT_FAILURE && state != ConnectivityState.SHUTDOWN;
+    StateEnum state = this.client.describeIndex(this.indexName).getStatus().getState();
+    return state != StateEnum.INITIALIZING && state != StateEnum.INITIALIZATIONFAILED && state != StateEnum.TERMINATING;
   }
 
   @Override
@@ -81,34 +82,33 @@ public class PineconeIndexer extends Indexer {
   }
 
   private void uploadDocuments(List<Document> documents, String embeddingField, String namespace) {
-    List<Vector> upsertVectors = documents.stream()
-        .map(doc -> Vector.newBuilder().addAllValues(doc.getFloatList(embeddingField))
-            .setMetadata(Struct.newBuilder()
+
+    List<VectorWithUnsignedIndices> upsertVectors = documents.stream()
+        .map(doc -> buildUpsertVectorWithUnsignedIndices(
+            doc.getId(),
+            doc.getFloatList(embeddingField),
+            null,
+            null,
+            Struct.newBuilder()
                 .putAllFields(doc.asMap().entrySet().stream().filter(entry -> metadataFields.contains(entry.getKey()))
-                    .collect(Collectors.toUnmodifiableMap(entry -> entry.getKey(),
-                        entry -> Value.newBuilder().setStringValue(entry.getValue().toString()).build())))
-                .build())
-            .setId(doc.getId()).build())
+                .collect(Collectors.toUnmodifiableMap(entry -> entry.getKey(),
+                    entry -> Value.newBuilder().setStringValue(entry.getValue().toString()).build())))
+            .build()))
         .collect(Collectors.toList());
 
     if (mode.equalsIgnoreCase("upsert")) {
-      UpsertRequest request = UpsertRequest.newBuilder().addAllVectors(upsertVectors).setNamespace(namespace).build();
-      connection.getBlockingStub().upsert(request);
+      this.index.upsert(upsertVectors, namespace);
     }
 
     if (mode.equalsIgnoreCase("update")) {
       documents.forEach(doc -> {
-        UpdateRequest request = UpdateRequest.newBuilder().addAllValues(doc.getFloatList(embeddingField)).setId(doc.getId())
-            .setNamespace(namespace).build();
-        connection.getBlockingStub().update(request);
+        UpdateResponse response = this.index.update(doc.getId(), doc.getFloatList(embeddingField), namespace);
       });
     }
   }
 
   @Override
   public void closeConnection() {
-    if (connection != null) {
-      connection.close();
-    }
+    this.index.close();
   }
 }
