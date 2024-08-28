@@ -64,8 +64,8 @@ public class VFSConnector extends AbstractConnector {
 
       fsManager.init();
 
-      // locate all valid files within the provided VFS path
-      traverseFiles(fsManager, vfsPath).forEach(fo -> {
+      // locate all valid files within the provided VFS path in order
+      traverseFiles(fsManager, vfsPath).forEachOrdered(fo -> {
         final Document doc = buildDocument(fo);
         try {
           publisher.publish(doc);
@@ -131,8 +131,8 @@ public class VFSConnector extends AbstractConnector {
 
     // skip anything that matches excludes or doesn't match includes
     String filePath = fo.getName().getPath();
-    if (excludes.parallelStream().anyMatch(pattern -> pattern.matcher(filePath).matches())
-        || (!includes.isEmpty() && includes.parallelStream().noneMatch(pattern -> pattern.matcher(filePath).matches()))) {
+    if (excludes.stream().anyMatch(pattern -> pattern.matcher(filePath).matches())
+        || (!includes.isEmpty() && includes.stream().noneMatch(pattern -> pattern.matcher(filePath).matches()))) {
       log.debug("Skipping file because of include or exclude regex: " + filePath);
       return false;
     }
