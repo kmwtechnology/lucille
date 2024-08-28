@@ -1,0 +1,4 @@
+#!/bin/bash
+
+curl -u app792-admin:rrSBvZGRiaFch7A! -X POST -H 'Content-type:application/json' -d @data/test.json "https://ss136343-p59xfuqj-canadacentral-azure.searchstax.com/solr/dev-792/update?commit=true"
+# id,filename,recordType,isPOC,run_id,PRIM_APPLICANT_CONTACT_EMAIL,PRIM_APPLICANT_CONTACT_NAME,AUTHORIZATION_LOCATION,tcngramm_X3b_en_body,PRIM_APPLICANT_PROVINCE_STATE,PRIM_APPLICANT_ZIP_CODE,PNOA_Expiry_date,PRIM_APPLICANT_ADDRESS1,SOC_DUE_DATE,PRIMARY_APPLICANT_NAME,PRIM_APPLICANT_CONTACT_PHONE,AUTHORIZATION_REQUEST_NUMBER,AUTHORIZATION_GROUP,PRIM_APPLICANT_CONTACT_CITY,timestamp,ss_type,ss_title

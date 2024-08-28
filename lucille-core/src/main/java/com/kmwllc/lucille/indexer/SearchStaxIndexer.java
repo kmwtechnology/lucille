@@ -2,6 +2,7 @@ package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import java.net.URI;
@@ -16,6 +17,16 @@ import org.eclipse.jetty.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Indexer for SearchStax Indexes. Uses the HttpClient to send documents up to the SearchStax /update API.
+ * Config Parameters:
+ *
+ *   - url (String) : The URL where SearchStax is being hosted. This should not include the collection name or "update"/"emselect"
+ *   - defaultCollection (String) : The name of the collection to index documents into
+ *   - userName (String): Required if `token` is not present. username to use for basic authentication.
+ *   - password (String): Required if `token` is not present. password to use for basic authentication.
+ *   - token (String): Required if `userNmae` and `password` are not present. Bearer Token to be used for authentication.
+ */
 public class SearchStaxIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(SearchStaxIndexer.class);
@@ -23,13 +34,24 @@ public class SearchStaxIndexer extends Indexer {
   private final String url;
   private final String authHeader;
   private final HttpClient client;
+  private final boolean bypass;
 
+  public SearchStaxIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) {
+    this(config, messenger, false, metricsPrefix);
+  }
+
+  // TODO: What is the bypass param for?
   public SearchStaxIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    this(config, messenger, bypass, metricsPrefix, null);
+  }
+
+  public SearchStaxIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, HttpClient client) {
     super(config, messenger, metricsPrefix);
 
     this.url = config.getString("indexer.url") + "/" + config.getString("indexer.defaultCollection");
     this.authHeader = getAuthorizationHeader(config);
-    this.client = HttpClient.newBuilder().build();
+    this.client = client != null ? client : HttpClient.newBuilder().build();
+    this.bypass = bypass;
   }
 
   private static String getAuthorizationHeader(Config config) {
@@ -89,7 +111,10 @@ public class SearchStaxIndexer extends Indexer {
         .build();
 
     HttpResponse<String> response = this.client.send(request, BodyHandlers.ofString());
-    log.error("Response: " + response.body());
+
+    if (response.statusCode() != HttpStatus.OK_200) {
+      throw new IndexerException("Failed to upload documents to SearchStax index. Response: " + response.body());
+    }
   }
 
   @Override

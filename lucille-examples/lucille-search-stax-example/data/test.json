@@ -1,0 +1,28 @@
+[
+  {
+    "id":"AER_data.csv-1",
+    "source":["conf/AER_data.csv"],
+    "filename":["data/PNOA_Sample/32522548.htm"],
+    "ss_recordType":["PNOA"],
+    "bs_isPOC":[true],
+    "csvLineNumber":[1],
+    "run_id":["04ae9a05-e6b1-47c2-8f83-fff403da06f3"],
+    "ss_PRIM_APPLICANT_CONTACT_EMAIL":["surfaceland@tourmalineoil.com"],
+    "ss_PRIM_APPLICANT_CONTACT_NAME":["Magda Schmidt"],
+    "ss_AUTHORIZATION_LOCATION":["25-055-26W5M,24-055-26W5M,23-055-26W5M,22-055-26W5M"],
+    "tcngramm_X3b_en_body":["Tourmaline Oil Corp. has applied under the provisions of the Public Lands Act for a NEW AER Pipeline Agreement for the purpose of Pipeline, PNG / OS Pipeline. Tourmaline Oil Corp. has applied under the provisions of the Public Lands Act for a NEW AER Temporary Field Authorization for the purpose of Incidental Activity, Bank Stabilization. Tourmaline Oil Corp. has applied under the provisions of the Public Lands Act for a NEW AER Temporary Field Authorization for the purpose of Incidental Activity, Temporary Work Space. Tourmaline Oil Corp. has applied under the provisions of the Public Lands Act for a NEW AER Temporary Field Authorization for the purpose of Incidental Activity, Log Deck."],
+    "ss_PRIM_APPLICANT_PROVINCE_STATE":["AB"],
+    "ss_PRIM_APPLICANT_ZIP_CODE":["T2P 3H7"],
+    "ss_PNOA_Expiry_date":["2024-02-22 23:59:59"],
+    "ss_PRIM_APPLICANT_ADDRESS1":["3700, 250 - 6 Ave SW"],
+    "ss_SOC_DUE_DATE":["2024-02-22 11:59:00"],
+    "ss_PRIM_APPLICANT_NAME":["Tourmaline Oil Corp."],
+    "ss_PRIM_APPLICANT_CONTACT_PHONE":["(403) 266-5992"],
+    "ss_AUTHORIZATION_REQUEST_NUMBER":["32522548"],
+    "ss_AUTHORIZATION_GROUP":["OneStop Integrated application"],
+    "ss_PRIM_APPLICANT_CONTACT_CITY":["Calgary"],
+    "timestamp":["2024-01-23T22:49:49Z"],
+    "ss_type":["https://webapps.aer.ca/pnoa/details?applicationnumber=32522548"],
+    "ss_title":["32522548 - Tourmaline Oil Corp."]
+  }
+]
