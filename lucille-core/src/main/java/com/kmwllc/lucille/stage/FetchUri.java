@@ -2,24 +2,25 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.ExponentialBackoffRetryHandler;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Iterator;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.BoundedInputStream;
+import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
+import org.apache.http.impl.client.HttpClientBuilder;
 
 /**
  * Fetches byte data of a given URL field and places data into a specified field
@@ -29,10 +30,16 @@ import org.apache.http.util.EntityUtils;
  * source (String) : Field name of URL to be fetched; document will be skipped if the field with this name is absent or empty
  * dest (String) : Field name of destination for byte data; document will be skipped if the field with this name is absent or empty
  * size_suffix (String, Optional) : suffix to be appended to end of source field name for the size of data
- *  e.g. url --> url_(size_suffix) where source name is url
+ *  e.g. url --&gt; url_(size_suffix) where source name is url
  * status_suffix (String, Optional) : suffix to be appended to end of source field name for the status code of the fetch request
  * error_suffix (String, Optional) : suffix to be appended to end of source field name for any errors in process
  * max_size (Integer, Optional) : max size, in bytes, of data to be read from fetch
+ * max_retries (Integer, Optional) : max number of tries the request will be made. Defaults to 0 retries.
+ * initial_expiry_ms (Integer, Optional) : number of milliseconds that would be waited before retrying the request. Defaults to 100ms.
+ * max_expiry_ms (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.
+ * connection_request_timeout (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 60000ms, 1m.
+ * connect_timeout (Integer, Optional) : the connection timeout in milliseconds. Defaults to 60000ms, 1m.
+ * socket_timeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.
  */
 public class FetchUri extends Stage {
 
@@ -40,20 +47,36 @@ public class FetchUri extends Stage {
   private final String dest;
   private final String statusSuffix;
   private final String sizeSuffix;
-
   private final String errorSuffix;
   private final int maxDownloadSize;
+  private final Header[] headers;
+  private final int maxNumRetries;
+  private final int initialExpiry;
+  private final int maxExpiry;
+  private final int connectionRequestTimeout;
+  private final int connectTimeout;
+  private final int socketTimeout;
+
   private CloseableHttpClient client;
 
   public FetchUri(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest")
-        .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix"));
+        .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix", "max_retries", "initial_expiry_ms",
+            "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout")
+        .withOptionalParents("headers"));
     this.source = config.getString("source");
     this.dest = config.getString("dest");
     this.statusSuffix = ConfigUtils.getOrDefault(config, "status_suffix", "status_code");
     this.sizeSuffix = ConfigUtils.getOrDefault(config, "size_suffix", "size");
     this.errorSuffix = ConfigUtils.getOrDefault(config, "error_suffix", "error");
     this.maxDownloadSize = ConfigUtils.getOrDefault(config, "max_size", Integer.MAX_VALUE);
+    this.headers = ConfigUtils.createHeaderArray(config, "headers");
+    this.maxNumRetries = ConfigUtils.getOrDefault(config, "max_retries", 0);
+    this.initialExpiry = ConfigUtils.getOrDefault(config, "initial_expiry_ms", 100);
+    this.maxExpiry = ConfigUtils.getOrDefault(config, "max_expiry_ms", 10000);
+    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connection_request_timeout", 60000);
+    this.connectTimeout = ConfigUtils.getOrDefault(config, "connect_timeout", 60000);
+    this.socketTimeout = ConfigUtils.getOrDefault(config, "socket_timeout", 60000);
   }
 
   // Method exists for testing with mockito mocks
@@ -63,7 +86,17 @@ public class FetchUri extends Stage {
 
   @Override
   public void start() throws StageException {
-    client = HttpClients.createDefault();
+    RequestConfig requestConfig = RequestConfig.custom()
+        .setConnectionRequestTimeout(this.connectionRequestTimeout)
+        .setConnectTimeout(this.connectTimeout)
+        .setSocketTimeout(this.socketTimeout)
+        .build();
+
+    client = HttpClientBuilder
+        .create()
+        .setDefaultRequestConfig(requestConfig)
+        .setRetryHandler(new ExponentialBackoffRetryHandler(this.maxNumRetries, this.initialExpiry, this.maxExpiry))
+        .build();
   }
 
   @Override
@@ -73,7 +106,6 @@ public class FetchUri extends Stage {
     }
     String url = doc.getString(source);
 
-    // Following checks for valid URL
     try {
       new URL(url).toURI();
     } catch (URISyntaxException e) {
@@ -85,11 +117,14 @@ public class FetchUri extends Stage {
     }
 
     HttpGet httpGet = new HttpGet(url);
+    if (this.headers != null) {
+      httpGet.setHeaders(this.headers);
+    }
 
     try (CloseableHttpResponse httpResponse = client.execute(httpGet)) {
       int statusCode = httpResponse.getStatusLine().getStatusCode();
       HttpEntity ent = httpResponse.getEntity();
-      try (BoundedInputStream boundedContentStream = new BoundedInputStream(ent.getContent(), maxDownloadSize);) {
+      try (BoundedInputStream boundedContentStream = new BoundedInputStream(ent.getContent(), maxDownloadSize)) {
         byte[] bytes = IOUtils.toByteArray(boundedContentStream);
         long contentSize = bytes.length;
 

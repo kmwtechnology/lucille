@@ -17,7 +17,7 @@ import java.util.Map.Entry;
  *
  * Config Parameters:
  *
- *   - fieldMapping (Map<String, String>) : A 1-1 mapping of original field names to new field names.
+ *   - fieldMapping (Map&lt;String, String&gt;) : A 1-1 mapping of original field names to new field names.
  *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *       Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */

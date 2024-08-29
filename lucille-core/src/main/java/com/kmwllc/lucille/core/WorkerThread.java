@@ -17,7 +17,7 @@ public class WorkerThread extends Thread {
   private Timer timer;
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
 
-  public static final String HEARTBEAT_LOG_NAME = "com.kmwllc.com.kmwllc.lucille.core.Heartbeat";
+  public static final String HEARTBEAT_LOG_NAME = "com.kmwllc.lucille.core.Heartbeat";
   private static final Logger heartbeatLog = LoggerFactory.getLogger(HEARTBEAT_LOG_NAME);
 
   private boolean enableHeartbeat;

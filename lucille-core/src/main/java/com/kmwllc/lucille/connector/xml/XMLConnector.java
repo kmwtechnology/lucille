@@ -25,10 +25,10 @@ import java.util.List;
  * <p>
  * Config Parameters:
  * <ul>
- * <li>filePaths (List<String>): The list of file paths to parse through.</li>
+ * <li>filePaths (List&lt;String&gt;): The list of file paths to parse through.</li>
  * <li>xmlRootPath (String): The path to the XML chunk to separate as a document.</li>
  * <li>xmlIdPath (String): The path to the id for each document.</li>
- * <li>urlFiles (List<String>): The list of URL file paths to parse. If specified along with filePaths, urlFiles takes precedence.</li>
+ * <li>urlFiles (List&lt;String&gt;): The list of URL file paths to parse. If specified along with filePaths, urlFiles takes precedence.</li>
  * <li>encoding (String): The encoding of the XML document to parse: defaults to utf-8.</li>
  * <li>outputField (String): The field to place the XML into: defaults to "xml".</li>
  * </ul>

@@ -28,7 +28,7 @@ public class WorkerPool {
   private WorkerMessengerFactory workerMessengerFactory;
   private boolean started = false;
   private final int logSeconds;
-  private final Timer logTimer = new Timer();
+  private Timer logTimer;
   private final String metricsPrefix;
 
   public WorkerPool(Config config, String pipelineName, WorkerMessengerFactory factory, String metricsPrefix) {
@@ -53,11 +53,25 @@ public class WorkerPool {
     }
     started = true;
     log.info("Starting " + numWorkers + " worker threads for pipeline " + pipelineName);
+
     for (int i = 0; i < numWorkers; i++) {
-      WorkerMessenger messenger = workerMessengerFactory.create();
-      threads.add(Worker.startThread(config, messenger, pipelineName, metricsPrefix));
+      try {
+        WorkerMessenger messenger = workerMessengerFactory.create();
+        threads.add(Worker.startThread(config, messenger, pipelineName, metricsPrefix));
+      } catch (Exception e) {
+        log.error("Exception caught when starting Worker thread {}; aborting", i+1);
+        try {
+          stop();
+        } catch (Exception e2) {
+          log.error("Exception caught when attempting to stop Worker threads because of a startup problem", e2);
+        }
+        throw e;
+      }
     }
+
     // Timer to log a status message every minute
+    // the Timer should use a daemon thread so it doesn't prevent the jvm from exiting
+    logTimer = new Timer("WorkerPoolTimer", true);
     logTimer.schedule(new TimerTask() {
       private final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
       private final com.codahale.metrics.Timer timer = metrics.timer(metricsPrefix + Worker.METRICS_SUFFIX);
@@ -73,7 +87,9 @@ public class WorkerPool {
 
   public void stop() {
     log.debug("Stopping " + threads.size() + " worker threads");
-    logTimer.cancel();
+    if (logTimer != null) {
+      logTimer.cancel();
+    }
     for (WorkerThread workerThread : threads) {
       workerThread.terminate();
     }

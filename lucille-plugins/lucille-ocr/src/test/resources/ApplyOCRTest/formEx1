@@ -1,0 +1,34 @@
+{
+  "formResource" : "formEx1.pdf",
+  "formTemplates" : {
+    "0" : {
+      "name" : "0_formEx1.pdf",
+      "fileName" : "formEx1.pdf",
+      "pdfPageNum" : 0,
+      "regions" : {
+        "one" : [ {
+          "label" : "one",
+          "x" : 172,
+          "y" : 203,
+          "width" : 583,
+          "height" : 223
+        } ],
+        "two" : [ {
+          "label" : "two",
+          "x" : 220,
+          "y" : 460,
+          "width" : 469,
+          "height" : 189
+        } ],
+        "three" : [ {
+          "label" : "three",
+          "x" : 268,
+          "y" : 660,
+          "width" : 475,
+          "height" : 129
+        } ]
+      },
+      "created" : "2024-02-16T21:08:28.274012Z"
+    }
+  }
+}

@@ -20,8 +20,8 @@ import java.util.function.UnaryOperator;
 
 
 /**
- * A record from a source system to be passed through a Pipeline, enriched,
- * and sent to a destination system.
+ * Document implementation that functions as a lightweight wrapper around a piece of JSON.
+ * Stores all field data in Jackson ObjectNode.
  *
  */
 public class JsonDocument implements Document {
@@ -103,110 +103,6 @@ public class JsonDocument implements Document {
     data.withArray(name).remove(index);
   }
 
-  @Override
-  public void update(String name, UpdateMode mode, String... values) {
-    update(name, mode, (v) -> {
-      setField(name, (String) v);
-    }, (v) -> {
-      setOrAdd(name, (String) v);
-    }, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Long... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Long) v);
-    }, (v) -> {
-      setOrAdd(name, (Long) v);
-    }, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Integer... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Integer) v);
-    }, (v) -> {
-      setOrAdd(name, (Integer) v);
-    }, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Boolean... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Boolean) v);
-    }, (v) -> {
-      setOrAdd(name, (Boolean) v);
-    }, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Double... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Double) v);
-    }, (v) -> {
-      setOrAdd(name, (Double) v);
-    }, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Float... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Float) v);
-    }, (v) -> {
-      setOrAdd(name, (Float) v);
-    }, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, Instant... values) {
-    update(name, mode, (v) -> {
-      setField(name, (Instant) v);
-    }, (v) -> {
-      setOrAdd(name, (Instant) v);
-    }, values);
-  }
-
-  @Override
-  public void update(String name, UpdateMode mode, byte[]... values) {
-    update(name, mode, (v) -> {
-      setField(name, (byte[]) v);
-    }, (v) -> {
-      setOrAdd(name, (byte[]) v);
-    }, values);
-  }
-
-  /**
-   * Private helper method used by different public versions of the overloaded update method.
-   *
-   * Expects two Consumers that invoke setField and addToField respectively on the named field, passing in
-   * a provided value.
-   *
-   * The Consumer / Lambda Expression approach is used here to avoid code duplication between the various
-   * update methods. It is not possible to make update() a generic method because ultimately it would need to call
-   * one of the specific setField or addToField methods which in turn call data.put(String, String),
-   * data.put(String, Long), data.put(String Boolean)
-   */
-  private void update(String name, UpdateMode mode, Consumer setter, Consumer adder, Object... values) {
-
-    validateFieldNames(name);
-
-    if (values.length == 0) {
-      return;
-    }
-
-    if (has(name) && mode.equals(UpdateMode.SKIP)) {
-      return;
-    }
-
-    int i = 0;
-    if (mode.equals(UpdateMode.OVERWRITE)) {
-      setter.accept(values[0]);
-      i = 1;
-    }
-    for (; i < values.length; i++) {
-      adder.accept(values[i]);
-    }
-  }
 
   @Override
   public void initializeRunId(String value) {
@@ -547,6 +443,40 @@ public class JsonDocument implements Document {
     return result;
   }
 
+  /**
+   * Returns a list of JsonNodes.
+   *
+   * If the field was set to a JsonArray value, a list containing contents of that JsonArray will be returned,
+   * as opposed to a List containing the JsonArray itself.
+   */
+  @Override
+  public List<JsonNode> getJsonList(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+
+    if (!isMultiValued(name)) {
+      return Collections.singletonList(getJson(name));
+    }
+
+    ArrayNode array = data.withArray(name);
+    List<JsonNode> result = new ArrayList<>();
+    for (JsonNode node : array) {
+      result.add(node);
+    }
+    return result;
+  }
+
+  public JsonNode getJson(String name) {
+    if (!data.has(name)) {
+      return null;
+    }
+    // Json is handled differently from other value types
+    // we don't call getSingleNode(name) to retrieve the first value from a JsonArray
+    // instead, we simply return the internal JsonNode itself, whether it is an array or not
+    return data.get(name);
+  }
+
   private JsonNode getSingleNode(String name) {
     return isMultiValued(name) ? data.withArray(name).get(0) : data.get(name);
   }
@@ -683,6 +613,14 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public void addToField(String name, JsonNode value) {
+    validateFieldNames(name);
+    convertToList(name);
+    ArrayNode array = data.withArray(name);
+    array.add(value);
+  }
+
+  @Override
   public void setOrAdd(String name, String value) {
     if (has(name)) {
       addToField(name, value);
@@ -747,6 +685,15 @@ public class JsonDocument implements Document {
 
   @Override
   public void setOrAdd(String name, byte[] value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  @Override
+  public void setOrAdd(String name, JsonNode value) {
     if (has(name)) {
       addToField(name, value);
     } else {

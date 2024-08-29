@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.2.0-SNAPSHOT</version>
+    <version>0.2.5-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
@@ -21,6 +21,7 @@
     <module>lucille-weaviate</module>
     <module>lucille-parquet</module>
     <module>lucille-tika</module>
+    <module>lucille-ocr</module>
   </modules>
 
   <dependencies>

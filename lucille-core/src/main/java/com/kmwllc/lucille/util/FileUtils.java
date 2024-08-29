@@ -8,9 +8,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
+import org.apache.commons.vfs2.FileContent;
+import org.apache.commons.vfs2.FileObject;
+import org.apache.commons.vfs2.FileSystemException;
+import org.apache.commons.vfs2.FileSystemManager;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class FileUtils {
 
+  private static final Logger log = LogManager.getLogger(FileUtils.class);
   /**
    * Returns a Reader for the file at the given path. If the path begins with "classpath:" the prefix will be removed
    * and the file will be read from the classpath. If the path appears to be a URI, it will be accessed using VFS.
@@ -59,16 +66,23 @@ public class FileUtils {
   }
 
   /**
-   * Takes a path and returns the correct InputStream depending on whether the path is a URI or URL.
+   * Takes a path and fsManager to retrieve the FileObject
    *
-   * @param path the path as a String
-   * @return the correct InputStream
+   * @param path the path to file as a String
+   * @param fsManager the fileSystem manager instance
+   * @return the FileObject to retrieve content from
    */
-  public static InputStream getInputStream(String path) throws IOException {
-    if (isValidURI(path)) {
-      return VFSInputStream.open(path);
+  public static FileObject getFileObject(String path, FileSystemManager fsManager) {
+    try {
+      // transforming non-absolute path to absolute path if path is no absolute
+      if (!isValidURI(path)) {
+        path = Paths.get(path).toAbsolutePath().toString();
+      }
+      return fsManager.resolveFile(path);
+    } catch (FileSystemException e) {
+      log.warn("Error retrieving file contents: {}", path, e);
+      return null;
     }
-    return new FileInputStream(path);
   }
 
   /**

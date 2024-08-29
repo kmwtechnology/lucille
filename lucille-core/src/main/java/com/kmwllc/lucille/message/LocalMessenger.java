@@ -17,10 +17,10 @@ import java.util.concurrent.TimeUnit;
  */
 public class LocalMessenger implements IndexerMessenger, PublisherMessenger, WorkerMessenger {
 
-  public static final Logger log = LoggerFactory.getLogger(LocalMessenger.class);
+  private static final Logger log = LoggerFactory.getLogger(LocalMessenger.class);
 
   public static final int POLL_TIMEOUT_MS = 50;
-  public static final int DEFAULT_QUEUE_CAPACITY = 100;
+  public static final int DEFAULT_QUEUE_CAPACITY = 10000;
 
   private final BlockingQueue<Event> pipelineEvents = new LinkedBlockingQueue<>();
   private final BlockingQueue<Document> pipelineSource;

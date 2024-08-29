@@ -12,6 +12,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 
@@ -22,11 +23,11 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utilities for interacting with Kafka: creating Kafka clients, determining Kafka topic names, etc.
- * <p>
- * <p>
  *  TODO: add config option for cleaning up kafka topics at end of run
  *  prepend run id to each topic name
  *  add separate config option to leave failure topic around
@@ -36,6 +37,7 @@ import java.util.concurrent.ExecutionException;
 public class KafkaUtils {
 
   public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
+  private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
 
   private static Properties loadExternalProps(String filename) {
     try (Reader propertiesReader = FileUtils.getReader(filename, StandardCharsets.UTF_8.name())) {
@@ -144,7 +146,14 @@ public class KafkaUtils {
     }
   }
 
-  public static void createEventTopic(Config config, String pipelineName, String runId)
+  /**
+   * Creates an event topic for the designated pipeline and runId.
+   *
+   * @return true if the topic was created; false if the topic already existed, so no action was taken;
+   * any problem encountered in creating the topic, other than the topic already existing, will result
+   * in an exception, not a false return value
+   */
+  public static boolean createEventTopic(Config config, String pipelineName, String runId)
       throws ExecutionException, InterruptedException {
     String eventTopicName = KafkaUtils.getEventTopicName(pipelineName, runId);
 
@@ -164,8 +173,16 @@ public class KafkaUtils {
     try (Admin kafkaAdminClient = Admin.create(props)) {
       NewTopic eventTopic = new NewTopic(eventTopicName, 1, (short) 1);
       CreateTopicsResult result = kafkaAdminClient.createTopics(List.of(eventTopic), new CreateTopicsOptions());
-      KafkaFuture<Void> future = result.values().get(eventTopicName);
+      KafkaFuture<Void> future = result.all();
       future.get();
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof TopicExistsException) {
+        log.warn("Event topic {} already exists.", eventTopicName);
+        return false;
+      }
+      throw e;
     }
+
+    return true;
   }
 }

@@ -29,7 +29,7 @@ import java.util.stream.IntStream;
  * <br>
  * <p>
  * <b>inputDataPath</b> (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
- *  defaults to numeric data based on range size (0 -> rangeSize - 1)
+ *  defaults to numeric data based on range size (0 -&gt; rangeSize - 1)
  * </p>
  * <p>
  * <b>fieldName</b> (String, Optional) : Field name of field where data is placed, defaults to "data"

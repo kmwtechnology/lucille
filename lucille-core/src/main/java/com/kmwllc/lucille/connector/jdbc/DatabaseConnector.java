@@ -185,10 +185,13 @@ public class DatabaseConnector extends AbstractConnector {
                 String.format("Field name \"%s\" is reserved, please rename it or add it to the ignore list", fieldName));
           }
 
-          String fieldValue = rs.getString(i);
-          // log.info("Add Field {} Value {} -- Doc {}", fieldName, fieldValue, doc);
+          Object fieldValue = rs.getObject(i);
           if (fieldValue != null) {
-            doc.setOrAdd(fieldName, fieldValue);
+            try {
+              doc.setOrAdd(fieldName, fieldValue);
+            } catch (IllegalArgumentException e) {
+              log.warn("Error encountered while adding database object to Lucille document", e);
+            }
           }
         }
         if (!otherResults.isEmpty()) {
@@ -271,7 +274,7 @@ public class DatabaseConnector extends AbstractConnector {
       Document child = Document.create(Integer.toString(childId));
       for (String c : columns2) {
         String fieldName = c.trim().toLowerCase();
-        String fieldValue = rs2.getString(c);
+        Object fieldValue = rs2.getObject(c);
         if (fieldValue != null) {
           child.setOrAdd(fieldName, fieldValue);
         }
