@@ -45,6 +45,8 @@ public abstract class Stage {
   private static final Set<String> CONDITIONS_OPTIONAL = Set.of("operator", "values");
   private static final Set<String> CONDITIONS_REQUIRED = Set.of("fields");
   private static final Set<String> OPTIONAL_PROPERTIES = Set.of("class", "name", "conditions");
+  private static final Set<Set<String>> EMPTY_LAYERED_SET = Set.of();
+  private static final Map<String, Set<String>> CONDITIONS_ENUM = new HashMap<>();
 
   protected Config config;
   private final Predicate<Document> condition;
@@ -61,17 +63,20 @@ public abstract class Stage {
   private final Set<String> optionalParents;
   private final Set<Set<String>> exclusiveProperties;
   private final Set<Set<String>> pairedProperties;
+  private final Map<String, Set<String>> enumProperties;
 
   public Stage(Config config) {
     this(config, new StageSpec());
   }
 
   protected Stage(Config config, StageSpec spec) {
-    this(config, spec.requiredProperties, spec.optionalProperties, spec.requiredParents, spec.optionalParents, spec.exclusiveProperties, spec.pairedProperties);
+    this(config, spec.requiredProperties, spec.optionalProperties, spec.requiredParents, spec.optionalParents, spec.exclusiveProperties,
+        spec.pairedProperties, spec.enumProperties);
   }
 
   private Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties,
-      Set<String> requiredParents, Set<String> optionalParents, Set<Set<String>> exclusiveProperties, Set<Set<String>> pairedProperties) {
+      Set<String> requiredParents, Set<String> optionalParents, Set<Set<String>> exclusiveProperties, Set<Set<String>> pairedProperties,
+      Map<String, Set<String>> enumProperties) {
 
     if (config == null) {
       throw new IllegalArgumentException("Config cannot be null");
@@ -84,8 +89,9 @@ public abstract class Stage {
     this.optionalParents = Collections.unmodifiableSet(optionalParents);
     this.requiredProperties = Collections.unmodifiableSet(requiredProperties);
     this.optionalProperties = mergeSets(OPTIONAL_PROPERTIES, optionalProperties);
-    this.exclusiveProperties = exclusiveProperties;
-    this.pairedProperties = pairedProperties;
+    this.exclusiveProperties = Collections.unmodifiableSet(exclusiveProperties);
+    this.pairedProperties = Collections.unmodifiableSet(pairedProperties);
+    this.enumProperties = Collections.unmodifiableMap(enumProperties);
 
     // validates the properties that were just assigned
     try {
@@ -305,12 +311,14 @@ public abstract class Stage {
   public void validateConfigWithConditions() throws StageException {
 
     try {
-      validateConfig(config, requiredProperties, optionalProperties, requiredParents, optionalParents);
+      validateConfig(config, requiredProperties, optionalProperties, requiredParents, optionalParents, exclusiveProperties,
+          pairedProperties, enumProperties);
 
       // validate conditions
       if (config.hasPath("conditions")) {
         for (Config condition : config.getConfigList("conditions")) {
-          validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_SET, EMPTY_SET);
+          validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_SET, EMPTY_SET, EMPTY_LAYERED_SET,
+              EMPTY_LAYERED_SET, CONDITIONS_ENUM);
         }
       }
     } catch (IllegalArgumentException e) {
@@ -321,7 +329,8 @@ public abstract class Stage {
   // this can be used in a specific stage to validate nested properties
   protected void validateConfig(
       Config config, Set<String> requiredProperties, Set<String> optionalProperties,
-      Set<String> requiredParents, Set<String> optionalParents, Set<Set<String>> exclusiveProperties) {
+      Set<String> requiredParents, Set<String> optionalParents, Set<Set<String>> exclusiveProperties,
+      Set<Set<String>> pairedProperties, Map<String, Set<String>> enumProperties) {
 
     // verifies that set intersection is empty
     if (!disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
@@ -362,10 +371,46 @@ public abstract class Stage {
           Sets.difference(requiredParents, observedRequiredParents));
     }
 
+    // either only one exclusive property in config or none
     for(Set<String> group : exclusiveProperties) {
+      // check size of group
+      if (group.size() < 2) {
+        throw new IllegalArgumentException(getDisplayName() + ": Stage config exclusive properties needs to have 2 or more in each set of property: " + group);
+      }
+      // if more than one of properties within group in keys, throw error
       int count = group.stream().map(prop -> keys.contains(prop) ? 1 : 0).reduce(0, Integer::sum);
-      if(count != 1) {
-        throw new IllegalArgumentException(getDisplayName() + ": Stage config must contain only one from the set of exlusive properties: " + group);
+      if (count > 1) {
+        throw new IllegalArgumentException(getDisplayName() + ": Stage config must contain one from the set of exclusive properties: " + group);
+      }
+    }
+
+    // either all group properties in config or none
+    for (Set<String> group : pairedProperties) {
+      int groupSize = group.size();
+      if (groupSize < 2) {
+        throw new IllegalArgumentException(getDisplayName() + ": Stage config paired properties needs to have 2 or more in each set of property: " + group);
+      }
+
+      int count = group.stream().map(prop -> keys.contains(prop) ? 1 : 0).reduce(0, Integer::sum);
+      if (count > 0 && count < groupSize) {
+        throw new IllegalArgumentException(getDisplayName() + ": Stage config must contain all or none from the set of paired properties: " + group);
+      }
+    }
+
+    // no error key in group properties & if in keys check if value is one of those in
+    for (Map.Entry<String, Set<String>> entry : enumProperties.entrySet()) {
+      String key = entry.getKey();
+      if ("error".equals(key) || key.isEmpty()) {
+        throw new IllegalArgumentException(getDisplayName() + ": Separate enum values from config key in enum properties with ':'.");
+      }
+
+      if (!keys.contains(key)) {
+        throw new IllegalArgumentException(getDisplayName() + ": Stage config does not contain enum key: " + key);
+      }
+
+      String value = config.getString(key);
+      if (value != null && !entry.getValue().contains(value)) {
+        throw new IllegalArgumentException(getDisplayName() + ": Stage config does not contain enum value '" + value + "' for enum key: " + key);
       }
     }
 
@@ -428,6 +473,7 @@ public abstract class Stage {
     private final Set<String> optionalParents;
     private final Set<Set<String>> exclusiveProperties;
     private final Set<Set<String>> pairedProperties;
+    private final Map<String, Set<String>> enumProperties;
 
     public StageSpec() {
       requiredProperties = new HashSet<>();
@@ -436,6 +482,7 @@ public abstract class Stage {
       optionalParents = new HashSet<>();
       exclusiveProperties = new HashSet<>();
       pairedProperties = new HashSet<>();
+      enumProperties = new HashMap<>();
     }
 
     public StageSpec withRequiredProperties(String... properties) {
@@ -460,12 +507,45 @@ public abstract class Stage {
 
 
     public StageSpec withExclusiveProperties(String... properties) {
-      this.exclusiveProperties.add(new HashSet<>(Arrays.asList(properties)));
-      return this;
+      return retrieveNestedProperties(exclusiveProperties, properties);
     }
 
     public StageSpec withPairedProperties(String... properties) {
-      this.pairedProperties.add(new HashSet<>(Arrays.asList(properties)));
+      return retrieveNestedProperties(pairedProperties, properties);
+    }
+
+    public StageSpec withEnumProperties(String... properties) {
+      for (String property : properties) {
+        int colonIndex = property.indexOf(':');
+        if (colonIndex == -1) {
+          enumProperties.put("error", Collections.emptySet());
+          continue;
+        }
+
+        String key = property.substring(0, colonIndex).trim();
+        String valuePart = property.substring(colonIndex + 1);
+
+        Set<String> values = Arrays.stream(valuePart.split(","))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+            .collect(Collectors.toSet());
+
+        enumProperties.put(key, values);
+      }
+      return this;
+    }
+
+    private StageSpec retrieveNestedProperties(Set<Set<String>> finalSet, String[] properties) {
+      // e.g. property would look like "exclusive1, exclusive2, exclusive3"
+      for (String property : properties) {
+        Set<String> set = Arrays.stream(property.split(",")) // split by ","
+            .map(String::trim) // trim whitespaces after split
+            .filter(s -> !s.isEmpty()) // if the result is not an empty string
+            .collect(Collectors.toSet()); // add to a set
+        if (!set.isEmpty()) {
+          finalSet.add(set);
+        }
+      }
       return this;
     }
   }
