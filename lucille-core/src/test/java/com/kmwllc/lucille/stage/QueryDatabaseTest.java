@@ -294,7 +294,6 @@ public class QueryDatabaseTest {
   private String getUnsupportedMsg(Stage stage, Document d) {
     try {
       stage.processDocument(d);
-      System.out.println(d.asMap());
     } catch (StageException e) {
       return e.getMessage();
     }

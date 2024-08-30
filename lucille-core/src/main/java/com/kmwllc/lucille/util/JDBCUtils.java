@@ -2,6 +2,7 @@ package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.core.Document;
 import java.sql.Date;
+import java.sql.JDBCType;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -125,7 +126,7 @@ public class JDBCUtils {
           }
           break;
         default:
-          log.warn("SQL Type {} not supported", columnType);
+          log.warn("SQL Type {} ({}) not supported", JDBCType.valueOf(columnType).getName(), columnType);
       }
   }
 }
