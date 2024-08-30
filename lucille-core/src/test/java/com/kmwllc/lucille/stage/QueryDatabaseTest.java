@@ -163,41 +163,44 @@ public class QueryDatabaseTest {
 
     // testing out d1
 
+    // String
     assertEquals("Test VARCHAR", d1.getString("varchar_col"));
-    // calling trim as char_col is storing fixed number of characters
-    assertEquals("CHAR Test", d1.getString("char_col").trim());
+    assertEquals("CHAR Test ", d1.getString("char_col")); //char_col is storing fixed number of characters
     assertEquals("Long VARCHAR test data", d1.getString("longvarchar_col"));
-    // calling trim as nchar_col is storing fixed number of characters
-    assertEquals("\uD83D\uDE00", d1.getString("nchar_col").trim());
+    assertEquals("\uD83D\uDE00        ", d1.getString("nchar_col")); // nchar_col is storing fixed number of characters
     assertEquals("こんにちは、世界！", d1.getString("nvarchar_col"));
     assertEquals("こんにちは、世界！長いテキストのテストです。", d1.getString("longnvarchar_col"));
     assertEquals("test clob", d1.getString("clob_col"));
     assertEquals("test nclob", d1.getString("nclob_col"));
+    // Integer
     assertEquals(Integer.valueOf(127), d1.getInt("tinyint_col"));
     assertEquals(Integer.valueOf(32767), d1.getInt("smallint_col"));
     assertEquals(Integer.valueOf(2147483647), d1.getInt("integer_col"));
+    // Long
     assertEquals(Long.valueOf("9223372036854775807"), d1.getLong("bigint_col"));
+    // Double
     assertEquals(Double.valueOf(3.14159265359), d1.getDouble("double_col"));
     assertEquals(Double.valueOf(9877.0), d1.getDouble("decimal_col"));
     assertEquals(Double.valueOf(1.0), d1.getDouble("numeric_col"));
+    // Float
     assertEquals(Float.valueOf("2.71828"), d1.getFloat("float_col"));
     assertEquals(Float.valueOf("1.414214"), d1.getFloat("real_col"));
+    // Boolean
     assertEquals(true, d1.getBoolean("boolean_col"));
     assertEquals(true, d1.getBoolean("bit_col"));
-    // note that we have set the TimeZone in this test class to be UTC
-    // if it is not set, then the values would change according to the JVM Timezone at runtime
+    // String
     assertEquals("2024-07-30", d1.getString("date_col"));
     assertEquals("1970-01-01 00:00:01.0", d1.getString("timestamp_col"));
+    // Null will not be added to document
     assertFalse(d1.has("nullable_int"));
     assertNull(d1.getString("nullable_varchar"));
-    // date would not get added to docs if null
-    assertFalse(d1.has("nullable_date"));
-    // converting blob to Expected String
+    assertFalse(d1.has("nullable_date")); // date would not get added to docs if null
+    // byte[] , any above 0x80 has to be cast as byte
     assertEquals("This is a test blob.", new String(d1.getBytes("blob_col"), StandardCharsets.UTF_8));
-    // converting binaryColBytes from array of 100 to 4 and comparing
+
     byte[] binaryColBytes = d1.getBytes("binary_col");
     byte[] expectedBytes = new byte[] {(byte)0xBE, (byte)0xEF, (byte)0xBE, (byte)0xEF};
-    assertArrayEquals(expectedBytes, Arrays.copyOf(binaryColBytes, 4));
+    assertArrayEquals(expectedBytes, Arrays.copyOf(binaryColBytes, 4)); // converting binaryColBytes from array of 100 to 4 and comparing
 
     byte[] varbinaryColBytes = d1.getBytes("varbinary_col");
     byte[] expectedVarbinaryBytes = new byte[] {
@@ -213,39 +216,45 @@ public class QueryDatabaseTest {
 
     // testing out d2
 
+    // String
     assertEquals("Another", d2.getString("varchar_col"));
-    // calling trim as char_col is storing fixed number of characters
-    assertEquals("Test", d2.getString("char_col").trim());
+    assertEquals("Test      ", d2.getString("char_col")); //char_col is storing fixed number of characters
     assertEquals("More long text here", d2.getString("longvarchar_col"));
-    // calling trim as nchar_col is storing fixed number of characters
-    assertEquals("\uD83D\uDE00", d2.getString("nchar_col").trim());
+    assertEquals("\uD83D\uDE00        ", d2.getString("nchar_col")); // nchar_col is storing fixed number of characters
     assertEquals("안녕하세요, 세계!", d2.getString("nvarchar_col"));
     assertEquals("안녕하세요, 세계! 긴 텍스트 테스트입니다.", d2.getString("longnvarchar_col"));
     assertEquals("test clob", d2.getString("clob_col"));
     assertEquals("test nclob", d2.getString("nclob_col"));
+    // Integer
     assertEquals(Integer.valueOf(-128), d2.getInt("tinyint_col"));
     assertEquals(Integer.valueOf(-32768), d2.getInt("smallint_col"));
     assertEquals(Integer.valueOf(-2147483648), d2.getInt("integer_col"));
+    // Long
     assertEquals(Long.valueOf("-9223372036854775808"), d2.getLong("bigint_col"));
+    // Double
     assertEquals(Double.valueOf(1.41421356237), d2.getDouble("double_col"));
     assertEquals(Double.valueOf(500.0), d2.getDouble("decimal_col"));
     assertEquals(Double.valueOf(100000.0), d2.getDouble("numeric_col"));
+    // Float
     assertEquals(Float.valueOf("1.61803"), d2.getFloat("float_col"));
     assertEquals(Float.valueOf("3.141592"), d2.getFloat("real_col"));
+    // Boolean
     assertEquals(false, d2.getBoolean("boolean_col"));
     assertEquals(false, d2.getBoolean("bit_col"));
+    // String
     assertEquals("2023-01-01", d2.getString("date_col"));
     assertEquals("2038-01-19 03:14:07.0", d2.getString("timestamp_col"));
+    // null will not be added
     assertFalse(d2.has("nullable_int"));
     assertNull(d2.getString("nullable_varchar"));
-    // date would not get added to docs if null
-    assertFalse(d2.has("nullable_date"));
-    // converting blob to Expected String
+    assertFalse(d2.has("nullable_date")); // date would not get added to docs if null
+
+    // byte[]
     assertEquals("This is a test blob2.", new String(d2.getBytes("blob_col"), StandardCharsets.UTF_8));
-    // converting binaryColBytes from array of 100 to 4 and comparing
+
     binaryColBytes = d2.getBytes("binary_col");
     expectedBytes = new byte[] {(byte)0xBE, (byte)0xEF, (byte)0xBE, (byte)0xEF};
-    assertArrayEquals(expectedBytes, Arrays.copyOf(binaryColBytes, 4));
+    assertArrayEquals(expectedBytes, Arrays.copyOf(binaryColBytes, 4)); // converting binaryColBytes from array of 100 to 4 and comparing
 
     varbinaryColBytes = d2.getBytes("varbinary_col");
     expectedVarbinaryBytes = new byte[] {

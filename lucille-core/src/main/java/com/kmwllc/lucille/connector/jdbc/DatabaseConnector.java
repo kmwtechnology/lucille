@@ -192,7 +192,7 @@ public class DatabaseConnector extends AbstractConnector {
             // will not add to document if fieldValue is null or if field value is unsupported type
             JDBCUtils.parseResultToDoc(doc, rs, fieldName, i);
           } catch(SQLException e) {
-            log.warn("Error encountered while processing resultSet");
+            log.warn("Error encountered while processing resultSet", e);
           }
         }
         if (!otherResults.isEmpty()) {
