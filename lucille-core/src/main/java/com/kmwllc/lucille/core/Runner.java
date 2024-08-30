@@ -122,7 +122,6 @@ public class Runner {
       return;
     }
 
-    Config config = ConfigFactory.load();
     RunType runType = getRunType(cli.hasOption("useKafka"), cli.hasOption("local"));
 
     // Kick off the run with a log of the result
