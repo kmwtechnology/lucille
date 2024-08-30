@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.util.JDBCUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
@@ -185,13 +186,13 @@ public class DatabaseConnector extends AbstractConnector {
                 String.format("Field name \"%s\" is reserved, please rename it or add it to the ignore list", fieldName));
           }
 
-          Object fieldValue = rs.getObject(i);
-          if (fieldValue != null) {
-            try {
-              doc.setOrAdd(fieldName, fieldValue);
-            } catch (IllegalArgumentException e) {
-              log.warn("Error encountered while adding database object to Lucille document", e);
-            }
+          try {
+            // parse result into document
+            // can throw SQL Exception if column cannot be found or resultSet is closed
+            // will not add to document if fieldValue is null or if field value is unsupported type
+            JDBCUtils.parseResultToDoc(doc, rs, fieldName, i);
+          } catch(SQLException e) {
+            log.warn("Error encountered while processing resultSet", e);
           }
         }
         if (!otherResults.isEmpty()) {
