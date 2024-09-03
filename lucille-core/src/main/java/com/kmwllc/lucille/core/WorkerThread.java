@@ -49,12 +49,15 @@ public class WorkerThread extends Thread {
 
   @Override
   public void run() {
-    if (worker.isTerminated()) {
-      return;
-    }
     executorService = startTimer(worker, maxProcessingSecs);
     log.info("started executorService");
     worker.run();
+
+    // Block of code below if error has occurred elsewhere where terminate is executed but run() continues to execute
+    if (worker.isTerminated() && !executorService.isShutdown() && !executorService.isTerminated()) {
+      log.info("Shutting down executorService");
+      shutdownAndAwaitTermination(executorService);
+    }
   }
 
   public void terminate() {
