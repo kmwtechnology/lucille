@@ -127,6 +127,7 @@ public class Chunking extends Stage {
         break;
       case FIXED:
         // splitting by characterLimit fails to split properly when there is line break sequence (\n, \r, \r\n) in content,
+        // also probably do not want to count new line characters as part of the character limit
         // so have decided to remove them before
         content = content.replaceAll("(?>\\R)", " ");
         chunks = content.split("(?<=\\G.{" + characterLimit + "})");
@@ -139,11 +140,11 @@ public class Chunking extends Stage {
     // cleaning chunks output
     cleanChunks(chunks);
 
+    // merge and overlap chunks if we have final chunk size set more than 1
+    if (finalChunkSize > 1) chunks = mergeAndOverlapChunks(chunks);
+
     // truncating if we have character limit set
     if (method != ChunkingMethod.FIXED && characterLimit > 0) truncateRest(chunks, characterLimit);
-
-    // merge chunks if we have final chunk size set more than 1
-    if (finalChunkSize > 1) chunks = mergeAndOverlapChunks(chunks);
 
     // for testing: log.info("number of chunks {} ", chunks.length);
 
