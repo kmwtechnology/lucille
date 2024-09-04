@@ -65,6 +65,7 @@
     <grpc.version>1.53.0</grpc.version>
     <dropwizard-core.version>4.0.7</dropwizard-core.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <junit4.version>4.13.2</junit4.version>
 
   </properties>
 
@@ -169,19 +170,17 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.13</version>
+      <version>${junit4.version}</version>
       <scope>test</scope>
     </dependency>
 
-
-
-    <!-- uncomment to enable Junit 5; can coexist with Junit 4 -->
-    <!--dependency>
+    <!-- enabling Junit 5 because of bug with inherited version 5.6.2 in lucille-core with 'net.mguenther.kafka', overriding here -->
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-engine</artifactId>
-      <version>5.8.1</version>
+      <version>5.11.0</version>
       <scope>test</scope>
-    </dependency-->
+    </dependency>
   </dependencies>
 
   <build>
