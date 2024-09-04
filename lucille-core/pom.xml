@@ -269,7 +269,7 @@
       <artifactId>kafka-junit</artifactId>
       <version>3.6.0</version>
       <scope>test</scope>
-      <!-- Bug junit 5.6.2 that doesn't support junit 4.13.2 (only 4.12 and 4.13) -->
+      <!-- Bug in junit 5.6.2 that doesn't support junit 4.13.2 (only 4.12 and 4.13) -->
       <exclusions>
         <exclusion>
           <groupId>org.junit.jupiter</groupId>
