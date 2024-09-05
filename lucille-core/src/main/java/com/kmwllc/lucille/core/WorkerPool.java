@@ -7,6 +7,15 @@ import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
+import java.lang.management.ManagementFactory;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,7 +30,15 @@ public class WorkerPool {
 
   private static final Logger log = LoggerFactory.getLogger(WorkerPool.class);
 
-  private final List<WorkerThread> threads = new ArrayList();
+  private final List<WorkerThread> threads = new ArrayList<>();
+  private final List<ScheduledExecutorService> executorServices = new ArrayList<>();
+  public static final String HEARTBEAT_LOG_NAME = "com.kmwllc.lucille.core.Heartbeat";
+  private static final Logger heartbeatLog = LoggerFactory.getLogger(HEARTBEAT_LOG_NAME);
+
+  private boolean enableHeartbeat;
+  private int period;
+  private int maxProcessingSecs;
+  private boolean exitOnTimeout;
 
   private final Config config;
   private final String pipelineName;
@@ -46,6 +63,14 @@ public class WorkerPool {
       this.numWorkers = config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
     }
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
+
+
+    this.enableHeartbeat = config.hasPath("worker.heartbeat") ? config.getBoolean("worker.heartbeat") : false;
+    this.period = config.hasPath("worker.period") ? config.getInt("worker.period") : 1000;
+    // maxProcessingSecs default should be at least 10 minutes
+    this.maxProcessingSecs =
+        config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 10 * 60 * 1000;
+    this.exitOnTimeout = config.hasPath("worker.exitOnTimeout") ? config.getBoolean("worker.exitOnTimeout") : false;
   }
 
   public void start() throws Exception {
@@ -58,12 +83,17 @@ public class WorkerPool {
     for (int i = 0; i < numWorkers; i++) {
       try {
         WorkerMessenger messenger = workerMessengerFactory.create();
+
         String name = ThreadNameUtils.getThreadName("Worker-" + (i+1));
-        threads.add(Worker.startThread(config, messenger, pipelineName, metricsPrefix, name));
+        // will throw exception if pipeline has errors
+        Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix);
+
+        // start workerThread and executorService for timer
+        threads.add(Worker.startThread(config, worker, name));
+        executorServices.add(startTimer(worker, maxProcessingSecs, name));
       } catch (Exception e) {
         log.error("Exception caught when starting Worker thread {}; aborting", i+1);
         try {
-          log.info("Calling stop");
           stop();
         } catch (Exception e2) {
           log.error("Exception caught when attempting to stop Worker threads because of a startup problem", e2);
@@ -91,19 +121,19 @@ public class WorkerPool {
   public void stop() {
     log.debug("Stopping " + threads.size() + " worker threads");
     if (logTimer != null) {
-      log.info("cancelling logTimer");
       logTimer.cancel();
     }
-    log.info(String.valueOf(threads.size()));
     for (WorkerThread workerThread : threads) {
-      log.info("cancelling thread " + workerThread.getName());
       workerThread.terminate();
+    }
+    // shutdown all executorService gracefully
+    for (ScheduledExecutorService executorService : executorServices) {
+      shutdownAndAwaitTermination(executorService);
     }
     // tell one of the threads to log its metrics;
     // the output should be the same for any thread;
     // all threads get their metrics via a shared registry using the same naming scheme,
     // so the metrics are collected across all the threads
-    log.info("finish stopping threads");
     if (threads.size() > 0) {
       threads.get(0).logMetrics();
     }
@@ -123,6 +153,60 @@ public class WorkerPool {
 
   public int getNumWorkers() {
     return numWorkers;
+  }
+
+  private ScheduledExecutorService startTimer(Worker worker, int maxProcessingSecs, String name) {
+
+    TimerTask watcher = new TimerTask() {
+      @Override
+      public void run() {
+        if (enableHeartbeat) {
+          heartbeatLog.info("Issuing heartbeat");
+          if (heartbeatLog.isDebugEnabled()) {
+            heartbeatLog.debug("Thread Dump:\n{}",
+                Arrays.toString(
+                    ManagementFactory.getThreadMXBean().dumpAllThreads(true, true)));
+          }
+        }
+        if (Duration.between(worker.getPreviousPollInstant().get(), Instant.now()).getSeconds() > maxProcessingSecs) {
+          log.error("Worker has not polled in " + maxProcessingSecs + " seconds.");
+          if (exitOnTimeout) {
+            log.error("Shutting down because maximum allowed time between previous poll is exceeded.");
+            System.exit(1);
+          }
+        }
+      }
+    };
+
+    // creating a thread factory for executor to use
+    BasicThreadFactory factory = new BasicThreadFactory.Builder()
+        .namingPattern(name + "-" + "ExecutorService")
+        .daemon(true)
+        .priority(Thread.NORM_PRIORITY)
+        .build();
+
+    ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(factory);
+    long delay = 1000L;
+    executor.scheduleAtFixedRate(watcher, delay, period, TimeUnit.MILLISECONDS);
+    return executor;
+  }
+
+  private void shutdownAndAwaitTermination(ExecutorService executorService) {
+    executorService.shutdown(); // disable new tasks from being submitted
+    try {
+      // wait a while for existing tasks to terminate
+      if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+        executorService.shutdownNow(); // Cancel currently executing tasks
+        // wait a while for tasks to respond to being cancelled
+        if (!executorService.awaitTermination(60, TimeUnit.SECONDS))
+          System.err.println("Pool did not terminate");
+      }
+    } catch (InterruptedException ex) {
+      // cancel if current thread also interrupted
+      executorService.shutdownNow();
+      // preserve interrupt status
+      Thread.currentThread().interrupt();
+    }
   }
 
 }

@@ -95,12 +95,12 @@ public class WorkerIndexer {
     indexerThread = new Thread(indexer);
     indexerThread.start();
     String name = ThreadNameUtils.getThreadName("WorkerIndexer");
+    Worker worker = new Worker(config, workerMessageManager, pipelineName, pipelineName);
     workerThread =
-        Worker.startThread(config, workerMessageManager, pipelineName, pipelineName, name);
+        Worker.startThread(config, worker, name);
   }
 
   public void stop() throws Exception {
-    log.info("Stopping WorkerIndexer");
     // it is important to terminate the indexer wait for its thread to stop
     // before we terminate the worker. This allows the worker to process
     // any offsets that the indexer added to the offset queue upon termination

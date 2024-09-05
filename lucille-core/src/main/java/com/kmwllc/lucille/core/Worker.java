@@ -51,7 +51,6 @@ class Worker implements Runnable {
 
   @Override
   public void run() {
-    log.info("Starting worker run");
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     Timer timer = metrics.timer(metricsPrefix + METRICS_SUFFIX);
 
@@ -167,18 +166,11 @@ class Worker implements Runnable {
     }
   }
 
-  public boolean isTerminated() {
-    return !running;
-  }
-
   public AtomicReference<Instant> getPreviousPollInstant() {
     return pollInstant;
   }
 
-  public static WorkerThread startThread(Config config, WorkerMessenger messenger,
-      String pipelineName, String metricsPrefix, String name) throws
-      Exception {
-    Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix);
+  public static WorkerThread startThread(Config config, Worker worker, String name) {
     WorkerThread workerThread = new WorkerThread(worker, config, name);
     workerThread.start();
     return workerThread;
