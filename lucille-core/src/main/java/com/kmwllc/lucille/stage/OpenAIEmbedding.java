@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This stage uses openAI embedding services to embed a text field in a Lucille document or its children document(s). Will truncate
- * to token limit before sending request. Retrieves API key from environment variables.
+ * to token limit before sending request. Retrieves API key from config.
  *
  * Config Parameters:
  * - text_field (String) : field of which the embedding Stage will retrieve content from
@@ -60,17 +60,17 @@ public class OpenAIEmbedding extends Stage {
     super(config, new StageSpec()
         .withRequiredProperties("text_field", "embed_document", "embed_children", "api_key")
         .withOptionalProperties("embedding_field", "model_name", "dimensions"));
-    textField = config.getString("text_field");
-    embedDocument = config.getBoolean("embed_document");
-    embedChildren = config.getBoolean("embed_children");
-    API_KEY = config.getString("api_key");
-    embeddingField = config.hasPath("embedding_field") ? config.getString("embedding_field") : "embeddings";
-    modelName = OpenAIModels.fromConfig(config);
-    dimensions = config.hasPath("dimensions") ? config.getInt("dimensions") : null;
-    if (!embedDocument && !embedChildren) {
+    this.textField = config.getString("text_field");
+    this.embedDocument = config.getBoolean("embed_document");
+    this.embedChildren = config.getBoolean("embed_children");
+    this.API_KEY = config.getString("api_key");
+    this.embeddingField = config.hasPath("embedding_field") ? config.getString("embedding_field") : "embeddings";
+    this.modelName = OpenAIModels.fromConfig(config);
+    this.dimensions = config.hasPath("dimensions") ? config.getInt("dimensions") : null;
+    if (!this.embedDocument && !this.embedChildren) {
       throw new StageException("Both embed_document and embed_children are false.");
     }
-    if (API_KEY.trim().isEmpty()) {
+    if (this.API_KEY.trim().isEmpty()) {
       throw new StageException("API key is empty.");
     }
   }
@@ -148,6 +148,7 @@ public class OpenAIEmbedding extends Stage {
       return docsToEmbed;
     }
 
+    // ensure all chunks are within OpenAI token limit
     List<TextSegment> textSegments = new ArrayList<>();
     for (Document doc : docsToEmbed) {
       String content = doc.getString(textField);
@@ -170,6 +171,7 @@ public class OpenAIEmbedding extends Stage {
       throw new StageException("embedding count mismatch after embedding");
     }
 
+    // add embeddings to document
     for (int i = 0; i < embeddings.size(); i++) {
       float[] vectors = embeddings.get(i).vector();
       Document doc = docsToEmbed.get(i);
