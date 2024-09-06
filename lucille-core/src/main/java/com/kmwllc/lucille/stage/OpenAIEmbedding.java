@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.OpenAIModels;
+import com.kmwllc.lucille.core.OpenAIEmbeddingModels;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.knuddels.jtokkit.Encodings;
@@ -17,7 +17,6 @@ import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.model.output.Response;
 import java.util.List;
-import java.util.Random;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,11 +26,11 @@ import org.slf4j.LoggerFactory;
  * to token limit before sending request. Retrieves API key from config.
  *
  * Config Parameters:
- * - text_field (String) : field of which the embedding Stage will retrieve content from
- * - embed_document (Boolean) : Embeds the document's text_field if set to true.
- * - embed_children (Boolean): Embeds the document's children text_field if set to true.
+ * - source (String) : field of which the embedding Stage will retrieve content from
+ * - dest (String, Optional) : name of the field that will hold the embeddings, defaults to "embeddings"
+ * - embed_document (Boolean) : Embeds the document's source if set to true.
+ * - embed_children (Boolean): Embeds the document's children source if set to true.
  * - api_key (String) : API key used for OpenAI requests
- * - embedding_field (String, Optional) : name of the field that will hold the embeddings
  * - model_name (String, Optional) : the name of the OpenAI embedding model to use, set default to text-embedding-3-small
  *    1. text-embedding-3-small
  *    2. text-embedding-3-large
@@ -45,12 +44,12 @@ public class OpenAIEmbedding extends Stage {
   // this is the token limit for all embedding models from openai
   private static final int DEFAULT_OPENAI_TOKEN_LIMIT = 8191;
   private final String API_KEY;
+  private final String source;
+  private final String dest;
   private EmbeddingModel model;
-  private final String textField;
+  private final OpenAIEmbeddingModels modelName;
   private final boolean embedDocument;
   private final boolean embedChildren;
-  private final String embeddingField;
-  private final OpenAIModels modelName;
   private final Integer dimensions;
   private Encoding enc;
 
@@ -58,14 +57,14 @@ public class OpenAIEmbedding extends Stage {
 
   public OpenAIEmbedding(Config config) throws StageException {
     super(config, new StageSpec()
-        .withRequiredProperties("text_field", "embed_document", "embed_children", "api_key")
-        .withOptionalProperties("embedding_field", "model_name", "dimensions"));
-    this.textField = config.getString("text_field");
+        .withRequiredProperties("source", "embed_document", "embed_children", "api_key")
+        .withOptionalProperties("dest", "model_name", "dimensions"));
+    this.source = config.getString("source");
     this.embedDocument = config.getBoolean("embed_document");
     this.embedChildren = config.getBoolean("embed_children");
     this.API_KEY = config.getString("api_key");
-    this.embeddingField = config.hasPath("embedding_field") ? config.getString("embedding_field") : "embeddings";
-    this.modelName = OpenAIModels.fromConfig(config);
+    this.dest = config.hasPath("dest") ? config.getString("dest") : "embeddings";
+    this.modelName = OpenAIEmbeddingModels.fromConfig(config);
     this.dimensions = config.hasPath("dimensions") ? config.getInt("dimensions") : null;
     if (!this.embedDocument && !this.embedChildren) {
       throw new StageException("Both embed_document and embed_children are false.");
@@ -137,13 +136,13 @@ public class OpenAIEmbedding extends Stage {
   }
 
   private boolean isValidDocument(Document doc) {
-    return doc.hasNonNull(textField) && !StringUtils.isBlank(doc.getString(textField));
+    return doc.hasNonNull(source) && !StringUtils.isBlank(doc.getString(source));
   }
 
   private List<Document> sendForBatchEmbedding(List<Document> docsToEmbed, Document parentDoc) throws StageException {
     // if there is no embedding done on this document, carry on with lucille-run with other documents
     if (docsToEmbed.isEmpty()) {
-      log.warn("No documents to embed. Check your text_field, embed_children and embed_document setting in your config file if you"
+      log.warn("No documents to embed. Check your source field, embed_children and embed_document setting in your config file if you"
           + " expect docid {} or its children to be sent for embedding.", parentDoc.getId());
       return docsToEmbed;
     }
@@ -151,7 +150,7 @@ public class OpenAIEmbedding extends Stage {
     // ensure all chunks are within OpenAI token limit
     List<TextSegment> textSegments = new ArrayList<>();
     for (Document doc : docsToEmbed) {
-      String content = doc.getString(textField);
+      String content = doc.getString(source);
       content = ensureContentIsWithinLimit(content);
       textSegments.add(TextSegment.from(content));
     }
@@ -176,7 +175,7 @@ public class OpenAIEmbedding extends Stage {
       float[] vectors = embeddings.get(i).vector();
       Document doc = docsToEmbed.get(i);
       for (Float vector : vectors) {
-        doc.setOrAdd(embeddingField, vector);
+        doc.setOrAdd(dest, vector);
       }
     }
 
