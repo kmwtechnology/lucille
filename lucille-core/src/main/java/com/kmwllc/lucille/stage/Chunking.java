@@ -243,7 +243,7 @@ public class Chunking extends Stage {
       sb.append(chunks[i]);
 
       // calculate the number of characters to overlap
-      int overlapChars = (int) Math.round(chunks[i].length() * (overlapPercentage / 100.0));
+      int overlapChars = Math.floorDiv(chunks[i].length() * overlapPercentage, 100);
 
       // Add overlap from the previous chunk
       if (i > 0) {

@@ -239,9 +239,9 @@ public class ChunkingTest {
 
     assertEquals("The sun is bright, The sky is clear. Birds a", child1.getString("chunk"));
     assertEquals("is clear. Birds are singing, a dog barks, children play. Trees swa", child2.getString("chunk"));
-    assertEquals("ren play. Trees sway, leaves rustle, a car drives by. The breez", child3.getString("chunk"));
-    assertEquals("drives by. The breeze is cool, flowers bloom, a cat sleeps. The clock", child4.getString("chunk"));
-    assertEquals("sleeps. The clock ticks, the phone rings.", child5.getString("chunk"));
+    assertEquals("en play. Trees sway, leaves rustle, a car drives by. The bree", child3.getString("chunk"));
+    assertEquals("rives by. The breeze is cool, flowers bloom, a cat sleeps. The clock", child4.getString("chunk"));
+    assertEquals("leeps. The clock ticks, the phone rings.", child5.getString("chunk"));
   }
 
 
@@ -267,7 +267,7 @@ public class ChunkingTest {
     Document child5 = childrenDocs.get(4);
 
     assertEquals("The sun is bright. The sky is clear. Birds are singing. A dog barks", child1.getString("chunk"));
-    assertEquals("singing. A dog barks. Children play. Trees sway. Leaves r", child2.getString("chunk"));
+    assertEquals("inging. A dog barks. Children play. Trees sway. Leaves", child2.getString("chunk"));
     assertEquals("rees sway. Leaves rustle. A car drives by. The breeze is cool. Flowers bl", child3.getString("chunk"));
     assertEquals("is cool. Flowers bloom. A cat sleeps. The clock ticks. The phone", child4.getString("chunk"));
     assertEquals("ks. The phone rings.", child5.getString("chunk"));
