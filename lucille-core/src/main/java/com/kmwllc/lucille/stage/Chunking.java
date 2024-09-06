@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Iterator;
 import opennlp.tools.sentdetect.SentenceDetector;
 import opennlp.tools.sentdetect.SentenceDetectorME;
@@ -20,23 +21,23 @@ import org.apache.logging.log4j.Logger;
  * with each chunk added as a child document attached to the current document.
  *
  * Config Parameters:
- * - text_field (String) : field of which Chunking Stage will chunk the text.
- * - character_limit (Integer, optional) : hard limit number of characters in a chunk. Truncate rest. Performed after
- *   merging & overlapping if they are set.
- * - final_chunk_size (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.
-*    defaults to 1, keeping the chunks as they were after splitting.
- * - overlap_percentage (Integer, optional) : adds on neighboring chunk's content based on percentage of current chunk, defaults to 0
- * - output_name (String, optional): the name of the field that will hold the chunk contents in the children documents.
+ * - source (String) : field of which Chunking Stage will chunk the text.
+ * - dest (String, optional): the name of the field that will hold the chunk contents in the children documents.
  *   Defaults to "chunk".
- * - regex (String, optional, required if custom chunking): regEx that will be used to split chunks
- * - chunking_method (Type Enum, optional) : how to split contents in text_field. Defaults to Sentence chunking
- *  1. fixed chunking: split by character limit
+ * - chunking_method (Type Enum, optional) : how to split contents in source. Defaults to Sentence chunking
+ *  1. fixed chunking: split by variable lengthToSplit
  *  2. paragraph chunking: split by 2 consecutive line break sequence (\n, \r, \r\n) with optional whitespaces between,
  *     e.g. \n\n \n \n
  *  3. sentence chunking: use openNLP sentence model for splitting
  *  4. custom chunking: regex option in config required, used to split content
- *  5. TODO: maybe semantic chunking? intensive to embed locally
- *    - threshold types: percentile, standard_deviation, interquartile
+ * - regex (String, only for custom chunking): regEx that will be used to split chunks
+ * - length_to_split (Integer, only for fixedSizedChunking)
+ * - minimum_chunk_length (Integer, optional): filters out chunks of length less than amount before merging and overlapping
+ * - chunks_to_merge (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.
+ *    defaults to 1, keeping the chunks as they were after splitting.
+ * - overlap_percentage (Integer, optional) : adds on neighboring chunk's content based on percentage of current chunk, defaults to 0
+ * - character_limit (Integer, optional) : hard limit number of characters in a chunk. Truncate rest. Performed after
+ *   merging & overlapping if they are set.
  *
  *  - child document fields:
  *       - "id" : the child id, in the format of "parent_id-chunk_number"
@@ -45,38 +46,42 @@ import org.apache.logging.log4j.Logger;
  *       - "length" : number of characters in this chunks
  *       - "chunk_number" : chunk number
  *       - "total_chunk_number" : total chunk number produced from parent document
- *       - "chunk" : the chunk contents. field name can be changed with config option "output_name"
+ *       - "chunk" : the chunk contents. field name can be changed with config option "dest"
  */
 
 public class Chunking extends Stage {
 
-  private final Integer characterLimit;
-  private final Integer finalChunkSize;
+  private final String source;
+  private final String dest;
   private final ChunkingMethod method;
   private final String regEx;
-  private final String outputName;
-  private final String textField;
+  private final Integer lengthToSplit;
+  private final Integer minimumChunkLength;
   private final boolean cleanChunks;
+  private final Integer chunksToMerge;
   private final Integer overlapPercentage;
-  private final Integer fixedChunkLimit;
+  private final Integer characterLimit;
   private SentenceDetector sentenceDetector;
   private static final Logger log = LogManager.getLogger(Chunking.class);
 
   public Chunking(Config config) throws StageException {
     super(config, new StageSpec()
-        .withOptionalProperties("chunking_method", "final_chunk_size", "output_name", "regex", "character_limit",
-            "clean_chunks", "overlap_percentage", "fixed_chunk_limit")
-        .withRequiredProperties("text_field"));
+        .withOptionalProperties("chunking_method", "chunks_to_merge", "dest", "regex", "character_limit",
+            "clean_chunks", "overlap_percentage", "length_to_split", "minimum_chunk_length")
+        .withRequiredProperties("source"));
     characterLimit = config.hasPath("character_limit") ? config.getInt("character_limit") : -1;
-    finalChunkSize = config.hasPath("final_chunk_size") ? config.getInt("final_chunk_size") : 1;
+    chunksToMerge = config.hasPath("chunks_to_merge") ? config.getInt("chunks_to_merge") : 1;
     method = ChunkingMethod.fromConfig(config);
     regEx = config.hasPath("regex") ? config.getString("regex") : "";
-    textField = config.getString("text_field");
-    outputName = config.hasPath("output_name") ? config.getString("output_name") : "chunk";
+    source = config.getString("source");
+    dest = config.hasPath("dest") ? config.getString("dest") : "chunk";
     cleanChunks = config.hasPath("clean_chunks") ? config.getBoolean("clean_chunks") : false;
     overlapPercentage = config.hasPath("overlap_percentage") ? config.getInt("overlap_percentage") : 0;
-    fixedChunkLimit = config.hasPath("fixed_chunk_limit") ? config.getInt("fixed_chunk_limit") : null;
-    if (finalChunkSize < 1) {
+    lengthToSplit = config.hasPath("length_to_split") && config.getInt("length_to_split") > 0
+        ? config.getInt("length_to_split") : null;
+    minimumChunkLength = config.hasPath("minimum_chunk_length") && config.getInt("minimum_chunk_length") > 0
+        ? config.getInt("minimum_chunk_length") : -1;
+    if (chunksToMerge < 1) {
       throw new StageException("Final chunk size must be greater than 1.");
     }
     if (overlapPercentage < 0 || overlapPercentage > 50) {
@@ -88,8 +93,8 @@ public class Chunking extends Stage {
     if (method == ChunkingMethod.CUSTOM && regEx.isEmpty()) {
       throw new StageException("Provide a non empty regex configuration.");
     }
-    if ((method == ChunkingMethod.FIXED && fixedChunkLimit == null) || (fixedChunkLimit != null && fixedChunkLimit < 0)) {
-      throw new StageException("Provide a positive character limit for fixed sized chunking.");
+    if (method == ChunkingMethod.FIXED && lengthToSplit == null) {
+      throw new StageException("Provide a positive length to split for fixed sized chunking.");
     }
   }
 
@@ -112,13 +117,13 @@ public class Chunking extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // check if document is valid
-    if (!doc.hasNonNull(textField) || StringUtils.isBlank(doc.getString(textField))) {
-      log.warn("doc {} does not contain {} field or contains content to chunk, skipping doc...", doc.getId(), textField);
+    if (!doc.hasNonNull(source) || StringUtils.isBlank(doc.getString(source))) {
+      log.warn("doc {} does not contain {} field or contains content to chunk, skipping doc...", doc.getId(), source);
       return null;
     }
 
     // retrieve content to chunk
-    String content = doc.getString(textField);
+    String content = doc.getString(source);
 
     // for testing: log.info("content retrieved {} ", content);
     // splitting up content based on chunking method
@@ -132,18 +137,21 @@ public class Chunking extends Stage {
         chunks = content.split("\\s*(?>\\R)\\s*(?>\\R)\\s*");
         break;
       case FIXED:
-        chunks = splitBySize(content, fixedChunkLimit);
+        chunks = splitBySize(content, lengthToSplit);
         break;
       default: // SENTENCE
         chunks = sentenceDetector.sentDetect(content);
         break;
     }
 
-    // cleaning chunks output if clean chunks was selected
+    // removing newline characters and trim if clean chunks was selected
     if (cleanChunks) cleanChunks(chunks);
 
+    // filtering chunks by number of characters
+    if (minimumChunkLength > 0) chunks = filterChunksByLength(chunks, minimumChunkLength);
+
     // merge chunks if we have final chunk size set more than 1
-    if (finalChunkSize > 1) chunks = mergeChunks(chunks, finalChunkSize);
+    if (chunksToMerge > 1) chunks = mergeChunks(chunks, chunksToMerge);
 
     // overlap chunks if we have overlap percentage set
     if (overlapPercentage > 0) chunks = overlapChunks(chunks, overlapPercentage);
@@ -192,6 +200,12 @@ public class Chunking extends Stage {
     for (int i = 0; i < chunks.length; i++) {
       chunks[i] = chunks[i].replaceAll("(?>\\R)", " ").trim();
     }
+  }
+
+  private String[] filterChunksByLength(String[] inputStrings, Integer minimumChunkLength) {
+    return Arrays.stream(inputStrings)
+        .filter(s -> s != null && s.length() > minimumChunkLength)
+        .toArray(String[]::new);
   }
 
   private String[] mergeChunks(String[] chunks, int chunkSize) {
@@ -275,7 +289,7 @@ public class Chunking extends Stage {
       childDoc.setField("offset", offset);
       offset += length;
       childDoc.setField("length", length);
-      childDoc.setField(outputName, chunk);
+      childDoc.setField(dest, chunk);
 
       doc.addChild(childDoc);
     }
