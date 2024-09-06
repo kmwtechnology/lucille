@@ -217,6 +217,40 @@ public class ChunkingTest {
   }
 
   @Test
+  public void testFiltering() throws StageException {
+    Stage stage = factory.get("ChunkingTest/testFiltering.conf");
+    stage.start();
+    Document doc = Document.create("id");
+
+    String sampleText = "The sun is bright. 3.\n The phone rings.";
+    doc.setField("text", sampleText);
+    stage.processDocument(doc);
+    List<Document> childrenDocs = doc.getChildren();
+    Document child1 = childrenDocs.get(0);
+    Document child2 = childrenDocs.get(1);
+    assertEquals("The sun is bright.", child1.getString("chunk"));
+    assertEquals("The phone rings.", child2.getString("chunk"));
+  }
+
+  @Test
+  public void testPreMergeTruncate() throws StageException {
+    Stage stage = factory.get("ChunkingTest/testPreMergeTruncate.conf");
+    stage.start();
+
+
+    Document doc = Document.create("id");
+
+    String sampleText = "This is the first sentence. This sentence is too long and will be truncated before merging. "
+        + "This is the other sentence.";
+
+    doc.setField("text", sampleText);
+    stage.processDocument(doc);
+    List<Document> childrenDocs = doc.getChildren();
+    Document child1 = childrenDocs.get(0);
+    assertEquals("This is the first sentence. This sentence is too long and This is the other sentence.", child1.getString("chunk"));
+  }
+
+  @Test
   public void testOverlap() throws StageException {
     Stage stage = factory.get("ChunkingTest/testOverlap.conf");
     stage.start();

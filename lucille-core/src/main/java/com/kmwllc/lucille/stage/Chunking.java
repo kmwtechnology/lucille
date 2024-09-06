@@ -33,6 +33,7 @@ import org.apache.logging.log4j.Logger;
  * - regex (String, only for custom chunking): regEx that will be used to split chunks
  * - length_to_split (Integer, only for fixedSizedChunking)
  * - minimum_chunk_length (Integer, optional): filters out chunks of length less than amount before merging and overlapping
+ * - pre_merge_max_chunk_len (Integer, optional): truncates the chunks if over given amount, applies before merging and overlapping
  * - chunks_to_merge (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.
  *    defaults to 1, keeping the chunks as they were after splitting.
  * - overlap_percentage (Integer, optional) : adds on neighboring chunk's content based on percentage of current chunk, defaults to 0
@@ -57,6 +58,7 @@ public class Chunking extends Stage {
   private final String regEx;
   private final Integer lengthToSplit;
   private final Integer minimumChunkLength;
+  private final Integer preMergeMaxChunkLen;
   private final boolean cleanChunks;
   private final Integer chunksToMerge;
   private final Integer overlapPercentage;
@@ -67,7 +69,7 @@ public class Chunking extends Stage {
   public Chunking(Config config) throws StageException {
     super(config, new StageSpec()
         .withOptionalProperties("chunking_method", "chunks_to_merge", "dest", "regex", "character_limit",
-            "clean_chunks", "overlap_percentage", "length_to_split", "minimum_chunk_length")
+            "clean_chunks", "overlap_percentage", "length_to_split", "min_chunk_length", "pre_merge_max_chunk_len")
         .withRequiredProperties("source"));
     characterLimit = config.hasPath("character_limit") ? config.getInt("character_limit") : -1;
     chunksToMerge = config.hasPath("chunks_to_merge") ? config.getInt("chunks_to_merge") : 1;
@@ -79,8 +81,10 @@ public class Chunking extends Stage {
     overlapPercentage = config.hasPath("overlap_percentage") ? config.getInt("overlap_percentage") : 0;
     lengthToSplit = config.hasPath("length_to_split") && config.getInt("length_to_split") > 0
         ? config.getInt("length_to_split") : null;
-    minimumChunkLength = config.hasPath("minimum_chunk_length") && config.getInt("minimum_chunk_length") > 0
-        ? config.getInt("minimum_chunk_length") : -1;
+    minimumChunkLength = config.hasPath("min_chunk_length") && config.getInt("min_chunk_length") > 0
+        ? config.getInt("min_chunk_length") : -1;
+    preMergeMaxChunkLen = config.hasPath("pre_merge_max_chunk_len") && config.getInt("pre_merge_max_chunk_len") > 0
+        ? config.getInt("pre_merge_max_chunk_len") : -1;
     if (chunksToMerge < 1) {
       throw new StageException("Final chunk size must be greater than 1.");
     }
@@ -150,6 +154,9 @@ public class Chunking extends Stage {
     // filtering chunks by number of characters
     if (minimumChunkLength > 0) chunks = filterChunksByLength(chunks, minimumChunkLength);
 
+    // truncating chunks by number before processing each chunk
+    if (preMergeMaxChunkLen > 0) truncateRest(chunks, preMergeMaxChunkLen);
+
     // merge chunks if we have final chunk size set more than 1
     if (chunksToMerge > 1) chunks = mergeChunks(chunks, chunksToMerge);
 
@@ -171,7 +178,7 @@ public class Chunking extends Stage {
     for (int i = 0; i < chunks.length; i++) {
       String s = chunks[i];
       if (s.length() > characterLimit) {
-        chunks[i] = s.substring(0, characterLimit);
+        chunks[i] = s.substring(0, characterLimit).trim();
       }
     }
   }
