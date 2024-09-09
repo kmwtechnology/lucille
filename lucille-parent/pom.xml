@@ -8,7 +8,7 @@
   <groupId>com.kmwllc</groupId>
   <artifactId>lucille-parent</artifactId>
   <name>Lucille Parent</name>
-  <version>0.2.5-SNAPSHOT</version>
+  <version>0.3.1-SNAPSHOT</version>
   <packaging>pom</packaging>
   <description>Lucille is a production-grade Search ETL solution.</description>
   <url>https://github.com/kmwtechnology/lucille</url>
@@ -63,7 +63,9 @@
     <protobuf.version>3.25.3</protobuf.version>
     <netty.version>4.1.108.Final</netty.version>
     <grpc.version>1.53.0</grpc.version>
+    <dropwizard-core.version>4.0.7</dropwizard-core.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <junit4.version>4.13.2</junit4.version>
 
   </properties>
 
@@ -103,6 +105,20 @@
         <version>${grpc.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${jackson.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+          <groupId>io.dropwizard</groupId>
+          <artifactId>dropwizard-bom</artifactId>
+          <version>${dropwizard-core.version}</version>
+          <type>pom</type>
+          <scope>import</scope>
       </dependency>
 
 
@@ -154,19 +170,17 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.13</version>
+      <version>${junit4.version}</version>
       <scope>test</scope>
     </dependency>
 
-
-
-    <!-- uncomment to enable Junit 5; can coexist with Junit 4 -->
-    <!--dependency>
+    <!-- enabling Junit 5 because of bug with inherited version 5.6.2 in lucille-core with 'net.mguenther.kafka', overriding here -->
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-engine</artifactId>
-      <version>5.8.1</version>
+      <version>5.11.0</version>
       <scope>test</scope>
-    </dependency-->
+    </dependency>
   </dependencies>
 
   <build>
