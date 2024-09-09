@@ -49,12 +49,14 @@ public class EmitNestedChildrenTest {
 
   @Test
   public void testNoChildrenEmit() throws StageException {
-    Stage stage = factory.get("EmitNestedChildrenTest/emitchild.conf");
+    Stage stage = factory.get("EmitNestedChildrenTest/drop_parent.conf");
     Document parent = Document.create("parentId");
 
     Iterator<Document> documents = stage.processDocument(parent);
+    // no children emitted
     assertNull(documents);
 
+    // even if drop_parent is set to true, if no children, should not drop main parent document
     assertFalse(parent.hasChildren());
     assertFalse(parent.isDropped());
   }
