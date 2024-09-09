@@ -31,7 +31,7 @@ public class WorkerPool {
   private static final Logger log = LoggerFactory.getLogger(WorkerPool.class);
 
   private final List<WorkerThread> threads = new ArrayList<>();
-  private final List<ScheduledExecutorService> executorServices = new ArrayList<>();
+  private ScheduledExecutorService executorService;
   public static final String HEARTBEAT_LOG_NAME = "com.kmwllc.lucille.core.Heartbeat";
   private static final Logger heartbeatLog = LoggerFactory.getLogger(HEARTBEAT_LOG_NAME);
 
@@ -79,7 +79,7 @@ public class WorkerPool {
     }
     started = true;
     log.info("Starting " + numWorkers + " worker threads for pipeline " + pipelineName);
-
+    List<Worker> workerList = new ArrayList<>(); // collects all the workers
     for (int i = 0; i < numWorkers; i++) {
       try {
         WorkerMessenger messenger = workerMessengerFactory.create();
@@ -87,10 +87,13 @@ public class WorkerPool {
         String name = ThreadNameUtils.setThreadPrefix("Worker-" + (i+1));
         // will throw exception if pipeline has errors
         Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix);
-
-        // start workerThread and executorService for timer
+        workerList.add(worker);
+        // start workerThread
         threads.add(Worker.startThread(config, worker, name));
-        executorServices.add(startTimer(worker, maxProcessingSecs, name));
+        // start timer on last iteration to be within try catch block
+        if (i == numWorkers - 1) {
+          executorService = startTimer(workerList, maxProcessingSecs, ThreadNameUtils.setThreadPrefix("ExecutorService"));
+        }
       } catch (Exception e) {
         log.error("Exception caught when starting Worker thread {}; aborting", i+1);
         try {
@@ -126,8 +129,8 @@ public class WorkerPool {
     for (WorkerThread workerThread : threads) {
       workerThread.terminate();
     }
-    // shutdown all executorService gracefully
-    for (ScheduledExecutorService executorService : executorServices) {
+    // shutdown executorService gracefully
+    if (executorService != null) {
       shutdownAndAwaitTermination(executorService);
     }
     // tell one of the threads to log its metrics;
@@ -155,8 +158,7 @@ public class WorkerPool {
     return numWorkers;
   }
 
-  private ScheduledExecutorService startTimer(Worker worker, int maxProcessingSecs, String name) {
-
+  private ScheduledExecutorService startTimer(List<Worker> workers, int maxProcessingSecs, String name) {
     TimerTask watcher = new TimerTask() {
       @Override
       public void run() {
@@ -168,11 +170,13 @@ public class WorkerPool {
                     ManagementFactory.getThreadMXBean().dumpAllThreads(true, true)));
           }
         }
-        if (Duration.between(worker.getPreviousPollInstant().get(), Instant.now()).getSeconds() > maxProcessingSecs) {
-          log.error("Worker has not polled in " + maxProcessingSecs + " seconds.");
-          if (exitOnTimeout) {
-            log.error("Shutting down because maximum allowed time between previous poll is exceeded.");
-            System.exit(1);
+        for (Worker worker : workers) {
+          if (Duration.between(worker.getPreviousPollInstant().get(), Instant.now()).getSeconds() > maxProcessingSecs) {
+            log.error("Worker has not polled in " + maxProcessingSecs + " seconds.");
+            if (exitOnTimeout) {
+              log.error("Shutting down because maximum allowed time between previous poll is exceeded.");
+              System.exit(1);
+            }
           }
         }
       }
