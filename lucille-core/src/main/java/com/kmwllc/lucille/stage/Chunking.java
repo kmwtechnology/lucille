@@ -122,7 +122,7 @@ public class Chunking extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // check if document is valid
     if (!doc.hasNonNull(source) || StringUtils.isBlank(doc.getString(source))) {
-      log.warn("doc {} does not contain {} field or contains content to chunk, skipping doc...", doc.getId(), source);
+      log.debug("doc {} does not contain {} field or contains content to chunk, skipping doc...", doc.getId(), source);
       return null;
     }
 
@@ -138,6 +138,7 @@ public class Chunking extends Stage {
         break;
       case PARAGRAPH:
         // split any consecutive line break sequence (\n, \r, \r\n) optionally within one unit of whitespace
+        // got it from LangChain4J paragraph splitter
         chunks = content.split("\\s*(?>\\R)\\s*(?>\\R)\\s*");
         break;
       case FIXED:
