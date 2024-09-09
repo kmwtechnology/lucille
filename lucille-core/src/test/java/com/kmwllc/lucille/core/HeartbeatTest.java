@@ -65,7 +65,7 @@ public class HeartbeatTest {
 
     for (Thread thread : nonSystemThreadsAfter) {
       log.info("THREAD testWatcher AFTER: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         log.info("testWatcher failed here");
       }
     }

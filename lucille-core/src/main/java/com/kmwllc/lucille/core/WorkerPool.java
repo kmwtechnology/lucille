@@ -84,7 +84,7 @@ public class WorkerPool {
       try {
         WorkerMessenger messenger = workerMessengerFactory.create();
 
-        String name = ThreadNameUtils.getThreadName("Worker-" + (i+1));
+        String name = ThreadNameUtils.setThreadPrefix("Worker-" + (i+1));
         // will throw exception if pipeline has errors
         Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix);
 

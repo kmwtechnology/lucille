@@ -49,7 +49,7 @@ public class WorkerIndexerPoolTest {
 
     for (Thread thread : nonSystemThreadsBefore) {
       log.info("THREAD testThreadCleanupUponEncounteringConfigProblem BEFORE: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         fail("Lucille threads are running before run has started");
       }
     }
@@ -65,7 +65,7 @@ public class WorkerIndexerPoolTest {
 
     for (Thread thread : nonSystemThreadsAfter) {
       log.info("THREAD testThreadCleanupUponEncounteringConfigProblem AFTER: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         fail("Lucille threads are still running");
       }
     }

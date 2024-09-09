@@ -9,8 +9,6 @@ import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
-import com.typesafe.config.ConfigValue;
-import java.util.Map.Entry;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
@@ -365,7 +363,7 @@ public class Runner {
       }
     } else {
       try {
-        ConnectorThread connectorThread = new ConnectorThread(connector, publisher, ThreadNameUtils.getThreadName("ConnectorThread"));
+        ConnectorThread connectorThread = new ConnectorThread(connector, publisher, ThreadNameUtils.setThreadPrefix("Connector"));
         connectorThread.start();
         final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
             config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
@@ -445,7 +443,7 @@ public class Runner {
           return new ConnectorResult(connector, publisher, false, msg);
         }
 
-        indexerThread = new Thread(indexer, ThreadNameUtils.getThreadName("IndexerThread"));
+        indexerThread = new Thread(indexer, ThreadNameUtils.setThreadPrefix("Indexer"));
         indexerThread.start();
       }
 

@@ -36,7 +36,7 @@ public class WorkerPoolTest {
 
     for (Thread thread : nonSystemThreadsBefore) {
       log.info("THREAD testParseConfig BEFORE: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         log.info("testParseConfig failed here");
       }
     }
@@ -68,7 +68,7 @@ public class WorkerPoolTest {
 
     for (Thread thread : nonSystemThreadsAfter) {
       log.info("THREAD testParseConfig AFTER: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         log.info("testParseConfig failed here");
       }
     }
@@ -88,7 +88,7 @@ public class WorkerPoolTest {
 
     for (Thread thread : nonSystemThreadsBefore) {
       log.info("THREAD testManagerClose BEFORE: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         log.info("testManagerClose failed here");
       }
     }
@@ -108,7 +108,7 @@ public class WorkerPoolTest {
 
     for (Thread thread : nonSystemThreadsAfter) {
       log.info("THREAD testManagerClose AFTER: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         log.info("testManagerClose failed here");
       }
     }
@@ -121,7 +121,7 @@ public class WorkerPoolTest {
 
     for (Thread thread : nonSystemThreadsBefore) {
       log.info("THREAD testThreadCleanupUponEncounteringConfigProblem BEFORE: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         fail("Lucille threads are running before run has started");
       }
     }
@@ -139,7 +139,7 @@ public class WorkerPoolTest {
 
     for (Thread thread : nonSystemThreadsAfter) {
       log.info("THREAD testThreadCleanupUponEncounteringConfigProblem AFTER: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         log.info("testThreadCleanupUponEncounteringConfigProblem failed here");
         fail("Lucille threads are still running");
       }
@@ -153,7 +153,7 @@ public class WorkerPoolTest {
 
     for (Thread thread : nonSystemThreadsBefore) {
       log.info("THREAD testThreadCleanupUponEncounteringNullMessenger BEFORE: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         fail("Lucille threads are running before run has started");
       }
     }
@@ -169,7 +169,7 @@ public class WorkerPoolTest {
 
     for (Thread thread : nonSystemThreadsAfter) {
       log.info("THREAD testThreadCleanupUponEncounteringNullMessenger AFTER: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         log.info("testThreadCleanupUponEncounteringNullMessenger failed here");
         fail("Lucille threads are still running");
       }

@@ -687,7 +687,7 @@ public class RunnerTest {
 
     for (Thread thread : nonSystemThreadsAfter) {
       log.info("THREAD testConnectorWithUnrecognizedPipeline AFTER: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         fail("Lucille threads are still running");
       }
     }
@@ -709,7 +709,7 @@ public class RunnerTest {
 
     for (Thread thread : nonSystemThreadsAfter) {
       log.info("THREAD testStartStopCalledOnPipelineStages AFTER: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         fail("Lucille threads are still running");
       }
     }
@@ -769,7 +769,7 @@ public class RunnerTest {
 
     for (Thread thread : nonSystemThreadsAfter) {
       log.info("THREAD testIndexerConnectFailure AFTER: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         fail("Lucille threads are still running");
       }
     }
@@ -783,7 +783,7 @@ public class RunnerTest {
 
     for (Thread thread : nonSystemThreadsBefore) {
       log.info("THREAD testIndexerDeleteByFieldConfig BEFORE: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         fail("Lucille threads are still running");
       }
     }
@@ -798,7 +798,7 @@ public class RunnerTest {
 
     for (Thread thread : nonSystemThreadsAfter) {
       log.info("THREAD run3 AFTER: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         fail("Lucille threads are still running");
       }
     }
@@ -815,7 +815,7 @@ public class RunnerTest {
 
     for (Thread thread : nonSystemThreadsAfter) {
       log.info("THREAD testIndexerDeleteMarkerConfig AFTER: {}", thread.getName());
-      if (thread.getName().startsWith(ThreadNameUtils.THREAD_NAME_PREFIX)) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
         fail("Lucille threads are still running");
       }
     }
