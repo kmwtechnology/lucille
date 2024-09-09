@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.OpenAIEmbeddingModels;
+import com.kmwllc.lucille.core.OpenAIEmbeddingModel;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.knuddels.jtokkit.Encodings;
@@ -47,7 +47,7 @@ public class OpenAIEmbedding extends Stage {
   private final String source;
   private final String dest;
   private EmbeddingModel model;
-  private final OpenAIEmbeddingModels modelName;
+  private final OpenAIEmbeddingModel modelName;
   private final boolean embedDocument;
   private final boolean embedChildren;
   private final Integer dimensions;
@@ -64,12 +64,12 @@ public class OpenAIEmbedding extends Stage {
     this.embedChildren = config.getBoolean("embed_children");
     this.API_KEY = config.getString("api_key");
     this.dest = config.hasPath("dest") ? config.getString("dest") : "embeddings";
-    this.modelName = OpenAIEmbeddingModels.fromConfig(config);
+    this.modelName = OpenAIEmbeddingModel.fromConfig(config);
     this.dimensions = config.hasPath("dimensions") ? config.getInt("dimensions") : null;
     if (!this.embedDocument && !this.embedChildren) {
       throw new StageException("Both embed_document and embed_children are false.");
     }
-    if (this.API_KEY.trim().isEmpty()) {
+    if (StringUtils.isBlank(this.API_KEY)) {
       throw new StageException("API key is empty.");
     }
   }
@@ -151,7 +151,7 @@ public class OpenAIEmbedding extends Stage {
     List<TextSegment> textSegments = new ArrayList<>();
     for (Document doc : docsToEmbed) {
       String content = doc.getString(source);
-      content = ensureContentIsWithinLimit(content);
+      content = applyTokenLimit(content);
       textSegments.add(TextSegment.from(content));
     }
 
@@ -182,7 +182,7 @@ public class OpenAIEmbedding extends Stage {
     return docsToEmbed;
   }
 
-  private String ensureContentIsWithinLimit(String content) {
+  private String applyTokenLimit(String content) {
     int tokenUsage = enc.countTokens(content);
 
     if (tokenUsage > DEFAULT_OPENAI_TOKEN_LIMIT) {
