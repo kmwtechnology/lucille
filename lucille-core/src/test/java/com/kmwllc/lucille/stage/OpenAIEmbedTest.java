@@ -12,23 +12,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import dev.langchain4j.data.embedding.Embedding;
-import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-public class OpenAIEmbeddingTest {
+public class OpenAIEmbedTest {
 
-  private StageFactory factory = StageFactory.of(OpenAIEmbedding.class);
+  private StageFactory factory = StageFactory.of(OpenAIEmbed.class);
 
   private static final float DELTA = 1e-6f; // Tolerance level for floating point comparison
 
@@ -54,7 +48,7 @@ public class OpenAIEmbeddingTest {
 
   @Test
   public void testSkipDocumentsWithoutTextField() throws Exception {
-    OpenAIEmbedding stage = (OpenAIEmbedding) StageFactory.of(OpenAIEmbedding.class).get("OpenAIEmbeddingTest/skipDocumentsWithoutTextField.conf");
+    OpenAIEmbed stage = (OpenAIEmbed) StageFactory.of(OpenAIEmbed.class).get("OpenAIEmbeddingTest/skipDocumentsWithoutTextField.conf");
     EmbeddingModel model = mock(EmbeddingModel.class);
     stage.setModel(model);
 
@@ -71,7 +65,7 @@ public class OpenAIEmbeddingTest {
 
   @Test
   public void testEmbedChildOnly() throws Exception {
-    OpenAIEmbedding stage = (OpenAIEmbedding) StageFactory.of(OpenAIEmbedding.class).get("OpenAIEmbeddingTest/embedChildDoc.conf");
+    OpenAIEmbed stage = (OpenAIEmbed) StageFactory.of(OpenAIEmbed.class).get("OpenAIEmbeddingTest/embedChildDoc.conf");
     EmbeddingModel model = mock(EmbeddingModel.class);
     Embedding embedding = mock(Embedding.class);
     float[] vectors = new float[] {0.1F, 0.2F, 0.3F, 0.4F, 0.5f};
@@ -104,7 +98,7 @@ public class OpenAIEmbeddingTest {
 
   @Test
   public void testEmbedParentOnly() throws Exception {
-    OpenAIEmbedding stage = (OpenAIEmbedding) StageFactory.of(OpenAIEmbedding.class).get("OpenAIEmbeddingTest/embedParentDoc.conf");
+    OpenAIEmbed stage = (OpenAIEmbed) StageFactory.of(OpenAIEmbed.class).get("OpenAIEmbeddingTest/embedParentDoc.conf");
     EmbeddingModel model = mock(EmbeddingModel.class);
     Embedding embedding = mock(Embedding.class);
     float[] vectors = new float[] {0.1F, 0.2F, 0.3F, 0.4F, 0.5f};
@@ -134,7 +128,7 @@ public class OpenAIEmbeddingTest {
 
   @Test
   public void testEmbedParentAndChild() throws Exception {
-    OpenAIEmbedding stage = (OpenAIEmbedding) StageFactory.of(OpenAIEmbedding.class).get("OpenAIEmbeddingTest/embedChildAndParentDoc.conf");
+    OpenAIEmbed stage = (OpenAIEmbed) StageFactory.of(OpenAIEmbed.class).get("OpenAIEmbeddingTest/embedChildAndParentDoc.conf");
     EmbeddingModel model = mock(EmbeddingModel.class);
     Embedding embedding = mock(Embedding.class);
     float[] vectors = new float[] {0.1F, 0.2F, 0.3F, 0.4F, 0.5f};

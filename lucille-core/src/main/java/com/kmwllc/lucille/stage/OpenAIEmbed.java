@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.OpenAIEmbeddingModel;
+import com.kmwllc.lucille.stage.util.OpenAIEmbeddingModel;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.knuddels.jtokkit.Encodings;
@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
  * and later models. Default set to null, which will call the model's default dimensions.
  */
 
-public class OpenAIEmbedding extends Stage {
+public class OpenAIEmbed extends Stage {
   // this is the token limit for all embedding models from openai
   private static final int DEFAULT_OPENAI_TOKEN_LIMIT = 8191;
   private final String API_KEY;
@@ -53,9 +53,9 @@ public class OpenAIEmbedding extends Stage {
   private final Integer dimensions;
   private Encoding enc;
 
-  private static final Logger log = LoggerFactory.getLogger(OpenAIEmbedding.class);
+  private static final Logger log = LoggerFactory.getLogger(OpenAIEmbed.class);
 
-  public OpenAIEmbedding(Config config) throws StageException {
+  public OpenAIEmbed(Config config) throws StageException {
     super(config, new StageSpec()
         .withRequiredProperties("source", "embed_document", "embed_children", "api_key")
         .withOptionalProperties("dest", "model_name", "dimensions"));
@@ -160,7 +160,7 @@ public class OpenAIEmbedding extends Stage {
     Response<List<Embedding>> response;
     try {
       response = model.embedAll(textSegments);
-    } catch (RuntimeException e) {
+    } catch (Exception e) { // catch all exceptions thrown by OpenAI/LangChain4J
       throw new StageException("failed to get embedding for childDocs: ", e);
     }
 
