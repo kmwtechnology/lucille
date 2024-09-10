@@ -57,18 +57,6 @@ public class HeartbeatTest {
 
     String lastLine = lines.skip(currentLineCount - 1).findFirst().get();
     assertTrue(lastLine.contains("INFO Heartbeat: Issuing heartbeat"));
-
-    //Thread.sleep(1000);
-
-    Collection<Thread> nonSystemThreadsAfter =
-        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
-
-    for (Thread thread : nonSystemThreadsAfter) {
-      log.info("THREAD testWatcher AFTER: {}", thread.getName());
-      if (ThreadNameUtils.isLucilleThread(thread)) {
-        log.info("testWatcher failed here");
-      }
-    }
   }
 
 }

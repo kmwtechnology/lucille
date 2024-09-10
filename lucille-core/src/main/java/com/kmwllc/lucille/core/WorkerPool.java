@@ -84,7 +84,7 @@ public class WorkerPool {
       try {
         WorkerMessenger messenger = workerMessengerFactory.create();
 
-        String name = ThreadNameUtils.setThreadPrefix("Worker-" + (i+1));
+        String name = ThreadNameUtils.createName("Worker-" + (i+1));
         // will throw exception if pipeline has errors
         Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix);
         workerList.add(worker);
@@ -92,7 +92,7 @@ public class WorkerPool {
         threads.add(Worker.startThread(config, worker, name));
         // start timer on last iteration to be within try catch block
         if (i == numWorkers - 1) {
-          executorService = startTimer(workerList, maxProcessingSecs, ThreadNameUtils.setThreadPrefix("ExecutorService"));
+          executorService = startTimer(workerList, maxProcessingSecs, ThreadNameUtils.createName("ExecutorService"));
         }
       } catch (Exception e) {
         log.error("Exception caught when starting Worker thread {}; aborting", i+1);

@@ -4,7 +4,7 @@ public class ThreadNameUtils {
   public static final String THREAD_NAME_PREFIX = "Lucille";
 
 
-  public static String setThreadPrefix(String name) {
+  public static String createName(String name) {
     return THREAD_NAME_PREFIX + "-" + name;
   }
 

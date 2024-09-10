@@ -363,7 +363,7 @@ public class Runner {
       }
     } else {
       try {
-        ConnectorThread connectorThread = new ConnectorThread(connector, publisher, ThreadNameUtils.setThreadPrefix("Connector"));
+        ConnectorThread connectorThread = new ConnectorThread(connector, publisher, ThreadNameUtils.createName("Connector"));
         connectorThread.start();
         final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
             config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
@@ -443,7 +443,7 @@ public class Runner {
           return new ConnectorResult(connector, publisher, false, msg);
         }
 
-        indexerThread = new Thread(indexer, ThreadNameUtils.setThreadPrefix("Indexer"));
+        indexerThread = new Thread(indexer, ThreadNameUtils.createName("Indexer"));
         indexerThread.start();
       }
 
