@@ -41,12 +41,6 @@ public class PineconeIndexer extends Indexer {
     this.metadataFields = new HashSet<>(config.getStringList("pinecone.metadataFields"));
     this.mode = config.hasPath("pinecone.mode") ? config.getString("pinecone.mode") : "upsert";
     this.defaultEmbeddingField = ConfigUtils.getOrDefault(config, "pinecone.defaultEmbeddingField", null);
-    // providing environment is only for pod-based indexes, but pinecone is moving to serverless; cheaper and more performant
-    // moving from pod based to serverless https://docs.pinecone.io/guides/indexes/migrate-a-pod-based-index-to-serverless
-    // api key is now project specific, so no need for project more info here https://docs.pinecone.io/guides/get-started/key-concepts
-//    PineconeConfig configuration = new PineconeConfig(config.getString("pinecone.apiKey"))
-//        .withEnvironment(config.getString("pinecone.environment")).withProjectName(config.getString("pinecone.projectName"))
-//        .withServerSideTimeoutSec(config.getInt("pinecone.timeout"));
     this.client = new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
     this.index = this.client.getIndexConnection(this.indexName);
     if (namespaces == null && defaultEmbeddingField == null) {
