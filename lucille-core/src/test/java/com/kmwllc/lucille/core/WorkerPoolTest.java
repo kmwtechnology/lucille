@@ -83,6 +83,14 @@ public class WorkerPoolTest {
 
     assertThrows(Exception.class, () -> { pool.start(); });
 
+    Collection<Thread> nonSystemThreadsAfter =
+        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
+
+    for (Thread thread : nonSystemThreadsAfter) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
+        fail("Lucille threads are still running");
+      }
+    }
   }
 
   @Test
@@ -92,5 +100,14 @@ public class WorkerPoolTest {
     WorkerPool pool = new WorkerPool(config, "pipeline1", null, "");
 
     assertThrows(Exception.class, () -> { pool.start(); });
+
+    Collection<Thread> nonSystemThreadsAfter =
+        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
+
+    for (Thread thread : nonSystemThreadsAfter) {
+      if (ThreadNameUtils.isLucilleThread(thread)) {
+        fail("Lucille threads are still running");
+      }
+    }
   }
 }

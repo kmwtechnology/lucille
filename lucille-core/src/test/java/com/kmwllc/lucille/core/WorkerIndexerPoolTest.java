@@ -44,16 +44,6 @@ public class WorkerIndexerPoolTest {
 
   @Test
   public void testThreadCleanupUponEncounteringConfigProblem() throws Exception {
-    Collection<Thread> nonSystemThreadsBefore =
-        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
-
-    for (Thread thread : nonSystemThreadsBefore) {
-      log.info("THREAD testThreadCleanupUponEncounteringConfigProblem BEFORE: {}", thread.getName());
-      if (ThreadNameUtils.isLucilleThread(thread)) {
-        fail("Lucille threads are running before run has started");
-      }
-    }
-
     // simulate a config error by passing an empty config to WorkerIndexerPool
     Config config = ConfigFactory.empty();
     WorkerIndexerPool pool = new WorkerIndexerPool(config, "pipeline12345", true, null);
@@ -64,7 +54,6 @@ public class WorkerIndexerPoolTest {
         ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
 
     for (Thread thread : nonSystemThreadsAfter) {
-      log.info("THREAD testThreadCleanupUponEncounteringConfigProblem AFTER: {}", thread.getName());
       if (ThreadNameUtils.isLucilleThread(thread)) {
         fail("Lucille threads are still running");
       }
