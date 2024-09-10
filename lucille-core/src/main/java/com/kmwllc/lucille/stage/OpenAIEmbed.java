@@ -94,9 +94,8 @@ public class OpenAIEmbed extends Stage {
     ModelType modelType = ModelType.fromName(modelName.getModelName()).orElse(ModelType.TEXT_EMBEDDING_3_SMALL);
 
     if (!modelName.getModelName().equals(modelType.getName())) {
-      log.info("using OpenAI {} encoding to count tokens", modelType.getName());
-      throw new StageException("Model used for embedding is different from model used for counting tokens. Check your model_name"
-          + "configuration. It should either be 'text-embedding-3-small', 'text-embedding-3-large' or 'text-embedding-ada-002'.");
+      log.error("model_name: {} does not match model type: {}", modelName.getModelName(), modelType.getName());
+      throw new StageException("Model used for embedding is different from model used for counting tokens.");
     }
 
     enc = Encodings.newDefaultEncodingRegistry().getEncodingForModel(modelType);
@@ -119,7 +118,7 @@ public class OpenAIEmbed extends Stage {
       }
     }
 
-    List<Document> processedDocs = sendForBatchEmbedding(documentsToEmbed, doc);
+    List<Document> processedDocs = sendForEmbedding(documentsToEmbed, doc);
 
     // currently do not support modifying children, so now explicitly cloning (getChildren()), processing and replacing old children
     if (embedChildren && doc.hasChildren()) {
@@ -139,7 +138,7 @@ public class OpenAIEmbed extends Stage {
     return doc.hasNonNull(source) && !StringUtils.isBlank(doc.getString(source));
   }
 
-  private List<Document> sendForBatchEmbedding(List<Document> docsToEmbed, Document parentDoc) throws StageException {
+  private List<Document> sendForEmbedding(List<Document> docsToEmbed, Document parentDoc) throws StageException {
     // if there is no embedding done on this document, carry on with lucille-run with other documents
     if (docsToEmbed.isEmpty()) {
       log.warn("No documents to embed. Check your source field, embed_children and embed_document setting in your config file if you"
