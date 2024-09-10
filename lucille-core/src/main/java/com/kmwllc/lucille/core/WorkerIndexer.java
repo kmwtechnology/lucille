@@ -96,8 +96,7 @@ public class WorkerIndexer {
     indexerThread.start();
     String name = ThreadNameUtils.createName("WorkerIndexer");
     Worker worker = new Worker(config, workerMessageManager, pipelineName, pipelineName);
-    workerThread =
-        Worker.startThread(config, worker, name);
+    workerThread = Worker.startThread(worker, name);
   }
 
   public void stop() throws Exception {

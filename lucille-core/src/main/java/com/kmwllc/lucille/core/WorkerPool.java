@@ -89,7 +89,7 @@ public class WorkerPool {
         Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix);
         workerList.add(worker);
         // start workerThread
-        threads.add(Worker.startThread(config, worker, name));
+        threads.add(Worker.startThread(worker, name));
         // start timer on last iteration to be within try catch block
         if (i == numWorkers - 1) {
           executorService = startTimer(workerList, maxProcessingSecs, ThreadNameUtils.createName("ExecutorService"));

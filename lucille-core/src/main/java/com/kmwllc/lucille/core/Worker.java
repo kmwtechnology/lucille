@@ -170,8 +170,8 @@ class Worker implements Runnable {
     return pollInstant;
   }
 
-  public static WorkerThread startThread(Config config, Worker worker, String name) {
-    WorkerThread workerThread = new WorkerThread(worker, config, name);
+  public static WorkerThread startThread(Worker worker, String name) {
+    WorkerThread workerThread = new WorkerThread(worker, name);
     workerThread.start();
     return workerThread;
   }
