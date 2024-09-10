@@ -75,29 +75,28 @@ public class WorkerPool {
     started = true;
     log.info("Starting " + numWorkers + " worker threads for pipeline " + pipelineName);
     List<Worker> workers = new ArrayList<>();
-    for (int i = 0; i < numWorkers; i++) {
-      try {
+
+    try {
+      for (int i = 0; i < numWorkers; i++) {
         WorkerMessenger messenger = workerMessengerFactory.create();
 
-        String name = ThreadNameUtils.createName("Worker-" + (i+1));
+        String name = ThreadNameUtils.createName("Worker-" + (i + 1));
         // will throw exception if pipeline has errors
         Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix);
         workers.add(worker);
         // start workerThread
         threads.add(Worker.startThread(worker, name));
-        // start watcher on last iteration to be within try catch block
-        if (i == numWorkers - 1) {
-          watcherService = startWatcher(workers, maxProcessingSecs);
-        }
-      } catch (Exception e) {
-        log.error("Exception caught when starting Worker thread {}; aborting", i+1);
-        try {
-          stop();
-        } catch (Exception e2) {
-          log.error("Exception caught when attempting to stop Worker threads because of a startup problem", e2);
-        }
-        throw e;
       }
+
+      watcherService = startWatcher(workers, maxProcessingSecs);
+    } catch (Exception e) {
+      log.error("Exception caught when starting Worker threads; aborting");
+      try {
+        stop();
+      } catch (Exception e2) {
+        log.error("Exception caught when attempting to stop Worker threads because of a startup problem", e2);
+      }
+      throw e;
     }
   }
 
