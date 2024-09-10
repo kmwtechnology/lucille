@@ -7,8 +7,9 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import opennlp.tools.sentdetect.SentenceDetector;
 import opennlp.tools.sentdetect.SentenceDetectorME;
 import opennlp.tools.sentdetect.SentenceModel;
@@ -32,7 +33,8 @@ import org.apache.logging.log4j.Logger;
  *  4. custom chunking: regex option in config required, used to split content
  * - regex (String, only for custom chunking): regEx that will be used to split chunks
  * - length_to_split (Integer, only for fixedSizedChunking)
- * - minimum_chunk_length (Integer, optional): filters out chunks of length less than amount before merging and overlapping
+ * - pre_merge_min_chunk_len (Integer, optional): removes and append chunk to the neighboring chunk if below given number of characters,
+ *    defaults appending to next chunk.
  * - pre_merge_max_chunk_len (Integer, optional): truncates the chunks if over given amount, applies before merging and overlapping
  * - chunks_to_merge (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.
  *    defaults to 1, keeping the chunks as they were after splitting.
@@ -44,7 +46,7 @@ import org.apache.logging.log4j.Logger;
  *       - "id" : the child id, in the format of "parent_id-chunk_number"
  *       - "parent_id" : id of parent Document
  *       - "offset" : number of character offset from start of document
- *       - "length" : number of characters in this chunks
+ *       - "length" : number of characters in this chunk
  *       - "chunk_number" : chunk number
  *       - "total_chunk_number" : total chunk number produced from parent document
  *       - "chunk" : the chunk contents. field name can be changed with config option "dest"
@@ -57,7 +59,7 @@ public class Chunking extends Stage {
   private final ChunkingMethod method;
   private final String regEx;
   private final Integer lengthToSplit;
-  private final Integer minimumChunkLength;
+  private final Integer preMergeMinChunkLen;
   private final Integer preMergeMaxChunkLen;
   private final boolean cleanChunks;
   private final Integer chunksToMerge;
@@ -78,7 +80,7 @@ public class Chunking extends Stage {
     lengthToSplit = config.hasPath("length_to_split") && config.getInt("length_to_split") > 0
         ? config.getInt("length_to_split") : null;
     cleanChunks = config.hasPath("clean_chunks") ? config.getBoolean("clean_chunks") : false;
-    minimumChunkLength = config.hasPath("min_chunk_length") && config.getInt("min_chunk_length") > 0
+    preMergeMinChunkLen = config.hasPath("pre_merge_min_chunk_length") && config.getInt("min_chunk_length") > 0
         ? config.getInt("min_chunk_length") : -1;
     preMergeMaxChunkLen = config.hasPath("pre_merge_max_chunk_len") && config.getInt("pre_merge_max_chunk_len") > 0
         ? config.getInt("pre_merge_max_chunk_len") : -1;
@@ -152,8 +154,8 @@ public class Chunking extends Stage {
     // removing newline characters and trim if clean chunks was selected
     if (cleanChunks) cleanChunks(chunks);
 
-    // filtering chunks by number of characters
-    if (minimumChunkLength > 0) chunks = filterChunksByLength(chunks, minimumChunkLength);
+    // append chunk to the next available chunk if below a certain number of characters, else append to chunk before.
+    if (preMergeMinChunkLen > 0) chunks = appendChunksByLength(chunks, preMergeMinChunkLen);
 
     // truncating chunks by number before processing each chunk
     if (preMergeMaxChunkLen > 0) truncateRest(chunks, preMergeMaxChunkLen);
@@ -206,10 +208,38 @@ public class Chunking extends Stage {
     }
   }
 
-  private String[] filterChunksByLength(String[] inputStrings, Integer minimumChunkLength) {
-    return Arrays.stream(inputStrings)
-        .filter(s -> s != null && s.length() > minimumChunkLength)
-        .toArray(String[]::new);
+  private String[] appendChunksByLength(String[] chunks, Integer minimumChunkLength) {
+    int originalChunksLength = chunks.length;
+    if (originalChunksLength <= 1) return chunks;
+
+    List<String> finalChunks = new ArrayList<>();
+    StringBuilder currentChunk = new StringBuilder();
+
+    for (int i = 0; i < originalChunksLength; i++) {
+      currentChunk.append(chunks[i]);
+
+      // if current chunk is smaller and is not the last chunk
+      if (currentChunk.length() <= minimumChunkLength && i + 1 < originalChunksLength) {
+        continue;
+      }
+
+      // not large enough but final chunk and finalChunks is not empty
+      if (currentChunk.length() <= minimumChunkLength && i + 1 == originalChunksLength) {
+        // append current chunk to last added chunk
+        if (!finalChunks.isEmpty()) {
+          String chunkToAppend = finalChunks.removeLast();
+          currentChunk = new StringBuilder(chunkToAppend).append(currentChunk);
+        } else {
+          log.warn("all chunks added together will not reach pre merge minimum chunk length. Merging all chunks into one...");
+        }
+      }
+
+      // add currentChunk to finalChunk and reset currentChunk
+      finalChunks.add(currentChunk.toString());
+      currentChunk.setLength(0);
+    }
+
+    return finalChunks.toArray(new String[0]);
   }
 
   private String[] mergeChunks(String[] chunks, int chunkSize) {
