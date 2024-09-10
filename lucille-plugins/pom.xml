@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.2.5-SNAPSHOT</version>
+    <version>0.3.1-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
@@ -17,6 +17,7 @@
   <name>Lucille Plugins</name>
 
   <modules>
+    <module>lucille-api</module>
     <module>lucille-pinecone</module>
     <module>lucille-weaviate</module>
     <module>lucille-parquet</module>

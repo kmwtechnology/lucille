@@ -6,11 +6,10 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
-import java.util.List;
 
-public class NoopStage extends Stage {
+public class NopStage extends Stage {
 
-  public NoopStage(Config config) {
+  public NopStage(Config config) {
     super(config);
   }
 
