@@ -85,7 +85,7 @@ public class WorkerPool {
         workers.add(worker);
         // start workerThread
         threads.add(Worker.startThread(worker, name));
-        // start timer on last iteration to be within try catch block
+        // start watcher on last iteration to be within try catch block
         if (i == numWorkers - 1) {
           watcherService = startWatcher(workers, maxProcessingSecs);
         }
@@ -106,7 +106,7 @@ public class WorkerPool {
     for (WorkerThread workerThread : threads) {
       workerThread.terminate();
     }
-    // shutdown executorService gracefully
+    // shutdown watcherService gracefully
     if (watcherService != null) {
       stopWatcher(watcherService);
     }

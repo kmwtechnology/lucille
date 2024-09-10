@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -24,7 +23,6 @@ import org.slf4j.LoggerFactory;
  */
 @RunWith(JUnit4.class)
 public class WorkerIndexerPoolTest {
-  private static final Logger log = LoggerFactory.getLogger(WorkerIndexerPoolTest.class);
 
   @Test
   public void testParseConfig() throws Exception {

@@ -6,17 +6,12 @@ import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Set;
 import org.apache.commons.lang3.ThreadUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -25,8 +20,6 @@ import static org.mockito.Mockito.verify;
 
 @RunWith(JUnit4.class)
 public class WorkerPoolTest {
-
-  private static final Logger log = LoggerFactory.getLogger(WorkerPoolTest.class);
 
   @Test
   public void testParseConfig() throws Exception {
@@ -61,7 +54,6 @@ public class WorkerPoolTest {
    */
   @Test
   public void testManagerClose() throws Exception {
-
     TestMessenger messenger = Mockito.spy(new TestMessenger());
     WorkerMessengerFactory factory = WorkerMessengerFactory.getConstantFactory(messenger);
     WorkerPool pool = new WorkerPool(ConfigFactory.load("WorkerPoolTest/onePipeline.conf"),
@@ -95,7 +87,6 @@ public class WorkerPoolTest {
 
   @Test
   public void testThreadCleanupUponEncounteringNullMessenger() throws Exception {
-
     Config config = ConfigFactory.load("WorkerPoolTest/config.conf");
     WorkerPool pool = new WorkerPool(config, "pipeline1", null, "");
 

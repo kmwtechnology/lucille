@@ -2,25 +2,17 @@ package com.kmwllc.lucille.core;
 
 import com.kmwllc.lucille.message.LocalMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
-import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.util.Collection;
-import org.apache.commons.lang3.ThreadUtils;
 import org.junit.Test;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.util.stream.Stream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 public class HeartbeatTest {
-
-  private static final Logger log = LoggerFactory.getLogger(HeartbeatTest.class);
 
   @Test
   public void testWatcher() throws Exception {

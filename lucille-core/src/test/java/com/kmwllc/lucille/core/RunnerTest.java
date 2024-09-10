@@ -21,8 +21,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,7 +28,6 @@ import static org.mockito.Mockito.*;
 
 @RunWith(JUnit4.class)
 public class RunnerTest {
-  private static final Logger log = LoggerFactory.getLogger(RunnerTest.class);
   @Test
   public void testRunnerWithNoDocs() throws Exception {
     // we should be able to run a connector that generates no documents
