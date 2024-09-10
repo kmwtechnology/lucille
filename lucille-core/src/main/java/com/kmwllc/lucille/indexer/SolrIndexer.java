@@ -161,6 +161,7 @@ public class SolrIndexer extends Indexer {
         }
 
       } else {
+        // note that solrDoc after this code block does not guarantee that "id" field is in document
         SolrInputDocument solrDoc = toSolrDoc(doc, idOverride, collection);
 
         // if the delete requests contain the ID of this document, send the deletes immediately so
@@ -172,7 +173,7 @@ public class SolrIndexer extends Indexer {
           sendDeletionBatch(collection, solrDocRequests);
           solrDocRequests.resetDeletes();
         }
-        solrDocRequests.addDocForAddUpdate(solrDoc);
+        solrDocRequests.addDocForAddUpdate(solrDoc, solrId);
       }
     }
     for (String collection : solrDocRequestsByCollection.keySet()) {
@@ -246,6 +247,7 @@ public class SolrIndexer extends Indexer {
 
   private SolrInputDocument toSolrDoc(Document doc, String idOverride, String indexOverride)
       throws IndexerException {
+    // removes fields from ignoredFields config, including id
     Map<String, Object> map = getIndexerDoc(doc);
     SolrInputDocument solrDoc = new SolrInputDocument();
 
@@ -254,7 +256,7 @@ public class SolrIndexer extends Indexer {
       if (Document.CHILDREN_FIELD.equals(key)) {
         continue;
       }
-
+      
       if (idOverride != null && Document.ID_FIELD.equals(key)) {
         solrDoc.setField(Document.ID_FIELD, idOverride);
         continue;
@@ -285,7 +287,9 @@ public class SolrIndexer extends Indexer {
       return;
     }
     for (Document child : children) {
-      Map<String, Object> map = child.asMap();
+      // remove key:value pair mappings if they appear in ignoreFields
+      Map<String, Object> map = getIndexerDoc(child);
+
       SolrInputDocument solrChild = new SolrInputDocument();
       for (String key : map.keySet()) {
         // we don't support children that contain nested children
