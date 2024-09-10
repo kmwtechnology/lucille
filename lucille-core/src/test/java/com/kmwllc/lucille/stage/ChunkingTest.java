@@ -262,9 +262,6 @@ public class ChunkingTest {
 
     stage.processDocument(doc);
     List<Document> childrenDocs = doc.getChildren();
-    for (Document child : childrenDocs) {
-      System.out.println(child.getString("chunk"));
-    }
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
     Document child3 = childrenDocs.get(2);

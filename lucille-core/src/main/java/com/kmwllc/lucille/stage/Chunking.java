@@ -71,22 +71,22 @@ public class Chunking extends Stage {
         .withOptionalProperties("chunking_method", "chunks_to_merge", "dest", "regex", "character_limit",
             "clean_chunks", "overlap_percentage", "length_to_split", "min_chunk_length", "pre_merge_max_chunk_len")
         .withRequiredProperties("source"));
-    characterLimit = config.hasPath("character_limit") ? config.getInt("character_limit") : -1;
-    chunksToMerge = config.hasPath("chunks_to_merge") ? config.getInt("chunks_to_merge") : 1;
-    method = ChunkingMethod.fromConfig(config);
-    regEx = config.hasPath("regex") ? config.getString("regex") : "";
     source = config.getString("source");
     dest = config.hasPath("dest") ? config.getString("dest") : "chunk";
-    cleanChunks = config.hasPath("clean_chunks") ? config.getBoolean("clean_chunks") : false;
-    overlapPercentage = config.hasPath("overlap_percentage") ? config.getInt("overlap_percentage") : 0;
+    method = ChunkingMethod.fromConfig(config);
+    regEx = config.hasPath("regex") ? config.getString("regex") : "";
     lengthToSplit = config.hasPath("length_to_split") && config.getInt("length_to_split") > 0
         ? config.getInt("length_to_split") : null;
+    cleanChunks = config.hasPath("clean_chunks") ? config.getBoolean("clean_chunks") : false;
     minimumChunkLength = config.hasPath("min_chunk_length") && config.getInt("min_chunk_length") > 0
         ? config.getInt("min_chunk_length") : -1;
     preMergeMaxChunkLen = config.hasPath("pre_merge_max_chunk_len") && config.getInt("pre_merge_max_chunk_len") > 0
         ? config.getInt("pre_merge_max_chunk_len") : -1;
+    chunksToMerge = config.hasPath("chunks_to_merge") ? config.getInt("chunks_to_merge") : 1;
+    overlapPercentage = config.hasPath("overlap_percentage") ? config.getInt("overlap_percentage") : 0;
+    characterLimit = config.hasPath("character_limit") ? config.getInt("character_limit") : -1;
     if (chunksToMerge < 1) {
-      throw new StageException("Final chunk size must be greater than 1.");
+      throw new StageException("Final chunk size must be greater or equal to 1.");
     }
     if (overlapPercentage < 0 || overlapPercentage > 50) {
       throw new StageException("Overlap percentage must be between 0 and 50.");
@@ -185,10 +185,6 @@ public class Chunking extends Stage {
   }
 
   public String[] splitBySize(String input, int chunkSize) {
-    if (input == null || chunkSize <= 0) {
-      throw new IllegalArgumentException("Input string cannot be null and chunk size must be greater than 0");
-    }
-
     int inputLength = input.length();
     int numOfChunks = (inputLength + chunkSize - 1) / chunkSize;
     String[] chunks = new String[numOfChunks];
@@ -224,15 +220,15 @@ public class Chunking extends Stage {
 
     for (int i = 0, chunkIndex = 0; i < resultSize; i++) {
       sb.setLength(0);
-      int count = 0;
-      while (count < chunkSize && chunkIndex < length) {
-        if (count > 0) {
-          sb.append(" ");
-        }
-        sb.append(chunks[chunkIndex++]);
-        count++;
+      int endIndex = Math.min(chunkIndex + chunkSize, length);
+      sb.append(chunks[chunkIndex]);
+
+      for (int j = chunkIndex + 1; j < endIndex; j++) {
+        sb.append(' ').append(chunks[j]);
       }
-      result[i] = sb.toString();
+
+      result[i] = sb.toString().trim();
+      chunkIndex = endIndex;
     }
 
     return result;
@@ -251,7 +247,7 @@ public class Chunking extends Stage {
       sb.append(chunks[i]);
 
       // calculate the number of characters to overlap
-      int overlapChars = Math.floorDiv(chunks[i].length() * overlapPercentage, 100);
+      int overlapChars = chunks[i].length() * overlapPercentage / 100;
 
       // Add overlap from the previous chunk
       if (i > 0) {
