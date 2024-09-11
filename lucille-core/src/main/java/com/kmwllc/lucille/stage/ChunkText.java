@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.ChunkingMethod;
+import com.kmwllc.lucille.stage.util.ChunkingMethod;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -39,6 +39,7 @@ import org.apache.logging.log4j.Logger;
  * - chunks_to_merge (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.
  *    defaults to 1, keeping the chunks as they were after splitting.
  * - overlap_percentage (Integer, optional) : adds on neighboring chunk's content based on percentage of current chunk, defaults to 0
+ * - chunks_to_overlap (Integer, optional) : indicate the number of overlap of smaller chunks to overlap while merging into final chunk
  * - character_limit (Integer, optional) : hard limit number of characters in a chunk. Truncate rest. Performed after
  *   merging & overlapping if they are set.
  *
@@ -52,7 +53,7 @@ import org.apache.logging.log4j.Logger;
  *       - "chunk" : the chunk contents. field name can be changed with config option "dest"
  */
 
-public class Chunking extends Stage {
+public class ChunkText extends Stage {
 
   private final String source;
   private final String dest;
@@ -63,15 +64,17 @@ public class Chunking extends Stage {
   private final Integer preMergeMaxChunkLen;
   private final boolean cleanChunks;
   private final Integer chunksToMerge;
+  private final Integer chunksToOverlap;
   private final Integer overlapPercentage;
   private final Integer characterLimit;
   private SentenceDetector sentenceDetector;
-  private static final Logger log = LogManager.getLogger(Chunking.class);
+  private static final Logger log = LogManager.getLogger(ChunkText.class);
 
-  public Chunking(Config config) throws StageException {
+  public ChunkText(Config config) throws StageException {
     super(config, new StageSpec()
         .withOptionalProperties("chunking_method", "chunks_to_merge", "dest", "regex", "character_limit",
-            "clean_chunks", "overlap_percentage", "length_to_split", "min_chunk_length", "pre_merge_max_chunk_len")
+            "clean_chunks", "overlap_percentage", "length_to_split", "pre_merge_min_chunk_len", "pre_merge_max_chunk_len",
+            "chunks_to_overlap")
         .withRequiredProperties("source"));
     source = config.getString("source");
     dest = config.hasPath("dest") ? config.getString("dest") : "chunk";
@@ -80,18 +83,16 @@ public class Chunking extends Stage {
     lengthToSplit = config.hasPath("length_to_split") && config.getInt("length_to_split") > 0
         ? config.getInt("length_to_split") : null;
     cleanChunks = config.hasPath("clean_chunks") ? config.getBoolean("clean_chunks") : false;
-    preMergeMinChunkLen = config.hasPath("pre_merge_min_chunk_length") && config.getInt("min_chunk_length") > 0
-        ? config.getInt("min_chunk_length") : -1;
+    preMergeMinChunkLen = config.hasPath("pre_merge_min_chunk_len") && config.getInt("pre_merge_min_chunk_len") > 0
+        ? config.getInt("pre_merge_min_chunk_len") : -1;
     preMergeMaxChunkLen = config.hasPath("pre_merge_max_chunk_len") && config.getInt("pre_merge_max_chunk_len") > 0
         ? config.getInt("pre_merge_max_chunk_len") : -1;
     chunksToMerge = config.hasPath("chunks_to_merge") ? config.getInt("chunks_to_merge") : 1;
+    chunksToOverlap = config.hasPath("chunks_to_overlap") ? config.getInt("chunks_to_overlap") : null;
     overlapPercentage = config.hasPath("overlap_percentage") ? config.getInt("overlap_percentage") : 0;
     characterLimit = config.hasPath("character_limit") ? config.getInt("character_limit") : -1;
     if (chunksToMerge < 1) {
       throw new StageException("Final chunk size must be greater or equal to 1.");
-    }
-    if (overlapPercentage < 0 || overlapPercentage > 50) {
-      throw new StageException("Overlap percentage must be between 0 and 50.");
     }
     if (characterLimit < -1) {
       throw new StageException("Character limit must be a positive integer if set.");
@@ -101,6 +102,12 @@ public class Chunking extends Stage {
     }
     if (method == ChunkingMethod.FIXED && lengthToSplit == null) {
       throw new StageException("Provide a positive length to split for fixed sized chunking.");
+    }
+    if (chunksToOverlap != null && overlapPercentage > 0) {
+      throw new StageException("both chunksToOverlap and overlapPercentage cannot be used. Choose one overlap option.");
+    }
+    if (chunksToOverlap != null && chunksToOverlap >= chunksToMerge) {
+      throw new StageException("Chunks to overlap must be smaller than final chunk size.");
     }
   }
 
@@ -155,16 +162,21 @@ public class Chunking extends Stage {
     if (cleanChunks) cleanChunks(chunks);
 
     // append chunk to the next available chunk if below a certain number of characters, else append to chunk before.
-    if (preMergeMinChunkLen > 0) chunks = appendChunksByLength(chunks, preMergeMinChunkLen);
+    if (preMergeMinChunkLen > 0) chunks = filterByAppend(chunks, preMergeMinChunkLen);
 
     // truncating chunks by number before processing each chunk
     if (preMergeMaxChunkLen > 0) truncateRest(chunks, preMergeMaxChunkLen);
 
-    // merge chunks if we have final chunk size set more than 1
-    if (chunksToMerge > 1) chunks = mergeChunks(chunks, chunksToMerge);
+    // either merging by percentage or by number of chunks
+    if (chunksToOverlap != null) {
+      chunks = mergeAndOverlapChunks(chunks, chunksToMerge, chunksToOverlap);
+    } else {
+      // merge chunks if we have final chunk size set more than 1
+      if (chunksToMerge > 1) chunks = mergeChunks(chunks, chunksToMerge);
 
-    // overlap chunks if we have overlap percentage set
-    if (overlapPercentage > 0) chunks = overlapChunks(chunks, overlapPercentage);
+      // overlap chunks if we have overlap percentage set
+      if (overlapPercentage > 0) chunks = overlapChunks(chunks, overlapPercentage);
+    }
 
     // truncating if we have character limit set
     if (characterLimit > 0) truncateRest(chunks, characterLimit);
@@ -175,6 +187,36 @@ public class Chunking extends Stage {
     createChildrenDocsWithChunks(doc, chunks);
 
     return null;
+  }
+
+  private String[] mergeAndOverlapChunks(String[] chunks, Integer chunksToMerge, Integer chunksToOverlap) {
+    // invalid if chunks is null/empty, or lesser than final chunk size, no point overlapping
+    if (isInvalidInput(chunks)) {
+      return chunks;
+    }
+
+    int chunkLength = chunks.length;
+    int stepSize = chunksToMerge - chunksToOverlap;;
+    int endIndex = chunkLength - chunksToOverlap;
+    int resultSize = (endIndex - 1) / stepSize + 1;
+    String[] resultChunks = new String[resultSize];
+    StringBuilder sb = new StringBuilder();
+
+    // go through each window and merge them
+    for (int i = 0, resultIndex = 0; i < endIndex; i += stepSize, resultIndex++) {
+      sb.setLength(0);
+      for (int j = i; j < Math.min(i + chunksToMerge, chunkLength); j++) {
+        sb.append(chunks[j]).append(" ");
+      }
+      // for testing: log.info("{} {} {}", i, resultIndex, sb.toString());
+      resultChunks[resultIndex] = sb.toString().trim();
+    }
+    return resultChunks;
+  }
+
+  // true if chunks is null, empty or the final chunk size is larger than the total chunks length
+  private boolean isInvalidInput(String[] chunks) {
+    return chunks == null || chunks.length == 0 || chunksToMerge > chunks.length;
   }
 
   private void truncateRest(String[] chunks, int characterLimit) {
@@ -208,7 +250,7 @@ public class Chunking extends Stage {
     }
   }
 
-  private String[] appendChunksByLength(String[] chunks, Integer minimumChunkLength) {
+  private String[] filterByAppend(String[] chunks, Integer minimumChunkLength) {
     int originalChunksLength = chunks.length;
     if (originalChunksLength <= 1) return chunks;
 
@@ -216,26 +258,26 @@ public class Chunking extends Stage {
     StringBuilder currentChunk = new StringBuilder();
 
     for (int i = 0; i < originalChunksLength; i++) {
-      currentChunk.append(chunks[i]);
+      currentChunk.append(chunks[i]).append(" ");
 
       // if current chunk is smaller and is not the last chunk
-      if (currentChunk.length() <= minimumChunkLength && i + 1 < originalChunksLength) {
+      if (currentChunk.length() < minimumChunkLength && i + 1 < originalChunksLength) {
         continue;
       }
 
       // not large enough but final chunk and finalChunks is not empty
-      if (currentChunk.length() <= minimumChunkLength && i + 1 == originalChunksLength) {
+      if (currentChunk.length() < minimumChunkLength && i + 1 == originalChunksLength) {
         // append current chunk to last added chunk
         if (!finalChunks.isEmpty()) {
-          String chunkToAppend = finalChunks.removeLast();
-          currentChunk = new StringBuilder(chunkToAppend).append(currentChunk);
+          String chunkToAppend = finalChunks.remove(finalChunks.size() - 1);
+          currentChunk = new StringBuilder(chunkToAppend).append(" ").append(currentChunk);
         } else {
           log.warn("all chunks added together will not reach pre merge minimum chunk length. Merging all chunks into one...");
         }
       }
 
       // add currentChunk to finalChunk and reset currentChunk
-      finalChunks.add(currentChunk.toString());
+      finalChunks.add(currentChunk.toString().trim());
       currentChunk.setLength(0);
     }
 

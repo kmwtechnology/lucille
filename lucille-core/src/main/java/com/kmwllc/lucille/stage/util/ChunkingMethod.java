@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core;
+package com.kmwllc.lucille.stage.util;
 
 import com.typesafe.config.Config;
 
