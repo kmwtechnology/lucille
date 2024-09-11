@@ -2,19 +2,17 @@ package com.kmwllc.lucille.core;
 
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
-import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.util.Collection;
-import org.apache.commons.lang3.ThreadUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
+import static com.kmwllc.lucille.util.ThreadNameUtils.hasRunningLucilleThread;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -75,14 +73,7 @@ public class WorkerPoolTest {
 
     assertThrows(Exception.class, () -> { pool.start(); });
 
-    Collection<Thread> nonSystemThreadsAfter =
-        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
-
-    for (Thread thread : nonSystemThreadsAfter) {
-      if (ThreadNameUtils.isLucilleThread(thread)) {
-        fail("Lucille threads are still running");
-      }
-    }
+    assertFalse(hasRunningLucilleThread());
   }
 
   @Test
@@ -92,13 +83,6 @@ public class WorkerPoolTest {
 
     assertThrows(Exception.class, () -> { pool.start(); });
 
-    Collection<Thread> nonSystemThreadsAfter =
-        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
-
-    for (Thread thread : nonSystemThreadsAfter) {
-      if (ThreadNameUtils.isLucilleThread(thread)) {
-        fail("Lucille threads are still running");
-      }
-    }
+    assertFalse(hasRunningLucilleThread());
   }
 }
