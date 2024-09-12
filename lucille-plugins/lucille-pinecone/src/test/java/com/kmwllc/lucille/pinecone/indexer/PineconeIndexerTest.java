@@ -43,6 +43,7 @@ public class PineconeIndexerTest {
 
   private Document doc0;
   private Document doc1;
+  private Document doc2;
 
   private List<Float> doc0ForNamespace1;
   private List<Float> doc0ForNamespace2;
@@ -65,6 +66,7 @@ public class PineconeIndexerTest {
   private void setUpDocuments() {
     doc0 = Document.create("doc0");
     doc1 = Document.create("doc1");
+    doc2 = Document.create("doc2"); // empty doc without embeddings
     doc0ForNamespace1 = List.of(1.0f, 2.0f);
     doc0ForNamespace2 = List.of(3.0f, 4.0f);
     doc1ForNamespace1 = List.of(5.0f, 6.0f);
@@ -354,12 +356,12 @@ public class PineconeIndexerTest {
 
       // make sure four updates were made (one update per document per namespace)
       ArgumentCaptor<String> stringArgumentCaptor = ArgumentCaptor.forClass(String.class);
-      ArgumentCaptor<List<Float>> ListArgumentCaptor = ArgumentCaptor.forClass(List.class);
-      Mockito.verify(goodIndex, Mockito.times(4)).update(anyString(), ListArgumentCaptor.capture(), stringArgumentCaptor.capture());
+      ArgumentCaptor<List<Float>> listArgumentCaptor = ArgumentCaptor.forClass(List.class);
+      Mockito.verify(goodIndex, Mockito.times(4)).update(anyString(), listArgumentCaptor.capture(), stringArgumentCaptor.capture());
       // make sure no upserts were made
       ArgumentCaptor<String> stringArgumentCaptor2 = ArgumentCaptor.forClass(String.class);
-      ArgumentCaptor<List<VectorWithUnsignedIndices>> ListArgumentCaptor2 = ArgumentCaptor.forClass(List.class);
-      Mockito.verify(goodIndex, Mockito.times(0)).upsert(ListArgumentCaptor2.capture(), stringArgumentCaptor2.capture());
+      ArgumentCaptor<List<VectorWithUnsignedIndices>> listArgumentCaptor2 = ArgumentCaptor.forClass(List.class);
+      Mockito.verify(goodIndex, Mockito.times(0)).upsert(listArgumentCaptor2.capture(), stringArgumentCaptor2.capture());
 
       String namespace2Request1 = stringArgumentCaptor.getAllValues().get(0);
       String namespace2Request2 = stringArgumentCaptor.getAllValues().get(1);
@@ -372,13 +374,45 @@ public class PineconeIndexerTest {
       assertEquals("namespace-2", namespace2Request2);
 
       // make sure vectors are correct for each document and namespace
-      List<List<Float>> values = ListArgumentCaptor.getAllValues();
+      List<List<Float>> values = listArgumentCaptor.getAllValues();
       assertEquals(doc0ForNamespace2, values.get(0));
       assertEquals(doc1ForNamespace2, values.get(1));
       assertEquals(doc0ForNamespace1, values.get(2));
       assertEquals(doc1ForNamespace1, values.get(3));
 
       // No metadata is provided when doing updates so testing is unecessary
+    }
+  }
+
+  @Test
+  public void testFilterDocsWithNoEmbeddings() throws Exception {
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
+      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
+
+      UpsertResponse response = Mockito.mock(UpsertResponse.class);
+      when(response.getUpsertedCount()).thenReturn(1); // in this test we expect only one of the two docs to be upserted
+
+      when(goodIndex.upsert(anyList(), anyString())).thenReturn(response);
+      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
+    })) {
+      TestMessenger messenger = new TestMessenger();
+      Config configUpsert = ConfigFactory.load("PineconeIndexerTest/no-namespaces.conf");
+
+      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpsert, messenger, "testing");
+
+      indexerUpsert.validateConnection();
+
+      messenger.sendForIndexing(doc0);
+      messenger.sendForIndexing(doc2);
+      indexerUpsert.run(2);
+
+      // assert that an upsert was made
+      ArgumentCaptor<List<VectorWithUnsignedIndices>> listArgumentCaptor = ArgumentCaptor.forClass(List.class);
+      Mockito.verify(goodIndex, Mockito.times(1)).upsert(listArgumentCaptor.capture(), anyString());
+
+      // check that only one document was upserted and the vector belongs to doc0
+      assertEquals(1, listArgumentCaptor.getValue().size());
+      assertEquals(doc0ForNamespace1,listArgumentCaptor.getValue().get(0).getValuesList());
     }
   }
 }
