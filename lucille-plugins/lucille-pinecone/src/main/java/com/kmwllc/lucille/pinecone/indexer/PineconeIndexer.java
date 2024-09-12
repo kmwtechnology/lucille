@@ -76,20 +76,21 @@ public class PineconeIndexer extends Indexer {
 
   private void uploadDocuments(List<Document> documents, String embeddingField, String namespace) throws IndexerException {
 
-    List<VectorWithUnsignedIndices> upsertVectors = documents.stream()
-        .map(doc -> buildUpsertVectorWithUnsignedIndices(
-            doc.getId(),
-            doc.getFloatList(embeddingField),
-            null,
-            null,
-            Struct.newBuilder()
-                .putAllFields(doc.asMap().entrySet().stream().filter(entry -> metadataFields.contains(entry.getKey()))
-                .collect(Collectors.toUnmodifiableMap(entry -> entry.getKey(),
-                    entry -> Value.newBuilder().setStringValue(entry.getValue().toString()).build())))
-            .build()))
-        .collect(Collectors.toList());
-
     if (mode.equalsIgnoreCase("upsert")) {
+      List<VectorWithUnsignedIndices> upsertVectors = documents.stream()
+          .filter(doc -> doc.hasNonNull(embeddingField)) // buildUpsertVector would throw an error if embeddings is null
+          .map(doc -> buildUpsertVectorWithUnsignedIndices(
+              doc.getId(),
+              doc.getFloatList(embeddingField),
+              null,
+              null,
+              Struct.newBuilder()
+                  .putAllFields(doc.asMap().entrySet().stream().filter(entry -> metadataFields.contains(entry.getKey()))
+                      .collect(Collectors.toUnmodifiableMap(entry -> entry.getKey(),
+                          entry -> Value.newBuilder().setStringValue(entry.getValue().toString()).build())))
+                  .build()))
+          .collect(Collectors.toList());
+
       upsertDocuments(upsertVectors, namespace);
     }
 
@@ -122,6 +123,7 @@ public class PineconeIndexer extends Indexer {
       documents.forEach(doc -> {
         log.debug("updating docId: {} namespace: {} embedding: {}", doc.getId(), namespace, doc.getFloatList(embeddingField));
         // does not validate the existence of IDs within the index, if no records are affected, a 200 OK status is returned
+        // will only throw error if doc.getId() is null
         this.index.update(doc.getId(), doc.getFloatList(embeddingField), namespace);
       });
     } catch (Exception e) {
