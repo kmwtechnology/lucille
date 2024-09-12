@@ -20,13 +20,13 @@ public class ConfigValidationTest {
 
   @Test
   public void testConditions() {
-    testException(NoopStage.class, "conditions-field-missing.conf");
-    testException(NoopStage.class, "conditions-field-renamed.conf");
+    testException(NopStage.class, "conditions-field-missing.conf");
+    testException(NopStage.class, "conditions-field-renamed.conf");
 
-    testException(NoopStage.class, "conditions-optional-unknown.conf");
-    testException(NoopStage.class, "conditions-optional-renamed.conf");
+    testException(NopStage.class, "conditions-optional-unknown.conf");
+    testException(NopStage.class, "conditions-optional-renamed.conf");
 
-    testException(NoopStage.class, "conditions-optional-wrong.conf");
+    testException(NopStage.class, "conditions-optional-wrong.conf");
   }
 
   @Test
@@ -69,7 +69,7 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions1.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "com.kmwllc.lucille.stage.NoopStage: Stage config contains unknown property invalid_property");
+        "com.kmwllc.lucille.stage.NopStage: Stage config contains unknown property invalid_property");
     testException(exceptions1.get(1), IllegalArgumentException.class, "Stage config must contain property fields");
   }
 
@@ -83,7 +83,7 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions1.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "com.kmwllc.lucille.stage.NoopStage: Stage config contains unknown property invalid_property");
+        "com.kmwllc.lucille.stage.NopStage: Stage config contains unknown property invalid_property");
 
     testException(exceptions1.get(1), IllegalArgumentException.class, "Stage config must contain property fields");
   }
@@ -117,7 +117,7 @@ public class ConfigValidationTest {
      List<Exception> exceptions2 = exceptions.get("pipeline2");
      assertEquals(2, exceptions2.size());
   
-     testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NoopStage: " +
+     testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NopStage: " +
          "Stage config contains unknown property invalid_property");
   
      // TODO note that for the following two exceptions, the fields are retrieved before
