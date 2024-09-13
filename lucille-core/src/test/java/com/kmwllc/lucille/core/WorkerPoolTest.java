@@ -9,7 +9,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-import static com.kmwllc.lucille.util.ThreadNameUtils.hasRunningLucilleThread;
+import static com.kmwllc.lucille.util.ThreadNameUtils.areLucilleThreadsRunning;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
@@ -73,7 +73,7 @@ public class WorkerPoolTest {
 
     assertThrows(Exception.class, () -> { pool.start(); });
 
-    assertFalse(hasRunningLucilleThread());
+    assertFalse(areLucilleThreadsRunning());
   }
 
   @Test
@@ -83,6 +83,6 @@ public class WorkerPoolTest {
 
     assertThrows(Exception.class, () -> { pool.start(); });
 
-    assertFalse(hasRunningLucilleThread());
+    assertFalse(areLucilleThreadsRunning());
   }
 }

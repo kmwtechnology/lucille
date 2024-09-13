@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.core;
 
-import static com.kmwllc.lucille.util.ThreadNameUtils.hasRunningLucilleThread;
+import static com.kmwllc.lucille.util.ThreadNameUtils.areLucilleThreadsRunning;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
@@ -45,7 +45,7 @@ public class WorkerIndexerPoolTest {
 
     assertThrows(Exception.class, () -> { pool.start(); });
 
-    assertFalse(hasRunningLucilleThread());
+    assertFalse(areLucilleThreadsRunning());
   }
 
 }

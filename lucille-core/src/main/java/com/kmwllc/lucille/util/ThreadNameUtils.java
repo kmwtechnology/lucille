@@ -13,7 +13,7 @@ public class ThreadNameUtils {
 
   public static boolean isLucilleThread(Thread thread) {return thread.getName().startsWith(THREAD_NAME_PREFIX);}
 
-  public static boolean hasRunningLucilleThread() {
+  public static boolean areLucilleThreadsRunning() {
     Collection<Thread> nonSystemThreads =
         ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
 
