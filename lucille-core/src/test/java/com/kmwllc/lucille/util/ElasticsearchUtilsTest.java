@@ -1,11 +1,31 @@
 package com.kmwllc.lucille.util;
 
+import static com.kmwllc.lucille.util.ElasticsearchUtils.getAllowInvalidCert;
+import static com.kmwllc.lucille.util.ElasticsearchUtils.getElasticsearchRestClient;
+import static com.kmwllc.lucille.util.ElasticsearchUtils.getElasticsearchUrl;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.transport.ElasticsearchTransport;
+import nl.altindag.ssl.SSLFactory;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +35,7 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import com.typesafe.config.Config;
@@ -43,10 +64,10 @@ public class ElasticsearchUtilsTest {
     m = new HashMap<>();
     Config none = ConfigFactory.parseMap(m);
 
-    assertTrue(ElasticsearchUtils.getAllowInvalidCert(allCaps));
-    assertTrue(ElasticsearchUtils.getAllowInvalidCert(allLower));
-    assertFalse(ElasticsearchUtils.getAllowInvalidCert(allLowerFalse));
-    assertFalse(ElasticsearchUtils.getAllowInvalidCert(allCapsFalse));
+    assertTrue(getAllowInvalidCert(allCaps));
+    assertTrue(getAllowInvalidCert(allLower));
+    assertFalse(getAllowInvalidCert(allLowerFalse));
+    assertFalse(getAllowInvalidCert(allCapsFalse));
   }
 
   @Test
@@ -58,8 +79,8 @@ public class ElasticsearchUtilsTest {
     m = new HashMap<>();
     Config nothing = ConfigFactory.parseMap(m);
 
-    assertEquals("foo", ElasticsearchUtils.getElasticsearchUrl(foo));
-    assertThrows(Exception.class, () -> ElasticsearchUtils.getElasticsearchUrl(nothing));
+    assertEquals("foo", getElasticsearchUrl(foo));
+    assertThrows(Exception.class, () -> getElasticsearchUrl(nothing));
   }
 
   @Test
@@ -76,23 +97,97 @@ public class ElasticsearchUtilsTest {
   }
 
   @Test
-  public void testGetElasticsearchRestClient() {
-    RestClientBuilder builder = RestClient.builder(new HttpHost("foo", 0, "scheme"));
-    Map<RestHighLevelClient, List<Object>> constructed = new HashMap<>();
-    try (MockedStatic<RestClient> mockedClient = mockStatic(RestClient.class)) {
-      mockedClient.when(() -> RestClient.builder(new HttpHost("host", 100, "http"))).thenReturn(builder);
-      
-      Map<String, Object> m = new HashMap<>();
-      m.put("elasticsearch.url", "http://host:100");
-      Config config = ConfigFactory.parseMap(m);
+  public void testGetElasticsearchOfficialClient() {
+    Config config = mock(Config.class);
+    String url = "http://user:pass@localhost:9200";
+    RestClient restClient = mock(RestClient.class);
+    when(ElasticsearchUtils.getElasticsearchUrl(config)).thenReturn(url);
+    when(ElasticsearchUtils.getAllowInvalidCert(config)).thenReturn(false);
 
-      m = new HashMap<>();
-      Config nullConfig = ConfigFactory.parseMap(m);
-      
-      ElasticsearchUtils.getElasticsearchRestClient(config);
-      // assertEquals(constructed.get(mockedConstructor.constructed().get(0)).get(0), builder);
-      assertThrows(NullPointerException.class, () -> ElasticsearchUtils.getElasticsearchRestClient(nullConfig));
+    try (MockedStatic<RestClient> mockRestClient = mockStatic(RestClient.class);
+        MockedStatic<SSLFactory> mockSSLFactory = mockStatic(SSLFactory.class)) {
+      RestClientBuilder builder = mock(RestClientBuilder.class);
+
+      ArgumentCaptor<HttpHost> hostCaptor = ArgumentCaptor.forClass(HttpHost.class);
+      mockRestClient.when(() -> RestClient.builder(hostCaptor.capture())).thenReturn(builder);
+      when(builder.setHttpClientConfigCallback(any())).thenReturn(builder);
+      when(builder.build()).thenReturn(restClient);
+
+      SSLFactory.Builder mockSSLBuilder = mock(SSLFactory.Builder.class);
+      mockSSLFactory.when(SSLFactory::builder).thenReturn(mockSSLBuilder);
+      when(mockSSLBuilder.withDefaultTrustMaterial()).thenReturn(mockSSLBuilder);
+      SSLFactory sslFactory = mock(SSLFactory.class);
+      when(mockSSLBuilder.build()).thenReturn(sslFactory);
+
+      ElasticsearchClient result = ElasticsearchUtils.getElasticsearchOfficialClient(config);
+
+      assertNotNull(result);
+      // check that the host has correctly been parsed
+      assertEquals("localhost", hostCaptor.getValue().getHostName());
+      assertEquals(9200, hostCaptor.getValue().getPort());
+      assertEquals("http", hostCaptor.getValue().getSchemeName());
+
+      // since allow invalid cert is false, will not call .withTrustingAllCertificatesWithoutValidation()
+      verify(mockSSLBuilder, times(1)).withDefaultTrustMaterial();
+      verify(mockSSLBuilder, times(0)).withTrustingAllCertificatesWithoutValidation();
+
+      // verify that setting up of client was called once
+      verify(builder, times(1)).setHttpClientConfigCallback(any());
     }
+  }
 
+  @Test
+  public void testGetElasticsearchOfficialClientAllowCert() {
+    Config config = mock(Config.class);
+    when (config.getString("elasticsearch.acceptInvalidCert")).thenReturn("true");
+    String url = "http://user:pass@localhost:9200";
+    RestClient restClient = mock(RestClient.class);
+    when(ElasticsearchUtils.getElasticsearchUrl(config)).thenReturn(url);
+    when(ElasticsearchUtils.getAllowInvalidCert(config)).thenReturn(true);
+
+    try (MockedStatic<RestClient> mockRestClient = mockStatic(RestClient.class);
+        MockedStatic<SSLFactory> mockSSLFactory = mockStatic(SSLFactory.class)) {
+      RestClientBuilder builder = mock(RestClientBuilder.class);
+
+      ArgumentCaptor<HttpHost> hostCaptor = ArgumentCaptor.forClass(HttpHost.class);
+      mockRestClient.when(() -> RestClient.builder(hostCaptor.capture())).thenReturn(builder);
+      when(builder.setHttpClientConfigCallback(any())).thenReturn(builder);
+      when(builder.build()).thenReturn(restClient);
+
+      SSLFactory.Builder sslBuilder = mock(SSLFactory.Builder.class);
+      mockSSLFactory.when(SSLFactory::builder).thenReturn(sslBuilder);
+      when(sslBuilder.withTrustingAllCertificatesWithoutValidation()).thenReturn(sslBuilder);
+      when(sslBuilder.withHostnameVerifier(any())).thenReturn(sslBuilder);
+      SSLFactory sslFactory = mock(SSLFactory.class);
+      when(sslBuilder.build()).thenReturn(sslFactory);
+
+      ElasticsearchClient result = ElasticsearchUtils.getElasticsearchOfficialClient(config);
+
+      assertNotNull(result);
+
+      // check that the host has correctly been parsed
+      assertEquals("localhost", hostCaptor.getValue().getHostName());
+      assertEquals(9200, hostCaptor.getValue().getPort());
+      assertEquals("http", hostCaptor.getValue().getSchemeName());
+
+      // since allow invalid cert is true, will call .withTrustingAllCertificatesWithoutValidation() and not .withDefaultTrustMaterial
+      verify(sslBuilder, times(0)).withDefaultTrustMaterial();
+      verify(sslBuilder, times(1)).withTrustingAllCertificatesWithoutValidation();
+
+      // verify that setting up of client was called once
+      verify(builder, times(1)).setHttpClientConfigCallback(any());
+    }
+  }
+
+  @Test
+  public void testGetElasticsearchOfficialClientInvalidUrl() {
+    Config config = mock(Config.class);
+    String invalidUrl = "invalid-url";
+    when(ElasticsearchUtils.getElasticsearchUrl(config)).thenReturn(invalidUrl);
+
+    // will throw error if config contains invalid url
+    assertThrows(IllegalArgumentException.class, () -> {
+      ElasticsearchUtils.getElasticsearchOfficialClient(config);
+    });
   }
 }
