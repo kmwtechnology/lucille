@@ -66,9 +66,13 @@ public class PineconeIndexer extends Indexer {
       throw new IllegalArgumentException(
           "at least one of a defaultEmbeddingField or a non-empty namespaces mapping is required");
     }
-
     if (namespaces != null && namespaces.isEmpty()) {
       throw new IllegalArgumentException("namespaces mapping must be non-empty if provided");
+    }
+    // max upsertSize is 2MB or 1000 records, whichever is reached first, so stopping lucille run if batch size set to more than 1000
+    // larger dimensions will mean smaller batch size limit, letting API throw the error if encountered.
+    if (mode.equalsIgnoreCase("upsert") && DEFAULT_BATCH_SIZE > 1000) {
+      throw new IllegalArgumentException("maximum batch size for upsert is 1000, and lower if vectors have higher dimensions");
     }
   }
 
@@ -84,11 +88,6 @@ public class PineconeIndexer extends Indexer {
 
   @Override
   protected void sendToIndex(List<Document> documents) throws IndexerException {
-    if (documents.isEmpty()) {
-      log.warn("No documents in batch to index. Waiting for next batch...");
-      return;
-    }
-
     if (namespaces != null) {
       for (Map.Entry<String, Object> entry : namespaces.entrySet()) {
         uploadDocuments(documents, (String) entry.getValue(), entry.getKey());
@@ -102,7 +101,7 @@ public class PineconeIndexer extends Indexer {
 
     if (mode.equalsIgnoreCase("upsert")) {
       List<VectorWithUnsignedIndices> upsertVectors = documents.stream()
-          .filter(doc -> doc.hasNonNull(embeddingField)) // buildUpsertVector would throw an error if embeddings is null
+          // buildUpsertVector would throw an error if embeddings is null, should add condition check in pipeline before indexing
           .map(doc -> buildUpsertVectorWithUnsignedIndices(
               doc.getId(),
               doc.getFloatList(embeddingField),
@@ -115,13 +114,9 @@ public class PineconeIndexer extends Indexer {
                   .build()))
           .collect(Collectors.toList());
       upsertDocuments(upsertVectors, namespace);
-    }
-
-    if (mode.equalsIgnoreCase("update")) {
+    } else if (mode.equalsIgnoreCase("update")) {
       updateDocuments(documents, embeddingField, namespace);
-    }
-
-    if (mode.equalsIgnoreCase("delete")) {
+    } else if (mode.equalsIgnoreCase("delete")) {
       deleteDocuments(documents, namespace, deletionPrefix);
     }
   }
@@ -139,19 +134,6 @@ public class PineconeIndexer extends Indexer {
   }
 
   private void upsertDocuments(List<VectorWithUnsignedIndices> upsertVectors, String namespace) throws IndexerException {
-    // max upsertSize is 2MB or 1000 records, whichever is reached first, so stopping lucille run if batch size set to more than 1000
-    // larger dimensions will mean smaller batch size limit, letting API throw the error if encountered.
-    if (upsertVectors.size() > 1000) {
-      throw new IndexerException("max upsert size of each batch is 1000, reduce the batch size indexer configuration.");
-    }
-
-    // scenario where there exists documents to send to Index, but has either no embedding field or embeddings
-    if (upsertVectors.isEmpty()) {
-      log.warn("no vectors to upsert in this batch. If not intended, "
-          + "ensure that documents contain embeddings within field given in configuration.");
-      return;
-    }
-
     try {
       UpsertResponse response = index.upsert(upsertVectors, namespace);
 
