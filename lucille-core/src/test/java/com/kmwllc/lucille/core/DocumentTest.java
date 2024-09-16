@@ -667,10 +667,10 @@ public abstract class DocumentTest {
   @Test
   public void testGetDateSingleValued() {
     Document document = createDocument("doc");
-    document.setField("date", new Date(10000000));
+    document.setField("date", new Date(1));
     assertFalse(document.isMultiValued("date"));
-    assertEquals(0, document.getDate("date").compareTo(new Date(10000000)));
-    assertEquals(Collections.singletonList(new Date(10000000)), document.getDateList("date"));
+    assertEquals(new Date(1), document.getDate("date"));
+    assertEquals(Collections.singletonList(new Date(1)), document.getDateList("date"));
   }
 
   @Test
@@ -682,24 +682,20 @@ public abstract class DocumentTest {
   @Test
   public void testGetDatesMultiValued() {
     Document document = createDocument("doc");
-    document.setField("dates", new Date(10000000));
+    document.setField("dates", new Date(1));
     assertFalse(document.isMultiValued("dates"));
-    document.addToField("dates", new Date(10000001));
+    document.addToField("dates", new Date(2));
     assertTrue(document.isMultiValued("dates"));
-    document.addToField("dates", new Date(10000002));
-
-    List<Date> dates = document.getDateList("dates");
-    assertEquals(10000000, dates.get(0).getTime());
-    assertEquals(10000001, dates.get(1).getTime());
-    assertEquals(10000002, dates.get(2).getTime());
+    document.addToField("dates", new Date(3));
+    assertEquals(Arrays.asList(new Date(1), new Date(2), new Date(3)), document.getDateList("dates"));
   }
 
   @Test
   public void testGetDateMultivalued() {
     Document document = createDocument("doc");
-    document.addToField("field1", new Date(10000000));
-    document.addToField("field1", new Date(10000001));
-    assertEquals(10000000, document.getDate("field1").getTime());
+    document.addToField("field1", new Date(1));
+    document.addToField("field1", new Date(2));
+    assertEquals(new Date(1), document.getDate("field1"));
   }
 
   @Test
@@ -711,10 +707,10 @@ public abstract class DocumentTest {
   @Test
   public void testGetTimestampSingleValued() {
     Document document = createDocument("doc");
-    document.setField("timestamp", new Timestamp(10000000));
+    document.setField("timestamp", new Timestamp(1));
     assertFalse(document.isMultiValued("timestamp"));
-    assertEquals(10000000, document.getTimestamp("timestamp").getTime());
-    assertEquals(Collections.singletonList(new Timestamp(10000000)), document.getTimestampList("timestamp"));
+    assertEquals(new Timestamp(1), document.getTimestamp("timestamp"));
+    assertEquals(Collections.singletonList(new Timestamp(1)), document.getTimestampList("timestamp"));
   }
 
   @Test
@@ -726,24 +722,20 @@ public abstract class DocumentTest {
   @Test
   public void testGetTimestampMultiValued() {
     Document document = createDocument("doc");
-    document.setField("timestamp", new Timestamp(10000000));
+    document.setField("timestamp", new Timestamp(1));
     assertFalse(document.isMultiValued("timestamp"));
-    document.addToField("timestamp", new Timestamp(10000001));
+    document.addToField("timestamp", new Timestamp(2));
     assertTrue(document.isMultiValued("timestamp"));
-    document.addToField("timestamp", new Timestamp(10000002));
-
-    List<Timestamp> timestamps = document.getTimestampList("timestamp");
-    assertEquals(10000000, timestamps.get(0).getTime());
-    assertEquals(10000001, timestamps.get(1).getTime());
-    assertEquals(10000002, timestamps.get(2).getTime());
+    document.addToField("timestamp", new Timestamp(3));
+    assertEquals(Arrays.asList(new Timestamp(1), new Timestamp(2), new Timestamp(3)), document.getTimestampList("timestamp"));
   }
 
   @Test
   public void testGetTimestampMultivalued() {
     Document document = createDocument("doc");
-    document.addToField("field1", new Timestamp(10000000));
-    document.addToField("field1", new Timestamp(10000001));
-    assertEquals(10000000, document.getTimestamp("field1").getTime());
+    document.addToField("field1", new Timestamp(1));
+    document.addToField("field1", new Timestamp(2));
+    assertEquals(new Timestamp(1), document.getTimestamp("field1"));
   }
 
   @Test
