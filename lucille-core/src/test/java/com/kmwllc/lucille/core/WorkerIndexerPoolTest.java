@@ -1,13 +1,13 @@
 package com.kmwllc.lucille.core;
 
-import static org.junit.Assert.assertArrayEquals;
+import static com.kmwllc.lucille.util.ThreadNameUtils.areLucilleThreadsRunning;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.util.Collection;
-import org.apache.commons.lang3.ThreadUtils;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,18 +39,13 @@ public class WorkerIndexerPoolTest {
 
   @Test
   public void testThreadCleanupUponEncounteringConfigProblem() throws Exception {
-    Collection<Thread> nonSystemThreadsBefore =
-        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
-
     // simulate a config error by passing an empty config to WorkerIndexerPool
     Config config = ConfigFactory.empty();
     WorkerIndexerPool pool = new WorkerIndexerPool(config, "pipeline12345", true, null);
 
     assertThrows(Exception.class, () -> { pool.start(); });
 
-    Collection<Thread> nonSystemThreadsAfter =
-        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
-    assertArrayEquals(nonSystemThreadsBefore.toArray(), nonSystemThreadsAfter.toArray());
+    assertFalse(areLucilleThreadsRunning());
   }
 
 }
