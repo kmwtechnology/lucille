@@ -10,9 +10,11 @@ import com.kmwllc.lucille.util.LinkedMultiMap;
 import com.kmwllc.lucille.util.MultiMap;
 
 import java.io.Serializable;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -252,6 +254,16 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   @Override
+  public void setField(String name, Date value) {
+    setFieldGeneric(name, value);
+  }
+
+  @Override
+  public void setField(String name, Timestamp value) {
+    setFieldGeneric(name, value);
+  }
+
+  @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
     validateFieldNames(oldName, newName);
     if (oldName != null && oldName.equals(newName)) {
@@ -373,6 +385,16 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   @Override
+  public Date getDate(String name) {
+    return getValue(name, value -> (Date) value);
+  }
+
+  @Override
+  public Timestamp getTimestamp(String name) {
+    return getValue(name, value -> (Timestamp) value);
+  }
+
+  @Override
   public List<Instant> getInstantList(String name) {
     return getValues(name, value -> (Instant) value);
   }
@@ -385,6 +407,16 @@ public class HashMapDocument implements Document, Serializable {
   @Override
   public List<JsonNode> getJsonList(String name) {
     return getValues(name, value -> (JsonNode) value);
+  }
+
+  @Override
+  public List<Date> getDateList(String name) {
+    return getValues(name, value -> (Date) value);
+  }
+
+  @Override
+  public List<Timestamp> getTimestampList(String name) {
+    return getValues(name, value -> (Timestamp) value);
   }
 
   @Override
@@ -471,6 +503,16 @@ public class HashMapDocument implements Document, Serializable {
     addToFieldGeneric(name, value);
   }
 
+  @Override
+  public void addToField(String name, Date value) {
+    addToFieldGeneric(name, value);
+  }
+
+  @Override
+  public void addToField(String name, Timestamp value) {
+    addToFieldGeneric(name, value);
+  }
+
   private <T> void setOrAddGeneric(String name, T value) {
     validateFieldNames(name);
     data.setOrAdd(name, value);
@@ -518,6 +560,16 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public void setOrAdd(String name, JsonNode value) {
+    setOrAddGeneric(name, value);
+  }
+
+  @Override
+  public void setOrAdd(String name, Date value) {
+    setOrAddGeneric(name, value);
+  }
+
+  @Override
+  public void setOrAdd(String name, Timestamp value) {
     setOrAddGeneric(name, value);
   }
 
