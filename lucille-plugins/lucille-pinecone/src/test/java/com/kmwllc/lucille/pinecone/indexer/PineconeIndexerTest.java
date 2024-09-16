@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Vector;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -30,8 +29,6 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import io.pinecone.proto.UpdateRequest;
-import io.pinecone.proto.UpsertRequest;
 import io.pinecone.proto.VectorServiceGrpc;
 import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
 import org.openapitools.control.client.model.IndexModel;
@@ -413,6 +410,60 @@ public class PineconeIndexerTest {
       // check that only one document was upserted and the vector belongs to doc0
       assertEquals(1, listArgumentCaptor.getValue().size());
       assertEquals(doc0ForNamespace1,listArgumentCaptor.getValue().get(0).getValuesList());
+    }
+  }
+
+
+  @Test
+  public void testDeletion() throws Exception {
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
+      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
+      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
+    })) {
+      TestMessenger messenger = new TestMessenger();
+      Config configGood = ConfigFactory.load("PineconeIndexerTest/deletion-config.conf");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      indexerGood.validateConnection();
+
+      messenger.sendForIndexing(doc0);
+      messenger.sendForIndexing(doc1);
+      indexerGood.run(2);
+
+      // make sure 2 deletion were made (one deletion per document)
+      ArgumentCaptor<List<String>> ListArgumentCaptor = ArgumentCaptor.forClass(List.class);
+      Mockito.verify(goodIndex, Mockito.times(1)).deleteByIds(ListArgumentCaptor.capture(), anyString());
+
+      // make sure vectors are correct for each document and namespace
+      List<String> idsSentForDeletion = ListArgumentCaptor.getAllValues().get(0);
+      assertEquals(doc0.getId(), idsSentForDeletion.get(0));
+      assertEquals(doc1.getId(), idsSentForDeletion.get(1));
+    }
+  }
+
+
+  @Test
+  public void testDeletionWithAddPrefix() throws Exception {
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
+      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
+      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
+    })) {
+      TestMessenger messenger = new TestMessenger();
+      Config configGood = ConfigFactory.load("PineconeIndexerTest/deletion-config-with-prefix.conf");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      indexerGood.validateConnection();
+
+      messenger.sendForIndexing(doc0);
+      messenger.sendForIndexing(doc1);
+      indexerGood.run(2);
+
+      // make sure 1 deletion were made
+      ArgumentCaptor<List<String>> ListArgumentCaptor = ArgumentCaptor.forClass(List.class);
+      Mockito.verify(goodIndex, Mockito.times(1)).deleteByIds(ListArgumentCaptor.capture(), anyString());
+
+      // make sure deletion ids have included prefix
+      List<String> idsSentForDeletion = ListArgumentCaptor.getAllValues().get(0);
+      assertEquals(doc0.getId()+"prefix", idsSentForDeletion.get(0));
+      assertEquals(doc1.getId()+"prefix", idsSentForDeletion.get(1));
     }
   }
 }
