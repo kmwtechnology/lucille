@@ -54,13 +54,15 @@ public class ChunkTextTest {
     Stage stage = factory.get("ChunkingTest/testCleanChunk.conf");
     stage.start();
     Document doc = Document.create("id");
-    doc.setField("text", "This is\na sentence.   \n\n This is the second sentence.       ");
+    doc.setField("text", "This is\na sentence.   \n\n This is the second sentence. This is the \nthird sentence.     ");
     stage.processDocument(doc);
     List<Document> childrenDocs = doc.getChildren();
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
+    Document child3 = childrenDocs.get(2);
     assertEquals("This is a sentence.", child1.getString("chunk"));
     assertEquals("This is the second sentence.", child2.getString("chunk"));
+    assertEquals("This is the third sentence.", child3.getString("chunk"));
   }
 
   @Test

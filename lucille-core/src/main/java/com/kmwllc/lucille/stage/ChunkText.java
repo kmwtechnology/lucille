@@ -246,7 +246,7 @@ public class ChunkText extends Stage {
   // replacing all new line characters with white spaces and trim at the end
   private void cleanChunks(String[] chunks) {
     for (int i = 0; i < chunks.length; i++) {
-      chunks[i] = chunks[i].replaceAll("(?>\\R)", " ").trim();
+      chunks[i] = chunks[i].replaceAll("\\s*(?>\\R)\\s*", " ").trim();
     }
   }
 
