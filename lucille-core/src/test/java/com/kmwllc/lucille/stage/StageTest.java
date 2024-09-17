@@ -186,6 +186,49 @@ public class StageTest {
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("StageTest/processMust.conf");
-    assertEquals(Set.of("name", "conditions", "class"), stage.getLegalProperties());
+    assertEquals(Set.of("name", "conditions", "class", "conditionReductionLogic"), stage.getLegalProperties());
   }
+
+  @Test
+  public void testOrConditionOperator() throws StageException {
+    Stage stage = factory.get("StageTest/orConditionOperator.conf");
+
+    // Check that the must condition is applied
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", "1234");
+    assertProcessed(stage, doc1, true);
+
+    // add state with value in a list
+    Document doc2 = Document.create("doc2");
+    doc2.setField("state", "MA");
+    assertProcessed(stage, doc2, true);
+
+    Document doc3 = Document.create("doc3");
+    doc3.setField("user_id", "1234");
+    doc3.setField("state", "MA");
+    assertProcessed(stage, doc3, true);
+
+    Document doc4 = Document.create("doc4");
+    doc4.setField("country", "Russia");
+    assertProcessed(stage, doc4, false);
+  }
+
+  @Test
+  public void testOrOperatorWithOneCondition() throws StageException {
+    Stage stage = factory.get("StageTest/orConditionOperatorWithOneCondition.conf");
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", "1234");
+    assertProcessed(stage, doc1, true);
+  }
+
+  @Test
+  public void testOrOperatorWithNoConditions() throws StageException {
+    Stage stage = factory.get("StageTest/orConditionOperatorWithNoConditions.conf");
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", "1234");
+    assertProcessed(stage, doc1, true);
+  }
+
 }

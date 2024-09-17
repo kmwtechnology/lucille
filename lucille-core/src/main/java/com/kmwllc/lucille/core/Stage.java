@@ -44,7 +44,7 @@ public abstract class Stage {
   private static final Set<String> EMPTY_SET = Collections.emptySet();
   private static final Set<String> CONDITIONS_OPTIONAL = Set.of("operator", "values");
   private static final Set<String> CONDITIONS_REQUIRED = Set.of("fields");
-  private static final Set<String> OPTIONAL_PROPERTIES = Set.of("class", "name", "conditions");
+  private static final Set<String> OPTIONAL_PROPERTIES = Set.of("class", "name", "conditions", "conditionReductionLogic");
 
   protected Config config;
   private final Predicate<Document> condition;
@@ -94,11 +94,24 @@ public abstract class Stage {
   }
 
   private Predicate<Document> getMergedConditions() {
-    Stream<Predicate<Document>> conditions =
+    List<Predicate<Document>> conditions =
         !config.hasPath("conditions")
-            ? Stream.empty()
-            : config.getConfigList("conditions").stream().map(Condition::fromConfig);
-    return conditions.reduce(c -> true, Predicate::and);
+            ? Collections.emptyList()
+            : config.getConfigList("conditions").stream()
+                .map(Condition::fromConfig)
+                .collect(Collectors.toUnmodifiableList());
+
+    if (conditions.isEmpty()) {
+      return (x -> true);
+    }
+
+    String conditionOperator = config.hasPath("conditionReductionLogic") ? config.getString("conditionReductionLogic") : "and";
+
+    if ("or".equalsIgnoreCase(conditionOperator)) {
+      return conditions.stream().reduce(c -> false, Predicate::or);
+    } else {
+      return conditions.stream().reduce(c -> true, Predicate::and);
+    }
   }
 
   public void start() throws StageException {
