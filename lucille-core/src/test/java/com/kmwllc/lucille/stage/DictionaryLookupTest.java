@@ -85,7 +85,8 @@ public class DictionaryLookupTest {
             "class",
             "dict_path",
             "set_only",
-            "ignore_missing_source"),
+            "ignore_missing_source",
+            "conditionReductionLogic"),
         stage.getLegalProperties());
   }
 

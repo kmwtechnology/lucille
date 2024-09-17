@@ -59,6 +59,6 @@ public class ExtractFirstCharacterTest {
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("ExtractFirstCharacterTest/config.conf");
-    assertEquals(Set.of("name", "conditions", "replacement", "class"), stage.getLegalProperties());
+    assertEquals(Set.of("name", "conditions", "replacement", "class", "conditionReductionLogic"), stage.getLegalProperties());
   }
 }

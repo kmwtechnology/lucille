@@ -66,7 +66,8 @@ public class ExtractEntitiesTest {
             "only_whole_words",
             "conditions",
             "class",
-            "dictionaries"),
+            "dictionaries",
+            "conditionReductionLogic"),
         stage.getLegalProperties());
   }
 }

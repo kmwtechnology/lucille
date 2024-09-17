@@ -45,6 +45,6 @@ public class TrimWhitespaceTest {
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("TrimWhitespaceTest/config.conf");
-    assertEquals(Set.of("name", "fields", "conditions", "class"), stage.getLegalProperties());
+    assertEquals(Set.of("name", "fields", "conditions", "class", "conditionReductionLogic"), stage.getLegalProperties());
   }
 }

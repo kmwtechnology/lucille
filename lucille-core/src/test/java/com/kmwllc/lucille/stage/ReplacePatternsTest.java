@@ -94,7 +94,8 @@ public class ReplacePatternsTest {
             "replacement",
             "class",
             "dotall",
-            "literal"),
+            "literal",
+            "conditionReductionLogic"),
         stage.getLegalProperties());
   }
 }

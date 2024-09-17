@@ -106,7 +106,8 @@ public class QueryDatabaseTest {
             "jdbcPassword",
             "conditions",
             "class",
-            "sql"),
+            "sql",
+            "conditionReductionLogic"),
         stage.getLegalProperties());
   }
 

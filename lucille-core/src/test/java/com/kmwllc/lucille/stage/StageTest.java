@@ -190,8 +190,8 @@ public class StageTest {
   }
 
   @Test
-  public void testOrConditionOperator() throws StageException {
-    Stage stage = factory.get("StageTest/orConditionOperator.conf");
+  public void testOrReductionLogicTwoConditions() throws StageException {
+    Stage stage = factory.get("StageTest/orReductionLogicTwoConditions.conf");
 
     // Check that the must condition is applied
     Document doc1 = Document.create("doc1");
@@ -214,8 +214,8 @@ public class StageTest {
   }
 
   @Test
-  public void testOrOperatorWithOneCondition() throws StageException {
-    Stage stage = factory.get("StageTest/orConditionOperatorWithOneCondition.conf");
+  public void testOrReductionLogicOneCondition() throws StageException {
+    Stage stage = factory.get("StageTest/orReductionLogicOneCondition.conf");
 
     Document doc1 = Document.create("doc1");
     doc1.setField("user_id", "1234");
@@ -223,8 +223,17 @@ public class StageTest {
   }
 
   @Test
-  public void testOrOperatorWithNoConditions() throws StageException {
-    Stage stage = factory.get("StageTest/orConditionOperatorWithNoConditions.conf");
+  public void testOrReductionLogicNoCondition() throws StageException {
+    Stage stage = factory.get("StageTest/orReductionLogicNoCondition.conf");
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", "1234");
+    assertProcessed(stage, doc1, true);
+  }
+
+  @Test
+  public void testAndReductionLogicNoCondition() throws StageException {
+    Stage stage = factory.get("StageTest/andReductionLogicNoCondition.conf");
 
     Document doc1 = Document.create("doc1");
     doc1.setField("user_id", "1234");
