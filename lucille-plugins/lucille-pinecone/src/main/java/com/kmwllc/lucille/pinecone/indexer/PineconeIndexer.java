@@ -101,7 +101,8 @@ public class PineconeIndexer extends Indexer {
 
     if (mode.equalsIgnoreCase("upsert")) {
       List<VectorWithUnsignedIndices> upsertVectors = documents.stream()
-          // buildUpsertVector would throw an error if embeddings is null, should add condition check in pipeline before indexing
+          // buildUpsertVector would throw an error if embeddings is null,
+          // should add dropDocument stage with stage conditions in pipeline before indexing
           .map(doc -> buildUpsertVectorWithUnsignedIndices(
               doc.getId(),
               doc.getFloatList(embeddingField),

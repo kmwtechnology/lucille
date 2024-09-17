@@ -382,39 +382,6 @@ public class PineconeIndexerTest {
   }
 
   @Test
-  public void testFilterDocsWithNoEmbeddings() throws Exception {
-    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
-      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
-
-      UpsertResponse response = Mockito.mock(UpsertResponse.class);
-      when(response.getUpsertedCount()).thenReturn(1); // in this test we expect only one of the two docs to be upserted
-
-      when(goodIndex.upsert(anyList(), anyString())).thenReturn(response);
-      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
-    })) {
-      TestMessenger messenger = new TestMessenger();
-      Config configUpsert = ConfigFactory.load("PineconeIndexerTest/no-namespaces.conf");
-
-      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpsert, messenger, "testing");
-
-      indexerUpsert.validateConnection();
-
-      messenger.sendForIndexing(doc0);
-      messenger.sendForIndexing(doc2);
-      indexerUpsert.run(2);
-
-      // assert that an upsert was made
-      ArgumentCaptor<List<VectorWithUnsignedIndices>> listArgumentCaptor = ArgumentCaptor.forClass(List.class);
-      Mockito.verify(goodIndex, Mockito.times(1)).upsert(listArgumentCaptor.capture(), anyString());
-
-      // check that only one document was upserted and the vector belongs to doc0
-      assertEquals(1, listArgumentCaptor.getValue().size());
-      assertEquals(doc0ForNamespace1,listArgumentCaptor.getValue().get(0).getValuesList());
-    }
-  }
-
-
-  @Test
   public void testDeletion() throws Exception {
     try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
       when(mock.getIndexConnection("good")).thenReturn(goodIndex);
