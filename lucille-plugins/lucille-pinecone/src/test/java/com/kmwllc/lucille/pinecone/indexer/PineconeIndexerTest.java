@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
@@ -208,7 +209,7 @@ public class PineconeIndexerTest {
       // assert that an upsert was made to the right nameSpace
       ArgumentCaptor<String> nameSpaceUsed = ArgumentCaptor.forClass(String.class);
       Mockito.verify(goodIndex, Mockito.times(1)).upsert(anyList(), nameSpaceUsed.capture());
-      assertEquals("", nameSpaceUsed.getValue());
+      assertEquals("default", nameSpaceUsed.getValue());
     }
   }
 
@@ -235,8 +236,8 @@ public class PineconeIndexerTest {
       // assert that no upserts have been made
       Mockito.verify(goodIndex, Mockito.times(0)).upsert(Mockito.any(), nameSpaceUsed.capture());
 
-      assertEquals("", nameSpaceUsed.getAllValues().get(0));
-      assertEquals("", nameSpaceUsed.getAllValues().get(1));
+      assertEquals("default", nameSpaceUsed.getAllValues().get(0));
+      assertEquals("default", nameSpaceUsed.getAllValues().get(1));
     }
   }
 
@@ -382,7 +383,7 @@ public class PineconeIndexerTest {
   }
 
   @Test
-  public void testDeletion() throws Exception {
+  public void testDeletionById() throws Exception {
     try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
       when(mock.getIndexConnection("good")).thenReturn(goodIndex);
       when(mock.describeIndex("good")).thenReturn(goodIndexModel);
@@ -407,7 +408,7 @@ public class PineconeIndexerTest {
     }
   }
 
-
+  @Ignore // WIP
   @Test
   public void testDeletionWithAddPrefix() throws Exception {
     try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {

@@ -1,13 +1,19 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
 import com.kmwllc.lucille.core.IndexerException;
+import io.pinecone.clients.Pinecone.Builder;
+import io.pinecone.proto.ListItem;
+import io.pinecone.proto.ListResponse;
 import io.pinecone.proto.UpsertResponse;
 import io.pinecone.unsigned_indices_model.VectorWithUnsignedIndices;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,13 +37,12 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
  * - mode (String, Optional) : the type of request you want PineconeIndexer to send to your index
  *    1. upsert (will replace if vector id exists in namespace or index if no namespace is given)
  *    2. update (will only update embeddings)
- *    3. delete (deletes all vectors with using prefix of all document ids that go through the pipeline
- *      - e.g. if id of doc is "doc1", then all vectors containing "doc1" as prefix will be deleted. "doc1#chunk1, doc1#chunk2,..."
- *      - serverless architecture currently does not support deletion by metadata, more info below
- *      <a href="https://docs.pinecone.io/reference/api/2024-07/data-plane/delete">...</a>
+ *    3. delete (deletes all vectors given document ids)
+ *      - will only delete the exact id of documents that go through the pipeline, for id prefix deletion, look at deletionPrefix
  * - defaultEmbeddingField (String, required if namespaces is not set) : the field to retrieve embeddings from
- * - deletionPrefix (String, optional) : adds on to all document ids used for prefix deletion
- *  - e.g. if id of doc is "doc1" & deletionPrefix is "v1", then all vectors containing "doc1v1" in id as prefix will be deleted.
+ * - deleteByPrefix (boolean, optional) : sends a deletion by prefix request instead of a usual request
+ * - addDeletionPrefix (String, optional) : String that adds on to all document ids used for prefix deletion
+ *  - e.g. if id of doc is "doc1" & deletionPrefix is "-", then all vectors containing "doc1-" in id as prefix will be deleted.
  */
 public class PineconeIndexer extends Indexer {
 
@@ -50,19 +55,22 @@ public class PineconeIndexer extends Indexer {
   private final Set<String> metadataFields;
   private final String mode;
   private final String defaultEmbeddingField;
-  private final String deletionPrefix;
+  private final String addDeletionPrefix;
+  private final boolean deleteByPrefix;
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) {
     super(config, messenger, metricsPrefix);
     this.indexName = config.getString("pinecone.index");
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
-    this.metadataFields = new HashSet<>(config.getStringList("pinecone.metadataFields"));
+    this.metadataFields = config.hasPath("pinecone.metadataFields")
+        ? new HashSet<>(config.getStringList("pinecone.metadataFields")) : new HashSet<>();
     this.mode = config.hasPath("pinecone.mode") ? config.getString("pinecone.mode") : "upsert";
     this.defaultEmbeddingField = ConfigUtils.getOrDefault(config, "pinecone.defaultEmbeddingField", null);
     this.client = new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
     this.index = this.client.getIndexConnection(this.indexName);
-    this.deletionPrefix = config.hasPath("pinecone.deletionPrefix") ? config.getString("pinecone.deletionPrefix") : "";
-    if (namespaces == null && defaultEmbeddingField == null) {
+    this.addDeletionPrefix = config.hasPath("pinecone.addDeletionPrefix") ? config.getString("pinecone.addDeletionPrefix") : "";
+    this.deleteByPrefix = config.hasPath("pinecone.deleteByPrefix") ? config.getBoolean("pinecone.deleteByPrefix") : false;
+    if (namespaces == null && defaultEmbeddingField == null && !mode.equalsIgnoreCase("delete")) {
       throw new IllegalArgumentException(
           "at least one of a defaultEmbeddingField or a non-empty namespaces mapping is required");
     }
@@ -93,7 +101,7 @@ public class PineconeIndexer extends Indexer {
         uploadDocuments(documents, (String) entry.getValue(), entry.getKey());
       }
     } else {
-      uploadDocuments(documents, defaultEmbeddingField, "");
+      uploadDocuments(documents, defaultEmbeddingField, "default");
     }
   }
 
@@ -118,20 +126,52 @@ public class PineconeIndexer extends Indexer {
     } else if (mode.equalsIgnoreCase("update")) {
       updateDocuments(documents, embeddingField, namespace);
     } else if (mode.equalsIgnoreCase("delete")) {
-      deleteDocuments(documents, namespace, deletionPrefix);
+      deleteDocuments(documents, namespace, addDeletionPrefix);
     }
   }
 
   private void deleteDocuments(List<Document> documents, String namespace, String additionalPrefix) throws IndexerException {
-    List<String> idsToDelete = documents.stream()
-        .map(doc -> doc.getId() + additionalPrefix)
-        .collect(Collectors.toList());
+    List<String> idsToDelete;
+    if (deleteByPrefix) {
+      idsToDelete = getVectorsByPrefix(documents, additionalPrefix, namespace);
+    } else {
+      idsToDelete = documents.stream()
+          .map(Document::getId)
+          .collect(Collectors.toList());
+    }
 
     try {
       index.deleteByIds(idsToDelete, namespace);
     } catch (Exception e) {
       throw new IndexerException("Error while deleting vectors", e);
     }
+  }
+
+  private List<String> getVectorsByPrefix(List<Document> documents, String additionalPrefix, String namespace)
+      throws IndexerException {
+    List<ListItem> idsToDelete = new ArrayList<>();
+    for (Document doc : documents) {
+      String prefix = doc.getId() + additionalPrefix;
+      try {
+        // by default, list will list up to 100 vectors
+        ListResponse listResponse = index.list(namespace, prefix);
+        idsToDelete.addAll(listResponse.getVectorsList());
+
+        // if number of vectors exceed 100
+        while (listResponse.hasPagination()) {
+          String paginationToken = listResponse.getPagination().getNext();
+          listResponse = index.list(namespace, prefix, paginationToken);
+          idsToDelete.addAll(listResponse.getVectorsList());
+        }
+      } catch (Exception e) {
+        throw new IndexerException("Error listing vectors to delete", e);
+      }
+
+      for (ListItem listItem : idsToDelete) {
+        log.info("{}{} deletes vector id {}", doc.getId(), additionalPrefix, listItem.getId());
+      }
+    }
+    return idsToDelete.stream().map(ListItem::getId).collect(Collectors.toList());
   }
 
   private void upsertDocuments(List<VectorWithUnsignedIndices> upsertVectors, String namespace) throws IndexerException {
