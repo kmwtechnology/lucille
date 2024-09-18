@@ -190,8 +190,8 @@ public class StageTest {
   }
 
   @Test
-  public void testOrPolicyTwoConditions() throws StageException {
-    Stage stage = factory.get("StageTest/orPolicyTwoConditions.conf");
+  public void testAnyPolicyTwoConditions() throws StageException {
+    Stage stage = factory.get("StageTest/anyPolicyTwoConditions.conf");
 
     // Check that the must condition is applied
     Document doc1 = Document.create("doc1");
@@ -214,8 +214,8 @@ public class StageTest {
   }
 
   @Test
-  public void testOrPolicyOneCondition() throws StageException {
-    Stage stage = factory.get("StageTest/orPolicyOneCondition.conf");
+  public void testAnyPolicyOneCondition() throws StageException {
+    Stage stage = factory.get("StageTest/anyPolicyOneCondition.conf");
 
     Document doc1 = Document.create("doc1");
     doc1.setField("user_id", "1234");
@@ -223,8 +223,8 @@ public class StageTest {
   }
 
   @Test
-  public void testOrPolicyNoCondition() throws StageException {
-    Stage stage = factory.get("StageTest/orPolicyNoCondition.conf");
+  public void testAnyPolicyNoCondition() throws StageException {
+    Stage stage = factory.get("StageTest/anyPolicyNoCondition.conf");
 
     Document doc1 = Document.create("doc1");
     doc1.setField("user_id", "1234");
@@ -232,8 +232,8 @@ public class StageTest {
   }
 
   @Test
-  public void testAndPolicyNoCondition() throws StageException {
-    Stage stage = factory.get("StageTest/andPolicyNoCondition.conf");
+  public void testAllPolicyNoCondition() throws StageException {
+    Stage stage = factory.get("StageTest/allPolicyNoCondition.conf");
 
     Document doc1 = Document.create("doc1");
     doc1.setField("user_id", "1234");
