@@ -245,4 +245,21 @@ public class StageTest {
    assertThrows(StageException.class ,() -> factory.get("StageTest/unsupportedPolicy.conf"));
   }
 
+
+  @Test
+  public void testConditionFieldNullValue() throws StageException {
+    Stage stage = factory.get("StageTest/nullCondField.conf");
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", (String) null);
+    assertProcessed(stage, doc1, true);
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("user_id", "1234");
+    assertProcessed(stage, doc2, false);
+
+    // must condition & field not present
+    Document doc3 = Document.create("doc3");
+    assertProcessed(stage, doc3, false);
+  }
 }

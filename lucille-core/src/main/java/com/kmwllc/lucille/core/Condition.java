@@ -1,10 +1,12 @@
 package com.kmwllc.lucille.core;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigList;
+import com.typesafe.config.ConfigValue;
+import com.typesafe.config.ConfigValueType;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -14,7 +16,6 @@ public class Condition implements Predicate<Document> {
   private final List<String> fields;
   private final Set<String> values;
   private final Operator operator;
-
   private enum Operator {
     MUST("must"), MUST_NOT("must_not");
 
@@ -34,8 +35,25 @@ public class Condition implements Predicate<Document> {
   }
 
   public Condition(Config config) {
-    this(config.getStringList("fields"), config.hasPath("values") ? new HashSet<>(config.getStringList("values")) : null,
+    this(config.getStringList("fields"), createValueSet(config),
         config.hasPath("operator") ? Operator.get(config.getString("operator")) : Operator.MUST);
+  }
+
+  private static Set<String> createValueSet(Config config) {
+    if (!config.hasPath("values")) {
+      return null;
+    }
+
+    ConfigList list = config.getList("values");
+    HashSet<String> mySet = new HashSet<>();
+    for (ConfigValue val : list) {
+      if (val.valueType() == ConfigValueType.STRING) {
+        mySet.add(val.unwrapped().toString());
+      } else if (val.valueType() == ConfigValueType.NULL) {
+        mySet.add(null);
+      }
+    }
+    return mySet;
   }
 
   public Condition(List<String> fields, Set<String> values, Operator operator) {
