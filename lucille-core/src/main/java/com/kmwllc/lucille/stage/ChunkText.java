@@ -76,21 +76,21 @@ public class ChunkText extends Stage {
             "clean_chunks", "overlap_percentage", "length_to_split", "pre_merge_min_chunk_len", "pre_merge_max_chunk_len",
             "chunks_to_overlap")
         .withRequiredProperties("source"));
-    source = config.getString("source");
-    dest = config.hasPath("dest") ? config.getString("dest") : "chunk";
-    method = ChunkingMethod.fromConfig(config);
-    regEx = config.hasPath("regex") ? config.getString("regex") : "";
-    lengthToSplit = config.hasPath("length_to_split") && config.getInt("length_to_split") > 0
+    this.source = config.getString("source");
+    this.dest = config.hasPath("dest") ? config.getString("dest") : "chunk";
+    this.method = ChunkingMethod.fromConfig(config);
+    this.regEx = config.hasPath("regex") ? config.getString("regex") : "";
+    this.lengthToSplit = config.hasPath("length_to_split") && config.getInt("length_to_split") > 0
         ? config.getInt("length_to_split") : null;
-    cleanChunks = config.hasPath("clean_chunks") ? config.getBoolean("clean_chunks") : false;
-    preMergeMinChunkLen = config.hasPath("pre_merge_min_chunk_len") && config.getInt("pre_merge_min_chunk_len") > 0
+    this.cleanChunks = config.hasPath("clean_chunks") ? config.getBoolean("clean_chunks") : false;
+    this.preMergeMinChunkLen = config.hasPath("pre_merge_min_chunk_len") && config.getInt("pre_merge_min_chunk_len") > 0
         ? config.getInt("pre_merge_min_chunk_len") : -1;
-    preMergeMaxChunkLen = config.hasPath("pre_merge_max_chunk_len") && config.getInt("pre_merge_max_chunk_len") > 0
+    this.preMergeMaxChunkLen = config.hasPath("pre_merge_max_chunk_len") && config.getInt("pre_merge_max_chunk_len") > 0
         ? config.getInt("pre_merge_max_chunk_len") : -1;
-    chunksToMerge = config.hasPath("chunks_to_merge") ? config.getInt("chunks_to_merge") : 1;
-    chunksToOverlap = config.hasPath("chunks_to_overlap") ? config.getInt("chunks_to_overlap") : null;
-    overlapPercentage = config.hasPath("overlap_percentage") ? config.getInt("overlap_percentage") : 0;
-    characterLimit = config.hasPath("character_limit") ? config.getInt("character_limit") : -1;
+    this.chunksToMerge = config.hasPath("chunks_to_merge") ? config.getInt("chunks_to_merge") : 1;
+    this.chunksToOverlap = config.hasPath("chunks_to_overlap") ? config.getInt("chunks_to_overlap") : null;
+    this.overlapPercentage = config.hasPath("overlap_percentage") ? config.getInt("overlap_percentage") : 0;
+    this.characterLimit = config.hasPath("character_limit") ? config.getInt("character_limit") : -1;
     if (chunksToMerge < 1) {
       throw new StageException("Final chunk size must be greater or equal to 1.");
     }
@@ -104,7 +104,7 @@ public class ChunkText extends Stage {
       throw new StageException("Provide a positive length to split for fixed sized chunking.");
     }
     if (chunksToOverlap != null && overlapPercentage > 0) {
-      throw new StageException("both chunksToOverlap and overlapPercentage cannot be used. Choose one overlap option.");
+      throw new StageException("Both chunksToOverlap and overlapPercentage cannot be used. Choose one overlap option.");
     }
     if (chunksToOverlap != null && chunksToOverlap >= chunksToMerge) {
       throw new StageException("Chunks to overlap must be smaller than final chunk size.");
