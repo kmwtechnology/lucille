@@ -28,7 +28,7 @@ public class WorkerPool {
   public static final int DEFAULT_POOL_SIZE = 1;
 
   private static final Logger log = LoggerFactory.getLogger(WorkerPool.class);
-  private static final long WATCHER_PERIOD_SECONDS = 5;
+  private static final long WATCHER_PERIOD_MILLISECONDS = 500;
 
   private final List<WorkerThread> threads = new ArrayList<>();
   private ScheduledExecutorService watcherService;
@@ -181,7 +181,7 @@ public class WorkerPool {
         .build();
 
     ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(factory);
-    executor.scheduleAtFixedRate(watcher, 1, WATCHER_PERIOD_SECONDS, TimeUnit.SECONDS);
+    executor.scheduleAtFixedRate(watcher, 1, WATCHER_PERIOD_MILLISECONDS, TimeUnit.MILLISECONDS);
     return executor;
   }
 
