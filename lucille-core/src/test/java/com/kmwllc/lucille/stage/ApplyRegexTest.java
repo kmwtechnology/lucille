@@ -78,7 +78,7 @@ public class ApplyRegexTest {
             "class",
             "dotall",
             "literal",
-            "conditionReductionLogic"),
+            "conditionPolicy"),
         stage.getLegalProperties());
   }
 }

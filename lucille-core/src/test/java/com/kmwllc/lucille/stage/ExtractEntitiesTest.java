@@ -67,7 +67,7 @@ public class ExtractEntitiesTest {
             "conditions",
             "class",
             "dictionaries",
-            "conditionReductionLogic"),
+            "conditionPolicy"),
         stage.getLegalProperties());
   }
 }

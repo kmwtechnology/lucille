@@ -41,6 +41,6 @@ public class DeleteFieldsTest {
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("DeleteFieldsTest/config.conf");
-    assertEquals(Set.of("name", "fields", "conditions", "class", "conditionReductionLogic"), stage.getLegalProperties());
+    assertEquals(Set.of("name", "fields", "conditions", "class", "conditionPolicy"), stage.getLegalProperties());
   }
 }

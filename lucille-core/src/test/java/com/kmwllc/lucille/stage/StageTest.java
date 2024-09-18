@@ -186,12 +186,12 @@ public class StageTest {
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("StageTest/processMust.conf");
-    assertEquals(Set.of("name", "conditions", "class", "conditionReductionLogic"), stage.getLegalProperties());
+    assertEquals(Set.of("name", "conditions", "class", "conditionPolicy"), stage.getLegalProperties());
   }
 
   @Test
-  public void testOrReductionLogicTwoConditions() throws StageException {
-    Stage stage = factory.get("StageTest/orReductionLogicTwoConditions.conf");
+  public void testOrPolicyTwoConditions() throws StageException {
+    Stage stage = factory.get("StageTest/orPolicyTwoConditions.conf");
 
     // Check that the must condition is applied
     Document doc1 = Document.create("doc1");
@@ -214,8 +214,8 @@ public class StageTest {
   }
 
   @Test
-  public void testOrReductionLogicOneCondition() throws StageException {
-    Stage stage = factory.get("StageTest/orReductionLogicOneCondition.conf");
+  public void testOrPolicyOneCondition() throws StageException {
+    Stage stage = factory.get("StageTest/orPolicyOneCondition.conf");
 
     Document doc1 = Document.create("doc1");
     doc1.setField("user_id", "1234");
@@ -223,8 +223,8 @@ public class StageTest {
   }
 
   @Test
-  public void testOrReductionLogicNoCondition() throws StageException {
-    Stage stage = factory.get("StageTest/orReductionLogicNoCondition.conf");
+  public void testOrPolicyNoCondition() throws StageException {
+    Stage stage = factory.get("StageTest/orPolicyNoCondition.conf");
 
     Document doc1 = Document.create("doc1");
     doc1.setField("user_id", "1234");
@@ -232,12 +232,17 @@ public class StageTest {
   }
 
   @Test
-  public void testAndReductionLogicNoCondition() throws StageException {
-    Stage stage = factory.get("StageTest/andReductionLogicNoCondition.conf");
+  public void testAndPolicyNoCondition() throws StageException {
+    Stage stage = factory.get("StageTest/andPolicyNoCondition.conf");
 
     Document doc1 = Document.create("doc1");
     doc1.setField("user_id", "1234");
     assertProcessed(stage, doc1, true);
+  }
+
+  @Test
+  public void testUnsupportedPolicy() {
+   assertThrows(StageException.class ,() -> factory.get("StageTest/unsupportedPolicy.conf"));
   }
 
 }

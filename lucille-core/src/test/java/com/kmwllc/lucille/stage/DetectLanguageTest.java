@@ -61,7 +61,7 @@ public class DetectLanguageTest {
             "conditions",
             "class",
             "max_length",
-            "conditionReductionLogic"),
+            "conditionPolicy"),
         stage.getLegalProperties());
   }
 }

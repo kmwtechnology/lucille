@@ -72,7 +72,7 @@ public class ParseDateTest {
             "conditions",
             "class",
             "time_zone_id",
-            "conditionReductionLogic"),
+            "conditionPolicy"),
         stage.getLegalProperties());
   }
 

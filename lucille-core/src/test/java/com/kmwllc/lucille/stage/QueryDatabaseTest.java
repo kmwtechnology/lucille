@@ -107,7 +107,7 @@ public class QueryDatabaseTest {
             "conditions",
             "class",
             "sql",
-            "conditionReductionLogic"),
+            "conditionPolicy"),
         stage.getLegalProperties());
   }
 

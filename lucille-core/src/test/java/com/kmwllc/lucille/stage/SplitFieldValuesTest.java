@@ -64,7 +64,7 @@ public class SplitFieldValuesTest {
             "conditions",
             "class",
             "outputField",
-            "conditionReductionLogic"),
+            "conditionPolicy"),
         stage.getLegalProperties());
   }
 }

@@ -66,7 +66,7 @@ public class CopyFieldsTest {
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("CopyFieldsTest/replace.conf");
     assertEquals(
-        Set.of("update_mode", "name", "source", "dest", "conditions", "class", "conditionReductionLogic"),
+        Set.of("update_mode", "name", "source", "dest", "conditions", "class", "conditionPolicy"),
         stage.getLegalProperties());
   }
 }

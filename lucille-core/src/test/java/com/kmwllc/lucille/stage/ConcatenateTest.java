@@ -61,7 +61,7 @@ public class ConcatenateTest {
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("ConcatenateTest/config.conf");
     assertEquals(
-        Set.of("update_mode", "name", "format_string", "dest", "conditions", "class", "conditionReductionLogic"),
+        Set.of("update_mode", "name", "format_string", "dest", "conditions", "class", "conditionPolicy"),
         stage.getLegalProperties());
   }
 }
