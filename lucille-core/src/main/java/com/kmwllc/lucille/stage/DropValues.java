@@ -22,15 +22,12 @@ public class DropValues extends Stage {
   private final List<String> sourceFields;
   private final List<String> values;
 
-  public DropValues(Config config) {
+  public DropValues(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "values"));
     this.sourceFields = config.getStringList("source");
     this.values = config.getStringList("values");
-  }
 
-  @Override
-  public void start() throws StageException {
-    StageUtils.validateFieldNumNotZero(sourceFields, "Drop Values");
+    StageUtils.validateListLenNotZero(sourceFields, "Drop Values");
   }
 
   @Override

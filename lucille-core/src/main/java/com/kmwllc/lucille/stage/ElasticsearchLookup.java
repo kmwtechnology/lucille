@@ -29,7 +29,7 @@ public class ElasticsearchLookup extends Stage {
   private final List<String> destFields;
   private final UpdateMode updateMode;
 
-  public ElasticsearchLookup(Config config) {
+  public ElasticsearchLookup(Config config) throws StageException {
     super(config, new StageSpec()
         .withOptionalProperties("update_mode")
         .withRequiredProperties("source", "dest", "elasticsearch.url", "elasticsearch.index")
@@ -41,13 +41,14 @@ public class ElasticsearchLookup extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.updateMode = UpdateMode.fromConfig(config);
+
+    if (client == null) {
+      throw new StageException("Client was not created.");
+    }
   }
 
   @Override
   public void start() throws StageException {
-    if (client == null) {
-      throw new StageException("Client was not created.");
-    }
     BooleanResponse response;
     try {
       response = client.ping();

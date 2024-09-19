@@ -47,7 +47,7 @@ public class ParseDate extends Stage {
   // ZoneId to use when parsing dates that do not include zone information
   private final ZoneId zoneId;
 
-  public ParseDate(Config config) {
+  public ParseDate(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "dest")
         .withOptionalProperties("format_strs", "update_mode", "formatters", "time_zone_id"));
 
@@ -59,6 +59,25 @@ public class ParseDate extends Stage {
 
     zoneId = getTimeZoneId(config);
     formats = getFormats(config, zoneId);
+
+    StageUtils.validateListLenNotZero(sourceFields, "Parse Date");
+    StageUtils.validateListLenNotZero(destFields, "Parse Date");
+    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Parse Date");
+
+    if (config.hasPath("formatters")) {
+      // Instantiate all of the formatters supplied in the Config
+      List<? extends Config> formatterClasses = config.getConfigList("formatters");
+      for (Config c : formatterClasses) {
+        try {
+          Class<?> clazz = Class.forName(c.getString("class"));
+          Constructor<?> constructor = clazz.getConstructor();
+          BiFunction<String, ZoneId, ZonedDateTime> formatter = (BiFunction<String, ZoneId, ZonedDateTime>) constructor.newInstance();
+          formatters.add(formatter);
+        } catch (Exception e) {
+          throw new StageException("Unable to instantiate date formatters.", e);
+        }
+      }
+    }
   }
 
   private static ZoneId getTimeZoneId(Config config) {
@@ -92,28 +111,6 @@ public class ParseDate extends Stage {
       formats.add(format);
     }
     return formats;
-  }
-
-  @Override
-  public void start() throws StageException {
-    StageUtils.validateFieldNumNotZero(sourceFields, "Parse Date");
-    StageUtils.validateFieldNumNotZero(destFields, "Parse Date");
-    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Parse Date");
-
-    if (config.hasPath("formatters")) {
-      // Instantiate all of the formatters supplied in the Config
-      List<? extends Config> formatterClasses = config.getConfigList("formatters");
-      for (Config c : formatterClasses) {
-        try {
-          Class<?> clazz = Class.forName(c.getString("class"));
-          Constructor<?> constructor = clazz.getConstructor();
-          BiFunction<String, ZoneId, ZonedDateTime> formatter = (BiFunction<String, ZoneId, ZonedDateTime>) constructor.newInstance();
-          formatters.add(formatter);
-        } catch (Exception e) {
-          throw new StageException("Unable to instantiate date formatters.", e);
-        }
-      }
-    }
   }
 
   @Override

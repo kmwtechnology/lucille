@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.stage;
 
+import static com.kmwllc.lucille.util.StageUtils.validateLessThan;
+import static com.kmwllc.lucille.util.StageUtils.validateMoreThan;
+
 import java.util.Iterator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -38,20 +41,15 @@ public class TruncateField extends Stage {
 
   private static final Logger log = LogManager.getLogger(TruncateField.class);
 
-  public TruncateField(Config config) {
+  public TruncateField(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "max_size").withOptionalProperties("destination"));
 
 
     this.source = config.getString("source");
     this.maxSize = config.getInt("max_size");
     this.destination = ConfigUtils.getOrDefault(config, "destination", null);
-  }
-
-  @Override
-  public void start() throws StageException {
-    if (maxSize < 0) {
-      throw new StageException("max_size cannot be negative");
-    }
+    validateMoreThan(maxSize, -1, "TruncateField",
+        "max_size cannot be negative");
   }
 
   @Override

@@ -30,19 +30,16 @@ public class CopyFields extends Stage {
   private final List<String> destFields;
   private final UpdateMode updateMode;
 
-  public CopyFields(Config config) {
+  public CopyFields(Config config) throws StageException {
     super(config, new StageSpec()
         .withRequiredProperties("source", "dest")
         .withOptionalProperties("update_mode"));
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.updateMode = UpdateMode.fromConfig(config);
-  }
 
-  @Override
-  public void start() throws StageException {
-    StageUtils.validateFieldNumNotZero(sourceFields, "Copy Fields");
-    StageUtils.validateFieldNumNotZero(destFields, "Copy Fields");
+    StageUtils.validateListLenNotZero(sourceFields, "Copy Fields");
+    StageUtils.validateListLenNotZero(destFields, "Copy Fields");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Copy Fields");
   }
 

@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import static com.kmwllc.lucille.util.StageUtils.validateNonEmptyMap;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -26,23 +28,14 @@ public class RenameFields extends Stage {
   private final Map<String, Object> fieldMap;
   private final UpdateMode updateMode;
 
-  public RenameFields(Config config) {
+  public RenameFields(Config config) throws StageException {
     super(config, new StageSpec()
         .withOptionalProperties("update_mode")
         .withRequiredParents("fieldMapping"));
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
-  }
-
-  /**
-   *
-   * @throws StageException if the field mapping is empty.
-   */
-  @Override
-  public void start() throws StageException {
-    if (fieldMap.size() == 0) {
-      throw new StageException("field_mapping must have at least one source-dest pair for Rename Fields");
-    }
+    validateNonEmptyMap(fieldMap, "RenameFields",
+        "field_mapping must have at least one source-dest pair for Rename Fields");
   }
 
   @Override

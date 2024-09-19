@@ -11,9 +11,9 @@ import org.junit.Test;
 public class StageUtilsTest {
 
   @Test
-  public void testValidateFieldNumNotZero() {
+  public void testValidateListLenNotZero() {
     Exception exception = assertThrows(StageException.class, () -> {
-      StageUtils.validateFieldNumNotZero(new ArrayList<>(), "TestStage");
+      StageUtils.validateListLenNotZero(new ArrayList<>(), "TestStage");
     });
 
     String expectedMessage = "An empty field list was supplied to TestStage";
@@ -56,8 +56,8 @@ public class StageUtilsTest {
   }
 
   @Test
-  public void testValidateFieldNumNotZeroNoException() throws StageException {
-    StageUtils.validateFieldNumNotZero(new ArrayList<String>(Arrays.asList("a", "b")), "TestStage");
+  public void testValidateListLenNotZeroNoException() throws StageException {
+    StageUtils.validateListLenNotZero(new ArrayList<String>(Arrays.asList("a", "b")), "TestStage");
   }
 
   @Test

@@ -69,11 +69,8 @@ public class DictionaryLookup extends Stage {
     this.setOnly = ConfigUtils.getOrDefault(config, "set_only", false);
     this.ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignore_missing_source", false);
     this.dictPath = config.getString("dict_path");
-  }
-
-  public void start() throws StageException {
-    StageUtils.validateFieldNumNotZero(sourceFields, "Dictionary Lookup");
-    StageUtils.validateFieldNumNotZero(destFields, "Dictionary Lookup");
+    StageUtils.validateListLenNotZero(sourceFields, "Dictionary Lookup");
+    StageUtils.validateListLenNotZero(destFields, "Dictionary Lookup");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Dictionary Lookup");
 
     if (ignoreMissingSource && !setOnly) {
@@ -82,7 +79,9 @@ public class DictionaryLookup extends Stage {
     if (setOnly && updateMode != UpdateMode.OVERWRITE) {
       throw new StageException("when set_only is true, update_mode must be set to overwrite");
     }
+  }
 
+  public void start() throws StageException {
     this.dict = DictionaryManager.getDictionary(dictPath, ignoreCase, setOnly);
   }
 

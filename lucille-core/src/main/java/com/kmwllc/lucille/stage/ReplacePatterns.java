@@ -50,7 +50,7 @@ public class ReplacePatterns extends Stage {
 
   private List<Pattern> patterns;
 
-  public ReplacePatterns(Config config) {
+  public ReplacePatterns(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "regex", "replacement")
         .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
 
@@ -66,6 +66,10 @@ public class ReplacePatterns extends Stage {
     this.multiline = ConfigUtils.getOrDefault(config, "multiline", false);
     this.dotall = ConfigUtils.getOrDefault(config, "dotall", false);
     this.literal = ConfigUtils.getOrDefault(config, "literal", false);
+
+    StageUtils.validateListLenNotZero(sourceFields, "Apply Regex");
+    StageUtils.validateListLenNotZero(destFields, "Apply Regex");
+    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Apply Regex");
   }
 
   @Override
@@ -117,10 +121,6 @@ public class ReplacePatterns extends Stage {
         }
         break;
     }
-
-    StageUtils.validateFieldNumNotZero(sourceFields, "Apply Regex");
-    StageUtils.validateFieldNumNotZero(destFields, "Apply Regex");
-    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Apply Regex");
   }
 
   @Override
