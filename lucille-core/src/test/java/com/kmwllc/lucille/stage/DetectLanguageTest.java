@@ -60,7 +60,8 @@ public class DetectLanguageTest {
             "source",
             "conditions",
             "class",
-            "max_length"),
+            "max_length",
+            "conditionPolicy"),
         stage.getLegalProperties());
   }
 }
