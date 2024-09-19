@@ -166,10 +166,6 @@ public class PineconeIndexer extends Indexer {
       } catch (Exception e) {
         throw new IndexerException("Error listing vectors to delete", e);
       }
-
-      for (ListItem listItem : idsToDelete) {
-        log.info("{}{} deletes vector id {}", doc.getId(), additionalPrefix, listItem.getId());
-      }
     }
     return idsToDelete.stream().map(ListItem::getId).collect(Collectors.toList());
   }
