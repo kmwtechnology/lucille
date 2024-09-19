@@ -41,15 +41,14 @@ public class ElasticsearchLookup extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.updateMode = UpdateMode.fromConfig(config);
-
-    if (client == null) {
-      throw new StageException("Client was not created.");
-    }
   }
 
   @Override
   public void start() throws StageException {
     BooleanResponse response;
+    if (client == null) {
+      throw new StageException("Client was not created.");
+    }
     try {
       response = client.ping();
     } catch (Exception e) {
