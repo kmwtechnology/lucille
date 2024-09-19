@@ -31,7 +31,7 @@ public class CreateStaticTeaser extends Stage {
   private final int maxLength;
   private final UpdateMode updateMode;
 
-  public CreateStaticTeaser(Config config) {
+  public CreateStaticTeaser(Config config) throws StageException {
     super(config, new StageSpec()
         .withRequiredProperties("source", "dest", "maxLength")
         .withOptionalProperties("update_mode"));
@@ -40,16 +40,10 @@ public class CreateStaticTeaser extends Stage {
     this.destFields = config.getStringList("dest");
     this.maxLength = config.getInt("maxLength");
     this.updateMode = UpdateMode.fromConfig(config);
-  }
-
-  @Override
-  public void start() throws StageException {
-    StageUtils.validateFieldNumNotZero(sourceFields, "Create Static Teaser");
-    StageUtils.validateFieldNumNotZero(destFields, "Create Static Teaser");
+    StageUtils.validateListLenNotZero(sourceFields, "Create Static Teaser");
+    StageUtils.validateListLenNotZero(destFields, "Create Static Teaser");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Create Static Teaser");
-    if (maxLength < 1) {
-      throw new StageException("Max length is less than 1 for Static Teaser Stage");
-    }
+    StageUtils.validateLessThan(1, maxLength, "Create Static Teaser", "Max length is less than 1 for Static Teaser Stage");
   }
 
   // NOTE : If a given field is multivalued, this Stage will only operate on the first value

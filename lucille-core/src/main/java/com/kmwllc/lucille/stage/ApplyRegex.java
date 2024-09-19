@@ -50,7 +50,7 @@ public class ApplyRegex extends Stage {
 
   private Pattern pattern;
 
-  public ApplyRegex(Config config) {
+  public ApplyRegex(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "regex")
         .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
 
@@ -63,6 +63,10 @@ public class ApplyRegex extends Stage {
     this.multiline = ConfigUtils.getOrDefault(config, "multiline", false);
     this.dotall = ConfigUtils.getOrDefault(config, "dotall", false);
     this.literal = ConfigUtils.getOrDefault(config, "literal", false);
+
+    StageUtils.validateListLenNotZero(sourceFields, "Apply Regex");
+    StageUtils.validateListLenNotZero(destFields, "Apply Regex");
+    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Apply Regex");
   }
 
   @Override
@@ -104,10 +108,6 @@ public class ApplyRegex extends Stage {
         pattern = Pattern.compile(regexExpr);
         break;
     }
-
-    StageUtils.validateFieldNumNotZero(sourceFields, "Apply Regex");
-    StageUtils.validateFieldNumNotZero(destFields, "Apply Regex");
-    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Apply Regex");
   }
 
   @Override

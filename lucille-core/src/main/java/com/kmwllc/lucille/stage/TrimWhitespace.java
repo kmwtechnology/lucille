@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import static com.kmwllc.lucille.util.StageUtils.validateListLenNotZero;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -22,16 +24,10 @@ public class TrimWhitespace extends Stage {
 
   private final List<String> fields;
 
-  public TrimWhitespace(Config config) {
+  public TrimWhitespace(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("fields"));
     this.fields = config.getStringList("fields");
-  }
-
-  @Override
-  public void start() throws StageException {
-    if (fields.size() == 0) {
-      throw new StageException("Must supply at least one field to trim whitespace from.");
-    }
+    validateListLenNotZero(fields, "TrimWhitespace");
   }
 
   @Override

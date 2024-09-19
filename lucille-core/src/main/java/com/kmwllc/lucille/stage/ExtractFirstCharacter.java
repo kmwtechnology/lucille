@@ -26,14 +26,11 @@ public class ExtractFirstCharacter extends Stage {
   private final Map<String, Object> fieldMapping;
   private final String replacement;
 
-  public ExtractFirstCharacter(Config config) {
+  public ExtractFirstCharacter(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("replacement")
         .withRequiredParents("fieldMapping"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";
-  }
-
-  public void start() throws StageException {
     if (fieldMapping.size() == 0) {
       throw new StageException("field mapping must contain at least one entry");
     }

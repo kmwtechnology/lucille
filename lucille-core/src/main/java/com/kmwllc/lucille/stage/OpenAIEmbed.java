@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import static com.kmwllc.lucille.util.StageUtils.validateStringNotEmpty;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.stage.util.OpenAIEmbeddingModel;
 import com.kmwllc.lucille.core.Stage;
@@ -69,9 +71,7 @@ public class OpenAIEmbed extends Stage {
     if (!this.embedDocument && !this.embedChildren) {
       throw new StageException("Both embed_document and embed_children are false.");
     }
-    if (StringUtils.isBlank(this.API_KEY)) {
-      throw new StageException("API key is empty.");
-    }
+    validateStringNotEmpty(this.API_KEY, "OpenAIEmbed", "API Key is empty");
   }
 
   // Method exists for testing with mockito mocks

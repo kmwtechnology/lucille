@@ -97,10 +97,6 @@ public class ApplyJSoup extends Stage {
       activeField = config.getString("stringField");
       inputType = InputType.STRING;
     }
-  }
-
-  @Override
-  public void start() throws StageException {
 
     for (Map.Entry<String, Object> entry : destinationFields.entrySet()) {
       Object value = entry.getValue();

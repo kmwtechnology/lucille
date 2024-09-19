@@ -62,7 +62,7 @@ public class ExtractEntities extends Stage {
   private final boolean usePayloads;
   private final String entityField;
 
-  public ExtractEntities(Config config) {
+  public ExtractEntities(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "dictionaries")
         .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
             "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field"));
@@ -80,14 +80,14 @@ public class ExtractEntities extends Stage {
     this.dictionaries = config.getStringList("dictionaries");
     this.updateMode = UpdateMode.fromConfig(config);
     this.entityField = config.hasPath("entity_field") ? config.getString("entity_field") : null;
+
+    StageUtils.validateListLenNotZero(sourceFields, "Extract Entities");
+    StageUtils.validateListLenNotZero(destFields, "Extract Entities");
+    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Extract Entities");
   }
 
   @Override
   public void start() throws StageException {
-    StageUtils.validateFieldNumNotZero(sourceFields, "Extract Entities");
-    StageUtils.validateFieldNumNotZero(destFields, "Extract Entities");
-    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Extract Entities");
-
     dictTrie = buildTrie();
   }
 

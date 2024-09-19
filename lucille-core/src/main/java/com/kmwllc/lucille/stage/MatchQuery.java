@@ -3,6 +3,7 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
 import org.apache.commons.lang3.StringUtils;
@@ -39,26 +40,20 @@ public class MatchQuery extends Stage {
   private Monitor monitor;
 
 
-  public MatchQuery(Config config) {
+  public MatchQuery(Config config) throws StageException {
     super(config, new StageSpec()
         .withRequiredProperties(FIELDS_PARAM, QUERIES_PARAM, MATCHEDQUERIES_PARAM));
     fieldsList = config.getStringList(FIELDS_PARAM);
     queryList = config.getObjectList(QUERIES_PARAM);
     matchedQueriesField = config.getString(MATCHEDQUERIES_PARAM);
+    StageUtils.validateListLenNotZero(fieldsList, "MatchQuery");
+    StageUtils.validateListLenNotZero(queryList, "MatchQuery");
+    StageUtils.validateStringNotEmpty(matchedQueriesField, "MatchQuery",
+        String.format("MatchQuery requires a %s property.", MATCHEDQUERIES_PARAM));
   }
 
   @Override
   public void start() throws StageException {
-    if (fieldsList.size() == 0) {
-      throw new StageException(String.format("MatchQuery requires at least one %s property.", FIELDS_PARAM));
-    }
-    if (queryList.size() == 0) {
-      throw new StageException(String.format("MatchQuery requires at least one %s property.", QUERIES_PARAM));
-    }
-    if (StringUtils.isBlank(matchedQueriesField)) {
-      throw new StageException(String.format("MatchQuery requires a %s property.", MATCHEDQUERIES_PARAM));
-    }
-
     try {
       Analyzer analyzer = new StandardAnalyzer();
       monitor = new Monitor(analyzer);

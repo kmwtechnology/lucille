@@ -1,8 +1,11 @@
 package com.kmwllc.lucille.stage;
 
+import static com.kmwllc.lucille.util.StageUtils.validateNonEmptyMap;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -21,16 +24,11 @@ public class RemoveDuplicateValues extends Stage {
 
   private final Map<String, Object> fieldMapping;
 
-  public RemoveDuplicateValues(Config config) {
+  public RemoveDuplicateValues(Config config) throws StageException {
     super(config, new StageSpec().withRequiredParents("fieldMapping"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
-  }
-
-  @Override
-  public void start() throws StageException {
-    if (fieldMapping.size() == 0) {
-      throw new StageException("Must supply at least one field to remove duplicate values from.");
-    }
+    validateNonEmptyMap(fieldMapping, "RemoveDuplicateValues",
+        "Must supply at least one field to remove duplicate values from.");
   }
 
   @Override

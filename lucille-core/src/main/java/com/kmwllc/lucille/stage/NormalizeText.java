@@ -48,21 +48,21 @@ public class NormalizeText extends Stage {
    *
    * @param config
    */
-  public NormalizeText(Config config) {
+  public NormalizeText(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "mode")
         .withOptionalProperties("update_mode"));
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.mode = config.getString("mode");
     this.updateMode = UpdateMode.fromConfig(config);
+
+    StageUtils.validateListLenNotZero(sourceFields, "Normalize Text");
+    StageUtils.validateListLenNotZero(destFields, "Normalize Text");
+    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Normalize Text");
   }
 
   @Override
   public void start() throws StageException {
-    StageUtils.validateFieldNumNotZero(sourceFields, "Normalize Text");
-    StageUtils.validateFieldNumNotZero(destFields, "Normalize Text");
-    StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Normalize Text");
-
     this.mode = mode;
 
     switch (mode.toLowerCase()) {

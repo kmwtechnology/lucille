@@ -51,7 +51,7 @@ public class DetectLanguage extends Stage {
 
   private Detector detector;
 
-  public DetectLanguage(Config config) {
+  public DetectLanguage(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "language_field")
         .withOptionalProperties("language_confidence_field", "min_length", "max_length",
             "min_probability", "update_mode"));
@@ -64,6 +64,7 @@ public class DetectLanguage extends Stage {
     this.maxLength = config.hasPath("max_length") ? config.getInt("max_length") : 10_000;
     this.minProbability = config.hasPath("min_probability") ? config.getDouble("min_probability") : .95;
     this.updateMode = UpdateMode.fromConfig(config);
+    StageUtils.validateListLenNotZero(sourceFields, "Detect Language");
   }
 
   private static synchronized void copyResources(File profDir, String profilesPath) throws StageException {
@@ -93,8 +94,6 @@ public class DetectLanguage extends Stage {
 
   @Override
   public void start() throws StageException {
-    StageUtils.validateFieldNumNotZero(sourceFields, "Detect Language");
-
     if (!DetectorFactory.getLangList().isEmpty()) {
       return;
     }

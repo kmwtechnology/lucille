@@ -1,9 +1,12 @@
 package com.kmwllc.lucille.stage;
 
+import static com.kmwllc.lucille.util.StageUtils.validateExpectedSize;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.JDBCUtils;
+import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -32,7 +35,7 @@ public class QueryDatabase extends Stage {
   private PreparedStatement preparedStatement;
   private static final Logger log = LogManager.getLogger(QueryDatabase.class);
 
-  public QueryDatabase(Config config) {
+  public QueryDatabase(Config config) throws StageException {
     super(config, new StageSpec()
         .withOptionalProperties("sql")
         .withRequiredParents("fieldMapping")
@@ -51,6 +54,8 @@ public class QueryDatabase extends Stage {
     for (String type : inputTypeList) {
       inputTypes.add(PreparedStatementParameterType.getType(type));
     }
+    validateExpectedSize(inputTypeList.size(), keyFields.size(), "Query Database",
+        "mismatch between types provided and keyfields provided");
   }
 
   @Override
@@ -60,10 +65,6 @@ public class QueryDatabase extends Stage {
       preparedStatement = connection.prepareStatement(sql);
     } catch (Exception e) {
       throw new StageException("Not a valid SQL statement", e);
-    }
-
-    if (inputTypes.size() != keyFields.size()) {
-      throw new StageException("mismatch between types provided and keyfields provided");
     }
   }
 
