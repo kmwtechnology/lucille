@@ -170,11 +170,8 @@ class Worker implements Runnable {
     return pollInstant;
   }
 
-  public static WorkerThread startThread(Config config, WorkerMessenger messenger,
-      String pipelineName, String metricsPrefix) throws
-      Exception {
-    Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix);
-    WorkerThread workerThread = new WorkerThread(worker, config);
+  public static WorkerThread startThread(Worker worker, String name) {
+    WorkerThread workerThread = new WorkerThread(worker, name);
     workerThread.start();
     return workerThread;
   }

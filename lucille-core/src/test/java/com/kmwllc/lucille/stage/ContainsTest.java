@@ -52,7 +52,7 @@ public class ContainsTest {
     Stage stage = factory.get("ContainsTest/config.conf");
     assertEquals(
         Set.of(
-            "output", "contains", "ignoreCase", "name", "fields", "conditions", "value", "class"),
+            "output", "contains", "ignoreCase", "name", "fields", "conditions", "value", "class", "conditionPolicy"),
         stage.getLegalProperties());
   }
 }

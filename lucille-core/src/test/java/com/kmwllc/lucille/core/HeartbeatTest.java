@@ -38,6 +38,7 @@ public class HeartbeatTest {
     Thread.sleep(3000);
 
     pool1.stop();
+    pool1.join();
 
     assertTrue(heartbeatLog.exists());
 

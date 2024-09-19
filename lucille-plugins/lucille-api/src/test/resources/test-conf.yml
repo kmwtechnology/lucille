@@ -1,0 +1,7 @@
+server:
+  type: default
+  requestLog:
+    type: external
+    enabled: false
+logging:
+  type: external
