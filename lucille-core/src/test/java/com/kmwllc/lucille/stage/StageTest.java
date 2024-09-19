@@ -241,6 +241,38 @@ public class StageTest {
   }
 
   @Test
+  public void testAllPolicyOneCondition() throws StageException {
+    Stage stage = factory.get("StageTest/allPolicyOneCondition.conf");
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", "1234");
+    assertProcessed(stage, doc1, true);
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("state", "MA");
+    assertProcessed(stage, doc2, false);
+  }
+
+  @Test
+  public void testAllPolicyTwoConditions() throws StageException {
+    Stage stage = factory.get("StageTest/allPolicyTwoConditions.conf");
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", "1234");
+    assertProcessed(stage, doc1, false);
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("state", "MA");
+    assertProcessed(stage, doc2, false);
+
+
+    Document doc3 = Document.create("doc3");
+    doc3.setField("user_id", "1234");
+    doc3.setField("state", "MA");
+    assertProcessed(stage, doc3, true);
+  }
+
+  @Test
   public void testUnsupportedPolicy() {
    assertThrows(StageException.class ,() -> factory.get("StageTest/unsupportedPolicy.conf"));
   }
