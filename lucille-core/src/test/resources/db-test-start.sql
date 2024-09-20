@@ -1,9 +1,22 @@
 -- noinspection SqlNoDataSourceInspectionForFile
 
-CREATE TABLE animal(id INT, name VARCHAR(10), type VARCHAR(10));
-INSERT INTO animal VALUES (1, 'Matt', 'Human');
-INSERT INTO animal VALUES (2, 'Sonny', 'Cat');
-INSERT INTO animal VALUES (3, 'Blaze', 'Cat');
+CREATE TABLE animal(id INT, name VARCHAR(10), type VARCHAR(10), birthday DATE);
+INSERT INTO animal VALUES (1, 'Matt', 'Human', '2001-07-30');
+INSERT INTO animal VALUES (2, 'Sonny', 'Cat', '2024-07-30');
+INSERT INTO animal VALUES (3, 'Blaze', 'Cat', '2024-05-30');
+
+CREATE TABLE network(id INT, name VARCHAR(10), friendsWith VARCHAR(10));
+INSERT INTO network VALUES (1, 'Sonny', 'Matt');
+INSERT INTO network VALUES (2, 'Sonny', 'Blaze');
+INSERT INTO network VALUES (3, 'Matt', 'Bob');
+INSERT INTO network VALUES (4, 'Matt', 'Sonny');
+INSERT INTO network VALUES (5, 'Matt', 'Blaze');
+INSERT INTO network VALUES (6, 'Blaze', 'Matt');
+
+
+CREATE TABLE adopted(id INT, name VARCHAR(10), adoptedOn DATE);
+INSERT INTO adopted VALUES (1, 'Sonny', '2024-07-30');
+INSERT INTO adopted VALUES (2, 'Blaze', '2024-07-30');
 
 CREATE TABLE meal(id INT, animal_id INT, name VARCHAR(20));
 INSERT INTO meal VALUES (1, 1, 'breakfast');

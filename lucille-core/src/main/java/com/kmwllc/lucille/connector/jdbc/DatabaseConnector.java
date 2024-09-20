@@ -168,7 +168,6 @@ public class DatabaseConnector extends AbstractConnector {
           // TODO: how do we normalize our column names?  (lowercase is probably ok and likely desirable as
           // sometimes databases return columns in upper/lower case depending on which db you talk to.)
           String fieldName = columns[i - 1].toLowerCase();
-
           // continue if it is an id column and has the same name as the id field
           if (i == idColumn && Document.ID_FIELD.equals(fieldName)) {
             // we already have this column because it's the id column.
@@ -197,7 +196,7 @@ public class DatabaseConnector extends AbstractConnector {
         }
         if (!otherResults.isEmpty()) {
           // this is the primary key that the result set is ordered by.
-          Integer joinId = rs.getInt(idField);
+          Object joinId = rs.getObject(idField);
           int childId = -1;
           int j = 0;
           for (ResultSet otherResult : otherResults) {
@@ -242,7 +241,7 @@ public class DatabaseConnector extends AbstractConnector {
     runSql(connection, postSql);
   }
 
-  private void iterateOtherSQL(ResultSet rs2, String[] columns2, Document doc, Integer joinId, int childId, String joinField) throws SQLException {
+  private void iterateOtherSQL(ResultSet rs2, String[] columns2, Document doc, Object joinId, int childId, String joinField) throws SQLException {
     // Test if we need to advance or if we should read the current row ...
     if (rs2.isBeforeFirst()) {
       // we need to at least advance to the first row.
@@ -253,18 +252,18 @@ public class DatabaseConnector extends AbstractConnector {
       // um... why is this getting called?  if it is?
       return;
     }
-
+    int columnIndex = rs2.findColumn(joinField);
+    int columnType = rs2.getMetaData().getColumnType(columnIndex);
     do {
       // Convert to do-while I think we can avoid the rs2.previous() call.
-      // TODO: support non INT primary key
-      int otherJoinId = rs2.getInt(joinField);
-      if (otherJoinId < joinId) {
+      Object otherJoinId = rs2.getObject(joinField);
+      if (JDBCUtils.compareIds(otherJoinId, joinId, columnType) < 0) {
         // advance until we get to the id on the right side that we want.
         rs2.next();
         continue;
       }
 
-      if (otherJoinId > joinId) {
+      if (JDBCUtils.compareIds(otherJoinId, joinId, columnType) > 0) {
         // we've gone too far... lets back up and break out , move forward the primary result set.
         // we should leave the cursor here, so we can test again when the primary result set is advanced.
         return;
