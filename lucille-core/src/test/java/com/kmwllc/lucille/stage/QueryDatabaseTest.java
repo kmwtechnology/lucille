@@ -313,20 +313,19 @@ public class QueryDatabaseTest {
       private int count = 0;
       @Override
       public Connection answer(InvocationOnMock invocation) throws Throwable {
-        if (count++ < 2) {  // Throw exception twice
+        if (count++ < 2) {
           throw new SQLException("Connection failed");
         }
-        return mock(Connection.class);  // Return a mock connection after that
+        return mock(Connection.class);
       }
     };
 
-    // Mock DriverManager.getConnection
     try (MockedStatic<DriverManager> mockedDriverManager = mockStatic(DriverManager.class)) {
       mockedDriverManager.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
           .thenAnswer(exceptionAnswer);
 
       assertThrows(StageException.class, () -> factory.get("QueryDatabaseTest/meal.conf"));
-      // Verify that getConnection was called twice (initial attempt + 1 retry)
+      // verify that getConnection was called twice first attempt and then retry attempt
       mockedDriverManager.verify(() -> DriverManager.getConnection(anyString(), anyString(), anyString()), times(2));
     }
   }
