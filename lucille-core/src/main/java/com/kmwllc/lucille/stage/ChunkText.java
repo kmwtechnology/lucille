@@ -131,14 +131,13 @@ public class ChunkText extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // check if document is valid
     if (!doc.hasNonNull(source) || StringUtils.isBlank(doc.getString(source))) {
-      log.debug("doc {} does not contain {} field or contains content to chunk, skipping doc...", doc.getId(), source);
+      log.debug("doc {} does not contain {} field or content to chunk, skipping doc...", doc.getId(), source);
       return null;
     }
 
     // retrieve content to chunk
     String content = doc.getString(source);
 
-    // for testing: log.info("content retrieved {} ", content);
     // splitting up content based on chunking method
     String[] chunks;
     switch (method) {
@@ -147,7 +146,7 @@ public class ChunkText extends Stage {
         break;
       case PARAGRAPH:
         // split any consecutive line break sequence (\n, \r, \r\n) optionally within one unit of whitespace
-        // got it from LangChain4J paragraph splitter
+        // regEx from LangChain4J paragraph splitter
         chunks = content.split("\\s*(?>\\R)\\s*(?>\\R)\\s*");
         break;
       case FIXED:
@@ -181,8 +180,6 @@ public class ChunkText extends Stage {
     // truncating if we have character limit set
     if (characterLimit > 0) truncateRest(chunks, characterLimit);
 
-    // for testing: log.info("number of chunks {} ", chunks.length);
-
     // creating attached children doc for each chunk
     createChildrenDocsWithChunks(doc, chunks);
 
@@ -190,7 +187,6 @@ public class ChunkText extends Stage {
   }
 
   private String[] mergeAndOverlapChunks(String[] chunks, Integer chunksToMerge, Integer chunksToOverlap) {
-    // invalid if chunks is null/empty, or lesser than final chunk size, no point overlapping
     if (isInvalidInput(chunks)) {
       return chunks;
     }
@@ -208,15 +204,15 @@ public class ChunkText extends Stage {
       for (int j = i; j < Math.min(i + chunksToMerge, chunkLength); j++) {
         sb.append(chunks[j]).append(" ");
       }
-      // for testing: log.info("{} {} {}", i, resultIndex, sb.toString());
+      log.debug("{} {} {}", i, resultIndex, sb.toString());
       resultChunks[resultIndex] = sb.toString().trim();
     }
     return resultChunks;
   }
 
-  // true if chunks is null, empty or the final chunk size is larger than the total chunks length
+  // true if no reason to process chunk
   private boolean isInvalidInput(String[] chunks) {
-    return chunks == null || chunks.length == 0 || chunksToMerge > chunks.length;
+    return chunks.length <= 1;
   }
 
   private void truncateRest(String[] chunks, int characterLimit) {
@@ -251,8 +247,10 @@ public class ChunkText extends Stage {
   }
 
   private String[] filterByAppend(String[] chunks, Integer minimumChunkLength) {
+    if (isInvalidInput(chunks)) {
+      return chunks;
+    }
     int originalChunksLength = chunks.length;
-    if (originalChunksLength <= 1) return chunks;
 
     List<String> finalChunks = new ArrayList<>();
     StringBuilder currentChunk = new StringBuilder();
@@ -265,7 +263,7 @@ public class ChunkText extends Stage {
         continue;
       }
 
-      // not large enough but final chunk and finalChunks is not empty
+      // currentChunk not large enough but no next available chunk
       if (currentChunk.length() < minimumChunkLength && i + 1 == originalChunksLength) {
         // append current chunk to last added chunk
         if (!finalChunks.isEmpty()) {
@@ -285,6 +283,10 @@ public class ChunkText extends Stage {
   }
 
   private String[] mergeChunks(String[] chunks, int chunkSize) {
+    if (isInvalidInput(chunks)) {
+      return chunks;
+    }
+
     int length = chunks.length;
     int resultSize = (length + chunkSize - 1) / chunkSize;
     String[] result = new String[resultSize];
@@ -307,7 +309,7 @@ public class ChunkText extends Stage {
   }
 
   private String[] overlapChunks(String[] chunks, Integer overlapPercentage) {
-    if (chunks == null || chunks.length <= 1) {
+    if (isInvalidInput(chunks)) {
       return chunks;
     }
 
@@ -342,7 +344,7 @@ public class ChunkText extends Stage {
   }
 
   private void createChildrenDocsWithChunks(Document doc, String[] chunks) {
-    if (chunks == null || chunks.length == 0) {
+    if (chunks.length == 0) {
       return;
     }
 
