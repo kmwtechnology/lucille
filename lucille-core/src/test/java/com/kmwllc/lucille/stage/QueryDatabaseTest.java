@@ -2,7 +2,9 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
@@ -25,6 +27,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Set;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
@@ -107,6 +111,8 @@ public class QueryDatabaseTest {
             "conditions",
             "class",
             "sql",
+            "connectionRetries",
+            "connectionRetryPause",
             "conditionPolicy"),
         stage.getLegalProperties());
   }
@@ -299,5 +305,29 @@ public class QueryDatabaseTest {
       return e.getMessage();
     }
     return "no Error found";
+  }
+
+  @Test
+  public void testConnectionRetry() throws StageException {
+    Answer<Connection> exceptionAnswer = new Answer<>() {
+      private int count = 0;
+      @Override
+      public Connection answer(InvocationOnMock invocation) throws Throwable {
+        if (count++ < 2) {  // Throw exception twice
+          throw new SQLException("Connection failed");
+        }
+        return mock(Connection.class);  // Return a mock connection after that
+      }
+    };
+
+    // Mock DriverManager.getConnection
+    try (MockedStatic<DriverManager> mockedDriverManager = mockStatic(DriverManager.class)) {
+      mockedDriverManager.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
+          .thenAnswer(exceptionAnswer);
+
+      assertThrows(StageException.class, () -> factory.get("QueryDatabaseTest/meal.conf"));
+      // Verify that getConnection was called twice (initial attempt + 1 retry)
+      mockedDriverManager.verify(() -> DriverManager.getConnection(anyString(), anyString(), anyString()), times(2));
+    }
   }
 }
