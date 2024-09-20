@@ -102,7 +102,7 @@ public class DatabaseConnector extends AbstractConnector {
       throw e;
     }
 
-    // try to get connection, and if fails, retry "retries" amount of times
+    // try to get connection, and if fails, retry up to "connectionRetries"
     for (int attempt = 0; attempt <= connectionRetries; attempt++) {
       try {
         Connection connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
