@@ -7,9 +7,13 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,6 +23,14 @@ import java.util.HashMap;
 import java.util.List;
 
 import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class DatabaseConnectorTest {
 
@@ -127,6 +139,35 @@ public class DatabaseConnectorTest {
 
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+  @Test
+  public void testDatabaseConnectionRetry() throws Exception {
+    // The only connection to the h2 database should be the dbHelper
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    // Create the test config
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "lousy connection String"); // lousy connection string to test retry
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
+    configValues.put("idField", "id");
+    configValues.put("connectionRetries", 1);
+    // put sleep to 1 seconds to avoid too much time for testing
+    configValues.put("connectionRetryPause", 1);
+
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // create the connector with the config
+    DatabaseConnector connector = new DatabaseConnector(config);
+
+    // start the connector, it will log number of tries and throw Exception, will total 2 attempts
+    assertThrows(ConnectorException.class , () -> connector.execute(publisher));
   }
 
   @Test
