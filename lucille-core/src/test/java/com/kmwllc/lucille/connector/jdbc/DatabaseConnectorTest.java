@@ -14,8 +14,9 @@ import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,14 +26,10 @@ import java.util.HashMap;
 import java.util.List;
 
 import static org.junit.Assert.*;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 public class DatabaseConnectorTest {
 
@@ -159,17 +156,36 @@ public class DatabaseConnectorTest {
     configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
     configValues.put("idField", "id");
     configValues.put("connectionRetries", 1);
-    // put sleep to 1 seconds to avoid too much time for testing
+    // put sleep to 1 second to avoid too much time for testing
     configValues.put("connectionRetryPause", 1);
 
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
 
-    // create the connector with the config
-    DatabaseConnector connector = new DatabaseConnector(config);
+    // creating response after getConnection is called
+    // we are retrying once, so if we throw exception twice, we should get a ConnectorException
+    Answer<Connection> exceptionAnswer = new Answer<>() {
+      private int count = 0;
+      @Override
+      public Connection answer(InvocationOnMock invocation) throws Throwable {
+        if (count++ < 2) {  // Throw exception twice
+          throw new SQLException("Connection failed");
+        }
+        return mock(Connection.class);
+      }
+    };
 
-    // start the connector, it will log number of tries and throw Exception, will total 2 attempts
-    assertThrows(ConnectorException.class , () -> connector.execute(publisher));
+    try (MockedStatic<DriverManager> mockDriverManager = mockStatic(DriverManager.class)) {
+      mockDriverManager.when(() -> DriverManager.getConnection("lousy connection String", "", ""))
+          .thenAnswer(exceptionAnswer);
+
+      DatabaseConnector connector = new DatabaseConnector(config);
+
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+      // verify that getConnection was called twice --first attempt and retry attempt
+      mockDriverManager.verify(
+          () -> DriverManager.getConnection(eq("lousy connection String"), eq(""), eq("")), times(2));
+    }
   }
 
   @Test
