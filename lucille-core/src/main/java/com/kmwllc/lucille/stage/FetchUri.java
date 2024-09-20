@@ -37,9 +37,9 @@ import org.apache.http.impl.client.HttpClientBuilder;
  * max_retries (Integer, Optional) : max number of tries the request will be made. Defaults to 0 retries.
  * initial_expiry_ms (Integer, Optional) : number of milliseconds that would be waited before retrying the request. Defaults to 100ms.
  * max_expiry_ms (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.
- * connection_request_timeout (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 5000ms, 5s.
- * connect_timeout (Integer, Optional) : the connection timeout in milliseconds. Defaults to 5000ms, 5s.
- * socket_timeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 5000ms, 5s.
+ * connection_request_timeout (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 60000ms, 1m.
+ * connect_timeout (Integer, Optional) : the connection timeout in milliseconds. Defaults to 60000ms, 1m.
+ * socket_timeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.
  */
 public class FetchUri extends Stage {
 
@@ -74,9 +74,9 @@ public class FetchUri extends Stage {
     this.maxNumRetries = ConfigUtils.getOrDefault(config, "max_retries", 0);
     this.initialExpiry = ConfigUtils.getOrDefault(config, "initial_expiry_ms", 100);
     this.maxExpiry = ConfigUtils.getOrDefault(config, "max_expiry_ms", 10000);
-    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connection_request_timeout", 5000);
-    this.connectTimeout = ConfigUtils.getOrDefault(config, "connect_timeout", 5000);
-    this.socketTimeout = ConfigUtils.getOrDefault(config, "socket_timeout", 5000);
+    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connection_request_timeout", 60000);
+    this.connectTimeout = ConfigUtils.getOrDefault(config, "connect_timeout", 60000);
+    this.socketTimeout = ConfigUtils.getOrDefault(config, "socket_timeout", 60000);
   }
 
   // Method exists for testing with mockito mocks

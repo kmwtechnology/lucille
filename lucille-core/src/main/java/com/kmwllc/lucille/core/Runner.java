@@ -5,11 +5,10 @@ import com.codahale.metrics.Slf4jReporter;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.*;
 import com.kmwllc.lucille.util.LogUtils;
+import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
-import com.typesafe.config.ConfigValue;
-import java.util.Map.Entry;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
@@ -122,35 +121,10 @@ public class Runner {
       return;
     }
 
-    StopWatch stopWatch = new StopWatch();
-    stopWatch.start();
-    RunResult result;
+    RunType runType = getRunType(cli.hasOption("useKafka"), cli.hasOption("local"));
 
-    try {
-
-      RunType runType;
-      if (cli.hasOption("usekafka")) {
-        if (cli.hasOption("local")) {
-          runType = RunType.KAFKA_LOCAL;
-        } else {
-          runType = RunType.KAFKA_DISTRIBUTED;
-        }
-      } else {
-        runType = RunType.LOCAL;
-      }
-
-      result = run(config, runType);
-
-      // log detailed metrics
-      Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
-          .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
-
-      // log run summary
-      log.info(result.toString());
-    } finally {
-      stopWatch.stop();
-      log.info(String.format("Run took %.2f secs.", (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
-    }
+    // Kick off the run with a log of the result
+    RunResult result = runWithResultLog(config, runType);
 
     if (result.getStatus()) {
       System.exit(0);
@@ -208,7 +182,11 @@ public class Runner {
   }
 
   public static Map<String, List<Exception>> runInValidationMode(String configName) throws Exception {
-    Map<String, List<Exception>> exceptions = validatePipelines(ConfigFactory.load(configName));
+    return runInValidationMode(ConfigFactory.load(configName));
+  }
+
+  public static Map<String, List<Exception>> runInValidationMode(Config config) throws Exception {
+    Map<String, List<Exception>> exceptions = validatePipelines(config);
     logValidation(exceptions);
     return exceptions;
   }
@@ -237,6 +215,46 @@ public class Runner {
         .setComments(false)
         .setOriginComments(false);
     log.info(config.root().render(renderOptions));
+  }
+
+  /**
+   * Derives the RunType for the new run from the 'useKafka' and 'local' parameters.
+   */
+  static RunType getRunType(boolean useKafka, boolean local) {
+    if (useKafka) {
+      if (local) {
+        return RunType.KAFKA_LOCAL;
+      } else {
+        return RunType.KAFKA_DISTRIBUTED;
+      }
+    } else {
+      return RunType.LOCAL;
+    }
+  }
+
+  /**
+   * Kicks off a new Lucille run and logs information about the run to the console after completion.
+   */
+  public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
+    StopWatch stopWatch = new StopWatch();
+    stopWatch.start();
+    RunResult result;
+
+    try {
+      result = run(config, runType);
+
+      // log detailed metrics
+      Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
+          .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
+
+      // log run summary
+      log.info(result.toString());
+
+      return result;
+    } finally {
+      stopWatch.stop();
+      log.info(String.format("Run took %.2f secs.", (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
+    }
   }
 
   /**
@@ -364,7 +382,7 @@ public class Runner {
       }
     } else {
       try {
-        ConnectorThread connectorThread = new ConnectorThread(connector, publisher);
+        ConnectorThread connectorThread = new ConnectorThread(connector, publisher, ThreadNameUtils.createName("Connector"));
         connectorThread.start();
         final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
             config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
@@ -444,7 +462,7 @@ public class Runner {
           return new ConnectorResult(connector, publisher, false, msg);
         }
 
-        indexerThread = new Thread(indexer);
+        indexerThread = new Thread(indexer, ThreadNameUtils.createName("Indexer"));
         indexerThread.start();
       }
 

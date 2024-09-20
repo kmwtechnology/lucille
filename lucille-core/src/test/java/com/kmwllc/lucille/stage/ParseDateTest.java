@@ -71,7 +71,8 @@ public class ParseDateTest {
             "dest",
             "conditions",
             "class",
-            "time_zone_id"),
+            "time_zone_id",
+            "conditionPolicy"),
         stage.getLegalProperties());
   }
 

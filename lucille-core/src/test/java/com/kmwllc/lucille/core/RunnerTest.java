@@ -28,7 +28,6 @@ import static org.mockito.Mockito.*;
 
 @RunWith(JUnit4.class)
 public class RunnerTest {
-
   @Test
   public void testRunnerWithNoDocs() throws Exception {
     // we should be able to run a connector that generates no documents

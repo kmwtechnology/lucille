@@ -214,7 +214,7 @@ public class ParseJsonTest {
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("ParseJson/config.conf");
-    assertEquals(Set.of("src", "name", "sourceIsBase64", "conditions", "class"),
+    assertEquals(Set.of("src", "name", "sourceIsBase64", "conditions", "class", "conditionPolicy"),
         stage.getLegalProperties());
   }
 }
