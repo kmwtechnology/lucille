@@ -21,7 +21,7 @@ import org.apache.logging.log4j.Logger;
  * Retrieves text from a Lucille document field, then breaks it into chunks,
  * with each chunk added as a child document attached to the current document.
  * Order of processing chunks: chunking method -> cleaning -> pre-merge processing -> merge -> overlap -> character limiting
- * 
+ *
  * Config Parameters:
  * - source (String) : field of which Chunking Stage will chunk the text.
  * - dest (String, optional): the name of the field that will hold the chunk contents in the children documents.
@@ -39,7 +39,7 @@ import org.apache.logging.log4j.Logger;
  * - pre_merge_max_chunk_len (Integer, optional): truncates the chunks if over given amount, applies before merging and overlapping
  * - chunks_to_merge (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.
  *    defaults to 1, keeping the chunks as they were after splitting.
- *    e.g. chunks_to_merge: 2 -> { chunk1/chunk2, chunk3/chunk4, chunk4/chunk5}
+ *    e.g. chunks_to_merge: 2 -> { chunk1/chunk2, chunk3/chunk4, chunk5/chunk6}
  * - overlap_percentage (Integer, optional) : adds on neighboring chunk's content based on percentage of current chunk, defaults to 0
  * - chunks_to_overlap (Integer, optional) : indicate the number of overlap of smaller chunks to overlap while merging into final chunk
  *    e.g. chunks_to_overlap: 1 -> { chunk1/chunk2/chunk3, chunk3/chunk4/chunk5, chunk5/chunk6/chunk7}
