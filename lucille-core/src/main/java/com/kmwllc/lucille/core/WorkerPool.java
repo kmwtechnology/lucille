@@ -4,6 +4,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
+import com.kmwllc.lucille.util.DeduplicationQueue;
 import com.kmwllc.lucille.util.LogUtils;
 import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
@@ -11,11 +12,15 @@ import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +71,10 @@ public class WorkerPool {
     this.maxProcessingSecs =
         config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 10 * 60 * 1000;
     this.exitOnTimeout = config.hasPath("worker.exitOnTimeout") ? config.getBoolean("worker.exitOnTimeout") : false;
+
+    int deduplicationTimeout = config.hasPath("worker.deduplicationTimeout") ? config.getInt("worker.deduplicationTimeout") : 30;
+    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets = new LinkedBlockingQueue();
+    DeduplicationQueue.getInstance().initialize(deduplicationTimeout, offsets);
   }
 
   public void start() throws Exception {

@@ -4,6 +4,7 @@ import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.HybridIndexerMessenger;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
 import com.kmwllc.lucille.message.LocalMessenger;
+import com.kmwllc.lucille.util.DeduplicationQueue;
 import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -80,8 +81,11 @@ public class WorkerIndexer {
 
     log.info("Starting WorkerIndexer for pipeline: " + pipelineName);
 
+    int timeout = config.hasPath("worker.deduplicationTimeout") ? config.getInt("worker.deduplicationTimeout") : 30;
+    DeduplicationQueue.getInstance().initialize(timeout, offsets);
+
     HybridWorkerMessenger workerMessageManager =
-        new HybridWorkerMessenger(config, pipelineName, pipelineDest, offsets);
+        new HybridWorkerMessenger(config, pipelineName, pipelineDest);
 
     HybridIndexerMessenger indexerMessageManager =
         new HybridIndexerMessenger(config, pipelineDest, offsets, idSet, pipelineName);

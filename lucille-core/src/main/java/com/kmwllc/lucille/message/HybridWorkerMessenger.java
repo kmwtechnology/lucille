@@ -3,6 +3,7 @@ package com.kmwllc.lucille.message;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.util.DeduplicationQueue;
 import com.typesafe.config.Config;
 import java.util.Collections;
 import java.util.Queue;
@@ -30,36 +31,27 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
-  private final int deduplicationTimeout;
-  private final ExpiringMap<String, KafkaDocument> expiryMap;
-  private final Queue<KafkaDocument> expiredDocuments;
+  private final DeduplicationQueue deduplicationQueue;
 
   private final Config config;
   private final String pipelineName;
 
   public HybridWorkerMessenger(Config config, String pipelineName,
       LinkedBlockingQueue<Document> pipelineDest,
-      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
       KafkaConsumer sourceConsumer) {
     this.config = config;
     this.pipelineName = pipelineName;
     this.pipelineDest = pipelineDest;
-    this.offsets = offsets;
     this.sourceConsumer = sourceConsumer;
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
 
-    this.expiredDocuments = new LinkedBlockingQueue<>();
-    this.deduplicationTimeout = config.hasPath("deduplicationTimeout") ? config.getInt("deduplicationTimeout") : 30;
-    this.expiryMap = ExpiringMap.builder()
-        .expiration(this.deduplicationTimeout, TimeUnit.SECONDS)
-        .expirationListener((String key, Document doc) -> expiredDocuments.add(doc))
-        .build();
+    this.deduplicationQueue = DeduplicationQueue.getInstance();
+    this.offsets = this.deduplicationQueue.getOffsets();
   }
 
   public HybridWorkerMessenger(Config config, String pipelineName,
-      LinkedBlockingQueue<Document> pipelineDest,
-      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
-    this(config, pipelineName, pipelineDest, offsets, createSourceConsumer(config, pipelineName));
+      LinkedBlockingQueue<Document> pipelineDest) {
+    this(config, pipelineName, pipelineDest, createSourceConsumer(config, pipelineName));
   }
 
   private static KafkaConsumer createSourceConsumer(Config config, String pipelineName) {
@@ -86,25 +78,10 @@ public class HybridWorkerMessenger implements WorkerMessenger {
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
 
-      if (expiryMap.containsKey(doc.getId())) {
-        KafkaDocument replacedDoc = expiryMap.replace(doc.getId(), doc);
-        TopicPartition replacedPartition = new TopicPartition(replacedDoc.getTopic(), replacedDoc.getPartition());
-
-        // per the kafka docs:
-        // "Note: The committed offset should always be the offset of the next message that your application will read.
-        // Thus, when calling commitSync(offsets) you should add one to the offset of the last message processed."
-        OffsetAndMetadata offset = new OffsetAndMetadata(replacedDoc.getOffset() + 1);
-        offsets.put(Collections.singletonMap(replacedPartition, offset));
-      } else {
-        expiryMap.put(doc.getId(), doc);
-      }
+      deduplicationQueue.addToExpiryQueue(doc);
     }
 
-    if (!expiredDocuments.isEmpty()) {
-      return expiredDocuments.poll();
-    }
-
-    return null;
+    return deduplicationQueue.pollExpiredDocuments();
   }
 
   @Override
