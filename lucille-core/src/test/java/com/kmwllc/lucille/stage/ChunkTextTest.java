@@ -16,7 +16,7 @@ public class ChunkTextTest {
 
   @Test
   public void childrenInformation() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testSentenceChunk.conf");
+    Stage stage = factory.get("ChunkTextTest/testSentenceChunk.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -51,7 +51,7 @@ public class ChunkTextTest {
 
   @Test
   public void testCleanChunks() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testCleanChunk.conf");
+    Stage stage = factory.get("ChunkTextTest/testCleanChunk.conf");
     stage.start();
     Document doc = Document.create("id");
     doc.setField("text", "This is\na sentence.   \n\n This is the second sentence. This is the \nthird sentence.     ");
@@ -67,7 +67,7 @@ public class ChunkTextTest {
 
   @Test
   public void testSentenceChunking() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testSentenceChunk.conf");
+    Stage stage = factory.get("ChunkTextTest/testSentenceChunk.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -87,7 +87,7 @@ public class ChunkTextTest {
 
   @Test
   public void testFixedChunking() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testFixedChunk.conf");
+    Stage stage = factory.get("ChunkTextTest/testFixedChunk.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -114,7 +114,7 @@ public class ChunkTextTest {
 
   @Test
   public void testParagraphChunking() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testParagraphChunk.conf");
+    Stage stage = factory.get("ChunkTextTest/testParagraphChunk.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -137,7 +137,7 @@ public class ChunkTextTest {
 
   @Test
   public void testRegexChunking() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testRegexChunk.conf");
+    Stage stage = factory.get("ChunkTextTest/testRegexChunk.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -157,7 +157,7 @@ public class ChunkTextTest {
 
   @Test
   public void testCharacterLimit() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testCharacterLimit.conf");
+    Stage stage = factory.get("ChunkTextTest/testCharacterLimit.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -175,7 +175,7 @@ public class ChunkTextTest {
 
   @Test
   public void testMerging() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testMerging.conf");
+    Stage stage = factory.get("ChunkTextTest/testMerging.conf");
     stage.start();
     Document doc = Document.create("id");
     String sampleText = "The sun is bright. The sky is clear. Birds are singing. A dog barks. Children play. Trees sway."
@@ -201,7 +201,7 @@ public class ChunkTextTest {
 
   @Test
   public void testMerging2() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testMerging.conf");
+    Stage stage = factory.get("ChunkTextTest/testMerging.conf");
     stage.start();
     Document doc = Document.create("id");
     String sampleText = "The sun is bright. The sky is clear.";
@@ -218,7 +218,7 @@ public class ChunkTextTest {
 
   @Test
   public void testFilterByAppend() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testFilterByAppend.conf");
+    Stage stage = factory.get("ChunkTextTest/testFilterByAppend.conf");
     stage.start();
     Document doc = Document.create("id");
 
@@ -234,7 +234,7 @@ public class ChunkTextTest {
 
   @Test
   public void testFilterByAppendLastChunk() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testFilterByAppend.conf");
+    Stage stage = factory.get("ChunkTextTest/testFilterByAppend.conf");
     stage.start();
     Document doc = Document.create("id");
 
@@ -250,7 +250,7 @@ public class ChunkTextTest {
 
   @Test
   public void testFilterByAppendWarn() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testFilterByAppendWarn.conf");
+    Stage stage = factory.get("ChunkTextTest/testFilterByAppendWarn.conf");
     stage.start();
     Document doc = Document.create("id");
 
@@ -264,7 +264,7 @@ public class ChunkTextTest {
 
   @Test
   public void testPreMergeTruncate() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testPreMergeTruncate.conf");
+    Stage stage = factory.get("ChunkTextTest/testPreMergeTruncate.conf");
     stage.start();
 
 
@@ -282,7 +282,7 @@ public class ChunkTextTest {
 
   @Test
   public void testOverlapPercentage20() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testOverlapPercentage20.conf");
+    Stage stage = factory.get("ChunkTextTest/testOverlapPercentage20.conf");
     stage.start();
     Document doc = Document.create("id");
     String sampleText = "The sun is bright, The sky is clear. Birds are singing, a dog barks, children play. Trees sway,"
@@ -309,7 +309,7 @@ public class ChunkTextTest {
   @Test
   public void testMerge3OverlapPercentage20() throws StageException {
     // chunk size 3, overlap 20 percent
-    Stage stage = factory.get("ChunkingTest/testMerge3OverlapPercentage20.conf");
+    Stage stage = factory.get("ChunkTextTest/testMerge3OverlapPercentage20.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -336,7 +336,7 @@ public class ChunkTextTest {
 
   @Test
   public void testMerge2Overlap1() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testMerge2Overlap1.conf");
+    Stage stage = factory.get("ChunkTextTest/testMerge2Overlap1.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -362,7 +362,7 @@ public class ChunkTextTest {
 
   @Test
   public void testMerge3Overlap1() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testMerge3Overlap1.conf");
+    Stage stage = factory.get("ChunkTextTest/testMerge3Overlap1.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -384,7 +384,7 @@ public class ChunkTextTest {
 
   @Test
   public void testMerge4Overlap2() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testMerge4Overlap2.conf");
+    Stage stage = factory.get("ChunkTextTest/testMerge4Overlap2.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -413,7 +413,7 @@ public class ChunkTextTest {
 
   @Test
   public void testMerge5Overlap2() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testMerge5Overlap2.conf");
+    Stage stage = factory.get("ChunkTextTest/testMerge5Overlap2.conf");
     stage.start();
 
     Document doc = Document.create("id");
@@ -439,7 +439,7 @@ public class ChunkTextTest {
 
   @Test
   public void testMerge5Overlap3() throws StageException {
-    Stage stage = factory.get("ChunkingTest/testMerge5Overlap3.conf");
+    Stage stage = factory.get("ChunkTextTest/testMerge5Overlap3.conf");
     stage.start();
 
     Document doc = Document.create("id");

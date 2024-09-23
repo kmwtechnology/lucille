@@ -20,26 +20,30 @@ import org.apache.logging.log4j.Logger;
 /**
  * Retrieves text from a Lucille document field, then breaks it into chunks,
  * with each chunk added as a child document attached to the current document.
- *
+ * Order of processing chunks: chunking method -> cleaning -> pre-merge processing -> merge -> overlap -> character limiting
+ * 
  * Config Parameters:
  * - source (String) : field of which Chunking Stage will chunk the text.
  * - dest (String, optional): the name of the field that will hold the chunk contents in the children documents.
  *   Defaults to "chunk".
  * - chunking_method (Type Enum, optional) : how to split contents in source. Defaults to Sentence chunking
- *  1. fixed chunking: split by variable lengthToSplit
- *  2. paragraph chunking: split by 2 consecutive line break sequence (\n, \r, \r\n) with optional whitespaces between,
+ *  1. fixed chunking ("fixed"): split by variable lengthToSplit
+ *  2. paragraph chunking ("paragraph"): split by 2 consecutive line break sequence (\n, \r, \r\n) with optional whitespaces between,
  *     e.g. \n\n \n \n
- *  3. sentence chunking: use openNLP sentence model for splitting
- *  4. custom chunking: regex option in config required, used to split content
+ *  3. sentence chunking ("sentence"): use openNLP sentence model for splitting
+ *  4. custom chunking ("custom"): regex option in config required, used to split content
  * - regex (String, only for custom chunking): regEx that will be used to split chunks
- * - length_to_split (Integer, only for fixedSizedChunking)
+ * - length_to_split (Integer, only for fixed chunking)
  * - pre_merge_min_chunk_len (Integer, optional): removes and append chunk to the neighboring chunk if below given number of characters,
  *    defaults appending to next chunk.
  * - pre_merge_max_chunk_len (Integer, optional): truncates the chunks if over given amount, applies before merging and overlapping
  * - chunks_to_merge (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.
  *    defaults to 1, keeping the chunks as they were after splitting.
+ *    e.g. chunks_to_merge: 2 -> { chunk1/chunk2, chunk3/chunk4, chunk4/chunk5}
  * - overlap_percentage (Integer, optional) : adds on neighboring chunk's content based on percentage of current chunk, defaults to 0
  * - chunks_to_overlap (Integer, optional) : indicate the number of overlap of smaller chunks to overlap while merging into final chunk
+ *    e.g. chunks_to_overlap: 1 -> { chunk1/chunk2/chunk3, chunk3/chunk4/chunk5, chunk5/chunk6/chunk7}
+ *         chunks_to_overlap: 2 -> { chunk1/chunk2/chunk3, chunk2/chunk3/chunk4, chunk3/chunk4/chunk5}
  * - character_limit (Integer, optional) : hard limit number of characters in a chunk. Truncate rest. Performed after
  *   merging & overlapping if they are set.
  *
@@ -51,6 +55,24 @@ import org.apache.logging.log4j.Logger;
  *       - "chunk_number" : chunk number
  *       - "total_chunk_number" : total chunk number produced from parent document
  *       - "chunk" : the chunk contents. field name can be changed with config option "dest"
+ *
+ *  e.g. of paragraph chunking configuration, with a minimum size of 50 characters per chunk
+ *  {
+ *   source: "text"
+ *   chunking_method: "paragraph"
+ *   pre_merge_min_chunk_len: 50
+ *   clean_chunks: true
+ *  }
+ *
+ *  e.g. of sentence chunking configuration with 5 sentences per chunk and 1 sentence of overlap, with a limit of 2000 characters
+ *  {
+ *   source: "text"
+ *   chunking_method: "sentence"
+ *   chunks_to_merge: 5
+ *   chunks_to_overlap: 1
+ *   clean_chunks: true
+ *   character_limit: 2000
+ *  }
  */
 
 public class ChunkText extends Stage {
@@ -92,13 +114,13 @@ public class ChunkText extends Stage {
     this.overlapPercentage = config.hasPath("overlap_percentage") ? config.getInt("overlap_percentage") : 0;
     this.characterLimit = config.hasPath("character_limit") ? config.getInt("character_limit") : -1;
     if (chunksToMerge < 1) {
-      throw new StageException("Final chunk size must be greater or equal to 1.");
+      throw new StageException("Chunks to merge configuration must be greater than 1 if merging chunks is desired or equal to 1 if undesired.");
     }
     if (characterLimit < -1) {
       throw new StageException("Character limit must be a positive integer if set.");
     }
     if (method == ChunkingMethod.CUSTOM && regEx.isEmpty()) {
-      throw new StageException("Provide a non empty regex configuration.");
+      throw new StageException("Must provide a non empty regex configuration when using 'custom' method.");
     }
     if (method == ChunkingMethod.FIXED && lengthToSplit == null) {
       throw new StageException("Provide a positive length to split for fixed sized chunking.");
@@ -107,7 +129,7 @@ public class ChunkText extends Stage {
       throw new StageException("Both chunksToOverlap and overlapPercentage cannot be used. Choose one overlap option.");
     }
     if (chunksToOverlap != null && chunksToOverlap >= chunksToMerge) {
-      throw new StageException("Chunks to overlap must be smaller than final chunk size.");
+      throw new StageException("Chunks to overlap must be smaller than the chunks to merge.");
     }
   }
 
