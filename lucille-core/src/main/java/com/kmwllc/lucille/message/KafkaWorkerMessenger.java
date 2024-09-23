@@ -4,6 +4,10 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
+import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -13,6 +17,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import net.jodah.expiringmap.ExpiringMap;
 
 import java.util.Collections;
 
@@ -25,6 +30,10 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   private final Config config;
   private final String pipelineName;
 
+  private final int deduplicationTimeout;
+  private final Map<String, Document> expiryMap;
+  private final Queue<Document> expiredDocuments;
+
   public KafkaWorkerMessenger(Config config, String pipelineName) {
     this.config = config;
     this.pipelineName = pipelineName;
@@ -35,6 +44,13 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
     this.sourceConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName, config)));
+
+    this.expiredDocuments = new LinkedBlockingQueue<>();
+    this.deduplicationTimeout = config.hasPath("deduplicationTimeout") ? config.getInt("deduplicationTimeout") : 30;
+    this.expiryMap = ExpiringMap.builder()
+        .expiration(this.deduplicationTimeout, TimeUnit.SECONDS)
+        .expirationListener((String key, Document doc) -> expiredDocuments.add(doc))
+        .build();
   }
 
   /**
@@ -49,8 +65,18 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
-      return doc;
+
+      if (expiryMap.containsKey(doc.getId())) {
+        expiryMap.replace(doc.getId(), doc);
+      } else {
+        expiryMap.put(doc.getId(), doc);
+      }
     }
+
+    if (!expiredDocuments.isEmpty()) {
+      return expiredDocuments.poll();
+    }
+
     return null;
   }
 

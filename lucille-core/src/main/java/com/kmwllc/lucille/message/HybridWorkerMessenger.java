@@ -4,6 +4,11 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
+import java.util.Collections;
+import java.util.Queue;
+import java.util.concurrent.TimeUnit;
+import net.jodah.expiringmap.ExpiringMap;
+import org.apache.commons.collections.map.SingletonMap;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -25,6 +30,10 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
+  private final int deduplicationTimeout;
+  private final ExpiringMap<String, KafkaDocument> expiryMap;
+  private final Queue<KafkaDocument> expiredDocuments;
+
   private final Config config;
   private final String pipelineName;
 
@@ -38,6 +47,13 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.offsets = offsets;
     this.sourceConsumer = sourceConsumer;
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+
+    this.expiredDocuments = new LinkedBlockingQueue<>();
+    this.deduplicationTimeout = config.hasPath("deduplicationTimeout") ? config.getInt("deduplicationTimeout") : 30;
+    this.expiryMap = ExpiringMap.builder()
+        .expiration(this.deduplicationTimeout, TimeUnit.SECONDS)
+        .expirationListener((String key, Document doc) -> expiredDocuments.add(doc))
+        .build();
   }
 
   public HybridWorkerMessenger(Config config, String pipelineName,
@@ -69,8 +85,25 @@ public class HybridWorkerMessenger implements WorkerMessenger {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
-      return doc;
+
+      if (expiryMap.containsKey(doc.getId())) {
+        KafkaDocument replacedDoc = expiryMap.replace(doc.getId(), doc);
+        TopicPartition replacedPartition = new TopicPartition(replacedDoc.getTopic(), replacedDoc.getPartition());
+
+        // per the kafka docs:
+        // "Note: The committed offset should always be the offset of the next message that your application will read.
+        // Thus, when calling commitSync(offsets) you should add one to the offset of the last message processed."
+        OffsetAndMetadata offset = new OffsetAndMetadata(replacedDoc.getOffset() + 1);
+        offsets.put(Collections.singletonMap(replacedPartition, offset));
+      } else {
+        expiryMap.put(doc.getId(), doc);
+      }
     }
+
+    if (!expiredDocuments.isEmpty()) {
+      return expiredDocuments.poll();
+    }
+
     return null;
   }
 
