@@ -48,6 +48,7 @@ public class WorkerPool {
   private final String pipelineName;
   private Integer numWorkers = null;
   private WorkerMessengerFactory workerMessengerFactory;
+  private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
   private boolean started = false;
   private final int logSeconds;
   private final String metricsPrefix;
@@ -73,8 +74,8 @@ public class WorkerPool {
     this.exitOnTimeout = config.hasPath("worker.exitOnTimeout") ? config.getBoolean("worker.exitOnTimeout") : false;
 
     int deduplicationTimeout = config.hasPath("worker.deduplicationTimeout") ? config.getInt("worker.deduplicationTimeout") : 30;
-    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets = new LinkedBlockingQueue();
-    DeduplicationQueue.getInstance().initialize(deduplicationTimeout, offsets);
+    this.offsets = new LinkedBlockingQueue();
+    DeduplicationQueue.initialize(deduplicationTimeout, offsets);
   }
 
   public void start() throws Exception {
@@ -91,7 +92,7 @@ public class WorkerPool {
 
         String name = ThreadNameUtils.createName("Worker-" + (i + 1));
         // will throw exception if pipeline has errors
-        Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix);
+        Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix, offsets);
         workers.add(worker);
         // start workerThread
         threads.add(Worker.startThread(worker, name));

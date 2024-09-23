@@ -6,6 +6,11 @@ import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
@@ -30,13 +35,14 @@ class Worker implements Runnable {
   private boolean trackRetries = false;
   private RetryCounter counter = null;
   private final String metricsPrefix;
+  private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
   public void terminate() {
     log.debug("terminate called");
     running = false;
   }
 
-  public Worker(Config config, WorkerMessenger messenger, String pipelineName, String metricsPrefix) throws Exception {
+  public Worker(Config config, WorkerMessenger messenger, String pipelineName, String metricsPrefix, LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) throws Exception {
     this.messenger = messenger;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
     if (config.hasPath("worker.maxRetries")) {
@@ -47,6 +53,7 @@ class Worker implements Runnable {
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
     this.metricsPrefix = metricsPrefix;
+    this.offsets = offsets;
   }
 
   @Override
@@ -157,6 +164,11 @@ class Worker implements Runnable {
 
   private void commitOffsetsAndRemoveCounter(Document doc) {
     try {
+      KafkaDocument kdoc = (KafkaDocument) doc;
+      TopicPartition topicPartition = new TopicPartition(kdoc.getTopic(), kdoc.getPartition());
+
+      OffsetAndMetadata offset = new OffsetAndMetadata(kdoc.getOffset() + 1);
+      offsets.put(Collections.singletonMap(topicPartition, offset));
       messenger.commitPendingDocOffsets();
       if (trackRetries && doc != null) {
         counter.remove(doc);

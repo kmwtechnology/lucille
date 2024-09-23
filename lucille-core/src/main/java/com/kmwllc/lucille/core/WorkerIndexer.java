@@ -82,7 +82,7 @@ public class WorkerIndexer {
     log.info("Starting WorkerIndexer for pipeline: " + pipelineName);
 
     int timeout = config.hasPath("worker.deduplicationTimeout") ? config.getInt("worker.deduplicationTimeout") : 30;
-    DeduplicationQueue.getInstance().initialize(timeout, offsets);
+    DeduplicationQueue.initialize(timeout, offsets);
 
     HybridWorkerMessenger workerMessageManager =
         new HybridWorkerMessenger(config, pipelineName, pipelineDest);

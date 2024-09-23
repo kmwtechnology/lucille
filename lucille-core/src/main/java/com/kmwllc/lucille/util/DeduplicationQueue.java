@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import kotlin.experimental.ExperimentalTypeInference;
 import net.jodah.expiringmap.ExpiringMap;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -23,30 +24,34 @@ public class DeduplicationQueue {
   private ExpiringMap<String, KafkaDocument> expiryMap;
   private Queue<KafkaDocument> expiredDocuments;
   private LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
-  private boolean initialized;
 
   private static DeduplicationQueue instance;
 
-  private DeduplicationQueue() {
-    this.expiryMap = null;
-    this.expiredDocuments = null;
-    this.offsets = null;
-    this.initialized = false;
+  private DeduplicationQueue(
+      ExpiringMap<String, KafkaDocument> expiryMap,
+      Queue<KafkaDocument> expiredDocuments,
+      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
+    this.expiryMap = expiryMap;
+    this.expiredDocuments = expiredDocuments;
+    this.offsets = offsets;
   }
 
-  public synchronized void initialize(int timeout, LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
-    if (initialized) {
-      log.error("Deduplication Queue has already been initialized");
-      return;
+  public synchronized static DeduplicationQueue getInstance() {
+    if (instance == null) {
+      throw new RuntimeException("DeduplicationQueue has not been initialized");
     }
 
-    expiredDocuments = new LinkedBlockingQueue<>();
-    expiryMap = ExpiringMap.builder()
+    return instance;
+  }
+
+  public synchronized static void initialize(int timeout, LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
+    Queue<KafkaDocument> expiredDocuments = new LinkedBlockingQueue<>();
+    ExpiringMap<String, KafkaDocument> expiryMap = ExpiringMap.builder()
         .expiration(timeout, TimeUnit.SECONDS)
         .expirationListener((String key, KafkaDocument doc) -> expiredDocuments.add(doc))
         .build();
-    this.offsets = offsets;
-    initialized = true;
+
+    instance = new DeduplicationQueue(expiryMap, expiredDocuments, offsets);
   }
 
   public synchronized void addToExpiryQueue(KafkaDocument doc) throws InterruptedException, NullPointerException {
@@ -74,13 +79,5 @@ public class DeduplicationQueue {
 
   public synchronized LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> getOffsets() {
     return offsets;
-  }
-
-  public synchronized static DeduplicationQueue getInstance() {
-    if (instance == null) {
-      instance = new DeduplicationQueue();
-    }
-
-    return instance;
   }
 }
