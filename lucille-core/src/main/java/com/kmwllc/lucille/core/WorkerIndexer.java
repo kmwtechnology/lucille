@@ -99,7 +99,7 @@ public class WorkerIndexer {
     indexerThread = new Thread(indexer);
     indexerThread.start();
     String name = ThreadNameUtils.createName("WorkerIndexer");
-    Worker worker = new Worker(config, workerMessageManager, pipelineName, pipelineName);
+    Worker worker = new Worker(config, workerMessageManager, pipelineName, pipelineName, offsets);
     workerThread = Worker.startThread(worker, name);
   }
 
