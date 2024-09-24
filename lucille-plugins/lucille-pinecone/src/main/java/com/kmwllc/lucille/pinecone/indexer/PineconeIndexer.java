@@ -97,8 +97,15 @@ public class PineconeIndexer extends Indexer {
     List<Document> uploadList = new ArrayList<>();
     for (Document doc : documents) {
       if (isDeletion(doc)) {
-        deleteList.add(doc);
+        // if doc is already in uploadList and is now marked for deletion, then remove that document in upload
+        if (uploadList.contains(doc)) {
+          uploadList.remove(doc);
+        } else {
+          deleteList.add(doc);
+        }
       } else {
+        // if doc is already in deleteList, then continue adding to uploadList as uploading is performed after deletion
+        // note: updating a non-existent ID will not throw an error in Pinecone
         uploadList.add(doc);
       }
     }
