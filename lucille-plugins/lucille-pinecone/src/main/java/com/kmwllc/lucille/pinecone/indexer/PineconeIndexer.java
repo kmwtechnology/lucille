@@ -29,7 +29,8 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
  *
  * Config Parameters:
  * - index (String) : index which PineconeIndexer will request from
- * - namespaces (Map<String, Object>, Optional) : mapping of your namespace to the field of the document to retrieve the vectors from
+ * - namespaces (Map<String, Object>, Optional) : mapping of your namespace to the field of the document to retrieve the vectors from,
+ *   using the same namespace(s) in deletion request if a document is marked for deletion.
  * - apiKey (String) : API key used for requests
  * - mode (String, Optional) : the type of request you want PineconeIndexer to send to your index
  *    1. upsert (will replace if vector id exists in namespace or index if no namespace is given)
@@ -37,7 +38,7 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
  *    for deletion requests, take a look at application-example.conf under Indexer configs. Only support
  *    deletionMarkerField, and deletionMarkerFieldValue as serverless index currently does not support delete via query/metadata.
  * - defaultEmbeddingField (String, required if namespaces is not set) : the field to retrieve embeddings from
- * - deleteByPrefix (boolean, optional) : sends a deletion by prefix request instead of a usual request
+ * - deleteByPrefix (boolean, optional) : sends a deletion by prefix request instead of a usual delete request if deletion is taking place
  * - addDeletionPrefix (String, optional) : String that adds on to all document ids used for prefix deletion
  *  - e.g. if id of doc is "doc1" & deletionPrefix is "-", then all vectors containing "doc1-" in id as prefix will be deleted.
  */
