@@ -304,6 +304,14 @@
         <artifactId>jtokkit</artifactId>
         <version>1.1.0</version>
     </dependency>
+    <!--  dependency for Chunk Stage -->
+
+    <dependency>
+      <groupId>org.apache.opennlp</groupId>
+      <artifactId>opennlp-tools</artifactId>
+      <version>2.4.0</version>
+    </dependency>
+
   </dependencies>
 
 
