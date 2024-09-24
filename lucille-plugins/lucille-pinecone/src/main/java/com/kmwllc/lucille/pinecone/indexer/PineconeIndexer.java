@@ -70,10 +70,6 @@ public class PineconeIndexer extends Indexer {
     this.index = this.client.getIndexConnection(this.indexName);
     this.addDeletionPrefix = config.hasPath("pinecone.addDeletionPrefix") ? config.getString("pinecone.addDeletionPrefix") : "";
     this.deleteByPrefix = config.hasPath("pinecone.deleteByPrefix") ? config.getBoolean("pinecone.deleteByPrefix") : false;
-    if (namespaces == null && defaultEmbeddingField == null && !mode.equalsIgnoreCase("delete")) {
-      throw new IllegalArgumentException(
-          "at least one of a defaultEmbeddingField or a non-empty namespaces mapping is required");
-    }
     if (namespaces != null && namespaces.isEmpty()) {
       throw new IllegalArgumentException("namespaces mapping must be non-empty if provided");
     }
@@ -96,17 +92,50 @@ public class PineconeIndexer extends Indexer {
 
   @Override
   protected void sendToIndex(List<Document> documents) throws IndexerException {
-    if (namespaces != null) {
-      for (Map.Entry<String, Object> entry : namespaces.entrySet()) {
-        uploadDocuments(documents, (String) entry.getValue(), entry.getKey());
+    // retrieve documents to delete & upload
+    List<Document> deleteList = new ArrayList<>();
+    List<Document> uploadList = new ArrayList<>();
+    for (Document doc : documents) {
+      if (isDeletion(doc)) {
+        deleteList.add(doc);
+      } else {
+        uploadList.add(doc);
       }
-    } else {
-      uploadDocuments(documents, defaultEmbeddingField, "default");
+    }
+
+    // if there exists documents to delete
+    if (!deleteList.isEmpty()) {
+      if (namespaces != null) {
+        for (Map.Entry<String, Object> entry : namespaces.entrySet()) {
+          deleteDocuments(deleteList, addDeletionPrefix, entry.getKey());
+        }
+      } else {
+        deleteDocuments(deleteList, addDeletionPrefix,"default");
+      }
+    }
+
+    // if there exists documents to upload
+    if (!uploadList.isEmpty()) {
+      // check that both namespaces and defaultEmbeddingField is not null only when uploading
+      validateUploadRequirements();
+      if (namespaces != null) {
+        for (Map.Entry<String, Object> entry : namespaces.entrySet()) {
+          uploadDocuments(uploadList, (String) entry.getValue(), entry.getKey());
+        }
+      } else {
+        uploadDocuments(uploadList, defaultEmbeddingField, "default");
+      }
+    }
+  }
+
+  private void validateUploadRequirements() {
+    if (namespaces == null && defaultEmbeddingField == null) {
+      throw new IllegalArgumentException(
+          "At least one of a defaultEmbeddingField or a non-empty namespaces mapping is required when uploading documents.");
     }
   }
 
   private void uploadDocuments(List<Document> documents, String embeddingField, String namespace) throws IndexerException {
-
     if (mode.equalsIgnoreCase("upsert")) {
       List<VectorWithUnsignedIndices> upsertVectors = documents.stream()
           // buildUpsertVector would throw an error if embeddings is null,
@@ -125,12 +154,10 @@ public class PineconeIndexer extends Indexer {
       upsertDocuments(upsertVectors, namespace);
     } else if (mode.equalsIgnoreCase("update")) {
       updateDocuments(documents, embeddingField, namespace);
-    } else if (mode.equalsIgnoreCase("delete")) {
-      deleteDocuments(documents, namespace, addDeletionPrefix);
     }
   }
 
-  private void deleteDocuments(List<Document> documents, String namespace, String additionalPrefix) throws IndexerException {
+  private void deleteDocuments(List<Document> documents, String additionalPrefix, String namespace) throws IndexerException {
     List<String> idsToDelete;
     if (deleteByPrefix) {
       idsToDelete = getVectorsByPrefix(documents, additionalPrefix, namespace);
@@ -194,6 +221,13 @@ public class PineconeIndexer extends Indexer {
     } catch (Exception e) {
       throw new IndexerException("Error while updating vectors", e);
     }
+  }
+
+  private boolean isDeletion(Document doc) {
+    return this.deletionMarkerField != null
+        && this.deletionMarkerFieldValue != null
+        && doc.hasNonNull(this.deletionMarkerField)
+        && doc.getString(this.deletionMarkerField).equals(this.deletionMarkerFieldValue);
   }
 
   @Override

@@ -6,6 +6,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -49,6 +50,8 @@ public class PineconeIndexerTest {
   private Document doc0;
   private Document doc1;
   private Document doc2;
+  private Document doc3ToDelete;
+  private Document doc4ToDelete;
 
   private List<Float> doc0ForNamespace1;
   private List<Float> doc0ForNamespace2;
@@ -72,6 +75,8 @@ public class PineconeIndexerTest {
     doc0 = Document.create("doc0");
     doc1 = Document.create("doc1");
     doc2 = Document.create("doc2"); // empty doc without embeddings
+    doc3ToDelete = Document.create("doc3");
+    doc4ToDelete = Document.create("doc4");
     doc0ForNamespace1 = List.of(1.0f, 2.0f);
     doc0ForNamespace2 = List.of(3.0f, 4.0f);
     doc1ForNamespace1 = List.of(5.0f, 6.0f);
@@ -87,6 +92,8 @@ public class PineconeIndexerTest {
     doc1.update("metaString1", UpdateMode.OVERWRITE, "some string data 2");
     doc1.update("metaString2", UpdateMode.OVERWRITE, "some more string data 2");
     doc1.update("metaList", UpdateMode.OVERWRITE, 4, 5, 6);
+    doc3ToDelete.setField("is_deleted", "true");
+    doc4ToDelete.setField("is_deleted", "true");
   }
 
   private void setUpIndexes() {
@@ -400,18 +407,18 @@ public class PineconeIndexerTest {
       PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
       indexerGood.validateConnection();
 
-      messenger.sendForIndexing(doc0);
-      messenger.sendForIndexing(doc1);
+      messenger.sendForIndexing(doc3ToDelete);
+      messenger.sendForIndexing(doc4ToDelete);
       indexerGood.run(2);
 
-      // make sure 2 deletion were made (one deletion per document)
+      // make sure a deletion were made (for both documents)
       ArgumentCaptor<List<String>> ListArgumentCaptor = ArgumentCaptor.forClass(List.class);
       verify(goodIndex, times(1)).deleteByIds(ListArgumentCaptor.capture(), anyString());
 
       // make sure vectors are correct for each document and namespace
       List<String> idsSentForDeletion = ListArgumentCaptor.getAllValues().get(0);
-      assertEquals(doc0.getId(), idsSentForDeletion.get(0));
-      assertEquals(doc1.getId(), idsSentForDeletion.get(1));
+      assertEquals(doc3ToDelete.getId(), idsSentForDeletion.get(0));
+      assertEquals(doc4ToDelete.getId(), idsSentForDeletion.get(1));
     }
   }
 
@@ -428,9 +435,9 @@ public class PineconeIndexerTest {
 
       // mocking
       String prefix = "-";
-      ListItem item1 = ListItem.newBuilder().setId(doc0.getId()+"-1").build();
-      ListItem item2 = ListItem.newBuilder().setId(doc0.getId()+"-2").build();
-      ListItem item3 = ListItem.newBuilder().setId(doc0.getId()+"-3").build();
+      ListItem item1 = ListItem.newBuilder().setId(doc3ToDelete.getId()+"-1").build();
+      ListItem item2 = ListItem.newBuilder().setId(doc3ToDelete.getId()+"-2").build();
+      ListItem item3 = ListItem.newBuilder().setId(doc3ToDelete.getId()+"-3").build();
       List<ListItem> vectorList = Arrays.asList(item1, item2, item3);
 
       ListResponse response = mock(ListResponse.class);
@@ -438,7 +445,7 @@ public class PineconeIndexerTest {
       when(response.hasPagination()).thenReturn(false);
       when(goodIndex.list(anyString(), anyString())).thenReturn(response);
 
-      messenger.sendForIndexing(doc0);
+      messenger.sendForIndexing(doc3ToDelete);
       indexerGood.run(1);
 
       // make sure 1 deletion were made
@@ -448,12 +455,12 @@ public class PineconeIndexerTest {
       verify(goodIndex, times(1)).list(anyString(), stringArgumentCaptor.capture());
 
       // make sure list is called with the right prefix
-      assertEquals(doc0.getId()+prefix, stringArgumentCaptor.getValue());
+      assertEquals(doc3ToDelete.getId()+prefix, stringArgumentCaptor.getValue());
       // make sure deletion ids have included prefix
       List<String> idsSentForDeletion = ListArgumentCaptor.getAllValues().get(0);
-      assertEquals(doc0.getId()+"-1", idsSentForDeletion.get(0));
-      assertEquals(doc0.getId()+"-2", idsSentForDeletion.get(1));
-      assertEquals(doc0.getId()+"-3", idsSentForDeletion.get(2));
+      assertEquals(doc3ToDelete.getId()+"-1", idsSentForDeletion.get(0));
+      assertEquals(doc3ToDelete.getId()+"-2", idsSentForDeletion.get(1));
+      assertEquals(doc3ToDelete.getId()+"-3", idsSentForDeletion.get(2));
     }
   }
 
@@ -470,8 +477,8 @@ public class PineconeIndexerTest {
       indexerGood.validateConnection();
 
       // mocking
-      ListItem item1 = ListItem.newBuilder().setId(doc0.getId()+"-1").build();
-      ListItem item2 = ListItem.newBuilder().setId(doc0.getId()+"-2").build();
+      ListItem item1 = ListItem.newBuilder().setId(doc3ToDelete.getId()+"-1").build();
+      ListItem item2 = ListItem.newBuilder().setId(doc3ToDelete.getId()+"-2").build();
       List<ListItem> vectorList = Arrays.asList(item1, item2);
       Pagination pagination = Mockito.mock(Pagination.class);
       when(pagination.getNext()).thenReturn("token");
@@ -481,7 +488,7 @@ public class PineconeIndexerTest {
       when(response.hasPagination()).thenReturn(true);
       when (response.getPagination()).thenReturn(pagination);
 
-      ListItem item3 = ListItem.newBuilder().setId(doc0.getId()+"-3").build();
+      ListItem item3 = ListItem.newBuilder().setId(doc3ToDelete.getId()+"-3").build();
       List<ListItem> vectorList2 = List.of(item3);
       ListResponse response2 = mock(ListResponse.class);
       when(response2.getVectorsList()).thenReturn(vectorList2);
@@ -490,7 +497,7 @@ public class PineconeIndexerTest {
       when(goodIndex.list(anyString(), anyString())).thenReturn(response);
       when(goodIndex.list(anyString(), anyString(), anyString())).thenReturn(response2);
 
-      messenger.sendForIndexing(doc0);
+      messenger.sendForIndexing(doc3ToDelete);
       indexerGood.run(1);
 
       // make sure 1 deletion were made
@@ -499,9 +506,94 @@ public class PineconeIndexerTest {
 
       // make sure deletion ids have included prefix
       List<String> idsSentForDeletion = ListArgumentCaptor.getAllValues().get(0);
-      assertEquals(doc0.getId()+"-1", idsSentForDeletion.get(0));
-      assertEquals(doc0.getId()+"-2", idsSentForDeletion.get(1));
-      assertEquals(doc0.getId()+"-3", idsSentForDeletion.get(2));
+      assertEquals(doc3ToDelete.getId()+"-1", idsSentForDeletion.get(0));
+      assertEquals(doc3ToDelete.getId()+"-2", idsSentForDeletion.get(1));
+      assertEquals(doc3ToDelete.getId()+"-3", idsSentForDeletion.get(2));
+    }
+  }
+
+  @Test
+  public void testUpsertAndDeletes() throws Exception {
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
+      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
+      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
+      UpsertResponse mockResponse = mock(UpsertResponse.class);
+      when(mockResponse.getUpsertedCount()).thenReturn(2);
+      when(goodIndex.upsert(anyList(), anyString())).thenReturn(mockResponse);
+    })) {
+      TestMessenger messenger = new TestMessenger();
+      Config configGood = ConfigFactory.load("PineconeIndexerTest/upsert-and-delete.conf");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      indexerGood.validateConnection();
+
+      messenger.sendForIndexing(doc0);
+      messenger.sendForIndexing(doc1);
+      messenger.sendForIndexing(doc3ToDelete);
+      messenger.sendForIndexing(doc4ToDelete);
+      indexerGood.run(4);
+
+      // assert that no updates have been made
+      verify(goodIndex, times(0)).update(Mockito.any(), Mockito.any(), Mockito.any());
+      // assert that an upsert was made to the right documents to the right nameSpace
+      ArgumentCaptor<String> nameSpaceUsed = ArgumentCaptor.forClass(String.class);
+      ArgumentCaptor<List<VectorWithUnsignedIndices>> listArgumentCaptor = ArgumentCaptor.forClass(List.class);
+      verify(goodIndex, times(1)).upsert(listArgumentCaptor.capture(), nameSpaceUsed.capture());
+      assertEquals("default", nameSpaceUsed.getValue());
+      List<VectorWithUnsignedIndices> vectorIndices = listArgumentCaptor.getValue();
+      assertEquals(vectorIndices.size(), 2);
+      assertEquals(doc0.getId(), vectorIndices.get(0).getId());
+      assertEquals(doc1.getId(), vectorIndices.get(1).getId());
+
+      // make sure a deletion were made (for doc3 and doc4)
+      ArgumentCaptor<List<String>> listArgumentCaptor2 = ArgumentCaptor.forClass(List.class);
+      verify(goodIndex, times(1)).deleteByIds(listArgumentCaptor2.capture(), anyString());
+
+      // make sure vectors are correct for each document and namespace
+      List<String> idsSentForDeletion = listArgumentCaptor2.getAllValues().get(0);
+      assertEquals(doc3ToDelete.getId(), idsSentForDeletion.get(0));
+      assertEquals(doc4ToDelete.getId(), idsSentForDeletion.get(1));
+    }
+  }
+
+
+  @Test
+  public void testUpdateAndDeletes() throws Exception {
+    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
+      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
+      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
+      UpsertResponse mockResponse = mock(UpsertResponse.class);
+      when(mockResponse.getUpsertedCount()).thenReturn(2);
+      when(goodIndex.upsert(anyList(), anyString())).thenReturn(mockResponse);
+    })) {
+      TestMessenger messenger = new TestMessenger();
+      Config configGood = ConfigFactory.load("PineconeIndexerTest/update-and-delete.conf");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      indexerGood.validateConnection();
+
+      messenger.sendForIndexing(doc0);
+      messenger.sendForIndexing(doc1);
+      messenger.sendForIndexing(doc3ToDelete);
+      messenger.sendForIndexing(doc4ToDelete);
+      indexerGood.run(4);
+
+      // assert that no upserts have been made
+      verify(goodIndex, times(0)).upsert(Mockito.any(), Mockito.any(), Mockito.any());
+      // assert that an update was made to the right documents to the right Ids
+      ArgumentCaptor<String> idsCapture = ArgumentCaptor.forClass(String.class);
+      ArgumentCaptor<String> namespaceUsed = ArgumentCaptor.forClass(String.class);
+      verify(goodIndex, times(2)).update(idsCapture.capture(), anyList(), namespaceUsed.capture());
+      assertEquals(doc0.getId(), idsCapture.getAllValues().get(0));
+      assertEquals(doc1.getId(), idsCapture.getAllValues().get(1));
+      assertEquals("default", namespaceUsed.getValue());
+
+      // make sure a deletion were made (for doc3 and doc4)
+      ArgumentCaptor<List<String>> listArgumentCaptor2 = ArgumentCaptor.forClass(List.class);
+      verify(goodIndex, times(1)).deleteByIds(listArgumentCaptor2.capture(), anyString());
+
+      // make sure vectors are correct for each document and namespace
+      List<String> idsSentForDeletion = listArgumentCaptor2.getAllValues().get(0);
+      assertEquals(doc3ToDelete.getId(), idsSentForDeletion.get(0));
+      assertEquals(doc4ToDelete.getId(), idsSentForDeletion.get(1));
     }
   }
 }
