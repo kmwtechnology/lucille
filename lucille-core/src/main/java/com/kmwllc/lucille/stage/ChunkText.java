@@ -33,7 +33,7 @@ import org.apache.logging.log4j.Logger;
  *  3. sentence chunking ("sentence"): use openNLP sentence model for splitting
  *  4. custom chunking ("custom"): regex option in config required, used to split content
  * - regex (String, only for custom chunking): regEx that will be used to split chunks
- * - length_to_split (Integer, only for fixed chunking)
+ * - length_to_split (Integer, only for fixed chunking): length of characters of each initial chunk before processing
  * - pre_merge_min_chunk_len (Integer, optional): removes and append chunk to the neighboring chunk if below given number of characters,
  *    defaults appending to next chunk.
  * - pre_merge_max_chunk_len (Integer, optional): truncates the chunks if over given amount, applies before merging and overlapping
@@ -44,7 +44,7 @@ import org.apache.logging.log4j.Logger;
  * - chunks_to_overlap (Integer, optional) : indicate the number of overlap of smaller chunks to overlap while merging into final chunk
  *    e.g. chunks_to_overlap: 1 -> { chunk1/chunk2/chunk3, chunk3/chunk4/chunk5, chunk5/chunk6/chunk7}
  *         chunks_to_overlap: 2 -> { chunk1/chunk2/chunk3, chunk2/chunk3/chunk4, chunk3/chunk4/chunk5}
- * - character_limit (Integer, optional) : hard limit number of characters in a chunk. Truncate rest. Performed after
+ * - character_limit (Integer, optional) : hard limit number of characters in the final chunk. Truncate rest. Performed after
  *   merging & overlapping if they are set.
  *
  *  - child document fields:
