@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
 import com.kmwllc.lucille.core.IndexerException;
-import io.pinecone.clients.Pinecone.Builder;
 import io.pinecone.proto.ListItem;
 import io.pinecone.proto.ListResponse;
 import io.pinecone.proto.UpsertResponse;
@@ -10,10 +9,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.StringUtils;
 import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,8 +34,8 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
  * - mode (String, Optional) : the type of request you want PineconeIndexer to send to your index
  *    1. upsert (will replace if vector id exists in namespace or index if no namespace is given)
  *    2. update (will only update embeddings)
- *    3. delete (deletes all vectors given document ids)
- *      - will only delete the exact id of documents that go through the pipeline, for id prefix deletion, look at deletionPrefix
+ *    for deletion requests, take a look at application-example.conf under Indexer configs. Only support
+ *    deletionMarkerField, and deletionMarkerFieldValue as serverless index currently does not support delete via query/metadata.
  * - defaultEmbeddingField (String, required if namespaces is not set) : the field to retrieve embeddings from
  * - deleteByPrefix (boolean, optional) : sends a deletion by prefix request instead of a usual request
  * - addDeletionPrefix (String, optional) : String that adds on to all document ids used for prefix deletion
