@@ -18,6 +18,21 @@ import java.util.Map;
 /**
  * This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice.
  * This stage should try and reconnect to the database in the future.
+ *
+ * Config Parameters:
+ * - driver (String) : Driver used for creating a connection to database
+ * - connectionString (String) : used for establishing a connection to the right database
+ * - jdbcUser (String) : username to access database
+ * - jdbcPassword (String) : password to access database
+ * - sql (String, Optional) : SQL statement that would be requested to the database. Allow for "?" character for keyFields configuration
+ * - keyFields (List<String>) : Strings to replace ? in the statement made in sql
+ *   e.g. keyFields : ["123"]
+ *        sql: SELECT name FROM meal WHERE id = ?
+ * - inputTypes (List<String>) : Each input type of each of the keyField
+ * - fieldMapping (Map<String, String>) : map of columns retrieved from result set to the name of the field in the Lucille document
+ *   it will populate with.
+ * - connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1
+ * - connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds
  */
 public class QueryDatabase extends Stage {
 
@@ -57,7 +72,7 @@ public class QueryDatabase extends Stage {
     connectionRetries = config.hasPath("connectionRetries") && config.getInt("connectionRetries") > 0
         ? config.getInt("connectionRetries") : 1;
     connectionRetryPause = config.hasPath("connectionRetryPause") && config.getInt("connectionRetryPause") > 0
-        ? config.getInt("connectionRetryPause") : 10;
+        ? config.getInt("connectionRetryPause") : 10000;
   }
 
   @Override
@@ -146,7 +161,7 @@ public class QueryDatabase extends Stage {
         }
         log.warn("Unable to connect to the database {} user:{} on retry attempt: {}. Retrying...", connectionString, jdbcUser, attempt);
         try {
-          TimeUnit.SECONDS.sleep(connectionRetryPause);
+          TimeUnit.MILLISECONDS.sleep(connectionRetryPause);
         } catch (InterruptedException e2) {
           log.warn("Interrupted while waiting for retry buffer to sleep.");
         }
