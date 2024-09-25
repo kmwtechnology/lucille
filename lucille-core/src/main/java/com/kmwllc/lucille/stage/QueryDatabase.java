@@ -150,7 +150,7 @@ public class QueryDatabase extends Stage {
     } catch (ClassNotFoundException e) {
       throw new StageException("Database driver could not be loaded.", e);
     }
-    // try to get connection, and if fails, retry "retries" amount of times
+    // try to get connection, and if fails, retry "connectionRetries" amount of times
     for (int attempt = 0; attempt <= connectionRetries; attempt++) {
       try {
         connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
