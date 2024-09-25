@@ -2,6 +2,7 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -14,10 +15,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import java.nio.charset.StandardCharsets;
-import java.util.TimeZone;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import java.util.Arrays;
 import org.junit.Rule;
 import org.junit.Test;
@@ -308,7 +305,9 @@ public class QueryDatabaseTest {
   }
 
   @Test
-  public void testConnectionRetry() throws StageException {
+  public void testConnectionRetry() throws StageException, SQLException {
+    Connection mockConnection = mock(Connection.class);
+    when(mockConnection.prepareStatement(any())).thenReturn(mock(PreparedStatement.class));
     Answer<Connection> exceptionAnswer = new Answer<>() {
       private int count = 0;
       @Override
@@ -316,7 +315,7 @@ public class QueryDatabaseTest {
         if (count++ < 2) {
           throw new SQLException("Connection failed");
         }
-        return mock(Connection.class);
+        return mockConnection;
       }
     };
 
@@ -328,5 +327,34 @@ public class QueryDatabaseTest {
       // verify that getConnection was called twice first attempt and then retry attempt
       mockedDriverManager.verify(() -> DriverManager.getConnection(anyString(), anyString(), anyString()), times(2));
     }
+    // verify that connection was never created, and so preparedStatement is never called.
+    verify(mockConnection, times(0)).prepareStatement(any());
+  }
+
+  @Test
+  public void testConnectionRetryAndSuccess() throws StageException, SQLException {
+    Connection mockConnection = mock(Connection.class);
+    when(mockConnection.prepareStatement(any())).thenReturn(mock(PreparedStatement.class));
+    Answer<Connection> exceptionAnswer = new Answer<>() {
+      private int count = 0;
+      @Override
+      public Connection answer(InvocationOnMock invocation) throws Throwable {
+        if (count++ < 1) {
+          throw new SQLException("Connection failed");
+        }
+        return mockConnection;
+      }
+    };
+
+    try (MockedStatic<DriverManager> mockedDriverManager = mockStatic(DriverManager.class)) {
+      mockedDriverManager.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
+          .thenAnswer(exceptionAnswer);
+
+      Stage stage = factory.get("QueryDatabaseTest/meal.conf");
+      // verify that getConnection was called twice first attempt and then retry attempt
+      mockedDriverManager.verify(() -> DriverManager.getConnection(anyString(), anyString(), anyString()), times(2));
+    }
+    // verify that connection has been established, and that prepareStatement was called
+    verify(mockConnection, times(1)).prepareStatement(any());
   }
 }
