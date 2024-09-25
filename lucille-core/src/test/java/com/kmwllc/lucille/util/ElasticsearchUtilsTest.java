@@ -1,7 +1,5 @@
 package com.kmwllc.lucille.util;
 
-import static com.kmwllc.lucille.util.ElasticsearchUtils.getAllowInvalidCert;
-import static com.kmwllc.lucille.util.ElasticsearchUtils.getElasticsearchUrl;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -51,10 +49,10 @@ public class ElasticsearchUtilsTest {
     m = new HashMap<>();
     Config none = ConfigFactory.parseMap(m);
 
-    assertTrue(getAllowInvalidCert(allCaps));
-    assertTrue(getAllowInvalidCert(allLower));
-    assertFalse(getAllowInvalidCert(allLowerFalse));
-    assertFalse(getAllowInvalidCert(allCapsFalse));
+    assertTrue(ElasticsearchUtils.getAllowInvalidCert(allCaps));
+    assertTrue(ElasticsearchUtils.getAllowInvalidCert(allLower));
+    assertFalse(ElasticsearchUtils.getAllowInvalidCert(allLowerFalse));
+    assertFalse(ElasticsearchUtils.getAllowInvalidCert(allCapsFalse));
   }
 
   @Test
@@ -66,8 +64,8 @@ public class ElasticsearchUtilsTest {
     m = new HashMap<>();
     Config nothing = ConfigFactory.parseMap(m);
 
-    assertEquals("foo", getElasticsearchUrl(foo));
-    assertThrows(Exception.class, () -> getElasticsearchUrl(nothing));
+    assertEquals("foo", ElasticsearchUtils.getElasticsearchUrl(foo));
+    assertThrows(Exception.class, () -> ElasticsearchUtils.getElasticsearchUrl(nothing));
   }
 
   @Test
