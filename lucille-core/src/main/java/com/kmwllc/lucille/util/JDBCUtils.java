@@ -129,44 +129,4 @@ public class JDBCUtils {
           log.warn("SQL Type {} ({}) not supported", JDBCType.valueOf(columnType).getName(), columnType);
       }
   }
-
-  public static int compareIds(Object otherJoinField, Object joinField, int columnType) throws SQLException {
-    // if otherJoinField is null move on to the next inner rs
-    if (otherJoinField == null) return -1;
-    // if joinField is null just move on to the next primary rs
-    if (joinField == null) return 1;
-    
-    try {
-      switch (columnType) {
-        case Types.INTEGER:
-        case Types.SMALLINT:
-        case Types.TINYINT:
-          return Integer.compare(((Number) otherJoinField).intValue(), ((Number) joinField).intValue());
-        case Types.BIGINT:
-          return Long.compare(((Number) otherJoinField).longValue(), ((Number) joinField).longValue());
-        case Types.FLOAT:
-        case Types.REAL:
-          return Float.compare(((Number) otherJoinField).floatValue(), ((Number) joinField).floatValue());
-        case Types.DOUBLE:
-        case Types.DECIMAL:
-        case Types.NUMERIC:
-          return Double.compare(((Number) otherJoinField).doubleValue(), ((Number) joinField).doubleValue());
-        case Types.CHAR:
-        case Types.VARCHAR:
-        case Types.LONGVARCHAR:
-        case Types.NCHAR:
-        case Types.NVARCHAR:
-        case Types.LONGNVARCHAR:
-          return ((String) otherJoinField).compareTo((String) joinField);
-        case Types.DATE:
-          return ((Date) otherJoinField).compareTo((java.sql.Date) joinField);
-        case Types.TIMESTAMP:
-          return ((Timestamp) otherJoinField).compareTo((Timestamp) joinField);
-        default:
-          throw new SQLException("Unsupported column type for ID comparison: " + columnType);
-      }
-    } catch (Exception e) {
-      throw new SQLException("Error occurred while comparing joinIds: ", e);
-    }
-  }
 }

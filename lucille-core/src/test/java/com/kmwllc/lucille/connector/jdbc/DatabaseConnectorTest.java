@@ -384,6 +384,36 @@ public class DatabaseConnectorTest {
     assertEquals(1, dbHelper.checkNumConnections());
   }
 
+  @Test
+  public void testJoiningDatabaseConnectorNonComparable() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select name,type from animal order by name");
+    configValues.put("idField", "name");
+    // a list of other sql statements
+    ArrayList<String> otherSql = new ArrayList<>();
+    otherSql.add("select id as _id,name,metadata from nonComparable order by name");
+    configValues.put("otherSQLs", otherSql);
+    // The join fields. id goes to animal_id
+    ArrayList<String> otherJoinFields = new ArrayList<>();
+    otherJoinFields.add("metadata");
+    configValues.put("otherJoinFields", otherJoinFields);
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // create the connector with the config
+    DatabaseConnector connector = new DatabaseConnector(config);
+    // run the connector, expect to throw non-comparable error
+    assertThrows("Other join field or joinId is not comparable.",ConnectorException.class, () -> connector.execute(publisher));
+  }
+
   // same comparisons of Date and Timestamp are same
   @Ignore // wait until Documents support adding Date Type
   @Test

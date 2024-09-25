@@ -13,6 +13,9 @@ INSERT INTO network VALUES (4, 'Matt', 'Sonny');
 INSERT INTO network VALUES (5, 'Matt', 'Blaze');
 INSERT INTO network VALUES (6, 'Blaze', 'Matt');
 
+CREATE TABLE nonComparable (id INT, name VARCHAR(10), metadata JSON);
+INSERT INTO nonComparable VALUES (1, 'Sonny', '{"age": 25, "city": "NY"}');
+INSERT INTO nonComparable VALUES (2, 'Blaze', '{"age": 30, "city": "LA"}');
 
 CREATE TABLE adopted(id INT, name VARCHAR(10), adoptedOn DATE);
 INSERT INTO adopted VALUES (1, 'Sonny', '2024-07-30');

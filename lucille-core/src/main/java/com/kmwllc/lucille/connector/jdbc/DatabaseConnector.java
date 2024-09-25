@@ -252,18 +252,20 @@ public class DatabaseConnector extends AbstractConnector {
       // um... why is this getting called?  if it is?
       return;
     }
-    int columnIndex = rs2.findColumn(joinField);
-    int columnType = rs2.getMetaData().getColumnType(columnIndex);
     do {
       // Convert to do-while I think we can avoid the rs2.previous() call.
       Object otherJoinId = rs2.getObject(joinField);
-      if (JDBCUtils.compareIds(otherJoinId, joinId, columnType) < 0) {
+
+      if (!(otherJoinId instanceof Comparable) || !(joinId instanceof Comparable) || !otherJoinId.getClass().equals(joinId.getClass())) {
+        throw new SQLException("Other join field or joinId is not comparable.");
+      }
+
+      int comparison = ((Comparable) otherJoinId).compareTo(joinId);
+      if (comparison < 0) {
         // advance until we get to the id on the right side that we want.
         rs2.next();
         continue;
-      }
-
-      if (JDBCUtils.compareIds(otherJoinId, joinId, columnType) > 0) {
+      } else if (comparison > 0) {
         // we've gone too far... lets back up and break out , move forward the primary result set.
         // we should leave the cursor here, so we can test again when the primary result set is advanced.
         return;

@@ -9,4 +9,5 @@ DROP TABLE test_data_types;
 DROP TABLE test_time_type;
 DROP TABLE time_with_timezone_type;
 DROP TABLE network;
-DROP TABLE adopted
+DROP TABLE adopted;
+DROP TABLE nonComparable;
