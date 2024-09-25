@@ -412,6 +412,7 @@ public class DatabaseConnectorTest {
     DatabaseConnector connector = new DatabaseConnector(config);
     // run the connector, expect to throw non-comparable error
     assertThrows("Other join field or joinId is not comparable.",ConnectorException.class, () -> connector.execute(publisher));
+    connector.close();
   }
 
   // same comparisons of Date and Timestamp are same
