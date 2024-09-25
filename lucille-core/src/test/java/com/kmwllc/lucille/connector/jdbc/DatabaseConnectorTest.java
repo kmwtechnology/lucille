@@ -160,7 +160,7 @@ public class DatabaseConnectorTest {
     configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
     configValues.put("idField", "id");
     configValues.put("connectionRetries", 1);
-    // put sleep to 1 second to avoid too much time for testing
+    // put sleep to 1 millisecond to avoid too much time for testing
     configValues.put("connectionRetryPause", 1);
 
     // create a config object off that map
@@ -215,7 +215,7 @@ public class DatabaseConnectorTest {
     configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
     configValues.put("idField", "id");
     configValues.put("connectionRetries", 1);
-    // put sleep to 1 second to avoid too much time for testing
+    // put sleep to 1 millisecond to avoid too much time for testing
     configValues.put("connectionRetryPause", 1);
 
     // create a config object off that map
