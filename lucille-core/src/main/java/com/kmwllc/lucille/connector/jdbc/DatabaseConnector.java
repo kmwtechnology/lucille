@@ -35,14 +35,17 @@ import java.util.stream.Collectors;
  * - connectionString (String) : used for establishing a connection to the right database
  * - jdbcUser (String) : username to access database
  * - jdbcPassword (String) : password to access database
- * - sql (String) : SQL statement that would be requested to the database.
+ * - sql (String) : SQL statement to query the database.
  * - idField (String) : column name used for id in the database
  * - fetchSize (Integer, Optional): returns the desired resultSet size if set
- * - preSQL (String, Optional): SQL statement to INSERT, UPDATE or DELETE before sql is executed
- * - postSQL (String, Optional): SQL statement to INSERT, UPDATE or DELETE after sql is executed
- * - otherSQLs (List<String>, Optional): list of SQL statements to retrieve another result set of size fetchSize if set. For joining result sets.
+ * - preSQL (String, Optional): SQL statement that returns nothing. Performed before sql is executed.
+ *    e.g. INSERT, DELETE, UPDATE, SQL DDL statement.
+ * - postSQL (String, Optional): SQL statement that returns nothing. Performed after sql is executed.
+ *    e.g. INSERT, DELETE, UPDATE, SQL DDL statement.
+ * - otherSQLs (List<String>, Optional): list of SQL statements to query and retrieve another result set of size fetchSize if set.
+ *    For joining result sets.
  * - otherJoinFields (String, Optional, required if otherSQL is provided) : join field used for other result sets retrieved from otherSQLs
- * - ignoreColumns (List<String>, Optional) : list of columns to ignore when populating Lucille document from result set.
+ * - ignoreColumns (List<String>, Optional) : list of columns to ignore when populating Lucille document from sql result set.
  * - connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1
  * - connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds
  *
