@@ -52,4 +52,9 @@ public class PineconeManager {
       return false;
     }
   }
+
+  // ONLY FOR TESTING
+  public static void resetInstance() {
+    instance = null;
+  }
 }
