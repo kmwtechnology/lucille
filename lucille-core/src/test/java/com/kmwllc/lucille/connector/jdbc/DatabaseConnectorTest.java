@@ -7,11 +7,17 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.nio.charset.StandardCharsets;
+import java.sql.Statement;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.mockito.MockedStatic;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,6 +27,13 @@ import java.util.HashMap;
 import java.util.List;
 
 import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class DatabaseConnectorTest {
 
@@ -128,6 +141,115 @@ public class DatabaseConnectorTest {
     assertEquals("Cat", docsSentForProcessing.get(2).getStringList("type").get(0));
 
     connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+  @Test
+  public void testDatabaseConnectionRetry() throws Exception {
+    // The only connection to the h2 database should be the dbHelper
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    // Create the test config
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "lousy connection String"); // lousy connection string to test retry
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
+    configValues.put("idField", "id");
+    configValues.put("connectionRetries", 1);
+    // put sleep to 1 millisecond to avoid too much time for testing
+    configValues.put("connectionRetryPause", 1);
+
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // creating response after getConnection is called
+    // we are retrying once, so if we throw exception twice, we should get a ConnectorException
+    Connection mockConnection = mock(Connection.class);
+    when(mockConnection.createStatement()).thenReturn(mock(Statement.class));
+    Answer<Connection> exceptionAnswer = new Answer<>() {
+      private int count = 0;
+      @Override
+      public Connection answer(InvocationOnMock invocation) throws Throwable {
+        if (count++ < 2) {  // throw twice to fail overall connection
+          throw new SQLException("Connection failed");
+        }
+        return mockConnection;
+      }
+    };
+
+    try (MockedStatic<DriverManager> mockDriverManager = mockStatic(DriverManager.class)) {
+      mockDriverManager.when(() -> DriverManager.getConnection("lousy connection String", "", ""))
+          .thenAnswer(exceptionAnswer);
+
+      DatabaseConnector connector = new DatabaseConnector(config);
+
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+      // verify that getConnection was called twice --first attempt and retry attempt
+      mockDriverManager.verify(
+          () -> DriverManager.getConnection(eq("lousy connection String"), eq(""), eq("")), times(2));
+      connector.close();
+    }
+    // test that we did not get connection, and so connection.createStatement would not be called
+    verify(mockConnection, times(0)).createStatement(anyInt(), anyInt());
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+
+  @Test
+  public void testDatabaseConnectionRetryAndConnect() throws Exception {
+    // The only connection to the h2 database should be the dbHelper
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    // Create the test config
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "lousy connection String"); // lousy connection string to test retry
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
+    configValues.put("idField", "id");
+    configValues.put("connectionRetries", 1);
+    // put sleep to 1 millisecond to avoid too much time for testing
+    configValues.put("connectionRetryPause", 1);
+
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // creating response after getConnection is called
+    Connection mockConnection = mock(Connection.class);
+    when(mockConnection.createStatement()).thenReturn(mock(Statement.class));
+    // we are retrying once and expecting back a Connection
+    Answer<Connection> exceptionAnswer = new Answer<>() {
+      private int count = 0;
+      @Override
+      public Connection answer(InvocationOnMock invocation) throws Throwable {
+        if (count++ == 0) {  // throw exception once
+          throw new SQLException("Connection failed");
+        }
+        return mockConnection;
+      }
+    };
+
+    try (MockedStatic<DriverManager> mockDriverManager = mockStatic(DriverManager.class)) {
+      mockDriverManager.when(() -> DriverManager.getConnection("lousy connection String", "", ""))
+          .thenAnswer(exceptionAnswer);
+
+      DatabaseConnector connector = new DatabaseConnector(config);
+
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+      // verify that getConnection was called twice --first attempt and retry attempt
+      mockDriverManager.verify(
+          () -> DriverManager.getConnection(eq("lousy connection String"), eq(""), eq("")), times(2));
+      connector.close();
+    }
+    // check that we have proceeded outside of getting connection as connection has been established
+    verify(mockConnection, times(1)).createStatement(anyInt(), anyInt());
     assertEquals(1, dbHelper.checkNumConnections());
   }
 
@@ -421,7 +543,7 @@ public class DatabaseConnectorTest {
   }
 
   @Test
-  public void testIdColumnException() {
+  public void testIdColumnException() throws ConnectorException {
     // Create a test config
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
@@ -441,6 +563,7 @@ public class DatabaseConnectorTest {
     // call the execute method, then close the connection
     Throwable exception = assertThrows(ConnectorException.class, () -> connector.execute(publisher));
     assertEquals("Unable to find id column: NONEXISTENT_ID_COLUMN", exception.getCause().getMessage());
+    connector.close();
   }
 
   @Test
