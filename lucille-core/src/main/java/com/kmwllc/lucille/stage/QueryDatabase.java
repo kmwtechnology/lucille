@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.JDBCUtils;
 import com.typesafe.config.Config;
+import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import java.sql.*;
@@ -17,6 +18,21 @@ import java.util.Map;
 /**
  * This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice.
  * This stage should try and reconnect to the database in the future.
+ *
+ * Config Parameters:
+ * - driver (String) : Driver used for creating a connection to database
+ * - connectionString (String) : used for establishing a connection to the right database
+ * - jdbcUser (String) : username to access database
+ * - jdbcPassword (String) : password to access database
+ * - sql (String, Optional) : SQL statement that would be requested to the database. Allow for "?" character for keyFields configuration
+ * - keyFields (List<String>) : Strings to replace ? in the statement made in sql
+ *   e.g. keyFields : ["123"]
+ *        sql: SELECT name FROM meal WHERE id = ?
+ * - inputTypes (List<String>) : Each input type of each of the keyField
+ * - fieldMapping (Map<String, String>) : map of columns retrieved from result set to the name of the field in the Lucille document
+ *   it will populate with.
+ * - connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1
+ * - connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds
  */
 public class QueryDatabase extends Stage {
 
@@ -30,11 +46,13 @@ public class QueryDatabase extends Stage {
   private Map<String, Object> fieldMapping;
   protected Connection connection = null;
   private PreparedStatement preparedStatement;
+  private Integer connectionRetries;
+  private Integer connectionRetryPause;
   private static final Logger log = LogManager.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {
     super(config, new StageSpec()
-        .withOptionalProperties("sql")
+        .withOptionalProperties("sql", "connectionRetries", "connectionRetryPause")
         .withRequiredParents("fieldMapping")
         .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword",
             "keyFields", "inputTypes"));
@@ -51,11 +69,15 @@ public class QueryDatabase extends Stage {
     for (String type : inputTypeList) {
       inputTypes.add(PreparedStatementParameterType.getType(type));
     }
+    connectionRetries = config.hasPath("connectionRetries") && config.getInt("connectionRetries") > 0
+        ? config.getInt("connectionRetries") : 1;
+    connectionRetryPause = config.hasPath("connectionRetryPause") && config.getInt("connectionRetryPause") > 0
+        ? config.getInt("connectionRetryPause") : 10000;
   }
 
   @Override
   public void start() throws StageException {
-    createConnection();
+    createConnectionWithRetry();
     try {
       preparedStatement = connection.prepareStatement(sql);
     } catch (Exception e) {
@@ -122,16 +144,28 @@ public class QueryDatabase extends Stage {
   }
 
 
-  private void createConnection() throws StageException {
+  private void createConnectionWithRetry() throws StageException {
     try {
       Class.forName(driver);
     } catch (ClassNotFoundException e) {
       throw new StageException("Database driver could not be loaded.", e);
     }
-    try {
-      connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
-    } catch (SQLException e) {
-      throw new StageException("Error creating connection to database", e);
+    // try to get connection, and if fails, retry "connectionRetries" amount of times
+    for (int attempt = 0; attempt <= connectionRetries; attempt++) {
+      try {
+        connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
+      } catch (SQLException e) {
+        if (attempt == connectionRetries) {
+          log.error("Unable to connect to database {} user:{} after retrying {} time(s).", connectionString, jdbcUser, attempt);
+          throw new StageException("Unable to connect to database " + connectionString, e);
+        }
+        log.warn("Unable to connect to the database {} user:{} on retry attempt: {}. Retrying...", connectionString, jdbcUser, attempt);
+        try {
+          TimeUnit.MILLISECONDS.sleep(connectionRetryPause);
+        } catch (InterruptedException e2) {
+          log.warn("Interrupted while waiting for retry buffer to sleep.");
+        }
+      }
     }
   }
 
