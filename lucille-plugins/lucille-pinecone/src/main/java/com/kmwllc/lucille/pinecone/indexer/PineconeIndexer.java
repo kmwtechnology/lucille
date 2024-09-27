@@ -47,7 +47,7 @@ public class PineconeIndexer extends Indexer {
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) {
     super(config, messenger, metricsPrefix);
-    this.pineconeManager = PineconeManager.getInstance(config.getString("pinecone.index"), config.getString("pinecone.apiKey"));
+    this.pineconeManager = PineconeManager.getInstance(config.getString("pinecone.apiKey"), config.getString("pinecone.index"));
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
     this.metadataFields = config.hasPath("pinecone.metadataFields")
         ? new HashSet<>(config.getStringList("pinecone.metadataFields")) : new HashSet<>();

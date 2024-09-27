@@ -41,15 +41,15 @@ public class EmitDeletedByPrefix extends Stage {
 
   public EmitDeletedByPrefix(Config config) {
     super(config, new StageSpec()
-        .withOptionalProperties("dropOriginal", "addPrefix", "pinecone.namespaces", "pinecone.defaultEmbeddingField", "pinecone.mode",
-            "pinecone.metadataFields")
-        .withRequiredProperties("pinecone.apiKey", "indexer.deletionMarkerField", "indexer.deletionMarkerFieldValue", "pinecone.index"));
-    this.pineconeManager = PineconeManager.getInstance(config.getString("pinecone.index"), config.getString("pinecone.apiKey"));
-    this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
+        .withOptionalProperties("dropOriginal", "addPrefix")
+        .withOptionalParents("namespaces")
+        .withRequiredProperties("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index"));
+    this.pineconeManager = PineconeManager.getInstance(config.getString("apiKey"), config.getString("index"));
+    this.namespaces = config.hasPath("namespaces") ? config.getConfig("namespaces").root().unwrapped() : null;
     this.dropOriginal = config.hasPath("dropOriginal") ? config.getBoolean("dropOriginal") : false;
     this.addPrefix = config.hasPath("addPrefix") ? config.getString("addPrefix") : "";
-    this.deletionMarkerField = config.getString("indexer.deletionMarkerField");
-    this.deletionMarkerFieldValue = config.getString("indexer.deletionMarkerFieldValue");
+    this.deletionMarkerField = config.getString("deletionMarkerField");
+    this.deletionMarkerFieldValue = config.getString("deletionMarkerFieldValue");
   }
 
   @Override
