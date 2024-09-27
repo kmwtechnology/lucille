@@ -59,7 +59,9 @@ public class PineconeIndexer extends Indexer {
     // max upload batch is 2MB or 1000 records, whichever is reached first, so stopping lucille run if batch size set to more than 1000
     // larger dimensions will mean smaller batch size limit, letting API throw the error if encountered.
     if (DEFAULT_BATCH_SIZE > 1000) {
-      throw new IllegalArgumentException("Maximum batch size is 1000, and lower if vectors have higher dimensions.");
+      throw new IllegalArgumentException(
+          "Maximum batch size for Pinecone is 1000, and lower if vectors have higher dimensions. Set indexer batchSize config to"
+              + "1000 or lower.");
     }
   }
 
@@ -91,6 +93,7 @@ public class PineconeIndexer extends Indexer {
 
     // if there exists documents to delete
     if (!deleteList.isEmpty()) {
+      validateDeleteRequirements(deleteList.size());
       if (namespaces != null) {
         for (Map.Entry<String, Object> entry : namespaces.entrySet()) {
           deleteDocuments(deleteList, entry.getKey());
@@ -103,7 +106,7 @@ public class PineconeIndexer extends Indexer {
     // if there exists documents to upload
     if (!uploadList.isEmpty()) {
       // check that both namespaces and defaultEmbeddingField is not null only when uploading
-      validateUploadRequirements();
+      validateUploadRequirements(uploadList.size());
       if (namespaces != null) {
         for (Map.Entry<String, Object> entry : namespaces.entrySet()) {
           uploadDocuments(uploadList, (String) entry.getValue(), entry.getKey());
@@ -114,10 +117,21 @@ public class PineconeIndexer extends Indexer {
     }
   }
 
-  private void validateUploadRequirements() {
+  private void validateUploadRequirements(int uploadListSize) throws IndexerException {
     if (namespaces == null && defaultEmbeddingField == null) {
       throw new IllegalArgumentException(
           "At least one of a defaultEmbeddingField or a non-empty namespaces mapping is required when uploading documents.");
+    }
+    if (uploadListSize > 1000) {
+      throw new IndexerException(
+          "Pinecone maximum batch size is 1000, lower batchSize in indexer configs.");
+    }
+  }
+
+  private void validateDeleteRequirements(int deleteListSize) throws IndexerException {
+    if (deleteListSize > 1000) {
+      throw new IndexerException(
+          "Pinecone maximum batch size is 1000, lower batchSize in indexer configs.");
     }
   }
 

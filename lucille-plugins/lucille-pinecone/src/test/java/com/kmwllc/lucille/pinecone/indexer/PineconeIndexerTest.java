@@ -613,4 +613,26 @@ public class PineconeIndexerTest {
       assertEquals(doc3ToDelete.getId(), idsSentForDeletion.get(0));
     }
   }
+
+  @Test
+  public void testInvalidBatchSize() throws Exception {
+    PineconeManager mockManager = mock(PineconeManager.class);
+    try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
+      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
+          .thenReturn(mockManager);
+      when(mockManager.getDefaultNamespace()).thenReturn("default");
+      when(mockManager.isClientStable()).thenReturn(true);
+      when(mockManager.getIndex()).thenReturn(goodIndex);
+      TestMessenger messenger = new TestMessenger();
+      Config configGood = ConfigFactory.load("PineconeIndexerTest/invalidBatchSize.conf");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      indexerGood.validateConnection();
+
+      for (int i = 0; i < 1001; i++) {
+        messenger.sendForIndexing(Document.create("id-" + i));
+      }
+      // will throw error for too many documents sent in batch
+      indexerGood.run(1001);
+    }
+  }
 }
