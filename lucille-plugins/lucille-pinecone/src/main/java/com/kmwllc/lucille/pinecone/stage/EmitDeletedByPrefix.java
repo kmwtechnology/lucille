@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.pinecone.util.PineconeManager;
 import com.typesafe.config.Config;
+import dev.langchain4j.agent.tool.P;
 import io.pinecone.proto.ListItem;
 import io.pinecone.proto.ListResponse;
 import java.util.ArrayList;
@@ -40,7 +41,8 @@ public class EmitDeletedByPrefix extends Stage {
 
   public EmitDeletedByPrefix(Config config) {
     super(config, new StageSpec()
-        .withOptionalProperties("dropOriginal", "addPrefix", "pinecone.namespaces")
+        .withOptionalProperties("dropOriginal", "addPrefix", "pinecone.namespaces", "pinecone.defaultEmbeddingField", "pinecone.mode",
+            "pinecone.metadataFields")
         .withRequiredProperties("pinecone.apiKey", "indexer.deletionMarkerField", "indexer.deletionMarkerFieldValue", "pinecone.index"));
     this.pineconeManager = PineconeManager.getInstance(config.getString("pinecone.index"), config.getString("pinecone.apiKey"));
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
@@ -78,8 +80,12 @@ public class EmitDeletedByPrefix extends Stage {
     // drop original document if set to true
     doc.setDropped(dropOriginal);
 
-    // create Lucille document for each id collected, mark them for deletion and emit them
-    return createDocsToDeleteFromIds(idsToDelete).iterator();
+    if (idsToDelete.isEmpty()) {
+      return null;
+    } else {
+      // create Lucille document for each id collected, mark them for deletion and emit them
+      return createDocsToDeleteFromIds(idsToDelete).iterator();
+    }
   }
 
   private List<Document> createDocsToDeleteFromIds(List<String> idsToDelete) {
