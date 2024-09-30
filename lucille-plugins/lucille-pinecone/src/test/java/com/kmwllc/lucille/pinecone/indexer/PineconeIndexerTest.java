@@ -15,27 +15,15 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.pinecone.util.PineconeManager;
 import io.pinecone.clients.Index;
 import io.pinecone.clients.Pinecone;
-import io.pinecone.configs.PineconeConfig;
-import io.pinecone.exceptions.PineconeValidationException;
-import io.pinecone.proto.ListItem;
-import io.pinecone.proto.ListResponse;
-import io.pinecone.proto.Pagination;
 import io.pinecone.proto.UpsertResponse;
 import io.pinecone.unsigned_indices_model.VectorWithUnsignedIndices;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import com.kmwllc.lucille.core.Document;
@@ -125,49 +113,42 @@ public class PineconeIndexerTest {
     when(shutdownIndexModel.getStatus()).thenReturn(shutdownStatus);
     when(shutdownStatus.getState()).thenReturn(StateEnum.TERMINATING);
   }
-  /*
-  private void setUpManagers() {
-    goodPineconeManager = Mockito.mock(PineconeManager.getInstance("apiKey", "good").getClass());
-    shutdownPineconeManager = Mockito.mock(PineconeManager.getInstance("apiKey", "shutdown").getClass());
-    failurePineconeManager = Mockito.mock(PineconeManager.getInstance("apiKey", "shutdown").getClass());
 
-    when(goodPineconeManager.getIndex()).thenReturn(goodIndex);
-    when(shutdownPineconeManager.getIndex()).thenReturn(shutdownIndex);
-    when(failurePineconeManager.getIndex()).thenReturn(failureIndex);
-
-    when(goodPineconeManager.getIndexName()).thenReturn("good");
-    when(shutdownPineconeManager.getIndexName()).thenReturn("shutdown");
-    when(failurePineconeManager.getIndexName()).thenReturn("failure");
-  }
-   */
-
-  // note: actual validation test will be in the PineconeManagerTest itself
   @Test
   public void testValidateConnection() {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.isClientStable()).thenReturn(true, false, false);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.INITIALIZING).thenReturn(StateEnum.INITIALIZATIONFAILED).thenReturn(StateEnum.TERMINATING).thenReturn(StateEnum.READY);
 
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/good-config.conf");
       PineconeIndexer indexer = new PineconeIndexer(configGood, messenger, "testing");
 
+      assertFalse(indexer.validateConnection());
+      assertFalse(indexer.validateConnection());
+      assertFalse(indexer.validateConnection());
       assertTrue(indexer.validateConnection());
-      assertFalse(indexer.validateConnection());
-      assertFalse(indexer.validateConnection());
     }
   }
 
   @Test
   public void testCloseConnection() {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.isClientStable()).thenReturn(true);
-      when(mockManager.getIndex()).thenReturn(goodIndex);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+      when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+      when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+      when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+      when(mockStatus.getState()).thenReturn(StateEnum.READY);
 
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/good-config.conf");
@@ -180,12 +161,16 @@ public class PineconeIndexerTest {
 
   @Test
   public void testUpsertAndUpdateEmptyNamespacesProvided() {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.isClientStable()).thenReturn(true);
-      when(mockManager.getIndex()).thenReturn(goodIndex);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+      when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+      when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+      when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+      when(mockStatus.getState()).thenReturn(StateEnum.READY);
 
       TestMessenger messenger = new TestMessenger();
       TestMessenger messenger2 = new TestMessenger();
@@ -204,13 +189,17 @@ public class PineconeIndexerTest {
 
   @Test
   public void testUpsertNoNamespacesProvided() throws Exception {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.getDefaultNamespace()).thenReturn("default");
-      when(mockManager.isClientStable()).thenReturn(true);
-      when(mockManager.getIndex()).thenReturn(goodIndex);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+      mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
+      when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+      when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+      when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+      when(mockStatus.getState()).thenReturn(StateEnum.READY);
       UpsertResponse response = Mockito.mock(UpsertResponse.class);
       when(response.getUpsertedCount()).thenReturn(2);
 
@@ -238,13 +227,17 @@ public class PineconeIndexerTest {
 
   @Test
   public void testUpdateNoNamespacesProvided() throws Exception {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.getDefaultNamespace()).thenReturn("default");
-      when(mockManager.isClientStable()).thenReturn(true);
-      when(mockManager.getIndex()).thenReturn(goodIndex);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+      mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
+      when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+      when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+      when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+      when(mockStatus.getState()).thenReturn(StateEnum.READY);
 
       TestMessenger messenger = new TestMessenger();
       Config configUpdate = ConfigFactory.load("PineconeIndexerTest/no-namespaces-update.conf");
@@ -270,12 +263,16 @@ public class PineconeIndexerTest {
 
   @Test
   public void testUpsertMultipleNamespaces() throws Exception {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.isClientStable()).thenReturn(true);
-      when(mockManager.getIndex()).thenReturn(goodIndex);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+      when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+      when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+      when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+      when(mockStatus.getState()).thenReturn(StateEnum.READY);
       UpsertResponse response = Mockito.mock(UpsertResponse.class);
       when(response.getUpsertedCount()).thenReturn(2);
 
@@ -317,12 +314,16 @@ public class PineconeIndexerTest {
 
   @Test
   public void testCorrectMetadata() throws Exception {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.isClientStable()).thenReturn(true);
-      when(mockManager.getIndex()).thenReturn(goodIndex);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+      when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+      when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+      when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+      when(mockStatus.getState()).thenReturn(StateEnum.READY);
       UpsertResponse response = Mockito.mock(UpsertResponse.class);
       when(response.getUpsertedCount()).thenReturn(2);
       when(goodIndex.upsert(anyList(), anyString())).thenReturn(response);
@@ -369,12 +370,16 @@ public class PineconeIndexerTest {
 
   @Test
   public void testUpdateMultipleNamespaces() throws Exception {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.isClientStable()).thenReturn(true);
-      when(mockManager.getIndex()).thenReturn(goodIndex);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+      when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+      when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+      when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+      when(mockStatus.getState()).thenReturn(StateEnum.READY);
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/two-namespaces-update.conf");
       PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
@@ -416,13 +421,17 @@ public class PineconeIndexerTest {
 
   @Test
   public void testDeletionById() throws Exception {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.getDefaultNamespace()).thenReturn("default");
-      when(mockManager.isClientStable()).thenReturn(true);
-      when(mockManager.getIndex()).thenReturn(goodIndex);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+      mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
+      when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+      when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+      when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+      when(mockStatus.getState()).thenReturn(StateEnum.READY);
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/deletion-config.conf");
       PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
@@ -445,13 +454,17 @@ public class PineconeIndexerTest {
 
   @Test
   public void testUpsertAndDeletes() throws Exception {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.getDefaultNamespace()).thenReturn("default");
-      when(mockManager.isClientStable()).thenReturn(true);
-      when(mockManager.getIndex()).thenReturn(goodIndex);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+      mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
+      when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+      when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+      when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+      when(mockStatus.getState()).thenReturn(StateEnum.READY);
       UpsertResponse mockResponse = mock(UpsertResponse.class);
       when(mockResponse.getUpsertedCount()).thenReturn(2);
       when(goodIndex.upsert(anyList(), anyString())).thenReturn(mockResponse);
@@ -492,13 +505,17 @@ public class PineconeIndexerTest {
 
   @Test
   public void testUpdateAndDeletes() throws Exception {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.getDefaultNamespace()).thenReturn("default");
-      when(mockManager.isClientStable()).thenReturn(true);
-      when(mockManager.getIndex()).thenReturn(goodIndex);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+      mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
+      when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+      when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+      when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+      when(mockStatus.getState()).thenReturn(StateEnum.READY);
       UpsertResponse mockResponse = mock(UpsertResponse.class);
       when(mockResponse.getUpsertedCount()).thenReturn(2);
       when(goodIndex.upsert(anyList(), anyString())).thenReturn(mockResponse);
@@ -537,13 +554,17 @@ public class PineconeIndexerTest {
 
   @Test
   public void testUploadThenDeleteInSameBatch() throws Exception {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.getDefaultNamespace()).thenReturn("default");
-      when(mockManager.isClientStable()).thenReturn(true);
-      when(mockManager.getIndex()).thenReturn(goodIndex);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+      mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
+      when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+      when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+      when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+      when(mockStatus.getState()).thenReturn(StateEnum.READY);
       UpsertResponse mockResponse = mock(UpsertResponse.class);
       when(mockResponse.getUpsertedCount()).thenReturn(2);
       when(goodIndex.upsert(anyList(), anyString())).thenReturn(mockResponse);
@@ -581,13 +602,17 @@ public class PineconeIndexerTest {
 
   @Test
   public void testDeleteThenUploadInSameBatch() throws Exception {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.getDefaultNamespace()).thenReturn("default");
-      when(mockManager.isClientStable()).thenReturn(true);
-      when(mockManager.getIndex()).thenReturn(goodIndex);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+      mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
+      when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+      when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+      when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+      when(mockStatus.getState()).thenReturn(StateEnum.READY);
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/update-and-delete.conf");
       PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
@@ -616,13 +641,16 @@ public class PineconeIndexerTest {
 
   @Test
   public void testInvalidBatchSize() throws Exception {
-    PineconeManager mockManager = mock(PineconeManager.class);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getInstance(anyString(), anyString()))
-          .thenReturn(mockManager);
-      when(mockManager.getDefaultNamespace()).thenReturn("default");
-      when(mockManager.isClientStable()).thenReturn(true);
-      when(mockManager.getIndex()).thenReturn(goodIndex);
+      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+          .thenReturn(mockClient);
+      when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+      when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+      when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+      when(mockStatus.getState()).thenReturn(StateEnum.READY);
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/invalidBatchSize.conf");
       PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");

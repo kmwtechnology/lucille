@@ -5,14 +5,12 @@ import static org.junit.Assert.*;
 
 import io.pinecone.clients.Index;
 import io.pinecone.clients.Pinecone;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 import org.openapitools.control.client.model.IndexModel;
 import org.openapitools.control.client.model.IndexModelStatus;
-import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
 
 public class PineconeManagerTest {
 
@@ -29,75 +27,67 @@ public class PineconeManagerTest {
     mockStatus = mock(IndexModelStatus.class);
   }
 
-  @After
-  public void tearDown() {
-    PineconeManager.resetInstance();
-  }
-
-  @Test
-  public void testClientUnstable() {
-    try(MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class,(mock,context)-> {
-      when(mock.getIndexConnection(anyString())).thenReturn(mockIndex);
-      when(mock.describeIndex(anyString())).thenReturn(mockDescription);
-      when(mockDescription.getStatus()).thenReturn(mockStatus);
-      when(mockStatus.getState()).thenReturn(StateEnum.INITIALIZING, StateEnum.INITIALIZATIONFAILED, StateEnum.TERMINATING);
-    })){
-      PineconeManager manager = PineconeManager.getInstance("apiKey", "indexName");
-      assertFalse(manager.isClientStable());
-      assertFalse(manager.isClientStable());
-      assertFalse(manager.isClientStable());
-    }
-  }
-
-  @Test
-  public void testClientStable() {
-    try(MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class,(mock,context)-> {
-      when(mock.getIndexConnection(anyString())).thenReturn(mockIndex);
-      when(mock.describeIndex(anyString())).thenReturn(mockDescription);
-      when(mockDescription.getStatus()).thenReturn(mockStatus);
-      when(mockStatus.getState()).thenReturn(StateEnum.READY, StateEnum.SCALINGDOWN, StateEnum.SCALINGUP,
-          StateEnum.SCALINGDOWNPODSIZE, StateEnum.SCALINGUPPODSIZE);
-    })){
-      PineconeManager manager = PineconeManager.getInstance("apiKey", "indexName");
-      assertTrue(manager.isClientStable());
-      assertTrue(manager.isClientStable());
-      assertTrue(manager.isClientStable());
-      assertTrue(manager.isClientStable());
-      assertTrue(manager.isClientStable());
-    }
-  }
-
   @Test
   public void testFailureApiKey() throws Exception {
     try(MockedConstruction<Pinecone.Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
       when(mock.build()).thenThrow(Exception.class);
     })) {
-      assertThrows(Exception.class, () ->  PineconeManager.getInstance("apiKey", "indexName"));
+      assertThrows(Exception.class, () ->  PineconeManager.getClientInstance("apiKeyFail"));
     }
   }
 
   @Test
-  public void testSuccessIndexConnection() throws Exception {
-    try(MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class,(mock,context)-> {
-      when(mock.getIndexConnection(anyString())).thenReturn(mockIndex);
-      when(mock.describeIndex(anyString())).thenReturn(mockDescription);
-      when(mockDescription.getStatus()).thenReturn(mockStatus);
-    })){
-      PineconeManager manager = PineconeManager.getInstance("apiKey", "indexName");
-      Pinecone mockClient = client.constructed().get(0);
-
-      verify(mockClient, times(1)).getIndexConnection(anyString());
+  public void testSuccessApiKey() throws Exception {
+    try(MockedConstruction<Pinecone.Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      Pinecone mockClient = mock(Pinecone.class);
+      when(mock.build()).thenReturn(mockClient);
+    })) {
+      try {
+        Pinecone client = PineconeManager.getClientInstance("apiKeySuccess");
+      } catch (Exception e) {
+        fail();
+      }
     }
   }
 
   @Test
-  public void testFailureIndexConnection() throws Exception {
-    try(MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class,(mock,context)-> {
-      when(mock.getIndexConnection(anyString())).thenThrow(Exception.class);
-      when(mock.describeIndex(anyString())).thenReturn(mockDescription);
-      when(mockDescription.getStatus()).thenReturn(mockStatus);
-    })){
-      assertThrows(Exception.class, () -> PineconeManager.getInstance("apiKey", "indexName"));
+  public void testReuseClient() throws Exception {
+    try(MockedConstruction<Pinecone.Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      Pinecone mockClient = mock(Pinecone.class);
+      Pinecone differentClient = mock(Pinecone.class);
+      // will return mockClient first time is called, then return a different client when called a second time
+      when(mock.build()).thenReturn(mockClient).thenReturn(differentClient);
+    })) {
+      // test that sameClient is retrieving the same client object, while differentClient is getting the differentClient
+      Pinecone client = PineconeManager.getClientInstance("sameClient");
+      Pinecone client2 = PineconeManager.getClientInstance("sameClient");
+      Pinecone client3 = PineconeManager.getClientInstance("differentClient");
+      assertSame(client, client2);
+      assertNotSame(client, client3);
+      assertNotSame(client2, client3);
+    }
+  }
+
+  @Test
+  public void testSuccessGettingClient() throws Exception {
+    try(MockedConstruction<Pinecone.Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      Pinecone mockClient = mock(Pinecone.class);
+      when(mock.build()).thenReturn(mockClient);
+    })) {
+      try {
+        Pinecone client = PineconeManager.getClientInstance("indexConnectionPass");
+      } catch (Exception e) {
+        fail();
+      }
+    }
+  }
+
+  @Test
+  public void testFailureGettingClient() throws Exception {
+    try(MockedConstruction<Pinecone.Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenThrow(Exception.class);
+    })) {
+      assertThrows(Exception.class, () -> PineconeManager.getClientInstance("indexConnectionFail"));
     }
   }
 }

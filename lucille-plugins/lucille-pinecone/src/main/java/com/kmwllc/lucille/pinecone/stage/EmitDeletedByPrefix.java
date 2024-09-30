@@ -5,7 +5,8 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.pinecone.util.PineconeManager;
 import com.typesafe.config.Config;
-import dev.langchain4j.agent.tool.P;
+import io.pinecone.clients.Index;
+import io.pinecone.clients.Pinecone;
 import io.pinecone.proto.ListItem;
 import io.pinecone.proto.ListResponse;
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,7 +24,7 @@ import org.slf4j.LoggerFactory;
  * These records are then emitted as Lucille Documents, which are also marked for deletion.
  *
  * Config Parameters:
- * - dropOriginal (Boolean, Optional): if set to true, will mark documents in the pipeline that were marked for deletion
+ * - dropOriginal (Boolean, Optional): if set to true, will drop documents in the pipeline that were marked for deletion
  *   as dropped. Does not apply to emitted documents, only the original documents. Defaults to false
  * - addPrefix (String, optional) : String that adds on to all document ids used for listing
  *    e.g. if id of doc is "doc1" & addPrefix is "-v1", then this stage will retrieve and emit documents where their
@@ -30,7 +32,9 @@ import org.slf4j.LoggerFactory;
  */
 public class EmitDeletedByPrefix extends Stage {
 
-  private final PineconeManager pineconeManager;
+  private final Pinecone client;
+  private final String indexName;
+  private final Index index;
   private final Map<String, Object> namespaces;
   private final boolean dropOriginal;
   private final String addPrefix;
@@ -44,7 +48,9 @@ public class EmitDeletedByPrefix extends Stage {
         .withOptionalProperties("dropOriginal", "addPrefix")
         .withOptionalParents("namespaces")
         .withRequiredProperties("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index"));
-    this.pineconeManager = PineconeManager.getInstance(config.getString("apiKey"), config.getString("index"));
+    this.client = PineconeManager.getClientInstance(config.getString("apiKey"));
+    this.indexName = config.getString("index");
+    this.index = client.getIndexConnection(indexName);
     this.namespaces = config.hasPath("namespaces") ? config.getConfig("namespaces").root().unwrapped() : null;
     this.dropOriginal = config.hasPath("dropOriginal") ? config.getBoolean("dropOriginal") : false;
     this.addPrefix = config.hasPath("addPrefix") ? config.getString("addPrefix") : "";
@@ -54,9 +60,12 @@ public class EmitDeletedByPrefix extends Stage {
 
   @Override
   public void start() throws StageException {
-    boolean isStable = pineconeManager.isClientStable();
+    StateEnum state = client.describeIndex(indexName).getStatus().getState();
+    boolean isStable = state != StateEnum.INITIALIZING &&
+        state != StateEnum.INITIALIZATIONFAILED &&
+        state != StateEnum.TERMINATING;
     if (!isStable) {
-      throw new StageException("Index " + pineconeManager.getIndexName() + " is not stable");
+      throw new StageException("Index " + indexName + " is not stable");
     }
   }
 
@@ -74,7 +83,7 @@ public class EmitDeletedByPrefix extends Stage {
         idsToDelete.addAll(getVectorsByPrefix(doc, addPrefix, entry.getKey()));
       }
     } else {
-      idsToDelete.addAll(getVectorsByPrefix(doc, addPrefix, "default"));
+      idsToDelete.addAll(getVectorsByPrefix(doc, addPrefix, PineconeManager.getDefaultNamespace()));
     }
 
     // drop original document if set to true
@@ -105,13 +114,13 @@ public class EmitDeletedByPrefix extends Stage {
     String prefix = doc.getId() + additionalPrefix;
     try {
       // by default, list will list up to 100 vectors
-      ListResponse listResponse = pineconeManager.getIndex().list(namespace, prefix);
+      ListResponse listResponse = index.list(namespace, prefix);
       idsToDelete = new ArrayList<>(listResponse.getVectorsList());
 
       // if number of vectors exceed 100
       while (listResponse.hasPagination()) {
         String paginationToken = listResponse.getPagination().getNext();
-        listResponse = pineconeManager.getIndex().list(namespace, prefix, paginationToken);
+        listResponse = index.list(namespace, prefix, paginationToken);
         idsToDelete.addAll(listResponse.getVectorsList());
       }
     } catch (Exception e) {

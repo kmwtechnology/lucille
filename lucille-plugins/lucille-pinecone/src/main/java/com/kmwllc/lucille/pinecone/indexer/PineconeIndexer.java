@@ -2,6 +2,7 @@ package com.kmwllc.lucille.pinecone.indexer;
 
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.pinecone.util.PineconeManager;
+import io.pinecone.clients.Pinecone;
 import io.pinecone.proto.UpsertResponse;
 import io.pinecone.unsigned_indices_model.VectorWithUnsignedIndices;
 import java.util.ArrayList;
@@ -10,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.protobuf.Struct;
@@ -39,7 +41,9 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
 public class PineconeIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(PineconeIndexer.class);
-  private final PineconeManager pineconeManager;
+  private final Pinecone client;
+  private final Index index;
+  private final String indexName;
   private final Map<String, Object> namespaces;
   private final Set<String> metadataFields;
   private final String mode;
@@ -47,7 +51,9 @@ public class PineconeIndexer extends Indexer {
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) {
     super(config, messenger, metricsPrefix);
-    this.pineconeManager = PineconeManager.getInstance(config.getString("pinecone.apiKey"), config.getString("pinecone.index"));
+    this.client = PineconeManager.getClientInstance(config.getString("pinecone.apiKey"));
+    this.indexName = config.getString("pinecone.index");
+    this.index = client.getIndexConnection(indexName);
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
     this.metadataFields = config.hasPath("pinecone.metadataFields")
         ? new HashSet<>(config.getStringList("pinecone.metadataFields")) : new HashSet<>();
@@ -71,7 +77,15 @@ public class PineconeIndexer extends Indexer {
 
   @Override
   public boolean validateConnection() {
-    return pineconeManager.isClientStable();
+    try {
+      StateEnum state = client.describeIndex(indexName).getStatus().getState();
+      return state != StateEnum.INITIALIZING &&
+          state != StateEnum.INITIALIZATIONFAILED &&
+          state != StateEnum.TERMINATING;
+    } catch (Exception e) {
+      log.error("Error checking Pinecone client state", e);
+      return false;
+    }
   }
 
   @Override
@@ -99,7 +113,7 @@ public class PineconeIndexer extends Indexer {
           deleteDocuments(deleteList, entry.getKey());
         }
       } else {
-        deleteDocuments(deleteList, pineconeManager.getDefaultNamespace());
+        deleteDocuments(deleteList, PineconeManager.getDefaultNamespace());
       }
     }
 
@@ -112,7 +126,7 @@ public class PineconeIndexer extends Indexer {
           uploadDocuments(uploadList, (String) entry.getValue(), entry.getKey());
         }
       } else {
-        uploadDocuments(uploadList, defaultEmbeddingField, pineconeManager.getDefaultNamespace());
+        uploadDocuments(uploadList, defaultEmbeddingField, PineconeManager.getDefaultNamespace());
       }
     }
   }
@@ -163,7 +177,7 @@ public class PineconeIndexer extends Indexer {
           .collect(Collectors.toList());
 
     try {
-      pineconeManager.getIndex().deleteByIds(idsToDelete, namespace);
+      index.deleteByIds(idsToDelete, namespace);
     } catch (Exception e) {
       throw new IndexerException("Error while deleting vectors", e);
     }
@@ -171,7 +185,7 @@ public class PineconeIndexer extends Indexer {
 
   private void upsertDocuments(List<VectorWithUnsignedIndices> upsertVectors, String namespace) throws IndexerException {
     try {
-      UpsertResponse response = pineconeManager.getIndex().upsert(upsertVectors, namespace);
+      UpsertResponse response = index.upsert(upsertVectors, namespace);
 
       // check response for upsertedCount to be equal to upsertVectors
       if (response.getUpsertedCount() != upsertVectors.size()) {
@@ -188,7 +202,7 @@ public class PineconeIndexer extends Indexer {
         log.debug("updating docId: {} namespace: {} embedding: {}", doc.getId(), namespace, doc.getFloatList(embeddingField));
         // does not validate the existence of IDs within the index, if no records are affected, a 200 OK status is returned
         // will only throw error if doc.getId() is null
-        pineconeManager.getIndex().update(doc.getId(), doc.getFloatList(embeddingField), namespace);
+        index.update(doc.getId(), doc.getFloatList(embeddingField), namespace);
       });
     } catch (Exception e) {
       throw new IndexerException("Error while updating vectors", e);
@@ -204,7 +218,6 @@ public class PineconeIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    Index index = pineconeManager.getIndex();
     if (index != null) {
       index.close();
     }

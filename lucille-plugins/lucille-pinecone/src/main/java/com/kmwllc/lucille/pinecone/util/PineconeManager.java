@@ -1,60 +1,31 @@
 package com.kmwllc.lucille.pinecone.util;
 
-import io.pinecone.clients.Index;
 import io.pinecone.clients.Pinecone;
 import java.lang.invoke.MethodHandles;
-import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class PineconeManager {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  private static final String defaultNamespace = "default";
-  private static PineconeManager instance;
+  private static final String DEFAULT_NAMESPACE = "default";
+  private static final Map<String, Pinecone> clients = new ConcurrentHashMap<>();
   private final Pinecone client;
-  private final Index index;
-  private final String indexName;
 
-  private PineconeManager(String apiKey, String indexName) {
-    this.indexName = indexName;
+  private PineconeManager(String apiKey) {
     this.client = new Pinecone.Builder(apiKey).build();
-    this.index = this.client.getIndexConnection(this.indexName);
   }
 
-  // getting instance of PineconeManager with thread safety
-  public static synchronized PineconeManager getInstance(String apiKey, String indexName) {
-    if (instance == null) {
-      instance = new PineconeManager(apiKey, indexName);
-    }
-    return instance;
+  public static Pinecone getClientInstance(String apiKey) {
+    return clients.computeIfAbsent(apiKey, k -> new PineconeManager(apiKey).getClient());
   }
 
-  public Index getIndex() {
-    return index;
+  private Pinecone getClient() {
+    return client;
   }
 
-  public String getIndexName() {
-    return indexName;
-  }
-
-  public String getDefaultNamespace() {
-    return defaultNamespace;
-  }
-
-  public synchronized boolean isClientStable() {
-    try {
-      StateEnum state = this.client.describeIndex(this.indexName).getStatus().getState();
-      return state != StateEnum.INITIALIZING &&
-          state != StateEnum.INITIALIZATIONFAILED &&
-          state != StateEnum.TERMINATING;
-    } catch (Exception e) {
-      log.error("Error checking Pinecone client state", e);
-      return false;
-    }
-  }
-
-  // ONLY FOR TESTING
-  public static void resetInstance() {
-    instance = null;
+  public static String getDefaultNamespace() {
+    return DEFAULT_NAMESPACE;
   }
 }
