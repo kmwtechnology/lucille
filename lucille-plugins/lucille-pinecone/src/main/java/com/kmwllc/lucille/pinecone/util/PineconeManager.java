@@ -18,6 +18,7 @@ public class PineconeManager {
   }
 
   public static Pinecone getClientInstance(String apiKey) {
+    // if mapping produces null or exception, will not add entry to map
     return clients.computeIfAbsent(apiKey, k -> new PineconeManager(apiKey).getClient());
   }
 
