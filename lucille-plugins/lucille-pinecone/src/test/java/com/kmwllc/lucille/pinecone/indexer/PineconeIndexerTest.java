@@ -643,9 +643,8 @@ public class PineconeIndexerTest {
       messenger.sendForIndexing(doc3);
       indexerGood.run(2);
 
-      // make sure a deletion were made (for doc3ToDelete)
-      ArgumentCaptor<List<String>> listArgumentCaptor2 = ArgumentCaptor.forClass(List.class);
-      verify(goodIndex, times(1)).deleteByIds(listArgumentCaptor2.capture(), anyString());
+      // doc3ToDelete would be deleted from deletedList, and so will not be called
+      verify(goodIndex, times(0)).deleteByIds(anyList(), anyString());
 
       // assert that an update was made to the right documents to the right Ids
       ArgumentCaptor<String> idsCapture = ArgumentCaptor.forClass(String.class);
@@ -654,9 +653,8 @@ public class PineconeIndexerTest {
       assertEquals(doc3.getId(), idsCapture.getAllValues().get(0));
       assertEquals("default", namespaceUsed.getValue());
 
-      // make sure vectors are correct for each document and namespace
-      List<String> idsSentForDeletion = listArgumentCaptor2.getAllValues().get(0);
-      assertEquals(doc3ToDelete.getId(), idsSentForDeletion.get(0));
+
+
     }
   }
 
