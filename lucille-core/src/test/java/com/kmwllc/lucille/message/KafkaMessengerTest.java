@@ -83,7 +83,10 @@ public class KafkaMessengerTest {
         KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-worker-foo-random");
       }).thenReturn(mockConsumer);
       kafkaUtils.when(() -> {
-        KafkaUtils.getEventTopicName(config, "foo2", "id");
+        KafkaUtils.getEventTopicName(config, "foo", "id");
+      }).thenReturn("foo_event_id");
+      kafkaUtils.when(() -> {
+        KafkaUtils.getEventTopicName(config2, "foo2", "id");
       }).thenReturn("foo2_event_id");
       KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, "foo");
       KafkaWorkerMessenger messenger2 = new KafkaWorkerMessenger(config2, "foo2");
@@ -132,7 +135,10 @@ public class KafkaMessengerTest {
         KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-worker-foo-random");
       }).thenReturn(mockConsumer);
       kafkaUtils.when(() -> {
-        KafkaUtils.getEventTopicName(config, "foo2", doc.getRunId());
+        KafkaUtils.getEventTopicName(config, "foo", doc.getRunId());
+      }).thenReturn("foo_event_id");
+      kafkaUtils.when(() -> {
+        KafkaUtils.getEventTopicName(config2, "foo2", doc.getRunId());
       }).thenReturn("foo2_event_id");
       KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, "foo");
       KafkaWorkerMessenger messenger2 = new KafkaWorkerMessenger(config2, "foo2");;
