@@ -47,7 +47,7 @@ public class EmitDeletedByPrefixTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
       when(mockIndexModel.getStatus()).thenReturn(mockStatus);
@@ -65,7 +65,7 @@ public class EmitDeletedByPrefixTest {
     IndexModel mockIndexModel = mock(IndexModel.class);
     IndexModelStatus mockStatus = mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString())).thenReturn(mockClient);
+      mockedStatic.when(() -> PineconeManager.getClient(anyString())).thenReturn(mockClient);
       when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
       when(mockIndexModel.getStatus()).thenReturn(mockStatus);
       when(mockStatus.getState()).thenReturn(StateEnum.READY);
@@ -83,7 +83,7 @@ public class EmitDeletedByPrefixTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
       when(mockIndexModel.getStatus()).thenReturn(mockStatus);
@@ -115,7 +115,7 @@ public class EmitDeletedByPrefixTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace())
           .thenReturn("default");
@@ -144,7 +144,7 @@ public class EmitDeletedByPrefixTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace())
           .thenReturn("default");
@@ -189,7 +189,7 @@ public class EmitDeletedByPrefixTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace())
           .thenReturn("default");
@@ -242,7 +242,7 @@ public class EmitDeletedByPrefixTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace())
           .thenReturn("default");

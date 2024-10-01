@@ -48,7 +48,7 @@ public class EmitDeletedByPrefix extends Stage {
         .withOptionalProperties("dropOriginal", "addPrefix")
         .withOptionalParents("namespaces")
         .withRequiredProperties("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index"));
-    this.client = PineconeManager.getClientInstance(config.getString("apiKey"));
+    this.client = PineconeManager.getClient(config.getString("apiKey"));
     this.indexName = config.getString("index");
     this.index = client.getIndexConnection(indexName);
     this.namespaces = config.hasPath("namespaces") ? config.getConfig("namespaces").root().unwrapped() : null;

@@ -51,7 +51,7 @@ public class PineconeIndexer extends Indexer {
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) {
     super(config, messenger, metricsPrefix);
-    this.client = PineconeManager.getClientInstance(config.getString("pinecone.apiKey"));
+    this.client = PineconeManager.getClient(config.getString("pinecone.apiKey"));
     this.indexName = config.getString("pinecone.index");
     this.index = client.getIndexConnection(indexName);
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;

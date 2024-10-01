@@ -120,7 +120,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
@@ -143,7 +143,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
       when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
@@ -165,7 +165,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
       when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
@@ -193,7 +193,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
       when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
@@ -231,7 +231,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
       when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
@@ -267,7 +267,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
       when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
@@ -318,7 +318,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
       when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
@@ -374,7 +374,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
       when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
@@ -425,7 +425,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
       when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
@@ -458,7 +458,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
       when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
@@ -509,7 +509,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
       when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
@@ -558,7 +558,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
       when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
@@ -606,7 +606,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace()).thenReturn("default");
       when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
@@ -645,7 +645,7 @@ public class PineconeIndexerTest {
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
     IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClientInstance(anyString()))
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
       when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
       when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);

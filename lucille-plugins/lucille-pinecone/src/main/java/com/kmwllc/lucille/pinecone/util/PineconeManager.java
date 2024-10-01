@@ -11,19 +11,13 @@ public class PineconeManager {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final String DEFAULT_NAMESPACE = "default";
   private static final Map<String, Pinecone> clients = new ConcurrentHashMap<>();
-  private final Pinecone client;
 
-  private PineconeManager(String apiKey) {
-    this.client = new Pinecone.Builder(apiKey).build();
+  private PineconeManager() {
   }
 
-  public static Pinecone getClientInstance(String apiKey) {
+  public static Pinecone getClient(String apiKey) {
     // if mapping produces null or exception, will not add entry to map
-    return clients.computeIfAbsent(apiKey, k -> new PineconeManager(apiKey).getClient());
-  }
-
-  private Pinecone getClient() {
-    return client;
+    return clients.computeIfAbsent(apiKey, k -> new Pinecone.Builder(apiKey).build());
   }
 
   public static String getDefaultNamespace() {
