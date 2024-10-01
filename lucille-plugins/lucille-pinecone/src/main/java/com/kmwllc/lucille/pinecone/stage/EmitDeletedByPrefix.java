@@ -19,8 +19,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This stage collects all records from namespace(s) if they match the ID of the Lucille document only if the document was already
- * marked for deletion. These records are then emitted as Lucille Documents, which are also marked for deletion.
+ * This stage collects all records from namespace(s) if their prefix ID matches the ID of the Lucille document marked for deletion.
+ * These records are then emitted as Lucille Documents, which are also marked for deletion.
  *
  * Config Parameters:
  * - dropOriginal (Boolean, Optional): if set to true, will drop documents in the pipeline that were marked for deletion
@@ -28,16 +28,14 @@ import org.slf4j.LoggerFactory;
  * - addPrefix (String, optional) : String that adds on to all document ids used for listing
  *    e.g. if id of doc is "doc1" & addPrefix is "-v1", then this stage will retrieve and emit documents where their
  *         id prefix is "doc1-v1".
- * - index (String) : name of the index in Pinecone to search within
- * - apiKey (String) : Pinecone apiKey
+ * - index (String) : name of the index to search within
+ * - apiKey (String) : apiKey to send requests
  * - namespaces (Map<String, Object>, Optional) : mapping of namespaces of which you would like to collect ids on. If not given, will
  *    retrieve from default namespace.
- *    note that it does not matter what the mapping is to, rather makes it convenient for user to reuse same configs as indexer
- * - deletionMarkerField (String) : name of the field which indicates the document is marked for deletion, should be the same value as
- *   indexer configs deletionMarkerField
- * - deletionMarkerFieldValue (String) : value of the field which indicates that the document is marked for deletion, should be the
- *   same value as indexer configs deletionMarkerFieldValue
- *   - both field name and value must match to above configs to determine document is marked for deletion
+ *    note that value of mapping will not matter, rather makes it convenient for user to reuse same configs as PineconeIndexer
+ * - deletionMarkerField (String) : name of the field which indicates the document is marked for deletion
+ * - deletionMarkerFieldValue (String) : value of the field which indicates that the document is marked for deletion
+ *   - for stage to work, deletionMarkerField and deletionMarkerFieldValue must be the same value provided indexer configs
  */
 public class EmitDeletedByPrefix extends Stage {
 

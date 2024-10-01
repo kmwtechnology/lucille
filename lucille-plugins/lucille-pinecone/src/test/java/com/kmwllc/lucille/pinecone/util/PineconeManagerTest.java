@@ -25,7 +25,7 @@ public class PineconeManagerTest {
       PineconeManager.getClient("differentClient");
       PineconeManager.getClient("differentClient");
       PineconeManager.getClient("anotherClient");
-      // build should have constructed twice
+      // build should have constructed trice for sameClient, differentClient and anotherClient
       assertEquals(3, builder.constructed().size());
     }
   }
