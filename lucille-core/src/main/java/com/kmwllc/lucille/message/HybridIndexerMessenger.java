@@ -24,6 +24,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
+  private final Config config;
 
   // a thread-safe Set that can be shared among all indexers running in a JVM
   // to provide a mechanism for determining when a certain number of unique documents have been
@@ -43,6 +44,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
     this.idSet = idSet;
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.pipelineName = pipelineName;
+    this.config = config;
   }
 
   @Override
@@ -56,7 +58,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
       idSet.add(event.getDocumentId());
     }
     if (kafkaEventProducer != null) {
-      String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
+      String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
       RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
           new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
       kafkaEventProducer.flush(); // TODO

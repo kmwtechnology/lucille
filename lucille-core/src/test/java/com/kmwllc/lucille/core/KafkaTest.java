@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 import com.kmwllc.lucille.message.KafkaUtils;
+import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import net.mguenther.kafka.junit.EmbeddedKafkaCluster;
 import net.mguenther.kafka.junit.KeyValue;
@@ -40,8 +41,9 @@ public class KafkaTest {
     // run two connectors in "Kafka local mode"
     // in "kafka local mode" Workers, Indexers, the Connector/Publisher will run in separate threads,
     // but they will communicate via Kafka (here we use an embedded kafka cluster)
+    Config config = ConfigFactory.load("KafkaTest/twoConnectors.conf");
     RunResult result =
-        Runner.run(ConfigFactory.load("KafkaTest/twoConnectors.conf"), Runner.RunType.KAFKA_LOCAL);
+        Runner.run(config, Runner.RunType.KAFKA_LOCAL);
     assertTrue(result.getStatus());
 
     // connector1 will feed 3 documents to pipeline1, so there should be 3 messages in each of
@@ -56,7 +58,7 @@ public class KafkaTest {
 
     List<KeyValue<String, String>> eventRecords =
         kafka.read(ReadKeyValues.from(
-            KafkaUtils.getEventTopicName("pipeline1", result.getRunId())).seekTo(0, 0));
+            KafkaUtils.getEventTopicName(config, "pipeline1", result.getRunId())).seekTo(0, 0));
     assertEquals(3, eventRecords.size());
 
     Event event0 = Event.fromJsonString(eventRecords.get(0).getValue());
@@ -89,7 +91,7 @@ public class KafkaTest {
     assertEquals("apple", doc.getString("field1"));
 
     assertEquals(1, kafka.read(ReadKeyValues
-        .from(KafkaUtils.getEventTopicName("pipeline2", result.getRunId()))
+        .from(KafkaUtils.getEventTopicName(config, "pipeline2", result.getRunId()))
         .seekTo(0, 0)).size());
   }
 

@@ -122,8 +122,12 @@ public class KafkaUtils {
     return new KafkaProducer<>(producerProps);
   }
 
-  public static String getEventTopicName(String pipelineName, String runId) {
-    return pipelineName + "_event_" + runId;
+  public static String getEventTopicName(Config config, String pipelineName, String runId) {
+    if (config.hasPath("kafka.eventTopic")) {
+      return config.getString("kafka.eventTopic");
+    } else {
+      return pipelineName + "_event_" + runId;
+    }
   }
 
   public static String getSourceTopicName(String pipelineName, Config config) {
@@ -155,7 +159,7 @@ public class KafkaUtils {
    */
   public static boolean createEventTopic(Config config, String pipelineName, String runId)
       throws ExecutionException, InterruptedException {
-    String eventTopicName = KafkaUtils.getEventTopicName(pipelineName, runId);
+    String eventTopicName = KafkaUtils.getEventTopicName(config, pipelineName, runId);
 
     // create the event topic explicitly so we can guarantee that it will have 1 partition
     // multiple partitions could lead to events being received out of order which
