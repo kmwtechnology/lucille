@@ -22,6 +22,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private final Consumer<String, KafkaDocument> destConsumer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
+  private final Config config;
 
   public KafkaIndexerMessenger(Config config, String pipelineName) {
     this.pipelineName = pipelineName;
@@ -29,6 +30,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     this.destConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.config = config;
   }
 
   /**
@@ -67,7 +69,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     if (kafkaEventProducer == null) {
       return;
     }
-    String confirmationTopicName = KafkaUtils.getEventTopicName(pipelineName, event.getRunId());
+    String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
     RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
         new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
     kafkaEventProducer.flush(); // TODO
