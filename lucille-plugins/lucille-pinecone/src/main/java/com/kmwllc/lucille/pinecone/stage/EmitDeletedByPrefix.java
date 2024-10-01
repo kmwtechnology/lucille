@@ -39,9 +39,9 @@ import org.slf4j.LoggerFactory;
  */
 public class EmitDeletedByPrefix extends Stage {
 
-  private final Pinecone client;
+  private Pinecone client;
   private final String indexName;
-  private final Index index;
+  private Index index;
   private final Map<String, Object> namespaces;
   private final boolean dropOriginal;
   private final String addPrefix;
@@ -55,9 +55,7 @@ public class EmitDeletedByPrefix extends Stage {
         .withOptionalProperties("dropOriginal", "addPrefix")
         .withOptionalParents("namespaces")
         .withRequiredProperties("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index"));
-    this.client = PineconeManager.getClient(config.getString("apiKey"));
     this.indexName = config.getString("index");
-    this.index = client.getIndexConnection(indexName);
     this.namespaces = config.hasPath("namespaces") ? config.getConfig("namespaces").root().unwrapped() : null;
     this.dropOriginal = config.hasPath("dropOriginal") ? config.getBoolean("dropOriginal") : false;
     this.addPrefix = config.hasPath("addPrefix") ? config.getString("addPrefix") : "";
@@ -67,6 +65,9 @@ public class EmitDeletedByPrefix extends Stage {
 
   @Override
   public void start() throws StageException {
+    client = PineconeManager.getClient(config.getString("apiKey"));
+    index = client.getIndexConnection(indexName);
+
     StateEnum state = client.describeIndex(indexName).getStatus().getState();
     boolean isStable = state != StateEnum.INITIALIZING &&
         state != StateEnum.INITIALIZATIONFAILED &&
