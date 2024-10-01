@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
  * - deletionMarkerFieldValue (String) : value of the field which indicates that the document is marked for deletion
  *   - for stage to work, deletionMarkerField and deletionMarkerFieldValue must be the same value provided indexer configs
  */
-public class EmitDeletedByPrefix extends Stage {
+public class EmitDocsToDeleteByPrefix extends Stage {
 
   private Pinecone client;
   private final String indexName;
@@ -48,9 +48,7 @@ public class EmitDeletedByPrefix extends Stage {
   private final String deletionMarkerField;
   private final String deletionMarkerFieldValue;
 
-  private static final Logger log = LoggerFactory.getLogger(EmitDeletedByPrefix.class);
-
-  public EmitDeletedByPrefix(Config config) {
+  public EmitDocsToDeleteByPrefix(Config config) {
     super(config, new StageSpec()
         .withOptionalProperties("dropOriginal", "addPrefix")
         .withOptionalParents("namespaces")

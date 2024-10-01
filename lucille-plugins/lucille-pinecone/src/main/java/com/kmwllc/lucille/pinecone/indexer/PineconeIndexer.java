@@ -42,6 +42,7 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
 public class PineconeIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(PineconeIndexer.class);
+  private static final Integer MAX_PINECONE_BATCH_SIZE = 1000;
   private final Pinecone client;
   private final Index index;
   private final String indexName;
@@ -65,8 +66,8 @@ public class PineconeIndexer extends Indexer {
     }
     // max upload batch is 2MB or 1000 records, whichever is reached first, so stopping lucille run if batch size set to more than 1000
     // larger dimensions will mean smaller batch size limit, letting API throw the error if encountered.
-    if (DEFAULT_BATCH_SIZE > 1000) {
-      throw new IllegalArgumentException(
+    if (DEFAULT_BATCH_SIZE > MAX_PINECONE_BATCH_SIZE) {
+      log.warn(
           "Maximum batch size for Pinecone is 1000, and lower if vectors have higher dimensions. Set indexer batchSize config to"
               + "1000 or lower.");
     }
@@ -96,12 +97,14 @@ public class PineconeIndexer extends Indexer {
     List<Document> uploadList = new ArrayList<>();
     for (Document doc : documents) {
       if (isDeletion(doc)) {
-        // if doc is in uploadList and is now marked for deletion, then remove that document in uploadList and add it to deleteList
-        uploadList = uploadList.stream().filter(other -> !other.getId().equals(doc.getId())).collect(Collectors.toList());
+        // always add to deleteList;
+        // in the case where doc is in uploadList and is now marked for deletion, then remove that document in uploadList
+        uploadList.removeIf(x -> x.getId().equals(doc.getId()));
         deleteList.add(doc);
       } else {
-        // if doc is already in deleteList, then continue adding to uploadList as uploading is performed after deletion
-        // note: updating/deleting a non-existent ID will return an OK response
+        // always add non deletion documents to uploadList;
+        // in the case that doc is also in deleteList, we remove it from the deleteList to avoid sending unnecessary deletion request
+        deleteList.removeIf(x -> x.getId().equals(doc.getId()));
         uploadList.add(doc);
       }
     }
@@ -137,16 +140,16 @@ public class PineconeIndexer extends Indexer {
       throw new IllegalArgumentException(
           "At least one of a defaultEmbeddingField or a non-empty namespaces mapping is required when uploading documents.");
     }
-    if (uploadListSize > 1000) {
+    if (uploadListSize > MAX_PINECONE_BATCH_SIZE) {
       throw new IndexerException(
-          "Pinecone maximum batch size is 1000, lower batchSize in indexer configs.");
+          "Pinecone maximum batch size is " + MAX_PINECONE_BATCH_SIZE + ", lower batchSize in indexer configs.");
     }
   }
 
   private void validateDeleteRequirements(int deleteListSize) throws IndexerException {
-    if (deleteListSize > 1000) {
+    if (deleteListSize > MAX_PINECONE_BATCH_SIZE) {
       throw new IndexerException(
-          "Pinecone maximum batch size is 1000, lower batchSize in indexer configs.");
+          "Pinecone maximum batch size is " + MAX_PINECONE_BATCH_SIZE + ", lower batchSize in indexer configs.");
     }
   }
 

@@ -27,9 +27,9 @@ import org.openapitools.control.client.model.IndexModel;
 import org.openapitools.control.client.model.IndexModelStatus;
 import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
 
-public class EmitDeletedByPrefixTest {
+public class EmitDocsToDeleteByPrefixTest {
 
-  StageFactory factory = StageFactory.of(EmitDeletedByPrefix.class);
+  StageFactory factory = StageFactory.of(EmitDocsToDeleteByPrefix.class);
 
   @Test
   public void testInvalidIndexerConfigs() throws StageException {
