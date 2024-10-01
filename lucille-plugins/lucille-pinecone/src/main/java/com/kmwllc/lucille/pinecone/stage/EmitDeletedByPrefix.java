@@ -19,9 +19,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This stage retrieves all records from the Pinecone namespaces in Pinecone configs if the record's ID prefix matches the
- * ID of the Lucille document passing through the stage AND if the document was already marked for deletion.
- * These records are then emitted as Lucille Documents, which are also marked for deletion.
+ * This stage collects all records from namespace(s) if they match the ID of the Lucille document only if the document was already
+ * marked for deletion. These records are then emitted as Lucille Documents, which are also marked for deletion.
  *
  * Config Parameters:
  * - dropOriginal (Boolean, Optional): if set to true, will drop documents in the pipeline that were marked for deletion
@@ -31,7 +30,8 @@ import org.slf4j.LoggerFactory;
  *         id prefix is "doc1-v1".
  * - index (String) : name of the index in Pinecone to search within
  * - apiKey (String) : Pinecone apiKey
- * - namespaces (Map<String, Object>) : mapping of namespaces of which you would like to collect ids on.
+ * - namespaces (Map<String, Object>, Optional) : mapping of namespaces of which you would like to collect ids on. If not given, will
+ *    retrieve from default namespace.
  *    note that it does not matter what the mapping is to, rather makes it convenient for user to reuse same configs as indexer
  * - deletionMarkerField (String) : name of the field which indicates the document is marked for deletion, should be the same value as
  *   indexer configs deletionMarkerField
