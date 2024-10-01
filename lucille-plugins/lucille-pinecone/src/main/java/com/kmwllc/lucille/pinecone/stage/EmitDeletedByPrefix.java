@@ -29,6 +29,15 @@ import org.slf4j.LoggerFactory;
  * - addPrefix (String, optional) : String that adds on to all document ids used for listing
  *    e.g. if id of doc is "doc1" & addPrefix is "-v1", then this stage will retrieve and emit documents where their
  *         id prefix is "doc1-v1".
+ * - index (String) : name of the index in Pinecone to search within
+ * - apiKey (String) : Pinecone apiKey
+ * - namespaces (Map<String, Object>) : mapping of namespaces of which you would like to collect ids on.
+ *    note that it does not matter what the mapping is to, rather makes it convenient for user to reuse same configs as indexer
+ * - deletionMarkerField (String) : name of the field which indicates the document is marked for deletion, should be the same value as
+ *   indexer configs deletionMarkerField
+ * - deletionMarkerFieldValue (String) : value of the field which indicates that the document is marked for deletion, should be the
+ *   same value as indexer configs deletionMarkerFieldValue
+ *   - both field name and value must match to above configs to determine document is marked for deletion
  */
 public class EmitDeletedByPrefix extends Stage {
 

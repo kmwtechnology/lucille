@@ -31,6 +31,7 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
  * - namespaces (Map<String, Object>, Optional) : mapping of your namespace to the field of the document to retrieve the vectors from,
  *   using the same namespace(s) in deletion request if a document is marked for deletion.
  * - apiKey (String) : API key used for requests
+ * - metadataFields (List<String>, Optional): list of fields you want to be uploaded as metadata along with the embeddings
  * - mode (String, Optional) : the type of request you want PineconeIndexer to send to your index
  *    1. upsert (will replace if vector id exists in namespace or index if no namespace is given)
  *    2. update (will only update embeddings)
