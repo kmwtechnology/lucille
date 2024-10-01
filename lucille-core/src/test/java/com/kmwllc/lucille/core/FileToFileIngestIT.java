@@ -32,8 +32,12 @@ public class FileToFileIngestIT {
       assertEquals("\"Salad\",\"USA\",\"10\"", lines.get(6));
       assertEquals("\"Wine\",\"France\",\"12\"", lines.get(7));
     } finally {
-      f.delete();
-      directory.delete();
+      if (f != null) {
+        f.delete();
+      }
+      if (directory != null) {
+        directory.delete();
+      }
     }
   }
 }

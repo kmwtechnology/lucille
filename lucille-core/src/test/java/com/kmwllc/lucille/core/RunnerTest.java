@@ -28,7 +28,6 @@ import static org.mockito.Mockito.*;
 
 @RunWith(JUnit4.class)
 public class RunnerTest {
-
   @Test
   public void testRunnerWithNoDocs() throws Exception {
     // we should be able to run a connector that generates no documents
@@ -786,5 +785,11 @@ public class RunnerTest {
     // not tested:
     // 1) other metrics collected by Stage beyond the counts in the processDocumentTime timer
     // 2) metrics collected by Indexer, Worker, Publisher
+  }
+
+  @Test
+  public void testRenderFlag() throws Exception {
+    Config config = ConfigFactory.load("RunnerTest/render.conf");
+    Runner.renderConfig(config);
   }
 }

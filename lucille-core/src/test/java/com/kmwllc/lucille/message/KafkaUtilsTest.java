@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
@@ -52,8 +53,9 @@ public class KafkaUtilsTest {
   public void testCreateEventTopicWhenExists() throws Exception {
     try (MockedStatic<Admin> admin = Mockito.mockStatic(Admin.class)) {
       KafkaFuture future = Mockito.mock(KafkaFuture.class);
-      TopicExistsException exception = new TopicExistsException("test");
-      Mockito.doThrow(exception).when(future).get();
+      TopicExistsException topicExistsException = new TopicExistsException("test");
+      ExecutionException executionException = new ExecutionException(topicExistsException);
+      Mockito.doThrow(executionException).when(future).get();
 
       CreateTopicsResult result = Mockito.mock(CreateTopicsResult.class);
       Mockito.doReturn(future).when(result).all();
@@ -63,7 +65,7 @@ public class KafkaUtilsTest {
 
       admin.when(() -> Admin.create((Properties)Mockito.any())).thenReturn(adminClient);
 
-;     Config directConfig = ConfigFactory.load("KafkaUtilsTest/producer-conf/direct.conf");
+      Config directConfig = ConfigFactory.load("KafkaUtilsTest/producer-conf/direct.conf");
       assertFalse(KafkaUtils.createEventTopic(directConfig, "pipeline1", "run1"));
     }
   }

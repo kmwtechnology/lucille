@@ -63,7 +63,8 @@ public class SplitFieldValuesTest {
             "name",
             "conditions",
             "class",
-            "outputField"),
+            "outputField",
+            "conditionPolicy"),
         stage.getLegalProperties());
   }
 }

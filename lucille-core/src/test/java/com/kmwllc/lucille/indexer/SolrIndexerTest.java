@@ -163,6 +163,66 @@ public class SolrIndexerTest {
     }
   }
 
+
+  /**
+   * Tests that id would be deleted if stated in ignoreFields
+   *
+   * @throws Exception
+   */
+  @Test
+  public void testIgnoreIdInIgnoreFields() throws Exception {
+    Config config = ConfigFactory.load("SolrIndexerTest/ignoreId.conf");
+    TestMessenger messenger = new TestMessenger();
+
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("myid", "my_new_id");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc); // seems to capture the document ID here before the indexing portion
+    indexer.run(1);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(1)).add((captor.capture()));
+    verify(solrClient, times(1)).close();
+    assertEquals(1, captor.getAllValues().size());
+    assertEquals(1, messenger.getSentEvents().size());
+
+    // confirm that the document id has been removed
+    SolrInputDocument solrDoc = (SolrInputDocument) captor.getAllValues().get(0).toArray()[0];
+    assertNull(solrDoc.getFieldValue("id"));
+    assertEquals("my_new_id", solrDoc.getFieldValue("myid"));
+  }
+
+  /**
+   * test that children documents would obey ignoreFields configurations
+   */
+  @Test
+  public void testIgnoreFieldsInChildren() throws Exception {
+    Config config = ConfigFactory.load("SolrIndexerTest/ignoreId.conf");
+    TestMessenger messenger = new TestMessenger();
+
+    Document doc = Document.create("doc1", "test_run");
+    Document child = Document.create("child", "test_run");
+    doc.addChild(child);
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc); // seems to capture the document ID here before the indexing portion
+    indexer.run(1);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient, times(1)).add((captor.capture()));
+    verify(solrClient, times(1)).close();
+    assertEquals(1, captor.getAllValues().size());
+    assertEquals(1, messenger.getSentEvents().size());
+
+    // confirm that the document id has been removed
+    SolrInputDocument solrDoc = (SolrInputDocument) captor.getAllValues().get(0).toArray()[0];
+    SolrInputDocument childDoc = solrDoc.getChildDocuments().get(0);
+    assertNull(childDoc.getFieldValue("id"));
+  }
+
   /**
    * Tests that the indexer correctly handles nested child documents.
    *
@@ -852,6 +912,50 @@ public class SolrIndexerTest {
       assertTrue(httpClient instanceof Http2SolrClient);
       assertTrue(cloudClient instanceof CloudSolrClient);
     }
+  }
+
+  /**
+   * Tests that the indexer remove the fields in ignoreFields configuration before sending to the Client
+   *
+   * @throws Exception
+   */
+  @Test
+  public void testIgnoreFieldsConfig() throws Exception {
+    Config config = ConfigFactory.load("SolrIndexerTest/ignoreFields.conf");
+    TestMessenger messenger = new TestMessenger();
+
+    Document doc = Document.create("doc1");
+    doc.setField("ignoreField1", "value1");
+    doc.setField("ignoreField2", "value2");
+    doc.setField("normalField", "normalValue");
+
+    // check that the document has fields added above
+    assertNotNull(doc.getString("ignoreField1"));
+    assertNotNull(doc.getString("ignoreField2"));
+    assertNotNull(doc.getString("normalField"));
+
+    SolrClient solrClient = mock(SolrClient.class);
+
+    Indexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
+
+    // verify that the add method was called on the Client side
+    verify(solrClient, times(1)).add(captor.capture());
+
+    // assert that capturedDocs is not empty and only has one document
+    Collection<SolrInputDocument> capturedDocs = captor.getValue();
+    assertEquals(1, capturedDocs.size());
+
+    SolrInputDocument capturedDoc = capturedDocs.iterator().next();
+
+    // check that ignoreField1 and ignoreField2 has been removed
+    assertFalse(capturedDoc.containsKey("ignoreField1"));
+    assertFalse(capturedDoc.containsKey("ignoreField2"));
+    assertTrue(capturedDoc.containsKey("normalField"));
+    assertTrue(capturedDoc.containsKey("id"));
   }
 
   private static String getCapturedID(ArgumentCaptor<Collection<SolrInputDocument>> captor, int index, int arrIndex) {
