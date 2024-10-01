@@ -65,8 +65,12 @@ public class EmitDeletedByPrefix extends Stage {
 
   @Override
   public void start() throws StageException {
-    client = PineconeManager.getClient(config.getString("apiKey"));
-    index = client.getIndexConnection(indexName);
+    try {
+      client = PineconeManager.getClient(config.getString("apiKey"));
+      index = client.getIndexConnection(indexName);
+    } catch (Exception e) {
+      throw new StageException("Unable to get client or index connection", e);
+    }
 
     StateEnum state = client.describeIndex(indexName).getStatus().getState();
     boolean isStable = state != StateEnum.INITIALIZING &&
