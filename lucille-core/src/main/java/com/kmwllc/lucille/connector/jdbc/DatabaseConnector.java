@@ -252,14 +252,15 @@ public class DatabaseConnector extends AbstractConnector {
       // um... why is this getting called?  if it is?
       return;
     }
+
+    Object otherJoinId = rs2.getObject(joinField);
+    if (!(otherJoinId instanceof Comparable) || !(joinId instanceof Comparable) || !otherJoinId.getClass().equals(joinId.getClass())) {
+      throw new SQLException("Other join field or joinId is not comparable.");
+    }
+
     do {
       // Convert to do-while I think we can avoid the rs2.previous() call.
-      Object otherJoinId = rs2.getObject(joinField);
-
-      if (!(otherJoinId instanceof Comparable) || !(joinId instanceof Comparable) || !otherJoinId.getClass().equals(joinId.getClass())) {
-        throw new SQLException("Other join field or joinId is not comparable.");
-      }
-
+      otherJoinId = rs2.getObject(joinField);
       int comparison = ((Comparable) otherJoinId).compareTo(joinId);
       if (comparison < 0) {
         // advance until we get to the id on the right side that we want.
