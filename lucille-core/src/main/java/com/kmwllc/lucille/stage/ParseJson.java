@@ -14,9 +14,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Base64;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import nl.altindag.ssl.util.internal.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Parses a JSON string and sets fields on the processed document according to the configured mapping using
@@ -33,7 +35,7 @@ import java.util.Map.Entry;
  * </p>
  */
 public class ParseJson extends Stage {
-
+  private static final Logger log = LoggerFactory.getLogger(ParseJson.class);
   private static final Base64.Decoder DECODER = Base64.getDecoder();
 
   private final String src;
@@ -76,10 +78,23 @@ public class ParseJson extends Stage {
       ctx = this.jsonParseCtx.parse(doc.getString(this.src));
     }
     for (Entry<String, Object> entry : this.jsonFieldPaths.entrySet()) {
-      JsonNode val = ctx.read((String) entry.getValue(), JsonNode.class);
-      doc.setField(entry.getKey(), val);
+      if (isValidEntry(entry)) { // makes sure that key and value are not null
+        JsonNode val = ctx.read((String) entry.getValue(), JsonNode.class);
+        if (isValidNode(val)) { // makes sure that val and JsonNode Type is not null
+          // note that if val is an empty String, will still be set in the document
+          doc.setField(entry.getKey(), val);
+        }
+      }
     }
 
     return null;
+  }
+
+  private boolean isValidNode(JsonNode val) {
+    return val != null && !val.isNull();
+  }
+
+  private boolean isValidEntry(Entry<String, Object> entry) {
+    return StringUtils.isNotBlank(entry.getKey()) && StringUtils.isNotBlank((String) entry.getValue());
   }
 }

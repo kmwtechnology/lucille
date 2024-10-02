@@ -17,6 +17,8 @@ import java.util.Set;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ParseJsonTest {
@@ -208,6 +210,42 @@ public class ParseJsonTest {
 
       // "/items/6" and "/items".get(6) should be equivalent
       assertThat(item7, equalTo(docMap.get("item7")));
+    }
+  }
+
+  @Test
+  public void testEmptyJsonPath() throws Exception {
+    Stage stage = factory.get("ParseJson/emptyJsonPath.conf");
+    Document doc = Document.create("doc");
+    try (InputStream in = ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/test.json")) {
+      doc.setField("json", IOUtils.toString(in, StandardCharsets.UTF_8));
+      stage.processDocument(doc);
+
+      assertTrue(doc.has("json")); // ParseJson should not delete the designated src field
+      assertTrue(doc.has("id"));
+
+      // Get the map so we can assert that none from json has been added
+      Map<String, Object> docMap = doc.asMap();
+      // none have been added because emptyJsonPath.conf gave empty keys or values
+      assertEquals(2, docMap.size()); // id, json only.
+    }
+  }
+
+  @Test
+  public void testEmptyJsonValue() throws Exception {
+    Stage stage = factory.get("ParseJson/emptyJsonValue.conf");
+    Document doc = Document.create("doc");
+    try (InputStream in = ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/testEmptyValue.json")) {
+      doc.setField("json", IOUtils.toString(in, StandardCharsets.UTF_8));
+      stage.processDocument(doc);
+
+      assertTrue(doc.has("json")); // ParseJson should not delete the designated src field
+      assertTrue(doc.has("id"));
+
+      Map<String, Object> docMap = doc.asMap();
+      assertEquals(3, docMap.size()); // id, json and empty value for aTime
+      assertTrue(doc.has("aTime"));
+      assertEquals("", docMap.get("aTime"));
     }
   }
 
