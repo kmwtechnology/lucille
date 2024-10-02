@@ -23,9 +23,6 @@ import java.util.Iterator;
 import org.junit.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import org.openapitools.control.client.model.IndexModel;
-import org.openapitools.control.client.model.IndexModelStatus;
-import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
 
 public class EmitDocsToDeleteByPrefixTest {
 
@@ -44,18 +41,11 @@ public class EmitDocsToDeleteByPrefixTest {
   @Test
   public void testInvalidIndexState() {
     Pinecone mockClient = mock(Pinecone.class);
-    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
-    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
-    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
-    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.INITIALIZING).thenReturn(StateEnum.INITIALIZATIONFAILED).thenReturn(StateEnum.TERMINATING);
-
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
       mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
-
-      assertThrows(StageException.class, () -> factory.get("EmitDeletedByPrefixTest/goodConfig.conf"));
-      assertThrows(StageException.class, () -> factory.get("EmitDeletedByPrefixTest/goodConfig.conf"));
+      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
+          .thenReturn(false);
       assertThrows(StageException.class, () -> factory.get("EmitDeletedByPrefixTest/goodConfig.conf"));
     }
   }
@@ -63,14 +53,10 @@ public class EmitDocsToDeleteByPrefixTest {
   @Test
   public void testValidIndexState() throws StageException {
     Pinecone mockClient = mock(Pinecone.class);
-    IndexModel mockIndexModel = mock(IndexModel.class);
-    IndexModelStatus mockStatus = mock(IndexModelStatus.class);
-    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
-    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
-
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
       mockedStatic.when(() -> PineconeManager.getClient(anyString())).thenReturn(mockClient);
+      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
+          .thenReturn(true);
       Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
     } catch (StageException e) {
       fail();
@@ -82,11 +68,6 @@ public class EmitDocsToDeleteByPrefixTest {
   public void testIgnoreNonMarkedDocuments() throws StageException {
     // mocking
     Pinecone mockClient = mock(Pinecone.class);
-    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
-    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
-    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
-    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
     Index mockIndex = Mockito.mock(Index.class);
     when(mockClient.getIndexConnection(anyString())).thenReturn(mockIndex);
     ListResponse mockResponse = Mockito.mock(ListResponse.class);
@@ -103,6 +84,8 @@ public class EmitDocsToDeleteByPrefixTest {
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
       mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
+      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
+          .thenReturn(true);
 
       Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
       Document doc1 = Document.create("id");
@@ -115,11 +98,6 @@ public class EmitDocsToDeleteByPrefixTest {
   @Test
   public void testEmptyList() throws StageException {
     Pinecone mockClient = mock(Pinecone.class);
-    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
-    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
-    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
-    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
     Index mockIndex = Mockito.mock(Index.class);
     when(mockClient.getIndexConnection(anyString())).thenReturn(mockIndex);
     ListResponse mockResponse = Mockito.mock(ListResponse.class);
@@ -132,6 +110,8 @@ public class EmitDocsToDeleteByPrefixTest {
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace())
           .thenReturn("default");
+      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
+          .thenReturn(true);
 
       Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
       Document doc1 = Document.create("id");
@@ -146,11 +126,6 @@ public class EmitDocsToDeleteByPrefixTest {
   public void testEmitPrefixDocuments() throws StageException {
     // mocking
     Pinecone mockClient = mock(Pinecone.class);
-    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
-    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
-    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
-    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
     Index mockIndex = Mockito.mock(Index.class);
     when(mockClient.getIndexConnection(anyString())).thenReturn(mockIndex);
     ListResponse mockResponse = Mockito.mock(ListResponse.class);
@@ -169,6 +144,8 @@ public class EmitDocsToDeleteByPrefixTest {
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace())
           .thenReturn("default");
+      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
+          .thenReturn(true);
 
       Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
       Document doc1 = Document.create("id1");
@@ -193,11 +170,6 @@ public class EmitDocsToDeleteByPrefixTest {
   public void testEmitPrefixDocumentsWithPagination() throws StageException {
     // mocking
     Pinecone mockClient = mock(Pinecone.class);
-    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
-    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
-    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
-    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
     Index mockIndex = Mockito.mock(Index.class);
     when(mockClient.getIndexConnection(anyString())).thenReturn(mockIndex);
     ListResponse mockResponse = Mockito.mock(ListResponse.class);
@@ -223,6 +195,8 @@ public class EmitDocsToDeleteByPrefixTest {
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace())
           .thenReturn("default");
+      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
+          .thenReturn(true);
 
       Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
       Document doc1 = Document.create("id1");
@@ -248,11 +222,6 @@ public class EmitDocsToDeleteByPrefixTest {
   public void testDropOriginal() throws StageException {
     // mocking
     Pinecone mockClient = mock(Pinecone.class);
-    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
-    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
-    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
-    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
     Index mockIndex = Mockito.mock(Index.class);
     when(mockClient.getIndexConnection(anyString())).thenReturn(mockIndex);
     ListResponse mockResponse = Mockito.mock(ListResponse.class);
@@ -265,6 +234,8 @@ public class EmitDocsToDeleteByPrefixTest {
           .thenReturn(mockClient);
       mockedStatic.when(() -> PineconeManager.getDefaultNamespace())
           .thenReturn("default");
+      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
+          .thenReturn(true);
 
       Stage stage = factory.get("EmitDeletedByPrefixTest/dropOriginal.conf");
       Document doc1 = Document.create("id1");

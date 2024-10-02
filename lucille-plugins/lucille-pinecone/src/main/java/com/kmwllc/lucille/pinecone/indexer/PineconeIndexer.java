@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.protobuf.Struct;
@@ -44,6 +43,7 @@ public class PineconeIndexer extends Indexer {
   private static final Logger log = LoggerFactory.getLogger(PineconeIndexer.class);
   private static final Integer MAX_PINECONE_BATCH_SIZE = 1000;
   private final Pinecone client;
+  private final String apiKey;
   private final Index index;
   private final String indexName;
   private final Map<String, Object> namespaces;
@@ -53,7 +53,8 @@ public class PineconeIndexer extends Indexer {
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) {
     super(config, messenger, metricsPrefix);
-    this.client = PineconeManager.getClient(config.getString("pinecone.apiKey"));
+    this.apiKey = config.getString("pinecone.apiKey");
+    this.client = PineconeManager.getClient(apiKey);
     this.indexName = config.getString("pinecone.index");
     this.index = client.getIndexConnection(indexName);
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
@@ -80,10 +81,7 @@ public class PineconeIndexer extends Indexer {
   @Override
   public boolean validateConnection() {
     try {
-      StateEnum state = client.describeIndex(indexName).getStatus().getState();
-      return state != StateEnum.INITIALIZING &&
-          state != StateEnum.INITIALIZATIONFAILED &&
-          state != StateEnum.TERMINATING;
+      return PineconeManager.isStable(apiKey, indexName);
     } catch (Exception e) {
       log.error("Error checking Pinecone client state", e);
       return false;
@@ -111,7 +109,7 @@ public class PineconeIndexer extends Indexer {
 
     // if there exists documents to delete
     if (!deleteList.isEmpty()) {
-      validateDeleteRequirements(deleteList.size());
+      validateBatchSizeRequirements(deleteList.size());
       if (namespaces != null) {
         for (Map.Entry<String, Object> entry : namespaces.entrySet()) {
           deleteDocuments(deleteList, entry.getKey());
@@ -140,14 +138,11 @@ public class PineconeIndexer extends Indexer {
       throw new IllegalArgumentException(
           "At least one of a defaultEmbeddingField or a non-empty namespaces mapping is required when uploading documents.");
     }
-    if (uploadListSize > MAX_PINECONE_BATCH_SIZE) {
-      throw new IndexerException(
-          "Pinecone maximum batch size is " + MAX_PINECONE_BATCH_SIZE + ", lower batchSize in indexer configs.");
-    }
+    validateBatchSizeRequirements(uploadListSize);
   }
 
-  private void validateDeleteRequirements(int deleteListSize) throws IndexerException {
-    if (deleteListSize > MAX_PINECONE_BATCH_SIZE) {
+  private void validateBatchSizeRequirements(int batchSize) throws IndexerException {
+    if (batchSize > MAX_PINECONE_BATCH_SIZE) {
       throw new IndexerException(
           "Pinecone maximum batch size is " + MAX_PINECONE_BATCH_SIZE + ", lower batchSize in indexer configs.");
     }

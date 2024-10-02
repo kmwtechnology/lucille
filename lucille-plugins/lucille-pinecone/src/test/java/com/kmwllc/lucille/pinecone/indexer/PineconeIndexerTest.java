@@ -1,13 +1,9 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -31,14 +27,11 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import io.pinecone.proto.VectorServiceGrpc;
 import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
 import org.openapitools.control.client.model.IndexModel;
 import org.openapitools.control.client.model.IndexModelStatus;
 
 public class PineconeIndexerTest {
-
-  private VectorServiceGrpc.VectorServiceBlockingStub stub;
 
   private Document doc0;
   private Document doc1;
@@ -118,23 +111,17 @@ public class PineconeIndexerTest {
   public void testValidateConnection() {
     // mocking
     Pinecone mockClient = mock(Pinecone.class);
-    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
-    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
-    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
-    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.INITIALIZING).thenReturn(StateEnum.INITIALIZATIONFAILED).thenReturn(StateEnum.TERMINATING).thenReturn(StateEnum.READY);
-
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
       mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
+      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
+          .thenReturn(false).thenReturn(true);
 
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/good-config.conf");
       PineconeIndexer indexer = new PineconeIndexer(configGood, messenger, "testing");
 
-      // initializing, initializationfailed, terminating, ready
-      assertFalse(indexer.validateConnection());
-      assertFalse(indexer.validateConnection());
+      // false, then true
       assertFalse(indexer.validateConnection());
       assertTrue(indexer.validateConnection());
     }
@@ -652,9 +639,6 @@ public class PineconeIndexerTest {
       verify(goodIndex, times(1)).update(idsCapture.capture(), anyList(), namespaceUsed.capture());
       assertEquals(doc3.getId(), idsCapture.getAllValues().get(0));
       assertEquals("default", namespaceUsed.getValue());
-
-
-
     }
   }
 

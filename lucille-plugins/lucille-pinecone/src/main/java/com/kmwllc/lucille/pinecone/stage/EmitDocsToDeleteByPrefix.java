@@ -14,9 +14,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * This stage collects all records from namespace(s) if their prefix ID matches the ID of the Lucille document marked for deletion.
@@ -70,11 +67,7 @@ public class EmitDocsToDeleteByPrefix extends Stage {
       throw new StageException("Unable to get client or index connection", e);
     }
 
-    StateEnum state = client.describeIndex(indexName).getStatus().getState();
-    boolean isStable = state != StateEnum.INITIALIZING &&
-        state != StateEnum.INITIALIZATIONFAILED &&
-        state != StateEnum.TERMINATING;
-    if (!isStable) {
+    if (!PineconeManager.isStable(config.getString("apiKey"), indexName)) {
       throw new StageException("Index " + indexName + " is not stable");
     }
   }
@@ -97,7 +90,9 @@ public class EmitDocsToDeleteByPrefix extends Stage {
     }
 
     // drop original document if set to true
-    doc.setDropped(dropOriginal);
+    if (dropOriginal) {
+      doc.setDropped(true);
+    }
 
     if (idsToDelete.isEmpty()) {
       return null;
