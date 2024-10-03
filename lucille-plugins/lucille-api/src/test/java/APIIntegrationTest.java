@@ -1,7 +1,7 @@
 import static org.junit.Assert.assertEquals;
 
 import com.kmwllc.lucille.APIApplication;
-import com.kmwllc.lucille.LucilleAPIConfiguration;
+import com.kmwllc.lucille.config.LucilleAPIConfiguration;
 import io.dropwizard.testing.ResourceHelpers;
 import io.dropwizard.testing.junit.DropwizardAppRule;
 import jakarta.ws.rs.client.Client;
@@ -10,7 +10,6 @@ import jakarta.ws.rs.core.Response;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import org.apache.http.client.methods.HttpHead;
 import org.junit.ClassRule;
 import org.junit.Test;
 

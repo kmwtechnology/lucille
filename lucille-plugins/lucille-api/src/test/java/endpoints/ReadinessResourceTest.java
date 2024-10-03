@@ -3,6 +3,7 @@ package endpoints;
 import static org.junit.Assert.assertEquals;
 
 import com.kmwllc.lucille.endpoints.ReadinessResource;
+import io.dropwizard.auth.PrincipalImpl;
 import jakarta.ws.rs.core.Response;
 import java.util.Optional;
 import org.junit.Test;
