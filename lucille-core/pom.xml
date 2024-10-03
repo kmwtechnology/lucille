@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.2.5-SNAPSHOT</version>
+    <version>0.3.1-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
@@ -269,6 +269,13 @@
       <artifactId>kafka-junit</artifactId>
       <version>3.6.0</version>
       <scope>test</scope>
+      <!-- Bug in junit 5.6.2 that doesn't support junit 4.13.2 (only 4.12 and 4.13) -->
+      <exclusions>
+        <exclusion>
+          <groupId>org.junit.jupiter</groupId>
+          <artifactId>junit-jupiter-api</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <!--  test dependency for db connector tests -->
@@ -283,6 +290,26 @@
         <groupId>org.jsoup</groupId>
         <artifactId>jsoup</artifactId>
         <version>1.17.2</version>
+    </dependency>
+
+    <!-- dependency for OpenAiEmbedding Stage -->
+    <dependency>
+        <groupId>dev.langchain4j</groupId>
+        <artifactId>langchain4j-open-ai</artifactId>
+        <version>0.33.0</version>
+    </dependency>
+
+    <dependency>
+        <groupId>com.knuddels</groupId>
+        <artifactId>jtokkit</artifactId>
+        <version>1.1.0</version>
+    </dependency>
+    <!--  dependency for Chunk Stage -->
+
+    <dependency>
+      <groupId>org.apache.opennlp</groupId>
+      <artifactId>opennlp-tools</artifactId>
+      <version>2.4.0</version>
     </dependency>
 
   </dependencies>

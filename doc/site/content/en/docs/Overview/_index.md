@@ -23,7 +23,7 @@ Lucille handles all of these things so you don't have to. Lucille helps you get 
 
 ## Installation
 
-To use Lucille you will need a Java development environment with Java 11 or later and a recent version of Maven. Start by cloning the repository:
+To use Lucille you will need a Java development environment with Java 17 or later and a recent version of Maven. Start by cloning the repository:
 
 `git clone https://github.com/kmwtechnology/lucille.git`
 
@@ -41,6 +41,8 @@ To see how to ingest the contents of a local CSV file into an instance of Apache
 To run this example, start an instance of Apache Solr on port 8983 and create a collection called `quickstart`. For more information about how to use Solr, see the [Apache Solr Reference Guide](https://solr.apache.org/guide/solr/latest/getting-started/introduction.html)).
 
 Go to `lucille-examples/lucille-simple-csv-solr-example` in your working copy of Lucille and run:
+
+`mvn clean install`
 
 `./scripts/run_ingest.sh`
 

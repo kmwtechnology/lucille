@@ -7,9 +7,17 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.nio.charset.StandardCharsets;
+import java.sql.Statement;
+import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.mockito.MockedStatic;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,6 +27,13 @@ import java.util.HashMap;
 import java.util.List;
 
 import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class DatabaseConnectorTest {
 
@@ -130,6 +145,115 @@ public class DatabaseConnectorTest {
   }
 
   @Test
+  public void testDatabaseConnectionRetry() throws Exception {
+    // The only connection to the h2 database should be the dbHelper
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    // Create the test config
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "lousy connection String"); // lousy connection string to test retry
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
+    configValues.put("idField", "id");
+    configValues.put("connectionRetries", 1);
+    // put sleep to 1 millisecond to avoid too much time for testing
+    configValues.put("connectionRetryPause", 1);
+
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // creating response after getConnection is called
+    // we are retrying once, so if we throw exception twice, we should get a ConnectorException
+    Connection mockConnection = mock(Connection.class);
+    when(mockConnection.createStatement()).thenReturn(mock(Statement.class));
+    Answer<Connection> exceptionAnswer = new Answer<>() {
+      private int count = 0;
+      @Override
+      public Connection answer(InvocationOnMock invocation) throws Throwable {
+        if (count++ < 2) {  // throw twice to fail overall connection
+          throw new SQLException("Connection failed");
+        }
+        return mockConnection;
+      }
+    };
+
+    try (MockedStatic<DriverManager> mockDriverManager = mockStatic(DriverManager.class)) {
+      mockDriverManager.when(() -> DriverManager.getConnection("lousy connection String", "", ""))
+          .thenAnswer(exceptionAnswer);
+
+      DatabaseConnector connector = new DatabaseConnector(config);
+
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+      // verify that getConnection was called twice --first attempt and retry attempt
+      mockDriverManager.verify(
+          () -> DriverManager.getConnection(eq("lousy connection String"), eq(""), eq("")), times(2));
+      connector.close();
+    }
+    // test that we did not get connection, and so connection.createStatement would not be called
+    verify(mockConnection, times(0)).createStatement(anyInt(), anyInt());
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+
+  @Test
+  public void testDatabaseConnectionRetryAndConnect() throws Exception {
+    // The only connection to the h2 database should be the dbHelper
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    // Create the test config
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "lousy connection String"); // lousy connection string to test retry
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
+    configValues.put("idField", "id");
+    configValues.put("connectionRetries", 1);
+    // put sleep to 1 millisecond to avoid too much time for testing
+    configValues.put("connectionRetryPause", 1);
+
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // creating response after getConnection is called
+    Connection mockConnection = mock(Connection.class);
+    when(mockConnection.createStatement()).thenReturn(mock(Statement.class));
+    // we are retrying once and expecting back a Connection
+    Answer<Connection> exceptionAnswer = new Answer<>() {
+      private int count = 0;
+      @Override
+      public Connection answer(InvocationOnMock invocation) throws Throwable {
+        if (count++ == 0) {  // throw exception once
+          throw new SQLException("Connection failed");
+        }
+        return mockConnection;
+      }
+    };
+
+    try (MockedStatic<DriverManager> mockDriverManager = mockStatic(DriverManager.class)) {
+      mockDriverManager.when(() -> DriverManager.getConnection("lousy connection String", "", ""))
+          .thenAnswer(exceptionAnswer);
+
+      DatabaseConnector connector = new DatabaseConnector(config);
+
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+      // verify that getConnection was called twice --first attempt and retry attempt
+      mockDriverManager.verify(
+          () -> DriverManager.getConnection(eq("lousy connection String"), eq(""), eq("")), times(2));
+      connector.close();
+    }
+    // check that we have proceeded outside of getting connection as connection has been established
+    verify(mockConnection, times(1)).createStatement(anyInt(), anyInt());
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+  @Test
   public void testCompaniesQuery() throws ConnectorException, SQLException {
 
     assertEquals(1, dbHelper.checkNumConnections());
@@ -164,6 +288,139 @@ public class DatabaseConnectorTest {
     assertEquals("1-2", docsSentForProcessing.get(1).getStringList("company_id").get(0));
     // The name field shouldn't be set because the value was null in the database
     assertFalse(docsSentForProcessing.get(1).has("name"));
+
+    connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+  @Test
+  public void testRetrievingJDBCTypes() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select * from test_data_types");
+    configValues.put("idField", "id");
+
+    Config config = ConfigFactory.parseMap(configValues);
+
+    DatabaseConnector connector = new DatabaseConnector(config);
+    connector.execute(publisher);
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
+    assertEquals(2, docsSentForProcessing.size());
+
+    Document d1 = docsSentForProcessing.get(0);
+    Document d2 = docsSentForProcessing.get(1);
+
+    // String
+    assertEquals("Test VARCHAR", d1.getString("varchar_col"));
+    assertEquals("CHAR Test ", d1.getString("char_col")); //char_col is storing fixed number of characters
+    assertEquals("Long VARCHAR test data", d1.getString("longvarchar_col"));
+    assertEquals("\uD83D\uDE00        ", d1.getString("nchar_col")); // nchar_col is storing fixed number of characters
+    assertEquals("こんにちは、世界！", d1.getString("nvarchar_col"));
+    assertEquals("こんにちは、世界！長いテキストのテストです。", d1.getString("longnvarchar_col"));
+    assertEquals("test clob", d1.getString("clob_col"));
+    assertEquals("test nclob", d1.getString("nclob_col"));
+    // Integer
+    assertEquals(Integer.valueOf(127), d1.getInt("tinyint_col"));
+    assertEquals(Integer.valueOf(32767), d1.getInt("smallint_col"));
+    assertEquals(Integer.valueOf(2147483647), d1.getInt("integer_col"));
+    // Long
+    assertEquals(Long.valueOf("9223372036854775807"), d1.getLong("bigint_col"));
+    // Double
+    assertEquals(Double.valueOf(3.14159265359), d1.getDouble("double_col"));
+    assertEquals(Double.valueOf(9877.0), d1.getDouble("decimal_col"));
+    assertEquals(Double.valueOf(1.0), d1.getDouble("numeric_col"));
+    // Float
+    assertEquals(Float.valueOf("2.71828"), d1.getFloat("float_col"));
+    assertEquals(Float.valueOf("1.414214"), d1.getFloat("real_col"));
+    // Boolean
+    assertEquals(true, d1.getBoolean("boolean_col"));
+    assertEquals(true, d1.getBoolean("bit_col"));
+    // String
+    assertEquals("2024-07-30", d1.getString("date_col"));
+    assertEquals("1970-01-01 00:00:01.0", d1.getString("timestamp_col"));
+
+    // Null (would not be added)
+    assertFalse(d1.has("nullable_int"));
+    assertNull(d1.getString("nullable_varchar"));
+    assertFalse(d1.has("nullable_date")); // date would not get added to docs if null
+
+    // byte[]
+    assertEquals("This is a test blob.", new String(d1.getBytes("blob_col"), StandardCharsets.UTF_8));
+    byte[] binaryColBytes = d1.getBytes("binary_col");
+    byte[] expectedBytes = new byte[] {(byte)0xBE, (byte)0xEF, (byte)0xBE, (byte)0xEF};
+    assertArrayEquals(expectedBytes, Arrays.copyOf(binaryColBytes, 4)); // converting binaryColBytes from array of 100 to 4 and comparing
+
+    byte[] varbinaryColBytes = d1.getBytes("varbinary_col");
+    byte[] expectedVarbinaryBytes = new byte[] {
+        0x01, 0x23, 0x45, 0x67, (byte)0x89, (byte)0xAB, (byte)0xCD, (byte)0xEF
+    };
+    assertArrayEquals(expectedVarbinaryBytes, varbinaryColBytes);
+
+    byte[] longVarbinaryColBytes = d1.getBytes("longvarbinary_col");
+    byte[] expectedLongVarbinaryBytes = new byte[] {
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, (byte)0x88, (byte)0x99, 0x00
+    };
+    assertArrayEquals(expectedLongVarbinaryBytes, longVarbinaryColBytes);
+
+    // String
+    assertEquals("Another", d2.getString("varchar_col"));
+    assertEquals("Test      ", d2.getString("char_col")); //char_col is storing fixed number of characters
+    assertEquals("More long text here", d2.getString("longvarchar_col"));
+    assertEquals("\uD83D\uDE00        ", d2.getString("nchar_col")); // nchar_col is storing fixed number of characters
+    assertEquals("안녕하세요, 세계!", d2.getString("nvarchar_col"));
+    assertEquals("안녕하세요, 세계! 긴 텍스트 테스트입니다.", d2.getString("longnvarchar_col"));
+    assertEquals("test clob", d2.getString("clob_col"));
+    assertEquals("test nclob", d2.getString("nclob_col"));
+    // Integer
+    assertEquals(Integer.valueOf(-128), d2.getInt("tinyint_col"));
+    assertEquals(Integer.valueOf(-32768), d2.getInt("smallint_col"));
+    assertEquals(Integer.valueOf(-2147483648), d2.getInt("integer_col"));
+    // Long
+    assertEquals(Long.valueOf("-9223372036854775808"), d2.getLong("bigint_col"));
+    // Double
+    assertEquals(Double.valueOf(1.41421356237), d2.getDouble("double_col"));
+    assertEquals(Double.valueOf(500.0), d2.getDouble("decimal_col"));
+    assertEquals(Double.valueOf(100000.0), d2.getDouble("numeric_col"));
+    // Float
+    assertEquals(Float.valueOf("1.61803"), d2.getFloat("float_col"));
+    assertEquals(Float.valueOf("3.141592"), d2.getFloat("real_col"));
+    // Boolean
+    assertEquals(false, d2.getBoolean("boolean_col"));
+    assertEquals(false, d2.getBoolean("bit_col"));
+    // String
+    assertEquals("2023-01-01", d2.getString("date_col"));
+    assertEquals("2038-01-19 03:14:07.0", d2.getString("timestamp_col"));
+    // Null (Would not be added to document)
+    assertFalse(d2.has("nullable_int"));
+    assertNull(d2.getString("nullable_varchar"));
+    assertFalse(d2.has("nullable_date")); // date would not get added to docs if null
+    // byte[]
+    assertEquals("This is a test blob2.", new String(d2.getBytes("blob_col"), StandardCharsets.UTF_8));
+
+    binaryColBytes = d2.getBytes("binary_col");
+    expectedBytes = new byte[] {(byte)0xBE, (byte)0xEF, (byte)0xBE, (byte)0xEF};
+    assertArrayEquals(expectedBytes, Arrays.copyOf(binaryColBytes, 4)); // converting binaryColBytes from array of 100 to 4 and comparing
+
+    varbinaryColBytes = d2.getBytes("varbinary_col");
+    expectedVarbinaryBytes = new byte[] {
+        (byte)0xFE, (byte)0xDC, (byte)0xBA, (byte)0x98,
+        0x76, 0x54, 0x32, 0x10
+    };
+    assertArrayEquals(expectedVarbinaryBytes, varbinaryColBytes);
+
+    longVarbinaryColBytes = d2.getBytes("longvarbinary_col");
+    expectedLongVarbinaryBytes = new byte[] {
+        (byte)0xAA, (byte)0xBB, (byte)0xCC, (byte)0xDD, (byte)0xEE, (byte)0xFF,
+        0x00, 0x11, 0x22, 0x33
+    };
+    assertArrayEquals(expectedLongVarbinaryBytes, longVarbinaryColBytes);
 
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
@@ -286,7 +543,7 @@ public class DatabaseConnectorTest {
   }
 
   @Test
-  public void testIdColumnException() {
+  public void testIdColumnException() throws ConnectorException {
     // Create a test config
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
@@ -306,6 +563,7 @@ public class DatabaseConnectorTest {
     // call the execute method, then close the connection
     Throwable exception = assertThrows(ConnectorException.class, () -> connector.execute(publisher));
     assertEquals("Unable to find id column: NONEXISTENT_ID_COLUMN", exception.getCause().getMessage());
+    connector.close();
   }
 
   @Test

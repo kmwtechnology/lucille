@@ -128,7 +128,7 @@ public class HybridKafkaTest {
 
     workerIndexer.stop();
 
-    String eventTopicName = KafkaUtils.getEventTopicName("pipeline1", RUN_ID);
+    String eventTopicName = KafkaUtils.getEventTopicName(config, "pipeline1", RUN_ID);
 
     List<KeyValue<String, String>> records = kafka.read(ReadKeyValues
         .from(eventTopicName));
@@ -458,6 +458,14 @@ public class HybridKafkaTest {
     assertEquals(2, offsets.getHistory().get(1).get(sourceTopicPartition3).offset());
     assertEquals(1, offsets.getHistory().get(1).get(sourceTopicPartition4).offset());
 
+  }
+
+  @Test
+  public void testSettingEventTopic() {
+    Config config = ConfigFactory.load("HybridKafkaTest/eventTopic.conf");
+    String eventTopic = KafkaUtils.getEventTopicName(config, "pipeline1", RUN_ID);
+
+    assertEquals("test_event_topic", eventTopic);
   }
 
   private Document sendDoc(String id, String topic) throws Exception {

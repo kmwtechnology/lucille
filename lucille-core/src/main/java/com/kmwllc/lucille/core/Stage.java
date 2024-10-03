@@ -44,7 +44,7 @@ public abstract class Stage {
   private static final Set<String> EMPTY_SET = Collections.emptySet();
   private static final Set<String> CONDITIONS_OPTIONAL = Set.of("operator", "values");
   private static final Set<String> CONDITIONS_REQUIRED = Set.of("fields");
-  private static final Set<String> OPTIONAL_PROPERTIES = Set.of("class", "name", "conditions");
+  private static final Set<String> OPTIONAL_PROPERTIES = Set.of("class", "name", "conditions", "conditionPolicy");
 
   protected Config config;
   private final Predicate<Document> condition;
@@ -94,11 +94,26 @@ public abstract class Stage {
   }
 
   private Predicate<Document> getMergedConditions() {
-    Stream<Predicate<Document>> conditions =
+    List<Predicate<Document>> conditions =
         !config.hasPath("conditions")
-            ? Stream.empty()
-            : config.getConfigList("conditions").stream().map(Condition::fromConfig);
-    return conditions.reduce(c -> true, Predicate::and);
+            ? Collections.emptyList()
+            : config.getConfigList("conditions").stream()
+                .map(Condition::fromConfig)
+                .collect(Collectors.toUnmodifiableList());
+
+    if (conditions.isEmpty()) {
+      return (x -> true);
+    }
+
+    String conditionPolicy = config.hasPath("conditionPolicy") ? config.getString("conditionPolicy") : "all";
+
+    if ("any".equalsIgnoreCase(conditionPolicy)) {
+      return conditions.stream().reduce(c -> false, Predicate::or);
+    } else if ("all".equalsIgnoreCase(conditionPolicy)) {
+      return conditions.stream().reduce(c -> true, Predicate::and);
+    } else {
+      throw new IllegalArgumentException("Unsupported condition policy: " + conditionPolicy);
+    }
   }
 
   public void start() throws StageException {
