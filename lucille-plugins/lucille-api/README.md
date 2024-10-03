@@ -48,10 +48,10 @@ Details on how can be found [here](https://www.dropwizard.io/en/stable/manual/co
 
 Authentication is configured under the `auth` JSONProperty.
 
-| Property |            Description               |
-|----------|--------------------------------------|
-|  type    | currently only basicAuth is supprted |
-| password |   supported for basic authentication | 
+| Property |            Description                |
+|----------|-------------------------------------- |
+|  type    | currently only basicAuth is supported |
+| password |   supported for basic authentication  | 
 
 #### Example
 
