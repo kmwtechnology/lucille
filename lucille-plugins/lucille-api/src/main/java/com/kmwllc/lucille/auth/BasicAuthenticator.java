@@ -20,7 +20,7 @@ public class BasicAuthenticator implements Authenticator<BasicCredentials, Princ
 
   @Override
   public Optional<PrincipalImpl> authenticate(BasicCredentials credentials) throws AuthenticationException {
-    if (password.equals(credentials.getPassword())) {
+    if (password != null && password.equals(credentials.getPassword())) {
       return Optional.of(new PrincipalImpl(credentials.getUsername()));
     } else {
       return Optional.empty();
