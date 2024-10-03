@@ -44,6 +44,23 @@ Dropwizard can be configured via the `conf/api.yml` file. Details about availabl
 If configuration beyond what Dropwizard supplies is required, the functionality can be extended via the LucilleAPIConfiguration class.
 Details on how can be found [here](https://www.dropwizard.io/en/stable/manual/configuration.html#man-configuration).
 
+### Auth Configuration
+
+Authentication is configured under the `auth` JSONProperty.
+
+| Property |            Description                |
+|----------|-------------------------------------- |
+|  type    | currently only basicAuth is supported |
+| password |   supported for basic authentication  | 
+
+#### Example
+
+```yaml
+auth:
+  type: basicAuth
+  password: password
+```
+
 ## Development
 
 Any functionality exposed by the Admin API should be mirrored by an internal API in lucille-core which handles all of the logic. 
