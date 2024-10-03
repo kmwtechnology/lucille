@@ -226,7 +226,7 @@ public class ParseJsonTest {
 
       // Get the map so we can assert that none from json has been added
       Map<String, Object> docMap = doc.asMap();
-      // none have been added because emptyJsonPath.conf gave empty keys or values
+      // none have been added because emptyJsonPath.conf mapping gave empty keys, empty values and a null value
       assertEquals(2, docMap.size()); // id, json only.
     }
   }

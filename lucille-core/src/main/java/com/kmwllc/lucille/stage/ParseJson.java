@@ -17,8 +17,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import nl.altindag.ssl.util.internal.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Parses a JSON string and sets fields on the processed document according to the configured mapping using
@@ -35,7 +33,6 @@ import org.slf4j.LoggerFactory;
  * </p>
  */
 public class ParseJson extends Stage {
-  private static final Logger log = LoggerFactory.getLogger(ParseJson.class);
   private static final Base64.Decoder DECODER = Base64.getDecoder();
 
   private final String src;
