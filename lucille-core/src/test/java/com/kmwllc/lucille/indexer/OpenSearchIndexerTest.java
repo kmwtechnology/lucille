@@ -170,6 +170,49 @@ public class OpenSearchIndexerTest {
   }
 
   @Test
+  public void testUploadThenDeleteInSameBatch() throws Exception {}
+
+  @Test
+  public void testDeleteThenUploadInSameBatch() throws Exception {}
+
+  @Test
+  public void testDeleteByQuery() throws Exception {}
+
+  @Test
+  public void testDeletion() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+    Document doc3MarkedDeleted = Document.create("doc3", "test_run");
+    doc3MarkedDeleted.setField("deleted", "true");
+    Document doc4 = Document.create("doc4", "test_run");
+    Document doc5MarkedDeleted = Document.create("doc5", "test_run");
+    doc5MarkedDeleted.setField("deleted", "true");
+    doc5MarkedDeleted.setField("field", "fieldValue");
+    Document doc6 = Document.create("doc5", "test_run");
+
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3MarkedDeleted);
+    messenger.sendForIndexing(doc4);
+    messenger.sendForIndexing(doc5MarkedDeleted);
+    messenger.sendForIndexing(doc6);
+    indexer.run(6);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(
+        BulkRequest.class);
+
+    // first batch -> one bulk req to upload both
+    // second batch -> one bulk req to upload, one bulk req to delete
+    // third batch -> one bulk req to upload, one req to deleteByQuery
+    // forth batch -> one bulk req to delete, one req to deleteByQuery
+    List<BulkRequest> bulkRequestValue = bulkRequestArgumentCaptor.getAllValues();
+  }
+
+  @Test
   public void testOpenSearchIndexerNestedJson() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");

@@ -5,22 +5,30 @@ import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.IndexerMessenger;
-import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch._types.BulkIndexByScrollFailure;
+import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.VersionType;
+import org.opensearch.client.opensearch._types.query_dsl.BoolQuery;
 import org.opensearch.client.opensearch.core.BulkRequest;
 import org.opensearch.client.opensearch.core.BulkResponse;
+import org.opensearch.client.opensearch.core.DeleteByQueryRequest;
+import org.opensearch.client.opensearch.core.DeleteByQueryResponse;
 import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.Signal;
 
 
 public class OpenSearchIndexer extends Indexer {
@@ -96,9 +104,106 @@ public class OpenSearchIndexer extends Indexer {
       return;
     }
 
-    BulkRequest.Builder br = new BulkRequest.Builder();
+    Map<String, Document> documentsToUpload = new LinkedHashMap<>();
+    Set<String> idsToDelete = new LinkedHashSet<>();
+    Map<String, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
 
+    // populate which collection each document belongs to
     for (Document doc : documents) {
+      String id = doc.getId();
+      if (isMarkedForDeletion(doc)) {
+        documentsToUpload.remove(id);
+        if (deleteByFieldField != null
+            && doc.has(deleteByFieldField)
+            && deleteByFieldValue != null
+            && doc.has(deleteByFieldValue)) {
+          if (!termsToDeleteByQuery.containsKey(doc.getString(deleteByFieldField))) {
+            termsToDeleteByQuery.put(doc.getString(deleteByFieldField), new ArrayList<>());
+          }
+          termsToDeleteByQuery.get(doc.getString(deleteByFieldField)).add(doc.getString(deleteByFieldValue));
+        } else {
+          idsToDelete.add(id);
+        }
+      } else {
+        idsToDelete.remove(id);
+        documentsToUpload.put(id, doc);
+      }
+    }
+
+    if (!documentsToUpload.isEmpty()) {
+      uploadDocuments(new ArrayList<>(documentsToUpload.values()));
+    }
+
+    if (termsToDeleteByQuery.isEmpty()) {
+      deleteById(new ArrayList<>(idsToDelete));
+    } else {
+      deleteByQuery(termsToDeleteByQuery, new ArrayList<>(idsToDelete));
+    }
+  }
+
+  private void deleteById(List<String> idsToDelete) throws Exception {
+    if (idsToDelete.isEmpty()) {
+      return;
+    }
+
+    BulkRequest.Builder br = new BulkRequest.Builder();
+    for (String id : idsToDelete) {
+      br.operations(op -> op
+          .delete(d -> d
+              .index(index)
+              .id(id)
+          )
+      );
+    }
+
+    BulkResponse response =  client.bulk(br.build());
+    if (response.errors()) {
+      for (BulkResponseItem item : response.items()) {
+        if (item.error() != null) {
+          log.debug("Error while deleting id: {} because: {}", item.id(), item.error().reason());
+        }
+      }
+      throw new IndexerException("encountered errors while deleting documents");
+    }
+  }
+
+  private void deleteByQuery(Map<String, List<String>> termsToDeleteByQuery, List<String> idsToDelete) throws Exception {
+    // first delete existing ids needed to be deleted, if idsToDelete is empty will return
+    deleteById(idsToDelete);
+
+    // termsToDeleteByQuery is never empty
+    BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+    for (Map.Entry<String, List<String>> entry : termsToDeleteByQuery.entrySet()) {
+      String field = entry.getKey();
+      List<String> values = entry.getValue();
+      boolQuery.filter(f -> f
+        .terms(t -> t
+          .field(field)
+          .terms(tt -> tt.value(values.stream()
+              .map(FieldValue::of)
+              .collect(Collectors.toList()))
+          )
+        )
+      );
+    }
+
+    DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest.Builder()
+        .index(index)
+        .query(q -> q.bool(boolQuery.build()))
+        .build();
+    DeleteByQueryResponse response = client.deleteByQuery(deleteByQueryRequest);
+
+    if (!response.failures().isEmpty()) {
+      for (BulkIndexByScrollFailure failure : response.failures()) {
+        log.debug("Error while deleting by query: {}, because of: {}", failure.cause().reason(), failure.cause());
+      }
+      throw new IndexerException("encountered errors while deleting by query");
+    }
+  }
+
+  private void uploadDocuments(List<Document> documentsToUpload) throws IOException, IndexerException {
+    BulkRequest.Builder br = new BulkRequest.Builder();
+    for (Document doc : documentsToUpload) {
 
       // removing the fields mentioned in the ignoreFields setting in configurations
       Map<String, Object> indexerDoc = getIndexerDoc(doc);
@@ -182,4 +287,10 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
+  private boolean isMarkedForDeletion(Document doc) {
+    return this.deletionMarkerField != null
+        && this.deletionMarkerFieldValue != null
+        && doc.hasNonNull(this.deletionMarkerField)
+        && doc.getString(this.deletionMarkerField).equals(this.deletionMarkerFieldValue);
+  }
 }
