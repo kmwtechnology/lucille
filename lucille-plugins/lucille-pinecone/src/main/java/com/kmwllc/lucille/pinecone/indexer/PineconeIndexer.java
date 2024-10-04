@@ -7,6 +7,7 @@ import io.pinecone.proto.UpsertResponse;
 import io.pinecone.unsigned_indices_model.VectorWithUnsignedIndices;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,11 +32,11 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
  *   using the same namespace(s) in deletion request if a document is marked for deletion.
  * - apiKey (String) : API key used for requests
  * - metadataFields (List<String>, Optional): list of fields you want to be uploaded as metadata along with the embeddings
- * - mode (String, Optional) : the type of request you want PineconeIndexer to send to your index
+ * - mode (String, Optional) : the type of request you want PineconeIndexer to send to your index when uploading documents
  *    1. upsert (will replace if vector id exists in namespace or index if no namespace is given)
  *    2. update (will only update embeddings)
  *    for deletion requests, take a look at application-example.conf under Indexer configs. Only support
- *    deletionMarkerField, and deletionMarkerFieldValue as serverless index currently does not support delete via query/metadata.
+ *    deletionMarkerField, and deletionMarkerFieldValue as Pinecone serverless index currently does not support delete via query/metadata.
  * - defaultEmbeddingField (String, required if namespaces is not set) : the field to retrieve embeddings from
  */
 public class PineconeIndexer extends Indexer {
@@ -65,7 +66,7 @@ public class PineconeIndexer extends Indexer {
     if (namespaces != null && namespaces.isEmpty()) {
       throw new IllegalArgumentException("Namespaces mapping must be non-empty if provided.");
     }
-    // max upload batch is 2MB or 1000 records, whichever is reached first, so stopping lucille run if batch size set to more than 1000
+    // max upload batch is 2MB or 1000 records, whichever is reached first, so warning user if default batch size is set to more than 1000
     // larger dimensions will mean smaller batch size limit, letting API throw the error if encountered.
     if (DEFAULT_BATCH_SIZE > MAX_PINECONE_BATCH_SIZE) {
       log.warn(
@@ -90,45 +91,46 @@ public class PineconeIndexer extends Indexer {
 
   @Override
   protected void sendToIndex(List<Document> documents) throws IndexerException {
-    // retrieve documents to delete & upload
-    List<Document> deleteList = new ArrayList<>();
-    List<Document> uploadList = new ArrayList<>();
+    // retrieve documents to delete & upload, mapping id to document
+    Map<String, Document> deleteMap = new LinkedHashMap<>();
+    Map<String, Document> uploadMap = new LinkedHashMap<>();
     for (Document doc : documents) {
+      String id = doc.getId();
       if (isDeletion(doc)) {
-        // always add to deleteList;
-        // in the case where doc is in uploadList and is now marked for deletion, then remove that document in uploadList
-        uploadList.removeIf(x -> x.getId().equals(doc.getId()));
-        deleteList.add(doc);
+        // always add to deleteMap;
+        // in the case where doc is in uploadMap and is now marked for deletion, then remove that document in uploadMap
+        uploadMap.remove(id);
+        deleteMap.put(id, doc);
       } else {
-        // always add non deletion documents to uploadList;
-        // in the case that doc is also in deleteList, we remove it from the deleteList to avoid sending unnecessary deletion request
-        deleteList.removeIf(x -> x.getId().equals(doc.getId()));
-        uploadList.add(doc);
+        // always add non deletion documents to uploadMap;
+        // in the case that doc is also in deleteMap, we remove it from the deleteMap to avoid sending unnecessary deletion request
+        deleteMap.remove(id);
+        uploadMap.put(id, doc);
       }
     }
 
     // if there exists documents to delete
-    if (!deleteList.isEmpty()) {
-      validateBatchSizeRequirements(deleteList.size());
+    if (!deleteMap.isEmpty()) {
+      validateBatchSizeRequirements(deleteMap.size());
       if (namespaces != null) {
         for (Map.Entry<String, Object> entry : namespaces.entrySet()) {
-          deleteDocuments(deleteList, entry.getKey());
+          deleteDocuments(new ArrayList<>(deleteMap.values()), entry.getKey());
         }
       } else {
-        deleteDocuments(deleteList, PineconeManager.getDefaultNamespace());
+        deleteDocuments(new ArrayList<>(deleteMap.values()), PineconeManager.getDefaultNamespace());
       }
     }
 
     // if there exists documents to upload
-    if (!uploadList.isEmpty()) {
+    if (!uploadMap.isEmpty()) {
       // check that both namespaces and defaultEmbeddingField is not null only when uploading
-      validateUploadRequirements(uploadList.size());
+      validateUploadRequirements(uploadMap.size());
       if (namespaces != null) {
         for (Map.Entry<String, Object> entry : namespaces.entrySet()) {
-          uploadDocuments(uploadList, (String) entry.getValue(), entry.getKey());
+          uploadDocuments(new ArrayList<>(uploadMap.values()), (String) entry.getValue(), entry.getKey());
         }
       } else {
-        uploadDocuments(uploadList, defaultEmbeddingField, PineconeManager.getDefaultNamespace());
+        uploadDocuments(new ArrayList<>(uploadMap.values()), defaultEmbeddingField, PineconeManager.getDefaultNamespace());
       }
     }
   }
