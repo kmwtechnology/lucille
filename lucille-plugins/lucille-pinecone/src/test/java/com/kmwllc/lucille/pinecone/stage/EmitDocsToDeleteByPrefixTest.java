@@ -13,6 +13,7 @@ import com.kmwllc.lucille.pinecone.util.PineconeManager;
 import com.kmwllc.lucille.stage.StageFactory;
 import io.pinecone.clients.Index;
 import io.pinecone.clients.Pinecone;
+import io.pinecone.exceptions.PineconeException;
 import io.pinecone.proto.ListItem;
 import io.pinecone.proto.ListResponse;
 import io.pinecone.proto.Pagination;
@@ -23,7 +24,6 @@ import java.util.Iterator;
 import org.junit.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import org.openapitools.control.client.model.IndexModel;
 
 public class EmitDocsToDeleteByPrefixTest {
 
@@ -65,7 +65,7 @@ public class EmitDocsToDeleteByPrefixTest {
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
       mockedStatic.when(() -> PineconeManager.getClient(anyString()))
           .thenReturn(mockClient);
-      when(mockClient.describeIndex(anyString())).thenThrow(new Exception());
+      when(mockClient.getIndexConnection(anyString())).thenThrow(new PineconeException("describeIndex method threw an error"));
       mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
           .thenReturn(true);
       assertThrows(StageException.class, () -> factory.get("EmitDeletedByPrefixTest/goodConfig.conf"));
@@ -77,8 +77,7 @@ public class EmitDocsToDeleteByPrefixTest {
     Pinecone mockClient = mock(Pinecone.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
       mockedStatic.when(() -> PineconeManager.getClient(anyString())).thenReturn(mockClient);
-      IndexModel goodModel = new IndexModel();
-      when(mockClient.describeIndex(anyString())).thenReturn(goodModel);
+      when(mockClient.getIndexConnection(anyString())).thenReturn(mock(Index.class));
       mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
           .thenReturn(true);
       Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
