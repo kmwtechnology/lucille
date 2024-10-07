@@ -214,7 +214,7 @@ public class ParseJsonTest {
   }
 
   @Test
-  public void testEmptyJsonPath() throws Exception {
+  public void testEmptyJsonPathConfig() throws Exception {
     Stage stage = factory.get("ParseJson/emptyJsonPath.conf");
     Document doc = Document.create("doc");
     try (InputStream in = ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/test.json")) {
@@ -232,7 +232,7 @@ public class ParseJsonTest {
   }
 
   @Test
-  public void testEmptyJsonValue() throws Exception {
+  public void testJsonValueEdgeCase() throws Exception {
     Stage stage = factory.get("ParseJson/emptyJsonValue.conf");
     Document doc = Document.create("doc");
     try (InputStream in = ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/testEmptyValue.json")) {
