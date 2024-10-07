@@ -128,4 +128,10 @@ public class SingleBatchTest {
     assertEquals(3, batch.flush().size());
   }
 
+  @Test
+  public void testGetCapacity() throws InterruptedException {
+    SingleBatch batch = new SingleBatch(100, 1000);
+    assertEquals(100, batch.getCapacity());
+  }
+
 }

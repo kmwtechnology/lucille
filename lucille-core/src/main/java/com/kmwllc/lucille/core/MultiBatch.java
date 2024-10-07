@@ -59,4 +59,9 @@ public class MultiBatch implements Batch {
     }
     return flushedDocs;
   }
+
+  @Override
+  public int getCapacity() {
+    return capacity;
+  }
 }
