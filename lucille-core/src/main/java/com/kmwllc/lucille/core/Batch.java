@@ -36,4 +36,9 @@ public interface Batch {
    * regardless of whether the batch is expired.
    */
   public List<Document> flush();
+
+  /**
+   * Retrieves the capacity of a batch.
+   */
+  public int getCapacity();
 }
