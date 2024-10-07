@@ -38,8 +38,7 @@ public interface Batch {
   public List<Document> flush();
 
   /**
-   * Retrieves the capacity of a batch. Returns default capacity of Indexer
-   * or batchSize in Indexer configs if set.
+   * Retrieves the capacity of a batch.
    */
   public int getCapacity();
 }
