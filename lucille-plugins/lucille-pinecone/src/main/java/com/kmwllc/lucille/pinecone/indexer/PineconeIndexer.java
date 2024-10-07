@@ -52,7 +52,7 @@ public class PineconeIndexer extends Indexer {
   private final String mode;
   private final String defaultEmbeddingField;
 
-  public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) {
+  public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) throws IndexerException {
     super(config, messenger, metricsPrefix);
     this.apiKey = config.getString("pinecone.apiKey");
     this.client = PineconeManager.getClient(apiKey);
@@ -64,18 +64,18 @@ public class PineconeIndexer extends Indexer {
     this.mode = config.hasPath("pinecone.mode") ? config.getString("pinecone.mode") : "upsert";
     this.defaultEmbeddingField = ConfigUtils.getOrDefault(config, "pinecone.defaultEmbeddingField", null);
     if (namespaces != null && namespaces.isEmpty()) {
-      throw new IllegalArgumentException("Namespaces mapping must be non-empty if provided.");
+      throw new IndexerException("Namespaces mapping must be non-empty if provided.");
     }
     // max upload batch is 2MB or 1000 records, whichever is reached first, so warning user if default batch size is set to more than 1000
     // larger dimensions will mean smaller batch size limit, letting API throw the error if encountered.
-    if (DEFAULT_BATCH_SIZE > MAX_PINECONE_BATCH_SIZE) {
-      log.warn(
+    if (this.getBatchCapacity() > MAX_PINECONE_BATCH_SIZE) {
+      throw new IndexerException(
           "Maximum batch size for Pinecone is 1000, and lower if vectors have higher dimensions. Set indexer batchSize config to"
               + "1000 or lower.");
     }
   }
 
-  public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+  public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
     this(config, messenger, metricsPrefix);
   }
 
@@ -111,7 +111,6 @@ public class PineconeIndexer extends Indexer {
 
     // if there exists documents to delete
     if (!deleteMap.isEmpty()) {
-      validateBatchSizeRequirements(deleteMap.size());
       if (namespaces != null) {
         for (Map.Entry<String, Object> entry : namespaces.entrySet()) {
           deleteDocuments(new ArrayList<>(deleteMap.values()), entry.getKey());
@@ -124,7 +123,7 @@ public class PineconeIndexer extends Indexer {
     // if there exists documents to upload
     if (!uploadMap.isEmpty()) {
       // check that both namespaces and defaultEmbeddingField is not null only when uploading
-      validateUploadRequirements(uploadMap.size());
+      validateUploadRequirements();
       if (namespaces != null) {
         for (Map.Entry<String, Object> entry : namespaces.entrySet()) {
           uploadDocuments(new ArrayList<>(uploadMap.values()), (String) entry.getValue(), entry.getKey());
@@ -135,18 +134,10 @@ public class PineconeIndexer extends Indexer {
     }
   }
 
-  private void validateUploadRequirements(int uploadSize) throws IndexerException {
+  private void validateUploadRequirements() throws IndexerException {
     if (namespaces == null && defaultEmbeddingField == null) {
-      throw new IllegalArgumentException(
-          "At least one of a defaultEmbeddingField or a non-empty namespaces mapping is required when uploading documents.");
-    }
-    validateBatchSizeRequirements(uploadSize);
-  }
-
-  private void validateBatchSizeRequirements(int batchSize) throws IndexerException {
-    if (batchSize > MAX_PINECONE_BATCH_SIZE) {
       throw new IndexerException(
-          "Pinecone maximum batch size is " + MAX_PINECONE_BATCH_SIZE + ", lower batchSize in indexer configs.");
+          "At least one of a defaultEmbeddingField or a non-empty namespaces mapping is required when uploading documents.");
     }
   }
 

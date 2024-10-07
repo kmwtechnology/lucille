@@ -11,6 +11,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.pinecone.util.PineconeManager;
 import io.pinecone.clients.Index;
 import io.pinecone.clients.Pinecone;
@@ -108,7 +109,7 @@ public class PineconeIndexerTest {
   }
 
   @Test
-  public void testValidateConnection() {
+  public void testValidateConnection() throws IndexerException {
     // mocking
     Pinecone mockClient = mock(Pinecone.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
@@ -128,7 +129,7 @@ public class PineconeIndexerTest {
   }
 
   @Test
-  public void testCloseConnection() {
+  public void testCloseConnection() throws IndexerException {
     // mocking
     Pinecone mockClient = mock(Pinecone.class);
     IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
@@ -167,11 +168,11 @@ public class PineconeIndexerTest {
       Config configUpsert = ConfigFactory.load("PineconeIndexerTest/empty-namespaces.conf");
       Config configUpdate = ConfigFactory.load("PineconeIndexerTest/empty-namespaces-update.conf");
 
-      assertThrows(IllegalArgumentException.class, () -> {
+      assertThrows(IndexerException.class, () -> {
         new PineconeIndexer(configUpdate, messenger, "testing");
       });
 
-      assertThrows(IllegalArgumentException.class, () -> {
+      assertThrows(IndexerException.class, () -> {
         new PineconeIndexer(configUpsert, messenger2, "testing");
       });
     }
@@ -658,14 +659,9 @@ public class PineconeIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/invalidBatchSize.conf");
-      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
-      indexerGood.validateConnection();
 
-      for (int i = 0; i < 1001; i++) {
-        messenger.sendForIndexing(Document.create("id-" + i));
-      }
-      // will throw error for too many documents sent in batch
-      indexerGood.run(1001);
+      // throw error if indexer batch size is set to 1001
+      assertThrows(IndexerException.class,() -> new PineconeIndexer(configGood, messenger, "testing"));
     }
   }
 }
