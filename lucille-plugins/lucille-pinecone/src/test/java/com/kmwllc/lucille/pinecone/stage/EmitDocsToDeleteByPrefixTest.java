@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.pinecone.stage;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -10,7 +9,6 @@ import static org.mockito.Mockito.when;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.pinecone.util.PineconeUtils;
 import com.kmwllc.lucille.stage.StageFactory;
 import io.pinecone.clients.Index;
 import io.pinecone.clients.Pinecone;
@@ -26,7 +24,6 @@ import java.util.Iterator;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
-import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.openapitools.control.client.model.IndexModel;
 import org.openapitools.control.client.model.IndexModelStatus;
@@ -37,7 +34,6 @@ public class EmitDocsToDeleteByPrefixTest {
   StageFactory factory = StageFactory.of(EmitDocsToDeleteByPrefix.class);
 
   Pinecone goodClient;
-  Pinecone badClient;
 
   @Before
   public void setUp() throws Exception {
@@ -49,8 +45,6 @@ public class EmitDocsToDeleteByPrefixTest {
     when(goodModel.getStatus()).thenReturn(goodStatus);
     when(goodClient.describeIndex(anyString())).thenReturn(goodModel);
     when(goodStatus.getState()).thenReturn(goodState);
-
-
   }
 
   @Test
@@ -69,9 +63,9 @@ public class EmitDocsToDeleteByPrefixTest {
     when(mockClient.describeIndex(anyString())).thenReturn(goodModel);
     when(goodStatus.getState()).thenReturn(goodState);
 
-    try (MockedStatic<PineconeUtils> mockedStatic = Mockito.mockStatic(PineconeUtils.class)) {
-      mockedStatic.when(() -> PineconeUtils.getClient(anyString()))
-          .thenReturn(mockClient);
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
 
       assertThrows(StageException.class, () -> factory.get("EmitDeletedByPrefixTest/goodConfig.conf"));
     }

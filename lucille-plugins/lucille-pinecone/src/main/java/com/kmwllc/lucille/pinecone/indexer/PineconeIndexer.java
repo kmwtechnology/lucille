@@ -64,7 +64,7 @@ public class PineconeIndexer extends Indexer {
     if (namespaces != null && namespaces.isEmpty()) {
       throw new IndexerException("Namespaces mapping must be non-empty if provided.");
     }
-    // max upload batch is 2MB or 1000 records, whichever is reached first, so warning user if default batch size is set to more than 1000
+    // max upload batch is 2MB or 1000 records, whichever is reached first, so stopping run if default batch size is set to more than 1000
     // larger dimensions will mean smaller batch size limit, letting API throw the error if encountered.
     if (this.getBatchCapacity() > MAX_PINECONE_BATCH_SIZE) {
       throw new IndexerException(
