@@ -259,7 +259,6 @@ public class DatabaseConnector extends AbstractConnector {
     }
 
     do {
-      // Convert to do-while I think we can avoid the rs2.previous() call.
       otherJoinId = rs2.getObject(joinField);
       int comparison = ((Comparable) otherJoinId).compareTo(joinId);
       if (comparison < 0) {

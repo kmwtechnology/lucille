@@ -304,7 +304,7 @@ public class DatabaseConnectorTest {
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
   }
-  // Comparing of Integer, Float, Decimal, Long the same
+
   @Test
   public void testJoiningDatabaseConnector() throws Exception {
 
