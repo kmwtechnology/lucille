@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.pinecone.stage;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -9,10 +10,11 @@ import static org.mockito.Mockito.when;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.pinecone.util.PineconeManager;
+import com.kmwllc.lucille.pinecone.util.PineconeUtils;
 import com.kmwllc.lucille.stage.StageFactory;
 import io.pinecone.clients.Index;
 import io.pinecone.clients.Pinecone;
+import io.pinecone.clients.Pinecone.Builder;
 import io.pinecone.exceptions.PineconeException;
 import io.pinecone.proto.ListItem;
 import io.pinecone.proto.ListResponse;
@@ -21,13 +23,35 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
+import org.junit.Before;
 import org.junit.Test;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.openapitools.control.client.model.IndexModel;
+import org.openapitools.control.client.model.IndexModelStatus;
+import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
 
 public class EmitDocsToDeleteByPrefixTest {
 
   StageFactory factory = StageFactory.of(EmitDocsToDeleteByPrefix.class);
+
+  Pinecone goodClient;
+  Pinecone badClient;
+
+  @Before
+  public void setUp() throws Exception {
+    goodClient = mock(Pinecone.class);
+    when(goodClient.getIndexConnection(anyString())).thenReturn(mock(Index.class));
+    IndexModel goodModel = mock(IndexModel.class);
+    IndexModelStatus goodStatus = mock(IndexModelStatus.class);
+    StateEnum goodState = StateEnum.READY;
+    when(goodModel.getStatus()).thenReturn(goodStatus);
+    when(goodClient.describeIndex(anyString())).thenReturn(goodModel);
+    when(goodStatus.getState()).thenReturn(goodState);
+
+
+  }
 
   @Test
   public void testInvalidPineconeConfigs() {
@@ -37,22 +61,27 @@ public class EmitDocsToDeleteByPrefixTest {
   @Test
   public void testInvalidIndexState() {
     Pinecone mockClient = mock(Pinecone.class);
-    try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
+    when(mockClient.getIndexConnection(anyString())).thenReturn(mock(Index.class));
+    IndexModel goodModel = mock(IndexModel.class);
+    IndexModelStatus goodStatus = mock(IndexModelStatus.class);
+    StateEnum goodState = StateEnum.TERMINATING;
+    when(goodModel.getStatus()).thenReturn(goodStatus);
+    when(mockClient.describeIndex(anyString())).thenReturn(goodModel);
+    when(goodStatus.getState()).thenReturn(goodState);
+
+    try (MockedStatic<PineconeUtils> mockedStatic = Mockito.mockStatic(PineconeUtils.class)) {
+      mockedStatic.when(() -> PineconeUtils.getClient(anyString()))
           .thenReturn(mockClient);
-      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
-          .thenReturn(false);
+
       assertThrows(StageException.class, () -> factory.get("EmitDeletedByPrefixTest/goodConfig.conf"));
     }
   }
 
   @Test
   public void testValidIndexState() throws StageException {
-    Pinecone mockClient = mock(Pinecone.class);
-    try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClient(anyString())).thenReturn(mockClient);
-      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
-          .thenReturn(true);
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(goodClient);
+    })) {
       Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
     } catch (StageException e) {
       fail();
@@ -62,24 +91,19 @@ public class EmitDocsToDeleteByPrefixTest {
   @Test
   public void testInvalidGetIndexConnection() {
     Pinecone mockClient = mock(Pinecone.class);
-    try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
-          .thenReturn(mockClient);
-      when(mockClient.getIndexConnection(anyString())).thenThrow(new PineconeException("describeIndex method threw an error"));
-      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
-          .thenReturn(true);
+    when(mockClient.getIndexConnection(anyString())).thenThrow(new PineconeException("Invalid index connection"));
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
       assertThrows(StageException.class, () -> factory.get("EmitDeletedByPrefixTest/goodConfig.conf"));
     }
   }
 
   @Test
   public void testValidGetIndexConnection() throws StageException {
-    Pinecone mockClient = mock(Pinecone.class);
-    try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClient(anyString())).thenReturn(mockClient);
-      when(mockClient.getIndexConnection(anyString())).thenReturn(mock(Index.class));
-      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
-          .thenReturn(true);
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(goodClient);
+    })) {
       Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
     } catch (StageException e) {
       fail();
@@ -90,9 +114,8 @@ public class EmitDocsToDeleteByPrefixTest {
   @Test
   public void testIgnoreNonMarkedDocuments() throws StageException {
     // mocking
-    Pinecone mockClient = mock(Pinecone.class);
     Index mockIndex = Mockito.mock(Index.class);
-    when(mockClient.getIndexConnection(anyString())).thenReturn(mockIndex);
+    when(goodClient.getIndexConnection(anyString())).thenReturn(mockIndex);
     ListResponse mockResponse = Mockito.mock(ListResponse.class);
     when(mockResponse.hasPagination()).thenReturn(false);
     when(mockIndex.list(anyString(), anyString())).thenReturn(mockResponse);
@@ -104,12 +127,9 @@ public class EmitDocsToDeleteByPrefixTest {
     when(item3.getId()).thenReturn("id3");
     when(mockResponse.getVectorsList()).thenReturn(Arrays.asList(item, item2, item3));
 
-    try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
-          .thenReturn(mockClient);
-      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
-          .thenReturn(true);
-
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(goodClient);
+    })) {
       Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
       Document doc1 = Document.create("id");
 
@@ -120,21 +140,16 @@ public class EmitDocsToDeleteByPrefixTest {
 
   @Test
   public void testEmptyList() throws StageException {
-    Pinecone mockClient = mock(Pinecone.class);
     Index mockIndex = Mockito.mock(Index.class);
-    when(mockClient.getIndexConnection(anyString())).thenReturn(mockIndex);
+    when(goodClient.getIndexConnection(anyString())).thenReturn(mockIndex);
     ListResponse mockResponse = Mockito.mock(ListResponse.class);
     when(mockResponse.hasPagination()).thenReturn(false);
     when(mockIndex.list(anyString(), anyString())).thenReturn(mockResponse);
     when(mockResponse.getVectorsList()).thenReturn(new ArrayList<>());
 
-    try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
-          .thenReturn(mockClient);
-      mockedStatic.when(() -> PineconeManager.getDefaultNamespace())
-          .thenReturn("default");
-      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
-          .thenReturn(true);
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(goodClient);
+    })) {
 
       Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
       Document doc1 = Document.create("id");
@@ -148,9 +163,8 @@ public class EmitDocsToDeleteByPrefixTest {
   @Test
   public void testEmitPrefixDocuments() throws StageException {
     // mocking
-    Pinecone mockClient = mock(Pinecone.class);
     Index mockIndex = Mockito.mock(Index.class);
-    when(mockClient.getIndexConnection(anyString())).thenReturn(mockIndex);
+    when(goodClient.getIndexConnection(anyString())).thenReturn(mockIndex);
     ListResponse mockResponse = Mockito.mock(ListResponse.class);
     when(mockResponse.hasPagination()).thenReturn(false);
     when(mockIndex.list(anyString(), anyString())).thenReturn(mockResponse);
@@ -162,13 +176,9 @@ public class EmitDocsToDeleteByPrefixTest {
     when(item3.getId()).thenReturn("id1-3");
     when(mockResponse.getVectorsList()).thenReturn(Arrays.asList(item, item2, item3));
 
-    try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
-          .thenReturn(mockClient);
-      mockedStatic.when(() -> PineconeManager.getDefaultNamespace())
-          .thenReturn("default");
-      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
-          .thenReturn(true);
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(goodClient);
+    })) {
 
       Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
       Document doc1 = Document.create("id1");
@@ -192,9 +202,8 @@ public class EmitDocsToDeleteByPrefixTest {
   @Test
   public void testEmitPrefixDocumentsWithPagination() throws StageException {
     // mocking
-    Pinecone mockClient = mock(Pinecone.class);
     Index mockIndex = Mockito.mock(Index.class);
-    when(mockClient.getIndexConnection(anyString())).thenReturn(mockIndex);
+    when(goodClient.getIndexConnection(anyString())).thenReturn(mockIndex);
     ListResponse mockResponse = Mockito.mock(ListResponse.class);
     ListResponse mockResponse2 = Mockito.mock(ListResponse.class);
     Pagination mockPagination = Mockito.mock(Pagination.class);
@@ -213,13 +222,9 @@ public class EmitDocsToDeleteByPrefixTest {
     when(mockResponse2.getVectorsList()).thenReturn(Collections.singletonList(item3));
     when(mockResponse2.hasPagination()).thenReturn(false);
 
-    try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
-          .thenReturn(mockClient);
-      mockedStatic.when(() -> PineconeManager.getDefaultNamespace())
-          .thenReturn("default");
-      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
-          .thenReturn(true);
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(goodClient);
+    })) {
 
       Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
       Document doc1 = Document.create("id1");
@@ -244,21 +249,16 @@ public class EmitDocsToDeleteByPrefixTest {
   @Test
   public void testDropOriginal() throws StageException {
     // mocking
-    Pinecone mockClient = mock(Pinecone.class);
     Index mockIndex = Mockito.mock(Index.class);
-    when(mockClient.getIndexConnection(anyString())).thenReturn(mockIndex);
+    when(goodClient.getIndexConnection(anyString())).thenReturn(mockIndex);
     ListResponse mockResponse = Mockito.mock(ListResponse.class);
     when(mockResponse.hasPagination()).thenReturn(false);
     when(mockIndex.list(anyString(), anyString())).thenReturn(mockResponse);
     when(mockResponse.getVectorsList()).thenReturn(new ArrayList<>());
 
-    try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
-      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
-          .thenReturn(mockClient);
-      mockedStatic.when(() -> PineconeManager.getDefaultNamespace())
-          .thenReturn("default");
-      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
-          .thenReturn(true);
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(goodClient);
+    })) {
 
       Stage stage = factory.get("EmitDeletedByPrefixTest/dropOriginal.conf");
       Document doc1 = Document.create("id1");

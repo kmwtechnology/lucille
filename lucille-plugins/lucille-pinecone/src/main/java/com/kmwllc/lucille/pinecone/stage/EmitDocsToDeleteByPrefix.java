@@ -3,7 +3,7 @@ package com.kmwllc.lucille.pinecone.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.pinecone.util.PineconeManager;
+import com.kmwllc.lucille.pinecone.util.PineconeUtils;
 import com.typesafe.config.Config;
 import io.pinecone.clients.Index;
 import io.pinecone.clients.Pinecone;
@@ -62,14 +62,21 @@ public class EmitDocsToDeleteByPrefix extends Stage {
   @Override
   public void start() throws StageException {
     try {
-      client = PineconeManager.getClient(config.getString("apiKey"));
+      client = new Pinecone.Builder(config.getString("apiKey")).build();
       index = client.getIndexConnection(indexName);
     } catch (Exception e) {
       throw new StageException("Unable to get client or index connection", e);
     }
 
-    if (!PineconeManager.isStable(config.getString("apiKey"), indexName)) {
+    if (!PineconeUtils.isClientStable(client, indexName)) {
       throw new StageException("Index " + indexName + " is not stable");
+    }
+  }
+
+  @Override
+  public void stop() {
+    if (index != null) {
+      index.close();
     }
   }
 
@@ -87,7 +94,7 @@ public class EmitDocsToDeleteByPrefix extends Stage {
         idsToDelete.addAll(getVectorsByPrefix(doc, addPrefix, entry.getKey()));
       }
     } else {
-      idsToDelete.addAll(getVectorsByPrefix(doc, addPrefix, PineconeManager.getDefaultNamespace()));
+      idsToDelete.addAll(getVectorsByPrefix(doc, addPrefix, PineconeUtils.getDefaultNamespace()));
     }
 
     // drop original document if set to true

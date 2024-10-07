@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
 import com.kmwllc.lucille.core.IndexerException;
-import com.kmwllc.lucille.pinecone.util.PineconeManager;
+import com.kmwllc.lucille.pinecone.util.PineconeUtils;
 import io.pinecone.clients.Pinecone;
 import io.pinecone.proto.UpsertResponse;
 import io.pinecone.unsigned_indices_model.VectorWithUnsignedIndices;
@@ -44,7 +44,6 @@ public class PineconeIndexer extends Indexer {
   private static final Logger log = LoggerFactory.getLogger(PineconeIndexer.class);
   private static final Integer MAX_PINECONE_BATCH_SIZE = 1000;
   private final Pinecone client;
-  private final String apiKey;
   private final Index index;
   private final String indexName;
   private final Map<String, Object> namespaces;
@@ -54,8 +53,7 @@ public class PineconeIndexer extends Indexer {
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) throws IndexerException {
     super(config, messenger, metricsPrefix);
-    this.apiKey = config.getString("pinecone.apiKey");
-    this.client = PineconeManager.getClient(apiKey);
+    this.client = new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
     this.indexName = config.getString("pinecone.index");
     this.index = client.getIndexConnection(indexName);
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
@@ -82,7 +80,7 @@ public class PineconeIndexer extends Indexer {
   @Override
   public boolean validateConnection() {
     try {
-      return PineconeManager.isStable(apiKey, indexName);
+      return PineconeUtils.isClientStable(client, indexName);
     } catch (Exception e) {
       log.error("Error checking Pinecone client state", e);
       return false;
@@ -116,7 +114,7 @@ public class PineconeIndexer extends Indexer {
           deleteDocuments(new ArrayList<>(deleteMap.values()), entry.getKey());
         }
       } else {
-        deleteDocuments(new ArrayList<>(deleteMap.values()), PineconeManager.getDefaultNamespace());
+        deleteDocuments(new ArrayList<>(deleteMap.values()), PineconeUtils.getDefaultNamespace());
       }
     }
 
@@ -129,7 +127,7 @@ public class PineconeIndexer extends Indexer {
           uploadDocuments(new ArrayList<>(uploadMap.values()), (String) entry.getValue(), entry.getKey());
         }
       } else {
-        uploadDocuments(new ArrayList<>(uploadMap.values()), defaultEmbeddingField, PineconeManager.getDefaultNamespace());
+        uploadDocuments(new ArrayList<>(uploadMap.values()), defaultEmbeddingField, PineconeUtils.getDefaultNamespace());
       }
     }
   }
