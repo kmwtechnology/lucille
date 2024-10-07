@@ -630,7 +630,7 @@ public class PineconeIndexerTest {
       messenger.sendForIndexing(doc3);
       indexerGood.run(2);
 
-      // doc3ToDelete would be deleted from deletedList, and so will not be called
+      // doc3ToDelete would be removed, and so will not be called
       verify(goodIndex, times(0)).deleteByIds(anyList(), anyString());
 
       // assert that an update was made to the right documents to the right Ids

@@ -135,12 +135,12 @@ public class PineconeIndexer extends Indexer {
     }
   }
 
-  private void validateUploadRequirements(int uploadListSize) throws IndexerException {
+  private void validateUploadRequirements(int uploadSize) throws IndexerException {
     if (namespaces == null && defaultEmbeddingField == null) {
       throw new IllegalArgumentException(
           "At least one of a defaultEmbeddingField or a non-empty namespaces mapping is required when uploading documents.");
     }
-    validateBatchSizeRequirements(uploadListSize);
+    validateBatchSizeRequirements(uploadSize);
   }
 
   private void validateBatchSizeRequirements(int batchSize) throws IndexerException {

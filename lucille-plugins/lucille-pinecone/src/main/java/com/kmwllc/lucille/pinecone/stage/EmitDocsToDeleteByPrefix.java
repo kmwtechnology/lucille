@@ -29,8 +29,8 @@ import java.util.stream.Collectors;
  * - apiKey (String) : apiKey to send requests
  * - namespaces (Map<String, Object>, Optional) : mapping of namespaces of which you would like to collect ids on. If not given, will
  *    retrieve from default namespace.
- *    note that value of mapping will not matter, rather makes it convenient for user to reuse same configs as PineconeIndexer as
- *    intended
+ *   - note that value of mapping will not matter, rather intended to make it convenient for user to reuse same namespaces configs as
+ *     PineconeIndexer
  * - deletionMarkerField (String) : name of the field which indicates the document is marked for deletion
  * - deletionMarkerFieldValue (String) : value of the field which indicates that the document is marked for deletion
  *   - for stage to work, deletionMarkerField and deletionMarkerFieldValue must be the same value provided indexer configs

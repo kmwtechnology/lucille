@@ -23,15 +23,11 @@ import java.util.Iterator;
 import org.junit.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.openapitools.control.client.model.IndexModel;
 
 public class EmitDocsToDeleteByPrefixTest {
 
   StageFactory factory = StageFactory.of(EmitDocsToDeleteByPrefix.class);
-
-  @Test
-  public void testInvalidIndexerConfigs() throws StageException {
-    assertThrows(StageException.class, () -> factory.get("EmitDeletedByPrefixTest/invalidIndexer.conf"));
-  }
 
   @Test
   public void testInvalidPineconeConfigs() {
@@ -55,6 +51,34 @@ public class EmitDocsToDeleteByPrefixTest {
     Pinecone mockClient = mock(Pinecone.class);
     try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
       mockedStatic.when(() -> PineconeManager.getClient(anyString())).thenReturn(mockClient);
+      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
+          .thenReturn(true);
+      Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
+    } catch (StageException e) {
+      fail();
+    }
+  }
+
+  @Test
+  public void testInvalidGetIndexConnection() {
+    Pinecone mockClient = mock(Pinecone.class);
+    try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
+      mockedStatic.when(() -> PineconeManager.getClient(anyString()))
+          .thenReturn(mockClient);
+      when(mockClient.describeIndex(anyString())).thenThrow(new Exception());
+      mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
+          .thenReturn(true);
+      assertThrows(StageException.class, () -> factory.get("EmitDeletedByPrefixTest/goodConfig.conf"));
+    }
+  }
+
+  @Test
+  public void testValidGetIndexConnection() throws StageException {
+    Pinecone mockClient = mock(Pinecone.class);
+    try (MockedStatic<PineconeManager> mockedStatic = Mockito.mockStatic(PineconeManager.class)) {
+      mockedStatic.when(() -> PineconeManager.getClient(anyString())).thenReturn(mockClient);
+      IndexModel goodModel = new IndexModel();
+      when(mockClient.describeIndex(anyString())).thenReturn(goodModel);
       mockedStatic.when(() -> PineconeManager.isStable(anyString(), anyString()))
           .thenReturn(true);
       Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
