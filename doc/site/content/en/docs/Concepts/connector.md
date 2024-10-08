@@ -9,7 +9,7 @@ tags: [test, sample, docs]
 
 ## Lucille Connectors
 
-Lucille Connectors are components that retrieve data from a source system, packages the data into "documents," and publishes them to a pipeline.
+Connectors are components that retrieve data from a source system, packages the data into "documents," and publishes them to a pipeline.
 
 The core Lucille project contains a number of commonly used connectors. Additional connectors that rely on a large number of dependencies are provided as optional plugin modules.
 
