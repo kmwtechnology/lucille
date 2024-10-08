@@ -95,22 +95,15 @@ public class JDBCUtils {
           }
           break;
         case Types.DATE:
-          // Currently saving date types as Strings, as conversion to an Instant may change the value given
-          // Date to Timestamp: sets nanoseconds & time to 0, e.g. 2024-07-30 -> 2024-07-30 00:00:00.0
-          // Timestamp to Instant: checks either DB server local time (which might be from JVM), and converts to UTC,
-          //  e.g. 2024-07-30 00:00:00.0 UTC-4 -> 2024-07-30 04:00:00.0
           Date dateVal = rs.getDate(columnIndex);
           if (dateVal != null) {
-            doc.setOrAdd(fieldName, dateVal.toString());
+            doc.setOrAdd(fieldName, dateVal);
           }
           break;
         case Types.TIMESTAMP:
-          // saving timestamp as str to prevent conversion to UTC
-          // if TIMESTAMP = 2023-01-01T00:00:00Z when local time is UTC-4 in JVM or db,
-          // will be stored as 2023-01-01T04:00:00Z in Document if converted to Instant
           Timestamp timestamp = rs.getTimestamp(columnIndex);
           if (timestamp != null) {
-            doc.setOrAdd(fieldName, timestamp.toString());
+            doc.setOrAdd(fieldName, timestamp);
           }
           break;
         // case Types.TIMESTAMP_WITH_TIMEZONE:

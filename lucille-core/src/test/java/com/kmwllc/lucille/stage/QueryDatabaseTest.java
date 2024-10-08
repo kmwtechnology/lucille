@@ -12,6 +12,8 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import java.nio.charset.StandardCharsets;
+import java.sql.Date;
+import java.sql.Timestamp;
 import java.util.TimeZone;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -188,9 +190,9 @@ public class QueryDatabaseTest {
     // Boolean
     assertEquals(true, d1.getBoolean("boolean_col"));
     assertEquals(true, d1.getBoolean("bit_col"));
-    // String
-    assertEquals("2024-07-30", d1.getString("date_col"));
-    assertEquals("1970-01-01 00:00:01.0", d1.getString("timestamp_col"));
+    // Date & Timestamp
+    assertEquals(Date.valueOf("2024-07-30"), d1.getDate("date_col"));
+    assertEquals(Timestamp.valueOf("1970-01-01 00:00:01.0"), d1.getTimestamp("timestamp_col"));
     // Null will not be added to document
     assertFalse(d1.has("nullable_int"));
     assertNull(d1.getString("nullable_varchar"));
@@ -241,9 +243,9 @@ public class QueryDatabaseTest {
     // Boolean
     assertEquals(false, d2.getBoolean("boolean_col"));
     assertEquals(false, d2.getBoolean("bit_col"));
-    // String
-    assertEquals("2023-01-01", d2.getString("date_col"));
-    assertEquals("2038-01-19 03:14:07.0", d2.getString("timestamp_col"));
+    // Date & Timestamp
+    assertEquals(Date.valueOf("2023-01-01"), d2.getDate("date_col"));
+    assertEquals(Timestamp.valueOf("2038-01-19 03:14:07.0"), d2.getTimestamp("timestamp_col"));
     // null will not be added
     assertFalse(d2.has("nullable_int"));
     assertNull(d2.getString("nullable_varchar"));

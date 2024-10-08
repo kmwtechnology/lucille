@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.sql.Timestamp;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -177,14 +178,14 @@ public class JsonDocument implements Document {
 
   @Override
   public void setField(String name, Date value) {
-    validateFieldNames(name);
-    data.put(name, value.getTime());
+    Instant instant = Instant.ofEpochMilli(value.getTime());
+    setField(name, instant);
   }
 
   @Override
   public void setField(String name, Timestamp value) {
-    validateFieldNames(name);
-    data.put(name, value.getTime());
+    Instant instant = Instant.ofEpochMilli(value.getTime());
+    setField(name, instant);
   }
 
   @Override
@@ -492,65 +493,39 @@ public class JsonDocument implements Document {
 
   @Override
   public Date getDate(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    JsonNode node = getSingleNode(name);
-
-    long dateLong = node.asLong();
-    return node.isNull() ? null : new Date(dateLong);
+    Instant instant = getInstant(name);
+    return instant == null ? null : Date.from(instant);
   }
 
   @Override
   public List<Date> getDateList(String name) {
-    if (!data.has(name)) {
+    List<Instant> instants = getInstantList(name);
+    if (instants == null) {
       return null;
+    } else {
+      return instants.stream()
+          .map(instant -> instant == null ? null : Date.from(instant))
+          .collect(Collectors.toList());
     }
-
-    if (!isMultiValued(name)) {
-      return Collections.singletonList(getDate(name));
-    }
-
-    ArrayNode array = data.withArray(name);
-    List<Date> result = new ArrayList<>();
-    for (JsonNode node : array) {
-      long dateLong = node.asLong();
-      result.add(node.isNull() ? null : new Date(dateLong));
-    }
-    return result;
   }
 
 
   @Override
   public Timestamp getTimestamp(String name) {
-    if (!data.has(name)) {
-      return null;
-    }
-
-    JsonNode node = getSingleNode(name);
-
-    long dateLong = node.asLong();
-    return node.isNull() ? null : new Timestamp(dateLong);
+    Instant instant = getInstant(name);
+    return instant == null ? null : Timestamp.from(instant);
   }
 
   @Override
   public List<Timestamp> getTimestampList(String name) {
-    if (!data.has(name)) {
+    List<Instant> instants = getInstantList(name);
+    if (instants == null) {
       return null;
+    } else {
+      return instants.stream()
+          .map(instant -> instant == null ? null : Timestamp.from(instant))
+          .collect(Collectors.toList());
     }
-
-    if (!isMultiValued(name)) {
-      return Collections.singletonList(getTimestamp(name));
-    }
-
-    ArrayNode array = data.withArray(name);
-    List<Timestamp> result = new ArrayList<>();
-    for (JsonNode node : array) {
-      long dateLong = node.asLong();
-      result.add(node.isNull() ? null : new Timestamp(dateLong));
-    }
-    return result;
   }
 
   private JsonNode getSingleNode(String name) {
@@ -698,18 +673,14 @@ public class JsonDocument implements Document {
 
   @Override
   public void addToField(String name, Date value) {
-    validateFieldNames(name);
-    convertToList(name);
-    ArrayNode array = data.withArray(name);
-    array.add(value.getTime());
+    Instant instant = Instant.ofEpochMilli(value.getTime());
+    addToField(name, instant);
   }
 
   @Override
   public void addToField(String name, Timestamp value) {
-    validateFieldNames(name);
-    convertToList(name);
-    ArrayNode array = data.withArray(name);
-    array.add(value.getTime());
+    Instant instant = Instant.ofEpochMilli(value.getTime());
+    addToField(name, instant);
   }
 
   @Override

@@ -8,6 +8,8 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.nio.charset.StandardCharsets;
+import java.sql.Date;
+import java.sql.Timestamp;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
@@ -220,9 +222,9 @@ public class DatabaseConnectorTest {
     // Boolean
     assertEquals(true, d1.getBoolean("boolean_col"));
     assertEquals(true, d1.getBoolean("bit_col"));
-    // String
-    assertEquals("2024-07-30", d1.getString("date_col"));
-    assertEquals("1970-01-01 00:00:01.0", d1.getString("timestamp_col"));
+    // Date & Timestamp
+    assertEquals(Date.valueOf("2024-07-30"), d1.getDate("date_col"));
+    assertEquals(Timestamp.valueOf("1970-01-01 00:00:01.0"), d1.getTimestamp("timestamp_col"));
 
     // Null (would not be added)
     assertFalse(d1.has("nullable_int"));
@@ -272,9 +274,9 @@ public class DatabaseConnectorTest {
     // Boolean
     assertEquals(false, d2.getBoolean("boolean_col"));
     assertEquals(false, d2.getBoolean("bit_col"));
-    // String
-    assertEquals("2023-01-01", d2.getString("date_col"));
-    assertEquals("2038-01-19 03:14:07.0", d2.getString("timestamp_col"));
+    // Date & Timestamp
+    assertEquals(Date.valueOf("2023-01-01"), d2.getDate("date_col"));
+    assertEquals(Timestamp.valueOf("2038-01-19 03:14:07.0"), d2.getTimestamp("timestamp_col"));
     // Null (Would not be added to document)
     assertFalse(d2.has("nullable_int"));
     assertNull(d2.getString("nullable_varchar"));

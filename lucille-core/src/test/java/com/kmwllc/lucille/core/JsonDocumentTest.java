@@ -140,10 +140,17 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals(Integer.valueOf(1), doc.getIntList("myIntField").get(0));
     assertEquals(Integer.valueOf(2), doc.getIntList("myStringField").get(0));
 
-    doc.setField("myDateField", 1L);
-    doc.setField("myTimestampField", 2L);
-    assertEquals(new Date(1), doc.getDate("myDateField"));
-    assertEquals(new Timestamp(2), doc.getTimestamp("myTimestampField"));
+    doc.setField("myInstantField", Instant.ofEpochMilli(1L));
+    assertEquals(new Date(1L), doc.getDate("myInstantField"));
+    assertEquals(new Timestamp(1L), doc.getTimestamp("myInstantField"));
+
+    doc.setField("myDateField", new Date(1L));
+    assertEquals(Instant.ofEpochMilli(1L), doc.getInstant("myDateField"));
+    assertEquals(new Timestamp(1L), doc.getTimestamp("myDateField"));
+
+    doc.setField("myTimestampField", new Timestamp(1L));
+    assertEquals(new Date(1L), doc.getDate("myTimestampField"));
+    assertEquals(Instant.ofEpochMilli(1L), doc.getInstant("myTimestampField"));
   }
 
   @Test

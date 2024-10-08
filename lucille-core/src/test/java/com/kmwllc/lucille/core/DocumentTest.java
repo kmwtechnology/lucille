@@ -667,10 +667,11 @@ public abstract class DocumentTest {
   @Test
   public void testGetDateSingleValued() {
     Document document = createDocument("doc");
-    document.setField("date", new Date(1));
+    document.setField("date", new Date(1L));
     assertFalse(document.isMultiValued("date"));
-    assertEquals(new Date(1), document.getDate("date"));
-    assertEquals(Collections.singletonList(new Date(1)), document.getDateList("date"));
+    assertEquals(new Date(1L), document.getDate("date"));
+    assertEquals(Collections.singletonList(new Date(1L)), document.getDateList("date"));
+    //TODO: assertEquals(new Date(1L).toString(), document.getString("date"));
   }
 
   @Test
@@ -682,12 +683,12 @@ public abstract class DocumentTest {
   @Test
   public void testGetDatesMultiValued() {
     Document document = createDocument("doc");
-    document.setField("dates", new Date(1));
+    document.setField("dates", new Date(1L));
     assertFalse(document.isMultiValued("dates"));
-    document.addToField("dates", new Date(2));
+    document.addToField("dates", new Date(2L));
     assertTrue(document.isMultiValued("dates"));
-    document.addToField("dates", new Date(3));
-    assertEquals(Arrays.asList(new Date(1), new Date(2), new Date(3)), document.getDateList("dates"));
+    document.addToField("dates", new Date(3L));
+    assertEquals(Arrays.asList(new Date(1L), new Date(2L), new Date(3L)), document.getDateList("dates"));
   }
 
   @Test
@@ -701,41 +702,42 @@ public abstract class DocumentTest {
   @Test
   public void testGetTimestampMissing() {
     Document document = createDocument("doc");
-    assertNull(document.getDate("field1"));
+    assertNull(document.getTimestamp("field1"));
   }
 
   @Test
   public void testGetTimestampSingleValued() {
     Document document = createDocument("doc");
-    document.setField("timestamp", new Timestamp(1));
+    document.setField("timestamp", new Timestamp(1L));
     assertFalse(document.isMultiValued("timestamp"));
-    assertEquals(new Timestamp(1), document.getTimestamp("timestamp"));
-    assertEquals(Collections.singletonList(new Timestamp(1)), document.getTimestampList("timestamp"));
+    assertEquals(new Timestamp(1L), document.getTimestamp("timestamp"));
+    assertEquals(Collections.singletonList(new Timestamp(1L)), document.getTimestampList("timestamp"));
+    //TODO: assertEquals(new Timestamp(1L).toString(), document.getString("timestamp"));
   }
 
   @Test
   public void testGetTimestampListMissing() {
     Document document = createDocument("doc");
-    assertNull(document.getDateList("field1"));
+    assertNull(document.getTimestampList("field1"));
   }
 
   @Test
   public void testGetTimestampMultiValued() {
     Document document = createDocument("doc");
-    document.setField("timestamp", new Timestamp(1));
+    document.setField("timestamp", new Timestamp(1L));
     assertFalse(document.isMultiValued("timestamp"));
-    document.addToField("timestamp", new Timestamp(2));
+    document.addToField("timestamp", new Timestamp(2L));
     assertTrue(document.isMultiValued("timestamp"));
-    document.addToField("timestamp", new Timestamp(3));
-    assertEquals(Arrays.asList(new Timestamp(1), new Timestamp(2), new Timestamp(3)), document.getTimestampList("timestamp"));
+    document.addToField("timestamp", new Timestamp(3L));
+    assertEquals(Arrays.asList(new Timestamp(1L), new Timestamp(2L), new Timestamp(3L)), document.getTimestampList("timestamp"));
   }
 
   @Test
   public void testGetTimestampMultivalued() {
     Document document = createDocument("doc");
-    document.addToField("field1", new Timestamp(1));
-    document.addToField("field1", new Timestamp(2));
-    assertEquals(new Timestamp(1), document.getTimestamp("field1"));
+    document.addToField("field1", new Timestamp(1L));
+    document.addToField("field1", new Timestamp(2L));
+    assertEquals(new Timestamp(1L), document.getTimestamp("field1"));
   }
 
   @Test
