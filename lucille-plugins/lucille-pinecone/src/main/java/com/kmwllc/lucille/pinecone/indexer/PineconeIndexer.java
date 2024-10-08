@@ -25,6 +25,8 @@ import io.pinecone.clients.Index;
 import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIndices;
 
 /**
+ * PineconeIndexer requires a field in the document to contain embeddings. For documents that do not have embeddings nor
+ * embedding field, set up a drop stage with stage conditions in the pipeline before indexing.
  *
  * Config Parameters:
  * - index (String) : index which PineconeIndexer will request from
@@ -33,7 +35,7 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
  * - apiKey (String) : API key used for requests
  * - metadataFields (List<String>, Optional): list of fields you want to be uploaded as metadata along with the embeddings
  * - mode (String, Optional) : the type of request you want PineconeIndexer to send to your index when uploading documents
- *    1. upsert (will replace if vector id exists in namespace or index if no namespace is given)
+ *    1. upsert (will replace if vector id exists in namespace, will use default namespace if no namespace is given)
  *    2. update (will only update embeddings)
  *    for deletion requests, take a look at application-example.conf under Indexer configs. Only support
  *    deletionMarkerField, and deletionMarkerFieldValue as Pinecone serverless index currently does not support delete via query/metadata.
@@ -64,7 +66,7 @@ public class PineconeIndexer extends Indexer {
     if (namespaces != null && namespaces.isEmpty()) {
       throw new IndexerException("Namespaces mapping must be non-empty if provided.");
     }
-    // max upload batch is 2MB or 1000 records, whichever is reached first, so stopping run if default batch size is set to more than 1000
+    // max upload batch is 2MB or 1000 records, whichever is reached first, so stopping run if batch size is set to more than 1000
     // larger dimensions will mean smaller batch size limit, letting API throw the error if encountered.
     if (this.getBatchCapacity() > MAX_PINECONE_BATCH_SIZE) {
       throw new IndexerException(
@@ -82,7 +84,7 @@ public class PineconeIndexer extends Indexer {
     try {
       return PineconeUtils.isClientStable(client, indexName);
     } catch (Exception e) {
-      log.error("Error checking Pinecone client state", e);
+      log.error("Error checking Pinecone client state.", e);
       return false;
     }
   }
@@ -135,7 +137,7 @@ public class PineconeIndexer extends Indexer {
   private void validateUploadRequirements() throws IndexerException {
     if (namespaces == null && defaultEmbeddingField == null) {
       throw new IndexerException(
-          "At least one of a defaultEmbeddingField or a non-empty namespaces mapping is required when uploading documents.");
+          "Both defaultEmbeddingField and namespaces cannot be null when uploading documents.");
     }
   }
 
@@ -169,7 +171,7 @@ public class PineconeIndexer extends Indexer {
     try {
       index.deleteByIds(idsToDelete, namespace);
     } catch (Exception e) {
-      throw new IndexerException("Error while deleting vectors", e);
+      throw new IndexerException("Error while deleting vectors.", e);
     }
   }
 
@@ -182,20 +184,20 @@ public class PineconeIndexer extends Indexer {
         throw new IndexerException("Number of upserted vectors to pinecone does not match the number of upserted vectors requested to upsert.");
       }
     } catch (Exception e) {
-      throw new IndexerException("Error while upserting vectors", e);
+      throw new IndexerException("Error while upserting vectors.", e);
     }
   }
 
   private void updateDocuments(List<Document> documents, String embeddingField, String namespace) throws IndexerException {
     try {
       documents.forEach(doc -> {
-        log.debug("updating docId: {} namespace: {} embedding: {}", doc.getId(), namespace, doc.getFloatList(embeddingField));
+        log.debug("Updating docId: {} namespace: {} embedding: {}", doc.getId(), namespace, doc.getFloatList(embeddingField));
         // does not validate the existence of IDs within the index, if no records are affected, a 200 OK status is returned
         // will only throw error if doc.getId() is null
         index.update(doc.getId(), doc.getFloatList(embeddingField), namespace);
       });
     } catch (Exception e) {
-      throw new IndexerException("Error while updating vectors", e);
+      throw new IndexerException("Error while updating vectors.", e);
     }
   }
 

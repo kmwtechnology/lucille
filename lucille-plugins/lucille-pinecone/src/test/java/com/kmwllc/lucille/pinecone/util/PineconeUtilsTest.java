@@ -5,8 +5,6 @@ import static org.junit.Assert.*;
 
 import io.pinecone.clients.Pinecone;
 import org.junit.Test;
-import org.mockito.MockedConstruction;
-import org.mockito.Mockito;
 import org.openapitools.control.client.model.IndexModel;
 import org.openapitools.control.client.model.IndexModelStatus;
 import org.openapitools.control.client.model.IndexModelStatus.StateEnum;

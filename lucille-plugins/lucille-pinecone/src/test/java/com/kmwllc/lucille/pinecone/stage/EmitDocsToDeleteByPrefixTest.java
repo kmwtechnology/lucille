@@ -49,7 +49,7 @@ public class EmitDocsToDeleteByPrefixTest {
 
   @Test
   public void testInvalidPineconeConfigs() {
-    assertThrows(StageException.class, () -> factory.get("EmitDeletedByPrefixTest/invalidPinecone.conf"));
+    assertThrows(StageException.class, () -> factory.get("EmitDocsToDeleteByPrefixTest/invalidPinecone.conf"));
   }
 
   @Test
@@ -67,7 +67,7 @@ public class EmitDocsToDeleteByPrefixTest {
       when(mock.build()).thenReturn(mockClient);
     })) {
 
-      assertThrows(StageException.class, () -> factory.get("EmitDeletedByPrefixTest/goodConfig.conf"));
+      assertThrows(StageException.class, () -> factory.get("EmitDocsToDeleteByPrefixTest/goodConfig.conf"));
     }
   }
 
@@ -76,7 +76,7 @@ public class EmitDocsToDeleteByPrefixTest {
     try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
       when(mock.build()).thenReturn(goodClient);
     })) {
-      Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
+      Stage stage = factory.get("EmitDocsToDeleteByPrefixTest/goodConfig.conf");
     } catch (StageException e) {
       fail();
     }
@@ -89,7 +89,7 @@ public class EmitDocsToDeleteByPrefixTest {
     try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
       when(mock.build()).thenReturn(mockClient);
     })) {
-      assertThrows(StageException.class, () -> factory.get("EmitDeletedByPrefixTest/goodConfig.conf"));
+      assertThrows(StageException.class, () -> factory.get("EmitDocsToDeleteByPrefixTest/goodConfig.conf"));
     }
   }
 
@@ -98,7 +98,7 @@ public class EmitDocsToDeleteByPrefixTest {
     try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
       when(mock.build()).thenReturn(goodClient);
     })) {
-      Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
+      Stage stage = factory.get("EmitDocsToDeleteByPrefixTest/goodConfig.conf");
     } catch (StageException e) {
       fail();
     }
@@ -124,7 +124,7 @@ public class EmitDocsToDeleteByPrefixTest {
     try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
       when(mock.build()).thenReturn(goodClient);
     })) {
-      Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
+      Stage stage = factory.get("EmitDocsToDeleteByPrefixTest/goodConfig.conf");
       Document doc1 = Document.create("id");
 
       // if doc1 has been marked for delete, it should return iterator of 3 documents, but since unmarked, will return null
@@ -145,7 +145,7 @@ public class EmitDocsToDeleteByPrefixTest {
       when(mock.build()).thenReturn(goodClient);
     })) {
 
-      Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
+      Stage stage = factory.get("EmitDocsToDeleteByPrefixTest/goodConfig.conf");
       Document doc1 = Document.create("id");
       doc1.setField("to_delete", "true");
 
@@ -174,7 +174,7 @@ public class EmitDocsToDeleteByPrefixTest {
       when(mock.build()).thenReturn(goodClient);
     })) {
 
-      Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
+      Stage stage = factory.get("EmitDocsToDeleteByPrefixTest/goodConfig.conf");
       Document doc1 = Document.create("id1");
       doc1.setField("to_delete", "true");
 
@@ -220,7 +220,7 @@ public class EmitDocsToDeleteByPrefixTest {
       when(mock.build()).thenReturn(goodClient);
     })) {
 
-      Stage stage = factory.get("EmitDeletedByPrefixTest/goodConfig.conf");
+      Stage stage = factory.get("EmitDocsToDeleteByPrefixTest/goodConfig.conf");
       Document doc1 = Document.create("id1");
       doc1.setField("to_delete", "true");
 
@@ -254,7 +254,7 @@ public class EmitDocsToDeleteByPrefixTest {
       when(mock.build()).thenReturn(goodClient);
     })) {
 
-      Stage stage = factory.get("EmitDeletedByPrefixTest/dropOriginal.conf");
+      Stage stage = factory.get("EmitDocsToDeleteByPrefixTest/dropOriginal.conf");
       Document doc1 = Document.create("id1");
       doc1.setField("to_delete", "true");
 

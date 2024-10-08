@@ -4,7 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -13,7 +12,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.IndexerException;
-import com.kmwllc.lucille.pinecone.util.PineconeUtils;
 import io.pinecone.clients.Index;
 import io.pinecone.clients.Pinecone;
 import io.pinecone.clients.Pinecone.Builder;
@@ -24,7 +22,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
-import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.UpdateMode;
@@ -223,6 +220,32 @@ public class PineconeIndexerTest {
       verify(goodIndex, times(1)).upsert(anyList(), nameSpaceUsed.capture());
       // test that "default" namespace is used when no namespace provided
       assertEquals("default", nameSpaceUsed.getValue());
+    }
+  }
+
+  @Test
+  public void testNoEmbeddingsProvided() throws Exception {
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
+      TestMessenger messenger = new TestMessenger();
+      Config configUpsert = ConfigFactory.load("PineconeIndexerTest/no-namespaces.conf");
+      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpsert, messenger, "testing");
+
+      indexerUpsert.validateConnection();
+      messenger.sendForIndexing(doc2);
+      // will log error for invalid upsert request
+      indexerUpsert.run(1);
+      // will not continue with upsert as error is thrown earlier
+      verify(goodIndex, times(0)).upsert(anyList(), anyString());
     }
   }
 

@@ -33,7 +33,8 @@ import java.util.stream.Collectors;
  *     PineconeIndexer
  * - deletionMarkerField (String) : name of the field which indicates the document is marked for deletion
  * - deletionMarkerFieldValue (String) : value of the field which indicates that the document is marked for deletion
- *   - for stage to work, deletionMarkerField and deletionMarkerFieldValue must be the same value provided indexer configs
+ *   - for stage to work as intended, index, apiKey, namespaces, deletionMarkerField and deletionMarkerFieldValue
+ *     should have the same value provided in indexer configs
  */
 public class EmitDocsToDeleteByPrefix extends Stage {
 
@@ -65,11 +66,11 @@ public class EmitDocsToDeleteByPrefix extends Stage {
       client = new Pinecone.Builder(config.getString("apiKey")).build();
       index = client.getIndexConnection(indexName);
     } catch (Exception e) {
-      throw new StageException("Unable to get client or index connection", e);
+      throw new StageException("Unable to connect to client or index.", e);
     }
 
     if (!PineconeUtils.isClientStable(client, indexName)) {
-      throw new StageException("Index " + indexName + " is not stable");
+      throw new StageException("Index " + indexName + " is not stable.");
     }
   }
 
