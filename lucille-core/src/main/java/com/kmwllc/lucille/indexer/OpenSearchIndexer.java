@@ -109,18 +109,19 @@ public class OpenSearchIndexer extends Indexer {
     Map<String, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
 
     // populate which collection each document belongs to
+    // if document is marked for deletion ONLY, then only add to idsToDelete
+    // if document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
+    // else then add to upload
     for (Document doc : documents) {
       String id = doc.getId();
       if (isMarkedForDeletion(doc)) {
         documentsToUpload.remove(id);
-        if (deleteByFieldField != null
-            && doc.has(deleteByFieldField)
-            && deleteByFieldValue != null
-            && doc.has(deleteByFieldValue)) {
-          if (!termsToDeleteByQuery.containsKey(doc.getString(deleteByFieldField))) {
-            termsToDeleteByQuery.put(doc.getString(deleteByFieldField), new ArrayList<>());
+        if (isMarkedForDeletionByField(doc)) {
+          String field = doc.getString(deleteByFieldField);
+          if (!termsToDeleteByQuery.containsKey(field)) {
+            termsToDeleteByQuery.put(field, new ArrayList<>());
           }
-          termsToDeleteByQuery.get(doc.getString(deleteByFieldField)).add(doc.getString(deleteByFieldValue));
+          termsToDeleteByQuery.get(field).add(doc.getString(deleteByFieldValue));
         } else {
           idsToDelete.add(id);
         }
@@ -288,9 +289,16 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   private boolean isMarkedForDeletion(Document doc) {
-    return this.deletionMarkerField != null
-        && this.deletionMarkerFieldValue != null
-        && doc.hasNonNull(this.deletionMarkerField)
-        && doc.getString(this.deletionMarkerField).equals(this.deletionMarkerFieldValue);
+    return deletionMarkerField != null
+        && deletionMarkerFieldValue != null
+        && doc.hasNonNull(deletionMarkerField)
+        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
+  }
+
+  private boolean isMarkedForDeletionByField(Document doc) {
+    return deleteByFieldField != null
+        && doc.has(deleteByFieldField)
+        && deleteByFieldValue != null
+        && doc.has(deleteByFieldValue);
   }
 }
