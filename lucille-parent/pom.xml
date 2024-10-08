@@ -121,7 +121,6 @@
           <scope>import</scope>
       </dependency>
 
-
       <dependency>
         <groupId>com.google.protobuf</groupId>
         <artifactId>protobuf-bom</artifactId>

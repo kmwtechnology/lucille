@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.api.jsonata4java.expressions.Expressions;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -102,8 +103,7 @@ public interface Document {
 
   /**
    * Sets the designated field to the given value, overwriting any value
-   * that existed previously, and making the field single-valued.
-   **/
+   * that existed previously, and making the field single-valued. **/
   void setField(String name, String value);
 
   void setField(String name, Boolean value);
@@ -435,6 +435,14 @@ public interface Document {
   void setDropped(boolean status);
 
   Document deepCopy();
+
+  /**
+   * Applies a JSONNata expression to this Document (as if it were a JSON object) and replaces this Document with the result. 
+   *
+   * @throws DocumentException if any reserved fields are mutated or if the result is not an object (primitive or array)
+   * @see <a href="https://github.com/IBM/JSONata4Java">JSONNata implementation</a>
+   */
+  void transform(Expressions expr) throws DocumentException;
 
   /**
    * Returns an Iterator that contains only this document.
