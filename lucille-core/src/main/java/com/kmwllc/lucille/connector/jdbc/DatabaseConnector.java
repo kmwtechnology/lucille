@@ -255,8 +255,14 @@ public class DatabaseConnector extends AbstractConnector {
 
     do {
       Object otherJoinId = rs2.getObject(joinField);
-      // will throw error if different class, if either of objects are null or not Comparable
-      int comparison = ((Comparable) otherJoinId).compareTo(joinId);
+      int comparison;
+      try {
+        comparison = ((Comparable) otherJoinId).compareTo(joinId);
+      } catch (NullPointerException e) {
+        throw new ConnectorException("Either otherJoinId or joinId is null.");
+      } catch (ClassCastException e) {
+        throw new ConnectorException("Either otherJoinId or JoinId class type prevents them from being compared.");
+      }
       if (comparison < 0) {
         // advance until we get to the id on the right side that we want.
         rs2.next();

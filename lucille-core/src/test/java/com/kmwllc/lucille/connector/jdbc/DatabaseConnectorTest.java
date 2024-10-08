@@ -411,12 +411,11 @@ public class DatabaseConnectorTest {
     // create the connector with the config
     DatabaseConnector connector = new DatabaseConnector(config);
     // run the connector, expect to throw non-comparable error
-    assertThrows("Other join field or joinId is not comparable.",ConnectorException.class, () -> connector.execute(publisher));
+    assertThrows(ConnectorException.class, () -> connector.execute(publisher));
     connector.close();
   }
 
-  // same comparisons of Date and Timestamp are same
-  @Ignore // wait until Documents support adding Date Type
+  @Ignore // remove when Document supports Date type
   @Test
   public void testJoiningDatabaseConnectorDateType() throws Exception {
     assertEquals(1, dbHelper.checkNumConnections());
