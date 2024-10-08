@@ -62,7 +62,7 @@ public class ParseJson extends Stage {
 
     for (Entry<String, Object> entry : this.jsonFieldPaths.entrySet()) {
       if (!isValidEntry(entry)) {
-        throw new StageException("jsonFieldPaths contains a blank or null value.");
+        throw new StageException("jsonFieldPaths mapping contains a blank or null key/value.");
       }
     }
   }
