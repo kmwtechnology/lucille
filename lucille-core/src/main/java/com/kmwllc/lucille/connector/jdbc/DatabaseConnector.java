@@ -241,7 +241,7 @@ public class DatabaseConnector extends AbstractConnector {
     runSql(connection, postSql);
   }
 
-  private void iterateOtherSQL(ResultSet rs2, String[] columns2, Document doc, Object joinId, int childId, String joinField) throws SQLException {
+  private void iterateOtherSQL(ResultSet rs2, String[] columns2, Document doc, Object joinId, int childId, String joinField) throws Exception {
     // Test if we need to advance or if we should read the current row ...
     if (rs2.isBeforeFirst()) {
       // we need to at least advance to the first row.
@@ -253,13 +253,9 @@ public class DatabaseConnector extends AbstractConnector {
       return;
     }
 
-    Object otherJoinId = rs2.getObject(joinField);
-    if (!(otherJoinId instanceof Comparable) || !(joinId instanceof Comparable) || !otherJoinId.getClass().equals(joinId.getClass())) {
-      throw new SQLException("Other join field or joinId is not comparable.");
-    }
-
     do {
-      otherJoinId = rs2.getObject(joinField);
+      Object otherJoinId = rs2.getObject(joinField);
+      // will throw error if different class, if either of objects are null or not Comparable
       int comparison = ((Comparable) otherJoinId).compareTo(joinId);
       if (comparison < 0) {
         // advance until we get to the id on the right side that we want.
