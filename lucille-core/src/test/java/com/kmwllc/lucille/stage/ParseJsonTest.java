@@ -19,6 +19,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ParseJsonTest {
@@ -215,20 +216,7 @@ public class ParseJsonTest {
 
   @Test
   public void testEmptyJsonPathConfig() throws Exception {
-    Stage stage = factory.get("ParseJson/emptyJsonPath.conf");
-    Document doc = Document.create("doc");
-    try (InputStream in = ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/test.json")) {
-      doc.setField("json", IOUtils.toString(in, StandardCharsets.UTF_8));
-      stage.processDocument(doc);
-
-      assertTrue(doc.has("json")); // ParseJson should not delete the designated src field
-      assertTrue(doc.has("id"));
-
-      // Get the map so we can assert that none from json has been added
-      Map<String, Object> docMap = doc.asMap();
-      // none have been added because emptyJsonPath.conf mapping gave empty keys, empty values and a null value
-      assertEquals(2, docMap.size()); // id, json only.
-    }
+    assertThrows(StageException.class, () -> factory.get("ParseJson/emptyJsonPath.conf"));
   }
 
   @Test
@@ -242,6 +230,7 @@ public class ParseJsonTest {
       assertTrue(doc.has("json")); // ParseJson should not delete the designated src field
       assertTrue(doc.has("id"));
 
+      // document should skip empty keys in json and null values
       Map<String, Object> docMap = doc.asMap();
       assertEquals(3, docMap.size()); // id, json and empty value for aTime
       assertTrue(doc.has("aTime"));

@@ -57,8 +57,14 @@ public class ParseJson extends Stage {
   }
 
   @Override
-  public void start() {
+  public void start() throws StageException {
     this.jsonParseCtx = JsonPath.using(this.jsonPathConf);
+
+    for (Entry<String, Object> entry : this.jsonFieldPaths.entrySet()) {
+      if (!isValidEntry(entry)) {
+        throw new StageException("jsonFieldPaths contains a blank or null value.");
+      }
+    }
   }
 
   @Override
@@ -75,12 +81,10 @@ public class ParseJson extends Stage {
       ctx = this.jsonParseCtx.parse(doc.getString(this.src));
     }
     for (Entry<String, Object> entry : this.jsonFieldPaths.entrySet()) {
-      if (isValidEntry(entry)) { // makes sure that key and value are not null
-        JsonNode val = ctx.read((String) entry.getValue(), JsonNode.class);
-        if (isValidNode(val)) { // makes sure that val and JsonNode Type is not null
-          // note that if val is an empty String, will still be set in the document
-          doc.setField(entry.getKey(), val);
-        }
+      JsonNode val = ctx.read((String) entry.getValue(), JsonNode.class);
+      if (isValidNode(val)) { // makes sure that val and JsonNode Type is not null
+        // note that if val is an empty String, will still be set in the document
+        doc.setField(entry.getKey(), val);
       }
     }
 
