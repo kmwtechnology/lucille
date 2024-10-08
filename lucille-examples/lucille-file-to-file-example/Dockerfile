@@ -1,4 +1,4 @@
-# This Dockerfile defines an image that runs Lucille in local mode using the latest OpenJDK 11
+# This Dockerfile defines an image that runs Lucille in local mode using the latest OpenJDK 17
 # with a Lucille configuration file that can be specified via an environment variable.
 #
 # To build an image using this Dockerfile you must first:
