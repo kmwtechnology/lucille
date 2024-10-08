@@ -48,7 +48,7 @@ public class JsonDocument implements Document {
 
   /**
    * Creates a new {@link JsonDocument} from a {@link ObjectNode} of key/value pairs. Note: does
-   * not defensively copy the given ObjectNode, so it must not be
+   * not defensively copy the given ObjectNode, so it must not be modified after creation
    *
    * @param data the data to be stored in the document
    * @throws DocumentException if document is missing a nonempty {@link Document#ID_FIELD}

@@ -55,7 +55,7 @@ public class ApplyJSONNata extends Stage {
     try {
       parsed = Expressions.parse(expression);
     } catch (ParseException e) {
-      throw new StageException("Exception occured while parsing expression: " + e.getLocalizedMessage());
+      throw new StageException("Exception occurred while parsing expression: " + e.getLocalizedMessage());
     } catch (IOException e) {
       throw new StageException("IO exception while parsing expression: " + e.getLocalizedMessage());
     }
@@ -67,7 +67,7 @@ public class ApplyJSONNata extends Stage {
       try {
         doc.transform(parsed);
       } catch (DocumentException e) {
-        log.warn("Exception occured when applying transformation", e);
+        log.warn("Exception occurred when applying transformation", e);
       }
       return null;
     }
@@ -80,7 +80,7 @@ public class ApplyJSONNata extends Stage {
     try {
       output = parsed.evaluate(doc.getJson(source));
     } catch (EvaluateException e) {
-      log.warn("Evaluation exception occured when applying transformation: ", e);
+      log.warn("Evaluation exception occurred when applying transformation: ", e);
       return null;
     }
 
