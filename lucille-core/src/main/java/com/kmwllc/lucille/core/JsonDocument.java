@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import com.api.jsonata4java.expressions.EvaluateException;
+import com.api.jsonata4java.expressions.Expressions;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -20,7 +22,6 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
-
 /**
  * Document implementation that functions as a lightweight wrapper around a piece of JSON.
  * Stores all field data in Jackson ObjectNode.
@@ -34,7 +35,7 @@ public class JsonDocument implements Document {
   private static final Logger log = LoggerFactory.getLogger(JsonDocument.class);
 
   @JsonValue
-  protected final ObjectNode data;
+  protected ObjectNode data;
 
   /**
    * A copy constructor for {@link Document} that deep copies the ObjectNode and verifies the
@@ -49,7 +50,7 @@ public class JsonDocument implements Document {
 
   /**
    * Creates a new {@link JsonDocument} from a {@link ObjectNode} of key/value pairs. Note: does
-   * not defensively copy the given ObjectNode, so it must not be modified after creation.
+   * not defensively copy the given ObjectNode, so it must not be modified after creation
    *
    * @param data the data to be stored in the document
    * @throws DocumentException if document is missing a nonempty {@link Document#ID_FIELD}
@@ -929,6 +930,30 @@ public class JsonDocument implements Document {
         arrayNode.add(jsonNode);
       }
     }
+  }
+
+  @Override
+  public void transform(Expressions expr) throws DocumentException {
+    HashMap<String, JsonNode> reserved = new HashMap<>();
+    RESERVED_FIELDS.stream().filter(field -> has(field)).forEach(field -> reserved.put(field, data.get(field)));
+    JsonNode transformed = null;
+    try {
+      transformed = expr.evaluate(data);
+    } catch (EvaluateException e) {
+      throw new DocumentException("Evaluation exception when applying transformation: " + e.getLocalizedMessage());
+    }
+
+    if (!transformed.isObject()) {
+      throw new DocumentException("Transformation must return a JSON object, not array or literal");
+    }
+
+    for (Map.Entry<String, JsonNode> entry : reserved.entrySet()) {
+      if (!entry.getValue().equals(transformed.get(entry.getKey()))) {
+        throw new DocumentException("The given transformation mutates a reserved field");
+      }
+    }
+
+    data = (ObjectNode) transformed;
   }
 
   private static ObjectNode getData(Document other) {

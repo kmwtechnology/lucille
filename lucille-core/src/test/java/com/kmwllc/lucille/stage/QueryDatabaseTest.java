@@ -2,7 +2,10 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
@@ -27,6 +30,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Set;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
@@ -108,7 +113,10 @@ public class QueryDatabaseTest {
             "jdbcPassword",
             "conditions",
             "class",
-            "sql"),
+            "sql",
+            "connectionRetries",
+            "connectionRetryPause",
+            "conditionPolicy"),
         stage.getLegalProperties());
   }
 
@@ -300,5 +308,59 @@ public class QueryDatabaseTest {
       return e.getMessage();
     }
     return "no Error found";
+  }
+
+  @Test
+  public void testConnectionRetry() throws StageException, SQLException {
+    Connection mockConnection = mock(Connection.class);
+    when(mockConnection.prepareStatement(any())).thenReturn(mock(PreparedStatement.class));
+    Answer<Connection> exceptionAnswer = new Answer<>() {
+      private int count = 0;
+      @Override
+      public Connection answer(InvocationOnMock invocation) throws Throwable {
+        if (count++ < 2) {
+          throw new SQLException("Connection failed");
+        }
+        return mockConnection;
+      }
+    };
+
+    try (MockedStatic<DriverManager> mockedDriverManager = mockStatic(DriverManager.class)) {
+      mockedDriverManager.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
+          .thenAnswer(exceptionAnswer);
+
+      assertThrows(StageException.class, () -> factory.get("QueryDatabaseTest/meal.conf"));
+      // verify that getConnection was called twice first attempt and then retry attempt
+      mockedDriverManager.verify(() -> DriverManager.getConnection(anyString(), anyString(), anyString()), times(2));
+    }
+    // verify that connection was never created, and so preparedStatement is never called.
+    verify(mockConnection, times(0)).prepareStatement(any());
+  }
+
+  @Test
+  public void testConnectionRetryAndSuccess() throws StageException, SQLException {
+    Connection mockConnection = mock(Connection.class);
+    when(mockConnection.prepareStatement(any())).thenReturn(mock(PreparedStatement.class));
+    Answer<Connection> exceptionAnswer = new Answer<>() {
+      private int count = 0;
+      @Override
+      public Connection answer(InvocationOnMock invocation) throws Throwable {
+        if (count++ < 1) {
+          throw new SQLException("Connection failed");
+        }
+        return mockConnection;
+      }
+    };
+
+    try (MockedStatic<DriverManager> mockedDriverManager = mockStatic(DriverManager.class)) {
+      mockedDriverManager.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
+          .thenAnswer(exceptionAnswer);
+
+      Stage stage = factory.get("QueryDatabaseTest/meal.conf");
+      // verify that getConnection was called twice first attempt and then retry attempt
+      mockedDriverManager.verify(() -> DriverManager.getConnection(anyString(), anyString(), anyString()), times(2));
+    }
+    // verify that connection has been established, and that prepareStatement was called
+    verify(mockConnection, times(1)).prepareStatement(any());
   }
 }

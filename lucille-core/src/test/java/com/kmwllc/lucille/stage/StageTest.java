@@ -186,6 +186,112 @@ public class StageTest {
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("StageTest/processMust.conf");
-    assertEquals(Set.of("name", "conditions", "class"), stage.getLegalProperties());
+    assertEquals(Set.of("name", "conditions", "class", "conditionPolicy"), stage.getLegalProperties());
+  }
+
+  @Test
+  public void testAnyPolicyTwoConditions() throws StageException {
+    Stage stage = factory.get("StageTest/anyPolicyTwoConditions.conf");
+
+    // Check that the must condition is applied
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", "1234");
+    assertProcessed(stage, doc1, true);
+
+    // add state with value in a list
+    Document doc2 = Document.create("doc2");
+    doc2.setField("state", "MA");
+    assertProcessed(stage, doc2, true);
+
+    Document doc3 = Document.create("doc3");
+    doc3.setField("user_id", "1234");
+    doc3.setField("state", "MA");
+    assertProcessed(stage, doc3, true);
+
+    Document doc4 = Document.create("doc4");
+    doc4.setField("country", "Russia");
+    assertProcessed(stage, doc4, false);
+  }
+
+  @Test
+  public void testAnyPolicyOneCondition() throws StageException {
+    Stage stage = factory.get("StageTest/anyPolicyOneCondition.conf");
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", "1234");
+    assertProcessed(stage, doc1, true);
+  }
+
+  @Test
+  public void testAnyPolicyNoCondition() throws StageException {
+    Stage stage = factory.get("StageTest/anyPolicyNoCondition.conf");
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", "1234");
+    assertProcessed(stage, doc1, true);
+  }
+
+  @Test
+  public void testAllPolicyNoCondition() throws StageException {
+    Stage stage = factory.get("StageTest/allPolicyNoCondition.conf");
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", "1234");
+    assertProcessed(stage, doc1, true);
+  }
+
+  @Test
+  public void testAllPolicyOneCondition() throws StageException {
+    Stage stage = factory.get("StageTest/allPolicyOneCondition.conf");
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", "1234");
+    assertProcessed(stage, doc1, true);
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("state", "MA");
+    assertProcessed(stage, doc2, false);
+  }
+
+  @Test
+  public void testAllPolicyTwoConditions() throws StageException {
+    Stage stage = factory.get("StageTest/allPolicyTwoConditions.conf");
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", "1234");
+    assertProcessed(stage, doc1, false);
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("state", "MA");
+    assertProcessed(stage, doc2, false);
+
+
+    Document doc3 = Document.create("doc3");
+    doc3.setField("user_id", "1234");
+    doc3.setField("state", "MA");
+    assertProcessed(stage, doc3, true);
+  }
+
+  @Test
+  public void testUnsupportedPolicy() {
+   assertThrows(StageException.class ,() -> factory.get("StageTest/unsupportedPolicy.conf"));
+  }
+
+
+  @Test
+  public void testConditionFieldNullValue() throws StageException {
+    Stage stage = factory.get("StageTest/nullCondField.conf");
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("user_id", (String) null);
+    assertProcessed(stage, doc1, true);
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("user_id", "1234");
+    assertProcessed(stage, doc2, false);
+
+    // must condition & field not present
+    Document doc3 = Document.create("doc3");
+    assertProcessed(stage, doc3, false);
   }
 }

@@ -17,6 +17,9 @@ import java.util.Set;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ParseJsonTest {
@@ -212,9 +215,33 @@ public class ParseJsonTest {
   }
 
   @Test
+  public void testEmptyJsonPathConfig() throws Exception {
+    assertThrows(StageException.class, () -> factory.get("ParseJson/emptyJsonPath.conf"));
+  }
+
+  @Test
+  public void testJsonValueEdgeCase() throws Exception {
+    Stage stage = factory.get("ParseJson/emptyJsonValue.conf");
+    Document doc = Document.create("doc");
+    try (InputStream in = ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/testEmptyValue.json")) {
+      doc.setField("json", IOUtils.toString(in, StandardCharsets.UTF_8));
+      stage.processDocument(doc);
+
+      assertTrue(doc.has("json")); // ParseJson should not delete the designated src field
+      assertTrue(doc.has("id"));
+
+      // document should skip empty keys in json and null values
+      Map<String, Object> docMap = doc.asMap();
+      assertEquals(3, docMap.size()); // id, json and empty value for aTime
+      assertTrue(doc.has("aTime"));
+      assertEquals("", docMap.get("aTime"));
+    }
+  }
+
+  @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("ParseJson/config.conf");
-    assertEquals(Set.of("src", "name", "sourceIsBase64", "conditions", "class"),
+    assertEquals(Set.of("src", "name", "sourceIsBase64", "conditions", "class", "conditionPolicy"),
         stage.getLegalProperties());
   }
 }

@@ -39,7 +39,7 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
     KafkaUtils.createEventTopic(config, pipelineName, runId);
 
     String kafkaClientId = "com.kmwllc.lucille-publisher-" + pipelineName;
-    String eventTopicName = KafkaUtils.getEventTopicName(pipelineName, runId);
+    String eventTopicName = KafkaUtils.getEventTopicName(config, pipelineName, runId);
     this.eventConsumer = KafkaUtils.createEventConsumer(config, kafkaClientId);
     this.eventConsumer.subscribe(Collections.singletonList(eventTopicName));
     this.kafkaProducer = KafkaUtils.createDocumentProducer(config);
