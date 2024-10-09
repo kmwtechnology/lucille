@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.sql.Timestamp;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -173,6 +175,18 @@ public class JsonDocument implements Document {
   public void setField(String name, byte[] value) {
     validateFieldNames(name);
     data.put(name, value);
+  }
+
+  @Override
+  public void setField(String name, Date value) {
+    Instant instant = Instant.ofEpochMilli(value.getTime());
+    setField(name, instant);
+  }
+
+  @Override
+  public void setField(String name, Timestamp value) {
+    Instant instant = Instant.ofEpochMilli(value.getTime());
+    setField(name, instant);
   }
 
   @Override
@@ -478,6 +492,43 @@ public class JsonDocument implements Document {
     return data.get(name);
   }
 
+  @Override
+  public Date getDate(String name) {
+    Instant instant = getInstant(name);
+    return instant == null ? null : Date.from(instant);
+  }
+
+  @Override
+  public List<Date> getDateList(String name) {
+    List<Instant> instants = getInstantList(name);
+    if (instants == null) {
+      return null;
+    } else {
+      return instants.stream()
+          .map(instant -> instant == null ? null : Date.from(instant))
+          .collect(Collectors.toList());
+    }
+  }
+
+
+  @Override
+  public Timestamp getTimestamp(String name) {
+    Instant instant = getInstant(name);
+    return instant == null ? null : Timestamp.from(instant);
+  }
+
+  @Override
+  public List<Timestamp> getTimestampList(String name) {
+    List<Instant> instants = getInstantList(name);
+    if (instants == null) {
+      return null;
+    } else {
+      return instants.stream()
+          .map(instant -> instant == null ? null : Timestamp.from(instant))
+          .collect(Collectors.toList());
+    }
+  }
+
   private JsonNode getSingleNode(String name) {
     return isMultiValued(name) ? data.withArray(name).get(0) : data.get(name);
   }
@@ -622,6 +673,18 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public void addToField(String name, Date value) {
+    Instant instant = Instant.ofEpochMilli(value.getTime());
+    addToField(name, instant);
+  }
+
+  @Override
+  public void addToField(String name, Timestamp value) {
+    Instant instant = Instant.ofEpochMilli(value.getTime());
+    addToField(name, instant);
+  }
+
+  @Override
   public void setOrAdd(String name, String value) {
     if (has(name)) {
       addToField(name, value);
@@ -695,6 +758,24 @@ public class JsonDocument implements Document {
 
   @Override
   public void setOrAdd(String name, JsonNode value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  @Override
+  public void setOrAdd(String name, Date value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  @Override
+  public void setOrAdd(String name, Timestamp value) {
     if (has(name)) {
       addToField(name, value);
     } else {

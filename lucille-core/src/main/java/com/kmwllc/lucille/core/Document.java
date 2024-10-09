@@ -4,8 +4,10 @@ import com.api.jsonata4java.expressions.Expressions;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -73,6 +75,10 @@ public interface Document {
 
   JsonNode getJson(String name);
 
+  Date getDate(String name);
+
+  Timestamp getTimestamp(String name);
+
   /* --- LIST GETTERS --- */
 
   /**
@@ -99,6 +105,10 @@ public interface Document {
 
   List<JsonNode> getJsonList(String name);
 
+  List<Date> getDateList(String name);
+
+  List<Timestamp> getTimestampList(String name);
+
   /* --- SINGLE-VALUE SETTERS --- */
 
   /**
@@ -115,6 +125,10 @@ public interface Document {
   void setField(String name, Float value);
 
   void setField(String name, Long value);
+
+  void setField(String name, Date value);
+
+  void setField(String name, Timestamp value);
 
   /**
    * Converts the given Instant to a String according to DateTimeFormatter.ISO_INSTANT and
@@ -145,12 +159,18 @@ public interface Document {
       setField(name, (Boolean) value);
     } else if (value instanceof Integer) {
       setField(name, (Integer) value);
+    } else if (value instanceof Float) {
+      setField(name, (Float) value);
     } else if (value instanceof Instant) {
       setField(name, (Instant) value);
     } else if (value instanceof byte[]) {
       setField(name, (byte[]) value);
     } else if (value instanceof JsonNode) {
       setField(name, (JsonNode) value);
+    } else if (value instanceof Timestamp) {
+      setField(name, (Timestamp) value);
+    } else if (value instanceof Date) {
+      setField(name, (Date) value);
     } else {
       throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
@@ -181,6 +201,10 @@ public interface Document {
 
   void addToField(String name, JsonNode value);
 
+  void addToField(String name, Date value);
+
+  void addToField(String name, Timestamp value);
+
   /**
    * Adds the given value to the designated field, converting the field to multivalued (i.e. a list)
    * if it was not multivalued already.
@@ -199,12 +223,18 @@ public interface Document {
       addToField(name, (Boolean) value);
     } else if (value instanceof Integer) {
       addToField(name, (Integer) value);
+    } else if (value instanceof Float) {
+      addToField(name, (Float) value);
     } else if (value instanceof Instant) {
       addToField(name, (Instant) value);
     } else if (value instanceof byte[]) {
       addToField(name, (byte[]) value);
     } else if (value instanceof JsonNode) {
       addToField(name, (JsonNode) value);
+    } else if (value instanceof Timestamp) {
+      addToField(name, (Timestamp) value);
+    } else if (value instanceof Date) {
+      addToField(name, (Date) value);
     } else {
       throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
@@ -238,6 +268,10 @@ public interface Document {
 
   void setOrAdd(String name, JsonNode value);
 
+  void setOrAdd(String name, Date value);
+
+  void setOrAdd(String name, Timestamp value);
+
   /**
    * @throws IllegalArgumentException if value is not of a supported type
    **/
@@ -252,12 +286,18 @@ public interface Document {
       setOrAdd(name, (Boolean) value);
     } else if (value instanceof Integer) {
       setOrAdd(name, (Integer) value);
+    } else if (value instanceof Float) {
+      setOrAdd(name, (Float) value);
     } else if (value instanceof Instant) {
       setOrAdd(name, (Instant) value);
     } else if (value instanceof byte[]) {
       setOrAdd(name, (byte[]) value);
     } else if (value instanceof JsonNode) {
       setOrAdd(name, (JsonNode) value);
+    } else if (value instanceof Timestamp) {
+      setOrAdd(name, (Timestamp) value);
+    } else if (value instanceof Date) {
+      setOrAdd(name, (Date) value);
     } else {
       throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
@@ -326,6 +366,14 @@ public interface Document {
 
   default void update(String name, UpdateMode mode, JsonNode... values) {
     update(name, mode, v -> setField(name, (JsonNode) v), v -> setOrAdd(name, (JsonNode) v), values);
+  }
+
+  default void update(String name, UpdateMode mode, Date... values) {
+    update(name, mode, v -> setField(name, (Date) v), v -> setOrAdd(name, (Date) v), values);
+  }
+
+  default void update(String name, UpdateMode mode, Timestamp... values) {
+    update(name, mode, v -> setField(name, (Timestamp) v), v -> setOrAdd(name, (Timestamp) v), values);
   }
 
   /**

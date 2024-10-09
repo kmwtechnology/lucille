@@ -5,7 +5,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Date;
 import org.junit.Test;
 
 import java.util.Base64;
@@ -139,6 +141,18 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals("2", doc.getStringList("myStringField").get(0));
     assertEquals(Integer.valueOf(1), doc.getIntList("myIntField").get(0));
     assertEquals(Integer.valueOf(2), doc.getIntList("myStringField").get(0));
+
+    doc.setField("myInstantField", Instant.ofEpochMilli(1L));
+    assertEquals(new Date(1L), doc.getDate("myInstantField"));
+    assertEquals(new Timestamp(1L), doc.getTimestamp("myInstantField"));
+
+    doc.setField("myDateField", new Date(1L));
+    assertEquals(Instant.ofEpochMilli(1L), doc.getInstant("myDateField"));
+    assertEquals(new Timestamp(1L), doc.getTimestamp("myDateField"));
+
+    doc.setField("myTimestampField", new Timestamp(1L));
+    assertEquals(new Date(1L), doc.getDate("myTimestampField"));
+    assertEquals(Instant.ofEpochMilli(1L), doc.getInstant("myTimestampField"));
   }
 
   @Test
