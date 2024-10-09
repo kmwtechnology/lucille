@@ -1,25 +1,23 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.kmwllc.lucille.core.IndexerException;
 import io.pinecone.clients.Index;
 import io.pinecone.clients.Pinecone;
-import io.pinecone.configs.PineconeConfig;
+import io.pinecone.clients.Pinecone.Builder;
 import io.pinecone.proto.UpsertResponse;
 import io.pinecone.unsigned_indices_model.VectorWithUnsignedIndices;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Vector;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -30,25 +28,24 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import io.pinecone.proto.UpdateRequest;
-import io.pinecone.proto.UpsertRequest;
-import io.pinecone.proto.VectorServiceGrpc;
 import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
 import org.openapitools.control.client.model.IndexModel;
 import org.openapitools.control.client.model.IndexModelStatus;
 
 public class PineconeIndexerTest {
 
-  private VectorServiceGrpc.VectorServiceBlockingStub stub;
-
   private Document doc0;
   private Document doc1;
   private Document doc2;
+  private Document doc3;
+  private Document doc3ToDelete;
+  private Document doc4ToDelete;
 
   private List<Float> doc0ForNamespace1;
   private List<Float> doc0ForNamespace2;
   private List<Float> doc1ForNamespace1;
   private List<Float> doc1ForNamespace2;
+  private List<Float> doc3ForNameSpace1;
 
   private IndexModel goodIndexModel;
   private IndexModel shutdownIndexModel;
@@ -67,10 +64,14 @@ public class PineconeIndexerTest {
     doc0 = Document.create("doc0");
     doc1 = Document.create("doc1");
     doc2 = Document.create("doc2"); // empty doc without embeddings
+    doc3 = Document.create("doc3");
+    doc3ToDelete = Document.create("doc3");
+    doc4ToDelete = Document.create("doc4");
     doc0ForNamespace1 = List.of(1.0f, 2.0f);
     doc0ForNamespace2 = List.of(3.0f, 4.0f);
     doc1ForNamespace1 = List.of(5.0f, 6.0f);
     doc1ForNamespace2 = List.of(7.0f, 8.0f);
+    doc3ForNameSpace1 = List.of(9.0f, 10.0f);
 
     doc0.update("vector-for-namespace1", UpdateMode.OVERWRITE, doc0ForNamespace1.toArray(new Float[0]));
     doc0.update("vector-for-namespace2", UpdateMode.OVERWRITE, doc0ForNamespace2.toArray(new Float[0]));
@@ -82,6 +83,9 @@ public class PineconeIndexerTest {
     doc1.update("metaString1", UpdateMode.OVERWRITE, "some string data 2");
     doc1.update("metaString2", UpdateMode.OVERWRITE, "some more string data 2");
     doc1.update("metaList", UpdateMode.OVERWRITE, 4, 5, 6);
+    doc3.update("vector-for-namespace1", UpdateMode.OVERWRITE, doc3ForNameSpace1.toArray(new Float[0]));
+    doc3ToDelete.setField("is_deleted", "true");
+    doc4ToDelete.setField("is_deleted", "true");
   }
 
   private void setUpIndexes() {
@@ -105,99 +109,102 @@ public class PineconeIndexerTest {
   }
 
   @Test
-  public void testClientCreatedWithCorrectConfig() {
-    Map<Pinecone, List<Object>> constructorArgs = new HashMap<>();
+  public void testValidateConnection() throws IndexerException {
+    // mocking
+    Pinecone mockClient = mock(Pinecone.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(mock(Index.class));
+    IndexModel goodModel = mock(IndexModel.class);
+    IndexModelStatus goodStatus = mock(IndexModelStatus.class);
+    StateEnum goodState = StateEnum.READY;
+    StateEnum badState = StateEnum.INITIALIZATIONFAILED;
+    when(goodModel.getStatus()).thenReturn(goodStatus);
+    when(mockClient.describeIndex(anyString())).thenReturn(goodModel);
+    when(goodStatus.getState()).thenReturn(badState).thenReturn(goodState);
 
-    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
-      constructorArgs.put(mock, new ArrayList<>(context.arguments()));
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
     })) {
-      Config configGood = ConfigFactory.load("PineconeIndexerTest/good-config.conf");
+
       TestMessenger messenger = new TestMessenger();
-      new PineconeIndexer(configGood, messenger, "testing");
+      Config configGood = ConfigFactory.load("PineconeIndexerTest/good-config.conf");
+      PineconeIndexer indexer = new PineconeIndexer(configGood, messenger, "testing");
 
-      assertTrue(client.constructed().size() == 1);
-      Pinecone constructed = client.constructed().get(0);
-      assertTrue(constructorArgs.get(constructed).get(0) instanceof PineconeConfig);
-
-      PineconeConfig config = (PineconeConfig) constructorArgs.get(constructed).get(0);
-
-      assertEquals("apiKey", config.getApiKey());
+      // false, then true
+      assertFalse(indexer.validateConnection());
+      assertTrue(indexer.validateConnection());
     }
   }
 
   @Test
-  public void testValidateConnection() {
-    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
-      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
-      when(mock.describeIndex("failure")).thenReturn(failureIndexModel);
-      when(mock.describeIndex("shutdown")).thenReturn(shutdownIndexModel);
+  public void testCloseConnection() throws IndexerException {
+    // mocking
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.TERMINATING); // testing for when index should be terminated
+
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
     })) {
+
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/good-config.conf");
-      Config configFailure = ConfigFactory.load("PineconeIndexerTest/failure-config.conf");
-      Config configShutdown = ConfigFactory.load("PineconeIndexerTest/shutdown-config.conf");
-
-      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
-      PineconeIndexer indexerFailure = new PineconeIndexer(configFailure, messenger, "testing");
-      PineconeIndexer indexerShutdown = new PineconeIndexer(configShutdown, messenger, "testing");
-
-      assertTrue(indexerGood.validateConnection());
-      assertFalse(indexerFailure.validateConnection());
-      assertFalse(indexerShutdown.validateConnection());
-    }
-  }
-
-  @Test
-  public void testCloseConnection() {
-    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
-      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
-      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
-    })) {
-      TestMessenger messenger = new TestMessenger();
-      Config configGood = ConfigFactory.load("PineconeIndexerTest/good-config.conf");
-      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
-
-      assertTrue(indexerGood.validateConnection());
-      indexerGood.closeConnection();
-      Mockito.verify(goodIndex, Mockito.times(1)).close();
+      PineconeIndexer indexer = new PineconeIndexer(configGood, messenger, "testing");
+      indexer.closeConnection();
+      assertFalse(indexer.validateConnection());
+      // should have called close once
+      verify(goodIndex, times(1)).close();
     }
   }
 
   @Test
   public void testUpsertAndUpdateEmptyNamespacesProvided() {
-    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
-      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
+    // mocking
+    Pinecone mockClient = mock(Pinecone.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
     })) {
+
       TestMessenger messenger = new TestMessenger();
       TestMessenger messenger2 = new TestMessenger();
       Config configUpsert = ConfigFactory.load("PineconeIndexerTest/empty-namespaces.conf");
       Config configUpdate = ConfigFactory.load("PineconeIndexerTest/empty-namespaces-update.conf");
 
-      assertThrows(IllegalArgumentException.class, () -> {
+      assertThrows(IndexerException.class, () -> {
         new PineconeIndexer(configUpdate, messenger, "testing");
       });
 
-      assertThrows(IllegalArgumentException.class, () -> {
+      assertThrows(IndexerException.class, () -> {
         new PineconeIndexer(configUpsert, messenger2, "testing");
       });
-
     }
   }
 
   @Test
   public void testUpsertNoNamespacesProvided() throws Exception {
-    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
-      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
+    // mocking
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    UpsertResponse response = Mockito.mock(UpsertResponse.class);
+    when(response.getUpsertedCount()).thenReturn(2);
+    when(goodIndex.upsert(anyList(), anyString())).thenReturn(response);
 
-      UpsertResponse response = Mockito.mock(UpsertResponse.class);
-      when(response.getUpsertedCount()).thenReturn(2);
-
-      when(goodIndex.upsert(anyList(), anyString())).thenReturn(response);
-      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
     })) {
+
       TestMessenger messenger = new TestMessenger();
       Config configUpsert = ConfigFactory.load("PineconeIndexerTest/no-namespaces.conf");
-
       PineconeIndexer indexerUpsert = new PineconeIndexer(configUpsert, messenger, "testing");
 
       indexerUpsert.validateConnection();
@@ -207,23 +214,58 @@ public class PineconeIndexerTest {
       indexerUpsert.run(2);
 
       // assert that no updates have been made
-      Mockito.verify(goodIndex, Mockito.times(0)).update(Mockito.any(), Mockito.any(), Mockito.any());
+      verify(goodIndex, times(0)).update(Mockito.any(), Mockito.any(), Mockito.any());
       // assert that an upsert was made to the right nameSpace
       ArgumentCaptor<String> nameSpaceUsed = ArgumentCaptor.forClass(String.class);
-      Mockito.verify(goodIndex, Mockito.times(1)).upsert(anyList(), nameSpaceUsed.capture());
-      assertEquals("", nameSpaceUsed.getValue());
+      verify(goodIndex, times(1)).upsert(anyList(), nameSpaceUsed.capture());
+      // test that "default" namespace is used when no namespace provided
+      assertEquals("default", nameSpaceUsed.getValue());
+    }
+  }
+
+  @Test
+  public void testNoEmbeddingsProvided() throws Exception {
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
+      TestMessenger messenger = new TestMessenger();
+      Config configUpsert = ConfigFactory.load("PineconeIndexerTest/no-namespaces.conf");
+      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpsert, messenger, "testing");
+
+      indexerUpsert.validateConnection();
+      messenger.sendForIndexing(doc2);
+      // will log error for invalid upsert request
+      indexerUpsert.run(1);
+      // will not continue with upsert as error is thrown earlier
+      verify(goodIndex, times(0)).upsert(anyList(), anyString());
     }
   }
 
   @Test
   public void testUpdateNoNamespacesProvided() throws Exception {
-    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
-      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
-      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
+    // mocking
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
     })) {
+
       TestMessenger messenger = new TestMessenger();
       Config configUpdate = ConfigFactory.load("PineconeIndexerTest/no-namespaces-update.conf");
-
       PineconeIndexer indexerUpsert = new PineconeIndexer(configUpdate, messenger, "testing");
 
       indexerUpsert.validateConnection();
@@ -232,27 +274,33 @@ public class PineconeIndexerTest {
       messenger.sendForIndexing(doc1);
       indexerUpsert.run(2);
 
-      // assert that an update was made
+      // assert that update was called twice (called for each document)
       ArgumentCaptor<String> nameSpaceUsed = ArgumentCaptor.forClass(String.class);
-      Mockito.verify(goodIndex, Mockito.times(2)).update(Mockito.any(), Mockito.any(), nameSpaceUsed.capture());
+      verify(goodIndex, times(2)).update(Mockito.any(), Mockito.any(), nameSpaceUsed.capture());
       // assert that no upserts have been made
-      Mockito.verify(goodIndex, Mockito.times(0)).upsert(Mockito.any(), nameSpaceUsed.capture());
-
-      assertEquals("", nameSpaceUsed.getAllValues().get(0));
-      assertEquals("", nameSpaceUsed.getAllValues().get(1));
+      verify(goodIndex, times(0)).upsert(Mockito.any(), nameSpaceUsed.capture());
+      // test that both were called to "default" when no namespace was provided
+      assertEquals("default", nameSpaceUsed.getAllValues().get(0));
+      assertEquals("default", nameSpaceUsed.getAllValues().get(1));
     }
   }
 
   @Test
   public void testUpsertMultipleNamespaces() throws Exception {
-    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
-      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
-      UpsertResponse response = Mockito.mock(UpsertResponse.class);
-      when(response.getUpsertedCount()).thenReturn(2);
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    UpsertResponse response = Mockito.mock(UpsertResponse.class);
+    when(response.getUpsertedCount()).thenReturn(2);
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
 
       when(goodIndex.upsert(anyList(), anyString())).thenReturn(response);
-      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
-    })) {
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/two-namespaces.conf");
       PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
@@ -263,20 +311,18 @@ public class PineconeIndexerTest {
       indexerGood.run(2);
 
       // make sure no updates were made
-      Mockito.verify(goodIndex, Mockito.times(0)).update(Mockito.anyString(), Mockito.any(), Mockito.anyString());
+      verify(goodIndex, times(0)).update(Mockito.anyString(), Mockito.any(), Mockito.anyString());
       // make sure two upserts were made
       ArgumentCaptor<List<VectorWithUnsignedIndices>> vectorCaptor = ArgumentCaptor.forClass(List.class);
       ArgumentCaptor<String> namespaceCaptor = ArgumentCaptor.forClass(String.class);
-      Mockito.verify(goodIndex, Mockito.times(2)).upsert(vectorCaptor.capture(), namespaceCaptor.capture());
+      verify(goodIndex, times(2)).upsert(vectorCaptor.capture(), namespaceCaptor.capture());
 
+      // test that the appropriate namespaces were used and the size expected
       List<List<VectorWithUnsignedIndices>> vectors = vectorCaptor.getAllValues();
-
       List<VectorWithUnsignedIndices> namespace2Upsert = vectors.get(0);
       List<VectorWithUnsignedIndices> namespace1Upsert = vectors.get(1);
-
       assertEquals("namespace-1", namespaceCaptor.getAllValues().get(1));
       assertEquals("namespace-2", namespaceCaptor.getAllValues().get(0));
-
       assertEquals(2, namespace1Upsert.size());
       assertEquals(2, namespace2Upsert.size());
 
@@ -290,14 +336,22 @@ public class PineconeIndexerTest {
 
   @Test
   public void testCorrectMetadata() throws Exception {
-    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
-      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
-      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
+    // mocking
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    UpsertResponse response = Mockito.mock(UpsertResponse.class);
+    when(response.getUpsertedCount()).thenReturn(2);
+    when(goodIndex.upsert(anyList(), anyString())).thenReturn(response);
 
-      UpsertResponse response = Mockito.mock(UpsertResponse.class);
-      when(response.getUpsertedCount()).thenReturn(2);
-      when(goodIndex.upsert(anyList(), anyString())).thenReturn(response);
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
     })) {
+
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/two-namespaces.conf");
       PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
@@ -308,7 +362,7 @@ public class PineconeIndexerTest {
       indexerGood.run(2);
 
       ArgumentCaptor<List<VectorWithUnsignedIndices>> captor = ArgumentCaptor.forClass(List.class);
-      Mockito.verify(goodIndex, Mockito.times(2)).upsert(captor.capture(), Mockito.anyString());
+      verify(goodIndex, times(2)).upsert(captor.capture(), Mockito.anyString());
       List<VectorWithUnsignedIndices> namespace1Upsert = captor.getAllValues().get(0);
       List<VectorWithUnsignedIndices> namespace2Upsert = captor.getAllValues().get(1);
 
@@ -341,9 +395,17 @@ public class PineconeIndexerTest {
 
   @Test
   public void testUpdateMultipleNamespaces() throws Exception {
-    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
-      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
-      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
+    // mocking
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
     })) {
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/two-namespaces-update.conf");
@@ -357,17 +419,17 @@ public class PineconeIndexerTest {
       // make sure four updates were made (one update per document per namespace)
       ArgumentCaptor<String> stringArgumentCaptor = ArgumentCaptor.forClass(String.class);
       ArgumentCaptor<List<Float>> listArgumentCaptor = ArgumentCaptor.forClass(List.class);
-      Mockito.verify(goodIndex, Mockito.times(4)).update(anyString(), listArgumentCaptor.capture(), stringArgumentCaptor.capture());
+      verify(goodIndex, times(4)).update(anyString(), listArgumentCaptor.capture(), stringArgumentCaptor.capture());
       // make sure no upserts were made
       ArgumentCaptor<String> stringArgumentCaptor2 = ArgumentCaptor.forClass(String.class);
       ArgumentCaptor<List<VectorWithUnsignedIndices>> listArgumentCaptor2 = ArgumentCaptor.forClass(List.class);
-      Mockito.verify(goodIndex, Mockito.times(0)).upsert(listArgumentCaptor2.capture(), stringArgumentCaptor2.capture());
+      verify(goodIndex, times(0)).upsert(listArgumentCaptor2.capture(), stringArgumentCaptor2.capture());
 
+      // make sure appropriate namespace was used
       String namespace2Request1 = stringArgumentCaptor.getAllValues().get(0);
       String namespace2Request2 = stringArgumentCaptor.getAllValues().get(1);
       String namespace1Request1 = stringArgumentCaptor.getAllValues().get(2);
       String namespace1Request2 = stringArgumentCaptor.getAllValues().get(3);
-
       assertEquals("namespace-1", namespace1Request1);
       assertEquals("namespace-1", namespace1Request2);
       assertEquals("namespace-2", namespace2Request1);
@@ -385,34 +447,247 @@ public class PineconeIndexerTest {
   }
 
   @Test
-  public void testFilterDocsWithNoEmbeddings() throws Exception {
-    try (MockedConstruction<Pinecone> client = Mockito.mockConstruction(Pinecone.class, (mock, context) -> {
-      when(mock.getIndexConnection("good")).thenReturn(goodIndex);
+  public void testDeletionById() throws Exception {
+    // mocking
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.READY);
 
-      UpsertResponse response = Mockito.mock(UpsertResponse.class);
-      when(response.getUpsertedCount()).thenReturn(1); // in this test we expect only one of the two docs to be upserted
-
-      when(goodIndex.upsert(anyList(), anyString())).thenReturn(response);
-      when(mock.describeIndex("good")).thenReturn(goodIndexModel);
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
     })) {
+
       TestMessenger messenger = new TestMessenger();
-      Config configUpsert = ConfigFactory.load("PineconeIndexerTest/no-namespaces.conf");
+      Config configGood = ConfigFactory.load("PineconeIndexerTest/deletion-config.conf");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      indexerGood.validateConnection();
 
-      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpsert, messenger, "testing");
+      messenger.sendForIndexing(doc3ToDelete);
+      messenger.sendForIndexing(doc4ToDelete);
+      indexerGood.run(2);
 
-      indexerUpsert.validateConnection();
+      // make sure a single deletion was called containing all the documents
+      ArgumentCaptor<List<String>> ListArgumentCaptor = ArgumentCaptor.forClass(List.class);
+      verify(goodIndex, times(1)).deleteByIds(ListArgumentCaptor.capture(), anyString());
+
+      // make sure vectors are correct for each document and namespace
+      List<String> idsSentForDeletion = ListArgumentCaptor.getAllValues().get(0);
+      assertEquals(2, idsSentForDeletion.size());
+      assertEquals(doc3ToDelete.getId(), idsSentForDeletion.get(0));
+      assertEquals(doc4ToDelete.getId(), idsSentForDeletion.get(1));
+    }
+  }
+
+  @Test
+  public void testUpsertAndDeletes() throws Exception {
+    // mocking
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    UpsertResponse mockResponse = mock(UpsertResponse.class);
+    when(mockResponse.getUpsertedCount()).thenReturn(2);
+    when(goodIndex.upsert(anyList(), anyString())).thenReturn(mockResponse);
+
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
+
+      TestMessenger messenger = new TestMessenger();
+      Config configGood = ConfigFactory.load("PineconeIndexerTest/upsert-and-delete.conf");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      indexerGood.validateConnection();
 
       messenger.sendForIndexing(doc0);
-      messenger.sendForIndexing(doc2);
-      indexerUpsert.run(2);
+      messenger.sendForIndexing(doc1);
+      messenger.sendForIndexing(doc3ToDelete);
+      messenger.sendForIndexing(doc4ToDelete);
+      indexerGood.run(4);
 
-      // assert that an upsert was made
+      // assert that no updates have been made
+      verify(goodIndex, times(0)).update(Mockito.any(), Mockito.any(), Mockito.any());
+      // assert that an upsert was made to the right documents to the right nameSpace
+      ArgumentCaptor<String> nameSpaceUsed = ArgumentCaptor.forClass(String.class);
       ArgumentCaptor<List<VectorWithUnsignedIndices>> listArgumentCaptor = ArgumentCaptor.forClass(List.class);
-      Mockito.verify(goodIndex, Mockito.times(1)).upsert(listArgumentCaptor.capture(), anyString());
+      verify(goodIndex, times(1)).upsert(listArgumentCaptor.capture(), nameSpaceUsed.capture());
+      assertEquals("default", nameSpaceUsed.getValue());
+      List<VectorWithUnsignedIndices> vectorIndices = listArgumentCaptor.getValue();
+      assertEquals(vectorIndices.size(), 2);
+      assertEquals(doc0.getId(), vectorIndices.get(0).getId());
+      assertEquals(doc1.getId(), vectorIndices.get(1).getId());
 
-      // check that only one document was upserted and the vector belongs to doc0
-      assertEquals(1, listArgumentCaptor.getValue().size());
-      assertEquals(doc0ForNamespace1,listArgumentCaptor.getValue().get(0).getValuesList());
+      // make sure a deletion were made (for doc3 and doc4)
+      ArgumentCaptor<List<String>> listArgumentCaptor2 = ArgumentCaptor.forClass(List.class);
+      verify(goodIndex, times(1)).deleteByIds(listArgumentCaptor2.capture(), anyString());
+
+      // make sure vectors are correct for each document and namespace
+      List<String> idsSentForDeletion = listArgumentCaptor2.getAllValues().get(0);
+      assertEquals(doc3ToDelete.getId(), idsSentForDeletion.get(0));
+      assertEquals(doc4ToDelete.getId(), idsSentForDeletion.get(1));
+    }
+  }
+
+
+  @Test
+  public void testUpdateAndDeletes() throws Exception {
+    // mocking
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    UpsertResponse mockResponse = mock(UpsertResponse.class);
+    when(mockResponse.getUpsertedCount()).thenReturn(2);
+    when(goodIndex.upsert(anyList(), anyString())).thenReturn(mockResponse);
+
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
+
+      TestMessenger messenger = new TestMessenger();
+      Config configGood = ConfigFactory.load("PineconeIndexerTest/update-and-delete.conf");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      indexerGood.validateConnection();
+
+      messenger.sendForIndexing(doc0);
+      messenger.sendForIndexing(doc1);
+      messenger.sendForIndexing(doc3ToDelete);
+      messenger.sendForIndexing(doc4ToDelete);
+      indexerGood.run(4);
+
+      // assert that no upserts have been made
+      verify(goodIndex, times(0)).upsert(Mockito.any(), Mockito.any(), Mockito.any());
+      // assert that an update was made to the right documents to the right Ids
+      ArgumentCaptor<String> idsCapture = ArgumentCaptor.forClass(String.class);
+      ArgumentCaptor<String> namespaceUsed = ArgumentCaptor.forClass(String.class);
+      verify(goodIndex, times(2)).update(idsCapture.capture(), anyList(), namespaceUsed.capture());
+      assertEquals(doc0.getId(), idsCapture.getAllValues().get(0));
+      assertEquals(doc1.getId(), idsCapture.getAllValues().get(1));
+
+      // make sure a deletion were made (for doc3 and doc4)
+      ArgumentCaptor<List<String>> listArgumentCaptor2 = ArgumentCaptor.forClass(List.class);
+      verify(goodIndex, times(1)).deleteByIds(listArgumentCaptor2.capture(), anyString());
+
+      // make sure vectors are correct for each document and namespace
+      List<String> idsSentForDeletion = listArgumentCaptor2.getAllValues().get(0);
+      assertEquals(doc3ToDelete.getId(), idsSentForDeletion.get(0));
+      assertEquals(doc4ToDelete.getId(), idsSentForDeletion.get(1));
+    }
+  }
+
+
+  @Test
+  public void testUploadThenDeleteInSameBatch() throws Exception {
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    UpsertResponse mockResponse = mock(UpsertResponse.class);
+    when(mockResponse.getUpsertedCount()).thenReturn(2);
+    when(goodIndex.upsert(anyList(), anyString())).thenReturn(mockResponse);
+
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
+
+      TestMessenger messenger = new TestMessenger();
+      Config configGood = ConfigFactory.load("PineconeIndexerTest/update-and-delete.conf");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      indexerGood.validateConnection();
+
+      messenger.sendForIndexing(doc0);
+      messenger.sendForIndexing(doc1);
+      messenger.sendForIndexing(doc3);
+      messenger.sendForIndexing(doc3ToDelete);
+      indexerGood.run(4);
+
+      // assert that no upserts have been made
+      verify(goodIndex, times(0)).upsert(Mockito.any(), Mockito.any(), Mockito.any());
+      // assert that an update was made to the right documents to the right Ids
+      ArgumentCaptor<String> idsCapture = ArgumentCaptor.forClass(String.class);
+      ArgumentCaptor<String> namespaceUsed = ArgumentCaptor.forClass(String.class);
+      verify(goodIndex, times(2)).update(idsCapture.capture(), anyList(), namespaceUsed.capture());
+      assertEquals(2, idsCapture.getAllValues().size()); // doc3 is not added
+      assertEquals(doc0.getId(), idsCapture.getAllValues().get(0));
+      assertEquals(doc1.getId(), idsCapture.getAllValues().get(1));
+      assertEquals("default", namespaceUsed.getValue());
+
+      // make sure a deletion were made (for doc3ToDelete)
+      ArgumentCaptor<List<String>> listArgumentCaptor2 = ArgumentCaptor.forClass(List.class);
+      verify(goodIndex, times(1)).deleteByIds(listArgumentCaptor2.capture(), anyString());
+
+      // make sure vectors are correct for each document and namespace
+      List<String> idsSentForDeletion = listArgumentCaptor2.getAllValues().get(0);
+      assertEquals(doc3ToDelete.getId(), idsSentForDeletion.get(0));
+    }
+  }
+
+  @Test
+  public void testDeleteThenUploadInSameBatch() throws Exception {
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
+
+      TestMessenger messenger = new TestMessenger();
+      Config configGood = ConfigFactory.load("PineconeIndexerTest/update-and-delete.conf");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      indexerGood.validateConnection();
+
+      messenger.sendForIndexing(doc3ToDelete);
+      messenger.sendForIndexing(doc3);
+      indexerGood.run(2);
+
+      // doc3ToDelete would be removed, and so will not be called
+      verify(goodIndex, times(0)).deleteByIds(anyList(), anyString());
+
+      // assert that an update was made to the right documents to the right Ids
+      ArgumentCaptor<String> idsCapture = ArgumentCaptor.forClass(String.class);
+      ArgumentCaptor<String> namespaceUsed = ArgumentCaptor.forClass(String.class);
+      verify(goodIndex, times(1)).update(idsCapture.capture(), anyList(), namespaceUsed.capture());
+      assertEquals(doc3.getId(), idsCapture.getAllValues().get(0));
+      assertEquals("default", namespaceUsed.getValue());
+    }
+  }
+
+  @Test
+  public void testInvalidBatchSize() throws Exception {
+    Pinecone mockClient = mock(Pinecone.class);
+    IndexModel mockIndexModel = Mockito.mock(IndexModel.class);
+    IndexModelStatus mockStatus = Mockito.mock(IndexModelStatus.class);
+    when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
+    when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
+    when(mockIndexModel.getStatus()).thenReturn(mockStatus);
+    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
+
+      TestMessenger messenger = new TestMessenger();
+      Config configGood = ConfigFactory.load("PineconeIndexerTest/invalidBatchSize.conf");
+
+      // throw error if indexer batch size is set to 1001
+      assertThrows(IndexerException.class,() -> new PineconeIndexer(configGood, messenger, "testing"));
     }
   }
 }

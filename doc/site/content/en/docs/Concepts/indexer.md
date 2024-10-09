@@ -1,17 +1,24 @@
 ---
 title: Indexer
-date: 2017-01-05
-description: A short lead description about this content page.
+date: 2024-05-22
+description: A thread that retrieves completed documents and sends them in batches to a search engine.
 categories: [Examples]
 tags: [test, sample, docs]
 ---
 
-{{% pageinfo %}}
-This is a placeholder page. Replace it with your own content.
-{{% /pageinfo %}}
+# Lucille Indexers
+The core Lucille project contains a number of commonly used Indexers. Additional Indexers are provided as optional plugin modules.
 
-Text can be **bold**, _italic_, or ~~strikethrough~~. [Links](https://gohugo.io) should be blue with no underlines (unless hovered over).
+### Lucille Indexers (Core)
 
-```
-This is the final element on the page and there should be no margin below this.
-```
+* [CSV Indexer](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/indexer/CSVIndexer.java)
+* [Elasticsearch Indexer](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/indexer/ElasticsearchIndexer.java)
+* [OpenSearch Indexer](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/indexer/OpenSearchIndexer.java)
+* [Solr Indexer](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/indexer/SolrIndexer.java)
+
+
+### Lucille Indexers (Plugins)
+
+* [Pinecone Indexer](https://github.com/kmwtechnology/lucille/tree/main/lucille-plugins/lucille-pinecone)
+* [Weaviate Indexer](https://github.com/kmwtechnology/lucille/tree/main/lucille-plugins/lucille-weaviate)
+  

@@ -2,7 +2,10 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
@@ -12,6 +15,8 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import java.nio.charset.StandardCharsets;
+import java.sql.Date;
+import java.sql.Timestamp;
 import java.util.TimeZone;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -25,6 +30,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Set;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
@@ -107,6 +114,8 @@ public class QueryDatabaseTest {
             "conditions",
             "class",
             "sql",
+            "connectionRetries",
+            "connectionRetryPause",
             "conditionPolicy"),
         stage.getLegalProperties());
   }
@@ -189,9 +198,9 @@ public class QueryDatabaseTest {
     // Boolean
     assertEquals(true, d1.getBoolean("boolean_col"));
     assertEquals(true, d1.getBoolean("bit_col"));
-    // String
-    assertEquals("2024-07-30", d1.getString("date_col"));
-    assertEquals("1970-01-01 00:00:01.0", d1.getString("timestamp_col"));
+    // Date & Timestamp
+    assertEquals(Date.valueOf("2024-07-30"), d1.getDate("date_col"));
+    assertEquals(Timestamp.valueOf("1970-01-01 00:00:01.0"), d1.getTimestamp("timestamp_col"));
     // Null will not be added to document
     assertFalse(d1.has("nullable_int"));
     assertNull(d1.getString("nullable_varchar"));
@@ -242,9 +251,9 @@ public class QueryDatabaseTest {
     // Boolean
     assertEquals(false, d2.getBoolean("boolean_col"));
     assertEquals(false, d2.getBoolean("bit_col"));
-    // String
-    assertEquals("2023-01-01", d2.getString("date_col"));
-    assertEquals("2038-01-19 03:14:07.0", d2.getString("timestamp_col"));
+    // Date & Timestamp
+    assertEquals(Date.valueOf("2023-01-01"), d2.getDate("date_col"));
+    assertEquals(Timestamp.valueOf("2038-01-19 03:14:07.0"), d2.getTimestamp("timestamp_col"));
     // null will not be added
     assertFalse(d2.has("nullable_int"));
     assertNull(d2.getString("nullable_varchar"));
@@ -299,5 +308,59 @@ public class QueryDatabaseTest {
       return e.getMessage();
     }
     return "no Error found";
+  }
+
+  @Test
+  public void testConnectionRetry() throws StageException, SQLException {
+    Connection mockConnection = mock(Connection.class);
+    when(mockConnection.prepareStatement(any())).thenReturn(mock(PreparedStatement.class));
+    Answer<Connection> exceptionAnswer = new Answer<>() {
+      private int count = 0;
+      @Override
+      public Connection answer(InvocationOnMock invocation) throws Throwable {
+        if (count++ < 2) {
+          throw new SQLException("Connection failed");
+        }
+        return mockConnection;
+      }
+    };
+
+    try (MockedStatic<DriverManager> mockedDriverManager = mockStatic(DriverManager.class)) {
+      mockedDriverManager.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
+          .thenAnswer(exceptionAnswer);
+
+      assertThrows(StageException.class, () -> factory.get("QueryDatabaseTest/meal.conf"));
+      // verify that getConnection was called twice first attempt and then retry attempt
+      mockedDriverManager.verify(() -> DriverManager.getConnection(anyString(), anyString(), anyString()), times(2));
+    }
+    // verify that connection was never created, and so preparedStatement is never called.
+    verify(mockConnection, times(0)).prepareStatement(any());
+  }
+
+  @Test
+  public void testConnectionRetryAndSuccess() throws StageException, SQLException {
+    Connection mockConnection = mock(Connection.class);
+    when(mockConnection.prepareStatement(any())).thenReturn(mock(PreparedStatement.class));
+    Answer<Connection> exceptionAnswer = new Answer<>() {
+      private int count = 0;
+      @Override
+      public Connection answer(InvocationOnMock invocation) throws Throwable {
+        if (count++ < 1) {
+          throw new SQLException("Connection failed");
+        }
+        return mockConnection;
+      }
+    };
+
+    try (MockedStatic<DriverManager> mockedDriverManager = mockStatic(DriverManager.class)) {
+      mockedDriverManager.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
+          .thenAnswer(exceptionAnswer);
+
+      Stage stage = factory.get("QueryDatabaseTest/meal.conf");
+      // verify that getConnection was called twice first attempt and then retry attempt
+      mockedDriverManager.verify(() -> DriverManager.getConnection(anyString(), anyString(), anyString()), times(2));
+    }
+    // verify that connection has been established, and that prepareStatement was called
+    verify(mockConnection, times(1)).prepareStatement(any());
   }
 }

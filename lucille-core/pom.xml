@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.3.1-SNAPSHOT</version>
+    <version>0.4.1-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
@@ -17,6 +17,11 @@
   <name>Lucille Core</name>
 
   <dependencies>
+    <dependency>
+      <groupId>com.ibm.jsonata4java</groupId>
+      <artifactId>JSONata4Java</artifactId>
+      <version>2.5.0</version>
+    </dependency>
     <dependency>
       <groupId>org.opensearch.client</groupId>
       <artifactId>opensearch-java</artifactId>
@@ -304,6 +309,14 @@
         <artifactId>jtokkit</artifactId>
         <version>1.1.0</version>
     </dependency>
+    <!--  dependency for Chunk Stage -->
+
+    <dependency>
+      <groupId>org.apache.opennlp</groupId>
+      <artifactId>opennlp-tools</artifactId>
+      <version>2.4.0</version>
+    </dependency>
+
   </dependencies>
 
 

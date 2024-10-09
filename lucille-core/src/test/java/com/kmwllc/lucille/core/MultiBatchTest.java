@@ -206,4 +206,10 @@ public class MultiBatchTest {
 
     assertEquals(3, batch.flush().size());
   }
+
+  @Test
+  public void testGetCapacity() throws InterruptedException {
+    MultiBatch batch = new MultiBatch(100, 1000, "index");
+    assertEquals(100, batch.getCapacity());
+  }
 }

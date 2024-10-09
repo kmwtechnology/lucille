@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.util.JDBCUtils;
 import com.typesafe.config.Config;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -29,6 +30,25 @@ import java.util.stream.Collectors;
  * Note: currently this connector with otherSQL statements only supports integers as a
  * join key.
  *
+ * Config Parameters:
+ * - driver (String) : Driver used for creating a connection to database
+ * - connectionString (String) : used for establishing a connection to the right database
+ * - jdbcUser (String) : username to access database
+ * - jdbcPassword (String) : password to access database
+ * - sql (String) : SQL statement to query the database.
+ * - idField (String) : column name used for id in the database
+ * - fetchSize (Integer, Optional): returns the desired resultSet size if set
+ * - preSQL (String, Optional): SQL statement that returns nothing. Performed before sql is executed.
+ *    e.g. INSERT, DELETE, UPDATE, SQL DDL statement.
+ * - postSQL (String, Optional): SQL statement that returns nothing. Performed after sql is executed.
+ *    e.g. INSERT, DELETE, UPDATE, SQL DDL statement.
+ * - otherSQLs (List<String>, Optional): list of SQL statements to query and retrieve another result set of size fetchSize if set.
+ *    For joining result sets.
+ * - otherJoinFields (String, Optional, required if otherSQL is provided) : join field used for other result sets retrieved from otherSQLs
+ * - ignoreColumns (List<String>, Optional) : list of columns to ignore when populating Lucille document from sql result set.
+ * - connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1
+ * - connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds
+ *
  * @author kwatters
  */
 public class DatabaseConnector extends AbstractConnector {
@@ -47,6 +67,8 @@ public class DatabaseConnector extends AbstractConnector {
   private final List<String> otherSQLs;
   private final List<String> otherJoinFields;
   private final Set<String> ignoreColumns;
+  private final Integer connectionRetries;
+  private final Integer connectionRetryPause;
   private final List<Connection> connections = new ArrayList<>();
   // TODO: consider moving this down to the base connector class.
   //  private ConnectorState state = null;
@@ -85,25 +107,42 @@ public class DatabaseConnector extends AbstractConnector {
               .map(String::toLowerCase)
               .collect(Collectors.toSet()));
     }
+    connectionRetries = config.hasPath("connectionRetries") && config.getInt("connectionRetries") > 0
+        ? config.getInt("connectionRetries") : 1;
+    connectionRetryPause = config.hasPath("connectionRetryPause") && config.getInt("connectionRetryPause") > 0
+        ? config.getInt("connectionRetryPause") : 10000;
   }
 
   // create a jdbc connection
-  private Connection createConnection() throws ClassNotFoundException, SQLException {
-    Connection connection;
+  private Connection createConnectionWithRetries() throws ClassNotFoundException, SQLException {
     try {
       Class.forName(driver);
     } catch (ClassNotFoundException e) {
       log.error("Driver not found {} check classpath to make sure the jdbc driver jar file is there.", driver);
       throw e;
     }
-    try {
-      connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
-    } catch (SQLException e) {
-      log.error("Unable to connect to database {} user:{}", connectionString, jdbcUser);
-      throw e;
+
+    // try to get connection, and if fails, retry up to "connectionRetries"
+    for (int attempt = 0; attempt <= connectionRetries; attempt++) {
+      try {
+        Connection connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
+        connections.add(connection);
+        return connection;
+      } catch (SQLException e) {
+        if (attempt == connectionRetries) {
+          log.error("Unable to connect to database {} user:{} after retrying {} time(s).", connectionString, jdbcUser, attempt);
+          throw e;
+        }
+        log.warn("Unable to connect to the database {} user:{} on retry attempt: {}. Retrying...", connectionString, jdbcUser, attempt);
+        try {
+          TimeUnit.MILLISECONDS.sleep(connectionRetryPause);
+        } catch (InterruptedException e2) {
+          log.warn("Interrupted while waiting for retry buffer to sleep.");
+        }
+      }
     }
-    connections.add(connection);
-    return connection;
+    // should never reach this line
+    throw new SQLException("Failed to connect after " + connectionRetries + " attempts");
   }
 
   private int getIdColumnIndex(String[] columns) throws ConnectorException {
@@ -124,7 +163,7 @@ public class DatabaseConnector extends AbstractConnector {
     Connection connection = null;
     Statement statement = null;
     try {
-      connection = createConnection();
+      connection = createConnectionWithRetries();
       // run the pre-sql (if specified)
       runSql(connection, preSql);
       // TODO: make sure we cleanup result set/statement/connections properly.
@@ -301,7 +340,7 @@ public class DatabaseConnector extends AbstractConnector {
       // create a new connection instead of re-using this one because we're using forward only result sets
       Connection connection = null;
       try {
-        connection = createConnection();
+        connection = createConnectionWithRetries();
       } catch (ClassNotFoundException e) {
         log.error("Error creating connection.", e);
       }
