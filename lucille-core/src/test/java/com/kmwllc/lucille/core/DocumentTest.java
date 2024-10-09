@@ -671,7 +671,9 @@ public abstract class DocumentTest {
     assertFalse(document.isMultiValued("date"));
     assertEquals(new Date(1L), document.getDate("date"));
     assertEquals(Collections.singletonList(new Date(1L)), document.getDateList("date"));
-    //TODO: assertEquals(new Date(1L).toString(), document.getString("date"));
+    // date is stored as an ISO INSTANT formatted string in JsonDocument, but stores the object itself in HashMapDocument
+    // getString on a date field would produce different results depending on document class as date.toString() produces a
+    // different output than the iso instant formatted string.
   }
 
   @Test
@@ -712,7 +714,9 @@ public abstract class DocumentTest {
     assertFalse(document.isMultiValued("timestamp"));
     assertEquals(new Timestamp(1L), document.getTimestamp("timestamp"));
     assertEquals(Collections.singletonList(new Timestamp(1L)), document.getTimestampList("timestamp"));
-    //TODO: assertEquals(new Timestamp(1L).toString(), document.getString("timestamp"));
+    // timestamp is stored as an ISO INSTANT formatted string in JsonDocument, but stores the object itself in HashMapDocument
+    // getString on a timestamp field would produce different results depending on document class as timestamp.toString() produces a
+    // different output than the iso instant formatted string.
   }
 
   @Test
