@@ -131,15 +131,10 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    if (!documentsToUpload.isEmpty()) {
-      uploadDocuments(new ArrayList<>(documentsToUpload.values()));
-    }
 
-    if (termsToDeleteByQuery.isEmpty()) {
-      deleteById(new ArrayList<>(idsToDelete));
-    } else {
-      deleteByQuery(termsToDeleteByQuery, new ArrayList<>(idsToDelete));
-    }
+    uploadDocuments(new ArrayList<>(documentsToUpload.values()));
+    deleteById(new ArrayList<>(idsToDelete));
+    deleteByQuery(termsToDeleteByQuery);
   }
 
   private void deleteById(List<String> idsToDelete) throws Exception {
@@ -168,10 +163,10 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private void deleteByQuery(Map<String, List<String>> termsToDeleteByQuery, List<String> idsToDelete) throws Exception {
-    // first delete existing ids needed to be deleted, if idsToDelete is empty will return
-    deleteById(idsToDelete);
-
+  private void deleteByQuery(Map<String, List<String>> termsToDeleteByQuery) throws Exception {
+    if (termsToDeleteByQuery.isEmpty()) {
+      return;
+    }
     // termsToDeleteByQuery is never empty
     BoolQuery.Builder boolQuery = new BoolQuery.Builder();
     for (Map.Entry<String, List<String>> entry : termsToDeleteByQuery.entrySet()) {
@@ -203,6 +198,10 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   private void uploadDocuments(List<Document> documentsToUpload) throws IOException, IndexerException {
+    if (documentsToUpload.isEmpty()) {
+      return;
+    }
+
     BulkRequest.Builder br = new BulkRequest.Builder();
     for (Document doc : documentsToUpload) {
 
