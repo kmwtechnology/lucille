@@ -259,9 +259,9 @@ public class DatabaseConnector extends AbstractConnector {
       try {
         comparison = ((Comparable) otherJoinId).compareTo(joinId);
       } catch (NullPointerException e) {
-        throw new ConnectorException("Either otherJoinId or joinId is null.");
+        throw new ConnectorException("Either otherJoinId or joinId is null.", e);
       } catch (ClassCastException e) {
-        throw new ConnectorException("Either otherJoinId or JoinId class type prevents them from being compared.");
+        throw new ConnectorException("Either otherJoinId or JoinId class type prevents them from being compared.", e);
       }
       if (comparison < 0) {
         // advance until we get to the id on the right side that we want.

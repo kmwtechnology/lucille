@@ -410,7 +410,7 @@ public class DatabaseConnectorTest {
 
     // create the connector with the config
     DatabaseConnector connector = new DatabaseConnector(config);
-    // run the connector, expect to throw non-comparable error
+    // throws error as JSON type is not comparable
     assertThrows(ConnectorException.class, () -> connector.execute(publisher));
     connector.close();
   }
