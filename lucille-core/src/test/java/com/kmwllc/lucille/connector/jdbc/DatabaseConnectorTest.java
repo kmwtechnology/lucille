@@ -15,6 +15,7 @@ import java.sql.Timestamp;
 import java.sql.Statement;
 import java.util.Arrays;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.MockedStatic;
@@ -463,6 +464,114 @@ public class DatabaseConnectorTest {
 
     // TODO: better verification / edge cases.. also formalize the "children" docs.
     String expected = "{\"id\":\"1\",\"name\":\"Matt\",\".children\":[{\"id\":\"0\",\"meal_id\":1,\"animal_id\":1,\"name\":\"breakfast\"},{\"id\":\"1\",\"meal_id\":2,\"animal_id\":1,\"name\":\"lunch\"},{\"id\":\"2\",\"meal_id\":3,\"animal_id\":1,\"name\":\"dinner\"}],\"run_id\":\"testRunId\"}";
+    assertEquals(expected, docs.get(0).toString());
+
+    connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+  @Test
+  public void testJoiningDatabaseConnectorStringType() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select name,type from animal order by name");
+    configValues.put("idField", "name");
+    // a list of other sql statements
+    ArrayList<String> otherSql = new ArrayList<>();
+    otherSql.add("select id as network_id,name,friendsWith from network order by name");
+    configValues.put("otherSQLs", otherSql);
+    // The join fields. id goes to animal_id
+    ArrayList<String> otherJoinFields = new ArrayList<>();
+    otherJoinFields.add("name");
+    configValues.put("otherJoinFields", otherJoinFields);
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // create the connector with the config
+    DatabaseConnector connector = new DatabaseConnector(config);
+    // run the connector
+    connector.execute(publisher);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(3, docs.size());
+    String expected = "{\"id\":\"Matt\",\"name\":\"Matt\",\"type\":\"Human\",\".children\":[{\"id\":\"0\",\"network_id\":3,\"name\":\"Matt\",\"friendswith\":\"Bob\"},{\"id\":\"1\",\"network_id\":4,\"name\":\"Matt\",\"friendswith\":\"Sonny\"},{\"id\":\"2\",\"network_id\":5,\"name\":\"Matt\",\"friendswith\":\"Blaze\"}],\"run_id\":\"testRunId\"}";
+    assertEquals(expected, docs.get(1).toString());
+
+    connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+  @Test
+  public void testJoiningDatabaseConnectorNonComparable() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select name,type from animal order by name");
+    configValues.put("idField", "name");
+    // a list of other sql statements
+    ArrayList<String> otherSql = new ArrayList<>();
+    otherSql.add("select id as _id,name,metadata from nonComparable order by name");
+    configValues.put("otherSQLs", otherSql);
+    // The join fields. id goes to animal_id
+    ArrayList<String> otherJoinFields = new ArrayList<>();
+    otherJoinFields.add("metadata");
+    configValues.put("otherJoinFields", otherJoinFields);
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // create the connector with the config
+    DatabaseConnector connector = new DatabaseConnector(config);
+    // throws error as JSON type is not comparable
+    assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+    connector.close();
+  }
+
+  @Ignore // remove when Document supports Date type
+  @Test
+  public void testJoiningDatabaseConnectorDateType() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select name,type,birthday from animal where id=2");
+    configValues.put("idField", "birthday");
+    // a list of other sql statements
+    ArrayList<String> otherSql = new ArrayList<>();
+    otherSql.add("select id as adoption_id,name,adoptedOn from adopted order by adoptedOn");
+    configValues.put("otherSQLs", otherSql);
+    // The join fields. id goes to animal_id
+    ArrayList<String> otherJoinFields = new ArrayList<>();
+    otherJoinFields.add("adoptedOn");
+    configValues.put("otherJoinFields", otherJoinFields);
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // create the connector with the config
+    DatabaseConnector connector = new DatabaseConnector(config);
+    // run the connector
+    connector.execute(publisher);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(1, docs.size());
+    String expected = "{\"id\":\"Matt\",\"name\":\"Matt\",\"type\":\"Human\",\".children\":[{\"id\":\"0\",\"network_id\":3,\"name\":\"Matt\",\"friendswith\":\"Bob\"},{\"id\":\"1\",\"network_id\":4,\"name\":\"Matt\",\"friendswith\":\"Sonny\"},{\"id\":\"2\",\"network_id\":5,\"name\":\"Matt\",\"friendswith\":\"Blaze\"}],\"run_id\":\"testRunId\"}";
     assertEquals(expected, docs.get(0).toString());
 
     connector.close();
