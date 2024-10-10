@@ -172,7 +172,7 @@ public class OpenSearchIndexer extends Indexer {
     for (Map.Entry<String, List<String>> entry : termsToDeleteByQuery.entrySet()) {
       String field = entry.getKey();
       List<String> values = entry.getValue();
-      boolQuery.filter(f -> f
+      boolQuery.should(f -> f
         .terms(t -> t
           .field(field)
           .terms(tt -> tt.value(values.stream()
@@ -182,6 +182,7 @@ public class OpenSearchIndexer extends Indexer {
         )
       );
     }
+    boolQuery.minimumShouldMatch("1");
 
     DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest.Builder()
         .index(index)

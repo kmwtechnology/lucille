@@ -2,6 +2,7 @@ package com.kmwllc.lucille.indexer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -21,19 +22,17 @@ import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.solr.common.SolrInputDocument;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.ErrorCause;
+import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.VersionType;
 import org.opensearch.client.opensearch._types.query_dsl.BoolQuery;
 import org.opensearch.client.opensearch._types.query_dsl.Query;
@@ -135,7 +134,7 @@ public class OpenSearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
-    Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
+    assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
 
@@ -255,6 +254,86 @@ public class OpenSearchIndexerTest {
     // checking delByQuery has the remainder of the documents 8 and 10
     List<DeleteByQueryRequest> deleteByQueryRequestValue = deleteByQueryRequestArgumentCaptor.getAllValues();
     assertEquals(2, deleteByQueryRequestValue.size());
+    // checking each request
+    for (DeleteByQueryRequest deleteByQueryRequest : deleteByQueryRequestValue) {
+      assert deleteByQueryRequest.query() != null;
+      BoolQuery query = deleteByQueryRequest.query().bool();
+      // check that we did not set filter, must or mustnot
+      assertEquals(0,query.filter().size());
+      assertEquals(0, query.must().size());
+      assertEquals(0, query.mustNot().size());
+
+      // we expect 1 termsQuery for each deleteByQueryRequest
+      List<Query> queries = query.should();
+      assertEquals(1, queries.size());
+      TermsQuery termsQuery = queries.get(0).terms();
+
+      // check that the terms and fieldValue is what we expect from doc8 and doc10
+      assertEquals("field", termsQuery.field());
+      List<FieldValue> fieldValues = termsQuery.terms().value();
+      assertEquals(1, fieldValues.size());
+      assertEquals("value", fieldValues.get(0).stringValue());
+    }
+  }
+
+  @Test
+  public void testDeleteByQuery() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/testDeleteByQuery.conf");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+
+    Document doc1DelByQuery = Document.create("doc1", "test_run");
+    doc1DelByQuery.setField("deleted", "true");
+    doc1DelByQuery.setField("field", "doc1field");
+    doc1DelByQuery.setField("value", "doc1value");
+
+    Document doc1v2DelByQuery = Document.create("doc1v2", "test_run");
+    doc1v2DelByQuery.setField("deleted", "true");
+    doc1v2DelByQuery.setField("field", "doc1field");
+    doc1v2DelByQuery.setField("value", "doc1v2value");
+
+    Document doc2DelByQuery = Document.create("doc2", "test_run");
+    doc2DelByQuery.setField("deleted", "true");
+    doc2DelByQuery.setField("field", "doc2field");
+    doc2DelByQuery.setField("value", "doc2value");
+
+    messenger.sendForIndexing(doc1DelByQuery);
+    messenger.sendForIndexing(doc1v2DelByQuery);
+    messenger.sendForIndexing(doc2DelByQuery);
+
+    indexer.run(3);
+
+    ArgumentCaptor<DeleteByQueryRequest> deleteByQueryRequestArgumentCaptor = ArgumentCaptor.forClass(DeleteByQueryRequest.class);
+    verify(mockClient, times(1)).deleteByQuery(deleteByQueryRequestArgumentCaptor.capture());
+
+    assertEquals(1, deleteByQueryRequestArgumentCaptor.getAllValues().size());
+    DeleteByQueryRequest deleteByQueryRequestValue = deleteByQueryRequestArgumentCaptor.getAllValues().get(0);
+    assert deleteByQueryRequestValue.query() != null;
+    BoolQuery query = deleteByQueryRequestValue.query().bool();
+    assertEquals("1", query.minimumShouldMatch());
+
+    // check that bool query does not contain any filter/must/mustnots
+    assertEquals(0,query.filter().size());
+    assertEquals(0, query.must().size());
+    assertEquals(0, query.mustNot().size());
+
+    // we expect 2 termQueries doc1field and doc2field
+    List<Query> queries = query.should();
+    assertEquals(2, queries.size());
+    TermsQuery query1 = queries.get(0).terms();
+    TermsQuery query2 = queries.get(1).terms();
+
+    assertEquals("doc1field", query1.field());
+    assertEquals("doc2field", query2.field());
+
+    List<FieldValue> fieldValues1 = query1.terms().value();
+    List<FieldValue> fieldValues2 = query2.terms().value();
+    assertEquals(2, fieldValues1.size());
+    assertEquals(1, fieldValues2.size());
+
+    assertEquals("doc1value", fieldValues1.get(0).stringValue());
+    assertEquals("doc1v2value", fieldValues1.get(1).stringValue());
+    assertEquals("doc2value", fieldValues2.get(0).stringValue());
   }
 
   @Test
