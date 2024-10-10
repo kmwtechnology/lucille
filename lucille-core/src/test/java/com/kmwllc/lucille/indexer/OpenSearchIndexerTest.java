@@ -1,9 +1,13 @@
 package com.kmwllc.lucille.indexer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,23 +21,26 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.solr.common.SolrInputDocument;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.ErrorCause;
+import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.VersionType;
+import org.opensearch.client.opensearch._types.query_dsl.BoolQuery;
+import org.opensearch.client.opensearch._types.query_dsl.Query;
+import org.opensearch.client.opensearch._types.query_dsl.TermsQuery;
 import org.opensearch.client.opensearch.core.BulkRequest;
 import org.opensearch.client.opensearch.core.BulkResponse;
+import org.opensearch.client.opensearch.core.DeleteByQueryRequest;
+import org.opensearch.client.opensearch.core.DeleteByQueryResponse;
 import org.opensearch.client.opensearch.core.bulk.BulkOperation;
 import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
 import org.opensearch.client.opensearch.core.bulk.IndexOperation;
@@ -61,7 +68,11 @@ public class OpenSearchIndexerTest {
     BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
     BulkRequest mockBulkRequest = Mockito.mock(BulkRequest.class);
     Mockito.when(mockRequestBuilder.build()).thenReturn(mockBulkRequest);
-    Mockito.when(mockClient.bulk(ArgumentMatchers.any(BulkRequest.class))).thenReturn(mockResponse);
+    Mockito.when(mockClient.bulk(any(BulkRequest.class))).thenReturn(mockResponse);
+
+    DeleteByQueryResponse mockDeleteByQueryResponse = Mockito.mock(DeleteByQueryResponse.class);
+    when(mockClient.deleteByQuery(any(DeleteByQueryRequest.class))).thenReturn(mockDeleteByQueryResponse);
+    when(mockDeleteByQueryResponse.failures()).thenReturn(new ArrayList<>());
   }
 
   /**
@@ -82,12 +93,12 @@ public class OpenSearchIndexerTest {
     messenger.sendForIndexing(doc2);
     indexer.run(2);
 
-    Assert.assertEquals(2, messenger.getSentEvents().size());
+    assertEquals(2, messenger.getSentEvents().size());
 
     List<Event> events = messenger.getSentEvents();
     for (int i = 1; i <= events.size(); i++) {
-      Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
-      Assert.assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
+      assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
     }
   }
 
@@ -111,10 +122,10 @@ public class OpenSearchIndexerTest {
     indexer.run(5);
 
     List<Event> events = messenger.getSentEvents();
-    Assert.assertEquals(5, events.size());
+    assertEquals(5, events.size());
     for (int i = 1; i <= events.size(); i++) {
-      Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
-      Assert.assertEquals(Event.Type.FAIL, events.get(i - 1).getType());
+      assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      assertEquals(Event.Type.FAIL, events.get(i - 1).getType());
     }
   }
 
@@ -123,9 +134,9 @@ public class OpenSearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
-    Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
-    Assert.assertFalse(indexer.validateConnection());
-    Assert.assertFalse(indexer.validateConnection());
+    assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
+    assertFalse(indexer.validateConnection());
+    assertFalse(indexer.validateConnection());
 
   }
 
@@ -162,11 +173,167 @@ public class OpenSearchIndexerTest {
 
     assertEquals(doc5.getId(), indexRequest.id());
 
-    Assert.assertEquals(5, messenger.getSentEvents().size());
+    assertEquals(5, messenger.getSentEvents().size());
 
     List<Event> events = messenger.getSentEvents();
-    Assert.assertEquals("doc1", events.get(0).getDocumentId());
-    Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+    assertEquals("doc1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  @Test
+  public void testDeletion() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+
+    Document doc3MarkedDeleted = Document.create("doc3", "test_run");
+    doc3MarkedDeleted.setField("deleted", "true");
+    Document doc4 = Document.create("doc4", "test_run");
+
+    Document doc5 = Document.create("doc5", "test_run");
+    Document doc6MarkedDeleted = Document.create("doc6", "test_run");
+    doc6MarkedDeleted.setField("deleted", "true");
+
+    Document doc7 = Document.create("doc7", "test_run");
+    Document doc8DelByQuery = Document.create("doc8", "test_run");
+    doc8DelByQuery.setField("deleted", "true");
+    doc8DelByQuery.setField("field", "field");
+    doc8DelByQuery.setField("value", "value");
+
+    Document doc9MarkedDeleted = Document.create("doc9", "test_run");
+    doc9MarkedDeleted.setField("deleted", "true");
+    Document doc10DelByQuery = Document.create("doc10", "test_run");
+    doc10DelByQuery.setField("deleted", "true");
+    doc10DelByQuery.setField("field", "field");
+    doc10DelByQuery.setField("value", "value");
+
+    // batch 1
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    // batch 2
+    messenger.sendForIndexing(doc3MarkedDeleted);
+    messenger.sendForIndexing(doc4);
+    // batch 3
+    messenger.sendForIndexing(doc5);
+    messenger.sendForIndexing(doc6MarkedDeleted);
+    // batch 4
+    messenger.sendForIndexing(doc7);
+    messenger.sendForIndexing(doc8DelByQuery);
+    // batch 5
+    messenger.sendForIndexing(doc9MarkedDeleted);
+    messenger.sendForIndexing(doc10DelByQuery);
+
+    indexer.run(10);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(
+        BulkRequest.class);
+    ArgumentCaptor<DeleteByQueryRequest> deleteByQueryRequestArgumentCaptor = ArgumentCaptor.forClass(DeleteByQueryRequest.class);
+
+    // batch 1 -> one bulk req to upload both
+    // batch 2 -> one bulk req to delete, one bulk req to upload
+    // batch 3 -> one bulk req to upload, one bulk req to delete
+    // batch 4 -> one bulk req to upload, one delByQuery req
+    // batch 5 -> one bulk req to delete, one delByQuery req
+    verify(mockClient, times(7)).bulk(bulkRequestArgumentCaptor.capture());
+    verify(mockClient, times(2)).deleteByQuery(deleteByQueryRequestArgumentCaptor.capture());
+
+    // checking bulk request types and id
+    List<BulkRequest> bulkRequestValue = bulkRequestArgumentCaptor.getAllValues();
+    assertEquals("doc1", bulkRequestValue.get(0).operations().get(0).index().id());
+    assertEquals("doc2", bulkRequestValue.get(0).operations().get(1).index().id());
+    assertEquals("doc4", bulkRequestValue.get(1).operations().get(0).index().id());
+    assertEquals("doc3", bulkRequestValue.get(2).operations().get(0).delete().id());
+    assertEquals("doc5", bulkRequestValue.get(3).operations().get(0).index().id());
+    assertEquals("doc6", bulkRequestValue.get(4).operations().get(0).delete().id());
+    assertEquals("doc7", bulkRequestValue.get(5).operations().get(0).index().id());
+    assertEquals("doc9", bulkRequestValue.get(6).operations().get(0).delete().id());
+
+    // checking delByQuery has the remainder of the documents 8 and 10
+    List<DeleteByQueryRequest> deleteByQueryRequestValue = deleteByQueryRequestArgumentCaptor.getAllValues();
+    assertEquals(2, deleteByQueryRequestValue.size());
+    // checking each request
+    for (DeleteByQueryRequest deleteByQueryRequest : deleteByQueryRequestValue) {
+      assert deleteByQueryRequest.query() != null;
+      BoolQuery query = deleteByQueryRequest.query().bool();
+      // check that we did not set filter, must or mustnot
+      assertEquals(0,query.filter().size());
+      assertEquals(0, query.must().size());
+      assertEquals(0, query.mustNot().size());
+
+      // we expect 1 termsQuery for each deleteByQueryRequest
+      List<Query> queries = query.should();
+      assertEquals(1, queries.size());
+      TermsQuery termsQuery = queries.get(0).terms();
+
+      // check that the terms and fieldValue is what we expect from doc8 and doc10
+      assertEquals("field", termsQuery.field());
+      List<FieldValue> fieldValues = termsQuery.terms().value();
+      assertEquals(1, fieldValues.size());
+      assertEquals("value", fieldValues.get(0).stringValue());
+    }
+  }
+
+  @Test
+  public void testDeleteByQuery() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/testDeleteByQuery.conf");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+
+    Document doc1DelByQuery = Document.create("doc1", "test_run");
+    doc1DelByQuery.setField("deleted", "true");
+    doc1DelByQuery.setField("field", "doc1field");
+    doc1DelByQuery.setField("value", "doc1value");
+
+    Document doc1v2DelByQuery = Document.create("doc1v2", "test_run");
+    doc1v2DelByQuery.setField("deleted", "true");
+    doc1v2DelByQuery.setField("field", "doc1field");
+    doc1v2DelByQuery.setField("value", "doc1v2value");
+
+    Document doc2DelByQuery = Document.create("doc2", "test_run");
+    doc2DelByQuery.setField("deleted", "true");
+    doc2DelByQuery.setField("field", "doc2field");
+    doc2DelByQuery.setField("value", "doc2value");
+
+    messenger.sendForIndexing(doc1DelByQuery);
+    messenger.sendForIndexing(doc1v2DelByQuery);
+    messenger.sendForIndexing(doc2DelByQuery);
+
+    indexer.run(3);
+
+    ArgumentCaptor<DeleteByQueryRequest> deleteByQueryRequestArgumentCaptor = ArgumentCaptor.forClass(DeleteByQueryRequest.class);
+    verify(mockClient, times(1)).deleteByQuery(deleteByQueryRequestArgumentCaptor.capture());
+
+    assertEquals(1, deleteByQueryRequestArgumentCaptor.getAllValues().size());
+    DeleteByQueryRequest deleteByQueryRequestValue = deleteByQueryRequestArgumentCaptor.getAllValues().get(0);
+    assert deleteByQueryRequestValue.query() != null;
+    BoolQuery query = deleteByQueryRequestValue.query().bool();
+    assertEquals("1", query.minimumShouldMatch());
+
+    // check that bool query does not contain any filter/must/mustnots
+    assertEquals(0,query.filter().size());
+    assertEquals(0, query.must().size());
+    assertEquals(0, query.mustNot().size());
+
+    // we expect 2 termQueries doc1field and doc2field
+    List<Query> queries = query.should();
+    assertEquals(2, queries.size());
+    TermsQuery query1 = queries.get(0).terms();
+    TermsQuery query2 = queries.get(1).terms();
+
+    assertEquals("doc1field", query1.field());
+    assertEquals("doc2field", query2.field());
+
+    List<FieldValue> fieldValues1 = query1.terms().value();
+    List<FieldValue> fieldValues2 = query2.terms().value();
+    assertEquals(2, fieldValues1.size());
+    assertEquals(1, fieldValues2.size());
+
+    assertEquals("doc1value", fieldValues1.get(0).stringValue());
+    assertEquals("doc1v2value", fieldValues1.get(1).stringValue());
+    assertEquals("doc2value", fieldValues2.get(0).stringValue());
   }
 
   @Test
@@ -196,11 +363,11 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), indexRequest.id());
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertEquals(1, messenger.getSentEvents().size());
+    assertEquals(1, messenger.getSentEvents().size());
 
     List<Event> events = messenger.getSentEvents();
-    Assert.assertEquals("doc1", events.get(0).getDocumentId());
-    Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+    assertEquals("doc1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
   @Test
@@ -229,11 +396,11 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertEquals(1, messenger.getSentEvents().size());
+    assertEquals(1, messenger.getSentEvents().size());
 
     List<Event> events = messenger.getSentEvents();
-    Assert.assertEquals("doc1", events.get(0).getDocumentId());
-    Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+    assertEquals("doc1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
   @Test
@@ -262,11 +429,11 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertEquals(1, messenger.getSentEvents().size());
+    assertEquals(1, messenger.getSentEvents().size());
 
     List<Event> events = messenger.getSentEvents();
-    Assert.assertEquals("doc1", events.get(0).getDocumentId());
-    Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+    assertEquals("doc1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
   @Test
@@ -344,7 +511,7 @@ public class OpenSearchIndexerTest {
     BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
     BulkRequest mockBulkRequest = Mockito.mock(BulkRequest.class);
     Mockito.when(mockRequestBuilder.build()).thenReturn(mockBulkRequest);
-    Mockito.when(mockClient2.bulk(ArgumentMatchers.any(BulkRequest.class))).thenReturn(mockResponse);
+    Mockito.when(mockClient2.bulk(any(BulkRequest.class))).thenReturn(mockResponse);
 
     // mocking for the bulk response items and error causes
     BulkResponseItem.Builder mockItemBuilder = Mockito.mock(BulkResponseItem.Builder.class);
@@ -377,8 +544,8 @@ public class OpenSearchIndexerTest {
     List<Event> events = messenger.getSentEvents();
     assertEquals(3, events.size());
     for (int i = 1; i <= events.size(); i++) {
-      Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
-      Assert.assertEquals(Type.FAIL, events.get(i - 1).getType());
+      assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      assertEquals(Type.FAIL, events.get(i - 1).getType());
     }
   }
 
