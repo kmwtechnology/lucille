@@ -154,6 +154,7 @@ public class QueryDatabase extends Stage {
     for (int attempt = 0; attempt <= connectionRetries; attempt++) {
       try {
         connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
+        break;
       } catch (SQLException e) {
         if (attempt == connectionRetries) {
           log.error("Unable to connect to database {} user:{} after retrying {} time(s).", connectionString, jdbcUser, attempt);
