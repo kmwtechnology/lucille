@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.indexer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,7 +26,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -93,12 +93,12 @@ public class OpenSearchIndexerTest {
     messenger.sendForIndexing(doc2);
     indexer.run(2);
 
-    Assert.assertEquals(2, messenger.getSentEvents().size());
+    assertEquals(2, messenger.getSentEvents().size());
 
     List<Event> events = messenger.getSentEvents();
     for (int i = 1; i <= events.size(); i++) {
-      Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
-      Assert.assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
+      assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
     }
   }
 
@@ -122,10 +122,10 @@ public class OpenSearchIndexerTest {
     indexer.run(5);
 
     List<Event> events = messenger.getSentEvents();
-    Assert.assertEquals(5, events.size());
+    assertEquals(5, events.size());
     for (int i = 1; i <= events.size(); i++) {
-      Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
-      Assert.assertEquals(Event.Type.FAIL, events.get(i - 1).getType());
+      assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      assertEquals(Event.Type.FAIL, events.get(i - 1).getType());
     }
   }
 
@@ -135,8 +135,8 @@ public class OpenSearchIndexerTest {
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
     assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
-    Assert.assertFalse(indexer.validateConnection());
-    Assert.assertFalse(indexer.validateConnection());
+    assertFalse(indexer.validateConnection());
+    assertFalse(indexer.validateConnection());
 
   }
 
@@ -173,11 +173,11 @@ public class OpenSearchIndexerTest {
 
     assertEquals(doc5.getId(), indexRequest.id());
 
-    Assert.assertEquals(5, messenger.getSentEvents().size());
+    assertEquals(5, messenger.getSentEvents().size());
 
     List<Event> events = messenger.getSentEvents();
-    Assert.assertEquals("doc1", events.get(0).getDocumentId());
-    Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+    assertEquals("doc1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
   @Test
@@ -363,11 +363,11 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), indexRequest.id());
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertEquals(1, messenger.getSentEvents().size());
+    assertEquals(1, messenger.getSentEvents().size());
 
     List<Event> events = messenger.getSentEvents();
-    Assert.assertEquals("doc1", events.get(0).getDocumentId());
-    Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+    assertEquals("doc1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
   @Test
@@ -396,11 +396,11 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertEquals(1, messenger.getSentEvents().size());
+    assertEquals(1, messenger.getSentEvents().size());
 
     List<Event> events = messenger.getSentEvents();
-    Assert.assertEquals("doc1", events.get(0).getDocumentId());
-    Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+    assertEquals("doc1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
   @Test
@@ -429,11 +429,11 @@ public class OpenSearchIndexerTest {
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
 
-    Assert.assertEquals(1, messenger.getSentEvents().size());
+    assertEquals(1, messenger.getSentEvents().size());
 
     List<Event> events = messenger.getSentEvents();
-    Assert.assertEquals("doc1", events.get(0).getDocumentId());
-    Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+    assertEquals("doc1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
   @Test
@@ -544,8 +544,8 @@ public class OpenSearchIndexerTest {
     List<Event> events = messenger.getSentEvents();
     assertEquals(3, events.size());
     for (int i = 1; i <= events.size(); i++) {
-      Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
-      Assert.assertEquals(Type.FAIL, events.get(i - 1).getType());
+      assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      assertEquals(Type.FAIL, events.get(i - 1).getType());
     }
   }
 
