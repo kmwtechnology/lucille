@@ -301,4 +301,8 @@ public abstract class Indexer implements Runnable {
           System.exit(0);
         });
   }
+
+  public int getBatchCapacity() {
+    return batch.getCapacity();
+  }
 }
