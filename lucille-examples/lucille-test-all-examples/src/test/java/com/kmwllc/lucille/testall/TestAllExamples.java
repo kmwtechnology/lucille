@@ -1,16 +1,21 @@
 package com.kmwllc.lucille.testall;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
 import com.kmwllc.lucille.core.Runner;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
+import java.io.FileInputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -31,33 +36,41 @@ public class TestAllExamples {
 
   @Test
   public void testConf() throws Exception {
-    // Get the current working directory
+    // get the current working directory
     Path currentDir = Paths.get("").toAbsolutePath();
 
-    // Get the parent directory
+    // get the parent directory
     Path parentDir = currentDir.getParent();
     assertNotNull(parentDir);
 
-    File[] directories = parentDir.toFile().listFiles(File::isDirectory);
-    assertNotNull(directories);
+    try (Stream<Path> dirStream = Files.list(parentDir)) {
+      List<Path> dirs = dirStream.filter(Files::isDirectory).toList();
+      assertFalse(dirs.isEmpty());
 
-    for (File dir : directories) {
-      if (!dir.getName().equals("lucille-test-all-examples")) {
-        File confDir = new File(dir, "conf");
-        if (confDir.exists() && confDir.isDirectory()) {
-          // list all conf files in the directory
-          File[] confFiles = confDir.listFiles((d, name) -> name.endsWith(".conf"));
-          assertNotNull(confFiles);
+      for (Path dir : dirs) {
 
-          for (File configFile : confFiles) {
-            if (configsToIgnore.contains(configFile.getName())) continue;
-            // run the configFile and gather exceptions
-            Config config = ConfigFactory.parseFile(configFile);
-            Map<String, List<Exception>> exceptions = Runner.runInValidationMode(config);
+        // get all conf files in examples directory
+        if (!dir.getFileName().toString().equals("lucille-test-all-examples")) {
+          Path confDir = dir.resolve("conf");
+          if (Files.exists(confDir) && Files.isDirectory(confDir)) {
+            try (Stream<Path> confStream = Files.list(confDir)) {
+              List<Path> confPaths = confStream.filter(p -> p.toString().endsWith(".conf")).toList();
+              assertFalse(confPaths.isEmpty());
 
-            // check that all validations have no exceptions
-            for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
-              assertEquals(0, entry.getValue().size());
+              // validate each of the conf files
+              for (Path configPath : confPaths) {
+                if (configsToIgnore.contains(configPath.getFileName().toString())) {
+                  continue;
+                }
+                // run the config and gather exceptions
+                Config config = ConfigFactory.parseFile(configPath.toFile());
+                Map<String, List<Exception>> exceptions = Runner.runInValidationMode(config);
+
+                // check that all validations have no exceptions
+                for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
+                  assertEquals(0, entry.getValue().size());
+                }
+              }
             }
           }
         }
