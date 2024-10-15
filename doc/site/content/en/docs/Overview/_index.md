@@ -4,7 +4,7 @@ description: About Lucille
 weight: 1
 ---
 
-# What is Lucille?
+## What is Lucille?
 
 Lucille is a production-grade Search ETL solution designed to efficiently get data into Lucene-based search engines such as Elasticsearch, OpenSearch, and Solr as well as vector databases such as Pinecone & Weaviate.  Lucille enables complex processing of documents before they are indexed by search engine, freeing up resources that can be used by the search engine to compute queries with greater speed.
 
