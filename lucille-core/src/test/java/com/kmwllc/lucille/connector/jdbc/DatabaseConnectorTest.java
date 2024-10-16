@@ -48,7 +48,7 @@ public class DatabaseConnectorTest {
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("org.h2.Driver", "jdbc:h2:mem:test", "",
       "", "db-test-start.sql", "db-test-end.sql");
-  private static TimeZone originalTimeZone;
+  private static final TimeZone originalTimeZone = TimeZone.getDefault();
 
   private Publisher publisher;
   private TestMessenger messenger;
@@ -66,8 +66,7 @@ public class DatabaseConnectorTest {
 
   @BeforeClass
   public static void setUpTimeZone() {
-    // setting time zone for date/timestamp type insertion and retrieval from DB
-    originalTimeZone = TimeZone.getDefault();
+    // setting timezone for date/timestamp type insertion and retrieval from dbHelper
     TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
   }
 
