@@ -110,8 +110,8 @@ public class OpenSearchIndexer extends Indexer {
 
     // populate which collection each document belongs to
     // upload if document is not marked for deletion
-    // if document is marked for deletion ONLY, then only add to idsToDelete
-    // if document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
+    // else if document is marked for deletion ONLY, then only add to idsToDelete
+    // else document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
     for (Document doc : documents) {
       String id = doc.getId();
       if (!isMarkedForDeletion(doc)) {
@@ -201,7 +201,7 @@ public class OpenSearchIndexer extends Indexer {
     for (Map.Entry<String, List<String>> entry : termsToDeleteByQuery.entrySet()) {
       String field = entry.getKey();
       List<String> values = entry.getValue();
-      boolQuery.should(f -> f
+      boolQuery.should(s -> s
         .terms(t -> t
           .field(field)
           .terms(tt -> tt.value(values.stream()
