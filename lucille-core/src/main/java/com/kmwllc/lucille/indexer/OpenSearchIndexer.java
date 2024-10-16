@@ -114,23 +114,22 @@ public class OpenSearchIndexer extends Indexer {
     // else then add to upload
     for (Document doc : documents) {
       String id = doc.getId();
-      if (isMarkedForDeletion(doc)) {
+      if (!isMarkedForDeletion(doc)) {
+        idsToDelete.remove(id);
+        documentsToUpload.put(id, doc);
+      } else {
         documentsToUpload.remove(id);
-        if (isMarkedForDeletionByField(doc)) {
+        if (!isMarkedForDeletionByField(doc)) {
+          idsToDelete.add(id);
+        } else {
           String field = doc.getString(deleteByFieldField);
           if (!termsToDeleteByQuery.containsKey(field)) {
             termsToDeleteByQuery.put(field, new ArrayList<>());
           }
           termsToDeleteByQuery.get(field).add(doc.getString(deleteByFieldValue));
-        } else {
-          idsToDelete.add(id);
         }
-      } else {
-        idsToDelete.remove(id);
-        documentsToUpload.put(id, doc);
       }
     }
-
 
     uploadDocuments(new ArrayList<>(documentsToUpload.values()));
     deleteById(new ArrayList<>(idsToDelete));
@@ -167,7 +166,12 @@ public class OpenSearchIndexer extends Indexer {
     if (termsToDeleteByQuery.isEmpty()) {
       return;
     }
-    // termsToDeleteByQuery is never empty
+
+    // each entry would add a terms query to a should clause. In each entry, the key represents
+    // the field to look for while querying and values represent the values to look for in that field. We set the
+    // minimum should match to 1 such that any documents that passes a single terms query would end
+    // up in the result set. For a document to pass a terms query, it must contain that field and in that field
+    // contain any one of the field values.
     BoolQuery.Builder boolQuery = new BoolQuery.Builder();
     for (Map.Entry<String, List<String>> entry : termsToDeleteByQuery.entrySet()) {
       String field = entry.getKey();
