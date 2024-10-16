@@ -5,7 +5,7 @@ INSERT INTO animal VALUES (1, 'Matt', 'Human', '2001-07-30');
 INSERT INTO animal VALUES (2, 'Sonny', 'Cat', '2024-07-30');
 INSERT INTO animal VALUES (3, 'Blaze', 'Cat', '2024-05-30');
 
-CREATE TABLE network(id INT, name VARCHAR(10), friendsWith VARCHAR(10));
+CREATE TABLE network(id INT, name VARCHAR(10), friends_with VARCHAR(10));
 INSERT INTO network VALUES (1, 'Sonny', 'Matt');
 INSERT INTO network VALUES (2, 'Sonny', 'Blaze');
 INSERT INTO network VALUES (3, 'Matt', 'Bob');
@@ -17,7 +17,7 @@ CREATE TABLE nonComparable (id INT, name VARCHAR(10), metadata JSON);
 INSERT INTO nonComparable VALUES (1, 'Sonny', '{"age": 25, "city": "NY"}');
 INSERT INTO nonComparable VALUES (2, 'Blaze', '{"age": 30, "city": "LA"}');
 
-CREATE TABLE adopted(id INT, name VARCHAR(10), adoptedOn DATE);
+CREATE TABLE adopted(id INT, name VARCHAR(10), adopted_on DATE);
 INSERT INTO adopted VALUES (1, 'Sonny', '2024-07-30');
 INSERT INTO adopted VALUES (2, 'Blaze', '2024-07-30');
 

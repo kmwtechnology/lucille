@@ -13,9 +13,12 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.sql.Statement;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.TimeZone;
+import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.Ignore;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.MockedStatic;
@@ -45,6 +48,7 @@ public class DatabaseConnectorTest {
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("org.h2.Driver", "jdbc:h2:mem:test", "",
       "", "db-test-start.sql", "db-test-end.sql");
+  private static TimeZone originalTimeZone;
 
   private Publisher publisher;
   private TestMessenger messenger;
@@ -58,6 +62,18 @@ public class DatabaseConnectorTest {
     // set com.kmwllc.lucille into loopback mode for local / standalone testing.
     messenger = new TestMessenger();
     publisher = new PublisherImpl(ConfigFactory.empty(), messenger, testRunId, pipelineName);
+  }
+
+  @BeforeClass
+  public static void setUpTimeZone() {
+    // setting time zone for date/timestamp type insertion and retrieval from DB
+    originalTimeZone = TimeZone.getDefault();
+    TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+  }
+
+  @AfterClass
+  public static void resetTimeZone() throws Exception {
+    TimeZone.setDefault(originalTimeZone);
   }
 
   @Test
@@ -485,7 +501,7 @@ public class DatabaseConnectorTest {
     configValues.put("idField", "name");
     // a list of other sql statements
     ArrayList<String> otherSql = new ArrayList<>();
-    otherSql.add("select id as network_id,name,friendsWith from network order by name");
+    otherSql.add("select id as network_id,name,friends_with from network order by name");
     configValues.put("otherSQLs", otherSql);
     // The join fields. id goes to animal_id
     ArrayList<String> otherJoinFields = new ArrayList<>();
@@ -501,7 +517,7 @@ public class DatabaseConnectorTest {
 
     List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(3, docs.size());
-    String expected = "{\"id\":\"Matt\",\"name\":\"Matt\",\"type\":\"Human\",\".children\":[{\"id\":\"0\",\"network_id\":3,\"name\":\"Matt\",\"friendswith\":\"Bob\"},{\"id\":\"1\",\"network_id\":4,\"name\":\"Matt\",\"friendswith\":\"Sonny\"},{\"id\":\"2\",\"network_id\":5,\"name\":\"Matt\",\"friendswith\":\"Blaze\"}],\"run_id\":\"testRunId\"}";
+    String expected = "{\"id\":\"Matt\",\"name\":\"Matt\",\"type\":\"Human\",\".children\":[{\"id\":\"0\",\"network_id\":3,\"name\":\"Matt\",\"friends_with\":\"Bob\"},{\"id\":\"1\",\"network_id\":4,\"name\":\"Matt\",\"friends_with\":\"Sonny\"},{\"id\":\"2\",\"network_id\":5,\"name\":\"Matt\",\"friends_with\":\"Blaze\"}],\"run_id\":\"testRunId\"}";
     assertEquals(expected, docs.get(1).toString());
 
     connector.close();
@@ -539,7 +555,6 @@ public class DatabaseConnectorTest {
     connector.close();
   }
 
-  @Ignore // remove when Document supports Date type
   @Test
   public void testJoiningDatabaseConnectorDateType() throws Exception {
     assertEquals(1, dbHelper.checkNumConnections());
@@ -555,11 +570,11 @@ public class DatabaseConnectorTest {
     configValues.put("idField", "birthday");
     // a list of other sql statements
     ArrayList<String> otherSql = new ArrayList<>();
-    otherSql.add("select id as adoption_id,name,adoptedOn from adopted order by adoptedOn");
+    otherSql.add("select id as adoption_id,name,adopted_on from adopted order by adopted_on");
     configValues.put("otherSQLs", otherSql);
     // The join fields. id goes to animal_id
     ArrayList<String> otherJoinFields = new ArrayList<>();
-    otherJoinFields.add("adoptedOn");
+    otherJoinFields.add("adopted_on");
     configValues.put("otherJoinFields", otherJoinFields);
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
@@ -571,8 +586,18 @@ public class DatabaseConnectorTest {
 
     List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(1, docs.size());
-    String expected = "{\"id\":\"Matt\",\"name\":\"Matt\",\"type\":\"Human\",\".children\":[{\"id\":\"0\",\"network_id\":3,\"name\":\"Matt\",\"friendswith\":\"Bob\"},{\"id\":\"1\",\"network_id\":4,\"name\":\"Matt\",\"friendswith\":\"Sonny\"},{\"id\":\"2\",\"network_id\":5,\"name\":\"Matt\",\"friendswith\":\"Blaze\"}],\"run_id\":\"testRunId\"}";
+    // birthday is idField
+    String expected = "{\"id\":\"2024-07-30\",\"name\":\"Sonny\",\"type\":\"Cat\",\"birthday\":\"2024-07-30T00:00:00Z\",\".children\":[{\"id\":\"0\",\"adoption_id\":1,\"name\":\"Sonny\",\"adopted_on\":\"2024-07-30T00:00:00Z\"},{\"id\":\"1\",\"adoption_id\":2,\"name\":\"Blaze\",\"adopted_on\":\"2024-07-30T00:00:00Z\"}],\"run_id\":\"testRunId\"}";
     assertEquals(expected, docs.get(0).toString());
+
+    String expectedDateStr = "2024-07-30";
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    java.util.Date expectedDate = sdf.parse(expectedDateStr); // this would give a date based on current timezone
+
+    // check that parent and children have the same date value used for joining
+    assertEquals(expectedDate, docs.get(0).getDate("birthday"));
+    assertEquals(expectedDate, docs.get(0).getChildren().get(0).getDate("adopted_on"));
+    assertEquals(expectedDate, docs.get(0).getChildren().get(1).getDate("adopted_on"));
 
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
