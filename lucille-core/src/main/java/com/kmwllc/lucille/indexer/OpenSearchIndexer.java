@@ -109,9 +109,9 @@ public class OpenSearchIndexer extends Indexer {
     Map<String, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
 
     // populate which collection each document belongs to
+    // upload if document is not marked for deletion
     // if document is marked for deletion ONLY, then only add to idsToDelete
     // if document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
-    // else then add to upload
     for (Document doc : documents) {
       String id = doc.getId();
       if (!isMarkedForDeletion(doc)) {
@@ -166,12 +166,37 @@ public class OpenSearchIndexer extends Indexer {
     if (termsToDeleteByQuery.isEmpty()) {
       return;
     }
-
-    // each entry would add a terms query to a should clause. In each entry, the key represents
-    // the field to look for while querying and values represent the values to look for in that field. We set the
-    // minimum should match to 1 such that any documents that passes a single terms query would end
-    // up in the result set. For a document to pass a terms query, it must contain that field and in that field
-    // contain any one of the field values.
+    /*
+      each entry from termsToDeleteByQuery would add a "terms" query to the should clause. In each entry, the key represents
+      the field to look for while querying and values represent the values to look for in that field. We set the
+      minimum should match to 1 such that any documents that passes a single terms query would end
+      up in the result set. For a document to pass a terms query, it must contain that field and in that field
+      contain any one of the field values.
+      e.g. termsToDeleteByQuery -> {
+                                      "field1" : ["value1", "value2", "value3"],
+                                      "field2" : ["valueA", "valueB"]
+                                   }
+      would create a delete query:
+      {
+        "query": {
+          "bool": {
+            "should": [
+              {
+                "terms": {
+                  "field1": ["value1", "value2", "value3"]
+                }
+              },
+              {
+                "terms": {
+                  "field2": ["valueA", "valueB"]
+                }
+              }
+            ],
+            "minimum_should_match": "1"
+          }
+        }
+      }
+     */
     BoolQuery.Builder boolQuery = new BoolQuery.Builder();
     for (Map.Entry<String, List<String>> entry : termsToDeleteByQuery.entrySet()) {
       String field = entry.getKey();
