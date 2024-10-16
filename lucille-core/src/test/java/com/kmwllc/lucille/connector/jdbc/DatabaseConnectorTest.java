@@ -13,8 +13,12 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.sql.Statement;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.TimeZone;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.MockedStatic;
@@ -44,6 +48,7 @@ public class DatabaseConnectorTest {
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("org.h2.Driver", "jdbc:h2:mem:test", "",
       "", "db-test-start.sql", "db-test-end.sql");
+  private static final TimeZone originalTimeZone = TimeZone.getDefault();
 
   private Publisher publisher;
   private TestMessenger messenger;
@@ -57,6 +62,17 @@ public class DatabaseConnectorTest {
     // set com.kmwllc.lucille into loopback mode for local / standalone testing.
     messenger = new TestMessenger();
     publisher = new PublisherImpl(ConfigFactory.empty(), messenger, testRunId, pipelineName);
+  }
+
+  @BeforeClass
+  public static void setUpTimeZone() {
+    // setting timezone for date/timestamp type insertion and retrieval from dbHelper
+    TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+  }
+
+  @AfterClass
+  public static void resetTimeZone() throws Exception {
+    TimeZone.setDefault(originalTimeZone);
   }
 
   @Test
@@ -464,6 +480,123 @@ public class DatabaseConnectorTest {
     // TODO: better verification / edge cases.. also formalize the "children" docs.
     String expected = "{\"id\":\"1\",\"name\":\"Matt\",\".children\":[{\"id\":\"0\",\"meal_id\":1,\"animal_id\":1,\"name\":\"breakfast\"},{\"id\":\"1\",\"meal_id\":2,\"animal_id\":1,\"name\":\"lunch\"},{\"id\":\"2\",\"meal_id\":3,\"animal_id\":1,\"name\":\"dinner\"}],\"run_id\":\"testRunId\"}";
     assertEquals(expected, docs.get(0).toString());
+
+    connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+  @Test
+  public void testJoiningDatabaseConnectorStringType() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select name,type from animal order by name");
+    configValues.put("idField", "name");
+    // a list of other sql statements
+    ArrayList<String> otherSql = new ArrayList<>();
+    otherSql.add("select id as network_id,name,friends_with from network order by name");
+    configValues.put("otherSQLs", otherSql);
+    // The join fields. id goes to animal_id
+    ArrayList<String> otherJoinFields = new ArrayList<>();
+    otherJoinFields.add("name");
+    configValues.put("otherJoinFields", otherJoinFields);
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // create the connector with the config
+    DatabaseConnector connector = new DatabaseConnector(config);
+    // run the connector
+    connector.execute(publisher);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(3, docs.size());
+    String expected = "{\"id\":\"Matt\",\"name\":\"Matt\",\"type\":\"Human\",\".children\":[{\"id\":\"0\",\"network_id\":3,\"name\":\"Matt\",\"friends_with\":\"Bob\"},{\"id\":\"1\",\"network_id\":4,\"name\":\"Matt\",\"friends_with\":\"Sonny\"},{\"id\":\"2\",\"network_id\":5,\"name\":\"Matt\",\"friends_with\":\"Blaze\"}],\"run_id\":\"testRunId\"}";
+    assertEquals(expected, docs.get(1).toString());
+
+    connector.close();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+  @Test
+  public void testJoiningDatabaseConnectorNonComparable() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select name,type from animal order by name");
+    configValues.put("idField", "name");
+    // a list of other sql statements
+    ArrayList<String> otherSql = new ArrayList<>();
+    otherSql.add("select id as _id,name,metadata from nonComparable order by name");
+    configValues.put("otherSQLs", otherSql);
+    // The join fields. id goes to animal_id
+    ArrayList<String> otherJoinFields = new ArrayList<>();
+    otherJoinFields.add("metadata");
+    configValues.put("otherJoinFields", otherJoinFields);
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // create the connector with the config
+    DatabaseConnector connector = new DatabaseConnector(config);
+    // throws error as JSON type is not comparable
+    assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+    connector.close();
+  }
+
+  @Test
+  public void testJoiningDatabaseConnectorDateType() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select name,type,birthday from animal where id=2");
+    configValues.put("idField", "birthday");
+    // a list of other sql statements
+    ArrayList<String> otherSql = new ArrayList<>();
+    otherSql.add("select id as adoption_id,name,adopted_on from adopted order by adopted_on");
+    configValues.put("otherSQLs", otherSql);
+    // The join fields. id goes to animal_id
+    ArrayList<String> otherJoinFields = new ArrayList<>();
+    otherJoinFields.add("adopted_on");
+    configValues.put("otherJoinFields", otherJoinFields);
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // create the connector with the config
+    DatabaseConnector connector = new DatabaseConnector(config);
+    // run the connector
+    connector.execute(publisher);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(1, docs.size());
+    // birthday is idField
+    String expected = "{\"id\":\"2024-07-30\",\"name\":\"Sonny\",\"type\":\"Cat\",\"birthday\":\"2024-07-30T00:00:00Z\",\".children\":[{\"id\":\"0\",\"adoption_id\":1,\"name\":\"Sonny\",\"adopted_on\":\"2024-07-30T00:00:00Z\"},{\"id\":\"1\",\"adoption_id\":2,\"name\":\"Blaze\",\"adopted_on\":\"2024-07-30T00:00:00Z\"}],\"run_id\":\"testRunId\"}";
+    assertEquals(expected, docs.get(0).toString());
+
+    String expectedDateStr = "2024-07-30";
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    java.util.Date expectedDate = sdf.parse(expectedDateStr); // this would give a date based on current timezone
+
+    // check that parent and children have the same date value used for joining
+    assertEquals(expectedDate, docs.get(0).getDate("birthday"));
+    assertEquals(expectedDate, docs.get(0).getChildren().get(0).getDate("adopted_on"));
+    assertEquals(expectedDate, docs.get(0).getChildren().get(1).getDate("adopted_on"));
 
     connector.close();
     assertEquals(1, dbHelper.checkNumConnections());
