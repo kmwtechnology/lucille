@@ -1,6 +1,6 @@
 ---
-title: Connector
-date: 2024-05-22
+title: Connectors
+date: 2024-10-15
 description: >
   A component that retrieves data from a source system, packages the data into  “documents,” and publishes them.
 categories: [Examples]
