@@ -14,7 +14,7 @@ This guide covers the basics of how to develop a new stage for Lucille and what 
 ### Prerequisite(s)
 - An up-to-date version of Lucille that has been appropriately installed 
 
-- Please refer to **Quick Start Guides - Lucille Local Mode** for more info on how to setup Lucille
+- Please refer to **Quick Start Guides - Lucille Local Mode** for more info on how to set up Lucille
 
 - Understanding of Java programming language
 
@@ -91,9 +91,9 @@ The following are standards for testing in Lucille:
 
 - Tests should be deterministic
 
-- Code coverage should not only encapsulate aspects of lucille-core but also modules; reference Lucille documentation for more info on this
+- Code coverage should not only encapsulate aspects of lucille-core but also modules
 
 ## Extra Stage Resources:
-- The ```Stage``` class has both the ```start``` and ```stop``` method; both are helpful for when we want to setup or tear down objects 
+- The ```Stage``` class has both the ```start``` and ```stop``` method; both are helpful for when we want to set up or tear down objects 
 
 - Lucille also has a ```StageUtils``` class that has some methods that may prove useful in development
