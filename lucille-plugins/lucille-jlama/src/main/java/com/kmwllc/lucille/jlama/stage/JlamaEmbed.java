@@ -18,8 +18,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This stage uses jlama as an inference machine to download and use the embedding model locally, where it would retrieve its input
- * from a source field, and set the outputs to a destination field.
+ * This stage uses jlama as an inference machine to download and use the embedding model locally, where it would retrieve the input
+ * to the model from a source field, and set the outputs to a destination field. This stage is for Java 20 and above.
+ * Note that in order to use this stage you might need to set this environment variable below, or attach it to your java run command:
+ * JDK_JAVA_OPTIONS=--add-modules jdk.incubator.vector
  *
  * Config Parameters:
  * - source (String) : field of which the embedding Stage will retrieve content from
