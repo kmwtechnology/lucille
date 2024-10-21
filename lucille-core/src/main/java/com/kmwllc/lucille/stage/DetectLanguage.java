@@ -27,9 +27,9 @@ import java.util.List;
  * - source (List&lt;String&gt;) : List of source field names.
  * - dest (List&lt;String&gt;) : List of destination field names. You can either supply the same number of source and destination fields
  * for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- * - min_length (Integer) : The min length of Strings to be considered for language detection. Shorter Strings will be ignored.
- * - max_length (Integer) : The max length of Strings to be considered for language detection. Longer Strings will be truncated.
- * - min_probability (Double) : The min probability for a language result to be considered valid. Results below this threshold
+ * - minLength (Integer) : The min length of Strings to be considered for language detection. Shorter Strings will be ignored.
+ * - maxLength (Integer) : The max length of Strings to be considered for language detection. Longer Strings will be truncated.
+ * - minProbability (Double) : The min probability for a language result to be considered valid. Results below this threshold
  * will be ignored.
  */
 public class DetectLanguage extends Stage {
@@ -52,17 +52,17 @@ public class DetectLanguage extends Stage {
   private Detector detector;
 
   public DetectLanguage(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "language_field")
-        .withOptionalProperties("language_confidence_field", "min_length", "max_length",
-            "min_probability", "update_mode"));
+    super(config, new StageSpec().withRequiredProperties("source", "languageField")
+        .withOptionalProperties("languageConfidenceField", "minLength", "maxLength",
+            "minProbability", "updateMode"));
 
     this.sourceFields = config.getStringList("source");
-    this.languageField = config.getString("language_field");
-    this.languageConfidenceField = config.hasPath("language_confidence_field") ?
-        config.getString("language_confidence_field") : "languageConfidence";
-    this.minLength = config.hasPath("min_length") ? config.getInt("min_length") : 50;
-    this.maxLength = config.hasPath("max_length") ? config.getInt("max_length") : 10_000;
-    this.minProbability = config.hasPath("min_probability") ? config.getDouble("min_probability") : .95;
+    this.languageField = config.getString("languageField");
+    this.languageConfidenceField = config.hasPath("languageConfidenceField") ?
+        config.getString("languageConfidenceField") : "languageConfidence";
+    this.minLength = config.hasPath("minLength") ? config.getInt("minLength") : 50;
+    this.maxLength = config.hasPath("maxLength") ? config.getInt("maxLength") : 10_000;
+    this.minProbability = config.hasPath("minProbability") ? config.getDouble("minProbability") : .95;
     this.updateMode = UpdateMode.fromConfig(config);
   }
 

@@ -28,10 +28,10 @@ import org.slf4j.LoggerFactory;
  * Config Parameters:
  * - source (String) : field of which the embedding Stage will retrieve content from
  * - dest (String, Optional) : name of the field that will hold the embeddings, defaults to "embeddings"
- * - embed_document (Boolean) : Embeds the document's source if set to true.
- * - embed_children (Boolean): Embeds the document's children source if set to true.
- * - api_key (String) : API key used for OpenAI requests
- * - model_name (String, Optional) : the name of the OpenAI embedding model to use, set default to text-embedding-3-small
+ * - embedDocument (Boolean) : Embeds the document's source if set to true.
+ * - embedChildren (Boolean): Embeds the document's children source if set to true.
+ * - apiKey (String) : API key used for OpenAI requests
+ * - modelName (String, Optional) : the name of the OpenAI embedding model to use, set default to text-embedding-3-small
  *    1. text-embedding-3-small
  *    2. text-embedding-3-large
  *    3. text-embedding-ada-002
@@ -57,17 +57,17 @@ public class OpenAIEmbed extends Stage {
 
   public OpenAIEmbed(Config config) throws StageException {
     super(config, new StageSpec()
-        .withRequiredProperties("source", "embed_document", "embed_children", "api_key")
-        .withOptionalProperties("dest", "model_name", "dimensions"));
+        .withRequiredProperties("source", "embedDocument", "embedChildren", "apiKey")
+        .withOptionalProperties("dest", "modelName", "dimensions"));
     this.source = config.getString("source");
-    this.embedDocument = config.getBoolean("embed_document");
-    this.embedChildren = config.getBoolean("embed_children");
-    this.API_KEY = config.getString("api_key");
+    this.embedDocument = config.getBoolean("embedDocument");
+    this.embedChildren = config.getBoolean("embedChildren");
+    this.API_KEY = config.getString("apiKey");
     this.dest = config.hasPath("dest") ? config.getString("dest") : "embeddings";
     this.modelName = OpenAIEmbeddingModel.fromConfig(config);
     this.dimensions = config.hasPath("dimensions") ? config.getInt("dimensions") : null;
     if (!this.embedDocument && !this.embedChildren) {
-      throw new StageException("Both embed_document and embed_children are false.");
+      throw new StageException("Both embedDocument and embedChildren are false.");
     }
     if (StringUtils.isBlank(this.API_KEY)) {
       throw new StageException("API key is empty.");
@@ -94,7 +94,7 @@ public class OpenAIEmbed extends Stage {
     ModelType modelType = ModelType.fromName(modelName.getModelName()).orElse(ModelType.TEXT_EMBEDDING_3_SMALL);
 
     if (!modelName.getModelName().equals(modelType.getName())) {
-      log.error("model_name: {} does not match model type: {}", modelName.getModelName(), modelType.getName());
+      log.error("modelName: {} does not match model type: {}", modelName.getModelName(), modelType.getName());
       throw new StageException("Model used for embedding is different from model used for counting tokens.");
     }
 
@@ -141,7 +141,7 @@ public class OpenAIEmbed extends Stage {
   private List<Document> sendForEmbedding(List<Document> docsToEmbed, Document parentDoc) throws StageException {
     // if there is no embedding done on this document, carry on with lucille-run with other documents
     if (docsToEmbed.isEmpty()) {
-      log.warn("No documents to embed. Check your source field, embed_children and embed_document setting in your config file if you"
+      log.warn("No documents to embed. Check your source field, embedChildren and embedDocument setting in your config file if you"
           + " expect docid {} or its children to be sent for embedding.", parentDoc.getId());
       return docsToEmbed;
     }

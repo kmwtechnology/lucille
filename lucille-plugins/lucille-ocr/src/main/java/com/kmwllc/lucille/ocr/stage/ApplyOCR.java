@@ -46,14 +46,14 @@ import com.typesafe.config.ConfigBeanFactory;
  * <b>lang</b> (String) : The language to use for OCR.
  * </p>
  * <p>
- * <b>path_field</b> (String, Optional) : Field on document containing a path to the image used for extraction. The 
+ * <b>pathField</b> (String, Optional) : Field on document containing a path to the image used for extraction. The
  * extension is used to determine if the image is a pdf. If the document does not contain this field it is skipped.
  *  </p>
  * <p>
- * <b>extract_all_dest</b> (String, Optional) : If this field is specified, ocr is applied to the entire image 
+ * <b>extractAllDest</b> (String, Optional) : If this field is specified, ocr is applied to the entire image
  * and the result is stored in this field. For pdfs, ocr is applied to each page seperately and the field becomes multi-valued
  * <p>
- * <b>extraction_templates</b> (List&lt;FormTemplate&gt;, Optional) : A list of form templates defined as such:
+ * <b>extractionTemplates</b> (List&lt;FormTemplate&gt;, Optional) : A list of form templates defined as such:
  * </p>
  * <pre>
  * {
@@ -83,7 +83,7 @@ import com.typesafe.config.ConfigBeanFactory;
  * which types of forms are on which pages. Page 0 is used to indicate the one and only page on non-pdf files.
  * </p>
  * <p>
- * <b>pages_field</b> (String, Optional) : Field on document containing a JSON string used for dynamically applying templates to documents.
+ * <b>pagesField</b> (String, Optional) : Field on document containing a JSON string used for dynamically applying templates to documents.
  * This allows a user to specify on the document itself which types of forms the document is holding and on which pages. The JSON should be a map 
  * from page numbers to template names. If a page appears in both the static and dynamic mapping, the dynamic one takes precedence.
  * </p>
@@ -104,17 +104,17 @@ public class ApplyOCR extends Stage {
 
 
   public ApplyOCR(Config config) throws StageException {
-    super(config, new StageSpec().withOptionalProperties("pages_field", "extraction_templates", "extract_all_dest")
-        .withRequiredProperties("lang", "path_field").withOptionalParents("pages"));
+    super(config, new StageSpec().withOptionalProperties("pagesField", "extractionTemplates", "extractAllDest")
+        .withRequiredProperties("lang", "pathField").withOptionalParents("pages"));
 
     lang = config.getString("lang");
-    pathField = ConfigUtils.getOrDefault(config, "path_field", null);
-    pagesField = ConfigUtils.getOrDefault(config, "pages_field", null);
-    extractAllDest = ConfigUtils.getOrDefault(config, "extract_all_dest", null);
+    pathField = ConfigUtils.getOrDefault(config, "pathField", null);
+    pagesField = ConfigUtils.getOrDefault(config, "pagesField", null);
+    extractAllDest = ConfigUtils.getOrDefault(config, "extractAllDest", null);
 
-    if (config.hasPath("extraction_templates")) {
+    if (config.hasPath("extractionTemplates")) {
       extractionTemplates = new LinkedHashMap<>();
-      List<FormTemplate> temp = config.getConfigList("extraction_templates").stream()
+      List<FormTemplate> temp = config.getConfigList("extractionTemplates").stream()
           .map((c) -> ConfigBeanFactory.create(c, FormTemplate.class)).collect(Collectors.toList());
       for (FormTemplate template : temp) {
         extractionTemplates.put(template.getName(), template);
@@ -134,7 +134,7 @@ public class ApplyOCR extends Stage {
     }
 
     if ((pages != null || pagesField != null) && extractionTemplates == null) {
-      throw new StageException("extraction_templates must be specified when pages or pages_field is specified");
+      throw new StageException("extractionTemplates must be specified when pages or pagesField is specified");
     }
   }
 

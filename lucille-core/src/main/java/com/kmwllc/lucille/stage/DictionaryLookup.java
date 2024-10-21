@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
  * the syntax "term, payload". If any occurrences are found, they will be extracted and their associated payloads will
  * be appended to the destination field.
  *
- * Can also be used as a Set lookup by setting the set_only parameter to true. In this case, the destination field will
+ * Can also be used as a Set lookup by setting the setOnly parameter to true. In this case, the destination field will
  * be set to true if all values in the source field are present in the dictionary.
  *
  * Config Parameters:
@@ -31,14 +31,14 @@ import org.slf4j.LoggerFactory;
  *   - source (List&lt;String&gt;) : list of source field names
  *   - dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- *   - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
+ *   - dictPath (String) : The path the dictionary to use for matching. If the dictPath begins with "classpath:" the classpath
  *       will be searched for the file. Otherwise, the local file system will be searched.
- *   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not. Defaults to true.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *   - usePayloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not. Defaults to true.
+ *   - updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
- *   - set_only (Boolean, Optional) : If true, the destination field will be set to true if all values in the source field
+ *   - setOnly (Boolean, Optional) : If true, the destination field will be set to true if all values in the source field
  *      are present in the dictionary.
- *   - ignore_missing_source (Boolean, Optional) : Intended to be used in combination with set_only. If true, the destination field
+ *   - ignoreMissingSource (Boolean, Optional) : Intended to be used in combination with setOnly. If true, the destination field
  *      will be set to true if the source field is missing. Defaults to false.
  */
 public class DictionaryLookup extends Stage {
@@ -58,17 +58,17 @@ public class DictionaryLookup extends Stage {
   // Dummy value to indicate that a key is present in the HashMap
 
   public DictionaryLookup(Config config) throws StageException {
-    super(config, new StageSpec().withRequiredProperties("source", "dest", "dict_path")
-        .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "ignore_missing_source"));
+    super(config, new StageSpec().withRequiredProperties("source", "dest", "dictPath")
+        .withOptionalProperties("usePayloads", "updateMode", "ignoreCase", "setOnly", "ignoreMissingSource"));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
+    this.usePayloads = ConfigUtils.getOrDefault(config, "usePayloads", true);
     this.updateMode = UpdateMode.fromConfig(config);
-    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
-    this.setOnly = ConfigUtils.getOrDefault(config, "set_only", false);
-    this.ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignore_missing_source", false);
-    this.dictPath = config.getString("dict_path");
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignoreCase", false);
+    this.setOnly = ConfigUtils.getOrDefault(config, "setOnly", false);
+    this.ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignoreMissingSource", false);
+    this.dictPath = config.getString("dictPath");
   }
 
   public void start() throws StageException {
@@ -77,10 +77,10 @@ public class DictionaryLookup extends Stage {
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Dictionary Lookup");
 
     if (ignoreMissingSource && !setOnly) {
-      log.warn("ignore_missing_source is only valid when set_only is true. Ignoring.");
+      log.warn("ignoreMissingSource is only valid when setOnly is true. Ignoring.");
     }
     if (setOnly && updateMode != UpdateMode.OVERWRITE) {
-      throw new StageException("when set_only is true, update_mode must be set to overwrite");
+      throw new StageException("when setOnly is true, updateMode must be set to overwrite");
     }
 
     this.dict = DictionaryManager.getDictionary(dictPath, ignoreCase, setOnly);

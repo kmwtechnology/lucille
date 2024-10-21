@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory;
  * This stage emits attached children documents, removing them from the parent document. Will skip document if no children is found.
  *
  * Config Parameters:
- * - drop_parent (Boolean, Optional): if set to true, will mark parent document as dropped. Defaults to false
+ * - dropParent (Boolean, Optional): if set to true, will mark parent document as dropped. Defaults to false
  *
  */
 public class EmitNestedChildren extends Stage {
@@ -23,8 +23,8 @@ public class EmitNestedChildren extends Stage {
   private static final Logger log = LoggerFactory.getLogger(EmitNestedChildren.class);
 
   public EmitNestedChildren(Config config) {
-    super(config, new StageSpec().withOptionalProperties("drop_parent"));
-    this.dropParent = config.hasPath("drop_parent") ? config.getBoolean("drop_parent") : false;
+    super(config, new StageSpec().withOptionalProperties("dropParent"));
+    this.dropParent = config.hasPath("dropParent") ? config.getBoolean("dropParent") : false;
   }
 
   @Override

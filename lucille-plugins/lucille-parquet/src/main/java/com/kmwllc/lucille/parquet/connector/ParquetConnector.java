@@ -44,11 +44,11 @@ public class ParquetConnector extends AbstractConnector {
   public ParquetConnector(Config config) {
     super(config);
     this.path = config.getString("path");
-    this.idField = config.getString("id_field");
-    this.fsUri = config.getString("fs_uri");
+    this.idField = config.getString("idField");
+    this.fsUri = config.getString("fsUri");
 
-    this.s3Key = config.hasPath("s3_key") ? config.getString("s3_key") : null;
-    this.s3Secret = config.hasPath("s3_secret") ? config.getString("s3_secret") : null;
+    this.s3Key = config.hasPath("s3Key") ? config.getString("s3Key") : null;
+    this.s3Secret = config.hasPath("s3Secret") ? config.getString("s3Secret") : null;
     this.limit = config.hasPath("limit") ? config.getLong("limit") : -1;
     this.start = config.hasPath("start") ? config.getLong("start") : 0L;
   }

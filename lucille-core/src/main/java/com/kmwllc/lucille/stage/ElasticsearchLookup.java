@@ -31,9 +31,9 @@ public class ElasticsearchLookup extends Stage {
 
   public ElasticsearchLookup(Config config) {
     super(config, new StageSpec()
-        .withOptionalProperties("update_mode")
+        .withOptionalProperties("updateMode")
         .withRequiredProperties("source", "dest", "elasticsearch.url", "elasticsearch.index")
-        .withOptionalProperties("elasticsearch.acceptInvalidCert", "update_mode"));
+        .withOptionalProperties("elasticsearch.acceptInvalidCert", "updateMode"));
 
     this.client = ElasticsearchUtils.getElasticsearchOfficialClient(config);
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);

@@ -30,18 +30,18 @@ import java.util.stream.Collectors;
  *   - source (List&lt;String&gt;) : list of source field names
  *   - dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- *   - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
+ *   - dictPath (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
  *       will be searched for the file. Otherwise, the local file system will be searched.
- *   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *   - usePayloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.
+ *   - updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
- *   - ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.
- *   - only_whitespace_separated (Boolean, Optional) : Denotes whether terms must be whitespace separated to be
+ *   - ignoreCase (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.
+ *   - onlyWhitespaceSeparated (Boolean, Optional) : Denotes whether terms must be whitespace separated to be
  *       candidates for matching.  Defaults to false.
- *   - stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit.  Defaults to false.
- *   - only_whole_words (Boolean, Optional) : Determines whether this matcher will trigger for matches contained within
+ *   - stopOnHit (Boolean, Optional) : Denotes whether this matcher should stop after one hit.  Defaults to false.
+ *   - onlyWholeWords (Boolean, Optional) : Determines whether this matcher will trigger for matches contained within
  *       other text. ie "OMAN" in "rOMAN".  Defaults to false.
- *   - ignore_overlaps (Boolean, Optional) : Decides whether overlapping matches should both be extracted or if only the
+ *   - ignoreOverlaps (Boolean, Optional) : Decides whether overlapping matches should both be extracted or if only the
  *       longer, left most match should be kept.  Defaults to true.
  */
 public class ExtractEntities extends Stage {
@@ -64,22 +64,22 @@ public class ExtractEntities extends Stage {
 
   public ExtractEntities(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "dictionaries")
-        .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
-            "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field"));
+        .withOptionalProperties("ignoreCase", "onlyWhitespaceSeparated", "stopOnHit",
+            "onlyWholeWords", "ignoreOverlaps", "usePayloads", "updateMode", "entityField"));
 
     // For the optional settings, we check if the config has this setting and then what the value is.
-    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
-    this.onlyWhitespaceSeparated = ConfigUtils.getOrDefault(config, "only_whitespace_separated", false);
-    this.stopOnHit = ConfigUtils.getOrDefault(config, "stop_on_hit", false);
-    this.onlyWholeWords = ConfigUtils.getOrDefault(config, "only_whole_words", true);
-    this.ignoreOverlaps = ConfigUtils.getOrDefault(config, "ignore_overlaps", false);
-    this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignoreCase", false);
+    this.onlyWhitespaceSeparated = ConfigUtils.getOrDefault(config, "onlyWhitespaceSeparated", false);
+    this.stopOnHit = ConfigUtils.getOrDefault(config, "stopOnHit", false);
+    this.onlyWholeWords = ConfigUtils.getOrDefault(config, "onlyWholeWords", true);
+    this.ignoreOverlaps = ConfigUtils.getOrDefault(config, "ignoreOverlaps", false);
+    this.usePayloads = ConfigUtils.getOrDefault(config, "usePayloads", true);
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.dictionaries = config.getStringList("dictionaries");
     this.updateMode = UpdateMode.fromConfig(config);
-    this.entityField = config.hasPath("entity_field") ? config.getString("entity_field") : null;
+    this.entityField = config.hasPath("entityField") ? config.getString("entityField") : null;
   }
 
   @Override

@@ -31,15 +31,15 @@ import org.xml.sax.SAXException;
  * <br>
  * Config Parameters -
  * <br>
- * text_field (String, Optional) : name of destination field for parsed data to be placed
- * file_path_field (String, Optional) : name of field from which file path can be extracted, if file_path_field
- * and byte_array_field both not provided, stage will do nothing
- * byte_array_field (String, Optional) : name of field from which byte array data can be extracted
- * tika_config_path (String, Optional) : path to tika config, if not provided will default to empty AutoDetectParser
- * metadata_prefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
- * text_content_limit (Integer, Optional) : limits how large the content of the returned text can be
- * metadata_whitelist (StringList, Optional) : list of metadata names that are to be included in document
- * metadata_blacklist (StringList, Optional) : list of metadata names that are not to be included in document
+ * textField (String, Optional) : name of destination field for parsed data to be placed
+ * filePathField (String, Optional) : name of field from which file path can be extracted, if filePathField
+ * and byteArrayField both not provided, stage will do nothing
+ * byteArrayField (String, Optional) : name of field from which byte array data can be extracted
+ * tikaConfigPath (String, Optional) : path to tika config, if not provided will default to empty AutoDetectParser
+ * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
+ * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
+ * metadataWhitelist (StringList, Optional) : list of metadata names that are to be included in document
+ * metadataBlacklist (StringList, Optional) : list of metadata names that are not to be included in document
  */
 public class TextExtractor extends Stage {
 
@@ -57,31 +57,31 @@ public class TextExtractor extends Stage {
   private StandardFileSystemManager fsManager;
 
   public TextExtractor(Config config) throws StageException {
-    super(config, new StageSpec().withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
-        "metadata_prefix", "metadata_whitelist", "metadata_blacklist", "text_content_limit"));
-    textField = config.hasPath("text_field") ? config.getString("text_field") : "text";
-    filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : null;
-    byteArrayField = config.hasPath("byte_array_field") ? config.getString("byte_array_field") : null;
-    metadataPrefix = config.hasPath("metadata_prefix") ? config.getString("metadata_prefix") : "tika";
-    tikaConfigPath = config.hasPath("tika_config_path") ? config.getString("tika_config_path") : null;
-    textContentLimit = config.hasPath("text_content_limit") ? config.getInt("text_content_limit") : Integer.MAX_VALUE;
-    metadataWhitelist = config.hasPath("metadata_whitelist") ? config.getStringList("metadata_whitelist") : null;
-    metadataBlacklist = config.hasPath("metadata_blacklist") ? config.getStringList("metadata_blacklist") : null;
+    super(config, new StageSpec().withOptionalProperties("textField", "filePathField", "byteArrayField", "tikaConfigPath",
+        "metadataPrefix", "metadataWhitelist", "metadataBlacklist", "textContentLimit"));
+    textField = config.hasPath("textField") ? config.getString("textField") : "text";
+    filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : null;
+    byteArrayField = config.hasPath("byteArrayField") ? config.getString("byteArrayField") : null;
+    metadataPrefix = config.hasPath("metadataPrefix") ? config.getString("metadataPrefix") : "tika";
+    tikaConfigPath = config.hasPath("tikaConfigPath") ? config.getString("tikaConfigPath") : null;
+    textContentLimit = config.hasPath("textContentLimit") ? config.getInt("textContentLimit") : Integer.MAX_VALUE;
+    metadataWhitelist = config.hasPath("metadataWhitelist") ? config.getStringList("metadataWhitelist") : null;
+    metadataBlacklist = config.hasPath("metadataBlacklist") ? config.getStringList("metadataBlacklist") : null;
     if (metadataWhitelist != null && metadataBlacklist != null) {
       throw new StageException("Provided both a whitelist and blacklist to the TextExtractor stage");
     }
     if (filePathField != null && byteArrayField != null) {
-      throw new StageException("Provided both a file_path_field and byte_array_field to the TextExtractor stage");
+      throw new StageException("Provided both a filePathField and byteArrayField to the TextExtractor stage");
     }
     if (filePathField == null && byteArrayField == null) {
-      throw new StageException("Provided neither a file_path_field nor byte_array_field to the TextExtractor stage");
+      throw new StageException("Provided neither a filePathField nor byteArrayField to the TextExtractor stage");
     }
     parseCtx = new ParseContext();
   }
 
   @Override
   public void start() throws StageException {
-    // initialize fsManager only if file_path_field is used
+    // initialize fsManager only if filePathField is used
     if (filePathField != null) {
       try {
         fsManager = new StandardFileSystemManager();

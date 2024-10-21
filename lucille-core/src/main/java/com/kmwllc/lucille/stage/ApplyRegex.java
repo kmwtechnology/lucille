@@ -25,10 +25,10 @@ import java.util.regex.Pattern;
  *   - regex (String) : A regex expression to find matches for. Matches will be extracted and placed in the destination fields.
  *     If the regex includes capturing groups, the value of the first group will be used.
  *   <br>
- *   - update_mode (String. Optional) : Determines how writing will be handling if the destination field is already populated.
+ *   - updateMode (String. Optional) : Determines how writing will be handling if the destination field is already populated.
  *   <br>
  *     Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
- *   - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.
+ *   - ignoreCase (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.
  *   <br>
  *   - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.
  *   <br>
@@ -52,14 +52,14 @@ public class ApplyRegex extends Stage {
 
   public ApplyRegex(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "regex")
-        .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
+        .withOptionalProperties("updateMode", "ignoreCase", "multiline", "dotall", "literal"));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.regexExpr = config.getString("regex");
     this.updateMode = UpdateMode.fromConfig(config);
 
-    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignoreCase", false);
     this.multiline = ConfigUtils.getOrDefault(config, "multiline", false);
     this.dotall = ConfigUtils.getOrDefault(config, "dotall", false);
     this.literal = ConfigUtils.getOrDefault(config, "literal", false);

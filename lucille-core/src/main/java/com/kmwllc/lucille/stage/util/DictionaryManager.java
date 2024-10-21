@@ -136,7 +136,7 @@ public class DictionaryManager {
         if (line.length == 1) {
           value = setOnly ? PRESENT : new String[]{word};
         } else if (setOnly) {
-          throw new StageException(String.format("Comma separated values are not allowed when set_only=true: \"%s\" on line %d",
+          throw new StageException(String.format("Comma separated values are not allowed when setOnly=true: \"%s\" on line %d",
               Arrays.toString(line), reader.getLinesRead()));
         } else {
           // Handle multiple payload values here.

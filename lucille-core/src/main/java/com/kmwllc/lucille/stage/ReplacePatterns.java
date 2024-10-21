@@ -24,10 +24,10 @@ import java.util.regex.Pattern;
  * <br>
  * - replacement (String) : The String to replace regex matches with.
  * <br>
- * - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ * - updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  * Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  * <br>
- * - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.
+ * - ignoreCase (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.
  * <br>
  * - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.
  * <br>
@@ -52,7 +52,7 @@ public class ReplacePatterns extends Stage {
 
   public ReplacePatterns(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "regex", "replacement")
-        .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
+        .withOptionalProperties("updateMode", "ignoreCase", "multiline", "dotall", "literal"));
 
     this.patterns = new ArrayList<>();
 
@@ -62,7 +62,7 @@ public class ReplacePatterns extends Stage {
     this.replacement = config.getString("replacement");
     this.updateMode = UpdateMode.fromConfig(config);
 
-    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignoreCase", false);
     this.multiline = ConfigUtils.getOrDefault(config, "multiline", false);
     this.dotall = ConfigUtils.getOrDefault(config, "dotall", false);
     this.literal = ConfigUtils.getOrDefault(config, "literal", false);
