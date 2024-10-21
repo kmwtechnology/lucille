@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.enron;
+package com.kmwllc.lucille.opensearchIngest;
 
 import com.kmwllc.lucille.core.Runner;
 import com.typesafe.config.Config;
