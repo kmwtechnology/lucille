@@ -19,15 +19,17 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This stage uses jlama as an inference machine to download and use the embedding model locally, where it would retrieve the input
- * to the model from a source field, and set the outputs to a destination field. This stage is for Java 20 and above.
- * Note that in order to use this stage you might need to set this environment variable below, or attach it to your java run command:
- * JDK_JAVA_OPTIONS=--add-modules jdk.incubator.vector
+ * to the model from a source field, and set the outputs to a destination field. Note that this stage only supports models that have
+ * safetensor format and BERT architecture.
+ *
+ * Note that in order to use this stage you will need to set this environment variable below, or attach it to your java run command:
+ * JDK_JAVA_OPTIONS='--add-modules jdk.incubator.vector'
  *
  * Config Parameters:
  * - source (String) : field of which the embedding Stage will retrieve content from
- * - dest (String, Optional) : name of the field that will hold the embeddings, defaults to "embeddings"
- * - localModelFolderPath (String) : Path where the model will be downloaded to and used
- * - model (String, Optional) : the name of the embedding model to use in the format of owner/name
+ * - dest (String, Optional) : name of the field that will store the embeddings, defaults to "embeddings"
+ * - pathToStoreModel (String) : Path where the model will be downloaded to and used
+ * - model (String, Optional) : the name of the embedding model to use in the format of owner/name, retrieved from HuggingFace
  * - workingMemoryType (String, Optional) : the data type used during runtime for model, impacts accuracy and resource usage.
  * - workingQuantizationType (String, Optional): the data type used during quantization for model, influences the compression and
  *   speed of the model, trading off accuracy for performance.
@@ -64,7 +66,7 @@ public class JlamaEmbed extends Stage {
   public JlamaEmbed(Config config) {
     super(config, new StageSpec()
         .withRequiredProperties("model", "source", "pathToStoreModel")
-        .withOptionalProperties("workingMemoryType", "workingQuantizationType"));
+        .withOptionalProperties("workingMemoryType", "workingQuantizationType", "dest"));
     pathToStoreModel = config.getString("pathToStoreModel");
     this.embeddingModel = config.getString("model");
     this.source = config.getString("source");

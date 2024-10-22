@@ -14,7 +14,7 @@
 
   <artifactId>lucille-jlama</artifactId>
   <packaging>jar</packaging>
-   <name>Lucille Plugins: Lucille Jlama</name>
+  <name>Lucille Plugins: Lucille Jlama</name>
 
   <properties>
     <jlama.version>0.6.0</jlama.version>
