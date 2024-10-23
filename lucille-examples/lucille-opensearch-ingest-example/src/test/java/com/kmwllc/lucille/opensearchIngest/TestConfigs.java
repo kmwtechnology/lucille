@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.opensearchIngest;
 
-import com.kmwllc.lucille.util.TestConfUtils;
+import com.kmwllc.lucille.test.TestConfUtils;
 import org.junit.Test;
 
 public class TestConfigs {

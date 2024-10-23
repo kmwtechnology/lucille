@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.fileToFile;
 
-import com.kmwllc.lucille.util.TestConfUtils;
+import com.kmwllc.lucille.test.TestConfUtils;
 import java.util.List;
 import org.junit.Test;
 

@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.util;
+package com.kmwllc.lucille.test;
 
 import com.kmwllc.lucille.core.Runner;
 import com.typesafe.config.Config;
