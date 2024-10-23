@@ -23,6 +23,7 @@
     <module>lucille-parquet</module>
     <module>lucille-tika</module>
     <module>lucille-ocr</module>
+    <module>lucille-jlama</module>
   </modules>
 
   <dependencies>
