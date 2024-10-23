@@ -12,10 +12,9 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 /**
- * This class is only meant for testing configs in the Lucille example module.
+ * This utils class is meant for validating configs within a folder.
  */
-
-public class TestConfUtils {
+public class ConfigValidationUtils {
 
   public static void validateConfigs(List<String> configsToIgnore) throws Exception {
     // get path to conf directory

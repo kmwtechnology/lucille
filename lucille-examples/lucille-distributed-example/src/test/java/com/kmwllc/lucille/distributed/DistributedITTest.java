@@ -11,10 +11,10 @@ import org.junit.Test;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class DistributedIT {
+public class DistributedITTest {
 
   @Test
-  public void distributedIT() throws Exception {
+  public void testDistributedIT() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
     String fileName = "runner/output/dest.json";
     int numDocs = 6;
