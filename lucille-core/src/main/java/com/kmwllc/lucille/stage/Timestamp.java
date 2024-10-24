@@ -15,7 +15,7 @@ import java.util.List;
  * <p>
  * Config Parameters -
  * <ul>
- * <li>dest_field (String) : The field to place the timestamp into.</li>
+ * <li>destField (String) : The field to place the timestamp into.</li>
  * </ul>
  */
 public class Timestamp extends Stage {
@@ -23,8 +23,8 @@ public class Timestamp extends Stage {
   private final String destField;
 
   public Timestamp(Config config) {
-    super(config, new StageSpec().withRequiredProperties("dest_field"));
-    this.destField = config.getString("dest_field");
+    super(config, new StageSpec().withRequiredProperties("destField"));
+    this.destField = config.getString("destField");
   }
 
   @Override

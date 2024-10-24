@@ -60,13 +60,13 @@ public class AddRandomField extends Stage {
   private List<String> uniqueValues;
 
   public AddRandomField(Config config) throws StageException {
-    super(config, new StageSpec().withOptionalProperties("input_data_path", "field_name", "range_size", "min_num_of_terms",
-        "max_num_of_terms", "is_nested"));
-    this.inputDataPath = ConfigUtils.getOrDefault(config, "input_data_path", null);
-    this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
-    this.minNumOfTerms = ConfigUtils.getOrDefault(config, "min_num_of_terms", null);
-    this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "max_num_of_terms", null);
-    this.isNested = ConfigUtils.getOrDefault(config, "is_nested", false);
+    super(config, new StageSpec().withOptionalProperties("inputDataPath", "fieldName", "rangeSize", "minNumOfTerms",
+        "maxNumOfTerms", "isNested"));
+    this.inputDataPath = ConfigUtils.getOrDefault(config, "inputDataPath", null);
+    this.fieldName = ConfigUtils.getOrDefault(config, "fieldName", "data");
+    this.minNumOfTerms = ConfigUtils.getOrDefault(config, "minNumOfTerms", null);
+    this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "maxNumOfTerms", null);
+    this.isNested = ConfigUtils.getOrDefault(config, "isNested", false);
     this.dataArr = null;
     this.rangeSize = null;
     this.uniqueValues = null;
@@ -86,7 +86,7 @@ public class AddRandomField extends Stage {
   @Override
   public void start() throws StageException {
     this.dataArr = this.inputDataPath != null ? getFileData(this.inputDataPath) : null;
-    this.rangeSize = ConfigUtils.getOrDefault(config, "range_size",
+    this.rangeSize = ConfigUtils.getOrDefault(config, "rangeSize",
         this.dataArr != null ? this.dataArr.size() : this.maxNumOfTerms);
     this.uniqueValues = getUniqueValues(this.dataArr != null, this.dataArr);
 

@@ -75,17 +75,17 @@ public class DictionaryLookupTest {
     Stage stage = factory.get("DictionaryLookupTest/config.conf");
     assertEquals(
         Set.of(
-            "ignore_case",
-            "use_payloads",
-            "update_mode",
+            "ignoreCase",
+            "usePayloads",
+            "updateMode",
             "name",
             "source",
             "dest",
             "conditions",
             "class",
-            "dict_path",
-            "set_only",
-            "ignore_missing_source",
+            "dictPath",
+            "setOnly",
+            "ignoreMissingSource",
             "conditionPolicy"),
         stage.getLegalProperties());
   }
@@ -234,16 +234,16 @@ public class DictionaryLookupTest {
   @Test
   public void testInvalidSet() {
     Throwable e = assertThrows(StageException.class, () ->factory.get("DictionaryLookupTest/set_config_invalid.conf"));
-    assertEquals("Comma separated values are not allowed when set_only=true: \"[USSR,  Russia]\" on line 5",
+    assertEquals("Comma separated values are not allowed when setOnly=true: \"[USSR,  Russia]\" on line 5",
         e.getMessage());
   }
 
   @Test
   public void testInvalidConfig() {
     Throwable e = assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/set_config_invalid_update1.conf"));
-    assertEquals("when set_only is true, update_mode must be set to overwrite", e.getMessage());
+    assertEquals("when setOnly is true, updateMode must be set to overwrite", e.getMessage());
 
     e = assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/set_config_invalid_update2.conf"));
-    assertEquals("when set_only is true, update_mode must be set to overwrite", e.getMessage());
+    assertEquals("when setOnly is true, updateMode must be set to overwrite", e.getMessage());
   }
 }

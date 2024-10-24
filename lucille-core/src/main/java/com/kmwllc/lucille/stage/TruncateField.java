@@ -22,7 +22,7 @@ import com.typesafe.config.Config;
  * skipped and this is logged as a warning.
  * </p>
  * <p>
- * <b>max_size</b> (int) : The maximum number of characters to truncate the input to. If this is negative a StageException 
+ * <b>maxSize</b> (int) : The maximum number of characters to truncate the input to. If this is negative a StageException
  * is thrown. 
  * </p>
  * <p>
@@ -39,18 +39,18 @@ public class TruncateField extends Stage {
   private static final Logger log = LogManager.getLogger(TruncateField.class);
 
   public TruncateField(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "max_size").withOptionalProperties("destination"));
+    super(config, new StageSpec().withRequiredProperties("source", "maxSize").withOptionalProperties("destination"));
 
 
     this.source = config.getString("source");
-    this.maxSize = config.getInt("max_size");
+    this.maxSize = config.getInt("maxSize");
     this.destination = ConfigUtils.getOrDefault(config, "destination", null);
   }
 
   @Override
   public void start() throws StageException {
     if (maxSize < 0) {
-      throw new StageException("max_size cannot be negative");
+      throw new StageException("maxSize cannot be negative");
     }
   }
 

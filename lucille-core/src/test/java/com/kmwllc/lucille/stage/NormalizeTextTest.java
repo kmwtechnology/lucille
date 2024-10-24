@@ -54,7 +54,7 @@ public class NormalizeTextTest {
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("NormalizeTextTest/lowercase.conf");
     assertEquals(
-        Set.of("mode", "update_mode", "name", "source", "dest", "conditions", "class", "conditionPolicy"),
+        Set.of("mode", "updateMode", "name", "source", "dest", "conditions", "class", "conditionPolicy"),
         stage.getLegalProperties());
   }
 }

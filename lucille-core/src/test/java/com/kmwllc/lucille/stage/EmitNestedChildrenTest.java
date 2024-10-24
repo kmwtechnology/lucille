@@ -56,7 +56,7 @@ public class EmitNestedChildrenTest {
     // no children emitted
     assertNull(documents);
 
-    // even if drop_parent is set to true, if no children, should not drop main parent document
+    // even if dropParent is set to true, if no children, should not drop main parent document
     assertFalse(parent.hasChildren());
     assertFalse(parent.isDropped());
   }
