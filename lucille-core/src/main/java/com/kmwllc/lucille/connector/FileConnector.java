@@ -41,8 +41,8 @@ import org.slf4j.LoggerFactory;
  * - "reopenableExceptions":
  *
  * Azure:
- * - "accountName"
- * - "accountKey"
+ * - "accountName" (Not optional)
+ * - "accountKey" (Not optional)
  * - "AzureStorageUploadBlockSize"
  * - "AzureStoragePutBlobThreshold"
  * - "AzureStorageMaxConcurrencyPerRequest"

@@ -69,6 +69,7 @@ public class FileConnectorTest {
     configMapAz.put("pipeline", "pipeline1");
     configMapAz.put("name", "name");
     configMapAz.put("pathToStorage", "azb://bucket-name");
+    configMapAz.put("cloudOptions", Map.of("accountName", "accountName", "accountKey", "accountKey"));
     Config configAz = ConfigFactory.parseMap(configMapAz);
     TestMessenger messengerAz = new TestMessenger();
     Publisher publisherAz = new PublisherImpl(configAz, messengerAz, "run", "pipeline1");
