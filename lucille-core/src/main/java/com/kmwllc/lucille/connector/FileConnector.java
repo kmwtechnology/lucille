@@ -16,7 +16,6 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -25,6 +24,41 @@ import java.util.stream.Stream;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+/**
+ * Additional Cloud Options based on providers:
+ *
+ * Google:
+ * - "workingDirectory":
+ * - "permitEmptyPathComponents":
+ * - "stripPrefixSlash":
+ * - "usePseudoDirectories":
+ * - "blockSize":
+ * - "maxChannelReopens":
+ * - "userProject":
+ * - "useUserProjectOnlyForRequesterPaysBuckets":
+ * - "retryableHttpCodes":
+ * - "reopenableExceptions":
+ *
+ * Azure:
+ * - "accountName"
+ * - "accountKey"
+ * - "AzureStorageUploadBlockSize"
+ * - "AzureStoragePutBlobThreshold"
+ * - "AzureStorageMaxConcurrencyPerRequest"
+ * - "AzureStorageDownloadResumeRetries"
+ * - "AzureStorageFileStores"
+ * - "AzureStorageSkipInitialContainerCheck"
+ *
+ * Amazon:
+ * - "locationConstraint"
+ * - "acl"
+ * - "grantFullControl"
+ * - "grantRead"
+ * - "grantReadACP"
+ * - "grantWrite"
+ * - "grantWriteACP"
+ */
 
 public class FileConnector extends AbstractConnector {
 
@@ -37,20 +71,21 @@ public class FileConnector extends AbstractConnector {
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   private final String pathToStorage;
+  private final Map<String, Object> cloudOptions;
   private final List<Pattern> includes;
   private final List<Pattern> excludes;
 
   public FileConnector(Config config) {
     super(config);
-    // normalize vfsPath to convert to a URI even if they specified an absolute or relative local file path
-    pathToStorage = config.getString("pathToStorage");
-    // Compile include and exclude regex paths or set an empty list if none were provided (allow all files)
+    this.pathToStorage = config.getString("pathToStorage");
+    // compile include and exclude regex paths or set an empty list if none were provided (allow all files)
     List<String> includeRegex = config.hasPath("includes") ?
         config.getStringList("includes") : Collections.emptyList();
-    includes = includeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
+    this.includes = includeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
     List<String> excludeRegex = config.hasPath("excludes") ?
         config.getStringList("excludes") : Collections.emptyList();
-    excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
+    this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
+    this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
   }
 
   @Override
@@ -80,7 +115,7 @@ public class FileConnector extends AbstractConnector {
     } finally {
       if (fs != null) {
         try {
-            fs.close();
+          fs.close();
         } catch (UnsupportedOperationException e) {
           // Some file systems may not need closing
         } catch (IOException e) {
@@ -151,18 +186,18 @@ public class FileConnector extends AbstractConnector {
 
   private FileSystem initGoogleFs() throws IOException {
     try {
-      return FileSystems.newFileSystem(URI.create(pathToStorage), Map.of());
+      return FileSystems.newFileSystem(URI.create(pathToStorage), cloudOptions);
     } catch (Exception e) {
       throw new IOException("Failed to initialize Google Cloud Storage filesystem", e);
     }
   }
 
   private FileSystem initAzureFs() throws IOException {
-    Map<String, Object> config = new HashMap<>();
     try {
-      StorageSharedKeyCredential credential = new StorageSharedKeyCredential("account_name", "account_key");
-      config.put(AzureFileSystem.AZURE_STORAGE_SHARED_KEY_CREDENTIAL, credential);
-      return FileSystems.newFileSystem(URI.create(pathToStorage), config);
+      StorageSharedKeyCredential credential = new StorageSharedKeyCredential(
+          (String) cloudOptions.get("accountName"), (String) cloudOptions.get("accountKey"));
+      cloudOptions.put(AzureFileSystem.AZURE_STORAGE_SHARED_KEY_CREDENTIAL, credential);
+      return FileSystems.newFileSystem(URI.create(pathToStorage), cloudOptions);
     } catch (Exception e) {
       throw new IOException("Failed to initialize Azure Blob Storage filesystem", e);
     }
@@ -170,7 +205,7 @@ public class FileConnector extends AbstractConnector {
 
   private FileSystem initAmazonFs() throws IOException {
     try {
-      return FileSystems.newFileSystem(URI.create(pathToStorage), Map.of());
+      return FileSystems.newFileSystem(URI.create(pathToStorage), cloudOptions);
     } catch (Exception e) {
       throw new IOException("Failed to initialize Amazon S3 filesystem", e);
     }

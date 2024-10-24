@@ -145,6 +145,28 @@ public class FileConnectorTest {
 
   @Test
   public void testExecuteWithLocalFilesFiltered() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/localfs_filtered.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
 
+    connector.execute(publisher);
+    Assert.assertEquals(3, messenger.getDocsSentForProcessing().size());
+    String[] fileNames = {"a.json", "b.json", "c.json"};
+    for (Document doc : messenger.getDocsSentForProcessing()) {
+      String docId = doc.getId();
+      String filePath = doc.getString(VFSConnector.FILE_PATH);
+      String content = new String(doc.getBytes(VFSConnector.CONTENT));
+      Assert.assertTrue(Arrays.stream(fileNames).anyMatch(filePath::endsWith));
+      if (filePath.endsWith("a.json")) {
+        Assert.assertTrue(content.contains("\"filename\":\"400_106547e2f83b.jpg\""));
+      }
+      if (filePath.endsWith("b.json")) {
+        Assert.assertTrue(content.contains("\"imageHash\":\"1aaeac2de7c48e4e7773b1f92138291f\""));
+      }
+      if (filePath.endsWith("c.json")) {
+        Assert.assertTrue(content.contains("\"productImg\":\"mug-400_6812876c6c27.jpg\""));
+      }
+    }
   }
 }
