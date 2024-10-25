@@ -26,6 +26,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * Authentication:
+ *
+ * Google: https://github.com/googleapis/google-cloud-java#authentication
+ * Azure: https://learn.microsoft.com/en-us/java/api/overview/azure/storage-blob-nio-readme?view=azure-java-preview#authenticate-the-client
+ * Amazon: https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html
+ *
  * Additional Cloud Options based on providers:
  *
  * Google:
@@ -75,7 +81,7 @@ public class FileConnector extends AbstractConnector {
   private final List<Pattern> includes;
   private final List<Pattern> excludes;
 
-  public FileConnector(Config config) {
+  public FileConnector(Config config) throws ConnectorException {
     super(config);
     this.pathToStorage = config.getString("pathToStorage");
     // compile include and exclude regex paths or set an empty list if none were provided (allow all files)
@@ -86,6 +92,9 @@ public class FileConnector extends AbstractConnector {
         config.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
     this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
+    if (pathToStorage.startsWith("azb://") && (!cloudOptions.containsKey("accountName") || !cloudOptions.containsKey("accountKey"))) {
+      throw new ConnectorException("Missing 'accountName' or 'accountKey' in cloudOptions for Azure storage.");
+    }
   }
 
   @Override
@@ -102,7 +111,8 @@ public class FileConnector extends AbstractConnector {
         paths.filter(this::isValidPath)
             .forEachOrdered(path -> {
               try {
-                publisher.publish(processFile(path));
+                Document doc = pathToDoc(path);
+                publisher.publish(doc);
               } catch (Exception e) {
                 log.error("Unable to publish document '{}', SKIPPING", path, e);
               }
@@ -164,7 +174,7 @@ public class FileConnector extends AbstractConnector {
     return true;
   }
 
-  private Document processFile(Path path) throws ConnectorException {
+  private Document pathToDoc(Path path) throws ConnectorException {
     final String docId = DigestUtils.md5Hex(path.toString());
     final Document doc = Document.create(createDocId(docId));
 
@@ -173,7 +183,7 @@ public class FileConnector extends AbstractConnector {
       BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
 
       // setting fields on document
-      doc.setField(FILE_PATH, path.toString());
+      doc.setField(FILE_PATH, path.toAbsolutePath().toString());
       doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
       doc.setField(CREATED, attrs.creationTime().toInstant());
       doc.setField(SIZE, attrs.size());
