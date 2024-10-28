@@ -7,14 +7,13 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.Ignore;
 import org.junit.Test;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class DistributedITTest {
+public class DistributedIT {
   @Test
-  public void testDistributedIT() throws Exception {
+  public void distributedIT() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
     String fileName = "runner/output/dest.json";
     int numDocs = 6;
