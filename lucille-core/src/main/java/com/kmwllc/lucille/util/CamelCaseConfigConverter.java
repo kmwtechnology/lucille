@@ -36,6 +36,9 @@ public class CamelCaseConfigConverter {
 
     try (BufferedReader br = new BufferedReader(new FileReader(file))) {
       String line;
+      // iterating over lines for the edge case where the stage property is used one or more times as a property value in the same line
+      // in this case we want to replace only the first occurrence -- which is the stage property
+      // StringUtils.replaceEach does not give a way to limiting the number of replacements of the same value in the same line/config
       while ((line = br.readLine()) != null) {
         for (String stageProperty : stageProperties) {
           if (line.contains(stageProperty)) {
