@@ -1,7 +1,7 @@
 FROM ubuntu
 RUN apt-get upgrade
 RUN apt-get update && apt-get install curl -y
-RUN apt-get install lsof bc openjdk-11-jre-headless -y --fix-missing
+RUN apt-get install lsof bc openjdk-17-jre-headless -y --fix-missing
 
 # we copy local build artifacts into the image that we're building
 COPY target/ /target/
