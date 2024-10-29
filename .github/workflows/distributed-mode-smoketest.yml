@@ -19,6 +19,5 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
       - name: Run Maven Verify with Pnightly Flag
-        run: |
-          cd lucille-examples/lucille-distributed-example
+        run:
           mvn verify -Pnightly
