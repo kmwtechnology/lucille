@@ -1,5 +1,5 @@
 ---
-title: Introduction
+title: About Lucille
 weight: 1
 description: >
   Understanding what Lucille is, why you should use it, and how it works.
