@@ -6,6 +6,7 @@ github.com/FortAwesome/Font-Awesome v0.0.0-20230327165841-0698449d50f2 h1:Uv1z5E
 github.com/FortAwesome/Font-Awesome v0.0.0-20230327165841-0698449d50f2/go.mod h1:IUgezN/MFpCDIlFezw3L8j83oeiIuYoj28Miwr/KUYo=
 github.com/FortAwesome/Font-Awesome v0.0.0-20240108205627-a1232e345536 h1:LFS9LpoSZYhxQ6clU0NIVbaGR08BlxAs4b+9W+7IGVQ=
 github.com/FortAwesome/Font-Awesome v0.0.0-20240108205627-a1232e345536/go.mod h1:IUgezN/MFpCDIlFezw3L8j83oeiIuYoj28Miwr/KUYo=
+github.com/FortAwesome/Font-Awesome v0.0.0-20240716171331-37eff7fa00de h1:JvHOfdSqvArF+7cffH9oWU8oLhn6YFYI60Pms8M/6tI=
 github.com/FortAwesome/Font-Awesome v0.0.0-20240716171331-37eff7fa00de/go.mod h1:IUgezN/MFpCDIlFezw3L8j83oeiIuYoj28Miwr/KUYo=
 github.com/google/docsy v0.5.1 h1:D/ZdFKiE29xM/gwPwQzmkyXhcbQGkReRS6aGrF7lnYk=
 github.com/google/docsy v0.5.1/go.mod h1:maoUAQU5H/d+FrZIB4xg1EVWAx7RyFMGSDJyWghm31E=
