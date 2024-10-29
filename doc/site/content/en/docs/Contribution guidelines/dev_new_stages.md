@@ -3,7 +3,7 @@ title: Developing New Stages
 weight: 25
 date: 2024-10-28
 description: >
-  The basics of how to develop stages for Lucille
+  The basics of how to develop stages for Lucille.
 ---
 
 ## Introduction
