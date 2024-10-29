@@ -1,17 +1,16 @@
 ---
 title: Developing New Stages
-date: 2024-10-15
+weight: 25
+date: 2024-10-28
 description: >
-  A short lead description about this content page. It can be **bold** or _italic_ and can be split over multiple paragraphs.
-categories: [Examples]
-tags: [test, sample, docs]
+  The basics of how to develop stages for Lucille
 ---
 
-### Introduction
+## Introduction
 This guide covers the basics of how to develop a new stage for Lucille and what some of its required and optional components are. After reading this, you should be able to start development with a good foundation on how testing works, how configuration is handled, and what features the Stage class affords us. 
 
-**Note: Angle brackets (<…>) are used to show placeholder information that is meant to be replaced by you when using the code snippets.**
-### Prerequisite(s)
+
+## Prerequisite(s)
 - An up-to-date version of Lucille that has been appropriately installed 
 
 - Please refer to **Quick Start Guides - Lucille Local Mode** for more info on how to set up Lucille
@@ -21,6 +20,7 @@ This guide covers the basics of how to develop a new stage for Lucille and what 
 - Understanding of Lucille 
 
 ## Developing a Stage:
+*Note: Angle brackets (<…>) are used to show placeholder information that is meant to be replaced by you when using the code snippets.*
 1. Create a new Java class underneath the following directory in Lucille; name should be in PascalCase
    -  ```lucille/lucille-core/src/main/java/com/kmw/lucille/stage/```
 2. The new class should extend the Stage abstract class that can be found at the following directory in Lucille

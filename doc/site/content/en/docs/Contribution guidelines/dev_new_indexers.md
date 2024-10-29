@@ -1,10 +1,9 @@
 ---
 title: Developing New Indexers
-date: 2024-10-15
+weight: 30
+date: 2024-10-28
 description: >
-  A short lead description about this content page. It can be **bold** or _italic_ and can be split over multiple paragraphs.
-categories: [Examples]
-tags: [test, sample, docs]
+  The basics of how to develop indexers for Lucille.
 ---
 
 ## Base Classes

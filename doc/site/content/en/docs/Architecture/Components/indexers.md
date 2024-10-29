@@ -2,8 +2,6 @@
 title: Indexers
 date: 2024-10-15
 description: A thread that retrieves completed documents and sends them in batches to a search engine.
-categories: [Examples]
-tags: [test, sample, docs]
 ---
 
 # Lucille Indexers
