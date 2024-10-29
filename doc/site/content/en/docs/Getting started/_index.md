@@ -1,9 +1,6 @@
 ---
 title: Quick Start Guides
-description: What does your user need to know to try your project?
-categories: [Examples, Placeholders]
-tags: [test, docs]
-weight: 3
+weight: 2
 ---
 
 {{% pageinfo %}}
