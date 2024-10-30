@@ -8,7 +8,6 @@ import com.github.tjake.jlama.safetensors.SafeTensorSupport;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.stage.OpenAIEmbed;
 import com.typesafe.config.Config;
 import java.io.File;
 import java.io.IOException;
@@ -61,7 +60,7 @@ public class JlamaEmbed extends Stage {
   public final String dest;
   public AbstractModel model;
 
-  private static final Logger log = LoggerFactory.getLogger(OpenAIEmbed.class);
+  private static final Logger log = LoggerFactory.getLogger(JlamaEmbed.class);
 
   public JlamaEmbed(Config config) {
     super(config, new StageSpec()
@@ -117,7 +116,8 @@ public class JlamaEmbed extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     if (!doc.has(source) || StringUtils.isBlank(doc.getString(source))) {
-      throw new StageException("doc id: " + doc.getId() + " does not have " + source + " field or contains null/empty string.");
+      log.warn("doc id: {} does not have {} field or contains null/empty string. Skipping doc...", doc.getId(), source);
+      return null;
     }
 
     String toEmbed = doc.getString(source);
