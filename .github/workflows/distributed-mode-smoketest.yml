@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
@@ -18,6 +18,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
-      - name: Run Maven Verify with Pnightly Flag
-        run:
-          mvn verify -Pnightly
+      - name: Start up Docker and set up distributed mode
+        uses: adambirds/docker-compose-action@v1.5.0
+        with:
+          compose-file: "lucille/lucille-examples/lucille-distributed-example/docker-compose.yml"
+      - name: Run integration test
+        run: mvn failsafe:integration-test
