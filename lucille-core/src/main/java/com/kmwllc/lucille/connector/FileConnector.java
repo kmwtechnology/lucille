@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.connector;
 
-import com.azure.storage.blob.nio.AzureFileSystem;
-import com.azure.storage.common.StorageSharedKeyCredential;
+import com.kmwllc.lucille.connector.cloudstorageclients.CloudStorageClient;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -26,44 +25,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Authentication:
- *
- * Google: https://github.com/googleapis/google-cloud-java#authentication
- * Azure: https://learn.microsoft.com/en-us/java/api/overview/azure/storage-blob-nio-readme?view=azure-java-preview#authenticate-the-client
- * Amazon: https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html
- *
- * Additional Cloud Options based on providers:
+ * Cloud Options based on providers:
  *
  * Google:
- * - "workingDirectory":
- * - "permitEmptyPathComponents":
- * - "stripPrefixSlash":
- * - "usePseudoDirectories":
- * - "blockSize":
- * - "maxChannelReopens":
- * - "userProject":
- * - "useUserProjectOnlyForRequesterPaysBuckets":
- * - "retryableHttpCodes":
- * - "reopenableExceptions":
+ * - "pathToServiceKey" (Not optional)
  *
  * Azure:
- * - "accountName" (Not optional)
- * - "accountKey" (Not optional)
- * - "AzureStorageUploadBlockSize"
- * - "AzureStoragePutBlobThreshold"
- * - "AzureStorageMaxConcurrencyPerRequest"
- * - "AzureStorageDownloadResumeRetries"
- * - "AzureStorageFileStores"
- * - "AzureStorageSkipInitialContainerCheck"
+ *  Either:
+ *    - "connectionString"
+ *  Or:
+ *    - "accountName"
+ *    - "accountKey"
  *
  * Amazon:
- * - "locationConstraint"
- * - "acl"
- * - "grantFullControl"
- * - "grantRead"
- * - "grantReadACP"
- * - "grantWrite"
- * - "grantWriteACP"
+ * - "accessKeyId"
+ * - "secretAccessKey"
+ * - "region"
  */
 
 public class FileConnector extends AbstractConnector {
@@ -80,6 +57,8 @@ public class FileConnector extends AbstractConnector {
   private final Map<String, Object> cloudOptions;
   private final List<Pattern> includes;
   private final List<Pattern> excludes;
+  private CloudStorageClient cloudStorageClient;
+  private final URI storageUri;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config);
@@ -92,72 +71,84 @@ public class FileConnector extends AbstractConnector {
         config.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
     this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
-    if (pathToStorage.startsWith("azb://") && (!cloudOptions.containsKey("accountName") || !cloudOptions.containsKey("accountKey"))) {
-      throw new ConnectorException("Missing 'accountName' or 'accountKey' in cloudOptions for Azure storage.");
+    try {
+      log.info(pathToStorage);
+      this.storageUri = new URI(pathToStorage);
+      log.info(this.storageUri.getScheme());
+    } catch (URISyntaxException e) {
+      throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
     }
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    FileSystem fs = retrieveFileSystem(pathToStorage);
-
-    try {
-      // get current working directory
-      Path startingDirectory = fs.provider().getScheme().equals("file")
-          ? fs.getPath(pathToStorage)
-          : fs.getPath(parseCloudPath(pathToStorage));
-
-      try (Stream<Path> paths = Files.walk(startingDirectory)) {
-        paths.filter(this::isValidPath)
-            .forEachOrdered(path -> {
-              try {
-                Document doc = pathToDoc(path);
-                publisher.publish(doc);
-              } catch (Exception e) {
-                log.error("Unable to publish document '{}', SKIPPING", path, e);
-              }
-            });
+    if (storageUri.getScheme() != null && !storageUri.getScheme().equals("file")) {
+      validateCloudOptions(storageUri.getScheme(), cloudOptions);
+      cloudStorageClient = CloudStorageClient.getClient(storageUri, publisher, getDocIdPrefix(), excludes, includes, cloudOptions);
+      cloudStorageClient.init();
+      cloudStorageClient.publishFiles();
+      try {
+        cloudStorageClient.shutdown();
+      } catch (Exception e) {
+        throw new ConnectorException("Failed to shutdown client.", e);
       }
-    } catch (InvalidPathException | URISyntaxException e) {
-      throw new ConnectorException("Path string provided cannot be converted to a Path.", e);
-    } catch (SecurityException | IOException e) {
-      throw new ConnectorException("Error while traversing file system.", e);
-    } finally {
-      if (fs != null) {
-        try {
-          fs.close();
-        } catch (UnsupportedOperationException e) {
-          // Some file systems may not need closing
-        } catch (IOException e) {
-          throw new ConnectorException("Failed to close file system.", e);
+    } else {
+      FileSystem fs = null;
+      try {
+        fs = FileSystems.getDefault();
+        // get current working directory
+        Path startingDirectory = fs.getPath(pathToStorage);
+
+        try (Stream<Path> paths = Files.walk(startingDirectory)) {
+          paths.filter(this::isValidPath)
+              .forEachOrdered(path -> {
+                try {
+                  Document doc = pathToDoc(path);
+                  publisher.publish(doc);
+                } catch (Exception e) {
+                  log.error("Unable to publish document '{}', SKIPPING", path, e);
+                }
+              });
+        }
+      } catch (InvalidPathException e) {
+        throw new ConnectorException("Path string provided cannot be converted to a Path.", e);
+      } catch (SecurityException | IOException e) {
+        throw new ConnectorException("Error while traversing file system.", e);
+      } finally {
+        if (fs != null) {
+          try {
+            fs.close();
+          } catch (UnsupportedOperationException e) {
+            // Some file systems may not need closing
+          } catch (IOException e) {
+            throw new ConnectorException("Failed to close file system.", e);
+          }
         }
       }
     }
   }
 
-  private String parseCloudPath(String pathToStorage) throws URISyntaxException {
-    URI uri = new URI(pathToStorage);
-    if (uri.getPath().length() > 1) {
-      return uri.getPath();
-    } else {
-      return ".";
-    }
-  }
-
-  private FileSystem retrieveFileSystem(String pathToStorage) throws ConnectorException {
-    try {
-      if (pathToStorage.startsWith("gs://")) {
-        return initGoogleFs();
-      } else if (pathToStorage.startsWith("azb://")) {
-        return initAzureFs();
-      } else if (pathToStorage.startsWith("s3://")) {
-        return initAmazonFs();
+  private void validateCloudOptions(String scheme, Map<String, Object> cloudOptions) {
+    switch (scheme) {
+      case "gcs" -> {
+        if (!cloudOptions.containsKey("pathToServiceKey")) {
+          throw new IllegalArgumentException("Missing 'pathToServiceKey' in cloudOptions for Google Cloud storage.");
+        }
       }
-    } catch (IOException e) {
-      throw new ConnectorException("Failed to retrieve file system.", e);
+      case "s3" -> {
+        if (!cloudOptions.containsKey("accessKeyId") || !cloudOptions.containsKey("secretAccessKey") || !cloudOptions.containsKey("region")) {
+          throw new IllegalArgumentException("Missing 'accountName' or 'accountKey' or 'region' in cloudOptions for s3 storage.");
+        }
+      }
+      case "azb" -> {
+        if (!cloudOptions.containsKey("connectionString") &&
+            !(cloudOptions.containsKey("accountName") && cloudOptions.containsKey("accountKey"))) {
+          throw new IllegalArgumentException("Either 'connectionString' or 'accountName' & 'accountKey' has to be in cloudOptions"
+              + "for Azure storage.");
+        }
+      }
+      default -> throw new IllegalArgumentException("Unsupported client type: " + scheme);
     }
-
-    return FileSystems.getDefault();
   }
 
   private boolean isValidPath(Path path) {
@@ -192,32 +183,5 @@ public class FileConnector extends AbstractConnector {
       throw new ConnectorException("Error occurred getting/setting file attributes to document: " + path, e);
     }
     return doc;
-  }
-
-  private FileSystem initGoogleFs() throws IOException {
-    try {
-      return FileSystems.newFileSystem(URI.create(pathToStorage), cloudOptions);
-    } catch (Exception e) {
-      throw new IOException("Failed to initialize Google Cloud Storage filesystem", e);
-    }
-  }
-
-  private FileSystem initAzureFs() throws IOException {
-    try {
-      StorageSharedKeyCredential credential = new StorageSharedKeyCredential(
-          (String) cloudOptions.get("accountName"), (String) cloudOptions.get("accountKey"));
-      cloudOptions.put(AzureFileSystem.AZURE_STORAGE_SHARED_KEY_CREDENTIAL, credential);
-      return FileSystems.newFileSystem(URI.create(pathToStorage), cloudOptions);
-    } catch (Exception e) {
-      throw new IOException("Failed to initialize Azure Blob Storage filesystem", e);
-    }
-  }
-
-  private FileSystem initAmazonFs() throws IOException {
-    try {
-      return FileSystems.newFileSystem(URI.create(pathToStorage), cloudOptions);
-    } catch (Exception e) {
-      throw new IOException("Failed to initialize Amazon S3 filesystem", e);
-    }
   }
 }
