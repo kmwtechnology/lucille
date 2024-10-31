@@ -1,9 +1,16 @@
 package com.kmwllc.lucille.connector;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import com.kmwllc.lucille.connector.cloudstorageclients.CloudStorageClient;
 import com.kmwllc.lucille.core.Connector;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
@@ -16,6 +23,7 @@ import java.util.Arrays;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.MockedStatic;
 
 public class FileConnectorTest {
 
@@ -25,7 +33,102 @@ public class FileConnectorTest {
   public void setUp() throws Exception {
     mockFileSystem = mock(FileSystem.class);
     when(mockFileSystem.getPath(any())).thenReturn(mock(Path.class));
+  }
 
+  @Test
+  public void testExecuteForCloudFiles() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/gcloudtraversal.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    try (MockedStatic<CloudStorageClient> mockCloudStorageClient = mockStatic(CloudStorageClient.class)) {
+      CloudStorageClient cloudStorageClient = mock(CloudStorageClient.class);
+      mockCloudStorageClient.when(() -> CloudStorageClient.getClient(any(), any(), any(), any(), any(), any()))
+          .thenReturn(cloudStorageClient);
+
+      connector.execute(publisher);
+      verify(cloudStorageClient, times(1)).init();
+      verify(cloudStorageClient, times(1)).publishFiles();
+    }
+  }
+
+  @Test
+  public void testValidateGCloudOptions() throws Exception {
+    CloudStorageClient cloudStorageClient = mock(CloudStorageClient.class);
+    Config config = ConfigFactory.load("FileConnectorTest/gcloudtraversal.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    Config badConfig = ConfigFactory.load("FileConnectorTest/gcloudtraversalbad.conf");
+    TestMessenger badMessenger = new TestMessenger();
+    Publisher badPublisher = new PublisherImpl(badConfig, badMessenger, "run", "pipeline1");
+    Connector badConnector = new FileConnector(badConfig);
+
+
+    try (MockedStatic<CloudStorageClient> mockCloudStorageClient = mockStatic(CloudStorageClient.class)) {
+      mockCloudStorageClient.when(() -> CloudStorageClient.getClient(any(), any(), any(), any(), any(), any()))
+          .thenReturn(cloudStorageClient);
+
+      connector.execute(publisher);
+      verify(cloudStorageClient, times(1)).init();
+      verify(cloudStorageClient, times(1)).publishFiles();
+
+      assertThrows(IllegalArgumentException.class, () -> badConnector.execute(badPublisher));
+    }
+  }
+
+  @Test
+  public void testValidateS3CloudOptions() throws Exception {
+    CloudStorageClient cloudStorageClient = mock(CloudStorageClient.class);
+    Config config = ConfigFactory.load("FileConnectorTest/s3cloudtraversal.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    Config badConfig = ConfigFactory.load("FileConnectorTest/s3cloudtraversalbad.conf");
+    TestMessenger badMessenger = new TestMessenger();
+    Publisher badPublisher = new PublisherImpl(badConfig, badMessenger, "run", "pipeline1");
+    Connector badConnector = new FileConnector(badConfig);
+
+
+    try (MockedStatic<CloudStorageClient> mockCloudStorageClient = mockStatic(CloudStorageClient.class)) {
+      mockCloudStorageClient.when(() -> CloudStorageClient.getClient(any(), any(), any(), any(), any(), any()))
+          .thenReturn(cloudStorageClient);
+
+      connector.execute(publisher);
+      verify(cloudStorageClient, times(1)).init();
+      verify(cloudStorageClient, times(1)).publishFiles();
+
+      assertThrows(IllegalArgumentException.class, () -> badConnector.execute(badPublisher));
+    }
+  }
+
+  @Test
+  public void testValidateAzureCloudOptions() throws Exception {
+    CloudStorageClient cloudStorageClient = mock(CloudStorageClient.class);
+    Config config = ConfigFactory.load("FileConnectorTest/azbcloudtraversal.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    Config badConfig = ConfigFactory.load("FileConnectorTest/azbcloudtraversalbad.conf");
+    TestMessenger badMessenger = new TestMessenger();
+    Publisher badPublisher = new PublisherImpl(badConfig, badMessenger, "run", "pipeline1");
+    Connector badConnector = new FileConnector(badConfig);
+
+
+    try (MockedStatic<CloudStorageClient> mockCloudStorageClient = mockStatic(CloudStorageClient.class)) {
+      mockCloudStorageClient.when(() -> CloudStorageClient.getClient(any(), any(), any(), any(), any(), any()))
+          .thenReturn(cloudStorageClient);
+
+      connector.execute(publisher);
+      verify(cloudStorageClient, times(1)).init();
+      verify(cloudStorageClient, times(1)).publishFiles();
+
+      assertThrows(IllegalArgumentException.class, () -> badConnector.execute(badPublisher));
+    }
   }
 
   @Test

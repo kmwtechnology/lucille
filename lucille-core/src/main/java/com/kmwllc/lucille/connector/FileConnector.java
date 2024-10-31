@@ -82,7 +82,7 @@ public class FileConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    if (storageUri.getScheme() != null && !storageUri.getScheme().equals("file")) {
+    if (storageUri.getScheme() != null) {
       validateCloudOptions(storageUri.getScheme(), cloudOptions);
       cloudStorageClient = CloudStorageClient.getClient(storageUri, publisher, getDocIdPrefix(), excludes, includes, cloudOptions);
       cloudStorageClient.init();
