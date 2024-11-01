@@ -52,7 +52,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   public void publishFiles() {
     // set pagination of page to be 1000, and loop through all pages
     log.info("Listing all blobs in bucket: {} in starting directory: {}", bucketName, startingDirectory);
-    Page<Blob> page = storage.list(bucketName, BlobListOption.prefix(startingDirectory), Storage.BlobListOption.pageSize(100));
+    Page<Blob> page = storage.list(bucketName, BlobListOption.prefix(startingDirectory), Storage.BlobListOption.pageSize(maxNumOfPages));
 
     do {
       page.streamAll()
@@ -72,17 +72,9 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   private boolean isNotValid(Blob blob) {
-    if (blob.isDirectory()) {
-      return true;
-    }
-    String blobName = blob.getName();
-    if (excludes.stream().anyMatch(pattern -> pattern.matcher(blobName).matches())
-        || (!includes.isEmpty() && includes.stream().noneMatch(pattern -> pattern.matcher(blobName).matches()))) {
-      log.debug("Skipping file because of include or exclude regex: {}", blobName);
-      return true;
-    }
+    if (blob.isDirectory()) return true;
 
-    return false;
+    return shouldSkipBasedOnRegex(blob.getName());
   }
 
   private Document blobToDoc(Blob blob, String bucketName) throws IOException {
@@ -90,7 +82,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     final Document doc = Document.create(docIdPrefix + docId);
 
     try {
-      doc.setField(FileConnector.FILE_PATH, "gcs://" + bucketName + "/" + blob.getName());
+      doc.setField(FileConnector.FILE_PATH, pathToStorageURI.getScheme() + "://" + bucketName + "/" + blob.getName());
       doc.setField(FileConnector.MODIFIED, blob.getUpdateTimeOffsetDateTime().toInstant());
       doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
       doc.setField(FileConnector.SIZE, blob.getSize());

@@ -11,7 +11,7 @@ public class CloudStorageClientTest {
 
   @Test
   public void testGetClient() throws URISyntaxException {
-    CloudStorageClient client = CloudStorageClient.getClient(new URI("gcs://bucket/"), null, null, null, null, null);
+    CloudStorageClient client = CloudStorageClient.getClient(new URI("gs://bucket/"), null, null, null, null, null);
     assertTrue(client instanceof GoogleStorageClient);
     client = CloudStorageClient.getClient(new URI("s3://bucket/"), null, null, null, null, null);
     assertTrue(client instanceof S3StorageClient);

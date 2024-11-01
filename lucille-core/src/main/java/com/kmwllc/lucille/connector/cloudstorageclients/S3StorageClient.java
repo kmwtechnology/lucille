@@ -48,7 +48,7 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   public void publishFiles() {
-    ListObjectsV2Request request = ListObjectsV2Request.builder().bucket(bucketName).prefix(startingDirectory).maxKeys(100).build();
+    ListObjectsV2Request request = ListObjectsV2Request.builder().bucket(bucketName).prefix(startingDirectory).maxKeys(maxNumOfPages).build();
     ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
     response.stream()
         .forEach(resp -> {
@@ -82,16 +82,8 @@ public class S3StorageClient extends BaseStorageClient {
 
   private boolean isNotValid(S3Object obj) {
     String key = obj.key();
-    if (key.endsWith("/")) {
-      return true;
-    }
+    if (key.endsWith("/")) return true;
 
-    if (excludes.stream().anyMatch(pattern -> pattern.matcher(key).matches())
-        || (!includes.isEmpty() && includes.stream().noneMatch(pattern -> pattern.matcher(key).matches()))) {
-      log.debug("Skipping file because of include or exclude regex: {}", key);
-      return true;
-    }
-
-    return false;
+    return shouldSkipBasedOnRegex(key);
   }
 }

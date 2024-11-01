@@ -31,7 +31,7 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   public void init() {
-    if (!cloudOptions.containsKey("connectionString")) {
+    if (cloudOptions.containsKey("connectionString")) {
       containerClient = new BlobContainerClientBuilder()
           .connectionString((String) cloudOptions.get("connectionString"))
           .containerName(bucketName)
@@ -41,7 +41,6 @@ public class AzureStorageClient extends BaseStorageClient {
       String accountKey = (String) cloudOptions.get("accountKey");
 
       containerClient = new BlobContainerClientBuilder()
-          .endpoint(String.format("https://%s.blob.core.windows.net", accountName))
           .credential(new StorageSharedKeyCredential(accountName, accountKey))
           .containerName(bucketName)
           .buildClient();
@@ -55,7 +54,7 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   public void publishFiles() {
-    containerClient.listBlobs(new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(100), Duration.ofSeconds(10)).stream()
+    containerClient.listBlobs(new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
         .forEach(blob -> {
           if (isNotValid(blob)) {
             return;
@@ -85,13 +84,6 @@ public class AzureStorageClient extends BaseStorageClient {
   private boolean isNotValid(BlobItem blob) {
     if (blob.isPrefix()) return true;
 
-    String blobName = blob.getName();
-    if (excludes.stream().anyMatch(pattern -> pattern.matcher(blobName).matches())
-        || (!includes.isEmpty() && includes.stream().noneMatch(pattern -> pattern.matcher(blobName).matches()))) {
-      log.debug("Skipping file because of include or exclude regex: {}", blobName);
-      return true;
-    }
-
-    return false;
+    return shouldSkipBasedOnRegex(blob.getName());
   }
 }

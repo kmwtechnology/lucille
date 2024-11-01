@@ -26,21 +26,20 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Cloud Options based on providers:
+ *  Google:
+ *    "pathToServiceKey" : "path/To/Service/Key.json"
+ *  Azure:
+ *    connectionString" : azure connection string
+ *      Or:
+ *    "accountName" : azure account name
+ *    "accountKey" : azure account key
+ *  Amazon:
+ *    "accessKeyId" : s3 key id
+ *    "secretAccessKey" : secret access key
+ *    "region" : s3 storage region
  *
- * Google:
- * - "pathToServiceKey" (Not optional)
- *
- * Azure:
- *  Either:
- *    - "connectionString"
- *  Or:
- *    - "accountName"
- *    - "accountKey"
- *
- * Amazon:
- * - "accessKeyId"
- * - "secretAccessKey"
- * - "region"
+ * Optional:
+ *  "maxNumOfPages" : number of files to load into memory in a single fetch request, defaults to 100
  */
 
 public class FileConnector extends AbstractConnector {
@@ -58,7 +57,7 @@ public class FileConnector extends AbstractConnector {
   private final List<Pattern> includes;
   private final List<Pattern> excludes;
   private CloudStorageClient cloudStorageClient;
-  private final URI storageUri;
+  private final URI storageURI;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config);
@@ -72,9 +71,8 @@ public class FileConnector extends AbstractConnector {
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
     this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
     try {
-      log.info(pathToStorage);
-      this.storageUri = new URI(pathToStorage);
-      log.info(this.storageUri.getScheme());
+      this.storageURI = new URI(pathToStorage);
+      log.info("using path {} with scheme {}", pathToStorage, storageURI.getScheme());
     } catch (URISyntaxException e) {
       throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
     }
@@ -82,9 +80,9 @@ public class FileConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    if (storageUri.getScheme() != null) {
-      validateCloudOptions(storageUri.getScheme(), cloudOptions);
-      cloudStorageClient = CloudStorageClient.getClient(storageUri, publisher, getDocIdPrefix(), excludes, includes, cloudOptions);
+    if (storageURI.getScheme() != null) {
+      validateCloudOptions(storageURI.getScheme(), cloudOptions);
+      cloudStorageClient = CloudStorageClient.getClient(storageURI, publisher, getDocIdPrefix(), excludes, includes, cloudOptions);
       cloudStorageClient.init();
       cloudStorageClient.publishFiles();
       try {
@@ -130,7 +128,7 @@ public class FileConnector extends AbstractConnector {
 
   private void validateCloudOptions(String scheme, Map<String, Object> cloudOptions) {
     switch (scheme) {
-      case "gcs" -> {
+      case "gs" -> {
         if (!cloudOptions.containsKey("pathToServiceKey")) {
           throw new IllegalArgumentException("Missing 'pathToServiceKey' in cloudOptions for Google Cloud storage.");
         }
@@ -158,7 +156,7 @@ public class FileConnector extends AbstractConnector {
 
     if (excludes.stream().anyMatch(pattern -> pattern.matcher(path.toString()).matches())
         || (!includes.isEmpty() && includes.stream().noneMatch(pattern -> pattern.matcher(path.toString()).matches()))) {
-      log.debug("Skipping file because of include or exclude regex: " + path);
+      log.debug("Skipping file because of include or exclude regex: {}", path);
       return false;
     }
 

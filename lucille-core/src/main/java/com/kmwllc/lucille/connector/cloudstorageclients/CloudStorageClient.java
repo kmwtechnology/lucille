@@ -12,7 +12,7 @@ public interface CloudStorageClient {
       Map<String, Object> cloudOptions) {
     String activeClient = pathToStorage.getScheme();
     switch (activeClient) {
-      case "gcs" -> {
+      case "gs" -> {
         return new GoogleStorageClient(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions);
       }
       case "s3" -> {
