@@ -1,0 +1,19 @@
+services:
+  solr:
+    image: solr:9-slim
+    ports:
+      - "8983:8983"
+    networks: [search]
+    environment:
+      ZK_HOST: "zoo:2181"
+    depends_on: [zoo]
+
+  zoo:
+    image: zookeeper:3.9
+    networks: [search]
+    environment:
+      ZOO_4LW_COMMANDS_WHITELIST: "mntr,conf,ruok"
+
+networks:
+  search:
+    driver: bridge

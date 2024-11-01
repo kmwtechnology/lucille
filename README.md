@@ -32,6 +32,15 @@ To run this example, start an instance of Apache Solr on port 8983 and create a 
 
 Go to `lucille-examples/lucille-simple-csv-solr-example` in your working copy of Lucille and run:
 
+If your not already running a Solr instance, you can run a single instance of Solr in cloud mode with zookeper using the following command:
+
+`docker-compose up`
+
+To add the quicksort index:
+`curl "http://localhost:8983/solr/admin/collections?action=CREATE&name=quickstart&numShards=1&replicationFactor=1&collection.configName=_default"`
+
+Then you can run the example with:
+
 `mvn clean install`
 
 `./scripts/run_ingest.sh`
@@ -39,6 +48,9 @@ Go to `lucille-examples/lucille-simple-csv-solr-example` in your working copy of
 This script executes Lucille with a configuration file named `simple-csv-solr-example.conf` that tells Lucille to read a CSV of top songs and send each row as a document to Solr.
 
 Run a commit with `openSearcher=true` on your `quickstart` collection to make the documents visible. Go to your Solr admin dashboard, execute a `*:*` query and you should see the songs from the source file now visible as Solr documents.
+
+Or use curl
+`curl "http://localhost:8983/solr/quickstart/select?q=*:*&wt=json"`
 
 ---
 
