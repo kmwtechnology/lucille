@@ -36,7 +36,7 @@ If your not already running a Solr instance, you can run a single instance of So
 
 `docker-compose up`
 
-To add the quicksort index:
+To add the quickstart index:
 `curl "http://localhost:8983/solr/admin/collections?action=CREATE&name=quickstart&numShards=1&replicationFactor=1&collection.configName=_default"`
 
 Then you can run the example with:
