@@ -12,7 +12,7 @@ public abstract class BaseStorageClient implements CloudStorageClient {
   protected Publisher publisher;
   protected String docIdPrefix;
   protected URI pathToStorageURI;
-  protected String bucketName;
+  protected String bucketOrContainerName;
   protected String startingDirectory;
   List<Pattern> excludes;
   List<Pattern> includes;
@@ -24,9 +24,8 @@ public abstract class BaseStorageClient implements CloudStorageClient {
     this.publisher = publisher;
     this.docIdPrefix = docIdPrefix;
     this.pathToStorageURI = pathToStorageURI;
-    this.bucketName = pathToStorageURI.getAuthority();
-    this.startingDirectory = Objects.equals(pathToStorageURI.getPath(), "/") ? "" : pathToStorageURI.getPath();
-    if (this.startingDirectory.startsWith("/")) this.startingDirectory = this.startingDirectory.substring(1);
+    this.bucketOrContainerName = getContainerOrBucketName();
+    this.startingDirectory = getStartingDirectory();
     this.excludes = excludes;
     this.includes = includes;
     this.cloudOptions = cloudOptions;
@@ -36,5 +35,15 @@ public abstract class BaseStorageClient implements CloudStorageClient {
   public boolean shouldSkipBasedOnRegex(String fileName) {
       return excludes.stream().anyMatch(pattern -> pattern.matcher(fileName).matches())
           || (!includes.isEmpty() && includes.stream().noneMatch(pattern -> pattern.matcher(fileName).matches()));
+  }
+
+  public String getContainerOrBucketName() {
+    return pathToStorageURI.getAuthority();
+  }
+
+  public String getStartingDirectory() {
+    String startingDirectory = Objects.equals(pathToStorageURI.getPath(), "/") ? "" : pathToStorageURI.getPath();
+    if (startingDirectory.startsWith("/")) return startingDirectory.substring(1);
+    return startingDirectory;
   }
 }

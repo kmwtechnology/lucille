@@ -37,8 +37,8 @@ public class AzureStorageClientTest {
     Map<String, Object> cloudOptions = new HashMap<>();
     cloudOptions.put("connectionString", "connectionString");
 
-    AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("azb://test/"), null, null, null,
-        null, cloudOptions);
+    AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/testblob"),
+        null, null, null, null, cloudOptions);
 
     try(MockedConstruction<BlobContainerClientBuilder> builder = Mockito.mockConstruction(BlobContainerClientBuilder.class,(mock,context)-> {
       when(mock.connectionString(anyString())).thenReturn(mock);
@@ -53,8 +53,8 @@ public class AzureStorageClientTest {
     cloudOptions.put("accountName", "accountName");
     cloudOptions.put("accountKey", "accountKey");
 
-    azureStorageClient = new AzureStorageClient(new URI("azb://test/"), null, null, null,
-        null, cloudOptions);
+    azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/testblob"), null,
+        null, null, null, cloudOptions);
 
     try(MockedConstruction<BlobContainerClientBuilder> builder = Mockito.mockConstruction(BlobContainerClientBuilder.class,(mock,context)-> {
 

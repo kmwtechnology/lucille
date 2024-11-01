@@ -18,8 +18,12 @@ public interface CloudStorageClient {
       case "s3" -> {
         return new S3StorageClient(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions);
       }
-      case "azb" -> {
-        return new AzureStorageClient(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions);
+      case "https" -> {
+        if (pathToStorage.getAuthority().contains("blob.core.windows.net")) {
+          return new AzureStorageClient(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions);
+        } else {
+          throw new RuntimeException("Unsupported client type: " + activeClient);
+        }
       }
       default -> throw new RuntimeException("Unsupported client type: " + activeClient);
     }

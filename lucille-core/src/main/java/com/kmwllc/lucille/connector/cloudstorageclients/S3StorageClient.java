@@ -48,7 +48,7 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   public void publishFiles() {
-    ListObjectsV2Request request = ListObjectsV2Request.builder().bucket(bucketName).prefix(startingDirectory).maxKeys(maxNumOfPages).build();
+    ListObjectsV2Request request = ListObjectsV2Request.builder().bucket(bucketOrContainerName).prefix(startingDirectory).maxKeys(maxNumOfPages).build();
     ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
     response.stream()
         .forEach(resp -> {
@@ -57,7 +57,7 @@ public class S3StorageClient extends BaseStorageClient {
               return;
             }
             try {
-              Document doc = s3ObjectToDoc(obj, bucketName);
+              Document doc = s3ObjectToDoc(obj, bucketOrContainerName);
               publisher.publish(doc);
             } catch (Exception e) {
               log.error("Unable to publish document '{}', SKIPPING", obj.key(), e);

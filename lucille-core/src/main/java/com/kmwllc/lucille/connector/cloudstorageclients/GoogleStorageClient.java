@@ -51,8 +51,8 @@ public class GoogleStorageClient extends BaseStorageClient {
   @Override
   public void publishFiles() {
     // set pagination of page to be 1000, and loop through all pages
-    log.info("Listing all blobs in bucket: {} in starting directory: {}", bucketName, startingDirectory);
-    Page<Blob> page = storage.list(bucketName, BlobListOption.prefix(startingDirectory), Storage.BlobListOption.pageSize(maxNumOfPages));
+    log.info("Listing all blobs in bucket: {} in starting directory: {}", bucketOrContainerName, startingDirectory);
+    Page<Blob> page = storage.list(bucketOrContainerName, BlobListOption.prefix(startingDirectory), Storage.BlobListOption.pageSize(maxNumOfPages));
 
     do {
       page.streamAll()
@@ -61,7 +61,7 @@ public class GoogleStorageClient extends BaseStorageClient {
               return;
             }
             try {
-              Document doc = blobToDoc(blob, bucketName);
+              Document doc = blobToDoc(blob, bucketOrContainerName);
               publisher.publish(doc);
             } catch (Exception e) {
               log.error("Unable to publish document '{}', SKIPPING", blob.getName(), e);

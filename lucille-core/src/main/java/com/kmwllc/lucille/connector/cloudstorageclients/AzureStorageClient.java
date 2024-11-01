@@ -30,11 +30,24 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
+  public String getContainerOrBucketName() {
+    String subPath = pathToStorageURI.getPath().substring(1);
+    return subPath.split("/")[0];
+  }
+
+  @Override
+  public String getStartingDirectory() {
+    String path = pathToStorageURI.getPath();
+    int secondSlashIndex = path.indexOf("/", 1);
+    return (secondSlashIndex + 1 < path.length()) ? path.substring(secondSlashIndex + 1) : "";
+  }
+
+  @Override
   public void init() {
     if (cloudOptions.containsKey("connectionString")) {
       containerClient = new BlobContainerClientBuilder()
           .connectionString((String) cloudOptions.get("connectionString"))
-          .containerName(bucketName)
+          .containerName(bucketOrContainerName)
           .buildClient();
     } else {
       String accountName = (String) cloudOptions.get("accountName");
@@ -42,7 +55,7 @@ public class AzureStorageClient extends BaseStorageClient {
 
       containerClient = new BlobContainerClientBuilder()
           .credential(new StorageSharedKeyCredential(accountName, accountKey))
-          .containerName(bucketName)
+          .containerName(bucketOrContainerName)
           .buildClient();
     }
   }
@@ -60,7 +73,7 @@ public class AzureStorageClient extends BaseStorageClient {
             return;
           }
           try {
-            Document doc = blobItemToDoc(blob, bucketName);
+            Document doc = blobItemToDoc(blob, bucketOrContainerName);
             publisher.publish(doc);
           } catch (Exception e) {
             log.error("Error publishing blob: {}", blob.getName(), e);
@@ -72,9 +85,11 @@ public class AzureStorageClient extends BaseStorageClient {
     String docId = DigestUtils.md5Hex(blob.getName());
     Document doc = Document.create(docIdPrefix + docId);
     BlobItemProperties properties = blob.getProperties();
-    doc.setField(FileConnector.FILE_PATH, "azb://" + bucketName + "/" + blob.getName());
-    doc.setField(FileConnector.MODIFIED, properties.getLastModified());
-    doc.setField(FileConnector.CREATED, properties.getCreationTime());
+    String path = String.format("%s://%s/%s/%s", pathToStorageURI.getScheme(), pathToStorageURI.getAuthority(),
+        bucketOrContainerName, blob.getName());
+    doc.setField(FileConnector.FILE_PATH, path);
+    doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
+    doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
     doc.setField(FileConnector.SIZE, properties.getContentLength());
     doc.setField(FileConnector.CONTENT, properties.getContentMd5());
 

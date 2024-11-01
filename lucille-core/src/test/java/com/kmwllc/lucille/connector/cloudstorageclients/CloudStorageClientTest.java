@@ -19,8 +19,8 @@ public class CloudStorageClientTest {
     client = CloudStorageClient.getClient(new URI("s3://bucket/"), null, null, null,
         null, cloudOptions);
     assertTrue(client instanceof S3StorageClient);
-    client = CloudStorageClient.getClient(new URI("azb://bucket"), null, null, null,
-        null, cloudOptions);
+    client = CloudStorageClient.getClient(new URI("https://storagename.blob.core.windows.net/testblob"), null,
+        null, null, null, cloudOptions);
     assertTrue(client instanceof AzureStorageClient);
 
     assertThrows(RuntimeException.class, () -> CloudStorageClient.getClient(new URI("unknown://bucket"), null,

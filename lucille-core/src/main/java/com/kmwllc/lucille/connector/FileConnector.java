@@ -81,7 +81,7 @@ public class FileConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     if (storageURI.getScheme() != null) {
-      validateCloudOptions(storageURI.getScheme(), cloudOptions);
+      validateCloudOptions(storageURI, cloudOptions);
       cloudStorageClient = CloudStorageClient.getClient(storageURI, publisher, getDocIdPrefix(), excludes, includes, cloudOptions);
       cloudStorageClient.init();
       cloudStorageClient.publishFiles();
@@ -126,26 +126,23 @@ public class FileConnector extends AbstractConnector {
     }
   }
 
-  private void validateCloudOptions(String scheme, Map<String, Object> cloudOptions) {
-    switch (scheme) {
-      case "gs" -> {
-        if (!cloudOptions.containsKey("pathToServiceKey")) {
-          throw new IllegalArgumentException("Missing 'pathToServiceKey' in cloudOptions for Google Cloud storage.");
-        }
+  private void validateCloudOptions(URI storageURI, Map<String, Object> cloudOptions) {
+    if (storageURI.getScheme().equals("gs")) {
+      if (!cloudOptions.containsKey("pathToServiceKey")) {
+        throw new IllegalArgumentException("Missing 'pathToServiceKey' in cloudOptions for Google Cloud storage.");
       }
-      case "s3" -> {
-        if (!cloudOptions.containsKey("accessKeyId") || !cloudOptions.containsKey("secretAccessKey") || !cloudOptions.containsKey("region")) {
-          throw new IllegalArgumentException("Missing 'accountName' or 'accountKey' or 'region' in cloudOptions for s3 storage.");
-        }
+    } else if (storageURI.getScheme().equals("s3")) {
+      if (!cloudOptions.containsKey("accessKeyId") || !cloudOptions.containsKey("secretAccessKey") || !cloudOptions.containsKey("region")) {
+        throw new IllegalArgumentException("Missing 'accountName' or 'accountKey' or 'region' in cloudOptions for s3 storage.");
       }
-      case "azb" -> {
-        if (!cloudOptions.containsKey("connectionString") &&
-            !(cloudOptions.containsKey("accountName") && cloudOptions.containsKey("accountKey"))) {
-          throw new IllegalArgumentException("Either 'connectionString' or 'accountName' & 'accountKey' has to be in cloudOptions"
-              + "for Azure storage.");
-        }
+    } else if (storageURI.getScheme().equals("https") && storageURI.getAuthority().contains("blob.core.windows.net")) {
+      if (!cloudOptions.containsKey("connectionString") &&
+          !(cloudOptions.containsKey("accountName") && cloudOptions.containsKey("accountKey"))) {
+        throw new IllegalArgumentException("Either 'connectionString' or 'accountName' & 'accountKey' has to be in cloudOptions"
+            + "for Azure storage.");
       }
-      default -> throw new IllegalArgumentException("Unsupported client type: " + scheme);
+    } else {
+      throw new IllegalArgumentException("Unsupported client type: " + storageURI.getScheme());
     }
   }
 
