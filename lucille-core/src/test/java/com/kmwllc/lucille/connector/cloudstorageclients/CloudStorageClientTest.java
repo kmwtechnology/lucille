@@ -5,19 +5,25 @@ import static org.junit.Assert.assertTrue;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Map;
 import org.junit.Test;
 
 public class CloudStorageClientTest {
 
   @Test
   public void testGetClient() throws URISyntaxException {
-    CloudStorageClient client = CloudStorageClient.getClient(new URI("gs://bucket/"), null, null, null, null, null);
+    Map<String, Object> cloudOptions = Map.of();
+    CloudStorageClient client = CloudStorageClient.getClient(new URI("gs://bucket/"), null, null,
+        null, null, cloudOptions);
     assertTrue(client instanceof GoogleStorageClient);
-    client = CloudStorageClient.getClient(new URI("s3://bucket/"), null, null, null, null, null);
+    client = CloudStorageClient.getClient(new URI("s3://bucket/"), null, null, null,
+        null, cloudOptions);
     assertTrue(client instanceof S3StorageClient);
-    client = CloudStorageClient.getClient(new URI("azb://bucket"), null, null, null, null, null);
+    client = CloudStorageClient.getClient(new URI("azb://bucket"), null, null, null,
+        null, cloudOptions);
     assertTrue(client instanceof AzureStorageClient);
 
-    assertThrows(RuntimeException.class, () -> CloudStorageClient.getClient(new URI("unknown://bucket"), null, null, null, null, null));
+    assertThrows(RuntimeException.class, () -> CloudStorageClient.getClient(new URI("unknown://bucket"), null,
+        null, null, null, cloudOptions));
   }
 }
