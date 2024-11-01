@@ -29,6 +29,8 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+      indexer:
+        condition: service_healthy
     networks: 
       - lucille-net
     volumes:
