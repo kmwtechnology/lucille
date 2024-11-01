@@ -17,3 +17,4 @@ services:
 networks:
   search:
     driver: bridge
+    
