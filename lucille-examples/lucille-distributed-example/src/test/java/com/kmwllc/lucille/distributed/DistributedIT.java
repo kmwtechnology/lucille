@@ -2,7 +2,6 @@ package com.kmwllc.lucille.distributed;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -15,7 +14,7 @@ public class DistributedIT {
   @Test
   public void distributedIT() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
-    String fileName = "runner/output/dest.json";
+    String fileName = "/output/dest.json";
     int numDocs = 6;
 
     String output = Files.readString(Paths.get(fileName));
