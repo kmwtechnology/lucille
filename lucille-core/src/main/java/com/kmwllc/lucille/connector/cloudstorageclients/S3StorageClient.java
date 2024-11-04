@@ -72,7 +72,7 @@ public class S3StorageClient extends BaseStorageClient {
     Document doc = Document.create(docIdPrefix + docId);
     doc.setField(FileConnector.FILE_PATH, pathToStorageURI.getScheme() + "://" + bucketName + "/" + objKey);
     doc.setField(FileConnector.MODIFIED, obj.lastModified());
-    doc.setField(FileConnector.CREATED, obj.lastModified());
+    doc.setField(FileConnector.CREATED, obj.lastModified()); // there isn't an object creation date in S3
     doc.setField(FileConnector.SIZE, obj.size());
     byte[] content = s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketName).key(objKey).build()).asByteArray();
     doc.setField(FileConnector.CONTENT, content);

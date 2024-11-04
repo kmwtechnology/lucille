@@ -50,8 +50,6 @@ public class GoogleStorageClient extends BaseStorageClient {
 
   @Override
   public void publishFiles() {
-    // set pagination of page to be 1000, and loop through all pages
-    log.info("Listing all blobs in bucket: {} in starting directory: {}", bucketOrContainerName, startingDirectory);
     Page<Blob> page = storage.list(bucketOrContainerName, BlobListOption.prefix(startingDirectory), Storage.BlobListOption.pageSize(maxNumOfPages));
 
     do {

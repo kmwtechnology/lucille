@@ -81,8 +81,7 @@ public class AzureStorageClientTest {
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     ArgumentCaptor<ListBlobsOptions> optionsCaptor = ArgumentCaptor.forClass(ListBlobsOptions.class);
     BlobContainerClient containerClient = mock(BlobContainerClient.class);
-    when(containerClient.listBlobs(any(), any())).thenReturn(null);
-    when(containerClient.listBlobs(optionsCaptor.capture(), any())).thenReturn(pagedIterable);
+    when(containerClient.listBlobsByHierarchy(any(), optionsCaptor.capture(), any())).thenReturn(pagedIterable);
 
     List<BlobItem> blobItems = new ArrayList<>();
     for (int i = 0; i < 5; i++) {
@@ -107,7 +106,7 @@ public class AzureStorageClientTest {
       azureStorageClient.publishFiles();
 
       // verify that we called listBlobs once with maxResultsPerPage set to 5
-      verify(containerClient, times(1)).listBlobs(any(), any());
+      verify(containerClient, times(1)).listBlobsByHierarchy(any(), any(), any());
       ListBlobsOptions options = optionsCaptor.getValue();
       assert options.getMaxResultsPerPage() == 5;
 

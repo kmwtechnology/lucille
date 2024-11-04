@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
  *    "region" : s3 storage region
  *
  * Optional:
- *  "maxNumOfPages" : number of files to load into memory in a single fetch request, defaults to 100
+ *  "maxNumOfPages" : number of reference to the files loaded into memory in a single fetch request, defaults to 100
  */
 
 public class FileConnector extends AbstractConnector {

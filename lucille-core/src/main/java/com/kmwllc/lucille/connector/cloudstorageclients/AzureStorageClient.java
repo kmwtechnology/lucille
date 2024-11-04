@@ -62,18 +62,19 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   public void shutdown() throws Exception {
+    // azure container client is not closable
     containerClient = null;
   }
 
   @Override
   public void publishFiles() {
-    containerClient.listBlobs(new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
+    containerClient.listBlobsByHierarchy("/", new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
         .forEach(blob -> {
           if (isNotValid(blob)) {
             return;
           }
           try {
-            Document doc = blobItemToDoc(blob, bucketOrContainerName);
+            Document doc = blobItemToDoc(blob);
             publisher.publish(doc);
           } catch (Exception e) {
             log.error("Error publishing blob: {}", blob.getName(), e);
@@ -81,7 +82,7 @@ public class AzureStorageClient extends BaseStorageClient {
         });
   }
 
-  private Document blobItemToDoc(BlobItem blob, String bucketName) {
+  private Document blobItemToDoc(BlobItem blob) {
     String docId = DigestUtils.md5Hex(blob.getName());
     Document doc = Document.create(docIdPrefix + docId);
     BlobItemProperties properties = blob.getProperties();
