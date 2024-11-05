@@ -54,13 +54,13 @@ import org.slf4j.LoggerFactory;
  */
 
 public class JlamaEmbed extends Stage {
-  public final String embeddingModel;
-  public final String source;
-  public final String pathToStoreModel;
-  public final String workingMemoryType;
-  public final String workingQuantizationType;
-  public final String dest;
-  public AbstractModel model;
+  private final String embeddingModel;
+  private final String source;
+  private final String pathToStoreModel;
+  private final String workingMemoryType;
+  private final String workingQuantizationType;
+  private final String dest;
+  private AbstractModel model;
 
   private static final Logger log = LoggerFactory.getLogger(JlamaEmbed.class);
 

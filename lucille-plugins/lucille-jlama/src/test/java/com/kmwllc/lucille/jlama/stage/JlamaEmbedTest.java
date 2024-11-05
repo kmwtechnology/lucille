@@ -31,7 +31,7 @@ import org.mockito.MockedStatic;
 public class JlamaEmbedTest {
 
   private StageFactory factory = StageFactory.of(JlamaEmbed.class);
-  public Config defaultConfig;
+  private Config defaultConfig;
 
   @Before
   public void setUp() throws Exception {
@@ -83,9 +83,11 @@ public class JlamaEmbedTest {
       // first stage
       assertEquals(DType.F32, argumentCaptor2.getAllValues().get(0));
       assertEquals(DType.I8, argumentCaptor3.getAllValues().get(0));
+
       // second stage
       assertEquals(DType.F16, argumentCaptor2.getAllValues().get(1));
       assertEquals(DType.I16, argumentCaptor3.getAllValues().get(1));
+
       // third stage
       assertEquals(DType.U16, argumentCaptor2.getAllValues().get(2));
       assertEquals(DType.Q5, argumentCaptor3.getAllValues().get(2));
@@ -115,6 +117,7 @@ public class JlamaEmbedTest {
       mockSafeTensorSupport.when(() -> SafeTensorSupport.maybeDownloadModel(any(), any())).thenReturn(mockFile);
       assertThrows(StageException.class, () -> factory.get(defaultConfig));
     }
+
     // testing when file exists but is not a directory
     when(mockFile.isFile()).thenReturn(true).thenReturn(true);
     when(mockFile.isDirectory()).thenReturn(false).thenReturn(true);
