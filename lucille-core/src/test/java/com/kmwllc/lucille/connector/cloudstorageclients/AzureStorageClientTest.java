@@ -98,6 +98,11 @@ public class AzureStorageClientTest {
     when(pagedIterable.stream()).thenReturn(getBlobItemStream());
     when(mockClient.listBlobsByHierarchy(anyString(), any(), any())).thenReturn(pagedIterable);
     azureStorageClient.setContainerClientForTesting(mockClient);
+    when(mockClient.getBlobClient(anyString()).downloadContent().toBytes())
+        .thenReturn(new byte[]{1, 2, 3, 4}) // blob1
+        .thenReturn(new byte[]{5, 6, 7, 8}) // blob2
+        .thenReturn(new byte[]{9, 10, 11, 12}) // blob3
+        .thenReturn(new byte[]{13, 14, 15, 16}); // blob4
 
     azureStorageClient.publishFiles();
 
@@ -145,6 +150,11 @@ public class AzureStorageClientTest {
     when(pagedIterable.stream()).thenReturn(getBlobItemStreamWithDirectory());
     when(mockClient.listBlobsByHierarchy(anyString(), any(), any())).thenReturn(pagedIterable);
     azureStorageClient.setContainerClientForTesting(mockClient);
+    when(mockClient.getBlobClient(anyString()).downloadContent().toBytes())
+        .thenReturn(new byte[]{1, 2, 3, 4}) // blob1
+        .thenReturn(new byte[]{5, 6, 7, 8}) // blob2
+        .thenReturn(new byte[]{9, 10, 11, 12}) // blob3
+        .thenReturn(new byte[]{13, 14, 15, 16}); // blob4
 
     azureStorageClient.publishFiles();
 
@@ -165,32 +175,28 @@ public class AzureStorageClientTest {
     blobItem1.setProperties(new BlobItemProperties()
         .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
         .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
-        .setContentLength(1L)
-        .setContentMd5(new byte[] {1, 2, 3, 4}));
+        .setContentLength(1L));
 
     BlobItem blobItem2 = new BlobItem();
     blobItem2.setName("blob2");
     blobItem2.setProperties(new BlobItemProperties()
         .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(2), ZoneId.of("UTC")))
         .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(2), ZoneId.of("UTC")))
-        .setContentLength(2L)
-        .setContentMd5(new byte[] {5, 6, 7, 8}));
+        .setContentLength(2L));
 
     BlobItem blobItem3 = new BlobItem();
     blobItem3.setName("blob3");
     blobItem3.setProperties(new BlobItemProperties()
         .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(3), ZoneId.of("UTC")))
         .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(3), ZoneId.of("UTC")))
-        .setContentLength(3L)
-        .setContentMd5(new byte[] {9, 10, 11, 12}));
+        .setContentLength(3L));
 
     BlobItem blobItem4 = new BlobItem();
     blobItem4.setName("blob4");
     blobItem4.setProperties(new BlobItemProperties()
         .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(4), ZoneId.of("UTC")))
         .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(4), ZoneId.of("UTC")))
-        .setContentLength(4L)
-        .setContentMd5(new byte[] {13, 14, 15, 16}));
+        .setContentLength(4L));
 
     return Stream.of(blobItem1, blobItem2, blobItem3, blobItem4);
   }
@@ -201,8 +207,7 @@ public class AzureStorageClientTest {
     blobItem1.setProperties(new BlobItemProperties()
         .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
         .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
-        .setContentLength(1L)
-        .setContentMd5(new byte[] {1, 2, 3, 4}));
+        .setContentLength(1L));
 
     BlobItem blobItem2 = new BlobItem();
     blobItem2.setName("blob2");
@@ -211,24 +216,21 @@ public class AzureStorageClientTest {
     blobItem2.setProperties(new BlobItemProperties()
         .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(2), ZoneId.of("UTC")))
         .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(2), ZoneId.of("UTC")))
-        .setContentLength(2L)
-        .setContentMd5(new byte[] {5, 6, 7, 8}));
+        .setContentLength(2L));
 
     BlobItem blobItem3 = new BlobItem();
     blobItem3.setName("blob3");
     blobItem3.setProperties(new BlobItemProperties()
         .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(3), ZoneId.of("UTC")))
         .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(3), ZoneId.of("UTC")))
-        .setContentLength(3L)
-        .setContentMd5(new byte[] {9, 10, 11, 12}));
+        .setContentLength(3L));
 
     BlobItem blobItem4 = new BlobItem();
     blobItem4.setName("blob4");
     blobItem4.setProperties(new BlobItemProperties()
         .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(4), ZoneId.of("UTC")))
         .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(4), ZoneId.of("UTC")))
-        .setContentLength(4L)
-        .setContentMd5(new byte[] {13, 14, 15, 16}));
+        .setContentLength(4L));
 
     return Stream.of(blobItem1, blobItem2, blobItem3, blobItem4);
   }

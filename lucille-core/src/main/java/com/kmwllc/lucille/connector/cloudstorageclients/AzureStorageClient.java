@@ -92,7 +92,7 @@ public class AzureStorageClient extends BaseStorageClient {
     doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
     doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
     doc.setField(FileConnector.SIZE, properties.getContentLength());
-    doc.setField(FileConnector.CONTENT, properties.getContentMd5());
+    doc.setField(FileConnector.CONTENT, containerClient.getBlobClient(blob.getName()).downloadContent().toBytes());
 
     return doc;
   }

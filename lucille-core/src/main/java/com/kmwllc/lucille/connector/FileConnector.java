@@ -41,7 +41,6 @@ import org.slf4j.LoggerFactory;
  * Optional:
  *  "maxNumOfPages" : number of reference to the files loaded into memory in a single fetch request, defaults to 100
  */
-
 public class FileConnector extends AbstractConnector {
 
   public static final String FILE_PATH = "file_path";
