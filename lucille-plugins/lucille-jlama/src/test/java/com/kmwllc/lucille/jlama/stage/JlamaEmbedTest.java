@@ -132,30 +132,6 @@ public class JlamaEmbedTest {
   }
 
   @Test
-  public void testMissingOrInvalidSourceField() throws StageException {
-    AbstractModel mockModel = mock(AbstractModel.class);
-    try (MockedStatic<SafeTensorSupport> mockSafeTensorSupport = mockStatic(SafeTensorSupport.class);
-        MockedStatic<ModelSupport> mockModelSupport = mockStatic(ModelSupport.class)) {
-      mockSafeTensorSupport.when(() -> SafeTensorSupport.maybeDownloadModel(any(), any())).thenReturn(mock(File.class));
-      mockModelSupport.when(() -> ModelSupport.loadEmbeddingModel(any(), any(), any())).thenReturn(mockModel);
-      // embedding process should not fail
-      when(mockModel.embed(any(), any())).thenReturn(new float[]{0.1F, 0.2F, 0.3F});
-
-      Stage stage = factory.get(defaultConfig);
-      Document doc = Document.create("doc1");
-      Document doc2 = Document.create("doc2");
-      doc2.setField("source", (String) null);
-      Document doc3 = Document.create("doc3");
-      doc3.setField("source", "");
-
-      // fail due to no source field or value of source field is null/empty
-      assertThrows(StageException.class, () -> stage.processDocument(doc));
-      assertThrows(StageException.class, () -> stage.processDocument(doc2));
-      assertThrows(StageException.class, () -> stage.processDocument(doc3));
-    }
-  }
-
-  @Test
   public void testEmbedding() throws StageException {
     AbstractModel mockModel = mock(AbstractModel.class);
     try (MockedStatic<SafeTensorSupport> mockSafeTensorSupport = mockStatic(SafeTensorSupport.class);

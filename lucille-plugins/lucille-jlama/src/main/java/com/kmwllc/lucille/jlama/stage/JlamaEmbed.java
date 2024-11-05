@@ -22,7 +22,9 @@ import org.slf4j.LoggerFactory;
  * safetensor format and BERT architecture.
  *
  * Note that in order to use this stage you will need to set this environment variable below, or attach it to your java run command:
- * JDK_JAVA_OPTIONS='--add-modules jdk.incubator.vector'
+ * export JDK_JAVA_OPTIONS='--add-modules jdk.incubator.vector'
+ *  or
+ * java ... --add-modules jdk.incubator.vector ...
  *
  * Config Parameters:
  * - source (String) : field of which the embedding Stage will retrieve content from
