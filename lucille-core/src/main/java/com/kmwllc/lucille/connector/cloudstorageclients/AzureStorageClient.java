@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 
 public class AzureStorageClient extends BaseStorageClient {
 
-  BlobContainerClient containerClient;
+  private BlobContainerClient containerClient;
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   public AzureStorageClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
@@ -101,5 +101,10 @@ public class AzureStorageClient extends BaseStorageClient {
     if (blob.isPrefix()) return true;
 
     return shouldSkipBasedOnRegex(blob.getName());
+  }
+
+  // Only for testing
+  public void setContainerClientForTesting(BlobContainerClient containerClient) {
+    this.containerClient = containerClient;
   }
 }

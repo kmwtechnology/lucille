@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 public class GoogleStorageClient extends BaseStorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
-  Storage storage;
+  private Storage storage;
 
   public GoogleStorageClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions) {
@@ -91,4 +91,8 @@ public class GoogleStorageClient extends BaseStorageClient {
     return doc;
   }
 
+  // Only for testing
+  public void setStorageForTesting(Storage storage) {
+    this.storage = storage;
+  }
 }

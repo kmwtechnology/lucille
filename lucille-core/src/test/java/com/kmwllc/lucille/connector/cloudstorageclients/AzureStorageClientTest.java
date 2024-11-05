@@ -1,7 +1,11 @@
 package com.kmwllc.lucille.connector.cloudstorageclients;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -21,14 +25,26 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.URI;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 
 public class AzureStorageClientTest {
 
@@ -68,52 +84,154 @@ public class AzureStorageClientTest {
   }
 
   @Test
-  public void testPublishFiles() throws Exception {
-    Map<String, Object> cloudOptions = new HashMap<>();
-    cloudOptions.put("connectionString", "connectionString");
-    cloudOptions.put("maxNumOfPages", 5);
+  public void testPublishValidFiles() throws Exception {
+    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
-    AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("azb://test/"), publisher, null, null,
-        null, cloudOptions);
+    AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("http://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
+        List.of(), List.of(), cloudOptions);
+
+    BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
-    ArgumentCaptor<ListBlobsOptions> optionsCaptor = ArgumentCaptor.forClass(ListBlobsOptions.class);
-    BlobContainerClient containerClient = mock(BlobContainerClient.class);
-    when(containerClient.listBlobsByHierarchy(any(), optionsCaptor.capture(), any())).thenReturn(pagedIterable);
+    when(pagedIterable.stream()).thenReturn(getBlobItemStream());
+    when(mockClient.listBlobsByHierarchy(anyString(), any(), any())).thenReturn(pagedIterable);
+    azureStorageClient.setContainerClientForTesting(mockClient);
 
-    List<BlobItem> blobItems = new ArrayList<>();
-    for (int i = 0; i < 5; i++) {
-      BlobItem blobItem = mock(BlobItem.class, Mockito.RETURNS_DEEP_STUBS);
-      BlobItemProperties properties = mock(BlobItemProperties.class);
-      when(blobItem.getProperties()).thenReturn(properties);
-      when(properties.getContentLength()).thenReturn((long) i);
-      when(properties.getCreationTime()).thenReturn(null);
-      when(properties.getLastModified()).thenReturn(null);
-      when(properties.getContentMd5()).thenReturn(null);
-      when(blobItem.getName()).thenReturn("blob" + i);
-      blobItems.add(blobItem);
-    }
-    when(pagedIterable.iterator()).thenReturn(blobItems.iterator());
+    azureStorageClient.publishFiles();
 
-    try(MockedConstruction<BlobContainerClientBuilder> builder = Mockito.mockConstruction(BlobContainerClientBuilder.class,(mock,context)-> {
-      when(mock.connectionString(anyString())).thenReturn(mock);
-      when(mock.containerName(anyString())).thenReturn(mock);
-      when(mock.buildClient()).thenReturn(containerClient);
-    })) {
-      azureStorageClient.init();
-      azureStorageClient.publishFiles();
+    List<Document> documents = messenger.getDocsSentForProcessing();
 
-      // verify that we called listBlobs once with maxResultsPerPage set to 5
-      verify(containerClient, times(1)).listBlobsByHierarchy(any(), any(), any());
-      ListBlobsOptions options = optionsCaptor.getValue();
-      assert options.getMaxResultsPerPage() == 5;
+    // all documents processed
+    assertEquals(4, documents.size());
+    Document doc1 = documents.get(0);
+    assertTrue(doc1.getId().startsWith("prefix-"));
+    assertEquals("http://storagename.blob.core.windows.net/folder/blob1", doc1.getString("file_path"));
+    assertEquals("1", doc1.getString("file_size_bytes"));
+    assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes("file_content"));
 
-      List<Document> documents = messenger.getDocsSentForProcessing();
-      for (Document doc : documents) {
-        System.out.println(doc); // WIP
-      }
-    }
+    Document doc2 = documents.get(1);
+    assertTrue(doc2.getId().startsWith("prefix-"));
+    assertEquals("http://storagename.blob.core.windows.net/folder/blob2", doc2.getString("file_path"));
+    assertEquals("2", doc2.getString("file_size_bytes"));
+    assertArrayEquals(new byte[]{5, 6, 7, 8}, doc2.getBytes("file_content"));
+
+    Document doc3 = documents.get(2);
+    assertTrue(doc3.getId().startsWith("prefix-"));
+    assertEquals("http://storagename.blob.core.windows.net/folder/blob3", doc3.getString("file_path"));
+    assertEquals("3", doc3.getString("file_size_bytes"));
+    assertArrayEquals(new byte[]{9, 10, 11, 12}, doc3.getBytes("file_content"));
+
+    Document doc4 = documents.get(3);
+    assertTrue(doc4.getId().startsWith("prefix-"));
+    assertEquals("http://storagename.blob.core.windows.net/folder/blob4", doc4.getString("file_path"));
+    assertEquals("4", doc4.getString("file_size_bytes"));
+    assertArrayEquals(new byte[]{13, 14, 15, 16}, doc4.getBytes("file_content"));
   }
+
+  @Test
+  public void testPublishInvalidFiles() throws Exception {
+    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("http://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
+        List.of(Pattern.compile("blob3"), Pattern.compile("blob4")), List.of(), cloudOptions);
+
+    BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
+    PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
+    when(pagedIterable.stream()).thenReturn(getBlobItemStreamWithDirectory());
+    when(mockClient.listBlobsByHierarchy(anyString(), any(), any())).thenReturn(pagedIterable);
+    azureStorageClient.setContainerClientForTesting(mockClient);
+
+    azureStorageClient.publishFiles();
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+
+    // only blob1 processed due to blob2 being a directory and blob3 and blob4 being excluded via regex
+    assertEquals(1, documents.size());
+    Document doc1 = documents.get(0);
+    assertTrue(doc1.getId().startsWith("prefix-"));
+    assertEquals("http://storagename.blob.core.windows.net/folder/blob1", doc1.getString("file_path"));
+    assertEquals("1", doc1.getString("file_size_bytes"));
+    assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes("file_content"));
+  }
+
+  private Stream<BlobItem> getBlobItemStream() {
+    BlobItem blobItem1 = new BlobItem();
+    blobItem1.setName("blob1");
+    blobItem1.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
+        .setContentLength(1L)
+        .setContentMd5(new byte[] {1, 2, 3, 4}));
+
+    BlobItem blobItem2 = new BlobItem();
+    blobItem2.setName("blob2");
+    blobItem2.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(2), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(2), ZoneId.of("UTC")))
+        .setContentLength(2L)
+        .setContentMd5(new byte[] {5, 6, 7, 8}));
+
+    BlobItem blobItem3 = new BlobItem();
+    blobItem3.setName("blob3");
+    blobItem3.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(3), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(3), ZoneId.of("UTC")))
+        .setContentLength(3L)
+        .setContentMd5(new byte[] {9, 10, 11, 12}));
+
+    BlobItem blobItem4 = new BlobItem();
+    blobItem4.setName("blob4");
+    blobItem4.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(4), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(4), ZoneId.of("UTC")))
+        .setContentLength(4L)
+        .setContentMd5(new byte[] {13, 14, 15, 16}));
+
+    return Stream.of(blobItem1, blobItem2, blobItem3, blobItem4);
+  }
+
+  private Stream<BlobItem> getBlobItemStreamWithDirectory() {
+    BlobItem blobItem1 = new BlobItem();
+    blobItem1.setName("blob1");
+    blobItem1.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
+        .setContentLength(1L)
+        .setContentMd5(new byte[] {1, 2, 3, 4}));
+
+    BlobItem blobItem2 = new BlobItem();
+    blobItem2.setName("blob2");
+    // setting blobItem2 to be directory
+    blobItem2.setIsPrefix(true);
+    blobItem2.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(2), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(2), ZoneId.of("UTC")))
+        .setContentLength(2L)
+        .setContentMd5(new byte[] {5, 6, 7, 8}));
+
+    BlobItem blobItem3 = new BlobItem();
+    blobItem3.setName("blob3");
+    blobItem3.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(3), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(3), ZoneId.of("UTC")))
+        .setContentLength(3L)
+        .setContentMd5(new byte[] {9, 10, 11, 12}));
+
+    BlobItem blobItem4 = new BlobItem();
+    blobItem4.setName("blob4");
+    blobItem4.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(4), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(4), ZoneId.of("UTC")))
+        .setContentLength(4L)
+        .setContentMd5(new byte[] {13, 14, 15, 16}));
+
+    return Stream.of(blobItem1, blobItem2, blobItem3, blobItem4);
+  }
+
+
 }

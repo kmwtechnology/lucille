@@ -21,7 +21,7 @@ import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 
 public class S3StorageClient extends BaseStorageClient {
 
-  S3Client s3;
+  private S3Client s3;
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   public S3StorageClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
@@ -85,5 +85,10 @@ public class S3StorageClient extends BaseStorageClient {
     if (key.endsWith("/")) return true;
 
     return shouldSkipBasedOnRegex(key);
+  }
+
+  // Only for testing
+  public void setS3ClientForTesting(S3Client s3) {
+    this.s3 = s3;
   }
 }
