@@ -11,7 +11,7 @@ RUN mkdir /output/
 
 # copy the test class into the container
 COPY runner/pom.xml /pom.xml
-COPY /src/test/java/com/kmwllc/lucille/distributed/DistributedIT.java /src/test/java/com/kmwllc/lucille/distributed/DistributedIT.java
+COPY target/ /target/
 
 # we specify a command that the image should run when it launches
 ENTRYPOINT chmod +x /scripts/run.sh && /scripts/run.sh && \
