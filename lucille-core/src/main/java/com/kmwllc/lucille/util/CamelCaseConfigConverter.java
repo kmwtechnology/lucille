@@ -91,10 +91,17 @@ public class CamelCaseConfigConverter {
 
   private static void validateArguments(String[] args) {
     if (args.length != 1) {
+      log.error("Invalid number of arguments, must provide a path to a config file.\n"
+          + "Usage Example: java -cp 'lucille.jar:lib/*' com.kmwllc.lucille.util.CamelCaseConfigConverter /path/to/config.conf");
       System.exit(1);
     }
 
     String filePath = args[0];
+    File file = new File(filePath);
+    if (!file.exists()) {
+      log.error("file does not exists: {}", filePath);
+      System.exit(1);
+    }
     if (!filePath.endsWith(".conf")) {
       log.error("Invalid file extension, must be used on a config file.");
       System.exit(1);
