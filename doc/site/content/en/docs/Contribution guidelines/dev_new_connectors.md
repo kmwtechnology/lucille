@@ -1,10 +1,9 @@
 ---
 title: Developing New Connectors
-date: 2024-10-15
+weight: 20
+date: 2024-10-28
 description: >
-  A short lead description about this content page. It can be **bold** or _italic_ and can be split over multiple paragraphs.
-categories: [Examples]
-tags: [test, sample, docs]
+  The basics of how to develop connectors for Lucille.
 ---
 
 ## Base Classes

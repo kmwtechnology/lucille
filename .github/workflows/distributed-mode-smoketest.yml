@@ -1,0 +1,23 @@
+name: Nightly Smoketest for Lucille Distributed Mode
+
+on:
+  schedule:
+    # runs at 00:00 UTC every day, 20:00 EST
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # allows manual triggering of the workflow via actions tab
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Run Maven Verify with Pnightly Flag
+        run:
+          mvn verify -Pnightly

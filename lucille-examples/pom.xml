@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.4.1-SNAPSHOT</version>
+    <version>0.4.2-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
@@ -24,4 +24,15 @@
     <module>lucille-simple-csv-solr-example</module>
     <module>lucille-opensearch-ingest-example</module>
   </modules>
+
+  <dependencies>
+      <dependency>
+        <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-core</artifactId>
+        <classifier>tests</classifier>
+        <type>test-jar</type>
+        <version>${project.version}</version>
+        <scope>test</scope>
+      </dependency>
+  </dependencies>
 </project>

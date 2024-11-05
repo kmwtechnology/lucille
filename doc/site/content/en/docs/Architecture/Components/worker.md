@@ -1,9 +1,7 @@
 ---
 title: Worker
-date: 2017-01-05
+date: 2025-10-28
 description: A short lead description about this content page.
-categories: [Examples]
-tags: [test, sample, docs]
 ---
 
 {{% pageinfo %}}

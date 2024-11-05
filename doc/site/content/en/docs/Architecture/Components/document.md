@@ -2,8 +2,6 @@
 title: Document
 date: 2024-10-15
 description: All about the concept of a Document in lucille.
-categories: [Examples]
-tags: [test, sample, docs]
 ---
 
 {{% pageinfo %}}
