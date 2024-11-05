@@ -7,11 +7,9 @@ RUN apt-get install lsof bc openjdk-17-jre-headless -y --fix-missing
 COPY target/ /target/
 COPY conf/ /conf/
 COPY runner/scripts/ /scripts/
-RUN mkdir /output/
-
-# copy the test class into the container
 COPY runner/pom.xml /pom.xml
-COPY target/ /target/
+
+RUN mkdir /output/
 
 # we specify a command that the image should run when it launches
 ENTRYPOINT chmod +x /scripts/run.sh && /scripts/run.sh && \
