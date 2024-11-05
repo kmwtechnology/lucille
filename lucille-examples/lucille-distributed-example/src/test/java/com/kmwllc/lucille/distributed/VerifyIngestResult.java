@@ -10,9 +10,9 @@ import org.junit.Test;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class DistributedIT {
+public class VerifyIngestResult {
   @Test
-  public void distributedIT() throws Exception {
+  public void verifyIngestResult() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
     String fileName = "/output/dest.json";
     int numDocs = 6;
