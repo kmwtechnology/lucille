@@ -49,6 +49,16 @@ public class FileConnector extends AbstractConnector {
   public static final String SIZE = "file_size_bytes";
   public static final String CONTENT = "file_content";
 
+  // cloudOption Keys
+  public static final String GET_FILE_CONTENT = "getFileContent";
+  public static final String AZURE_CONNECTION_STRING = "connectionString";
+  public static final String AZURE_ACCOUNT_NAME = "accountName";
+  public static final String AZURE_ACCOUNT_KEY = "accountKey";
+  public static final String S3_REGION = "region";
+  public static final String S3_ACCESS_KEY_ID = "accessKeyId";
+  public static final String S3_SECRET_ACCESS_KEY = "secretAccessKey";
+  public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
+
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   private final String pathToStorage;
@@ -57,6 +67,7 @@ public class FileConnector extends AbstractConnector {
   private final List<Pattern> excludes;
   private CloudStorageClient cloudStorageClient;
   private final URI storageURI;
+  private final boolean getFileContent;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config);
@@ -68,6 +79,7 @@ public class FileConnector extends AbstractConnector {
     List<String> excludeRegex = config.hasPath("excludes") ?
         config.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
+    this.getFileContent = config.hasPath("getFileContent") ? config.getBoolean("getFileContent") : true;
     this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
     try {
       this.storageURI = new URI(pathToStorage);
@@ -81,6 +93,7 @@ public class FileConnector extends AbstractConnector {
   public void execute(Publisher publisher) throws ConnectorException {
     if (storageURI.getScheme() != null) {
       validateCloudOptions(storageURI, cloudOptions);
+      cloudOptions.put(GET_FILE_CONTENT, getFileContent);
       cloudStorageClient = CloudStorageClient.getClient(storageURI, publisher, getDocIdPrefix(), excludes, includes, cloudOptions);
       cloudStorageClient.init();
       cloudStorageClient.publishFiles();
@@ -130,15 +143,16 @@ public class FileConnector extends AbstractConnector {
       if (!cloudOptions.containsKey("pathToServiceKey")) {
         throw new IllegalArgumentException("Missing 'pathToServiceKey' in cloudOptions for Google Cloud storage.");
       }
-    } else if (storageURI.getScheme().equals("s3")) {
-      if (!cloudOptions.containsKey("accessKeyId") || !cloudOptions.containsKey("secretAccessKey") || !cloudOptions.containsKey("region")) {
-        throw new IllegalArgumentException("Missing 'accountName' or 'accountKey' or 'region' in cloudOptions for s3 storage.");
+    } else if (storageURI.getScheme().equals(GOOGLE_SERVICE_KEY)) {
+      if (!cloudOptions.containsKey(S3_ACCESS_KEY_ID) || !cloudOptions.containsKey(S3_SECRET_ACCESS_KEY) || !cloudOptions.containsKey(S3_REGION)) {
+        throw new IllegalArgumentException("Missing '" + S3_ACCESS_KEY_ID + "' or '" + S3_SECRET_ACCESS_KEY
+            + "' or '" + S3_REGION + "' in cloudOptions for s3 storage.");
       }
     } else if (storageURI.getScheme().equals("https") && storageURI.getAuthority().contains("blob.core.windows.net")) {
-      if (!cloudOptions.containsKey("connectionString") &&
-          !(cloudOptions.containsKey("accountName") && cloudOptions.containsKey("accountKey"))) {
-        throw new IllegalArgumentException("Either 'connectionString' or 'accountName' & 'accountKey' has to be in cloudOptions"
-            + "for Azure storage.");
+      if (!cloudOptions.containsKey(AZURE_CONNECTION_STRING) &&
+          !(cloudOptions.containsKey(AZURE_ACCOUNT_NAME) && cloudOptions.containsKey(AZURE_ACCOUNT_KEY))) {
+        throw new IllegalArgumentException("Either '" + AZURE_CONNECTION_STRING + "' or '" + AZURE_ACCOUNT_NAME
+            + "' & '" + AZURE_ACCOUNT_KEY + "' has to be in cloudOptions for Azure storage.");
       }
     } else {
       throw new IllegalArgumentException("Unsupported client type: " + storageURI.getScheme());
@@ -172,7 +186,7 @@ public class FileConnector extends AbstractConnector {
       doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
       doc.setField(CREATED, attrs.creationTime().toInstant());
       doc.setField(SIZE, attrs.size());
-      doc.setField(CONTENT, Files.readAllBytes(path));
+      if (getFileContent) doc.setField(CONTENT, Files.readAllBytes(path));
     } catch (Exception e) {
       throw new ConnectorException("Error occurred getting/setting file attributes to document: " + path, e);
     }

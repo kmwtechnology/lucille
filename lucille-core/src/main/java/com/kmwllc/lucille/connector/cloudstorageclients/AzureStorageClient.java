@@ -44,14 +44,14 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   public void init() {
-    if (cloudOptions.containsKey("connectionString")) {
+    if (cloudOptions.containsKey(FileConnector.AZURE_CONNECTION_STRING)) {
       containerClient = new BlobContainerClientBuilder()
-          .connectionString((String) cloudOptions.get("connectionString"))
+          .connectionString((String) cloudOptions.get(FileConnector.AZURE_CONNECTION_STRING))
           .containerName(bucketOrContainerName)
           .buildClient();
     } else {
-      String accountName = (String) cloudOptions.get("accountName");
-      String accountKey = (String) cloudOptions.get("accountKey");
+      String accountName = (String) cloudOptions.get(FileConnector.AZURE_ACCOUNT_NAME);
+      String accountKey = (String) cloudOptions.get(FileConnector.AZURE_ACCOUNT_KEY);
 
       containerClient = new BlobContainerClientBuilder()
           .credential(new StorageSharedKeyCredential(accountName, accountKey))
@@ -92,7 +92,10 @@ public class AzureStorageClient extends BaseStorageClient {
     doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
     doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
     doc.setField(FileConnector.SIZE, properties.getContentLength());
-    doc.setField(FileConnector.CONTENT, containerClient.getBlobClient(blob.getName()).downloadContent().toBytes());
+
+    if ((boolean) cloudOptions.get(FileConnector.GET_FILE_CONTENT)) {
+      doc.setField(FileConnector.CONTENT, containerClient.getBlobClient(blob.getName()).downloadContent().toBytes());
+    }
 
     return doc;
   }

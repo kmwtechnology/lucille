@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector.cloudstorageclients;
 import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageOptions;
@@ -31,7 +32,7 @@ public class GoogleStorageClient extends BaseStorageClient {
 
   @Override
   public void init() {
-    try (FileInputStream serviceAccountStream = new FileInputStream((String) cloudOptions.get("pathToServiceKey"))) {
+    try (FileInputStream serviceAccountStream = new FileInputStream((String) cloudOptions.get(FileConnector.GOOGLE_SERVICE_KEY))) {
       storage = StorageOptions.newBuilder()
           .setCredentials(ServiceAccountCredentials.fromStream(serviceAccountStream))
           .build()
@@ -76,17 +77,21 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   private Document blobToDoc(Blob blob, String bucketName) throws IOException {
-    final String docId = DigestUtils.md5Hex(blob.getName());
+    BlobInfo blobInfo = blob.asBlobInfo();
+    final String docId = DigestUtils.md5Hex(blobInfo.getName());
     final Document doc = Document.create(docIdPrefix + docId);
-
     try {
-      doc.setField(FileConnector.FILE_PATH, pathToStorageURI.getScheme() + "://" + bucketName + "/" + blob.getName());
-      doc.setField(FileConnector.MODIFIED, blob.getUpdateTimeOffsetDateTime().toInstant());
-      doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
-      doc.setField(FileConnector.SIZE, blob.getSize());
-      doc.setField(FileConnector.CONTENT, blob.getContent());
+      doc.setField(FileConnector.FILE_PATH, pathToStorageURI.getScheme() + "://" + bucketName + "/" + blobInfo.getName());
+      doc.setField(FileConnector.MODIFIED, blobInfo.getUpdateTimeOffsetDateTime().toInstant());
+      doc.setField(FileConnector.CREATED, blobInfo.getCreateTimeOffsetDateTime().toInstant());
+      doc.setField(FileConnector.SIZE, blobInfo.getSize());
+
+      if ((boolean) cloudOptions.get(FileConnector.GET_FILE_CONTENT)) {
+        doc.setField(FileConnector.CONTENT, blob.getContent());
+      }
+
     } catch (Exception e) {
-      throw new IOException("Error occurred getting/setting file attributes to document: " + blob.getName(), e);
+      throw new IOException("Error occurred getting/setting file attributes to document: " + blobInfo.getName(), e);
     }
     return doc;
   }

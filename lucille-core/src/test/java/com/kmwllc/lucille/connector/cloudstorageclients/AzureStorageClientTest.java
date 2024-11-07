@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector.cloudstorageclients;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -50,8 +51,7 @@ public class AzureStorageClientTest {
 
   @Test
   public void testInit() throws Exception{
-    Map<String, Object> cloudOptions = new HashMap<>();
-    cloudOptions.put("connectionString", "connectionString");
+    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString", "getFileContent", true);
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/testblob"),
         null, null, null, null, cloudOptions);
@@ -85,7 +85,7 @@ public class AzureStorageClientTest {
 
   @Test
   public void testPublishValidFiles() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
+    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString", "getFileContent", true);
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -136,8 +136,44 @@ public class AzureStorageClientTest {
   }
 
   @Test
+  public void testSkipFileContent() throws Exception {
+    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString", "getFileContent", false);
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("http://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
+        List.of(), List.of(), cloudOptions);
+
+    BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
+    PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
+
+    BlobItem blobItem1 = new BlobItem();
+    blobItem1.setName("blob1");
+    blobItem1.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
+        .setContentLength(1L));
+
+    when(pagedIterable.stream()).thenReturn(Stream.of(blobItem1));
+    when(mockClient.listBlobsByHierarchy(anyString(), any(), any())).thenReturn(pagedIterable);
+    azureStorageClient.setContainerClientForTesting(mockClient);
+    when(mockClient.getBlobClient(anyString()).downloadContent().toBytes())
+        .thenReturn(new byte[]{1, 2, 3, 4});
+
+    azureStorageClient.publishFiles();
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+
+    // only 1 blob
+    assertEquals(1, documents.size());
+    // no fileContent
+    assertNull(documents.get(0).getBytes("file_content"));
+  }
+
+  @Test
   public void testPublishInvalidFiles() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
+    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString", "getFileContent", true);
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");

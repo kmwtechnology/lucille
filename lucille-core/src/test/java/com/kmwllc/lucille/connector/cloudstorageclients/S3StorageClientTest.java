@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector.cloudstorageclients;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
@@ -43,7 +44,7 @@ public class S3StorageClientTest {
   public void testShutdown() throws Exception {
     // test if region is set but of non-existent region
     Map<String, Object> cloudOptions = Map.of("region", "us-east-1", "accessKeyId", "accessKey",
-        "secretAccessKey", "secretKey");
+        "secretAccessKey", "secretKey", "getFileContent", true);
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), null, null,
         null, null, cloudOptions);
 
@@ -56,7 +57,7 @@ public class S3StorageClientTest {
   @Test
   public void testPublishValidFiles() throws Exception {
     Map<String, Object> cloudOptions = Map.of("region", "us-east-1", "accessKeyId", "accessKey",
-        "secretAccessKey", "secretKey");
+        "secretAccessKey", "secretKey", "getFileContent", true);
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -114,7 +115,7 @@ public class S3StorageClientTest {
   @Test
   public void testPublishInvalidFiles() throws Exception {
     Map<String, Object> cloudOptions = Map.of("region", "us-east-1", "accessKeyId", "accessKey",
-        "secretAccessKey", "secretKey");
+        "secretAccessKey", "secretKey", "getFileContent", true);
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -147,6 +148,40 @@ public class S3StorageClientTest {
     assertEquals("s3://bucket/obj1", doc1.getString("file_path"));
     assertEquals("1", doc1.getString("file_size_bytes"));
     assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes("file_content"));
+  }
+
+  @Test
+  public void testSkipFileContent() throws Exception {
+    Map<String, Object> cloudOptions = Map.of("region", "us-east-1", "accessKeyId", "accessKey",
+        "secretAccessKey", "secretKey", "getFileContent", false);
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), publisher, "prefix-",
+        List.of(), List.of(), cloudOptions);
+
+    S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
+    s3StorageClient.setS3ClientForTesting(mockClient);
+    ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
+    ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
+
+    obj1 = S3Object.builder().key("obj1").lastModified(Instant.ofEpochMilli(1L)).size(1L).build();
+    when(responseWithinStream.contents()).thenReturn(List.of(obj1));
+    when(response.stream()).thenReturn(Stream.of(responseWithinStream));
+
+    when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
+
+    when(mockClient.getObjectAsBytes((GetObjectRequest) any()))
+        .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{1, 2, 3, 4}));
+
+    s3StorageClient.publishFiles();
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+
+    // check that only one document published without file_content
+    assertEquals(1, documents.size());
+    assertNull(documents.get(0).getBytes("file_content"));
   }
 
   private List<S3Object> getMockedS3Objects() throws Exception {

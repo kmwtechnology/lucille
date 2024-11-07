@@ -31,10 +31,11 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   public void init() {
-    AwsBasicCredentials awsCred = AwsBasicCredentials.create((String) cloudOptions.get("accessKeyId"), (String) cloudOptions.get("secretAccessKey"));
+    AwsBasicCredentials awsCred = AwsBasicCredentials.create((String) cloudOptions.get(FileConnector.S3_ACCESS_KEY_ID),
+        (String) cloudOptions.get(FileConnector.S3_SECRET_ACCESS_KEY));
     s3 = S3Client
         .builder()
-        .region(Region.of((String) cloudOptions.get("region")))
+        .region(Region.of((String) cloudOptions.get(FileConnector.S3_REGION)))
         .credentialsProvider(StaticCredentialsProvider.create(awsCred))
         .build();
   }
@@ -74,8 +75,11 @@ public class S3StorageClient extends BaseStorageClient {
     doc.setField(FileConnector.MODIFIED, obj.lastModified());
     doc.setField(FileConnector.CREATED, obj.lastModified()); // there isn't an object creation date in S3
     doc.setField(FileConnector.SIZE, obj.size());
-    byte[] content = s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketName).key(objKey).build()).asByteArray();
-    doc.setField(FileConnector.CONTENT, content);
+
+    if ((boolean) cloudOptions.get(FileConnector.GET_FILE_CONTENT)) {
+      byte[] content = s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketName).key(objKey).build()).asByteArray();
+      doc.setField(FileConnector.CONTENT, content);
+    }
 
     return doc;
   }
