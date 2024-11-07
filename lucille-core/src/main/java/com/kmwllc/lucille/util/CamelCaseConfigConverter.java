@@ -3,7 +3,6 @@ package com.kmwllc.lucille.util;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.*;
-import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +12,15 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.commons.text.CaseUtils;
+
+/**
+ * This utility class converts snake_case stage properties to camelCase in a given config file. Note that this script will
+ * not work if you have UNSET environment variables in your config file. Make sure you have set your environment variables set before
+ * running this.
+ *
+ * <p>
+ * Usage Example: java -cp 'lucille.jar:lib/*' com.kmwllc.lucille.util.CamelCaseConfigConverter /path/to/config.conf
+ */
 
 public class CamelCaseConfigConverter {
 
@@ -59,7 +67,7 @@ public class CamelCaseConfigConverter {
     String newFilePath = Paths.get(FilenameUtils.getFullPath(filePath), newFileName).toString();
     File file = new File(filePath);
     // collect all stageProperty that needs to change
-    Config config = ConfigFactory.parseFile(file);
+    Config config = ConfigFactory.parseFile(file).resolve();
     Map<String, Object> configAsMap = config.root().unwrapped();
     List<String> stageProperties = getStagePropertiesFromConfig(configAsMap);
 
