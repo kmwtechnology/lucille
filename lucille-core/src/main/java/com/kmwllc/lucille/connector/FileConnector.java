@@ -140,10 +140,10 @@ public class FileConnector extends AbstractConnector {
 
   private void validateCloudOptions(URI storageURI, Map<String, Object> cloudOptions) {
     if (storageURI.getScheme().equals("gs")) {
-      if (!cloudOptions.containsKey("pathToServiceKey")) {
+      if (!cloudOptions.containsKey(GOOGLE_SERVICE_KEY)) {
         throw new IllegalArgumentException("Missing 'pathToServiceKey' in cloudOptions for Google Cloud storage.");
       }
-    } else if (storageURI.getScheme().equals(GOOGLE_SERVICE_KEY)) {
+    } else if (storageURI.getScheme().equals("s3")) {
       if (!cloudOptions.containsKey(S3_ACCESS_KEY_ID) || !cloudOptions.containsKey(S3_SECRET_ACCESS_KEY) || !cloudOptions.containsKey(S3_REGION)) {
         throw new IllegalArgumentException("Missing '" + S3_ACCESS_KEY_ID + "' or '" + S3_SECRET_ACCESS_KEY
             + "' or '" + S3_REGION + "' in cloudOptions for s3 storage.");
