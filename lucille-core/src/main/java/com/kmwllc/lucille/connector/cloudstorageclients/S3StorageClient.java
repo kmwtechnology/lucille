@@ -92,7 +92,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   // Only for testing
-  public void setS3ClientForTesting(S3Client s3) {
+  void setS3ClientForTesting(S3Client s3) {
     this.s3 = s3;
   }
 }

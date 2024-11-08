@@ -96,7 +96,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   // Only for testing
-  public void setStorageForTesting(Storage storage) {
+  void setStorageForTesting(Storage storage) {
     this.storage = storage;
   }
 }

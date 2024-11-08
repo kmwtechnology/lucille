@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,13 +91,13 @@ public class AzureStorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
-    AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("http://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
+    AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
         List.of(), List.of(), cloudOptions);
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getBlobItemStream());
-    when(mockClient.listBlobsByHierarchy(anyString(), any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
     azureStorageClient.setContainerClientForTesting(mockClient);
     when(mockClient.getBlobClient(anyString()).downloadContent().toBytes())
         .thenReturn(new byte[]{1, 2, 3, 4}) // blob1
@@ -112,25 +113,25 @@ public class AzureStorageClientTest {
     assertEquals(4, documents.size());
     Document doc1 = documents.get(0);
     assertTrue(doc1.getId().startsWith("prefix-"));
-    assertEquals("http://storagename.blob.core.windows.net/folder/blob1", doc1.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/blob1", doc1.getString("file_path"));
     assertEquals("1", doc1.getString("file_size_bytes"));
     assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes("file_content"));
 
     Document doc2 = documents.get(1);
     assertTrue(doc2.getId().startsWith("prefix-"));
-    assertEquals("http://storagename.blob.core.windows.net/folder/blob2", doc2.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/blob2", doc2.getString("file_path"));
     assertEquals("2", doc2.getString("file_size_bytes"));
     assertArrayEquals(new byte[]{5, 6, 7, 8}, doc2.getBytes("file_content"));
 
     Document doc3 = documents.get(2);
     assertTrue(doc3.getId().startsWith("prefix-"));
-    assertEquals("http://storagename.blob.core.windows.net/folder/blob3", doc3.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/blob3", doc3.getString("file_path"));
     assertEquals("3", doc3.getString("file_size_bytes"));
     assertArrayEquals(new byte[]{9, 10, 11, 12}, doc3.getBytes("file_content"));
 
     Document doc4 = documents.get(3);
     assertTrue(doc4.getId().startsWith("prefix-"));
-    assertEquals("http://storagename.blob.core.windows.net/folder/blob4", doc4.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/blob4", doc4.getString("file_path"));
     assertEquals("4", doc4.getString("file_size_bytes"));
     assertArrayEquals(new byte[]{13, 14, 15, 16}, doc4.getBytes("file_content"));
   }
@@ -142,7 +143,7 @@ public class AzureStorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
-    AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("http://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
+    AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
         List.of(), List.of(), cloudOptions);
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
@@ -156,7 +157,7 @@ public class AzureStorageClientTest {
         .setContentLength(1L));
 
     when(pagedIterable.stream()).thenReturn(Stream.of(blobItem1));
-    when(mockClient.listBlobsByHierarchy(anyString(), any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
     azureStorageClient.setContainerClientForTesting(mockClient);
     when(mockClient.getBlobClient(anyString()).downloadContent().toBytes())
         .thenReturn(new byte[]{1, 2, 3, 4});
@@ -178,13 +179,13 @@ public class AzureStorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
-    AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("http://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
+    AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
         List.of(Pattern.compile("blob3"), Pattern.compile("blob4")), List.of(), cloudOptions);
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getBlobItemStreamWithDirectory());
-    when(mockClient.listBlobsByHierarchy(anyString(), any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
     azureStorageClient.setContainerClientForTesting(mockClient);
     when(mockClient.getBlobClient(anyString()).downloadContent().toBytes())
         .thenReturn(new byte[]{1, 2, 3, 4}) // blob1
@@ -200,7 +201,7 @@ public class AzureStorageClientTest {
     assertEquals(1, documents.size());
     Document doc1 = documents.get(0);
     assertTrue(doc1.getId().startsWith("prefix-"));
-    assertEquals("http://storagename.blob.core.windows.net/folder/blob1", doc1.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/blob1", doc1.getString("file_path"));
     assertEquals("1", doc1.getString("file_size_bytes"));
     assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes("file_content"));
   }
@@ -270,6 +271,4 @@ public class AzureStorageClientTest {
 
     return Stream.of(blobItem1, blobItem2, blobItem3, blobItem4);
   }
-
-
 }

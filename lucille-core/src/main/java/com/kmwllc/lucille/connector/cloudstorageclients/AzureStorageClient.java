@@ -31,15 +31,14 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   public String getContainerOrBucketName() {
-    String subPath = pathToStorageURI.getPath().substring(1);
-    return subPath.split("/")[0];
+    return pathToStorageURI.getPath().split("/")[1];
   }
 
   @Override
   public String getStartingDirectory() {
     String path = pathToStorageURI.getPath();
-    int secondSlashIndex = path.indexOf("/", 1);
-    return (secondSlashIndex + 1 < path.length()) ? path.substring(secondSlashIndex + 1) : "";
+    String[] subPaths = path.split("/", 3);
+    return subPaths.length > 2 ? subPaths[2] : "";
   }
 
   @Override
@@ -68,7 +67,7 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   public void publishFiles() {
-    containerClient.listBlobsByHierarchy("/", new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
+    containerClient.listBlobs(new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
         .forEach(blob -> {
           if (isNotValid(blob)) {
             return;
@@ -107,7 +106,7 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   // Only for testing
-  public void setContainerClientForTesting(BlobContainerClient containerClient) {
+  void setContainerClientForTesting(BlobContainerClient containerClient) {
     this.containerClient = containerClient;
   }
 }

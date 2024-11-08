@@ -6,6 +6,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+/**
+ * Interface for cloud storage clients. Implementations of this interface should be able to connect to a cloud storage service
+ * and publish files to Lucille.
+ *
+ *  - getClient() - Get the appropriate client based on the URI scheme with authentication/settings from cloudOptions
+ *  - init() - Initialize the client
+ *  - shutdown() - Shutdown the client
+ *  - publishFiles() - Publish files to Lucille
+ *
+ */
+
 public interface CloudStorageClient {
 
   static CloudStorageClient getClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
