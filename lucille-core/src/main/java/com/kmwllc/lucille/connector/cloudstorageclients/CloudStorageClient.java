@@ -16,7 +16,6 @@ import java.util.regex.Pattern;
  *  - publishFiles() - Publish files to Lucille
  *
  */
-
 public interface CloudStorageClient {
 
   static CloudStorageClient getClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
