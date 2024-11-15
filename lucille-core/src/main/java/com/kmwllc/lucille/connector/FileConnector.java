@@ -95,44 +95,50 @@ public class FileConnector extends AbstractConnector {
       validateCloudOptions(storageURI, cloudOptions);
       cloudOptions.put(GET_FILE_CONTENT, getFileContent);
       cloudStorageClient = CloudStorageClient.getClient(storageURI, publisher, getDocIdPrefix(), excludes, includes, cloudOptions);
-      cloudStorageClient.init();
-      cloudStorageClient.publishFiles();
       try {
-        cloudStorageClient.shutdown();
+        cloudStorageClient.init();
+        cloudStorageClient.publishFiles();
       } catch (Exception e) {
-        throw new ConnectorException("Failed to shutdown client.", e);
-      }
-    } else {
-      FileSystem fs = null;
-      try {
-        fs = FileSystems.getDefault();
-        // get current working directory
-        Path startingDirectory = fs.getPath(pathToStorage);
-
-        try (Stream<Path> paths = Files.walk(startingDirectory)) {
-          paths.filter(this::isValidPath)
-              .forEachOrdered(path -> {
-                try {
-                  Document doc = pathToDoc(path);
-                  publisher.publish(doc);
-                } catch (Exception e) {
-                  log.error("Unable to publish document '{}', SKIPPING", path, e);
-                }
-              });
-        }
-      } catch (InvalidPathException e) {
-        throw new ConnectorException("Path string provided cannot be converted to a Path.", e);
-      } catch (SecurityException | IOException e) {
-        throw new ConnectorException("Error while traversing file system.", e);
+        throw new ConnectorException("Error occurred while initializing client or publishing files.", e);
       } finally {
-        if (fs != null) {
-          try {
-            fs.close();
-          } catch (UnsupportedOperationException e) {
-            // Some file systems may not need closing
-          } catch (IOException e) {
-            throw new ConnectorException("Failed to close file system.", e);
-          }
+        try {
+          cloudStorageClient.shutdown();
+        } catch (Exception e) {
+          throw new ConnectorException("Error occurred while shutting down client.", e);
+        }
+      }
+      return;
+    }
+
+    FileSystem fs = null;
+    try {
+      fs = FileSystems.getDefault();
+      // get current working directory
+      Path startingDirectory = fs.getPath(pathToStorage);
+
+      try (Stream<Path> paths = Files.walk(startingDirectory)) {
+        paths.filter(this::isValidPath)
+            .forEachOrdered(path -> {
+              try {
+                Document doc = pathToDoc(path);
+                publisher.publish(doc);
+              } catch (Exception e) {
+                log.error("Unable to publish document '{}', SKIPPING", path, e);
+              }
+            });
+      }
+    } catch (InvalidPathException e) {
+      throw new ConnectorException("Path string provided cannot be converted to a Path.", e);
+    } catch (SecurityException | IOException e) {
+      throw new ConnectorException("Error while traversing file system.", e);
+    } finally {
+      if (fs != null) {
+        try {
+          fs.close();
+        } catch (UnsupportedOperationException e) {
+          // Some file systems may not need closing
+        } catch (IOException e) {
+          throw new ConnectorException("Failed to close file system.", e);
         }
       }
     }
