@@ -11,7 +11,11 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Iterator;
+import java.util.Optional;
+import org.apache.commons.io.FileUtils;
 import org.apache.zookeeper.common.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +38,7 @@ import org.slf4j.LoggerFactory;
  * - workingMemoryType (String, Optional) : the data type used during runtime for model, impacts accuracy and resource usage.
  * - workingQuantizationType (String, Optional): the data type used during quantization for model, influences the compression and
  *   speed of the model, trading off accuracy for performance.
+ * - deleteModelAfter (Boolean, Optional) : whether to delete the model after use, defaults to false
  *
  *   DType Options:
  *    "BOOL" (1 byte)
@@ -52,7 +57,6 @@ import org.slf4j.LoggerFactory;
  *    "Q4" (Quantized 4-bit integer)
  *    "Q5" (Quantized 5-bit integer)
  */
-
 public class JlamaEmbed extends Stage {
   private final String embeddingModel;
   private final String source;
@@ -60,6 +64,7 @@ public class JlamaEmbed extends Stage {
   private final String workingMemoryType;
   private final String workingQuantizationType;
   private final String dest;
+  private final boolean deleteModelAfter;
   private AbstractModel model;
 
   private static final Logger log = LoggerFactory.getLogger(JlamaEmbed.class);
@@ -67,13 +72,14 @@ public class JlamaEmbed extends Stage {
   public JlamaEmbed(Config config) {
     super(config, new StageSpec()
         .withRequiredProperties("model", "source", "pathToStoreModel")
-        .withOptionalProperties("workingMemoryType", "workingQuantizationType", "dest"));
+        .withOptionalProperties("workingMemoryType", "workingQuantizationType", "dest", "deleteModelAfter"));
     pathToStoreModel = config.getString("pathToStoreModel");
     this.embeddingModel = config.getString("model");
     this.source = config.getString("source");
     this.dest = config.hasPath("dest") ? config.getString("dest") : "embeddings";
     this.workingMemoryType = config.hasPath("workingMemoryType") ? config.getString("workingMemoryType") : "";
     this.workingQuantizationType = config.hasPath("workingQuantizationType") ? config.getString("workingQuantizationType") : "";
+    this.deleteModelAfter = config.hasPath("deleteModelAfter") ? config.getBoolean("deleteModelAfter") : false;
   }
 
   @Override
@@ -91,6 +97,37 @@ public class JlamaEmbed extends Stage {
       throw new StageException("Error loading model.", e);
     } catch (Exception e) {
       throw new StageException("Something went wrong while downloading/loading model.", e);
+    }
+  }
+
+  @Override
+  public void stop() throws StageException {
+    if (model != null) {
+      model.close();
+    }
+
+    if (deleteModelAfter) {
+      // using the same process as how Jlama creates the path to store the model
+      String[] parts = embeddingModel.split("/");
+      if (parts.length != 0 && parts.length <= 2) {
+        String owner;
+        String name;
+        if (parts.length == 1) {
+          owner = null;
+          name = embeddingModel;
+        } else {
+          owner = parts[0];
+          name = parts[1];
+        }
+        Path pathOfStoredModel = Paths.get(pathToStoreModel, Optional.ofNullable(owner).orElse("na") + "_" + name);
+        try {
+          FileUtils.deleteDirectory(pathOfStoredModel.toFile());
+        } catch (IOException e) {
+          throw new StageException("Could not delete model after use.", e);
+        }
+      } else {
+        log.warn("Could not delete model after use, as the model name is not in the correct format.");
+      }
     }
   }
 

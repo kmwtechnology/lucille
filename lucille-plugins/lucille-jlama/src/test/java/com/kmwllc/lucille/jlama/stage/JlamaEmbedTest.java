@@ -1,11 +1,15 @@
 package com.kmwllc.lucille.jlama.stage;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.github.tjake.jlama.model.AbstractModel;
@@ -19,10 +23,13 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import com.kmwllc.lucille.stage.StageFactory;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import org.apache.commons.io.FileUtils;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -158,6 +165,104 @@ public class JlamaEmbedTest {
       List<Float> expectedEmbeddingForDoc2 = new ArrayList<>(Arrays.asList(0.4F, 0.5F, 0.6F));
       assertEquals(expectedEmbeddingForDoc, doc.getFloatList("embeddings"));
       assertEquals(expectedEmbeddingForDoc2, doc2.getFloatList("embeddings"));
+    }
+  }
+
+  @Test
+  public void testRemoveModelAfter() throws Exception {
+    // simulate creation of model files
+    File testFile = new File("src/test/resources/owner_name");
+    FileUtils.forceMkdir(testFile);
+    File testModelConfigJson = new File("src/test/resources/owner_name/config.json");
+    FileUtils.writeStringToFile(testModelConfigJson, "{}", StandardCharsets.UTF_8);
+    File testModelTokenizer = new File("src/test/resources/owner_name/tokenizer.json");
+    FileUtils.writeStringToFile(testModelTokenizer, "{}", StandardCharsets.UTF_8);
+    File testModelTokenizerConfig = new File("src/test/resources/owner_name/tokenizer_config.json");
+    FileUtils.writeStringToFile(testModelTokenizerConfig, "{}", StandardCharsets.UTF_8);
+    File testModelReadMe = new File("src/test/resources/owner_name/README.md");
+    FileUtils.writeStringToFile(testModelReadMe, "{}", StandardCharsets.UTF_8);
+    File testModelModelSafeTensors = new File("src/test/resources/owner_name/model.safetensors");
+    FileUtils.writeStringToFile(testModelModelSafeTensors, "{}", StandardCharsets.UTF_8);
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("source", "source");
+    configValues.put("pathToStoreModel", "src/test/resources");
+    configValues.put("model", "owner/name");
+    configValues.put("deleteModelAfter", true);
+    Config config = ConfigFactory.parseMap(configValues);
+
+    AbstractModel mockModel = mock(AbstractModel.class);
+    try (MockedStatic<SafeTensorSupport> mockSafeTensorSupport = mockStatic(SafeTensorSupport.class);
+        MockedStatic<ModelSupport> mockModelSupport = mockStatic(ModelSupport.class)) {
+      mockSafeTensorSupport.when(() -> SafeTensorSupport.maybeDownloadModel(any(), any())).thenReturn(mock(File.class));
+      mockModelSupport.when(() -> ModelSupport.loadEmbeddingModel(any(), any(), any())).thenReturn(mockModel);
+      Stage stage = factory.get(config);
+      stage.stop();
+
+      // verify that model has been closed
+      verify(mockModel, times(1)).close();
+      // check if the file is deleted
+      assertFalse(testModelConfigJson.exists());
+      assertFalse(testModelTokenizer.exists());
+      assertFalse(testModelTokenizerConfig.exists());
+      assertFalse(testModelReadMe.exists());
+      assertFalse(testModelModelSafeTensors.exists());
+      assertFalse(testFile.exists());
+    }
+
+    // delete testFile if exists
+    if (testFile.exists()) {
+      FileUtils.deleteDirectory(testFile);
+      fail();
+    }
+  }
+
+  @Test
+  public void testRemoveModelAfterNoOwner() throws Exception {
+    // simulate creation of model files
+    File testFile = new File("src/test/resources/na_NoOwnerOnlyName");
+    FileUtils.forceMkdir(testFile);
+    File testModelConfigJson = new File("src/test/resources/na_NoOwnerOnlyName/config.json");
+    FileUtils.writeStringToFile(testModelConfigJson, "{}", StandardCharsets.UTF_8);
+    File testModelTokenizer = new File("src/test/resources/na_NoOwnerOnlyName/tokenizer.json");
+    FileUtils.writeStringToFile(testModelTokenizer, "{}", StandardCharsets.UTF_8);
+    File testModelTokenizerConfig = new File("src/test/resources/na_NoOwnerOnlyName/tokenizer_config.json");
+    FileUtils.writeStringToFile(testModelTokenizerConfig, "{}", StandardCharsets.UTF_8);
+    File testModelReadMe = new File("src/test/resources/na_NoOwnerOnlyName/README.md");
+    FileUtils.writeStringToFile(testModelReadMe, "{}", StandardCharsets.UTF_8);
+    File testModelModelSafeTensors = new File("src/test/resources/na_NoOwnerOnlyName/model.safetensors");
+    FileUtils.writeStringToFile(testModelModelSafeTensors, "{}", StandardCharsets.UTF_8);
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("source", "source");
+    configValues.put("pathToStoreModel", "src/test/resources");
+    configValues.put("model", "NoOwnerOnlyName");
+    configValues.put("deleteModelAfter", true);
+    Config config = ConfigFactory.parseMap(configValues);
+
+    AbstractModel mockModel = mock(AbstractModel.class);
+    try (MockedStatic<SafeTensorSupport> mockSafeTensorSupport = mockStatic(SafeTensorSupport.class);
+        MockedStatic<ModelSupport> mockModelSupport = mockStatic(ModelSupport.class)) {
+      mockSafeTensorSupport.when(() -> SafeTensorSupport.maybeDownloadModel(any(), any())).thenReturn(mock(File.class));
+      mockModelSupport.when(() -> ModelSupport.loadEmbeddingModel(any(), any(), any())).thenReturn(mockModel);
+      Stage stage = factory.get(config);
+      stage.stop();
+
+      // verify that model has been closed
+      verify(mockModel, times(1)).close();
+      // check if the file is deleted
+      assertFalse(testModelConfigJson.exists());
+      assertFalse(testModelTokenizer.exists());
+      assertFalse(testModelTokenizerConfig.exists());
+      assertFalse(testModelReadMe.exists());
+      assertFalse(testModelModelSafeTensors.exists());
+      assertFalse(testFile.exists());
+    }
+
+    // delete testFile if exists
+    if (testFile.exists()) {
+      FileUtils.deleteDirectory(testFile);
+      fail();
     }
   }
 }
