@@ -73,7 +73,7 @@ public class JlamaEmbed extends Stage {
     super(config, new StageSpec()
         .withRequiredProperties("model", "source", "pathToStoreModel")
         .withOptionalProperties("workingMemoryType", "workingQuantizationType", "dest", "deleteModelAfter"));
-    pathToStoreModel = config.getString("pathToStoreModel");
+    this.pathToStoreModel = config.getString("pathToStoreModel");
     this.embeddingModel = config.getString("model");
     this.source = config.getString("source");
     this.dest = config.hasPath("dest") ? config.getString("dest") : "embeddings";
@@ -85,7 +85,10 @@ public class JlamaEmbed extends Stage {
   @Override
   public void start() throws StageException {
     try {
-      File localModelPath = SafeTensorSupport.maybeDownloadModel(pathToStoreModel, embeddingModel);
+      File localModelPath;
+      synchronized (JlamaEmbed.class) {
+        localModelPath = SafeTensorSupport.maybeDownloadModel(pathToStoreModel, embeddingModel);
+      }
       model = ModelSupport.loadEmbeddingModel(localModelPath,
           getDType(workingMemoryType, DType.F32),
           getDType(workingQuantizationType, DType.I8));
