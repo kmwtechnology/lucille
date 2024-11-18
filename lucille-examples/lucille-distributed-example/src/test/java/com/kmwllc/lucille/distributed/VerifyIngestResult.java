@@ -2,7 +2,6 @@ package com.kmwllc.lucille.distributed;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -11,11 +10,11 @@ import org.junit.Test;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class DistributedIT {
+public class VerifyIngestResult {
   @Test
-  public void distributedIT() throws Exception {
+  public void verifyIngestResult() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
-    String fileName = "runner/output/dest.json";
+    String fileName = "/output/dest.json";
     int numDocs = 6;
 
     String output = Files.readString(Paths.get(fileName));
