@@ -22,5 +22,5 @@ jobs:
         uses: adambirds/docker-compose-action@v1.5.0
         with:
           compose-file: "lucille/lucille-examples/lucille-distributed-example/docker-compose.yml"
-      - name: Run integration test
-        run: mvn failsafe:integration-test
+      - name: Run Maven Verify within Lucille Examples
+        run: mvn verify -Pnightly -f lucille-examples/pom.xml
