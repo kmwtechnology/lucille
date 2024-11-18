@@ -6,7 +6,7 @@ The Jlama plugin requires Java 20 and above. If you would like to use Lucille wi
 
 Note that the Jlama pom file is configured to automatically detect Java 21 SDKs. Change the version in the pom file if you are using Java 20 or higher than Java 21.
 
-1. Download your Java version from your favourite vendor.
+1. Download your Java version from your favorite vendor.
 2. Add this to your `~/.m2/toolchains.xml` file:
 
 ```
