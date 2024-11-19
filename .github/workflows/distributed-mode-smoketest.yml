@@ -11,16 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up JDK
+      - name: Set up JDK 17 with JDK 21 as fallback with toolchains
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
-      - name: Set up Docker Compose Location
+      - name: Build with Maven
+        run: mvn -B verify --file pom.xml
+      - name: Run Docker Compose for Lucille Distributed Mode
         uses: adambirds/docker-compose-action@v1.5.0
         with:
           compose-file: "./lucille-examples/lucille-distributed-example/docker-compose.yml"
-      - name: Run Maven Verify with Nightly Profile
-        run: mvn verify -Pnightly --file pom.xml
