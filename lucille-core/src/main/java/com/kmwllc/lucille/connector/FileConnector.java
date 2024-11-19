@@ -25,6 +25,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * Config properties:
+ * getFileContent (boolean, Optional): whether to fetch the file content or not, defaults to true
+ * pathToStorage (string): path to storage, can be local file system or cloud bucket/container
+ * includes (list of strings, Optional): list of regex patterns to include files
+ * excludes (list of strings, Optional): list of regex patterns to exclude files
+ * cloudOptions (Map, Optional): cloud storage options, required if using cloud storage
+ *
  * Cloud Options based on providers:
  *  Google:
  *    "pathToServiceKey" : "path/To/Service/Key.json"
@@ -37,9 +44,8 @@ import org.slf4j.LoggerFactory;
  *    "accessKeyId" : s3 key id
  *    "secretAccessKey" : secret access key
  *    "region" : s3 storage region
- *
- * Optional:
- *  "maxNumOfPages" : number of reference to the files loaded into memory in a single fetch request, defaults to 100
+ *  Optional:
+ *    "maxNumOfPages" : number of reference to the files loaded into memory in a single fetch request, defaults to 100
  */
 public class FileConnector extends AbstractConnector {
 
@@ -170,13 +176,12 @@ public class FileConnector extends AbstractConnector {
       return false;
     }
 
-    if (excludes.stream().anyMatch(pattern -> pattern.matcher(path.toString()).matches())
-        || (!includes.isEmpty() && includes.stream().noneMatch(pattern -> pattern.matcher(path.toString()).matches()))) {
-      log.debug("Skipping file because of include or exclude regex: {}", path);
-      return false;
-    }
+    return shouldIncludeFile(path.toString(), includes, excludes);
+  }
 
-    return true;
+  public static boolean shouldIncludeFile(String filePath, List<Pattern> includes, List<Pattern> excludes) {
+    return excludes.stream().noneMatch(pattern -> pattern.matcher(filePath).matches())
+        && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(filePath).matches()));
   }
 
   private Document pathToDoc(Path path) throws ConnectorException {

@@ -69,14 +69,13 @@ public class AzureStorageClient extends BaseStorageClient {
   public void publishFiles() {
     containerClient.listBlobs(new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
         .forEach(blob -> {
-          if (isNotValid(blob)) {
-            return;
-          }
-          try {
-            Document doc = blobItemToDoc(blob);
-            publisher.publish(doc);
-          } catch (Exception e) {
-            log.error("Error publishing blob: {}", blob.getName(), e);
+          if (isValid(blob)) {
+            try {
+              Document doc = blobItemToDoc(blob);
+              publisher.publish(doc);
+            } catch (Exception e) {
+              log.error("Error publishing blob: {}", blob.getName(), e);
+            }
           }
         });
   }
@@ -99,10 +98,10 @@ public class AzureStorageClient extends BaseStorageClient {
     return doc;
   }
 
-  private boolean isNotValid(BlobItem blob) {
-    if (blob.isPrefix()) return true;
+  private boolean isValid(BlobItem blob) {
+    if (blob.isPrefix()) return false;
 
-    return shouldSkipBasedOnRegex(blob.getName());
+    return FileConnector.shouldIncludeFile(blob.getName(), includes, excludes);
   }
 
   // Only for testing

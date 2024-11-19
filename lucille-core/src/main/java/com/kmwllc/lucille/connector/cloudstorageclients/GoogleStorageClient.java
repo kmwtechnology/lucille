@@ -54,24 +54,23 @@ public class GoogleStorageClient extends BaseStorageClient {
     do {
       page.streamAll()
           .forEachOrdered(blob -> {
-            if (isNotValid(blob)) {
-              return;
-            }
-            try {
-              Document doc = blobToDoc(blob, bucketOrContainerName);
-              publisher.publish(doc);
-            } catch (Exception e) {
-              log.error("Unable to publish document '{}', SKIPPING", blob.getName(), e);
+            if (isValid(blob)) {
+              try {
+                Document doc = blobToDoc(blob, bucketOrContainerName);
+                publisher.publish(doc);
+              } catch (Exception e) {
+                log.error("Unable to publish document '{}', SKIPPING", blob.getName(), e);
+              }
             }
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
     } while (page != null);
   }
 
-  private boolean isNotValid(Blob blob) {
-    if (blob.isDirectory()) return true;
+  private boolean isValid(Blob blob) {
+    if (blob.isDirectory()) return false;
 
-    return shouldSkipBasedOnRegex(blob.getName());
+    return FileConnector.shouldIncludeFile(blob.getName(), includes, excludes);
   }
 
   private Document blobToDoc(Blob blob, String bucketName) throws IOException {

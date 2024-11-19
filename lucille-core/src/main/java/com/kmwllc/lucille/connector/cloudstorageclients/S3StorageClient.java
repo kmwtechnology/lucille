@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector.cloudstorageclients;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import java.io.File;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -54,14 +55,13 @@ public class S3StorageClient extends BaseStorageClient {
     response.stream()
         .forEach(resp -> {
           resp.contents().forEach(obj -> {
-            if (isNotValid(obj)) {
-              return;
-            }
-            try {
-              Document doc = s3ObjectToDoc(obj, bucketOrContainerName);
-              publisher.publish(doc);
-            } catch (Exception e) {
-              log.error("Unable to publish document '{}', SKIPPING", obj.key(), e);
+            if (isValid(obj)) {
+              try {
+                Document doc = s3ObjectToDoc(obj, bucketOrContainerName);
+                publisher.publish(doc);
+              } catch (Exception e) {
+                log.error("Unable to publish document '{}', SKIPPING", obj.key(), e);
+              }
             }
           });
         });
@@ -84,11 +84,11 @@ public class S3StorageClient extends BaseStorageClient {
     return doc;
   }
 
-  private boolean isNotValid(S3Object obj) {
+  private boolean isValid(S3Object obj) {
     String key = obj.key();
-    if (key.endsWith("/")) return true;
+    if (key.endsWith("/")) return false;
 
-    return shouldSkipBasedOnRegex(key);
+    return FileConnector.shouldIncludeFile(key, includes, excludes);
   }
 
   // Only for testing
