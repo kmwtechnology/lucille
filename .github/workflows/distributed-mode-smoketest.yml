@@ -10,17 +10,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up JDK
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
-      - name: Start up Docker and set up distributed mode
+      - name: Set up Docker Compose Location
         uses: adambirds/docker-compose-action@v1.5.0
         with:
-          compose-file: "lucille/lucille-examples/lucille-distributed-example/docker-compose.yml"
-      - name: Run Maven Verify within Lucille Examples
-        run: mvn verify -Pnightly -f lucille-examples/pom.xml
+          compose-file: "./lucille-examples/lucille-distributed-example/docker-compose.yml"
+      - name: Run Maven Verify with Nightly Profile
+        run: mvn verify -Pnightly --file pom.xml
