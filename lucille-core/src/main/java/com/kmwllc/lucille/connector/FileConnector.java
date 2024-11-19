@@ -25,12 +25,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Config properties:
- * getFileContent (boolean, Optional): whether to fetch the file content or not, defaults to true
- * pathToStorage (string): path to storage, can be local file system or cloud bucket/container
- * includes (list of strings, Optional): list of regex patterns to include files
- * excludes (list of strings, Optional): list of regex patterns to exclude files
- * cloudOptions (Map, Optional): cloud storage options, required if using cloud storage
+ * Config parameters:
+ *  getFileContent (boolean, Optional): whether to fetch the file content or not, defaults to true
+ *  pathToStorage (string): path to storage, can be local file system or cloud bucket/container
+ *  includes (list of strings, Optional): list of regex patterns to include files
+ *  excludes (list of strings, Optional): list of regex patterns to exclude files
+ *  cloudOptions (Map, Optional): cloud storage options, required if using cloud storage
  *
  * Cloud Options based on providers:
  *  Google:
