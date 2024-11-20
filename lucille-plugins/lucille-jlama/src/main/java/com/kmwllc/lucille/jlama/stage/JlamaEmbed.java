@@ -86,6 +86,8 @@ public class JlamaEmbed extends Stage {
   public void start() throws StageException {
     try {
       File localModelPath;
+      // synchronization only applies to worker threads in the same JVM. If you have multiple worker JVMs running on the same machine,
+      // you might want to take note that there is an edge case where two JVMs could download the same model at the same time.
       synchronized (JlamaEmbed.class) {
         localModelPath = SafeTensorSupport.maybeDownloadModel(pathToStoreModel, embeddingModel);
       }
