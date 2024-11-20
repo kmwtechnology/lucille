@@ -28,6 +28,11 @@ import org.slf4j.LoggerFactory;
  * Config parameters:
  *  getFileContent (boolean, Optional): whether to fetch the file content or not, defaults to true
  *  pathToStorage (string): path to storage, can be local file system or cloud bucket/container
+ *  e.g.
+ *    /path/to/storage/in/local/filesystem
+ *    gs://bucket-name/folder/
+ *    s3://bucket-name/folder/
+ *    https://accountName.blob.core.windows.net/containerName/prefix/
  *  includes (list of strings, Optional): list of regex patterns to include files
  *  excludes (list of strings, Optional): list of regex patterns to exclude files
  *  cloudOptions (Map, Optional): cloud storage options, required if using cloud storage
