@@ -23,7 +23,8 @@ import org.slf4j.LoggerFactory;
 /**
  * This stage uses jlama as an inference machine to download and use the embedding model locally, where it would retrieve the input
  * to the model from a source field, and set the outputs to a destination field. Note that this stage only supports models that have
- * safetensor format and BERT architecture.
+ * safetensor format and BERT architecture. Another known bug prevents Jlama from loading models due to non-standardized file contents
+ * in its downloads. This bug is not addressed in this Jlama version yet.
  *
  * Note that in order to use this stage you will need to set this environment variable below, or attach it to your java run command:
  * export JDK_JAVA_OPTIONS='--add-modules jdk.incubator.vector'
