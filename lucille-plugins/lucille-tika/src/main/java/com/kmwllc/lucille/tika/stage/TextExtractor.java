@@ -182,7 +182,7 @@ public class TextExtractor extends Stage {
       }
     }
 
-    doc.addToField(textField, bch.toString());
+    doc.setOrAdd(textField, bch.toString());
     String newMetadataPrefix = metadataPrefix == "" ? "": metadataPrefix + "_" ;
     for (String name : metadata.names()) {
       // clean the field name first.
@@ -191,7 +191,7 @@ public class TextExtractor extends Stage {
           || (metadataWhitelist != null && metadataWhitelist.contains(cleanName))
           || (metadataWhitelist == null) && (metadataBlacklist == null)) {
         for (String value : metadata.getValues(name)) {
-          doc.addToField(newMetadataPrefix + cleanName, value);
+          doc.setOrAdd(newMetadataPrefix + cleanName, value);
         }
       }
     }
