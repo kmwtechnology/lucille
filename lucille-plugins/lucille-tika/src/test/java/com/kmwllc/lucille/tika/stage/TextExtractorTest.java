@@ -19,6 +19,8 @@ import java.nio.file.Files;
 import com.kmwllc.lucille.stage.StageFactory;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito.*;
@@ -273,5 +275,26 @@ public class TextExtractorTest {
     // parsing through the document would then be passed through and not parsed with log statements
     stage.processDocument(doc);
     Assert.assertNull(doc.getString("text"));
+  }
+
+  @Test
+  public void testSingleAndMultiValueField() throws Exception {
+    Stage stage = factory.get("TextExtractorTest/tika-config.conf");
+    Document doc = Document.create("doc1");
+
+    // set path as absolute Path
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+
+    // test that field that is added once is single valued while field that is added multiple times is multiValued in a list
+    Map<String, Object> fields = doc.asMap();
+
+    assertEquals("Hi There!\n", fields.get("text"));
+    assertEquals(List.of("org.apache.tika.parser.CompositeParser",
+        "org.apache.tika.parser.DefaultParser",
+        "org.apache.tika.parser.csv.TextAndCSVParser"), fields.get("tika_x_tika_parsed_by"));
+    assertEquals("ISO-8859-1", fields.get("tika_content_encoding"));
+    assertEquals("text/plain; charset=ISO-8859-1", fields.get("tika_content_type"));
   }
 }
