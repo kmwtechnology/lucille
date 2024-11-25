@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -8,10 +9,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.connector.cloudstorageclients.CloudStorageClient;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
@@ -20,6 +24,7 @@ import com.typesafe.config.ConfigFactory;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -186,5 +191,32 @@ public class FileConnectorTest {
         Assert.assertTrue(content.contains("\"productImg\":\"mug-400_6812876c6c27.jpg\""));
       }
     }
+  }
+
+  @Test
+  public void testHandleJsonFiles() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/handleJson.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    connector.execute(publisher);
+
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+    // assert that all documents have been processed
+    Assert.assertEquals(5, documentList.size());
+
+    Document jsonDoc2 = documentList.get(0);
+    Document jsonDoc3 = documentList.get(1);
+    Document jsonDoc1 = documentList.get(2);
+    Document jsonDoc4 = documentList.get(4);
+    Document normalDoc = documentList.get(3);
+
+    assertEquals("prefix1", jsonDoc1.getId());
+    assertEquals("prefix2", jsonDoc2.getId());
+    assertEquals("prefix3", jsonDoc3.getId());
+    assertEquals("prefix4", jsonDoc4.getId());
+    assertEquals("12", normalDoc.getString("file_size_bytes"));
+    assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
   }
 }

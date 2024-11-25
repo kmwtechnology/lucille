@@ -3,9 +3,12 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.connector.cloudstorageclients.CloudStorageClient;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
@@ -15,12 +18,20 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.ArchiveException;
+import org.apache.commons.compress.archivers.ArchiveInputStream;
+import org.apache.commons.compress.archivers.ArchiveStreamFactory;
+import org.apache.commons.compress.compressors.CompressorInputStream;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
+import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,6 +90,8 @@ public class FileConnector extends AbstractConnector {
   private CloudStorageClient cloudStorageClient;
   private final URI storageURI;
   private final boolean getFileContent;
+  private final Map<String, Object> fileOptions;
+  private final boolean handleCompressedFiles;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config);
@@ -92,6 +105,8 @@ public class FileConnector extends AbstractConnector {
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
     this.getFileContent = config.hasPath("getFileContent") ? config.getBoolean("getFileContent") : true;
     this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
+    this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions").root().unwrapped() : Map.of();
+    this.handleCompressedFiles = config.hasPath("handleCompressedFiles") ? config.getBoolean("handleCompressedFiles") : false;
     try {
       this.storageURI = new URI(pathToStorage);
       log.info("using path {} with scheme {}", pathToStorage, storageURI.getScheme());
@@ -121,23 +136,53 @@ public class FileConnector extends AbstractConnector {
       return;
     }
 
-    FileSystem fs = null;
-    try {
-      fs = FileSystems.getDefault();
-      // get current working directory
-      Path startingDirectory = fs.getPath(pathToStorage);
+    FileSystem fs = FileSystems.getDefault();
+    // get current working directory
+    Path startingDirectory = fs.getPath(pathToStorage);
 
-      try (Stream<Path> paths = Files.walk(startingDirectory)) {
-        paths.filter(this::isValidPath)
-            .forEachOrdered(path -> {
-              try {
-                Document doc = pathToDoc(path);
-                publisher.publish(doc);
-              } catch (Exception e) {
-                log.error("Unable to publish document '{}', SKIPPING", path, e);
+    try (Stream<Path> paths = Files.walk(startingDirectory)) {
+      paths.filter(this::isValidPath)
+          .forEachOrdered(path -> {
+            String fileExtension = FilenameUtils.getExtension(path.toString());
+            try {
+              // handle compressed files and after decompression, regardless if archived or not
+              if (handleCompressedFiles && isSupportedCompressedFileType(path)) {
+                // unzip the file
+                try (CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(
+                    new BufferedInputStream(Files.newInputStream(path)))) {
+                  if (!isArchivedAfterDecompression(path)) {
+                    handleStreamExtensionFiles(publisher, compressorStream, fileExtension, path.toString());
+                  } else {
+                    handleArchiveFiles(publisher, compressorStream, fileExtension);
+                  }
+                }
+                return;
               }
-            });
-      }
+
+              // handle archived files that are not zipped
+              if (isSupportedArchiveFileType(path)) {
+                handleArchiveFiles(publisher, Files.newInputStream(path), fileExtension);
+              }
+
+              // not archived nor zip, handling supported file types if fileOptions are provided
+              if (!fileOptions.isEmpty() && FileHandler.supportsFileType(fileExtension, fileOptions)) {
+                // instantiate the right FileHandler based on path
+                FileHandler handler = FileHandler.getFileHandler(fileExtension, fileOptions);
+                Iterator<Document> docIterator = handler.processFile(path);
+                // once docIterator.hasNext() is false, it will close its resources in handler and return
+                while (docIterator.hasNext()) {
+                  publisher.publish(docIterator.next());
+                }
+                return;
+              }
+
+              // default handling of files
+              Document doc = pathToDoc(path);
+              publisher.publish(doc);
+            } catch (Exception e) {
+              log.error("Unable to publish document '{}', SKIPPING", path, e);
+            }
+          });
     } catch (InvalidPathException e) {
       throw new ConnectorException("Path string provided cannot be converted to a Path.", e);
     } catch (SecurityException | IOException e) {
@@ -152,6 +197,31 @@ public class FileConnector extends AbstractConnector {
           throw new ConnectorException("Failed to close file system.", e);
         }
       }
+    }
+  }
+
+  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fileExtension) throws ArchiveException, IOException, ConnectorException {
+    try (ArchiveInputStream<? extends ArchiveEntry> in =
+        new ArchiveStreamFactory().createArchiveInputStream(new BufferedInputStream(inputStream))) {
+      ArchiveEntry entry = null;
+      while ((entry = in.getNextEntry()) != null) {
+        if (shouldIncludeFile(entry.getName(), includes, excludes) && !entry.isDirectory()) {
+          handleStreamExtensionFiles(publisher, in, fileExtension, entry.getName());
+        }
+      }
+    }
+  }
+
+  private void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fileName)
+      throws ConnectorException {
+    try {
+      FileHandler handler = FileHandler.getFileHandler(fileExtension, fileOptions);
+      Iterator<Document> docIterator = handler.processFile(in.readAllBytes());
+      while (docIterator.hasNext()) {
+        publisher.publish(docIterator.next());
+      }
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred while handling file: " + fileName, e);
     }
   }
 
@@ -207,5 +277,46 @@ public class FileConnector extends AbstractConnector {
       throw new ConnectorException("Error occurred getting/setting file attributes to document: " + path, e);
     }
     return doc;
+  }
+
+  private boolean isArchivedAfterDecompression(Path path) {
+    String fileName = path.getFileName().toString();
+    int firstDotIndex = fileName.indexOf('.');
+    int lastDotIndex = fileName.lastIndexOf('.');
+
+    if (firstDotIndex != -1 && lastDotIndex != -1 && firstDotIndex != lastDotIndex) {
+      fileName = fileName.substring(0, lastDotIndex);
+      return isSupportedArchiveFileType(Path.of(fileName));
+    } else if (firstDotIndex != -1) {
+      return false;
+    } else {
+      return false;
+    }
+  }
+
+  private boolean isSupportedCompressedFileType(Path path) {
+    String fileName = path.getFileName().toString();
+
+    return fileName.endsWith(".gz") ||
+        fileName.endsWith(".bz2") ||
+        fileName.endsWith(".xz") ||
+        fileName.endsWith(".lzma") ||
+        fileName.endsWith(".br") ||
+        fileName.endsWith(".pack") ||
+        fileName.endsWith(".zst") ||
+        fileName.endsWith(".Z");
+  }
+
+  private boolean isSupportedArchiveFileType(Path path) {
+    String fileName = path.getFileName().toString();
+
+    return fileName.endsWith(".7z") ||
+        fileName.endsWith(".ar") ||
+        fileName.endsWith(".arj") ||
+        fileName.endsWith(".cpio") ||
+        fileName.endsWith(".dump") ||
+        fileName.endsWith(".dmp") ||
+        fileName.endsWith(".tar") ||
+        fileName.endsWith(".zip");
   }
 }
