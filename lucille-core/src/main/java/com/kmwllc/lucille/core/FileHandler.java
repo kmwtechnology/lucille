@@ -6,6 +6,7 @@ import com.typesafe.config.ConfigFactory;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Map;
+import org.apache.commons.io.FilenameUtils;
 
 public interface FileHandler {
 
@@ -32,5 +33,9 @@ public interface FileHandler {
         return false;
       }
     }
+  }
+
+  static void closeAllHandlers() {
+    FileHandlerSingleton.closeAllHandlers();
   }
 }

@@ -56,6 +56,7 @@ public class FileConnectorTest {
       verify(cloudStorageClient, times(1)).init();
       verify(cloudStorageClient, times(1)).publishFiles();
     }
+    connector.close();
   }
 
   @Test
@@ -82,6 +83,7 @@ public class FileConnectorTest {
 
       assertThrows(IllegalArgumentException.class, () -> badConnector.execute(badPublisher));
     }
+    connector.close();
   }
 
   @Test
@@ -108,6 +110,7 @@ public class FileConnectorTest {
 
       assertThrows(IllegalArgumentException.class, () -> badConnector.execute(badPublisher));
     }
+    connector.close();
   }
 
   @Test
@@ -134,6 +137,7 @@ public class FileConnectorTest {
 
       assertThrows(IllegalArgumentException.class, () -> badConnector.execute(badPublisher));
     }
+    connector.close();
   }
 
   @Test
@@ -164,6 +168,7 @@ public class FileConnectorTest {
       docCount++;
     }
     Assert.assertEquals(8, docCount);
+    connector.close();
   }
 
   @Test
@@ -191,6 +196,7 @@ public class FileConnectorTest {
         Assert.assertTrue(content.contains("\"productImg\":\"mug-400_6812876c6c27.jpg\""));
       }
     }
+    connector.close();
   }
 
   @Test
@@ -218,5 +224,113 @@ public class FileConnectorTest {
     assertEquals("prefix4", jsonDoc4.getId());
     assertEquals("12", normalDoc.getString("file_size_bytes"));
     assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
+    connector.close();
+  }
+
+  @Test
+  public void testHandleZippedJsonFiles() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/testHandleZip.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+    // assert that all documents have been processed
+    Assert.assertEquals(5, documentList.size());
+
+    Document jsonDoc2 = documentList.get(0);
+    Document jsonDoc3 = documentList.get(1);
+    Document jsonDoc1 = documentList.get(2);
+    Document jsonDoc4 = documentList.get(4);
+    Document normalDoc = documentList.get(3);
+
+    assertEquals("prefix1", jsonDoc1.getId());
+    assertEquals("prefix2", jsonDoc2.getId());
+    assertEquals("prefix3", jsonDoc3.getId());
+    assertEquals("prefix4", jsonDoc4.getId());
+    assertEquals("12", normalDoc.getString("file_size_bytes"));
+    assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
+    connector.close();
+  }
+
+  @Test
+  public void testHandleTarJsonFiles() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/testHandleTar.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+    // assert that all documents have been processed
+    Assert.assertEquals(5, documentList.size());
+
+    Document jsonDoc2 = documentList.get(0);
+    Document jsonDoc3 = documentList.get(1);
+    Document jsonDoc1 = documentList.get(2);
+    Document jsonDoc4 = documentList.get(4);
+    Document normalDoc = documentList.get(3);
+
+    assertEquals("prefix1", jsonDoc1.getId());
+    assertEquals("prefix2", jsonDoc2.getId());
+    assertEquals("prefix3", jsonDoc3.getId());
+    assertEquals("prefix4", jsonDoc4.getId());
+    assertEquals("12", normalDoc.getString("file_size_bytes"));
+    assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
+    connector.close();
+  }
+
+  @Test
+  public void testHandleGzFiles() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/testHandleGz.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+    // one from normal txt, one gzipped txt, and two from jsonl.gz
+    assertEquals(4, documentList.size());
+    Document txtGzDoc = documentList.get(0);
+    Document txtDoc = documentList.get(1);
+    Document jsonlGzDoc1 = documentList.get(2);
+    Document jsonlGzDoc2 = documentList.get(3);
+
+    assertEquals("12", txtDoc.getString("file_size_bytes"));
+    assertEquals("hello World!", new String(txtDoc.getBytes("file_content")));
+    assertEquals("37", txtGzDoc.getString("file_size_bytes"));
+    assertEquals("hello World! This is the txt gz file.", new String(txtGzDoc.getBytes("file_content")));
+    assertEquals("prefix2", jsonlGzDoc1.getId());
+    assertEquals("prefix3", jsonlGzDoc2.getId());
+    connector.close();
+  }
+
+  @Test
+  public void testHandleTarGzFiles() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/testHandleTarGz.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+
+    // assert that all documents have been processed
+    Assert.assertEquals(5, documentList.size());
+
+    Document jsonDoc2 = documentList.get(0);
+    Document jsonDoc3 = documentList.get(1);
+    Document jsonDoc1 = documentList.get(2);
+    Document jsonDoc4 = documentList.get(4);
+    Document normalDoc = documentList.get(3);
+
+    assertEquals("prefix1", jsonDoc1.getId());
+    assertEquals("prefix2", jsonDoc2.getId());
+    assertEquals("prefix3", jsonDoc3.getId());
+    assertEquals("prefix4", jsonDoc4.getId());
+    assertEquals("12", normalDoc.getString("file_size_bytes"));
+    assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
+    connector.close();
   }
 }

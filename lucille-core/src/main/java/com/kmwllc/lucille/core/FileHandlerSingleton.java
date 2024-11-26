@@ -16,4 +16,10 @@ public class FileHandlerSingleton {
     }
     return JsonConnectorInstance;
   }
+
+  public static synchronized void closeAllHandlers() {
+    if (JsonConnectorInstance != null) {
+      JsonConnectorInstance = null;
+    }
+  }
 }

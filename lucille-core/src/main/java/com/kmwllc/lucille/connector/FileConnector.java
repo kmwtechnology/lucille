@@ -92,6 +92,7 @@ public class FileConnector extends AbstractConnector {
   private final boolean getFileContent;
   private final Map<String, Object> fileOptions;
   private final boolean handleCompressedFiles;
+  private final boolean handleArchivedFiles;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config);
@@ -107,6 +108,7 @@ public class FileConnector extends AbstractConnector {
     this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions").root().unwrapped() : Map.of();
     this.handleCompressedFiles = config.hasPath("handleCompressedFiles") ? config.getBoolean("handleCompressedFiles") : false;
+    this.handleArchivedFiles = config.hasPath("handleArchivedFiles") ? config.getBoolean("handleArchivedFiles") : false;
     try {
       this.storageURI = new URI(pathToStorage);
       log.info("using path {} with scheme {}", pathToStorage, storageURI.getScheme());
@@ -145,23 +147,31 @@ public class FileConnector extends AbstractConnector {
           .forEachOrdered(path -> {
             String fileExtension = FilenameUtils.getExtension(path.toString());
             try {
-              // handle compressed files and after decompression, regardless if archived or not
+              // handle compressed files and after decompression, handle regardless if archived or not
               if (handleCompressedFiles && isSupportedCompressedFileType(path)) {
                 // unzip the file
                 try (CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(
                     new BufferedInputStream(Files.newInputStream(path)))) {
-                  if (!isArchivedAfterDecompression(path)) {
-                    handleStreamExtensionFiles(publisher, compressorStream, fileExtension, path.toString());
+                  // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
+                  String unzippedFileName = path.getFileName().toString().replaceFirst("[.][^.]+$", "");
+                  if (handleArchivedFiles && isSupportedArchiveFileType(Path.of(unzippedFileName))) {
+                    handleArchiveFiles(publisher, compressorStream);
+                  } else if (!fileOptions.isEmpty() && FileHandler.supportsFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
+                    handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), path.toString());
                   } else {
-                    handleArchiveFiles(publisher, compressorStream, fileExtension);
+                    Document doc = pathToDoc(path, compressorStream);
+                    publisher.publish(doc);
                   }
                 }
                 return;
               }
 
               // handle archived files that are not zipped
-              if (isSupportedArchiveFileType(path)) {
-                handleArchiveFiles(publisher, Files.newInputStream(path), fileExtension);
+              if (handleArchivedFiles && isSupportedArchiveFileType(path)) {
+                try (InputStream in = Files.newInputStream(path)) {
+                  handleArchiveFiles(publisher, in);
+                }
+                return;
               }
 
               // not archived nor zip, handling supported file types if fileOptions are provided
@@ -191,6 +201,7 @@ public class FileConnector extends AbstractConnector {
       if (fs != null) {
         try {
           fs.close();
+          FileHandler.closeAllHandlers();
         } catch (UnsupportedOperationException e) {
           // Some file systems may not need closing
         } catch (IOException e) {
@@ -200,14 +211,41 @@ public class FileConnector extends AbstractConnector {
     }
   }
 
-  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fileExtension) throws ArchiveException, IOException, ConnectorException {
+  private void handleArchiveFiles(Publisher publisher, InputStream inputStream) throws ArchiveException, IOException, ConnectorException {
     try (ArchiveInputStream<? extends ArchiveEntry> in =
         new ArchiveStreamFactory().createArchiveInputStream(new BufferedInputStream(inputStream))) {
       ArchiveEntry entry = null;
       while ((entry = in.getNextEntry()) != null) {
         if (shouldIncludeFile(entry.getName(), includes, excludes) && !entry.isDirectory()) {
-          handleStreamExtensionFiles(publisher, in, fileExtension, entry.getName());
+          String entryExtension = FilenameUtils.getExtension(entry.getName());
+          if (FileHandler.supportsFileType(entryExtension, fileOptions)) {
+            handleStreamExtensionFiles(publisher, in, entryExtension, entry.getName());
+          } else {
+            // handle entry to be published as a normal document
+            Document doc = Document.create(createDocId(DigestUtils.md5Hex(entry.getName())));
+            doc.setField(FILE_PATH, entry.getName());
+            doc.setField(MODIFIED, entry.getLastModifiedDate().toInstant());
+            // entry does not have creation date
+            // some cases where entry.getSize() returns -1, so we use in.readAllBytes instead...
+            // cannot use in.available as it shows the remaining bytes including the rest of the files in the archive
+            byte[] content = in.readAllBytes();
+            doc.setField(SIZE, content.length);
+            if (getFileContent) {
+              doc.setField(CONTENT, content);
+            }
+            try {
+              publisher.publish(doc);
+            } catch (Exception e) {
+              throw new ConnectorException("Error occurred while publishing archive entry: " + entry.getName(), e);
+            }
+          }
         }
+      }
+    } finally {
+      try {
+        inputStream.close();
+      } catch (IOException e) {
+        throw new ConnectorException("Error occurred while closing stream for archive file.", e);
       }
     }
   }
@@ -222,6 +260,12 @@ public class FileConnector extends AbstractConnector {
       }
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while handling file: " + fileName, e);
+    } finally {
+      try {
+        in.close();
+      } catch (IOException e) {
+        throw new ConnectorException("Error occurred while closing stream for file: " + fileName, e);
+      }
     }
   }
 
@@ -268,7 +312,7 @@ public class FileConnector extends AbstractConnector {
       BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
 
       // setting fields on document
-      doc.setField(FILE_PATH, path.toAbsolutePath().toString());
+      doc.setField(FILE_PATH, path.toAbsolutePath().normalize().toString());
       doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
       doc.setField(CREATED, attrs.creationTime().toInstant());
       doc.setField(SIZE, attrs.size());
@@ -279,44 +323,53 @@ public class FileConnector extends AbstractConnector {
     return doc;
   }
 
-  private boolean isArchivedAfterDecompression(Path path) {
-    String fileName = path.getFileName().toString();
-    int firstDotIndex = fileName.indexOf('.');
-    int lastDotIndex = fileName.lastIndexOf('.');
+  private Document pathToDoc(Path path, InputStream in) throws ConnectorException {
+    final String docId = DigestUtils.md5Hex(path.toString());
+    final Document doc = Document.create(createDocId(docId));
 
-    if (firstDotIndex != -1 && lastDotIndex != -1 && firstDotIndex != lastDotIndex) {
-      fileName = fileName.substring(0, lastDotIndex);
-      return isSupportedArchiveFileType(Path.of(fileName));
-    } else if (firstDotIndex != -1) {
-      return false;
-    } else {
-      return false;
+    try {
+      // get file attributes
+      BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
+
+      // setting fields on document
+      doc.setField(FILE_PATH, path.toAbsolutePath().normalize().toString());
+      doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
+      doc.setField(CREATED, attrs.creationTime().toInstant());
+      // wont be able to get the size unless we read from the stream :/ so have to readBytes even though we set getFileContent to false
+      byte[] content = in.readAllBytes();
+      doc.setField(SIZE, content.length);
+      if (getFileContent) doc.setField(CONTENT, content);
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred getting/setting file attributes to document: " + path, e);
     }
+    return doc;
   }
 
   private boolean isSupportedCompressedFileType(Path path) {
     String fileName = path.getFileName().toString();
 
-    return fileName.endsWith(".gz") ||
-        fileName.endsWith(".bz2") ||
-        fileName.endsWith(".xz") ||
-        fileName.endsWith(".lzma") ||
-        fileName.endsWith(".br") ||
-        fileName.endsWith(".pack") ||
-        fileName.endsWith(".zst") ||
-        fileName.endsWith(".Z");
+    return fileName.endsWith(".gz");
+      // note that the following are supported by apache-commons-compress, but have yet to been tested, so commented out for now
+      // fileName.endsWith(".bz2") ||
+      // fileName.endsWith(".xz") ||
+      // fileName.endsWith(".lzma") ||
+      // fileName.endsWith(".br") ||
+      // fileName.endsWith(".pack") ||
+      // fileName.endsWith(".zst") ||
+      // fileName.endsWith(".Z");
   }
 
   private boolean isSupportedArchiveFileType(Path path) {
     String fileName = path.getFileName().toString();
 
-    return fileName.endsWith(".7z") ||
-        fileName.endsWith(".ar") ||
-        fileName.endsWith(".arj") ||
-        fileName.endsWith(".cpio") ||
-        fileName.endsWith(".dump") ||
-        fileName.endsWith(".dmp") ||
-        fileName.endsWith(".tar") ||
-        fileName.endsWith(".zip");
+    return fileName.endsWith(".tar") ||
+       fileName.endsWith(".zip");
+      // note that the following are supported by apache-commons compress, but have yet to been tested, so commented out for now
+      // fileName.endsWith(".7z") ||
+      // fileName.endsWith(".ar") ||
+      // fileName.endsWith(".arj") ||
+      // fileName.endsWith(".cpio") ||
+      // fileName.endsWith(".dump") ||
+      // fileName.endsWith(".dmp");
   }
 }
