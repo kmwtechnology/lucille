@@ -6,13 +6,13 @@ import com.kmwllc.lucille.core.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
 import java.util.NoSuchElementException;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
@@ -20,7 +20,6 @@ import org.apache.commons.io.LineIterator;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.function.UnaryOperator;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +41,7 @@ public class JSONConnector extends AbstractConnector implements FileHandler {
     try (Reader reader = FileUtils.getReader(path)) {
       LineIterator it = IOUtils.lineIterator(reader);
       while (it.hasNext()) {
-        String line = it.nextLine();
+        String line = it.next();
         publisher.publish(Document.createFromJson(line, idUpdater));
       }
     } catch (IOException e) {
@@ -53,26 +52,41 @@ public class JSONConnector extends AbstractConnector implements FileHandler {
   }
 
   @Override
-  public Iterator<Document> processFile(Path path) throws Exception{
+  public Iterator<Document> processFile(Path path) throws Exception {
     // reader will be closed when the LineIterator is closed in getDocumentIterator
-    Reader reader = FileUtils.getReader(String.valueOf(path));
+    // TODO: currently only works for path from local file system, need add support for Cloud providers
+    Reader reader;
+    try {
+      reader = new BufferedReader(new InputStreamReader(new FileInputStream(path.toFile()), StandardCharsets.UTF_8));
+    } catch (Exception e) {
+      throw new ConnectorException("Error creating reader from path: " + path, e);
+    }
+
     return getDocumentIterator(reader);
   }
 
   @Override
   public Iterator<Document> processFile(byte[] fileContent) throws Exception {
     // reader will be closed when the LineIterator is closed in getDocumentIterator
-    Reader reader = new InputStreamReader(new ByteArrayInputStream(fileContent), StandardCharsets.UTF_8);
+    Reader reader;
+    try {
+      reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(fileContent), StandardCharsets.UTF_8));
+    } catch (Exception e) {
+      throw new ConnectorException("Error creating reader from byte array", e);
+    }
+
     return getDocumentIterator(reader);
   }
 
   private Iterator<Document> getDocumentIterator(Reader reader) {
     return new Iterator<Document>() {
+      // closing LineIterator closes reader, which closes BufferedReader, InputStreamReader and the InputStream passed into InputStreamReader
       private final LineIterator it = IOUtils.lineIterator(reader);
 
       @Override
       public boolean hasNext() {
         boolean hasNext = it.hasNext();
+        // Iterator closes when reader is done reading (successful job)
         if (!hasNext) {
           IOUtils.closeQuietly(it);
         }
@@ -81,14 +95,19 @@ public class JSONConnector extends AbstractConnector implements FileHandler {
 
       @Override
       public Document next() {
+        // additional safety check to ensure that the iterator has more lines to process, if hasNext returns false,
+        // means we have also closed LineIterator, throw an exception
         if (!hasNext()) {
           throw new NoSuchElementException("No more lines to process");
         }
 
-        String line = it.nextLine();
+        String line = it.next();
         try {
           return Document.createFromJson(line, idUpdater);
         } catch (Exception e) {
+          // any errors that occur during the process of creating a document, we close the LineIterator
+          // cannot close iterator in finally, as we will called next() again if there are more elements.
+          IOUtils.closeQuietly(it);
           throw new RuntimeException("Error creating document, make sure that you have 'id' key within each line of json", e);
         }
       }

@@ -14,20 +14,22 @@ public interface FileHandler {
 
   Iterator<Document> processFile(byte[] fileContent) throws Exception;
 
-  static FileHandler getFileHandler(String fileExtension, Map<String, Object> fileOptions) {
+  static FileHandler getFileHandler(String fileExtension, Config fileOptions) {
     switch (fileExtension) {
       case "json", "jsonl" -> {
-        Map<String, Object> configMap = (Map<String, Object>) fileOptions.get("json");
-        return FileHandlerSingleton.getJsonConnectorInstance(ConfigFactory.parseMap(configMap));
+        Config jsonConfig = fileOptions.getConfig("json");
+        if (jsonConfig == null || jsonConfig.isEmpty()) jsonConfig = fileOptions.getConfig("jsonl");
+
+        return FileHandlerSingleton.getJsonConnectorInstance(jsonConfig);
       }
       default -> throw new RuntimeException("Unsupported file type: " + fileExtension);
     }
   }
 
-  static boolean supportsFileType(String fileExtension, Map<String, Object> fileOptions) {
+  static boolean supportsFileType(String fileExtension, Config fileOptions) {
     switch (fileExtension) {
       case "json", "jsonl" -> {
-        return fileOptions.containsKey("json");
+        return fileOptions.hasPath("json") || fileOptions.hasPath("jsonl");
       }
       default -> {
         return false;

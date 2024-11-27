@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -90,7 +91,7 @@ public class FileConnector extends AbstractConnector {
   private CloudStorageClient cloudStorageClient;
   private final URI storageURI;
   private final boolean getFileContent;
-  private final Map<String, Object> fileOptions;
+  private final Config fileOptions;
   private final boolean handleCompressedFiles;
   private final boolean handleArchivedFiles;
 
@@ -106,7 +107,7 @@ public class FileConnector extends AbstractConnector {
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
     this.getFileContent = config.hasPath("getFileContent") ? config.getBoolean("getFileContent") : true;
     this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
-    this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions").root().unwrapped() : Map.of();
+    this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
     this.handleCompressedFiles = config.hasPath("handleCompressedFiles") ? config.getBoolean("handleCompressedFiles") : false;
     this.handleArchivedFiles = config.hasPath("handleArchivedFiles") ? config.getBoolean("handleArchivedFiles") : false;
     try {
@@ -141,38 +142,39 @@ public class FileConnector extends AbstractConnector {
     FileSystem fs = FileSystems.getDefault();
     // get current working directory
     Path startingDirectory = fs.getPath(pathToStorage);
-
+    // paths will be close via the try resources block
     try (Stream<Path> paths = Files.walk(startingDirectory)) {
       paths.filter(this::isValidPath)
           .forEachOrdered(path -> {
             String fileExtension = FilenameUtils.getExtension(path.toString());
             try {
-              // handle compressed files and after decompression, handle regardless if archived or not
-              if (handleCompressedFiles && isSupportedCompressedFileType(path)) {
-                // unzip the file
-                try (CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(
-                    new BufferedInputStream(Files.newInputStream(path)))) {
-                  // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
-                  String unzippedFileName = path.getFileName().toString().replaceFirst("[.][^.]+$", "");
-                  if (handleArchivedFiles && isSupportedArchiveFileType(Path.of(unzippedFileName))) {
-                    handleArchiveFiles(publisher, compressorStream);
-                  } else if (!fileOptions.isEmpty() && FileHandler.supportsFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
-                    handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), path.toString());
-                  } else {
-                    Document doc = pathToDoc(path, compressorStream);
-                    publisher.publish(doc);
-                  }
-                }
-                return;
-              }
-
-              // handle archived files that are not zipped
-              if (handleArchivedFiles && isSupportedArchiveFileType(path)) {
-                try (InputStream in = Files.newInputStream(path)) {
-                  handleArchiveFiles(publisher, in);
-                }
-                return;
-              }
+              //TODO: investigate resource usage for handling compressed and archived files before enabling them
+//              // handle compressed files and after decompression, handle regardless if archived or not
+//              if (handleCompressedFiles && isSupportedCompressedFileType(path)) {
+//                // unzip the file, compressorStream will be closed when try block is exited
+//                try (BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(path));
+//                    CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
+//                  // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
+//                  String unzippedFileName = path.getFileName().toString().replaceFirst("[.][^.]+$", "");
+//                  if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
+//                    handleArchiveFiles(publisher, compressorStream);
+//                  } else if (!fileOptions.isEmpty() && FileHandler.supportsFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
+//                    handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), path.toString());
+//                  } else {
+//                    Document doc = pathToDoc(path, compressorStream);
+//                    publisher.publish(doc);
+//                  }
+//                }
+//                return;
+//              }
+//
+//              // handle archived files that are not zipped
+//              if (handleArchivedFiles && isSupportedArchiveFileType(path)) {
+//                try (InputStream in = Files.newInputStream(path)) {
+//                  handleArchiveFiles(publisher, in);
+//                }
+//                return;
+//              }
 
               // not archived nor zip, handling supported file types if fileOptions are provided
               if (!fileOptions.isEmpty() && FileHandler.supportsFileType(fileExtension, fileOptions)) {
@@ -181,7 +183,13 @@ public class FileConnector extends AbstractConnector {
                 Iterator<Document> docIterator = handler.processFile(path);
                 // once docIterator.hasNext() is false, it will close its resources in handler and return
                 while (docIterator.hasNext()) {
-                  publisher.publish(docIterator.next());
+                  try {
+                    publisher.publish(docIterator.next());
+                  } catch (Exception e) {
+                    // if we fail to publish a document, we log the error and continue to the next document
+                    // to "finish" the iterator and close its resources
+                    log.error("Unable to publish document '{}', SKIPPING", path, e);
+                  }
                 }
                 return;
               }
@@ -211,9 +219,10 @@ public class FileConnector extends AbstractConnector {
     }
   }
 
+  // inputStream parameter will be closed outside of this method as well
   private void handleArchiveFiles(Publisher publisher, InputStream inputStream) throws ArchiveException, IOException, ConnectorException {
-    try (ArchiveInputStream<? extends ArchiveEntry> in =
-        new ArchiveStreamFactory().createArchiveInputStream(new BufferedInputStream(inputStream))) {
+    try (BufferedInputStream bis = new BufferedInputStream(inputStream);
+        ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
       while ((entry = in.getNextEntry()) != null) {
         if (shouldIncludeFile(entry.getName(), includes, excludes) && !entry.isDirectory()) {
@@ -241,15 +250,10 @@ public class FileConnector extends AbstractConnector {
           }
         }
       }
-    } finally {
-      try {
-        inputStream.close();
-      } catch (IOException e) {
-        throw new ConnectorException("Error occurred while closing stream for archive file.", e);
-      }
     }
   }
 
+  // inputStream parameter will be closed outside of this method as well
   private void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fileName)
       throws ConnectorException {
     try {
@@ -260,12 +264,6 @@ public class FileConnector extends AbstractConnector {
       }
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while handling file: " + fileName, e);
-    } finally {
-      try {
-        in.close();
-      } catch (IOException e) {
-        throw new ConnectorException("Error occurred while closing stream for file: " + fileName, e);
-      }
     }
   }
 
@@ -323,6 +321,7 @@ public class FileConnector extends AbstractConnector {
     return doc;
   }
 
+  // InputStream parameter will be closed outside of this method as well
   private Document pathToDoc(Path path, InputStream in) throws ConnectorException {
     final String docId = DigestUtils.md5Hex(path.toString());
     final Document doc = Document.create(createDocId(docId));
@@ -361,15 +360,18 @@ public class FileConnector extends AbstractConnector {
 
   private boolean isSupportedArchiveFileType(Path path) {
     String fileName = path.getFileName().toString();
+    return isSupportedArchiveFileType(fileName);
+  }
 
-    return fileName.endsWith(".tar") ||
-       fileName.endsWith(".zip");
+  private boolean isSupportedArchiveFileType(String string) {
+    return string.endsWith(".tar") ||
+       string.endsWith(".zip");
       // note that the following are supported by apache-commons compress, but have yet to been tested, so commented out for now
-      // fileName.endsWith(".7z") ||
-      // fileName.endsWith(".ar") ||
-      // fileName.endsWith(".arj") ||
-      // fileName.endsWith(".cpio") ||
-      // fileName.endsWith(".dump") ||
-      // fileName.endsWith(".dmp");
+      // string.endsWith(".7z") ||
+      // string.endsWith(".ar") ||
+      // string.endsWith(".arj") ||
+      // string.endsWith(".cpio") ||
+      // string.endsWith(".dump") ||
+      // string.endsWith(".dmp");
   }
 }
