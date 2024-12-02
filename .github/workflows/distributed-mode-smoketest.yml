@@ -23,3 +23,5 @@ jobs:
         uses: adambirds/docker-compose-action@v1.5.0
         with:
           compose-file: "./lucille-examples/lucille-distributed-example/docker-compose.yml"
+          test-container: "runner"
+          test-command: "mvn test -Dtest=VerifyIngestResult"
