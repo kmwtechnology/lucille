@@ -228,6 +228,59 @@ public class FileConnectorTest {
     connector.close();
   }
 
+  @Test
+  public void testHandleCSVFiles() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/handleCSV.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    connector.execute(publisher);
+
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+
+    assertEquals(5, documentList.size());
+
+    Document csvDoc1 = documentList.get(0);
+    Document csvDoc2 = documentList.get(1);
+    Document csvDoc3 = documentList.get(2);
+    Document csvDoc4 = documentList.get(3);
+    Document csvDoc6 = documentList.get(4);
+    assertEquals("example.csv-1", csvDoc1.getId());
+    assertEquals("example.csv-2", csvDoc2.getId());
+    assertEquals("example.csv-3", csvDoc3.getId());
+    assertEquals("example.csv-4", csvDoc4.getId());
+    assertEquals("example.csv-6", csvDoc6.getId());
+
+    assertEquals("foo", csvDoc1.getString("field1"));
+    assertEquals("bar", csvDoc1.getString("field2"));
+    assertEquals("baz", csvDoc1.getString("field3"));
+    assertEquals("1", csvDoc1.getString("csvLineNumber"));
+
+    assertEquals("giraffe", csvDoc2.getString("field1"));
+    assertEquals("apple", csvDoc2.getString("field2"));
+    assertEquals("pineapple", csvDoc2.getString("field3"));
+    assertEquals("2", csvDoc2.getString("csvLineNumber"));
+
+    assertEquals("quartz", csvDoc3.getString("field1"));
+    assertEquals("zinc", csvDoc3.getString("field2"));
+    assertEquals("copper", csvDoc3.getString("field3"));
+    assertEquals("3", csvDoc3.getString("csvLineNumber"));
+
+    assertEquals("val1", csvDoc4.getString("field1"));
+    assertEquals("val2", csvDoc4.getString("field2"));
+    assertEquals("val3", csvDoc4.getString("field3"));
+    assertEquals("4", csvDoc4.getString("csvLineNumber"));
+
+    assertEquals("abc", csvDoc6.getString("field1"));
+    assertEquals("def", csvDoc6.getString("field2"));
+    assertEquals("ghi", csvDoc6.getString("field3"));
+    // skipped line 5 as it was empty
+    assertEquals("6", csvDoc6.getString("csvLineNumber"));
+  }
+
+
+
 
   // we ignore the tests related to compression/achived files ATM, need more investigation on resource management
   @Ignore

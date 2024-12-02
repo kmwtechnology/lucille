@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVParser;
@@ -12,6 +13,13 @@ import com.opencsv.exceptions.CsvException;
 import com.opencsv.exceptions.CsvMalformedLineException;
 import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
+import java.io.ByteArrayInputStream;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
+import org.apache.commons.compress.utils.FileNameUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -25,11 +33,12 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import software.amazon.awssdk.services.s3.endpoints.internal.Value.Int;
 
 /**
  * Connector implementation that produces documents from the rows in a given CSV file.
  */
-public class CSVConnector extends AbstractConnector {
+public class CSVConnector extends AbstractConnector implements FileHandler {
 
   private static final Logger log = LoggerFactory.getLogger(CSVConnector.class);
 
@@ -80,22 +89,7 @@ public class CSVConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    if (moveToAfterProcessing != null) {
-      // Create the destination directory if it doesn't exist.
-      File destDir = new File(moveToAfterProcessing);
-      if (!destDir.exists()) {
-        log.info("Creating archive directory {}", destDir.getAbsolutePath());
-        destDir.mkdirs();
-      }
-    }
-
-    if (moveToErrorFolder != null) {
-      File errorDir = new File(moveToErrorFolder);
-      if (!errorDir.exists()) {
-        log.info("Creating error directory {}", errorDir.getAbsolutePath());
-        errorDir.mkdirs();
-      }
-    }
+    createProcessedAndErrorFolders();
 
     File pathFile = new File(path);
     if (!path.startsWith("classpath:") && !pathFile.exists()) {
@@ -137,32 +131,9 @@ public class CSVConnector extends AbstractConnector {
         }
       }
       // Index the column names
-      HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();
-      for (int i = 0; i < header.length; i++) {
-        // check for BOM
-        if (i == 0) {
-          header[i] = removeBOM(header[i]);
-        }
-
-        if (columnIndexMap.containsKey(header[i])) {
-          log.warn("Multiple columns with the name {} were discovered in the source csv file.", header[i]);
-          continue;
-        }
-        columnIndexMap.put(header[i], i);
-      }
-      // create a lookup list for column indexes
-      List<Integer> idColumns = new ArrayList<Integer>();
-      for (String field : idFields) {
-        if (lowercaseFields) {
-          idColumns.add(columnIndexMap.get(field.toLowerCase()));
-        } else {
-          idColumns.add(columnIndexMap.get(field));
-        }
-      }
-      // verify that we found all the columns.
-      if (idColumns.size() != idFields.size()) {
-        log.warn("Mismatch in idFields to column map.");
-      }
+      HashMap<String, Integer> columnIndexMap = getColumnIndexMap(header);
+      // create a lookup list for column indexes and verify we got the same number of idColumns and idFields
+      List<Integer> idColumns = getIdColumns(columnIndexMap);
       // At this point we should have the list of column ids that map to the idFields 
       String[] line;
 
@@ -179,31 +150,7 @@ public class CSVConnector extends AbstractConnector {
           log.warn("Logical row {} of the csv has a different number of columns than the header.", lineNum);
           continue;
         }
-        String docId = "";
-        if (idColumns.size() > 0) {
-          // let's get the columns with the values for the id.
-          ArrayList<String> idColumnData = new ArrayList<String>();
-          for (Integer idx : idColumns) {
-            idColumnData.add(line[idx]);
-          }
-          docId = createDocId(idColumnData);
-        } else {
-          // a default unique id for a csv file is filename + line num
-          docId = getDocIdPrefix() + filename + "-" + lineNum;
-        }
-
-        Document doc = Document.create(docId);
-        doc.setField(filePathField, path);
-        doc.setField(filenameField, filename);
-        // log.info("DOC ID: {}", docId);
-        int maxIndex = Math.min(header.length, line.length);
-        for (int i = 0; i < maxIndex; i++) {
-          if (line[i] != null && !ignoredTerms.contains(line[i]) && !Document.RESERVED_FIELDS.contains(header[i])) {
-            doc.setField(header[i], line[i]);
-          }
-        }
-        doc.setField(lineNumField, lineNum);
-
+        Document doc = getDocumentFromLine(idColumns, header, line, filename, filePath, lineNum);
         publisher.publish(doc);
       }
       // assuming we got here, we were successful processing the csv file
@@ -267,4 +214,210 @@ public class CSVConnector extends AbstractConnector {
       log.warn("Error moving file to destination directory", e);
     }
   }
+
+
+  @Override
+  public Iterator<Document> processFile(Path path) throws Exception {
+    createProcessedAndErrorFolders();
+
+    // check if path from local file exists
+    File pathFile = new File(path.toString());
+    if (!pathFile.exists()) {
+      throw new ConnectorException("Path " + path + " does not exist");
+    }
+    CSVReader reader = getCsvReader(path.toString());
+    // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
+    return getDocumentIterator(reader, pathFile.getName(), path.toAbsolutePath().normalize().toString());
+  }
+
+  @Override
+  public Iterator<Document> processFile(byte[] fileContent, String filename) throws Exception {
+    createProcessedAndErrorFolders();
+
+    CSVReader reader = getCsvReader(fileContent);
+    // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
+    return getDocumentIterator(reader, filename, "");
+  }
+
+
+  private Iterator<Document> getDocumentIterator(CSVReader reader, String filename, String path) throws Exception {
+    return new Iterator<Document>() {;
+      final CSVReader csvReader = reader;
+      final String[] header = getHeaderFromCSV(csvReader);
+      final HashMap<String, Integer> columnIndexMap = getColumnIndexMap(header);
+      final List<Integer> idColumns = getIdColumns(columnIndexMap);
+      Integer lineNum = 0;
+      String[] line;
+      final Iterator<String[]> csvIterator = csvReader.iterator();
+
+      @Override
+      public boolean hasNext() {
+        boolean hasNext = csvIterator.hasNext();
+        if (!hasNext) {
+          try {
+            csvReader.close();
+          } catch (IOException e) {
+            log.error("Error closing CSVReader", e);
+          }
+        }
+        return hasNext;
+      }
+
+      @Override
+      public Document next() {
+        try {
+          if (!hasNext()) {
+            log.warn("No more lines to process");
+            return null;
+          }
+
+          line = csvIterator.next();
+          lineNum++;
+
+          if (line.length == 0 || (line.length == 1 && StringUtils.isBlank(line[0]))) {
+            log.warn("Skipping blank line {}", lineNum);
+            return next();
+          }
+          if (line.length != header.length) {
+            // the line/row number reported here may differ from the physical line number in the file, if the CSV contains
+            // a quoted value that spans multiple lines
+            log.warn("Logical row {} of the csv has a different number of columns than the header. Skipping line.", lineNum);
+            return next();
+          }
+
+          return getDocumentFromLine(idColumns, header, line, filename, path, lineNum);
+        } catch (Exception e) {
+          log.error("Error processing CSV line {}", lineNum, e);
+          try {
+            csvReader.close();
+          } catch (IOException ex) {
+            throw new RuntimeException(ex);
+          }
+        }
+        return null;
+      }
+    };
+  }
+
+  private Document getDocumentFromLine(List<Integer> idColumns, String[] header, String[] line, String filename, String path, int lineNum) {
+    String docId = "";
+    if (!idColumns.isEmpty()) {
+      // let's get the columns with the values for the id.
+      ArrayList<String> idColumnData = new ArrayList<String>();
+      for (Integer idx : idColumns) {
+        idColumnData.add(line[idx]);
+      }
+      docId = createDocId(idColumnData);
+    } else {
+      // a default unique id for a csv file is filename + line num
+      docId = getDocIdPrefix() + filename + "-" + lineNum;
+    }
+
+    Document doc = Document.create(docId);
+    if (StringUtils.isNotBlank(path)) doc.setField(filePathField, path);
+    doc.setField(filenameField, filename);
+    // log.info("DOC ID: {}", docId);
+    int maxIndex = Math.min(header.length, line.length);
+    for (int i = 0; i < maxIndex; i++) {
+      if (line[i] != null && !ignoredTerms.contains(line[i]) && !Document.RESERVED_FIELDS.contains(header[i])) {
+        doc.setField(header[i], line[i]);
+      }
+    }
+    doc.setField(lineNumField, lineNum);
+
+    return doc;
+  }
+
+  private void createProcessedAndErrorFolders() {
+    if (moveToAfterProcessing != null) {
+      // Create the destination directory if it doesn't exist.
+      File destDir = new File(moveToAfterProcessing);
+      if (!destDir.exists()) {
+        log.info("Creating archive directory {}", destDir.getAbsolutePath());
+        destDir.mkdirs();
+      }
+    }
+
+    if (moveToErrorFolder != null) {
+      File errorDir = new File(moveToErrorFolder);
+      if (!errorDir.exists()) {
+        log.info("Creating error directory {}", errorDir.getAbsolutePath());
+        errorDir.mkdirs();
+      }
+    }
+  }
+
+  private List<Integer> getIdColumns(HashMap<String, Integer> columnIndexMap) {
+    List<Integer> idColumns = new ArrayList<Integer>();
+    for (String field : idFields) {
+      if (lowercaseFields) {
+        idColumns.add(columnIndexMap.get(field.toLowerCase()));
+      } else {
+        idColumns.add(columnIndexMap.get(field));
+      }
+    }
+    // verify that we found all the columns.
+    if (idColumns.size() != idFields.size()) {
+      log.warn("Mismatch in idFields to column map.");
+    }
+    return idColumns;
+  }
+
+  private HashMap<String, Integer> getColumnIndexMap(String[] header) {
+    HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();
+    for (int i = 0; i < header.length; i++) {
+      // check for BOM
+      if (i == 0) {
+        header[i] = removeBOM(header[i]);
+      }
+
+      if (columnIndexMap.containsKey(header[i])) {
+        log.warn("Multiple columns with the name {} were discovered in the source csv file.", header[i]);
+        continue;
+      }
+      columnIndexMap.put(header[i], i);
+    }
+    return columnIndexMap;
+  }
+
+  private String[] getHeaderFromCSV(CSVReader csvReader) throws ConnectorException {
+    try {
+      String[] header = csvReader.readNext();
+      if (header == null || header.length == 0) {
+        throw new ConnectorException("CSV does not contain header row");
+      }
+      if (lowercaseFields) {
+        for (int i = 0; i < header.length; i++) {
+          header[i] = header[i].toLowerCase();
+        }
+      }
+      return header;
+    } catch (IOException | CsvValidationException e) {
+      throw new ConnectorException("Error reading header from CSV", e);
+    }
+  }
+
+  public CSVReader getCsvReader(String filePath) throws ConnectorException {
+    String filename = new File(filePath).getName();
+    try {
+      return new CSVReaderBuilder(FileUtils.getReader(filePath)).
+          withCSVParser(
+              new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
+          .build();
+    } catch (IOException e) {
+      throw new ConnectorException("Error creating CSVReader for file " + filename, e);
+    }
+  }
+
+  public CSVReader getCsvReader(byte[] fileContent) throws ConnectorException {
+    try {
+      return new CSVReaderBuilder(new InputStreamReader(new ByteArrayInputStream(fileContent), StandardCharsets.UTF_8))
+          .withCSVParser(
+              new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
+          .build();
+    } catch (Exception e) {
+      throw new ConnectorException("Error creating CSVReader from byte array", e);
+    }
+  }
+
 }

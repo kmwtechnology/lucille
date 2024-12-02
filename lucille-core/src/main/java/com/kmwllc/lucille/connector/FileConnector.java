@@ -184,7 +184,11 @@ public class FileConnector extends AbstractConnector {
                 // once docIterator.hasNext() is false, it will close its resources in handler and return
                 while (docIterator.hasNext()) {
                   try {
-                    publisher.publish(docIterator.next());
+                    Document doc = docIterator.next();
+                    if (doc != null) {
+                      publisher.publish(doc);
+                    }
+                    // TODO: need to handle CSV post processing options like move to processed/error folders
                   } catch (Exception e) {
                     // if we fail to publish a document, we log the error and continue to the next document
                     // to "finish" the iterator and close its resources
@@ -198,6 +202,7 @@ public class FileConnector extends AbstractConnector {
               Document doc = pathToDoc(path);
               publisher.publish(doc);
             } catch (Exception e) {
+              // TODO: add error folders if csv is in fileConfigs and moveToErrorFolder exists
               log.error("Unable to publish document '{}', SKIPPING", path, e);
             }
           });
@@ -258,7 +263,7 @@ public class FileConnector extends AbstractConnector {
       throws ConnectorException {
     try {
       FileHandler handler = FileHandler.getFileHandler(fileExtension, fileOptions);
-      Iterator<Document> docIterator = handler.processFile(in.readAllBytes());
+      Iterator<Document> docIterator = handler.processFile(in.readAllBytes(), fileName);
       while (docIterator.hasNext()) {
         publisher.publish(docIterator.next());
       }

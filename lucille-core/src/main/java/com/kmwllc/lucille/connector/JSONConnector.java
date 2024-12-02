@@ -54,7 +54,7 @@ public class JSONConnector extends AbstractConnector implements FileHandler {
   @Override
   public Iterator<Document> processFile(Path path) throws Exception {
     // reader will be closed when the LineIterator is closed in getDocumentIterator
-    // TODO: currently only works for path from local file system, need add support for Cloud providers
+    // only works for path from local file system
     Reader reader;
     try {
       reader = new BufferedReader(new InputStreamReader(new FileInputStream(path.toFile()), StandardCharsets.UTF_8));
@@ -66,13 +66,13 @@ public class JSONConnector extends AbstractConnector implements FileHandler {
   }
 
   @Override
-  public Iterator<Document> processFile(byte[] fileContent) throws Exception {
+  public Iterator<Document> processFile(byte[] fileContent, String fileName) throws Exception {
     // reader will be closed when the LineIterator is closed in getDocumentIterator
     Reader reader;
     try {
       reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(fileContent), StandardCharsets.UTF_8));
     } catch (Exception e) {
-      throw new ConnectorException("Error creating reader from byte array", e);
+      throw new ConnectorException("Error creating reader from file: " + fileName, e);
     }
 
     return getDocumentIterator(reader);

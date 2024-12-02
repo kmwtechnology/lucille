@@ -1,18 +1,14 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.connector.JSONConnector;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.nio.file.Path;
 import java.util.Iterator;
-import java.util.Map;
-import org.apache.commons.io.FilenameUtils;
 
 public interface FileHandler {
 
   Iterator<Document> processFile(Path path) throws Exception;
 
-  Iterator<Document> processFile(byte[] fileContent) throws Exception;
+  Iterator<Document> processFile(byte[] fileContent, String fileName) throws Exception;
 
   static FileHandler getFileHandler(String fileExtension, Config fileOptions) {
     switch (fileExtension) {
@@ -20,7 +16,11 @@ public interface FileHandler {
         Config jsonConfig = fileOptions.getConfig("json");
         if (jsonConfig == null || jsonConfig.isEmpty()) jsonConfig = fileOptions.getConfig("jsonl");
 
-        return FileHandlerSingleton.getJsonConnectorInstance(jsonConfig);
+        return FileHandlerManager.getJsonConnector(jsonConfig);
+      }
+      case "csv" -> {
+        Config csvConfig = fileOptions.getConfig("csv");
+        return FileHandlerManager.getCsvConnector(csvConfig);
       }
       default -> throw new RuntimeException("Unsupported file type: " + fileExtension);
     }
@@ -31,6 +31,9 @@ public interface FileHandler {
       case "json", "jsonl" -> {
         return fileOptions.hasPath("json") || fileOptions.hasPath("jsonl");
       }
+      case "csv" -> {
+        return fileOptions.hasPath("csv");
+      }
       default -> {
         return false;
       }
@@ -38,6 +41,6 @@ public interface FileHandler {
   }
 
   static void closeAllHandlers() {
-    FileHandlerSingleton.closeAllHandlers();
+    FileHandlerManager.close();
   }
 }
