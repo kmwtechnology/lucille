@@ -15,7 +15,7 @@ public class VerifyIngestResult {
   public void verifyIngestResult() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
     String fileName = "/output/dest.json";
-    int numDocs = 5;
+    int numDocs = 6;
 
     String output = Files.readString(Paths.get(fileName));
     JsonNode json = mapper.readTree(output);
