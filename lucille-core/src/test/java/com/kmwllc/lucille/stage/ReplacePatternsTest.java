@@ -83,9 +83,9 @@ public class ReplacePatternsTest {
     Stage stage = factory.get("ReplacePatternsTest/config.conf");
     assertEquals(
         Set.of(
-            "ignore_case",
+            "ignoreCase",
             "regex",
-            "update_mode",
+            "updateMode",
             "multiline",
             "name",
             "source",

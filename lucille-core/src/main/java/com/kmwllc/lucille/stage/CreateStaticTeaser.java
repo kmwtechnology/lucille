@@ -21,7 +21,7 @@ import java.util.List;
  *   - dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  *   - maxLength (Integer) : The maximum number of characters to include in the extracted teaser.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ *   - updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class CreateStaticTeaser extends Stage {
@@ -34,7 +34,7 @@ public class CreateStaticTeaser extends Stage {
   public CreateStaticTeaser(Config config) {
     super(config, new StageSpec()
         .withRequiredProperties("source", "dest", "maxLength")
-        .withOptionalProperties("update_mode"));
+        .withOptionalProperties("updateMode"));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");

@@ -69,7 +69,7 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions1.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "com.kmwllc.lucille.stage.NopStage: Stage config contains unknown property invalid_property");
+        "com.kmwllc.lucille.stage.NopStage: Stage config contains unknown property invalidProperty");
     testException(exceptions1.get(1), IllegalArgumentException.class, "Stage config must contain property fields");
   }
 
@@ -83,7 +83,7 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions1.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "com.kmwllc.lucille.stage.NopStage: Stage config contains unknown property invalid_property");
+        "com.kmwllc.lucille.stage.NopStage: Stage config contains unknown property invalidProperty");
 
     testException(exceptions1.get(1), IllegalArgumentException.class, "Stage config must contain property fields");
   }
@@ -118,7 +118,7 @@ public class ConfigValidationTest {
      assertEquals(2, exceptions2.size());
   
      testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NopStage: " +
-         "Stage config contains unknown property invalid_property");
+         "Stage config contains unknown property invalidProperty");
   
      // TODO note that for the following two exceptions, the fields are retrieved before
      //  the config validation is called
@@ -130,7 +130,7 @@ public class ConfigValidationTest {
          "Stage config must contain property dest");
   
      testException(exceptions2.get(1), IllegalArgumentException.class, "com.kmwllc.lucille.stage.Concatenate: " +
-         "Stage config contains unknown property default_inputs3");
+         "Stage config contains unknown property defaultInputs3");
    }
 
   private static void processDoc(Class<? extends Stage> stageClass, String config, Document doc)

@@ -29,17 +29,17 @@ import org.apache.http.impl.client.HttpClientBuilder;
  * <br>
  * source (String) : Field name of URL to be fetched; document will be skipped if the field with this name is absent or empty
  * dest (String) : Field name of destination for byte data; document will be skipped if the field with this name is absent or empty
- * size_suffix (String, Optional) : suffix to be appended to end of source field name for the size of data
- *  e.g. url --&gt; url_(size_suffix) where source name is url
- * status_suffix (String, Optional) : suffix to be appended to end of source field name for the status code of the fetch request
- * error_suffix (String, Optional) : suffix to be appended to end of source field name for any errors in process
- * max_size (Integer, Optional) : max size, in bytes, of data to be read from fetch
- * max_retries (Integer, Optional) : max number of tries the request will be made. Defaults to 0 retries.
- * initial_expiry_ms (Integer, Optional) : number of milliseconds that would be waited before retrying the request. Defaults to 100ms.
- * max_expiry_ms (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.
- * connection_request_timeout (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 60000ms, 1m.
- * connect_timeout (Integer, Optional) : the connection timeout in milliseconds. Defaults to 60000ms, 1m.
- * socket_timeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.
+ * sizeSuffix (String, Optional) : suffix to be appended to end of source field name for the size of data
+ *  e.g. url --&gt; url_(sizeSuffix) where source name is url
+ * statusSuffix (String, Optional) : suffix to be appended to end of source field name for the status code of the fetch request
+ * errorSuffix (String, Optional) : suffix to be appended to end of source field name for any errors in process
+ * maxSize (Integer, Optional) : max size, in bytes, of data to be read from fetch
+ * maxRetries (Integer, Optional) : max number of tries the request will be made. Defaults to 0 retries.
+ * initialExpiryMs (Integer, Optional) : number of milliseconds that would be waited before retrying the request. Defaults to 100ms.
+ * maxExpiryMs (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.
+ * connectionRequestTimeout (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 60000ms, 1m.
+ * connectTimeout (Integer, Optional) : the connection timeout in milliseconds. Defaults to 60000ms, 1m.
+ * socketTimeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.
  */
 public class FetchUri extends Stage {
 
@@ -61,22 +61,22 @@ public class FetchUri extends Stage {
 
   public FetchUri(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest")
-        .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix", "max_retries", "initial_expiry_ms",
-            "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout")
+        .withOptionalProperties("sizeSuffix", "statusSuffix", "maxSize", "errorSuffix", "maxRetries", "initialExpiryMs",
+            "maxExpiryMs", "connectionRequestTimeout", "connectTimeout", "socketTimeout")
         .withOptionalParents("headers"));
     this.source = config.getString("source");
     this.dest = config.getString("dest");
-    this.statusSuffix = ConfigUtils.getOrDefault(config, "status_suffix", "status_code");
-    this.sizeSuffix = ConfigUtils.getOrDefault(config, "size_suffix", "size");
-    this.errorSuffix = ConfigUtils.getOrDefault(config, "error_suffix", "error");
-    this.maxDownloadSize = ConfigUtils.getOrDefault(config, "max_size", Integer.MAX_VALUE);
+    this.statusSuffix = ConfigUtils.getOrDefault(config, "statusSuffix", "status_code");
+    this.sizeSuffix = ConfigUtils.getOrDefault(config, "sizeSuffix", "size");
+    this.errorSuffix = ConfigUtils.getOrDefault(config, "errorSuffix", "error");
+    this.maxDownloadSize = ConfigUtils.getOrDefault(config, "maxSize", Integer.MAX_VALUE);
     this.headers = ConfigUtils.createHeaderArray(config, "headers");
-    this.maxNumRetries = ConfigUtils.getOrDefault(config, "max_retries", 0);
-    this.initialExpiry = ConfigUtils.getOrDefault(config, "initial_expiry_ms", 100);
-    this.maxExpiry = ConfigUtils.getOrDefault(config, "max_expiry_ms", 10000);
-    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connection_request_timeout", 60000);
-    this.connectTimeout = ConfigUtils.getOrDefault(config, "connect_timeout", 60000);
-    this.socketTimeout = ConfigUtils.getOrDefault(config, "socket_timeout", 60000);
+    this.maxNumRetries = ConfigUtils.getOrDefault(config, "maxRetries", 0);
+    this.initialExpiry = ConfigUtils.getOrDefault(config, "initialExpiryMs", 100);
+    this.maxExpiry = ConfigUtils.getOrDefault(config, "maxExpiryMs", 10000);
+    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connectionRequestTimeout", 60000);
+    this.connectTimeout = ConfigUtils.getOrDefault(config, "connectTimeout", 60000);
+    this.socketTimeout = ConfigUtils.getOrDefault(config, "socketTimeout", 60000);
   }
 
   // Method exists for testing with mockito mocks

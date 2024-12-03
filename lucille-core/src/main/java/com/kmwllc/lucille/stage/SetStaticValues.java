@@ -15,7 +15,7 @@ import java.util.Map;
  * <p>
  * Config Parameters -
  * <ul>
- * <li>static_values (Map&lt;String, Object&gt;) : A mapping from the field to the value.</li>
+ * <li>staticValues (Map&lt;String, Object&gt;) : A mapping from the field to the value.</li>
  * <li>updateMode (UpdateMode) : The update mode to use when updating the fields.</li>
  * </ul>
  */
@@ -26,9 +26,9 @@ public class SetStaticValues extends Stage {
 
   public SetStaticValues(Config config) {
     super(config, new StageSpec()
-        .withOptionalProperties("update_mode")
-        .withRequiredParents("static_values"));
-    staticValues = config.getConfig("static_values").root().unwrapped();
+        .withOptionalProperties("updateMode")
+        .withRequiredParents("staticValues"));
+    staticValues = config.getConfig("staticValues").root().unwrapped();
     updateMode = UpdateMode.fromConfig(config);
   }
 

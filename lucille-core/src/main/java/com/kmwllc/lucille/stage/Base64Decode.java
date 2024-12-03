@@ -15,9 +15,9 @@ public class Base64Decode extends Stage {
   private String outputField;
   
   public Base64Decode(Config config) {
-    super(config, new StageSpec().withRequiredProperties("input_field", "output_field"));
-    inputField = config.getString("input_field");
-    outputField = config.getString("output_field");
+    super(config, new StageSpec().withRequiredProperties("inputField", "outputField"));
+    inputField = config.getString("inputField");
+    outputField = config.getString("outputField");
   }
 
   @Override
