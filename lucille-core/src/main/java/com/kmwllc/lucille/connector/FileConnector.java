@@ -4,6 +4,7 @@ import com.kmwllc.lucille.connector.cloudstorageclients.CloudStorageClient;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.FileHandler;
+import com.kmwllc.lucille.core.FileHandlerManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -32,8 +33,6 @@ import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.apache.commons.compress.archivers.ArchiveStreamFactory;
-import org.apache.commons.compress.compressors.CompressorInputStream;
-import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -141,6 +140,7 @@ public class FileConnector extends AbstractConnector {
       return;
     }
 
+    // local file system traversal
     FileSystem fs = FileSystems.getDefault();
     // get current working directory
     Path startingDirectory = fs.getPath(pathToStorage);
@@ -149,6 +149,7 @@ public class FileConnector extends AbstractConnector {
       paths.filter(this::isValidPath)
           .forEachOrdered(path -> {
             String fileExtension = FilenameUtils.getExtension(path.toString());
+            FileHandler handler = null;
             try {
               //TODO: investigate resource usage for handling compressed and archived files before enabling them
 //              // handle compressed files and after decompression, handle regardless if archived or not
@@ -181,8 +182,19 @@ public class FileConnector extends AbstractConnector {
               // not archived nor zip, handling supported file types if fileOptions are provided
               if (!fileOptions.isEmpty() && FileHandler.supportsFileType(fileExtension, fileOptions)) {
                 // instantiate the right FileHandler based on path
-                FileHandler handler = FileHandler.getFileHandler(fileExtension, fileOptions);
-                Iterator<Document> docIterator = handler.processFile(path);
+                handler = FileHandler.getFileHandler(fileExtension, fileOptions);
+                log.info("performing before Processing");
+                handler.beforeProcessingFile(fileOptions, path);
+                log.info("Processing done");
+                Iterator<Document> docIterator;
+                try {
+                  docIterator = handler.processFile(path);
+                } catch (Exception e) {
+                  // going to skip this file if an error occurs
+                  log.error("Unable to set up iterator for this file '{}', SKIPPING", path, e);
+                  handler.errorProcessingFile(fileOptions, path);
+                  return;
+                }
                 // once docIterator.hasNext() is false, it will close its resources in handler and return
                 while (docIterator.hasNext()) {
                   try {
@@ -190,15 +202,15 @@ public class FileConnector extends AbstractConnector {
                     if (doc != null) {
                       publisher.publish(doc);
                     }
-
-                    moveToProcessedFolderIfSet(path);
                   } catch (Exception e) {
-                    moveToErrorFolderIfSet(path);
                     // if we fail to publish a document, we log the error and continue to the next document
                     // to "finish" the iterator and close its resources
                     log.error("Unable to publish document '{}', SKIPPING", path, e);
+                    handler.errorProcessingFile(fileOptions, path);
                   }
                 }
+                // all jobs have been successfully published, move to processed folder if set
+                handler.afterProcessingFile(fileOptions, path);
                 return;
               }
 
@@ -206,7 +218,9 @@ public class FileConnector extends AbstractConnector {
               Document doc = pathToDoc(path);
               publisher.publish(doc);
             } catch (Exception e) {
-              moveToErrorFolderIfSet(path);
+              if (handler != null) {
+                handler.errorProcessingFile(fileOptions, path);
+              }
               log.error("Unable to publish document '{}', SKIPPING", path, e);
             }
           });
@@ -225,36 +239,6 @@ public class FileConnector extends AbstractConnector {
           throw new ConnectorException("Failed to close file system.", e);
         }
       }
-    }
-  }
-
-  private void moveToProcessedFolderIfSet(Path path) {
-    if (fileOptions.hasPath("csv") && fileOptions.getConfig("csv").hasPath("moveToAfterProcessing")) {
-      // move to processed folder
-      moveFile(path.toAbsolutePath().normalize(), fileOptions.getConfig("csv").getString("moveToAfterProcessing"));
-    }
-  }
-
-  private void moveToErrorFolderIfSet(Path path) {
-    if (fileOptions.hasPath("csv") && fileOptions.getConfig("csv").hasPath("moveToErrorFolder")) {
-      // move to error folder
-      moveFile(path.toAbsolutePath().normalize(), fileOptions.getConfig("csv").getString("moveToErrorFolder"));
-    }
-  }
-
-  public void moveFile(Path absolutePath, String option) {
-    if (absolutePath.startsWith("classpath:")) {
-      log.warn("Skipping moving classpath file: {} to {}", absolutePath, option);
-      return;
-    }
-    log.info("path: {}", absolutePath);
-    String fileName = absolutePath.getFileName().toString();
-    Path dest = Paths.get(option + File.separatorChar + fileName);
-    try {
-      Files.move(absolutePath, dest);
-      log.info("File {} was successfully moved from source {} to destination {}", fileName, absolutePath, dest);
-    } catch (IOException e) {
-      log.warn("Error moving file to destination directory", e);
     }
   }
 

@@ -211,16 +211,14 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
     }
   }
 
-
   @Override
   public Iterator<Document> processFile(Path path) throws Exception {
-    createProcessedAndErrorFoldersIfSet();
-
     // check if path from local file exists
     File pathFile = new File(path.toString());
     if (!pathFile.exists()) {
       throw new ConnectorException("Path " + path + " does not exist");
     }
+
     CSVReader reader = getCsvReader(path.toString());
     // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
     return getDocumentIterator(reader, pathFile.getName(), path.toAbsolutePath().normalize().toString());
@@ -228,8 +226,6 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
 
   @Override
   public Iterator<Document> processFile(byte[] fileContent, String filename) throws Exception {
-    createProcessedAndErrorFoldersIfSet();
-
     CSVReader reader = getCsvReader(fileContent);
     // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
     // TODO: add path? For setting path of csv file to path field
@@ -296,6 +292,45 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
     };
   }
 
+  @Override
+  public void beforeProcessingFile(Config config, Path path) throws Exception {
+    createProcessedAndErrorFoldersIfSet();
+  }
+
+  @Override
+  public void afterProcessingFile(Config config, Path path) throws Exception {
+    config = config.getConfig("csv");
+    if (config.hasPath("moveToAfterProcessing")) {
+      // move to processed folder
+      moveFile(path.toAbsolutePath().normalize(), config.getString("moveToAfterProcessing"));
+    }
+  }
+
+  @Override
+  public void errorProcessingFile(Config config, Path path) {
+    config = config.getConfig("csv");
+    if (config.hasPath("moveToErrorFolder")) {
+      // move to error folder
+      moveFile(path.toAbsolutePath().normalize(), config.getString("moveToErrorFolder"));
+    }
+  }
+
+  public void moveFile(Path absolutePath, String option) {
+    if (absolutePath.startsWith("classpath:")) {
+      log.warn("Skipping moving classpath file: {} to {}", absolutePath, moveToAfterProcessing);
+      return;
+    }
+
+    String fileName = absolutePath.getFileName().toString();
+    Path dest = Paths.get(option + File.separatorChar + fileName);
+    try {
+      Files.move(absolutePath, dest);
+      log.info("File {} was successfully moved from source {} to destination {}", fileName, absolutePath, dest);
+    } catch (IOException e) {
+      log.warn("Error moving file to destination directory", e);
+    }
+  }
+
   private Document getDocumentFromLine(List<Integer> idColumns, String[] header, String[] line, String filename, String path, int lineNum) {
     String docId = "";
     if (!idColumns.isEmpty()) {
@@ -336,7 +371,7 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
         destDir.mkdirs();
       }
     }
-
+    log.info("Error folder: {}", moveToErrorFolder);
     if (moveToErrorFolder != null) {
       File errorDir = new File(moveToErrorFolder);
       if (!errorDir.exists()) {
@@ -388,7 +423,7 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
         } catch (IOException e) {
           log.error("Error closing CSVReader", e);
         }
-        throw new ConnectorException("CSV does not contain header row");
+        log.warn("CSV does not contain header row, skipping csv file");
       }
       if (lowercaseFields) {
         for (int i = 0; i < header.length; i++) {

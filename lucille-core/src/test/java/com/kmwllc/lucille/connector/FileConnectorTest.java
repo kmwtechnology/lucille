@@ -16,6 +16,7 @@ import com.kmwllc.lucille.connector.cloudstorageclients.CloudStorageClient;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.FileHandlerManager;
 import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
@@ -280,6 +281,8 @@ public class FileConnectorTest {
     assertEquals("ghi", csvDoc6.getString("field3"));
     // skipped line 5 as it was empty
     assertEquals("6", csvDoc6.getString("csvLineNumber"));
+
+    FileHandlerManager.close();
   }
 
   @Test
@@ -307,9 +310,10 @@ public class FileConnectorTest {
       // verify file is moved inside error directory
       assertTrue(f.exists());
     } finally {
-      // delete all created folders and files
+      // delete all created folders and files and reset the FileHandlerManager
       f.delete();
       errorDir.delete();
+      FileHandlerManager.close();
     }
   }
 
@@ -338,9 +342,10 @@ public class FileConnectorTest {
       // verify file is moved inside error directory
       assertTrue(f.exists());
     } finally {
-      // delete all created folders and files
+      // delete all created folders and files and reset the FileHandlerManager
       f.delete();
       successDir.delete();
+      FileHandlerManager.close();
     }
   }
 

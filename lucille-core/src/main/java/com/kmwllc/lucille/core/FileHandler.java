@@ -10,6 +10,18 @@ public interface FileHandler {
 
   Iterator<Document> processFile(byte[] fileContent, String fileName) throws Exception;
 
+  default void beforeProcessingFile(Config config, Path path) throws Exception {
+    return;
+  }
+
+  default void afterProcessingFile(Config config, Path path) throws Exception {
+    return;
+  }
+
+  default void errorProcessingFile(Config config, Path path) {
+    return;
+  }
+
   static FileHandler getFileHandler(String fileExtension, Config fileOptions) {
     switch (fileExtension) {
       case "json", "jsonl" -> {
