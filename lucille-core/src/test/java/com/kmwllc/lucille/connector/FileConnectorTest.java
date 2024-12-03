@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -19,8 +20,10 @@ import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
+import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.File;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -279,6 +282,67 @@ public class FileConnectorTest {
     assertEquals("6", csvDoc6.getString("csvLineNumber"));
   }
 
+  @Test
+  public void testErrorDirectory() throws Exception {
+    File tempDir = new File("temp");
+
+    // copy faulty csv into temp directory
+    File copy = new File("src/test/resources/FileConnectorTest/faulty.csv");
+    org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
+
+    Config config = ConfigFactory.load("FileConnectorTest/faulty.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    connector.execute(publisher);
+
+    // verify error directory is made
+    File errorDir = new File("error");
+    File f = new File("error/faulty.csv");
+
+    try {
+      // verify error directory is made
+      assertTrue(errorDir.exists());
+      // verify file is moved inside error directory
+      assertTrue(f.exists());
+    } finally {
+      // delete all created folders and files
+      f.delete();
+      errorDir.delete();
+    }
+  }
+
+  @Test
+  public void testSuccessfulDirectory() throws Exception {
+    File tempDir = new File("temp");
+
+    // copy successful csv into temp directory
+    File copy = new File("src/test/resources/FileConnectorTest/defaults.csv");
+    org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
+
+    Config config = ConfigFactory.load("FileConnectorTest/success.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    connector.execute(publisher);
+
+    // verify error directory is made
+    File successDir = new File("success");
+    File f = new File("success/defaults.csv");
+
+    try {
+      // verify error directory is made
+      assertTrue(successDir.exists());
+      // verify file is moved inside error directory
+      assertTrue(f.exists());
+    } finally {
+      // delete all created folders and files
+      f.delete();
+      successDir.delete();
+    }
+  }
 
 
 

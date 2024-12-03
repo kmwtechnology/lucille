@@ -8,6 +8,7 @@ import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -17,6 +18,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
 import java.util.Iterator;
@@ -188,8 +190,10 @@ public class FileConnector extends AbstractConnector {
                     if (doc != null) {
                       publisher.publish(doc);
                     }
-                    // TODO: need to handle CSV post processing options like move to processed/error folders
+
+                    moveToProcessedFolderIfSet(path);
                   } catch (Exception e) {
+                    moveToErrorFolderIfSet(path);
                     // if we fail to publish a document, we log the error and continue to the next document
                     // to "finish" the iterator and close its resources
                     log.error("Unable to publish document '{}', SKIPPING", path, e);
@@ -202,7 +206,7 @@ public class FileConnector extends AbstractConnector {
               Document doc = pathToDoc(path);
               publisher.publish(doc);
             } catch (Exception e) {
-              // TODO: add error folders if csv is in fileConfigs and moveToErrorFolder exists
+              moveToErrorFolderIfSet(path);
               log.error("Unable to publish document '{}', SKIPPING", path, e);
             }
           });
@@ -221,6 +225,36 @@ public class FileConnector extends AbstractConnector {
           throw new ConnectorException("Failed to close file system.", e);
         }
       }
+    }
+  }
+
+  private void moveToProcessedFolderIfSet(Path path) {
+    if (fileOptions.hasPath("csv") && fileOptions.getConfig("csv").hasPath("moveToAfterProcessing")) {
+      // move to processed folder
+      moveFile(path.toAbsolutePath().normalize(), fileOptions.getConfig("csv").getString("moveToAfterProcessing"));
+    }
+  }
+
+  private void moveToErrorFolderIfSet(Path path) {
+    if (fileOptions.hasPath("csv") && fileOptions.getConfig("csv").hasPath("moveToErrorFolder")) {
+      // move to error folder
+      moveFile(path.toAbsolutePath().normalize(), fileOptions.getConfig("csv").getString("moveToErrorFolder"));
+    }
+  }
+
+  public void moveFile(Path absolutePath, String option) {
+    if (absolutePath.startsWith("classpath:")) {
+      log.warn("Skipping moving classpath file: {} to {}", absolutePath, option);
+      return;
+    }
+    log.info("path: {}", absolutePath);
+    String fileName = absolutePath.getFileName().toString();
+    Path dest = Paths.get(option + File.separatorChar + fileName);
+    try {
+      Files.move(absolutePath, dest);
+      log.info("File {} was successfully moved from source {} to destination {}", fileName, absolutePath, dest);
+    } catch (IOException e) {
+      log.warn("Error moving file to destination directory", e);
     }
   }
 

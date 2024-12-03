@@ -14,12 +14,9 @@ import com.opencsv.exceptions.CsvMalformedLineException;
 import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
-import org.apache.commons.compress.utils.FileNameUtils;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -33,7 +30,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import software.amazon.awssdk.services.s3.endpoints.internal.Value.Int;
 
 /**
  * Connector implementation that produces documents from the rows in a given CSV file.
@@ -89,7 +85,7 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    createProcessedAndErrorFolders();
+    createProcessedAndErrorFoldersIfSet();
 
     File pathFile = new File(path);
     if (!path.startsWith("classpath:") && !pathFile.exists()) {
@@ -218,7 +214,7 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
 
   @Override
   public Iterator<Document> processFile(Path path) throws Exception {
-    createProcessedAndErrorFolders();
+    createProcessedAndErrorFoldersIfSet();
 
     // check if path from local file exists
     File pathFile = new File(path.toString());
@@ -232,10 +228,11 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
 
   @Override
   public Iterator<Document> processFile(byte[] fileContent, String filename) throws Exception {
-    createProcessedAndErrorFolders();
+    createProcessedAndErrorFoldersIfSet();
 
     CSVReader reader = getCsvReader(fileContent);
     // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
+    // TODO: add path? For setting path of csv file to path field
     return getDocumentIterator(reader, filename, "");
   }
 
@@ -314,7 +311,9 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
     }
 
     Document doc = Document.create(docId);
-    if (StringUtils.isNotBlank(path)) doc.setField(filePathField, path);
+    if (StringUtils.isNotBlank(path)) {
+      doc.setField(filePathField, path);
+    }
     doc.setField(filenameField, filename);
     // log.info("DOC ID: {}", docId);
     int maxIndex = Math.min(header.length, line.length);
@@ -328,7 +327,7 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
     return doc;
   }
 
-  private void createProcessedAndErrorFolders() {
+  private void createProcessedAndErrorFoldersIfSet() {
     if (moveToAfterProcessing != null) {
       // Create the destination directory if it doesn't exist.
       File destDir = new File(moveToAfterProcessing);
@@ -384,6 +383,11 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
     try {
       String[] header = csvReader.readNext();
       if (header == null || header.length == 0) {
+        try {
+          csvReader.close();
+        } catch (IOException e) {
+          log.error("Error closing CSVReader", e);
+        }
         throw new ConnectorException("CSV does not contain header row");
       }
       if (lowercaseFields) {
@@ -393,6 +397,11 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
       }
       return header;
     } catch (IOException | CsvValidationException e) {
+      try {
+        csvReader.close();
+      } catch (IOException ex) {
+        log.error("Error closing CSVReader", ex);
+      }
       throw new ConnectorException("Error reading header from CSV", e);
     }
   }
