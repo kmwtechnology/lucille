@@ -10,6 +10,7 @@ import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageOptions;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.FileInputStream;
@@ -19,8 +20,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
 public class GoogleStorageClient extends BaseStorageClient {
 
@@ -59,6 +62,18 @@ public class GoogleStorageClient extends BaseStorageClient {
           .forEachOrdered(blob -> {
             if (isValid(blob)) {
               try {
+                String filePath = blob.getName();
+                String fileExtension = FilenameUtils.getExtension(filePath);
+
+                // handle file types if needed
+                if (!fileOptions.isEmpty() && FileHandler.supportsFileType(fileExtension, fileOptions)) {
+                  // get the file content
+                  byte[] content = blob.getContent();
+                  // instantiate the right FileHandler and publish based on content
+                  publishUsingFileHandler(fileExtension, content, filePath);
+                  return;
+                }
+
                 Document doc = blobToDoc(blob, bucketOrContainerName);
                 publisher.publish(doc);
               } catch (Exception e) {

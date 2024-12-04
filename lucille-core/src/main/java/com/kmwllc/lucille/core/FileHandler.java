@@ -8,7 +8,7 @@ public interface FileHandler {
 
   Iterator<Document> processFile(Path path) throws Exception;
 
-  Iterator<Document> processFile(byte[] fileContent, String fileName) throws Exception;
+  Iterator<Document> processFile(byte[] fileContent, String pathStr) throws Exception;
 
   default void beforeProcessingFile(Config config, Path path) throws Exception {
     return;
@@ -19,6 +19,18 @@ public interface FileHandler {
   }
 
   default void errorProcessingFile(Config config, Path path) {
+    return;
+  }
+
+  default void beforeProcessingFile(Config config, byte[] content) throws Exception {
+    return;
+  }
+
+  default void afterProcessingFile(Config config, byte[] content) throws Exception {
+    return;
+  }
+
+  default void errorProcessingFile(Config config, byte[] content) {
     return;
   }
 

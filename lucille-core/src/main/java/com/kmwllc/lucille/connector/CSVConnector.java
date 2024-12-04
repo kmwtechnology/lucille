@@ -17,6 +17,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -225,11 +226,11 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
   }
 
   @Override
-  public Iterator<Document> processFile(byte[] fileContent, String filename) throws Exception {
+  public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws Exception {
     CSVReader reader = getCsvReader(fileContent);
     // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
     // TODO: add path? For setting path of csv file to path field
-    return getDocumentIterator(reader, filename, "");
+    return getDocumentIterator(reader, FilenameUtils.getName(pathStr), pathStr);
   }
 
 

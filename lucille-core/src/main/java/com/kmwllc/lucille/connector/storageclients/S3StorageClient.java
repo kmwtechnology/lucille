@@ -4,6 +4,7 @@ import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.net.URI;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -59,6 +61,21 @@ public class S3StorageClient extends BaseStorageClient {
           resp.contents().forEach(obj -> {
             if (isValid(obj)) {
               try {
+                String filePath = obj.key();
+                String fileExtension = FilenameUtils.getExtension(filePath);
+
+                // handle file types if needed
+                if (!fileOptions.isEmpty() && FileHandler.supportsFileType(fileExtension, fileOptions)) {
+                  // get the file content
+                  byte[] content = s3.getObjectAsBytes(
+                    GetObjectRequest.builder().bucket(bucketOrContainerName).key(filePath).build()
+                  ).asByteArray();
+
+                  // instantiate the right FileHandler and publish based on content
+                  publishUsingFileHandler(fileExtension, content, filePath);
+                  return;
+                }
+
                 Document doc = s3ObjectToDoc(obj, bucketOrContainerName);
                 publisher.publish(doc);
               } catch (Exception e) {

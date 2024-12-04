@@ -73,7 +73,6 @@ public class LocalStorageClient extends BaseStorageClient {
       paths.filter(this::isValidPath)
           .forEachOrdered(path -> {
             String fileExtension = FilenameUtils.getExtension(path.toString());
-            FileHandler handler = null;
             try {
               //TODO: investigate resource usage for handling compressed and archived files before enabling them
 //              // handle compressed files and after decompression, handle regardless if archived or not
@@ -106,35 +105,7 @@ public class LocalStorageClient extends BaseStorageClient {
               // not archived nor zip, handling supported file types if fileOptions are provided
               if (!fileOptions.isEmpty() && FileHandler.supportsFileType(fileExtension, fileOptions)) {
                 // instantiate the right FileHandler based on path
-                handler = FileHandler.getFileHandler(fileExtension, fileOptions);
-                log.info("performing before Processing");
-                handler.beforeProcessingFile(fileOptions, path);
-                log.info("Processing done");
-                Iterator<Document> docIterator;
-                try {
-                  docIterator = handler.processFile(path);
-                } catch (Exception e) {
-                  // going to skip this file if an error occurs
-                  log.error("Unable to set up iterator for this file '{}', SKIPPING", path, e);
-                  handler.errorProcessingFile(fileOptions, path);
-                  return;
-                }
-                // once docIterator.hasNext() is false, it will close its resources in handler and return
-                while (docIterator.hasNext()) {
-                  try {
-                    Document doc = docIterator.next();
-                    if (doc != null) {
-                      publisher.publish(doc);
-                    }
-                  } catch (Exception e) {
-                    // if we fail to publish a document, we log the error and continue to the next document
-                    // to "finish" the iterator and close its resources
-                    log.error("Unable to publish document '{}', SKIPPING", path, e);
-                    handler.errorProcessingFile(fileOptions, path);
-                  }
-                }
-                // all iterations have been successfully published, move to processed folder if set
-                handler.afterProcessingFile(fileOptions, path);
+                publishUsingFileHandler(fileExtension, path);
                 return;
               }
 
@@ -142,9 +113,6 @@ public class LocalStorageClient extends BaseStorageClient {
               Document doc = pathToDoc(path);
               publisher.publish(doc);
             } catch (Exception e) {
-              if (handler != null) {
-                handler.errorProcessingFile(fileOptions, path);
-              }
               log.error("Unable to publish document '{}', SKIPPING", path, e);
             }
           });
@@ -165,7 +133,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
   private Document pathToDoc(Path path) throws ConnectorException {
     final String docId = DigestUtils.md5Hex(path.toString());
-    final Document doc = Document.create(docIdPrefix + docId);
+    final Document doc = Document.create(createDocId(docId));
 
     try {
       // get file attributes

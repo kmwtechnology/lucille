@@ -4,6 +4,7 @@ import com.kmwllc.lucille.connector.CSVConnector;
 import com.kmwllc.lucille.connector.JSONConnector;
 import com.typesafe.config.Config;
 
+// TODO: make sure that if provided with different config, it will return different instances. Fields will be lists/Maps of Connectors instead
 public class FileHandlerManager {
   private static JSONConnector jsonConnectorInstance = null;
   private static CSVConnector csvConnectorInstance = null;
