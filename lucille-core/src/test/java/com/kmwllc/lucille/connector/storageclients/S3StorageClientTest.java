@@ -1,5 +1,6 @@
-package com.kmwllc.lucille.connector.cloudstorageclients;
+package com.kmwllc.lucille.connector.storageclients;
 
+import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -46,7 +47,7 @@ public class S3StorageClientTest {
     Map<String, Object> cloudOptions = Map.of("region", "us-east-1", "accessKeyId", "accessKey",
         "secretAccessKey", "secretKey", "getFileContent", true);
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), null, null,
-        null, null, cloudOptions);
+        null, null, cloudOptions, ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -63,7 +64,7 @@ public class S3StorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), publisher, "prefix-",
-        List.of(), List.of(), cloudOptions);
+        List.of(), List.of(), cloudOptions, ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -121,7 +122,7 @@ public class S3StorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), publisher, "prefix-",
-        List.of(Pattern.compile("obj3"), Pattern.compile("obj4")), List.of() , cloudOptions);
+        List.of(Pattern.compile("obj3"), Pattern.compile("obj4")), List.of() , cloudOptions, ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -159,7 +160,7 @@ public class S3StorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), publisher, "prefix-",
-        List.of(), List.of(), cloudOptions);
+        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)));
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);

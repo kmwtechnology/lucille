@@ -1,8 +1,10 @@
-package com.kmwllc.lucille.connector.cloudstorageclients;
+package com.kmwllc.lucille.connector.storageclients;
 
+import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -31,7 +33,7 @@ public class GoogleStorageClientTest {
   public void testInvalidPathToServiceKey() throws Exception {
     Map<String, Object> cloudOptions = Map.of("pathToServiceKey", "invalidPath");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null, null,
-        null, null, cloudOptions);
+        null, null, cloudOptions, ConfigFactory.empty());
 
     assertThrows(IllegalArgumentException.class, googleStorageClient::init);
   }
@@ -40,7 +42,7 @@ public class GoogleStorageClientTest {
   public void testShutdown() throws Exception {
     Map<String, Object> cloudOptions = Map.of("pathToServiceKey", "validPath");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null, null,
-        null, null, cloudOptions);
+        null, null, cloudOptions, ConfigFactory.empty());
     Storage mockStorage = mock(Storage.class);
     googleStorageClient.setStorageForTesting(mockStorage);
     googleStorageClient.shutdown();
@@ -56,7 +58,7 @@ public class GoogleStorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), publisher, "prefix-",
-        List.of(), List.of(), cloudOptions);
+        List.of(), List.of(), cloudOptions, ConfigFactory.empty());
 
     BlobId blobId = BlobId.of("bucket", "my-object");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
@@ -108,13 +110,35 @@ public class GoogleStorageClientTest {
   }
 
   @Test
+  public void testSkipFileContent() throws Exception {
+    Map<String, Object> cloudOptions = Map.of("pathToServiceKey", "validPath", "getFileContent", true);
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), publisher, "prefix-",
+        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)));
+
+    BlobId blobId = BlobId.of("bucket", "my-object");
+    BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
+    storage.create(blobInfo, "Hello, World!".getBytes());
+
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.publishFiles();
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+    assertEquals(1, documents.size());
+    assertEquals("gs://bucket/my-object", documents.get(0).getString("file_path"));
+    assertFalse(documents.get(0).has("file_content"));
+  }
+
+  @Test
   public void testPublishFilesWithSomeInvalid() throws Exception {
     Map<String, Object> cloudOptions = Map.of("pathToServiceKey", "validPath", "getFileContent", true);
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), publisher, "prefix-",
-        List.of(Pattern.compile("my-object2"), Pattern.compile("my-object3")), List.of(), cloudOptions);
+        List.of(Pattern.compile("my-object2"), Pattern.compile("my-object3")), List.of(), cloudOptions, ConfigFactory.empty());
 
     BlobId blobId = BlobId.of("bucket", "my-object");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
