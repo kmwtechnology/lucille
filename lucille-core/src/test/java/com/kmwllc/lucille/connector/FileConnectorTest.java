@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.connector;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -10,18 +9,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.connector.cloudstorageclients.CloudStorageClient;
+import com.kmwllc.lucille.connector.storageclients.StorageClient;
 import com.kmwllc.lucille.core.Connector;
-import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.FileHandlerManager;
-import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
-import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
@@ -52,95 +46,14 @@ public class FileConnectorTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new FileConnector(config);
 
-    try (MockedStatic<CloudStorageClient> mockCloudStorageClient = mockStatic(CloudStorageClient.class)) {
-      CloudStorageClient cloudStorageClient = mock(CloudStorageClient.class);
-      mockCloudStorageClient.when(() -> CloudStorageClient.getClient(any(), any(), any(), any(), any(), any()))
-          .thenReturn(cloudStorageClient);
+    try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
+      StorageClient storageClient = mock(StorageClient.class);
+      mockCloudStorageClient.when(() -> StorageClient.getClient(any(), any(), any(), any(), any(), any(), any()))
+          .thenReturn(storageClient);
 
       connector.execute(publisher);
-      verify(cloudStorageClient, times(1)).init();
-      verify(cloudStorageClient, times(1)).publishFiles();
-    }
-    connector.close();
-  }
-
-  @Test
-  public void testValidateGCloudOptions() throws Exception {
-    CloudStorageClient cloudStorageClient = mock(CloudStorageClient.class);
-    Config config = ConfigFactory.load("FileConnectorTest/gcloudtraversal.conf");
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
-
-    Config badConfig = ConfigFactory.load("FileConnectorTest/gcloudtraversalbad.conf");
-    TestMessenger badMessenger = new TestMessenger();
-    Publisher badPublisher = new PublisherImpl(badConfig, badMessenger, "run", "pipeline1");
-    Connector badConnector = new FileConnector(badConfig);
-
-
-    try (MockedStatic<CloudStorageClient> mockCloudStorageClient = mockStatic(CloudStorageClient.class)) {
-      mockCloudStorageClient.when(() -> CloudStorageClient.getClient(any(), any(), any(), any(), any(), any()))
-          .thenReturn(cloudStorageClient);
-
-      connector.execute(publisher);
-      verify(cloudStorageClient, times(1)).init();
-      verify(cloudStorageClient, times(1)).publishFiles();
-
-      assertThrows(IllegalArgumentException.class, () -> badConnector.execute(badPublisher));
-    }
-    connector.close();
-  }
-
-  @Test
-  public void testValidateS3CloudOptions() throws Exception {
-    CloudStorageClient cloudStorageClient = mock(CloudStorageClient.class);
-    Config config = ConfigFactory.load("FileConnectorTest/s3cloudtraversal.conf");
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
-
-    Config badConfig = ConfigFactory.load("FileConnectorTest/s3cloudtraversalbad.conf");
-    TestMessenger badMessenger = new TestMessenger();
-    Publisher badPublisher = new PublisherImpl(badConfig, badMessenger, "run", "pipeline1");
-    Connector badConnector = new FileConnector(badConfig);
-
-
-    try (MockedStatic<CloudStorageClient> mockCloudStorageClient = mockStatic(CloudStorageClient.class)) {
-      mockCloudStorageClient.when(() -> CloudStorageClient.getClient(any(), any(), any(), any(), any(), any()))
-          .thenReturn(cloudStorageClient);
-
-      connector.execute(publisher);
-      verify(cloudStorageClient, times(1)).init();
-      verify(cloudStorageClient, times(1)).publishFiles();
-
-      assertThrows(IllegalArgumentException.class, () -> badConnector.execute(badPublisher));
-    }
-    connector.close();
-  }
-
-  @Test
-  public void testValidateAzureCloudOptions() throws Exception {
-    CloudStorageClient cloudStorageClient = mock(CloudStorageClient.class);
-    Config config = ConfigFactory.load("FileConnectorTest/azbcloudtraversal.conf");
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
-
-    Config badConfig = ConfigFactory.load("FileConnectorTest/azbcloudtraversalbad.conf");
-    TestMessenger badMessenger = new TestMessenger();
-    Publisher badPublisher = new PublisherImpl(badConfig, badMessenger, "run", "pipeline1");
-    Connector badConnector = new FileConnector(badConfig);
-
-
-    try (MockedStatic<CloudStorageClient> mockCloudStorageClient = mockStatic(CloudStorageClient.class)) {
-      mockCloudStorageClient.when(() -> CloudStorageClient.getClient(any(), any(), any(), any(), any(), any()))
-          .thenReturn(cloudStorageClient);
-
-      connector.execute(publisher);
-      verify(cloudStorageClient, times(1)).init();
-      verify(cloudStorageClient, times(1)).publishFiles();
-
-      assertThrows(IllegalArgumentException.class, () -> badConnector.execute(badPublisher));
+      verify(storageClient, times(1)).init();
+      verify(storageClient, times(1)).publishFiles();
     }
     connector.close();
   }

@@ -1,9 +1,11 @@
-package com.kmwllc.lucille.connector.cloudstorageclients;
+package com.kmwllc.lucille.connector.storageclients;
+
+import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import java.io.File;
+import com.typesafe.config.Config;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -26,8 +28,8 @@ public class S3StorageClient extends BaseStorageClient {
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   public S3StorageClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions) {
-    super(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions);
+      Map<String, Object> cloudOptions, Config fileOptions) {
+    super(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
   }
 
   @Override
@@ -49,7 +51,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void publishFiles() {
+  public void publishFiles() throws Exception {
     ListObjectsV2Request request = ListObjectsV2Request.builder().bucket(bucketOrContainerName).prefix(startingDirectory).maxKeys(maxNumOfPages).build();
     ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
     response.stream()
@@ -76,7 +78,7 @@ public class S3StorageClient extends BaseStorageClient {
     doc.setField(FileConnector.CREATED, obj.lastModified()); // there isn't an object creation date in S3
     doc.setField(FileConnector.SIZE, obj.size());
 
-    if ((boolean) cloudOptions.get(FileConnector.GET_FILE_CONTENT)) {
+    if (getFileContent) {
       byte[] content = s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketName).key(objKey).build()).asByteArray();
       doc.setField(FileConnector.CONTENT, content);
     }
@@ -88,7 +90,7 @@ public class S3StorageClient extends BaseStorageClient {
     String key = obj.key();
     if (key.endsWith("/")) return false;
 
-    return FileConnector.shouldIncludeFile(key, includes, excludes);
+    return shouldIncludeFile(key, includes, excludes);
   }
 
   // Only for testing

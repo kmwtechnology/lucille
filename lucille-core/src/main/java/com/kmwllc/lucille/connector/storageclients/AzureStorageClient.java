@@ -1,5 +1,7 @@
-package com.kmwllc.lucille.connector.cloudstorageclients;
+package com.kmwllc.lucille.connector.storageclients;
 
+
+import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
@@ -10,6 +12,7 @@ import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.typesafe.config.Config;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -25,8 +28,8 @@ public class AzureStorageClient extends BaseStorageClient {
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   public AzureStorageClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions) {
-    super(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions);
+      Map<String, Object> cloudOptions, Config fileOptions) {
+    super(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
   }
 
   @Override
@@ -66,7 +69,7 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void publishFiles() {
+  public void publishFiles() throws Exception{
     containerClient.listBlobs(new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
         .forEach(blob -> {
           if (isValid(blob)) {
@@ -91,7 +94,7 @@ public class AzureStorageClient extends BaseStorageClient {
     doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
     doc.setField(FileConnector.SIZE, properties.getContentLength());
 
-    if ((boolean) cloudOptions.get(FileConnector.GET_FILE_CONTENT)) {
+    if (getFileContent) {
       doc.setField(FileConnector.CONTENT, containerClient.getBlobClient(blob.getName()).downloadContent().toBytes());
     }
 
@@ -101,7 +104,7 @@ public class AzureStorageClient extends BaseStorageClient {
   private boolean isValid(BlobItem blob) {
     if (blob.isPrefix()) return false;
 
-    return FileConnector.shouldIncludeFile(blob.getName(), includes, excludes);
+    return shouldIncludeFile(blob.getName(), includes, excludes);
   }
 
   // Only for testing
