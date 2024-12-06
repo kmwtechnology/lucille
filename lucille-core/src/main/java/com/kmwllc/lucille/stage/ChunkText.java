@@ -18,8 +18,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * Retrieves text from a Lucille document field, then breaks it into chunks,
- * with each chunk added as a child document attached to the current document.
+ * NOTE: This stage produces documents with ATTACHED children containing the chunks. To have children documents emitted as separate
+ * documents, use the emitNestedChildren stage. An example of this can be seen below.
+ *
+ * Retrieves text from a Lucille document field, then breaks it into chunks, with each chunk added as a child document attached to
+ * the current document.
  * Order of processing chunks: chunking method -> cleaning -> pre-merge processing -> merge -> overlap -> character limiting
  *
  * Config Parameters:
@@ -53,15 +56,21 @@ import org.apache.logging.log4j.Logger;
  *       - "offset" : number of character offset from start of document
  *       - "length" : number of characters in this chunk
  *       - "chunk_number" : chunk number
- *       - "total_chunk_number" : total chunk number produced from parent document
+ *       - "total_chunks" : total chunk number produced from parent document
  *       - "chunk" : the chunk contents. field name can be changed with config option "dest"
  *
- *  e.g. of paragraph chunking configuration, with a minimum size of 50 characters per chunk
+ *  e.g. of paragraph chunking configuration, with a minimum size of 50 characters per chunk, followed by emitting the children
+ *       documents
  *  {
+ *   class: "com.kmwllc.lucille.stage.ChunkText"
  *   source: "text"
  *   chunking_method: "paragraph"
  *   pre_merge_min_chunk_len: 50
  *   clean_chunks: true
+ *  },
+ *  {
+ *    class: "com.kmwllc.lucille.stage.EmitNestedChildren"
+ *    drop_parent : true # drop parent document if you do not want it to be indexed
  *  }
  *
  *  e.g. of sentence chunking configuration with 5 sentences per chunk and 1 sentence of overlap, with a limit of 2000 characters
