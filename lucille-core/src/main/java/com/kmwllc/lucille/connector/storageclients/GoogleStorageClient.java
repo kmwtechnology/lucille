@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.cloudstorageclients;
+package com.kmwllc.lucille.connector.storageclients;
 
 import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.ServiceAccountCredentials;
@@ -8,7 +8,10 @@ import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageOptions;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.FileHandler;
+import com.kmwllc.lucille.core.FileHandlerManager;
 import com.kmwllc.lucille.core.Publisher;
+import com.typesafe.config.Config;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -16,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,8 +29,8 @@ public class GoogleStorageClient extends BaseStorageClient {
   private Storage storage;
 
   public GoogleStorageClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions) {
-    super(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions);
+      Map<String, Object> cloudOptions, Config fileOptions) {
+    super(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
   }
 
   @Override
@@ -46,16 +50,30 @@ public class GoogleStorageClient extends BaseStorageClient {
     if (storage != null) {
       storage.close();
     }
+    // close all FileHandlers
+    FileHandlerManager.closeAllHandlers();
   }
 
   @Override
-  public void publishFiles() {
+  public void publishFiles() throws Exception {
     Page<Blob> page = storage.list(bucketOrContainerName, BlobListOption.prefix(startingDirectory), BlobListOption.pageSize(maxNumOfPages));
     do {
       page.streamAll()
           .forEachOrdered(blob -> {
             if (isValid(blob)) {
               try {
+                String filePath = blob.getName();
+                String fileExtension = FilenameUtils.getExtension(filePath);
+
+                // handle file types if needed
+                if (!fileOptions.isEmpty() && FileHandler.supportsFileType(fileExtension, fileOptions)) {
+                  // get the file content
+                  byte[] content = blob.getContent();
+                  // instantiate the right FileHandler and publish based on content
+                  publishUsingFileHandler(fileExtension, content, filePath);
+                  return;
+                }
+
                 Document doc = blobToDoc(blob, bucketOrContainerName);
                 publisher.publish(doc);
               } catch (Exception e) {
@@ -70,7 +88,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   private boolean isValid(Blob blob) {
     if (blob.isDirectory()) return false;
 
-    return FileConnector.shouldIncludeFile(blob.getName(), includes, excludes);
+    return shouldIncludeFile(blob.getName(), includes, excludes);
   }
 
   private Document blobToDoc(Blob blob, String bucketName) throws IOException {
@@ -85,7 +103,7 @@ public class GoogleStorageClient extends BaseStorageClient {
         doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
       }
       doc.setField(FileConnector.SIZE, blob.getSize());
-      if ((boolean) cloudOptions.get(FileConnector.GET_FILE_CONTENT)) {
+      if (getFileContent) {
         doc.setField(FileConnector.CONTENT, blob.getContent());
       }
     } catch (Exception e) {

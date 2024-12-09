@@ -2,8 +2,12 @@ package com.kmwllc.lucille.connector.xml;
 
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConnectorException;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import java.nio.file.Path;
+import java.util.Iterator;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +27,7 @@ import java.util.List;
 /**
  * Connector implementation that produces documents from a given XML file.
  * <p>
+ * <p>
  * Config Parameters:
  * <ul>
  * <li>filePaths (List&lt;String&gt;): The list of file paths to parse through.</li>
@@ -33,7 +38,7 @@ import java.util.List;
  * <li>outputField (String): The field to place the XML into: defaults to "xml".</li>
  * </ul>
  */
-public class XMLConnector extends AbstractConnector {
+public class XMLConnector extends AbstractConnector implements FileHandler {
 
   private static final Logger log = LoggerFactory.getLogger(XMLConnector.class);
 
@@ -43,6 +48,11 @@ public class XMLConnector extends AbstractConnector {
   private List<String> urlFiles;
   private String encoding;
   private String outputField;
+
+  // for FileConnector
+  private SAXParserFactory spf = null;
+  private SAXParser saxParser = null;
+  private XMLReader xmlReader = null;
 
 
   public XMLConnector(Config config) {
@@ -115,7 +125,6 @@ public class XMLConnector extends AbstractConnector {
         throw new ConnectorException("Error during XML parsing", e);
       }
     }
-
   }
 
   public void setUpAndParse(RecordingInputStream ris, ChunkingXMLHandler xmlHandler, XMLReader xmlReader)
@@ -129,6 +138,76 @@ public class XMLConnector extends AbstractConnector {
       throw new ConnectorException(encoding + " is not supported as an encoding", e);
     } catch (SAXException | IOException e) {
       throw new ConnectorException("Unable to parse", e);
+    }
+  }
+
+  @Override
+  public Iterator<Document> processFile(Path path) throws Exception {
+    // create the inputStream, urlFiles is never used as we are traversing a file system
+    RecordingInputStream ris  = new RecordingInputStream(new FileInputStream(path.toFile()));
+    // create the XML handler
+    DocumentIteratorHandler handler = new DocumentIteratorHandler(xmlRootPath, xmlIdPath, getDocIdPrefix(), outputField, ris);
+    // set content handler
+    xmlReader.setContentHandler(handler);
+    // parse the file
+    ris.setEncoding(encoding);
+    try (InputStreamReader inputStreamReader = new InputStreamReader(ris, encoding)) {
+      xmlReader.parse(new InputSource(inputStreamReader));
+    } catch (SAXException | IOException e) {
+      throw new ConnectorException("Unable to parse", e);
+    }
+
+    return handler;
+  }
+
+  @Override
+  public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws Exception {
+    // create the inputStream using the fileContent
+    RecordingInputStream ris = new RecordingInputStream(new ByteArrayInputStream(fileContent));
+    // create the XML handler
+    DocumentIteratorHandler handler = new DocumentIteratorHandler(xmlRootPath, xmlIdPath, getDocIdPrefix(), outputField, ris);
+    // set content handler
+    xmlReader.setContentHandler(handler);
+    // parse the file
+    ris.setEncoding(encoding);
+    try (InputStreamReader inputStreamReader = new InputStreamReader(ris, encoding)) {
+      xmlReader.parse(new InputSource(inputStreamReader));
+    } catch (SAXException | IOException e) {
+      throw new ConnectorException("Unable to parse", e);
+    }
+
+    return handler;
+  }
+
+  @Override
+  public void beforeProcessingFile(Config config, Path path) throws Exception {
+    // validate that it is a xml
+    if (!FilenameUtils.getExtension(path.toString()).equalsIgnoreCase("xml")) {
+      log.info("File {} is not an XML file", path);
+      throw new ConnectorException("File is not an XML file");
+    }
+
+    // set up Factory, parser and reader
+    setUpParserFactoryIfNeeded();
+    setUpSAXParserIfNeeded(spf);
+    xmlReader = saxParser.getXMLReader();
+  }
+
+  private void setUpSAXParserIfNeeded(SAXParserFactory spf) throws ConnectorException {
+    if (saxParser == null) {
+      try {
+        spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
+        saxParser = spf.newSAXParser();
+      } catch (ParserConfigurationException | SAXException e) {
+        throw new ConnectorException("SAX Parser Error", e);
+      }
+    }
+  }
+
+  private void setUpParserFactoryIfNeeded() {
+    if (spf == null) {
+      spf = SAXParserFactory.newInstance();
+      spf.setNamespaceAware(true);
     }
   }
 }
