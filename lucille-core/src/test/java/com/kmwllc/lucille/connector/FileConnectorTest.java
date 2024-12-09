@@ -262,7 +262,20 @@ public class FileConnectorTest {
     }
   }
 
+  @Test
+  public void testHandleXMLFiles() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/handleXML.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
 
+    connector.execute(publisher);
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+    // assert that all documents have been processed
+
+
+    connector.close();
+  }
 
   // we ignore the tests related to compression/achived files ATM, need more investigation on resource management
   @Ignore

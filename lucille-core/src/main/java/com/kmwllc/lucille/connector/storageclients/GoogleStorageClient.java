@@ -1,7 +1,5 @@
 package com.kmwllc.lucille.connector.storageclients;
 
-import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
-
 import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.storage.Blob;
@@ -23,7 +21,6 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
 public class GoogleStorageClient extends BaseStorageClient {
 

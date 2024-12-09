@@ -1,8 +1,5 @@
 package com.kmwllc.lucille.connector.storageclients;
 
-
-import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
-
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobItem;

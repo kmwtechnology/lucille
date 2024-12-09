@@ -1,7 +1,5 @@
 package com.kmwllc.lucille.connector.storageclients;
 
-import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
-
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.FileHandler;

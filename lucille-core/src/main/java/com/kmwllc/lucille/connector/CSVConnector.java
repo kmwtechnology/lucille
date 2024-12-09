@@ -229,7 +229,6 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
   public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws Exception {
     CSVReader reader = getCsvReader(fileContent);
     // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
-    // TODO: add path? For setting path of csv file to path field
     return getDocumentIterator(reader, FilenameUtils.getName(pathStr), pathStr);
   }
 
