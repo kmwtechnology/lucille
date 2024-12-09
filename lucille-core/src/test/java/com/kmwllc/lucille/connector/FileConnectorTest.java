@@ -55,7 +55,7 @@ public class FileConnectorTest {
       verify(storageClient, times(1)).init();
       verify(storageClient, times(1)).publishFiles();
     }
-    connector.close();
+    FileHandlerManager.closeAllHandlers();
   }
 
   @Test
@@ -86,7 +86,7 @@ public class FileConnectorTest {
       docCount++;
     }
     Assert.assertEquals(8, docCount);
-    connector.close();
+    FileHandlerManager.closeAllHandlers();
   }
 
   @Test
@@ -114,7 +114,7 @@ public class FileConnectorTest {
         Assert.assertTrue(content.contains("\"productImg\":\"mug-400_6812876c6c27.jpg\""));
       }
     }
-    connector.close();
+    FileHandlerManager.closeAllHandlers();
   }
 
   @Test
@@ -142,7 +142,7 @@ public class FileConnectorTest {
     assertEquals("prefix4", jsonDoc4.getId());
     assertEquals("12", normalDoc.getString("file_size_bytes"));
     assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
-    connector.close();
+    FileHandlerManager.closeAllHandlers();
   }
 
   @Test
@@ -195,7 +195,7 @@ public class FileConnectorTest {
     // skipped line 5 as it was empty
     assertEquals("6", csvDoc6.getString("csvLineNumber"));
 
-    FileHandlerManager.close();
+    FileHandlerManager.closeAllHandlers();
   }
 
   @Test
@@ -226,7 +226,7 @@ public class FileConnectorTest {
       // delete all created folders and files and reset the FileHandlerManager
       f.delete();
       errorDir.delete();
-      FileHandlerManager.close();
+      FileHandlerManager.closeAllHandlers();
     }
   }
 
@@ -258,7 +258,7 @@ public class FileConnectorTest {
       // delete all created folders and files and reset the FileHandlerManager
       f.delete();
       successDir.delete();
-      FileHandlerManager.close();
+      FileHandlerManager.closeAllHandlers();
     }
   }
 
@@ -274,7 +274,7 @@ public class FileConnectorTest {
     // assert that all documents have been processed
 
 
-    connector.close();
+    FileHandlerManager.closeAllHandlers();
   }
 
   // we ignore the tests related to compression/achived files ATM, need more investigation on resource management
@@ -303,7 +303,7 @@ public class FileConnectorTest {
     assertEquals("prefix4", jsonDoc4.getId());
     assertEquals("12", normalDoc.getString("file_size_bytes"));
     assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
-    connector.close();
+    FileHandlerManager.closeAllHandlers();
   }
 
   @Ignore
@@ -331,7 +331,7 @@ public class FileConnectorTest {
     assertEquals("prefix4", jsonDoc4.getId());
     assertEquals("12", normalDoc.getString("file_size_bytes"));
     assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
-    connector.close();
+    FileHandlerManager.closeAllHandlers();
   }
 
   @Ignore
@@ -357,7 +357,7 @@ public class FileConnectorTest {
     assertEquals("hello World! This is the txt gz file.", new String(txtGzDoc.getBytes("file_content")));
     assertEquals("prefix2", jsonlGzDoc1.getId());
     assertEquals("prefix3", jsonlGzDoc2.getId());
-    connector.close();
+    FileHandlerManager.closeAllHandlers();
   }
 
   @Ignore
@@ -386,6 +386,6 @@ public class FileConnectorTest {
     assertEquals("prefix4", jsonDoc4.getId());
     assertEquals("12", normalDoc.getString("file_size_bytes"));
     assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
-    connector.close();
+    FileHandlerManager.closeAllHandlers();
   }
 }

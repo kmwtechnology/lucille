@@ -71,7 +71,7 @@ public interface FileHandler {
     return;
   }
 
-  static void closeAllHandlers() {
-    FileHandlerManager.close();
+  default void closeHandlerResources() {
+    return;
   }
 }

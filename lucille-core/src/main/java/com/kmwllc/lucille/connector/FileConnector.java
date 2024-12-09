@@ -106,6 +106,7 @@ public class FileConnector extends AbstractConnector {
       throw new ConnectorException("Error occurred while initializing client or publishing files.", e);
     } finally {
       try {
+        // closes clients and file handlers if any
         storageClient.shutdown();
       } catch (Exception e) {
         throw new ConnectorException("Error occurred while shutting down client.", e);

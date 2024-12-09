@@ -10,6 +10,7 @@ import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.FileHandler;
+import com.kmwllc.lucille.core.FileHandlerManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -57,7 +58,7 @@ public class LocalStorageClient extends BaseStorageClient {
     if (fs != null) {
       try {
         fs.close();
-        FileHandler.closeAllHandlers();
+        FileHandlerManager.closeAllHandlers();
       } catch (UnsupportedOperationException e) {
         // Some file systems may not need closing
         fs = null;

@@ -9,6 +9,7 @@ import com.google.cloud.storage.StorageOptions;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.FileHandler;
+import com.kmwllc.lucille.core.FileHandlerManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.FileInputStream;
@@ -49,6 +50,8 @@ public class GoogleStorageClient extends BaseStorageClient {
     if (storage != null) {
       storage.close();
     }
+    // close all FileHandlers
+    FileHandlerManager.closeAllHandlers();
   }
 
   @Override

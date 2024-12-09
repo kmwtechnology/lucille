@@ -4,48 +4,41 @@ import com.kmwllc.lucille.connector.CSVConnector;
 import com.kmwllc.lucille.connector.JSONConnector;
 import com.kmwllc.lucille.connector.xml.XMLConnector;
 import com.typesafe.config.Config;
+import java.util.HashMap;
+import java.util.Map;
 
-// TODO: make sure that if provided with different config, it will return different instances. Fields will be lists/Maps of Connectors instead
 public class FileHandlerManager {
-  private static JSONConnector jsonConnectorInstance = null;
-  private static CSVConnector csvConnectorInstance = null;
-  private static XMLConnector xmlConnectorInstance = null;
+  private static final Map<Integer, FileHandler> fileHandlers = new HashMap<>();
 
   private FileHandlerManager() {
   }
 
   public static synchronized FileHandler getJsonConnector(Config config) {
-    if (jsonConnectorInstance == null) {
-      jsonConnectorInstance = new JSONConnector(config);
+    int configHashCode = config.hashCode();
+    if (!fileHandlers.containsKey(configHashCode)) {
+      fileHandlers.put(configHashCode, new JSONConnector(config));
     }
-    return jsonConnectorInstance;
+    return fileHandlers.get(configHashCode);
   }
 
   public static synchronized FileHandler getCsvConnector(Config config) {
-    if (csvConnectorInstance == null) {
-      csvConnectorInstance = new CSVConnector(config);
+    int configHashCode = config.hashCode();
+    if (!fileHandlers.containsKey(configHashCode)) {
+      fileHandlers.put(configHashCode, new CSVConnector(config));
     }
-    return csvConnectorInstance;
+    return fileHandlers.get(configHashCode);
   }
 
   public static synchronized FileHandler getXmlConnector(Config config) {
-    if (xmlConnectorInstance == null) {
-      xmlConnectorInstance = new XMLConnector(config);
+    int configHashCode = config.hashCode();
+    if (!fileHandlers.containsKey(configHashCode)) {
+      fileHandlers.put(configHashCode, new XMLConnector(config));
     }
-    return xmlConnectorInstance;
+    return fileHandlers.get(configHashCode);
   }
 
-  public static synchronized void close() {
-    if (jsonConnectorInstance != null) {
-      jsonConnectorInstance = null;
-    }
-
-    if (csvConnectorInstance != null) {
-      csvConnectorInstance = null;
-    }
-
-    if (xmlConnectorInstance != null) {
-      xmlConnectorInstance = null;
-    }
+  public static synchronized void closeAllHandlers() {
+    fileHandlers.values().forEach(FileHandler::closeHandlerResources);
+    fileHandlers.clear();
   }
 }
