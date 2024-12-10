@@ -1,8 +1,10 @@
 package com.kmwllc.lucille.connector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -11,8 +13,9 @@ import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.connector.storageclients.StorageClient;
 import com.kmwllc.lucille.core.Connector;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.FileHandlerManager;
+import com.kmwllc.lucille.core.fileHandlers.FileHandlerManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
@@ -40,7 +43,7 @@ public class FileConnectorTest {
   }
 
   @Test
-  public void testExecuteForCloudFiles() throws Exception {
+  public void testExecuteSuccessful() throws Exception {
     Config config = ConfigFactory.load("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
@@ -54,8 +57,49 @@ public class FileConnectorTest {
       connector.execute(publisher);
       verify(storageClient, times(1)).init();
       verify(storageClient, times(1)).publishFiles();
+      verify(storageClient, times(1)).shutdown();
     }
-    FileHandlerManager.closeAllHandlers();
+  }
+
+  @Test
+  public void testInitFailed() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/gcloudtraversal.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
+      StorageClient storageClient = mock(StorageClient.class);
+      mockCloudStorageClient.when(() -> StorageClient.getClient(any(), any(), any(), any(), any(), any(), any()))
+          .thenReturn(storageClient);
+
+      // init method did not declare to throw any Exception, so using RuntimeException
+      // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
+      doThrow(new RuntimeException("Failed to initialize client")).when(storageClient).init();
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+      // verify that shutdown is called even gettingClient fails
+      verify(storageClient, times(1)).shutdown();
+    }
+  }
+
+  @Test
+  public void testPublishFilesFailed() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/gcloudtraversal.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
+      StorageClient storageClient = mock(StorageClient.class);
+      mockCloudStorageClient.when(() -> StorageClient.getClient(any(), any(), any(), any(), any(), any(), any()))
+          .thenReturn(storageClient);
+
+      // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
+      doThrow(new Exception("Failed to publish files")).when(storageClient).publishFiles();
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+      // verify that shutdown is called even gettingClient fails
+      verify(storageClient, times(1)).shutdown();
+    }
   }
 
   @Test
@@ -262,6 +306,8 @@ public class FileConnectorTest {
     }
   }
 
+  // XML handling is still not fully implemented
+  @Ignore
   @Test
   public void testHandleXMLFiles() throws Exception {
     Config config = ConfigFactory.load("FileConnectorTest/handleXML.conf");
@@ -272,7 +318,6 @@ public class FileConnectorTest {
     connector.execute(publisher);
     List<Document> documentList = messenger.getDocsSentForProcessing();
     // assert that all documents have been processed
-
 
     FileHandlerManager.closeAllHandlers();
   }

@@ -2,7 +2,6 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVParser;
@@ -11,13 +10,7 @@ import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvException;
 import com.opencsv.exceptions.CsvMalformedLineException;
-import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
-import java.io.ByteArrayInputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -35,7 +28,7 @@ import java.util.List;
 /**
  * Connector implementation that produces documents from the rows in a given CSV file.
  */
-public class CSVConnector extends AbstractConnector implements FileHandler {
+public class CSVConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(CSVConnector.class);
 
@@ -212,125 +205,6 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
     }
   }
 
-  @Override
-  public Iterator<Document> processFile(Path path) throws Exception {
-    // check if path from local file exists
-    File pathFile = new File(path.toString());
-    if (!pathFile.exists()) {
-      throw new ConnectorException("Path " + path + " does not exist");
-    }
-
-    CSVReader reader = getCsvReader(path.toString());
-    // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
-    return getDocumentIterator(reader, pathFile.getName(), path.toAbsolutePath().normalize().toString());
-  }
-
-  @Override
-  public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws Exception {
-    CSVReader reader = getCsvReader(fileContent);
-    // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
-    return getDocumentIterator(reader, FilenameUtils.getName(pathStr), pathStr);
-  }
-
-
-  private Iterator<Document> getDocumentIterator(CSVReader reader, String filename, String path) throws Exception {
-    return new Iterator<Document>() {;
-      final CSVReader csvReader = reader;
-      final String[] header = getHeaderFromCSV(csvReader);
-      final HashMap<String, Integer> columnIndexMap = getColumnIndexMap(header);
-      final List<Integer> idColumns = getIdColumns(columnIndexMap);
-      Integer lineNum = 0;
-      String[] line;
-      final Iterator<String[]> csvIterator = csvReader.iterator();
-
-      @Override
-      public boolean hasNext() {
-        boolean hasNext = csvIterator.hasNext();
-        if (!hasNext) {
-          try {
-            csvReader.close();
-          } catch (IOException e) {
-            log.error("Error closing CSVReader", e);
-          }
-        }
-        return hasNext;
-      }
-
-      @Override
-      public Document next() {
-        try {
-          if (!hasNext()) {
-            log.warn("No more lines to process");
-            return null;
-          }
-
-          line = csvIterator.next();
-          lineNum++;
-
-          if (line.length == 0 || (line.length == 1 && StringUtils.isBlank(line[0]))) {
-            log.warn("Skipping blank line {}", lineNum);
-            return next();
-          }
-          if (line.length != header.length) {
-            // the line/row number reported here may differ from the physical line number in the file, if the CSV contains
-            // a quoted value that spans multiple lines
-            log.warn("Logical row {} of the csv has a different number of columns than the header. Skipping line.", lineNum);
-            return next();
-          }
-
-          return getDocumentFromLine(idColumns, header, line, filename, path, lineNum);
-        } catch (Exception e) {
-          log.error("Error processing CSV line {}", lineNum, e);
-          try {
-            csvReader.close();
-          } catch (IOException ex) {
-            throw new RuntimeException(ex);
-          }
-        }
-        return null;
-      }
-    };
-  }
-
-  @Override
-  public void beforeProcessingFile(Config config, Path path) throws Exception {
-    createProcessedAndErrorFoldersIfSet();
-  }
-
-  @Override
-  public void afterProcessingFile(Config config, Path path) throws Exception {
-    config = config.getConfig("csv");
-    if (config.hasPath("moveToAfterProcessing")) {
-      // move to processed folder
-      moveFile(path.toAbsolutePath().normalize(), config.getString("moveToAfterProcessing"));
-    }
-  }
-
-  @Override
-  public void errorProcessingFile(Config config, Path path) {
-    config = config.getConfig("csv");
-    if (config.hasPath("moveToErrorFolder")) {
-      // move to error folder
-      moveFile(path.toAbsolutePath().normalize(), config.getString("moveToErrorFolder"));
-    }
-  }
-
-  public void moveFile(Path absolutePath, String option) {
-    if (absolutePath.startsWith("classpath:")) {
-      log.warn("Skipping moving classpath file: {} to {}", absolutePath, moveToAfterProcessing);
-      return;
-    }
-
-    String fileName = absolutePath.getFileName().toString();
-    Path dest = Paths.get(option + File.separatorChar + fileName);
-    try {
-      Files.move(absolutePath, dest);
-      log.info("File {} was successfully moved from source {} to destination {}", fileName, absolutePath, dest);
-    } catch (IOException e) {
-      log.warn("Error moving file to destination directory", e);
-    }
-  }
-
   private Document getDocumentFromLine(List<Integer> idColumns, String[] header, String[] line, String filename, String path, int lineNum) {
     String docId = "";
     if (!idColumns.isEmpty()) {
@@ -413,55 +287,4 @@ public class CSVConnector extends AbstractConnector implements FileHandler {
     }
     return columnIndexMap;
   }
-
-  private String[] getHeaderFromCSV(CSVReader csvReader) throws ConnectorException {
-    try {
-      String[] header = csvReader.readNext();
-      if (header == null || header.length == 0) {
-        try {
-          csvReader.close();
-        } catch (IOException e) {
-          log.error("Error closing CSVReader", e);
-        }
-        log.warn("CSV does not contain header row, skipping csv file");
-      }
-      if (lowercaseFields) {
-        for (int i = 0; i < header.length; i++) {
-          header[i] = header[i].toLowerCase();
-        }
-      }
-      return header;
-    } catch (IOException | CsvValidationException e) {
-      try {
-        csvReader.close();
-      } catch (IOException ex) {
-        log.error("Error closing CSVReader", ex);
-      }
-      throw new ConnectorException("Error reading header from CSV", e);
-    }
-  }
-
-  public CSVReader getCsvReader(String filePath) throws ConnectorException {
-    String filename = new File(filePath).getName();
-    try {
-      return new CSVReaderBuilder(FileUtils.getReader(filePath)).
-          withCSVParser(
-              new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
-          .build();
-    } catch (IOException e) {
-      throw new ConnectorException("Error creating CSVReader for file " + filename, e);
-    }
-  }
-
-  public CSVReader getCsvReader(byte[] fileContent) throws ConnectorException {
-    try {
-      return new CSVReaderBuilder(new InputStreamReader(new ByteArrayInputStream(fileContent), StandardCharsets.UTF_8))
-          .withCSVParser(
-              new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
-          .build();
-    } catch (Exception e) {
-      throw new ConnectorException("Error creating CSVReader from byte array", e);
-    }
-  }
-
 }

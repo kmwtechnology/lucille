@@ -32,6 +32,12 @@ import org.slf4j.LoggerFactory;
 public interface StorageClient {
   Logger log = LoggerFactory.getLogger(FileConnector.class);
 
+  void init();
+
+  void shutdown() throws Exception;
+
+  void publishFiles() throws Exception;
+
   static StorageClient getClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
     String activeClient = pathToStorage.getScheme() != null ? pathToStorage.getScheme() : "file";
@@ -45,11 +51,12 @@ public interface StorageClient {
         return new S3StorageClient(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
       }
       case "https" -> {
-        if (pathToStorage.getAuthority().contains("blob.core.windows.net")) {
+        String authority = pathToStorage.getAuthority();
+        if (authority != null && authority.contains("blob.core.windows.net")) {
           validateCloudOptions(pathToStorage, cloudOptions);
           return new AzureStorageClient(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
         } else {
-          throw new RuntimeException("Unsupported client type: " + activeClient);
+          throw new RuntimeException("Unsupported client type: " + activeClient + " with authority: " + authority);
         }
       }
       case "file" -> {
@@ -58,12 +65,6 @@ public interface StorageClient {
       default -> throw new RuntimeException("Unsupported client type: " + activeClient);
     }
   }
-
-  void init();
-
-  void shutdown() throws Exception;
-
-  void publishFiles() throws Exception;
 
   static void validateCloudOptions(URI storageURI, Map<String, Object> cloudOptions) {
     switch (storageURI.getScheme()) {

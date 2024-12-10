@@ -2,8 +2,8 @@ package com.kmwllc.lucille.connector.storageclients;
 
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.FileHandler;
-import com.kmwllc.lucille.core.FileHandlerManager;
+import com.kmwllc.lucille.core.fileHandlers.FileHandler;
+import com.kmwllc.lucille.core.fileHandlers.FileHandlerManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.net.URI;

@@ -1,5 +1,7 @@
-package com.kmwllc.lucille.connector.xml;
+package com.kmwllc.lucille.core.fileHandlers;
 
+import com.kmwllc.lucille.connector.xml.ChunkingXMLHandler;
+import com.kmwllc.lucille.connector.xml.RecordingInputStream;
 import com.kmwllc.lucille.core.Document;
 import java.io.IOException;
 import java.util.Arrays;

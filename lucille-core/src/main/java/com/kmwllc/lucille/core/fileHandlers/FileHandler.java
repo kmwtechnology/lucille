@@ -1,5 +1,6 @@
-package com.kmwllc.lucille.core;
+package com.kmwllc.lucille.core.fileHandlers;
 
+import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
 import java.nio.file.Path;
 import java.util.Iterator;
