@@ -1,6 +1,10 @@
 package com.kmwllc.lucille.connector.storageclients;
 
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
+import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
+import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
+import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
+import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -8,6 +12,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,6 +20,8 @@ import static org.mockito.Mockito.when;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
+import com.kmwllc.lucille.core.fileHandlers.FileHandler;
+import com.kmwllc.lucille.core.fileHandlers.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -25,6 +32,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.Test;
+import org.mockito.MockedStatic;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -44,8 +52,8 @@ public class S3StorageClientTest {
   @Test
   public void testShutdown() throws Exception {
     // test if region is set but of non-existent region
-    Map<String, Object> cloudOptions = Map.of("region", "us-east-1", "accessKeyId", "accessKey",
-        "secretAccessKey", "secretKey", "getFileContent", true);
+    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey");
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), null, null,
         null, null, cloudOptions, ConfigFactory.empty());
 
@@ -57,8 +65,8 @@ public class S3StorageClientTest {
 
   @Test
   public void testPublishValidFiles() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("region", "us-east-1", "accessKeyId", "accessKey",
-        "secretAccessKey", "secretKey", "getFileContent", true);
+    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey");
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -115,8 +123,8 @@ public class S3StorageClientTest {
 
   @Test
   public void testPublishInvalidFiles() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("region", "us-east-1", "accessKeyId", "accessKey",
-        "secretAccessKey", "secretKey", "getFileContent", true);
+    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey");
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -153,8 +161,8 @@ public class S3StorageClientTest {
 
   @Test
   public void testSkipFileContent() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("region", "us-east-1", "accessKeyId", "accessKey",
-        "secretAccessKey", "secretKey", "getFileContent", false);
+    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey");
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -183,6 +191,42 @@ public class S3StorageClientTest {
     // check that only one document published without file_content
     assertEquals(1, documents.size());
     assertNull(documents.get(0).getBytes("file_content"));
+  }
+
+  @Test
+  public void testPublishUsingFileHandler() throws Exception {
+    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey");
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    // storage client
+    // do not need actual config of json file handler as we are mocking its behavior
+    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), publisher, "prefix-",
+        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of())));
+
+    try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
+      FileHandler jsonFileHandler = mock(JsonFileHandler.class);
+      mockFileHandler.when(() -> FileHandler.getFileHandler(any(), any()))
+          .thenReturn(jsonFileHandler);
+      when(jsonFileHandler.processFile(any(), any())).thenReturn(
+          List.of(Document.create("json-1"), Document.create("json-2")).iterator());
+
+      // we assume that the StorageClient is configured to handle json files in which it calls publishUsingFileHandler
+      s3StorageClient.publishUsingFileHandler("jsonl", new byte[]{1, 2, 3, 4}, "example/path.jsonl");
+
+      // verify that the methods are being called appropriately
+      verify(jsonFileHandler, times(1)).processFile(any(), any());
+      verify(jsonFileHandler, times(1)).beforeProcessingFile(any(), (byte[]) any());
+      verify(jsonFileHandler, times(1)).afterProcessingFile(any(), (byte[]) any());
+
+      // check that documents have been published
+      List<Document> documents = messenger.getDocsSentForProcessing();
+      assertEquals(2, documents.size());
+      assertEquals("json-1", documents.get(0).getId());
+      assertEquals("json-2", documents.get(1).getId());
+    }
   }
 
   private List<S3Object> getMockedS3Objects() throws Exception {

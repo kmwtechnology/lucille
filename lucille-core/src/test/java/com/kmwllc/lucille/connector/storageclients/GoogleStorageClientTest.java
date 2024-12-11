@@ -1,13 +1,17 @@
 package com.kmwllc.lucille.connector.storageclients;
 
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
+import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
@@ -16,6 +20,8 @@ import com.google.cloud.storage.contrib.nio.testing.LocalStorageHelper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
+import com.kmwllc.lucille.core.fileHandlers.FileHandler;
+import com.kmwllc.lucille.core.fileHandlers.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -24,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.junit.Test;
+import org.mockito.MockedStatic;
 
 public class GoogleStorageClientTest {
 
@@ -31,7 +38,7 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testInvalidPathToServiceKey() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("pathToServiceKey", "invalidPath");
+    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "invalidPath");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null, null,
         null, null, cloudOptions, ConfigFactory.empty());
 
@@ -40,7 +47,7 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testShutdown() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("pathToServiceKey", "validPath");
+    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null, null,
         null, null, cloudOptions, ConfigFactory.empty());
     Storage mockStorage = mock(Storage.class);
@@ -53,7 +60,7 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testPublishValidFiles() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("pathToServiceKey", "validPath", "getFileContent", true);
+    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -111,7 +118,7 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testSkipFileContent() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("pathToServiceKey", "validPath", "getFileContent", true);
+    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -133,7 +140,7 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testPublishFilesWithSomeInvalid() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("pathToServiceKey", "validPath", "getFileContent", true);
+    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -164,5 +171,40 @@ public class GoogleStorageClientTest {
     assertEquals(2, documents.size());
     assertEquals("gs://bucket/my-object4", documents.get(0).getString("file_path"));
     assertEquals("gs://bucket/my-object", documents.get(1).getString("file_path"));
+  }
+
+  @Test
+  public void testPublishUsingFileHandler() throws Exception {
+    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "path/to/service/key");
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    // google storage client
+    // do not need actual config of json file handler as we are mocking its behavior
+    GoogleStorageClient gStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), publisher, "prefix-",
+        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of())));
+
+    try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
+      FileHandler jsonFileHandler = mock(JsonFileHandler.class);
+      mockFileHandler.when(() -> FileHandler.getFileHandler(any(), any()))
+          .thenReturn(jsonFileHandler);
+      when(jsonFileHandler.processFile(any(), any())).thenReturn(
+          List.of(Document.create("json-1"), Document.create("json-2")).iterator());
+
+      // we assume that the StorageClient is configured to handle json files in which it calls publishUsingFileHandler
+      gStorageClient.publishUsingFileHandler("jsonl", new byte[]{1, 2, 3, 4}, "example/path.jsonl");
+
+      // verify that the methods are being called appropriately
+      verify(jsonFileHandler, times(1)).processFile(any(), any());
+      verify(jsonFileHandler, times(1)).beforeProcessingFile(any(), (byte[]) any());
+      verify(jsonFileHandler, times(1)).afterProcessingFile(any(), (byte[]) any());
+
+      // check that documents have been published
+      List<Document> documents = messenger.getDocsSentForProcessing();
+      assertEquals(2, documents.size());
+      assertEquals("json-1", documents.get(0).getId());
+      assertEquals("json-2", documents.get(1).getId());
+    }
   }
 }

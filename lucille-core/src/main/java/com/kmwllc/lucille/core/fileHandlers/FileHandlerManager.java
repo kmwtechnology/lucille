@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core.fileHandlers;
 
-import com.kmwllc.lucille.connector.xml.XMLConnector;
 import com.typesafe.config.Config;
 import java.util.HashMap;
 import java.util.Map;
@@ -11,7 +10,7 @@ public class FileHandlerManager {
   private FileHandlerManager() {
   }
 
-  public static synchronized FileHandler getJsonConnector(Config config) {
+  public static synchronized FileHandler getJsonHandler(Config config) {
     int configHashCode = config.hashCode();
     if (!fileHandlers.containsKey(configHashCode)) {
       fileHandlers.put(configHashCode, new JsonFileHandler(config));
@@ -19,7 +18,7 @@ public class FileHandlerManager {
     return fileHandlers.get(configHashCode);
   }
 
-  public static synchronized FileHandler getCsvConnector(Config config) {
+  public static synchronized FileHandler getCsvHandler(Config config) {
     int configHashCode = config.hashCode();
     if (!fileHandlers.containsKey(configHashCode)) {
       fileHandlers.put(configHashCode, new CSVFileHandler(config));
@@ -27,7 +26,7 @@ public class FileHandlerManager {
     return fileHandlers.get(configHashCode);
   }
 
-  public static synchronized FileHandler getXmlConnector(Config config) {
+  public static synchronized FileHandler getXmlHandler(Config config) {
     int configHashCode = config.hashCode();
     if (!fileHandlers.containsKey(configHashCode)) {
       fileHandlers.put(configHashCode, new XMLFileHandler(config));

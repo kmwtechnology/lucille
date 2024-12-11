@@ -32,12 +32,24 @@ import org.slf4j.LoggerFactory;
 public interface StorageClient {
   Logger log = LoggerFactory.getLogger(FileConnector.class);
 
+  /**
+   * Initialize the client
+   */
   void init();
 
+  /**
+   * Shutdown the client
+   */
   void shutdown() throws Exception;
 
+  /**
+   * Publish files to the Lucille pipeline
+   */
   void publishFiles() throws Exception;
 
+  /**
+   * Get the appropriate client based on the URI scheme with authentication/settings from cloudOptions
+   */
   static StorageClient getClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
     String activeClient = pathToStorage.getScheme() != null ? pathToStorage.getScheme() : "file";
@@ -66,6 +78,9 @@ public interface StorageClient {
     }
   }
 
+  /**
+   * Validate the cloud options based on the storage URI and cloudOptions. CloudOptions must contain authentication information
+   */
   static void validateCloudOptions(URI storageURI, Map<String, Object> cloudOptions) {
     switch (storageURI.getScheme()) {
       case "gs":
