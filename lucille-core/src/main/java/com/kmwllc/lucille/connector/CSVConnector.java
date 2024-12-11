@@ -10,7 +10,6 @@ import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvException;
 import com.opencsv.exceptions.CsvMalformedLineException;
-import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -80,22 +79,7 @@ public class CSVConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    if (moveToAfterProcessing != null) {
-      // Create the destination directory if it doesn't exist.
-      File destDir = new File(moveToAfterProcessing);
-      if (!destDir.exists()) {
-        log.info("Creating archive directory {}", destDir.getAbsolutePath());
-        destDir.mkdirs();
-      }
-    }
-
-    if (moveToErrorFolder != null) {
-      File errorDir = new File(moveToErrorFolder);
-      if (!errorDir.exists()) {
-        log.info("Creating error directory {}", errorDir.getAbsolutePath());
-        errorDir.mkdirs();
-      }
-    }
+    createProcessedAndErrorFoldersIfSet();
 
     File pathFile = new File(path);
     if (!path.startsWith("classpath:") && !pathFile.exists()) {
@@ -137,32 +121,9 @@ public class CSVConnector extends AbstractConnector {
         }
       }
       // Index the column names
-      HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();
-      for (int i = 0; i < header.length; i++) {
-        // check for BOM
-        if (i == 0) {
-          header[i] = removeBOM(header[i]);
-        }
-
-        if (columnIndexMap.containsKey(header[i])) {
-          log.warn("Multiple columns with the name {} were discovered in the source csv file.", header[i]);
-          continue;
-        }
-        columnIndexMap.put(header[i], i);
-      }
-      // create a lookup list for column indexes
-      List<Integer> idColumns = new ArrayList<Integer>();
-      for (String field : idFields) {
-        if (lowercaseFields) {
-          idColumns.add(columnIndexMap.get(field.toLowerCase()));
-        } else {
-          idColumns.add(columnIndexMap.get(field));
-        }
-      }
-      // verify that we found all the columns.
-      if (idColumns.size() != idFields.size()) {
-        log.warn("Mismatch in idFields to column map.");
-      }
+      HashMap<String, Integer> columnIndexMap = getColumnIndexMap(header);
+      // create a lookup list for column indexes and verify we got the same number of idColumns and idFields
+      List<Integer> idColumns = getIdColumns(columnIndexMap);
       // At this point we should have the list of column ids that map to the idFields 
       String[] line;
 
@@ -179,31 +140,7 @@ public class CSVConnector extends AbstractConnector {
           log.warn("Logical row {} of the csv has a different number of columns than the header.", lineNum);
           continue;
         }
-        String docId = "";
-        if (idColumns.size() > 0) {
-          // let's get the columns with the values for the id.
-          ArrayList<String> idColumnData = new ArrayList<String>();
-          for (Integer idx : idColumns) {
-            idColumnData.add(line[idx]);
-          }
-          docId = createDocId(idColumnData);
-        } else {
-          // a default unique id for a csv file is filename + line num
-          docId = getDocIdPrefix() + filename + "-" + lineNum;
-        }
-
-        Document doc = Document.create(docId);
-        doc.setField(filePathField, path);
-        doc.setField(filenameField, filename);
-        // log.info("DOC ID: {}", docId);
-        int maxIndex = Math.min(header.length, line.length);
-        for (int i = 0; i < maxIndex; i++) {
-          if (line[i] != null && !ignoredTerms.contains(line[i]) && !Document.RESERVED_FIELDS.contains(header[i])) {
-            doc.setField(header[i], line[i]);
-          }
-        }
-        doc.setField(lineNumField, lineNum);
-
+        Document doc = getDocumentFromLine(idColumns, header, line, filename, filePath, lineNum);
         publisher.publish(doc);
       }
       // assuming we got here, we were successful processing the csv file
@@ -266,5 +203,88 @@ public class CSVConnector extends AbstractConnector {
     } catch (IOException e) {
       log.warn("Error moving file to destination directory", e);
     }
+  }
+
+  private Document getDocumentFromLine(List<Integer> idColumns, String[] header, String[] line, String filename, String path, int lineNum) {
+    String docId = "";
+    if (!idColumns.isEmpty()) {
+      // let's get the columns with the values for the id.
+      ArrayList<String> idColumnData = new ArrayList<String>();
+      for (Integer idx : idColumns) {
+        idColumnData.add(line[idx]);
+      }
+      docId = createDocId(idColumnData);
+    } else {
+      // a default unique id for a csv file is filename + line num
+      docId = getDocIdPrefix() + filename + "-" + lineNum;
+    }
+
+    Document doc = Document.create(docId);
+    if (StringUtils.isNotBlank(path)) {
+      doc.setField(filePathField, path);
+    }
+    doc.setField(filenameField, filename);
+    // log.info("DOC ID: {}", docId);
+    int maxIndex = Math.min(header.length, line.length);
+    for (int i = 0; i < maxIndex; i++) {
+      if (line[i] != null && !ignoredTerms.contains(line[i]) && !Document.RESERVED_FIELDS.contains(header[i])) {
+        doc.setField(header[i], line[i]);
+      }
+    }
+    doc.setField(lineNumField, lineNum);
+
+    return doc;
+  }
+
+  private void createProcessedAndErrorFoldersIfSet() {
+    if (moveToAfterProcessing != null) {
+      // Create the destination directory if it doesn't exist.
+      File destDir = new File(moveToAfterProcessing);
+      if (!destDir.exists()) {
+        log.info("Creating archive directory {}", destDir.getAbsolutePath());
+        destDir.mkdirs();
+      }
+    }
+    log.info("Error folder: {}", moveToErrorFolder);
+    if (moveToErrorFolder != null) {
+      File errorDir = new File(moveToErrorFolder);
+      if (!errorDir.exists()) {
+        log.info("Creating error directory {}", errorDir.getAbsolutePath());
+        errorDir.mkdirs();
+      }
+    }
+  }
+
+  private List<Integer> getIdColumns(HashMap<String, Integer> columnIndexMap) {
+    List<Integer> idColumns = new ArrayList<Integer>();
+    for (String field : idFields) {
+      if (lowercaseFields) {
+        idColumns.add(columnIndexMap.get(field.toLowerCase()));
+      } else {
+        idColumns.add(columnIndexMap.get(field));
+      }
+    }
+    // verify that we found all the columns.
+    if (idColumns.size() != idFields.size()) {
+      log.warn("Mismatch in idFields to column map.");
+    }
+    return idColumns;
+  }
+
+  private HashMap<String, Integer> getColumnIndexMap(String[] header) {
+    HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();
+    for (int i = 0; i < header.length; i++) {
+      // check for BOM
+      if (i == 0) {
+        header[i] = removeBOM(header[i]);
+      }
+
+      if (columnIndexMap.containsKey(header[i])) {
+        log.warn("Multiple columns with the name {} were discovered in the source csv file.", header[i]);
+        continue;
+      }
+      columnIndexMap.put(header[i], i);
+    }
+    return columnIndexMap;
   }
 }

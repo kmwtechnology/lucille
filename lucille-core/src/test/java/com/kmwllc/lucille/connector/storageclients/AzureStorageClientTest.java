@@ -1,5 +1,6 @@
-package com.kmwllc.lucille.connector.cloudstorageclients;
+package com.kmwllc.lucille.connector.storageclients;
 
+import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -8,6 +9,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,45 +19,40 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
-import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
+import com.kmwllc.lucille.core.fileHandlers.FileHandler;
+import com.kmwllc.lucille.core.fileHandlers.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.File;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import software.amazon.awssdk.core.ResponseBytes;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectResponse;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
-import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 
 public class AzureStorageClientTest {
 
   @Test
   public void testInit() throws Exception{
-    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString", "getFileContent", true);
+    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/testblob"),
-        null, null, null, null, cloudOptions);
+        null, null, null, null, cloudOptions, ConfigFactory.empty());
 
     try(MockedConstruction<BlobContainerClientBuilder> builder = Mockito.mockConstruction(BlobContainerClientBuilder.class,(mock,context)-> {
       when(mock.connectionString(anyString())).thenReturn(mock);
@@ -71,7 +68,7 @@ public class AzureStorageClientTest {
     cloudOptions.put("accountKey", "accountKey");
 
     azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/testblob"), null,
-        null, null, null, cloudOptions);
+        null, null, null, cloudOptions, ConfigFactory.empty());
 
     try(MockedConstruction<BlobContainerClientBuilder> builder = Mockito.mockConstruction(BlobContainerClientBuilder.class,(mock,context)-> {
 
@@ -86,13 +83,13 @@ public class AzureStorageClientTest {
 
   @Test
   public void testPublishValidFiles() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString", "getFileContent", true);
+    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
-        List.of(), List.of(), cloudOptions);
+        List.of(), List.of(), cloudOptions, ConfigFactory.empty());
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -138,13 +135,13 @@ public class AzureStorageClientTest {
 
   @Test
   public void testSkipFileContent() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString", "getFileContent", false);
+    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
-        List.of(), List.of(), cloudOptions);
+        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)));
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -174,13 +171,13 @@ public class AzureStorageClientTest {
 
   @Test
   public void testPublishInvalidFiles() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString", "getFileContent", true);
+    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
-        List.of(Pattern.compile("blob3"), Pattern.compile("blob4")), List.of(), cloudOptions);
+        List.of(Pattern.compile("blob3"), Pattern.compile("blob4")), List.of(), cloudOptions, ConfigFactory.empty());
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -204,6 +201,41 @@ public class AzureStorageClientTest {
     assertEquals("https://storagename.blob.core.windows.net/folder/blob1", doc1.getString("file_path"));
     assertEquals("1", doc1.getString("file_size_bytes"));
     assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes("file_content"));
+  }
+
+  @Test
+  public void testPublishUsingFileHandler() throws Exception {
+    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    // azure storage client
+    // do not need actual config of json file handler as we are mocking its behavior
+    AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
+        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of())));
+
+    try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
+      FileHandler jsonFileHandler = mock(JsonFileHandler.class);
+      mockFileHandler.when(() -> FileHandler.getFileHandler(any(), any()))
+          .thenReturn(jsonFileHandler);
+      when(jsonFileHandler.processFile(any(), any())).thenReturn(
+          List.of(Document.create("json-1"), Document.create("json-2")).iterator());
+
+      // we assume that the azureStorageClient is configured to handle json files in which it calls publishUsingFileHandler
+      azureStorageClient.publishUsingFileHandler("jsonl", new byte[]{1, 2, 3, 4}, "example/path.jsonl");
+
+      // verify that the methods are being called appropriately
+      verify(jsonFileHandler, times(1)).processFile(any(), any());
+      verify(jsonFileHandler, times(1)).beforeProcessingFile(any(), (byte[]) any());
+      verify(jsonFileHandler, times(1)).afterProcessingFile(any(), (byte[]) any());
+
+      // check that documents have been published
+      List<Document> documents = messenger.getDocsSentForProcessing();
+      assertEquals(2, documents.size());
+      assertEquals("json-1", documents.get(0).getId());
+      assertEquals("json-2", documents.get(1).getId());
+    }
   }
 
   private Stream<BlobItem> getBlobItemStream() {

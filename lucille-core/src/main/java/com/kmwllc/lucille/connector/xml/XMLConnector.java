@@ -23,6 +23,7 @@ import java.util.List;
 /**
  * Connector implementation that produces documents from a given XML file.
  * <p>
+ * <p>
  * Config Parameters:
  * <ul>
  * <li>filePaths (List&lt;String&gt;): The list of file paths to parse through.</li>
@@ -43,6 +44,11 @@ public class XMLConnector extends AbstractConnector {
   private List<String> urlFiles;
   private String encoding;
   private String outputField;
+
+  // for FileConnector
+  private SAXParserFactory spf = null;
+  private SAXParser saxParser = null;
+  private XMLReader xmlReader = null;
 
 
   public XMLConnector(Config config) {
@@ -115,7 +121,6 @@ public class XMLConnector extends AbstractConnector {
         throw new ConnectorException("Error during XML parsing", e);
       }
     }
-
   }
 
   public void setUpAndParse(RecordingInputStream ris, ChunkingXMLHandler xmlHandler, XMLReader xmlReader)

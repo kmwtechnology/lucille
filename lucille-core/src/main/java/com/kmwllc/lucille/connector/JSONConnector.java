@@ -11,9 +11,11 @@ import org.apache.commons.io.LineIterator;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.function.UnaryOperator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class JSONConnector extends AbstractConnector {
-
+  private static final Logger log = LoggerFactory.getLogger(JSONConnector.class);
   private final String path;
 
   private final UnaryOperator<String> idUpdater;
@@ -30,7 +32,7 @@ public class JSONConnector extends AbstractConnector {
     try (Reader reader = FileUtils.getReader(path)) {
       LineIterator it = IOUtils.lineIterator(reader);
       while (it.hasNext()) {
-        String line = it.nextLine();
+        String line = it.next();
         publisher.publish(Document.createFromJson(line, idUpdater));
       }
     } catch (IOException e) {
