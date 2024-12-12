@@ -17,32 +17,32 @@ public interface FileHandler {
     while (docs.hasNext()) {
       Document doc = docs.next();
       if (doc != null) {
-        publisher.publish(docs.next());
+        publisher.publish(doc);
       }
     }
   }
 
-  default void beforeProcessingFile(Config config, Path path) throws Exception {
+  default void beforeProcessingFile(Path path) throws Exception {
     return;
   }
 
-  default void afterProcessingFile(Config config, Path path) throws Exception {
+  default void afterProcessingFile(Path path) throws Exception {
     return;
   }
 
-  default void errorProcessingFile(Config config, Path path) {
+  default void errorProcessingFile(Path path) {
     return;
   }
 
-  default void beforeProcessingFile(Config config, byte[] content) throws Exception {
+  default void beforeProcessingFile(byte[] content) throws Exception {
     return;
   }
 
-  default void afterProcessingFile(Config config, byte[] content) throws Exception {
+  default void afterProcessingFile(byte[] content) throws Exception {
     return;
   }
 
-  default void errorProcessingFile(Config config, byte[] content) {
+  default void errorProcessingFile(byte[] content) {
     return;
   }
 

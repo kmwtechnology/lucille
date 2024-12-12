@@ -218,8 +218,8 @@ public class S3StorageClientTest {
 
       // verify that the methods are being called appropriately
       verify(jsonFileHandler, times(1)).processFile(any(), any());
-      verify(jsonFileHandler, times(1)).beforeProcessingFile(any(), (byte[]) any());
-      verify(jsonFileHandler, times(1)).afterProcessingFile(any(), (byte[]) any());
+      verify(jsonFileHandler, times(1)).beforeProcessingFile((byte[]) any());
+      verify(jsonFileHandler, times(1)).afterProcessingFile((byte[]) any());
 
       // check that documents have been published
       List<Document> documents = messenger.getDocsSentForProcessing();

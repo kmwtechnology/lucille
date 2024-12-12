@@ -82,7 +82,7 @@ public class XMLFileHandler implements FileHandler {
   }
 
   @Override
-  public void beforeProcessingFile(Config config, Path path) throws Exception {
+  public void beforeProcessingFile(Path path) throws Exception {
     // validate that it is a xml
     if (!FilenameUtils.getExtension(path.toString()).equalsIgnoreCase("xml")) {
       log.info("File {} is not an XML file", path);

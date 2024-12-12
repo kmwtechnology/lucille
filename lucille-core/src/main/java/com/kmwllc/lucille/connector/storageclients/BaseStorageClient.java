@@ -90,14 +90,14 @@ public abstract class BaseStorageClient implements StorageClient {
       throw new ConnectorException("Error occurred while getting file handler for file: " + path, e);
     }
     // perform preprocessing
-    handler.beforeProcessingFile(fileOptions, path);
+    handler.beforeProcessingFile(path);
     Iterator<Document> docIterator;
     try {
       docIterator = handler.processFile(path);
     } catch (Exception e) {
       // going to skip this file if an error occurs
       log.error("Unable to set up iterator for this file '{}', SKIPPING", path, e);
-      handler.errorProcessingFile(fileOptions, path);
+      handler.errorProcessingFile(path);
       return;
     }
     // once docIterator.hasNext() is false, it will close its resources in handler and return
@@ -111,11 +111,11 @@ public abstract class BaseStorageClient implements StorageClient {
         // if we fail to publish a document, we log the error and continue to the next document
         // to "finish" the iterator and close its resources
         log.error("Unable to publish document '{}', SKIPPING", path, e);
-        handler.errorProcessingFile(fileOptions, path);
+        handler.errorProcessingFile(path);
       }
     }
     // all iterations have been successfully published, perform afterProcessing
-    handler.afterProcessingFile(fileOptions, path);
+    handler.afterProcessingFile(path);
   }
 
   public void publishUsingFileHandler(String fileExtension, byte[] content, String pathStr) throws Exception {
@@ -127,14 +127,14 @@ public abstract class BaseStorageClient implements StorageClient {
       throw new ConnectorException("Error occurred while getting file handler for file: " + pathStr, e);
     }
     // perform preprocessing
-    handler.beforeProcessingFile(fileOptions, content);
+    handler.beforeProcessingFile(content);
     Iterator<Document> docIterator;
     try {
       docIterator = handler.processFile(content, pathStr);
     } catch (Exception e) {
       // going to skip this file if an error occurs
       log.error("Unable to set up iterator for this file '{}', SKIPPING", pathStr, e);
-      handler.errorProcessingFile(fileOptions, content);
+      handler.errorProcessingFile(content);
       return;
     }
     // once docIterator.hasNext() is false, it will close its resources in handler and return
@@ -148,11 +148,11 @@ public abstract class BaseStorageClient implements StorageClient {
         // if we fail to publish a document, we log the error and continue to the next document
         // to "finish" the iterator and close its resources
         log.error("Unable to publish document '{}', SKIPPING", pathStr, e);
-        handler.errorProcessingFile(fileOptions, content);
+        handler.errorProcessingFile(content);
       }
     }
     // all iterations have been successfully published, perform afterProcessing
-    handler.afterProcessingFile(fileOptions, content);
+    handler.afterProcessingFile(content);
   }
 
   // inputStream parameter will be closed outside of this method as well

@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core.fileHandlers;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -36,7 +37,7 @@ public class JsonFileHandler implements FileHandler {
     // only works for path from local file system
     Reader reader;
     try {
-      reader = new BufferedReader(new InputStreamReader(new FileInputStream(path.toFile()), StandardCharsets.UTF_8));
+      reader = FileUtils.getReader(path.toString());
     } catch (Exception e) {
       throw new ConnectorException("Error creating reader from path: " + path, e);
     }

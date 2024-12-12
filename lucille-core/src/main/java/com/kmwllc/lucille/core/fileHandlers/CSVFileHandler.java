@@ -77,15 +77,11 @@ public class CSVFileHandler implements FileHandler {
 
   @Override
   public Iterator<Document> processFile(Path path) throws Exception {
-    // check if path from local file exists
-    File pathFile = new File(path.toString());
-    if (!pathFile.exists()) {
-      throw new ConnectorException("Path " + path + " does not exist");
-    }
+    String pathStr = path.toString();
+    CSVReader reader = getCsvReader(pathStr);
 
-    CSVReader reader = getCsvReader(path.toString());
     // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
-    return getDocumentIterator(reader, pathFile.getName(), path.toAbsolutePath().normalize().toString());
+    return getDocumentIterator(reader, path.getFileName().toString(), path.toAbsolutePath().normalize().toString());
   }
 
   @Override
@@ -124,7 +120,7 @@ public class CSVFileHandler implements FileHandler {
         try {
           if (!hasNext()) {
             log.warn("No more lines to process");
-            return null;
+            throw new IllegalStateException("No more lines to process");
           }
 
           line = csvIterator.next();
@@ -156,25 +152,30 @@ public class CSVFileHandler implements FileHandler {
   }
 
   @Override
-  public void beforeProcessingFile(Config config, Path path) throws Exception {
+  public void beforeProcessingFile(Path path) throws Exception {
     createProcessedAndErrorFoldersIfSet();
-  }
 
-  @Override
-  public void afterProcessingFile(Config config, Path path) throws Exception {
-    config = config.getConfig("csv");
-    if (config.hasPath("moveToAfterProcessing")) {
-      // move to processed folder
-      moveFile(path.toAbsolutePath().normalize(), config.getString("moveToAfterProcessing"));
+    File pathFile = path.toFile();
+    String pathStr = path.toString();
+
+    if (!pathStr.startsWith("classpath:") && !pathFile.exists()) {
+      throw new ConnectorException("Path " + path + " does not exist");
     }
   }
 
   @Override
-  public void errorProcessingFile(Config config, Path path) {
-    config = config.getConfig("csv");
-    if (config.hasPath("moveToErrorFolder")) {
+  public void afterProcessingFile(Path path) throws Exception {
+    if (moveToAfterProcessing != null) {
+      // move to processed folder
+      moveFile(path.toAbsolutePath().normalize(), moveToAfterProcessing);
+    }
+  }
+
+  @Override
+  public void errorProcessingFile(Path path) {
+    if (moveToErrorFolder != null) {
       // move to error folder
-      moveFile(path.toAbsolutePath().normalize(), config.getString("moveToErrorFolder"));
+      moveFile(path.toAbsolutePath().normalize(), moveToErrorFolder);
     }
   }
 
@@ -305,14 +306,13 @@ public class CSVFileHandler implements FileHandler {
   }
 
   private CSVReader getCsvReader(String filePath) throws ConnectorException {
-    String filename = new File(filePath).getName();
     try {
       return new CSVReaderBuilder(FileUtils.getReader(filePath)).
           withCSVParser(
               new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
           .build();
     } catch (IOException e) {
-      throw new ConnectorException("Error creating CSVReader for file " + filename, e);
+      throw new ConnectorException("Error creating CSVReader for file " + FilenameUtils.getName(filePath), e);
     }
   }
 
