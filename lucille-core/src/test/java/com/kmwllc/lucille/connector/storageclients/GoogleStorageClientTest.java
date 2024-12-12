@@ -21,6 +21,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.core.fileHandlers.FileHandler;
+import com.kmwllc.lucille.core.fileHandlers.FileHandlerManager;
 import com.kmwllc.lucille.core.fileHandlers.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -175,36 +176,43 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testPublishUsingFileHandler() throws Exception {
+    FileHandlerManager.closeAllHandlers();
     Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "path/to/service/key");
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
+    BlobId blobId = BlobId.of("bucket", "json-1.json");
+    BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
+    storage.create(blobInfo, "Hello, World!".getBytes());
+
+    BlobId blobId2 = BlobId.of("bucket", "json-2.json");
+    BlobInfo blobInfo2 = BlobInfo.newBuilder(blobId2).build();
+    storage.create(blobInfo2, "Hello!".getBytes());
+
+    // non Json blob
+    BlobId blobId3 = BlobId.of("bucket", "my-object3");
+    BlobInfo blobInfo3 = BlobInfo.newBuilder(blobId3).build();
+    storage.create(blobInfo3, "World!".getBytes());
+
+
     // google storage client
-    // do not need actual config of json file handler as we are mocking its behavior
     GoogleStorageClient gStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), publisher, "prefix-",
         List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of())));
+    gStorageClient.setStorageForTesting(storage);
 
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
       FileHandler jsonFileHandler = mock(JsonFileHandler.class);
       mockFileHandler.when(() -> FileHandler.getFileHandler(any(), any()))
           .thenReturn(jsonFileHandler);
-      when(jsonFileHandler.processFile(any(), any())).thenReturn(
-          List.of(Document.create("json-1"), Document.create("json-2")).iterator());
+      mockFileHandler.when(() -> FileHandler.supportsFileType(any(), any()))
+          .thenReturn(true).thenReturn(true).thenReturn(false);
 
-      // we assume that the StorageClient is configured to handle json files in which it calls publishUsingFileHandler
-      gStorageClient.publishUsingFileHandler("jsonl", new byte[]{1, 2, 3, 4}, "example/path.jsonl");
-
-      // verify that the methods are being called appropriately
-      verify(jsonFileHandler, times(1)).processFile(any(), any());
-      verify(jsonFileHandler, times(1)).beforeProcessingFile((byte[]) any());
-      verify(jsonFileHandler, times(1)).afterProcessingFile((byte[]) any());
-
-      // check that documents have been published
-      List<Document> documents = messenger.getDocsSentForProcessing();
-      assertEquals(2, documents.size());
-      assertEquals("json-1", documents.get(0).getId());
-      assertEquals("json-2", documents.get(1).getId());
+      gStorageClient.publishFiles();
+      // verify that the processFileAndPublish is only called for the json files
+      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), any());
     }
+
+    gStorageClient.shutdown();
   }
 }

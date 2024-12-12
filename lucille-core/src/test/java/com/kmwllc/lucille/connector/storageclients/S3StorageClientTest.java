@@ -201,32 +201,32 @@ public class S3StorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
-    // storage client
-    // do not need actual config of json file handler as we are mocking its behavior
+    // storage client with json file handler
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), publisher, "prefix-",
         List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of())));
+
+    S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
+    s3StorageClient.setS3ClientForTesting(mockClient);
+    ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
+    ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
+    when(responseWithinStream.contents()).thenReturn(getMockedS3JsonObjects());
+    when(response.stream()).thenReturn(Stream.of(responseWithinStream));
+
+    when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
 
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
       FileHandler jsonFileHandler = mock(JsonFileHandler.class);
       mockFileHandler.when(() -> FileHandler.getFileHandler(any(), any()))
           .thenReturn(jsonFileHandler);
-      when(jsonFileHandler.processFile(any(), any())).thenReturn(
-          List.of(Document.create("json-1"), Document.create("json-2")).iterator());
+      mockFileHandler.when(() -> FileHandler.supportsFileType(any(), any()))
+          .thenReturn(true).thenReturn(true).thenReturn(false);
 
-      // we assume that the StorageClient is configured to handle json files in which it calls publishUsingFileHandler
-      s3StorageClient.publishUsingFileHandler("jsonl", new byte[]{1, 2, 3, 4}, "example/path.jsonl");
-
-      // verify that the methods are being called appropriately
-      verify(jsonFileHandler, times(1)).processFile(any(), any());
-      verify(jsonFileHandler, times(1)).beforeProcessingFile((byte[]) any());
-      verify(jsonFileHandler, times(1)).afterProcessingFile((byte[]) any());
-
-      // check that documents have been published
-      List<Document> documents = messenger.getDocsSentForProcessing();
-      assertEquals(2, documents.size());
-      assertEquals("json-1", documents.get(0).getId());
-      assertEquals("json-2", documents.get(1).getId());
+      s3StorageClient.publishFiles();
+      // verify that the processFileAndPublish is only called for the json files
+      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), any());
     }
+
+    s3StorageClient.shutdown();
   }
 
   private List<S3Object> getMockedS3Objects() throws Exception {
@@ -244,6 +244,13 @@ public class S3StorageClientTest {
     obj3 = S3Object.builder().key("obj3").lastModified(Instant.ofEpochMilli(3L)).size(3L).build();
     obj4 = S3Object.builder().key("obj4").lastModified(Instant.ofEpochMilli(4L)).size(4L).build();
     return List.of(obj1, obj2, obj3, obj4);
+  }
+
+  private List<S3Object> getMockedS3JsonObjects() throws Exception {
+    obj1 = S3Object.builder().key("obj1.json").lastModified(Instant.ofEpochMilli(1L)).size(1L).build();
+    obj2 = S3Object.builder().key("obj2.json").lastModified(Instant.ofEpochMilli(2L)).size(2L).build();
+    obj3 = S3Object.builder().key("obj3").lastModified(Instant.ofEpochMilli(3L)).size(3L).build();
+    return List.of(obj1, obj2, obj3);
   }
 
 }

@@ -36,7 +36,7 @@ public class JSONConnector extends AbstractConnector {
       jsonFileHandler.processFileAndPublish(publisher, filePath);
     } catch (Exception e) {
       jsonFileHandler.errorProcessingFile(filePath);
-      throw new ConnectorException("Error processing file: " + filePath, e);
+      throw new ConnectorException("Error processing or publishing file: " + filePath, e);
     }
 
     try {

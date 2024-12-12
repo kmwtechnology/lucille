@@ -29,9 +29,12 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -210,32 +213,30 @@ public class AzureStorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
-    // azure storage client
-    // do not need actual config of json file handler as we are mocking its behavior
+    // azure storage client that handles json files
     AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/folder/"), publisher, "prefix-",
-        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of())));
+        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of(), GET_FILE_CONTENT, false)));
 
+
+    BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
+    PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
+    when(pagedIterable.stream()).thenReturn(getJsonBlobItemStream());
+    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
+    azureStorageClient.setContainerClientForTesting(mockClient);
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
       FileHandler jsonFileHandler = mock(JsonFileHandler.class);
       mockFileHandler.when(() -> FileHandler.getFileHandler(any(), any()))
           .thenReturn(jsonFileHandler);
-      when(jsonFileHandler.processFile(any(), any())).thenReturn(
-          List.of(Document.create("json-1"), Document.create("json-2")).iterator());
+      mockFileHandler.when(() -> FileHandler.supportsFileType(any(), any()))
+          .thenReturn(true).thenReturn(true).thenReturn(false);
 
-      // we assume that the azureStorageClient is configured to handle json files in which it calls publishUsingFileHandler
-      azureStorageClient.publishUsingFileHandler("jsonl", new byte[]{1, 2, 3, 4}, "example/path.jsonl");
-
-      // verify that the methods are being called appropriately
-      verify(jsonFileHandler, times(1)).processFile(any(), any());
-      verify(jsonFileHandler, times(1)).beforeProcessingFile((byte[]) any());
-      verify(jsonFileHandler, times(1)).afterProcessingFile((byte[]) any());
-
-      // check that documents have been published
-      List<Document> documents = messenger.getDocsSentForProcessing();
-      assertEquals(2, documents.size());
-      assertEquals("json-1", documents.get(0).getId());
-      assertEquals("json-2", documents.get(1).getId());
+      azureStorageClient.publishFiles();
+      // verify that the processFileAndPublish is only called for the json files
+      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), any());
     }
+
+    // shutdown client and handlers
+    azureStorageClient.shutdown();
   }
 
   private Stream<BlobItem> getBlobItemStream() {
@@ -302,5 +303,30 @@ public class AzureStorageClientTest {
         .setContentLength(4L));
 
     return Stream.of(blobItem1, blobItem2, blobItem3, blobItem4);
+  }
+
+  private Stream<BlobItem> getJsonBlobItemStream() {
+    BlobItem blobItem1 = new BlobItem();
+    blobItem1.setName("blob1.json");
+    blobItem1.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
+        .setContentLength(1L));
+
+    BlobItem blobItem2 = new BlobItem();
+    blobItem2.setName("blob2.json");
+    blobItem2.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(3), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(3), ZoneId.of("UTC")))
+        .setContentLength(3L));
+
+    BlobItem blobItem3 = new BlobItem();
+    blobItem3.setName("blob3");
+    blobItem3.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(3), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(3), ZoneId.of("UTC")))
+        .setContentLength(3L));
+
+    return Stream.of(blobItem1, blobItem2, blobItem3);
   }
 }

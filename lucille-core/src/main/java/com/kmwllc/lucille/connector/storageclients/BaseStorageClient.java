@@ -86,36 +86,28 @@ public abstract class BaseStorageClient implements StorageClient {
     try {
       handler = FileHandler.getFileHandler(fileExtension, fileOptions);
     } catch (Exception e) {
-      // throwing exception will skip this file
       throw new ConnectorException("Error occurred while getting file handler for file: " + path, e);
     }
+
     // perform preprocessing
-    handler.beforeProcessingFile(path);
-    Iterator<Document> docIterator;
     try {
-      docIterator = handler.processFile(path);
+      handler.beforeProcessingFile(path);
     } catch (Exception e) {
-      // going to skip this file if an error occurs
-      log.error("Unable to set up iterator for this file '{}', SKIPPING", path, e);
-      handler.errorProcessingFile(path);
-      return;
+      throw new ConnectorException("Error occurred while preprocessing file: " + path, e);
     }
-    // once docIterator.hasNext() is false, it will close its resources in handler and return
-    while (docIterator.hasNext()) {
-      try {
-        Document doc = docIterator.next();
-        if (doc != null) {
-          publisher.publish(doc);
-        }
-      } catch (Exception e) {
-        // if we fail to publish a document, we log the error and continue to the next document
-        // to "finish" the iterator and close its resources
-        log.error("Unable to publish document '{}', SKIPPING", path, e);
-        handler.errorProcessingFile(path);
-      }
+
+    try {
+      handler.processFileAndPublish(publisher, path);
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred while processing or publishing file: " + path, e);
     }
+
     // all iterations have been successfully published, perform afterProcessing
-    handler.afterProcessingFile(path);
+    try {
+      handler.afterProcessingFile(path);
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred while postprocessing file: " + path, e);
+    }
   }
 
   public void publishUsingFileHandler(String fileExtension, byte[] content, String pathStr) throws Exception {
@@ -127,32 +119,24 @@ public abstract class BaseStorageClient implements StorageClient {
       throw new ConnectorException("Error occurred while getting file handler for file: " + pathStr, e);
     }
     // perform preprocessing
-    handler.beforeProcessingFile(content);
-    Iterator<Document> docIterator;
     try {
-      docIterator = handler.processFile(content, pathStr);
+      handler.beforeProcessingFile(content);
     } catch (Exception e) {
-      // going to skip this file if an error occurs
-      log.error("Unable to set up iterator for this file '{}', SKIPPING", pathStr, e);
-      handler.errorProcessingFile(content);
-      return;
+      throw new ConnectorException("Error occurred while preprocessing file: " + pathStr, e);
     }
-    // once docIterator.hasNext() is false, it will close its resources in handler and return
-    while (docIterator.hasNext()) {
-      try {
-        Document doc = docIterator.next();
-        if (doc != null) {
-          publisher.publish(doc);
-        }
-      } catch (Exception e) {
-        // if we fail to publish a document, we log the error and continue to the next document
-        // to "finish" the iterator and close its resources
-        log.error("Unable to publish document '{}', SKIPPING", pathStr, e);
-        handler.errorProcessingFile(content);
-      }
+
+    try {
+      handler.processFileAndPublish(publisher, content, pathStr);
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred while processing or publishing file: " + pathStr, e);
     }
+
     // all iterations have been successfully published, perform afterProcessing
-    handler.afterProcessingFile(content);
+    try {
+      handler.afterProcessingFile(content);
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred while postprocessing file: " + pathStr, e);
+    }
   }
 
   // inputStream parameter will be closed outside of this method as well
