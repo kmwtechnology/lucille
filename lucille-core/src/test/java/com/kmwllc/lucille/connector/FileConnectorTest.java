@@ -11,7 +11,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.kmwllc.lucille.connector.storageclients.StorageClient;
+import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -311,7 +311,16 @@ public class FileConnectorTest {
     connector.execute(publisher);
     List<Document> documentList = messenger.getDocsSentForProcessing();
     // assert that all documents have been processed
+    Assert.assertEquals(10, documentList.size());
 
+    assertTrue(documentList.get(0).has("xml"));
+    assertEquals("<staff>\n" +
+        "        <id>1001</id>\n" +
+        "        <name>daniel</name>\n" +
+        "        <role>software engineer</role>\n" +
+        "        <salary currency=\"USD\">3000</salary>\n" +
+        "        <bio>I am from San Diego</bio>\n" +
+        "    </staff>", documentList.get(0).getString("xml"));
   }
 
   // we ignore the tests related to compression/achived files ATM, need more investigation on resource management
@@ -342,7 +351,6 @@ public class FileConnectorTest {
     assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
   }
 
-  @Ignore
   @Test
   public void testHandleTarJsonFiles() throws Exception {
     Config config = ConfigFactory.load("FileConnectorTest/testHandleTar.conf");

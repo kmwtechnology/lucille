@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.storageclients;
+package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_KEY;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_NAME;
@@ -7,29 +7,18 @@ import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
 import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
-import static com.kmwllc.lucille.connector.storageclients.StorageClient.validateCloudOptions;
+import static com.kmwllc.lucille.connector.storageclient.StorageClient.validateCloudOptions;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.Connector;
-import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.PublisherImpl;
-import com.kmwllc.lucille.message.TestMessenger;
-import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.List;
 import java.util.Map;
-import net.bytebuddy.build.ToStringPlugin.Enhance;
 import org.junit.Test;
-import org.mockito.MockedStatic;
 
 public class StorageClientTest {
 

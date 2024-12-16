@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.connector.storageclients.StorageClient;
+import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;

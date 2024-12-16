@@ -1,42 +1,46 @@
-package com.kmwllc.lucille.core.fileHandlers;
+package com.kmwllc.lucille.core.fileHandler;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.nio.file.Path;
 import java.util.Iterator;
-import java.util.List;
+import java.util.Set;
 
-public interface FileTypeHandler {
+/**
+ * each implementation of the FileHandler handles a specific file type
+ */
+
+public interface FileHandler {
 
   /**
-   * list of file types that are supported by the FileHandler interface.
+   * collection of file types that are supported by the FileHandler interface.
    * Note that if you add a new file type to list, you must also add the corresponding handler in getNewFileHandler
    */
-  List<String> SUPPORTED_FILE_TYPES = List.of("json", "jsonl", "csv", "xml");
+  Set<String> SUPPORTED_FILE_TYPES = Set.of("json", "jsonl", "csv", "xml");
 
   /**
    * processes a file given the Path to it and returns an iterator of Documents. The Iterator should close all resources
    * when completed (hasNext() is false) or when an exception is thrown.
    */
-  Iterator<Document> processFile(Path path) throws Exception;
+  Iterator<Document> processFile(Path path) throws FileHandlerException;
 
   /**
    * processes a file given the file contents and representation path string to it and returns an iterator of Documents.
    * The Iterator should close all resources when completed (hasNext() is false) or when an exception is thrown.
    * Path string is used for populating file path field of document and for logging/error/debugging purposes.
    */
-  Iterator<Document> processFile(byte[] fileContent, String pathStr) throws Exception;
+  Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException;
 
   /**
    * performs any necessary setup before processing a file.
    */
-  void beforeProcessingFile(Path path) throws Exception;
+  void beforeProcessingFile(Path path) throws FileHandlerException;
 
   /**
    * performs any necessary setup after processing a file.
    */
-  void afterProcessingFile(Path path) throws Exception;
+  void afterProcessingFile(Path path) throws FileHandlerException;
 
   /**
    * performs any necessary setup if handler encountered any error processing a file.
@@ -46,12 +50,12 @@ public interface FileTypeHandler {
   /**
    * performs any necessary setup before processing a file.
    */
-  void beforeProcessingFile(byte[] content) throws Exception;
+  void beforeProcessingFile(byte[] content) throws FileHandlerException;
 
   /**
    * performs any necessary setup after processing a file.
    */
-  void afterProcessingFile(byte[] content) throws Exception;
+  void afterProcessingFile(byte[] content) throws FileHandlerException;
 
   /**
    * performs any necessary setup if handler encountered any error processing a file.
@@ -62,34 +66,34 @@ public interface FileTypeHandler {
    * A helper function that processes a file and publishes the documents to a Publisher
    * using Path to file.
    */
-  void processFileAndPublish(Publisher publisher, Path path) throws Exception;
+  void processFileAndPublish(Publisher publisher, Path path) throws FileHandlerException;
 
   /**
    * A helper function that processes a file and publishes the documents to a Publisher
    * using byte[] content.
    */
-  void processFileAndPublish(Publisher publisher, byte[] fileContent, String pathStr) throws Exception;
+  void processFileAndPublish(Publisher publisher, byte[] fileContent, String pathStr) throws FileHandlerException;
 
   /**
    * getNewFileHandler returns a new FileHandler based on the file extension and file options.
    * Note that if you add support for a new file type, you must also add the corresponding handler here
    * AND in SUPPORTED_FILE_TYPES
    */
-  static FileTypeHandler getNewFileTypeHandler(String fileExtension, Config fileOptions) {
+  static FileHandler getNewFileTypeHandler(String fileExtension, Config fileOptions) {
     switch (fileExtension) {
       case "json", "jsonl" -> {
         Config jsonConfig = fileOptions.getConfig("json");
         if (jsonConfig == null) jsonConfig = fileOptions.getConfig("jsonl");
 
-        return new JsonFileTypeHandler(jsonConfig);
+        return new JsonFileHandler(jsonConfig);
       }
       case "csv" -> {
         Config csvConfig = fileOptions.getConfig("csv");
-        return new CSVFileTypeHandler(csvConfig);
+        return new CSVFileHandler(csvConfig);
       }
       case "xml" -> {
         Config xmlConfig = fileOptions.getConfig("xml");
-        return new XMLFileTypeHandler(xmlConfig);
+        return new XMLFileHandler(xmlConfig);
       }
       default -> throw new RuntimeException("Unsupported file type: " + fileExtension);
     }

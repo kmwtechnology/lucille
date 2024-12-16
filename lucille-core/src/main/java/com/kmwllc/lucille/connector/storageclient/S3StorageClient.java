@@ -1,9 +1,9 @@
-package com.kmwllc.lucille.connector.storageclients;
+package com.kmwllc.lucille.connector.storageclient;
 
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandlers.FileTypeHandler;
+import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.net.URI;
@@ -26,7 +26,7 @@ import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 public class S3StorageClient extends BaseStorageClient {
 
   private S3Client s3;
-  private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
+  private static final Logger log = LoggerFactory.getLogger(S3StorageClient.class);
 
   public S3StorageClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
@@ -73,7 +73,7 @@ public class S3StorageClient extends BaseStorageClient {
                 String fileExtension = FilenameUtils.getExtension(filePath);
 
                 // handle file types if needed
-                if (!fileOptions.isEmpty() && FileTypeHandler.supportAndContainFileType(fileExtension, fileOptions)) {
+                if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                   // get the file content
                   byte[] content = s3.getObjectAsBytes(
                     GetObjectRequest.builder().bucket(bucketOrContainerName).key(filePath).build()

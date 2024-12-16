@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.storageclients;
+package com.kmwllc.lucille.connector.storageclient;
 
 import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.ServiceAccountCredentials;
@@ -9,7 +9,7 @@ import com.google.cloud.storage.StorageOptions;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandlers.FileTypeHandler;
+import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.FileInputStream;
@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 
 public class GoogleStorageClient extends BaseStorageClient {
 
-  private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
+  private static final Logger log = LoggerFactory.getLogger(GoogleStorageClient.class);
   private Storage storage;
 
   public GoogleStorageClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
@@ -72,7 +72,7 @@ public class GoogleStorageClient extends BaseStorageClient {
                 String fileExtension = FilenameUtils.getExtension(filePath);
 
                 // handle file types if needed
-                if (!fileOptions.isEmpty() && FileTypeHandler.supportAndContainFileType(fileExtension, fileOptions)) {
+                if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                   // get the file content
                   byte[] content = blob.getContent();
                   // instantiate the right FileHandler and publish based on content

@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.storageclients;
+package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.CREATED;
@@ -8,11 +8,11 @@ import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
-import static com.kmwllc.lucille.core.fileHandlers.FileTypeHandler.SUPPORTED_FILE_TYPES;
+import static com.kmwllc.lucille.core.fileHandler.FileHandler.SUPPORTED_FILE_TYPES;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandlers.FileTypeHandler;
+import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.BufferedInputStream;
@@ -23,7 +23,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,8 +33,12 @@ import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 import org.apache.commons.io.FilenameUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class BaseStorageClient implements StorageClient {
+
+  private static final Logger log = LoggerFactory.getLogger(StorageClient.class);
 
   protected Publisher publisher;
   protected String docIdPrefix;
@@ -46,7 +49,7 @@ public abstract class BaseStorageClient implements StorageClient {
   List<Pattern> includes;
   Map<String, Object> cloudOptions;
   Config fileOptions;
-  Map<String, FileTypeHandler> fileHandlers;
+  Map<String, FileHandler> fileHandlers;
   public Integer maxNumOfPages;
   protected boolean getFileContent;
   protected boolean handleArchivedFiles;
@@ -90,7 +93,7 @@ public abstract class BaseStorageClient implements StorageClient {
     for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
       if (fileOptions.hasPath(fileExtensionSupported)) {
         try {
-          FileTypeHandler handler = FileTypeHandler.getNewFileTypeHandler(fileExtensionSupported, fileOptions);
+          FileHandler handler = FileHandler.getNewFileTypeHandler(fileExtensionSupported, fileOptions);
           fileHandlers.put(fileExtensionSupported, handler);
           // handle cases like json/jsonl
           if (fileExtensionSupported.equals("json") || fileExtensionSupported.equals("jsonl")) {
@@ -101,8 +104,6 @@ public abstract class BaseStorageClient implements StorageClient {
           throw new ConnectorException("Error occurred while putting in file handler for file extension: " + fileExtensionSupported, e);
         }
       }
-
-
     }
   }
 
@@ -111,7 +112,7 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   public void publishUsingFileHandler(String fileExtension, Path path) throws Exception {
-    FileTypeHandler handler = fileHandlers.get(fileExtension);
+    FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
     }
@@ -138,7 +139,7 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   public void publishUsingFileHandler(String fileExtension, byte[] content, String pathStr) throws Exception {
-    FileTypeHandler handler = fileHandlers.get(fileExtension);
+    FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
     }
@@ -164,15 +165,19 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  // inputStream parameter will be closed outside of this method as well
-  private void handleArchiveFiles(Publisher publisher, InputStream inputStream) throws ArchiveException, IOException, ConnectorException {
+  // inputStream parameter will be closed via the try with resources
+  public void handleArchiveFiles(Publisher publisher, InputStream inputStream) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
       while ((entry = in.getNextEntry()) != null) {
-        if (shouldIncludeFile(entry.getName(), includes, excludes) && !entry.isDirectory()) {
+        if (!in.canReadEntryData(entry)) {
+          log.info("Cannot read entry data for entry: '{}'. Skipping...", entry.getName());
+          continue;
+        }
+        if (!entry.isDirectory() && shouldIncludeFile(entry.getName(), includes, excludes)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
-          if (FileTypeHandler.supportAndContainFileType(entryExtension, fileOptions)) {
+          if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(entryExtension, fileOptions)) {
             handleStreamExtensionFiles(publisher, in, entryExtension, entry.getName());
           } else {
             // handle entry to be published as a normal document
@@ -199,21 +204,18 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   // inputStream parameter will be closed outside of this method as well
-  private void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fileName)
+  public void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fileName)
       throws ConnectorException {
     try {
-      FileTypeHandler handler = FileTypeHandler.getNewFileTypeHandler(fileExtension, fileOptions);
-      Iterator<Document> docIterator = handler.processFile(in.readAllBytes(), fileName);
-      while (docIterator.hasNext()) {
-        publisher.publish(docIterator.next());
-      }
+      FileHandler handler = fileHandlers.get(fileExtension);
+      handler.processFileAndPublish(publisher, in.readAllBytes(), fileName);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while handling file: " + fileName, e);
     }
   }
 
   // InputStream parameter will be closed outside of this method as well
-  private Document pathToDoc(Path path, InputStream in) throws ConnectorException {
+  public Document pathToDoc(Path path, InputStream in) throws ConnectorException {
     final String docId = DigestUtils.md5Hex(path.toString());
     final Document doc = Document.create(createDocId(docId));
 
@@ -235,7 +237,7 @@ public abstract class BaseStorageClient implements StorageClient {
     return doc;
   }
 
-  private boolean isSupportedCompressedFileType(Path path) {
+  public boolean isSupportedCompressedFileType(Path path) {
     String fileName = path.getFileName().toString();
 
     // note that the following are supported by apache-commons-compress, but have yet to been tested, so commented out for now
@@ -249,12 +251,12 @@ public abstract class BaseStorageClient implements StorageClient {
     // fileName.endsWith(".Z");
   }
 
-  private boolean isSupportedArchiveFileType(Path path) {
+  public boolean isSupportedArchiveFileType(Path path) {
     String fileName = path.getFileName().toString();
     return isSupportedArchiveFileType(fileName);
   }
 
-  private boolean isSupportedArchiveFileType(String string) {
+  public boolean isSupportedArchiveFileType(String string) {
     // note that the following are supported by apache-commons compress, but have yet to been tested, so commented out for now
     return string.endsWith(".tar") ||
         string.endsWith(".zip");

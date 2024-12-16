@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core.fileHandlers;
+package com.kmwllc.lucille.core.fileHandler;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -27,9 +27,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CSVFileTypeHandler extends BaseFileTypeHandler {
+public class CSVFileHandler extends BaseFileHandler {
 
-  private static final Logger log = LoggerFactory.getLogger(CSVFileTypeHandler.class);
+  private static final Logger log = LoggerFactory.getLogger(CSVFileHandler.class);
 
   private final String lineNumField;
   private final String filenameField;
@@ -46,7 +46,7 @@ public class CSVFileTypeHandler extends BaseFileTypeHandler {
   private final String moveToAfterProcessing;
   private static final String UTF8_BOM = "\uFEFF";
 
-  public CSVFileTypeHandler(Config config) {
+  public CSVFileHandler(Config config) {
     super(config);
     this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
     this.filenameField = config.hasPath("filenameField") ? config.getString("filenameField") : "filename";
@@ -75,7 +75,7 @@ public class CSVFileTypeHandler extends BaseFileTypeHandler {
   }
 
   @Override
-  public Iterator<Document> processFile(Path path) throws Exception {
+  public Iterator<Document> processFile(Path path) throws FileHandlerException {
     String pathStr = path.toString();
     CSVReader reader = getCsvReader(pathStr);
 
@@ -84,14 +84,14 @@ public class CSVFileTypeHandler extends BaseFileTypeHandler {
   }
 
   @Override
-  public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws Exception {
+  public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException {
     CSVReader reader = getCsvReader(fileContent);
     // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
     return getDocumentIterator(reader, FilenameUtils.getName(pathStr), pathStr);
   }
 
 
-  private Iterator<Document> getDocumentIterator(CSVReader reader, String filename, String path) throws Exception {
+  private Iterator<Document> getDocumentIterator(CSVReader reader, String filename, String path) throws FileHandlerException {
     return new Iterator<Document>() {;
       final CSVReader csvReader = reader;
       final String[] header = getHeaderFromCSV(csvReader);
@@ -151,19 +151,19 @@ public class CSVFileTypeHandler extends BaseFileTypeHandler {
   }
 
   @Override
-  public void beforeProcessingFile(Path path) throws Exception {
+  public void beforeProcessingFile(Path path) throws FileHandlerException {
     createProcessedAndErrorFoldersIfSet();
 
     File pathFile = path.toFile();
     String pathStr = path.toString();
 
     if (!pathStr.startsWith("classpath:") && !pathFile.exists()) {
-      throw new ConnectorException("Path " + path + " does not exist");
+      throw new FileHandlerException("Path " + path + " does not exist");
     }
   }
 
   @Override
-  public void afterProcessingFile(Path path) throws Exception {
+  public void afterProcessingFile(Path path) throws FileHandlerException {
     if (moveToAfterProcessing != null) {
       // move to processed folder
       moveFile(path.toAbsolutePath().normalize(), moveToAfterProcessing);
@@ -277,7 +277,7 @@ public class CSVFileTypeHandler extends BaseFileTypeHandler {
     return columnIndexMap;
   }
 
-  private String[] getHeaderFromCSV(CSVReader csvReader) throws ConnectorException {
+  private String[] getHeaderFromCSV(CSVReader csvReader) throws FileHandlerException {
     try {
       String[] header = csvReader.readNext();
       if (header == null || header.length == 0) {
@@ -300,29 +300,29 @@ public class CSVFileTypeHandler extends BaseFileTypeHandler {
       } catch (IOException ex) {
         log.error("Error closing CSVReader", ex);
       }
-      throw new ConnectorException("Error reading header from CSV", e);
+      throw new FileHandlerException("Error reading header from CSV", e);
     }
   }
 
-  private CSVReader getCsvReader(String filePath) throws ConnectorException {
+  private CSVReader getCsvReader(String filePath) throws FileHandlerException {
     try {
       return new CSVReaderBuilder(FileUtils.getReader(filePath)).
           withCSVParser(
               new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
           .build();
     } catch (IOException e) {
-      throw new ConnectorException("Error creating CSVReader for file " + FilenameUtils.getName(filePath), e);
+      throw new FileHandlerException("Error creating CSVReader for file " + FilenameUtils.getName(filePath), e);
     }
   }
 
-  private CSVReader getCsvReader(byte[] fileContent) throws ConnectorException {
+  private CSVReader getCsvReader(byte[] fileContent) throws FileHandlerException {
     try {
       return new CSVReaderBuilder(new InputStreamReader(new ByteArrayInputStream(fileContent), StandardCharsets.UTF_8))
           .withCSVParser(
               new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
           .build();
     } catch (Exception e) {
-      throw new ConnectorException("Error creating CSVReader from byte array", e);
+      throw new FileHandlerException("Error creating CSVReader from byte array", e);
     }
   }
 

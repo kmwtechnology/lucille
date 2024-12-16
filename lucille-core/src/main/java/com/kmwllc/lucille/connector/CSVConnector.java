@@ -2,7 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.fileHandlers.CSVFileTypeHandler;
+import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
 import com.typesafe.config.Config;
 import java.io.File;
 import org.slf4j.Logger;
@@ -15,13 +15,13 @@ import java.nio.file.Path;
 public class CSVConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(CSVConnector.class);
-  private final CSVFileTypeHandler csvFileHandler;
+  private final CSVFileHandler csvFileHandler;
   private final String pathStr;
 
   public CSVConnector(Config config) {
     super(config);
     this.pathStr = config.getString("path");
-    this.csvFileHandler = new CSVFileTypeHandler(config);
+    this.csvFileHandler = new CSVFileHandler(config);
   }
 
   @Override

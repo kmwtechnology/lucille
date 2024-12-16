@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.storageclients;
+package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.CREATED;
@@ -9,10 +9,12 @@ import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandlers.FileTypeHandler;
+import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -25,12 +27,14 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.compress.compressors.CompressorInputStream;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class LocalStorageClient extends BaseStorageClient {
-  private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
+  private static final Logger log = LoggerFactory.getLogger(LocalStorageClient.class);
   private FileSystem fs;
   private Path startingDirectoryPath;
 
@@ -79,36 +83,34 @@ public class LocalStorageClient extends BaseStorageClient {
           .forEachOrdered(path -> {
             String fileExtension = FilenameUtils.getExtension(path.toString());
             try {
-              //TODO: investigate resource usage for handling compressed and archived files before enabling them
-//              // handle compressed files and after decompression, handle regardless if archived or not
-//              if (handleCompressedFiles && isSupportedCompressedFileType(path)) {
-//                // unzip the file, compressorStream will be closed when try block is exited
-//                try (BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(path));
-//                    CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
-//                  // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
-//                  String unzippedFileName = path.getFileName().toString().replaceFirst("[.][^.]+$", "");
-//                  if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
-//                    handleArchiveFiles(publisher, compressorStream);
-//                  } else if (!fileOptions.isEmpty() && FileHandler.supportsFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
-//                    handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), path.toString());
-//                  } else {
-//                    Document doc = pathToDoc(path, compressorStream);
-//                    publisher.publish(doc);
-//                  }
-//                }
-//                return;
-//              }
-//
-//              // handle archived files that are not zipped
-//              if (handleArchivedFiles && isSupportedArchiveFileType(path)) {
-//                try (InputStream in = Files.newInputStream(path)) {
-//                  handleArchiveFiles(publisher, in);
-//                }
-//                return;
-//              }
+              if (handleCompressedFiles && isSupportedCompressedFileType(path)) {
+                // unzip the file, compressorStream will be closed when try block is exited
+                try (BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(path));
+                    CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
+                  // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
+                  String unzippedFileName = path.getFileName().toString().replaceFirst("[.][^.]+$", "");
+                  if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
+                    handleArchiveFiles(publisher, compressorStream);
+                  } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
+                    handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), path.toString());
+                  } else {
+                    Document doc = pathToDoc(path, compressorStream);
+                    publisher.publish(doc);
+                  }
+                }
+                return;
+              }
 
-              // not archived nor zip, handling supported file types if fileOptions are provided
-              if (!fileOptions.isEmpty() && FileTypeHandler.supportAndContainFileType(fileExtension, fileOptions)) {
+              // handle archived files that are not zipped
+              if (handleArchivedFiles && isSupportedArchiveFileType(path)) {
+                try (InputStream in = Files.newInputStream(path)) {
+                  handleArchiveFiles(publisher, in);
+                }
+                return;
+              }
+
+              // not archived nor compressed, handling supported file types if fileOptions are provided
+              if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                 // instantiate the right FileHandler based on path
                 publishUsingFileHandler(fileExtension, path);
                 return;

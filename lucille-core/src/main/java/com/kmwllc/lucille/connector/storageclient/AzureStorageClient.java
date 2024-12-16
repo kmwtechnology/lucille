@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.storageclients;
+package com.kmwllc.lucille.connector.storageclient;
 
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
@@ -9,7 +9,7 @@ import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandlers.FileTypeHandler;
+import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.net.URI;
@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 public class AzureStorageClient extends BaseStorageClient {
 
   private BlobContainerClient containerClient;
-  private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
+  private static final Logger log = LoggerFactory.getLogger(AzureStorageClient.class);
 
   public AzureStorageClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
@@ -86,7 +86,7 @@ public class AzureStorageClient extends BaseStorageClient {
               String fileExtension = FilenameUtils.getExtension(filePath);
 
               // handle file types if needed
-              if (!fileOptions.isEmpty() && FileTypeHandler.supportAndContainFileType(fileExtension, fileOptions)) {
+              if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                 // get the file content
                 byte[] content = containerClient.getBlobClient(blob.getName()).downloadContent().toBytes();
                 // instantiate the right FileHandler and publish based on content

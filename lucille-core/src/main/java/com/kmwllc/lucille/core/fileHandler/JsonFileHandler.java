@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core.fileHandlers;
+package com.kmwllc.lucille.core.fileHandler;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -18,40 +18,40 @@ import org.apache.commons.io.LineIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class JsonFileTypeHandler extends BaseFileTypeHandler {
+public class JsonFileHandler extends BaseFileHandler {
 
-  private static final Logger log = LoggerFactory.getLogger(JsonFileTypeHandler.class);
+  private static final Logger log = LoggerFactory.getLogger(JsonFileHandler.class);
 
   private final UnaryOperator<String> idUpdater;
 
-  public JsonFileTypeHandler(Config config) {
+  public JsonFileHandler(Config config) {
     super(config);
     this.idUpdater = (id) -> docIdPrefix + id;
   }
 
 
   @Override
-  public Iterator<Document> processFile(Path path) throws Exception {
+  public Iterator<Document> processFile(Path path) throws FileHandlerException {
     // reader will be closed when the LineIterator is closed in getDocumentIterator
     // only works for path from local file system
     Reader reader;
     try {
       reader = FileUtils.getReader(path.toString());
     } catch (Exception e) {
-      throw new ConnectorException("Error creating reader from path: " + path, e);
+      throw new FileHandlerException("Error creating reader from path: " + path, e);
     }
 
     return getDocumentIterator(reader);
   }
 
   @Override
-  public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws Exception {
+  public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException {
     // reader will be closed when the LineIterator is closed in getDocumentIterator
     Reader reader;
     try {
       reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(fileContent), StandardCharsets.UTF_8));
     } catch (Exception e) {
-      throw new ConnectorException("Error creating reader from file: " + pathStr, e);
+      throw new FileHandlerException("Error creating reader from file: " + pathStr, e);
     }
 
     return getDocumentIterator(reader);

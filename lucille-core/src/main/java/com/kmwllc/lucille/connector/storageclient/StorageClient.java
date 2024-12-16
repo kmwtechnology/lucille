@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.storageclients;
+package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_KEY;
 import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;

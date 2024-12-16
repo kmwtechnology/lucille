@@ -3,6 +3,8 @@ package com.kmwllc.lucille.connector.xml;
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.fileHandler.FileHandler;
+import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
 import com.typesafe.config.Config;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -45,10 +47,7 @@ public class XMLConnector extends AbstractConnector {
   private String encoding;
   private String outputField;
 
-  // for FileConnector
-  private SAXParserFactory spf = null;
-  private SAXParser saxParser = null;
-  private XMLReader xmlReader = null;
+  private FileHandler fileHandler;
 
 
   public XMLConnector(Config config) {
@@ -59,6 +58,7 @@ public class XMLConnector extends AbstractConnector {
     urlFiles = config.hasPath("urlFiles") ? config.getStringList("urlFiles") : null;
     encoding = config.hasPath("encoding") ? config.getString("encoding") : "utf-8";
     outputField = config.hasPath("outputField") ? config.getString("outputField") : "xml";
+    this.fileHandler = new XMLFileHandler(config);
   }
 
   @Override
