@@ -203,8 +203,9 @@ public class GoogleStorageClientTest {
       mockFileHandler.when(() -> FileHandler.getNewFileHandler(any(), any()))
           .thenReturn(jsonFileHandler);
       mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
-          .thenReturn(true).thenReturn(true).thenReturn(false);
+          .thenReturn(true).thenReturn(false).thenReturn(true); // .json, then object3, then .json
 
+      gStorageClient.initializeFileHandlers();
       gStorageClient.publishFiles();
       // verify that the processFileAndPublish is only called for the json files
       verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), any());

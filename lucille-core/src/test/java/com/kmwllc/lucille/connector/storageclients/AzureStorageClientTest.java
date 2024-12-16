@@ -224,6 +224,7 @@ public class AzureStorageClientTest {
       mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(true).thenReturn(false);
 
+      azureStorageClient.initializeFileHandlers();
       azureStorageClient.publishFiles();
       // verify that the processFileAndPublish is only called for the json files
       verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), any());

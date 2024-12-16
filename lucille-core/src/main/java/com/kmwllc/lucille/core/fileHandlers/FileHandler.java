@@ -1,14 +1,11 @@
 package com.kmwllc.lucille.core.fileHandlers;
 
-import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public interface FileHandler {
 

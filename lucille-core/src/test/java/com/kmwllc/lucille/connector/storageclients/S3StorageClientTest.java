@@ -220,6 +220,7 @@ public class S3StorageClientTest {
       mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(true).thenReturn(false);
 
+      s3StorageClient.initializeFileHandlers();
       s3StorageClient.publishFiles();
       // verify that the processFileAndPublish is only called for the json files
       verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), any());
