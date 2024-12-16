@@ -8,11 +8,11 @@ import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
-import static com.kmwllc.lucille.core.fileHandlers.FileHandler.SUPPORTED_FILE_TYPES;
+import static com.kmwllc.lucille.core.fileHandlers.FileTypeHandler.SUPPORTED_FILE_TYPES;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandlers.FileHandler;
+import com.kmwllc.lucille.core.fileHandlers.FileTypeHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.BufferedInputStream;
@@ -46,7 +46,7 @@ public abstract class BaseStorageClient implements StorageClient {
   List<Pattern> includes;
   Map<String, Object> cloudOptions;
   Config fileOptions;
-  Map<String, FileHandler> fileHandlers;
+  Map<String, FileTypeHandler> fileHandlers;
   public Integer maxNumOfPages;
   protected boolean getFileContent;
   protected boolean handleArchivedFiles;
@@ -90,7 +90,7 @@ public abstract class BaseStorageClient implements StorageClient {
     for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
       if (fileOptions.hasPath(fileExtensionSupported)) {
         try {
-          FileHandler handler = FileHandler.getNewFileHandler(fileExtensionSupported, fileOptions);
+          FileTypeHandler handler = FileTypeHandler.getNewFileTypeHandler(fileExtensionSupported, fileOptions);
           fileHandlers.put(fileExtensionSupported, handler);
           // handle cases like json/jsonl
           if (fileExtensionSupported.equals("json") || fileExtensionSupported.equals("jsonl")) {
@@ -111,7 +111,7 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   public void publishUsingFileHandler(String fileExtension, Path path) throws Exception {
-    FileHandler handler = fileHandlers.get(fileExtension);
+    FileTypeHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
     }
@@ -138,7 +138,7 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   public void publishUsingFileHandler(String fileExtension, byte[] content, String pathStr) throws Exception {
-    FileHandler handler = fileHandlers.get(fileExtension);
+    FileTypeHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
     }
@@ -172,7 +172,7 @@ public abstract class BaseStorageClient implements StorageClient {
       while ((entry = in.getNextEntry()) != null) {
         if (shouldIncludeFile(entry.getName(), includes, excludes) && !entry.isDirectory()) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
-          if (FileHandler.supportAndContainFileType(entryExtension, fileOptions)) {
+          if (FileTypeHandler.supportAndContainFileType(entryExtension, fileOptions)) {
             handleStreamExtensionFiles(publisher, in, entryExtension, entry.getName());
           } else {
             // handle entry to be published as a normal document
@@ -202,7 +202,7 @@ public abstract class BaseStorageClient implements StorageClient {
   private void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fileName)
       throws ConnectorException {
     try {
-      FileHandler handler = FileHandler.getNewFileHandler(fileExtension, fileOptions);
+      FileTypeHandler handler = FileTypeHandler.getNewFileTypeHandler(fileExtension, fileOptions);
       Iterator<Document> docIterator = handler.processFile(in.readAllBytes(), fileName);
       while (docIterator.hasNext()) {
         publisher.publish(docIterator.next());

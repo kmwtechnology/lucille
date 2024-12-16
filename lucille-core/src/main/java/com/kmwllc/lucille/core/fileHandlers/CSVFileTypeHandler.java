@@ -27,9 +27,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CSVFileHandler implements FileHandler {
+public class CSVFileTypeHandler extends BaseFileTypeHandler {
 
-  private static final Logger log = LoggerFactory.getLogger(CSVFileHandler.class);
+  private static final Logger log = LoggerFactory.getLogger(CSVFileTypeHandler.class);
 
   private final String lineNumField;
   private final String filenameField;
@@ -37,7 +37,6 @@ public class CSVFileHandler implements FileHandler {
   // CSV Connector might need a compound key for uniqueness based on many columns.
   private final List<String> idFields;
   private final String docIdFormat;
-  private final String docIdPrefix;
   private final char separatorChar;
   private final char quoteChar;
   private final char escapeChar;
@@ -47,7 +46,8 @@ public class CSVFileHandler implements FileHandler {
   private final String moveToAfterProcessing;
   private static final String UTF8_BOM = "\uFEFF";
 
-  public CSVFileHandler(Config config) {
+  public CSVFileTypeHandler(Config config) {
+    super(config);
     this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
     this.filenameField = config.hasPath("filenameField") ? config.getString("filenameField") : "filename";
     this.filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : "source";
@@ -60,7 +60,6 @@ public class CSVFileHandler implements FileHandler {
       this.idFields = config.hasPath("idFields") ? config.getStringList("idFields") : new ArrayList<String>();
     }
     this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
-    this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
     // if both a separator char and useTabs is specified, useTabs takes precedence
     char separator = config.hasPath("separatorChar") ? CharUtils.toChar(config.getString("separatorChar")) : ',';
     this.separatorChar = (config.hasPath("useTabs") && config.getBoolean("useTabs")) ? '\t' : separator;
@@ -73,7 +72,6 @@ public class CSVFileHandler implements FileHandler {
     this.ignoredTerms = config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : new ArrayList<>();
     // A directory to move the files to after they are doing being processed.
     this.moveToAfterProcessing = config.hasPath("moveToAfterProcessing") ? config.getString("moveToAfterProcessing") : null;
-    log.info("Created CSVFileHandler with config: {}", config);
   }
 
   @Override

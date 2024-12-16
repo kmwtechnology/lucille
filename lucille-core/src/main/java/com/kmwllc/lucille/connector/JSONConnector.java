@@ -2,7 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.fileHandlers.JsonFileHandler;
+import com.kmwllc.lucille.core.fileHandlers.JsonFileTypeHandler;
 import com.typesafe.config.Config;
 import java.io.File;
 import java.nio.file.Path;
@@ -13,12 +13,12 @@ import org.slf4j.LoggerFactory;
 public class JSONConnector extends AbstractConnector {
   private static final Logger log = LoggerFactory.getLogger(JSONConnector.class);
   private final String pathStr;
-  private final JsonFileHandler jsonFileHandler;
+  private final JsonFileTypeHandler jsonFileHandler;
 
   public JSONConnector(Config config) {
     super(config);
     this.pathStr = config.getString("jsonPath");
-    this.jsonFileHandler = new JsonFileHandler(config);
+    this.jsonFileHandler = new JsonFileTypeHandler(config);
   }
 
   @Override

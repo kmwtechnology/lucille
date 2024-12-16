@@ -6,7 +6,6 @@ import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -19,14 +18,14 @@ import org.apache.commons.io.LineIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class JsonFileHandler implements FileHandler {
-  private static final Logger log = LoggerFactory.getLogger(JsonFileHandler.class);
+public class JsonFileTypeHandler extends BaseFileTypeHandler {
 
-  private final String docIdPrefix;
+  private static final Logger log = LoggerFactory.getLogger(JsonFileTypeHandler.class);
+
   private final UnaryOperator<String> idUpdater;
 
-  public JsonFileHandler(Config config) {
-    this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
+  public JsonFileTypeHandler(Config config) {
+    super(config);
     this.idUpdater = (id) -> docIdPrefix + id;
   }
 

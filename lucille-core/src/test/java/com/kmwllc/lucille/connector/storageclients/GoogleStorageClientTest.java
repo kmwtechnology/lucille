@@ -19,8 +19,8 @@ import com.google.cloud.storage.contrib.nio.testing.LocalStorageHelper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
-import com.kmwllc.lucille.core.fileHandlers.FileHandler;
-import com.kmwllc.lucille.core.fileHandlers.JsonFileHandler;
+import com.kmwllc.lucille.core.fileHandlers.FileTypeHandler;
+import com.kmwllc.lucille.core.fileHandlers.JsonFileTypeHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -198,17 +198,17 @@ public class GoogleStorageClientTest {
         List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of())));
     gStorageClient.setStorageForTesting(storage);
 
-    try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
-      FileHandler jsonFileHandler = mock(JsonFileHandler.class);
-      mockFileHandler.when(() -> FileHandler.getNewFileHandler(any(), any()))
-          .thenReturn(jsonFileHandler);
-      mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
+    try (MockedStatic<FileTypeHandler> mockFileHandler = mockStatic(FileTypeHandler.class)) {
+      FileTypeHandler jsonFileTypeHandler = mock(JsonFileTypeHandler.class);
+      mockFileHandler.when(() -> FileTypeHandler.getNewFileTypeHandler(any(), any()))
+          .thenReturn(jsonFileTypeHandler);
+      mockFileHandler.when(() -> FileTypeHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(false).thenReturn(true); // .json, then object3, then .json
 
       gStorageClient.initializeFileHandlers();
       gStorageClient.publishFiles();
       // verify that the processFileAndPublish is only called for the json files
-      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), any());
+      verify(jsonFileTypeHandler, times(2)).processFileAndPublish(any(), any(), any());
     }
 
     gStorageClient.shutdown();

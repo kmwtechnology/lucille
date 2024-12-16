@@ -21,13 +21,12 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
 
-public class XMLFileHandler implements FileHandler {
+public class XMLFileTypeHandler extends BaseFileTypeHandler {
 
-  private static final Logger log = LoggerFactory.getLogger(XMLFileHandler.class);
+  private static final Logger log = LoggerFactory.getLogger(XMLFileTypeHandler.class);
 
   private String xmlRootPath;
   private String xmlIdPath;
-  private final String docIdPrefix;
   private String encoding;
   private String outputField;
 
@@ -35,7 +34,8 @@ public class XMLFileHandler implements FileHandler {
   private SAXParser saxParser = null;
   private XMLReader xmlReader = null;
 
-  public XMLFileHandler(Config config) {
+  public XMLFileTypeHandler(Config config) {
+    super(config);
     this.xmlRootPath = config.getString("xmlRootPath");
     this.xmlIdPath = config.getString("xmlIdPath");
     this.encoding = config.hasPath("encoding") ? config.getString("encoding") : "utf-8";

@@ -9,7 +9,7 @@ import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandlers.FileHandler;
+import com.kmwllc.lucille.core.fileHandlers.FileTypeHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -108,7 +108,7 @@ public class LocalStorageClient extends BaseStorageClient {
 //              }
 
               // not archived nor zip, handling supported file types if fileOptions are provided
-              if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
+              if (!fileOptions.isEmpty() && FileTypeHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                 // instantiate the right FileHandler based on path
                 publishUsingFileHandler(fileExtension, path);
                 return;

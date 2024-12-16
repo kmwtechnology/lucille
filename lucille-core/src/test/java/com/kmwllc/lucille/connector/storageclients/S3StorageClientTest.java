@@ -19,8 +19,8 @@ import static org.mockito.Mockito.when;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
-import com.kmwllc.lucille.core.fileHandlers.FileHandler;
-import com.kmwllc.lucille.core.fileHandlers.JsonFileHandler;
+import com.kmwllc.lucille.core.fileHandlers.FileTypeHandler;
+import com.kmwllc.lucille.core.fileHandlers.JsonFileTypeHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -213,17 +213,17 @@ public class S3StorageClientTest {
 
     when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
 
-    try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
-      FileHandler jsonFileHandler = mock(JsonFileHandler.class);
-      mockFileHandler.when(() -> FileHandler.getNewFileHandler(any(), any()))
-          .thenReturn(jsonFileHandler);
-      mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
+    try (MockedStatic<FileTypeHandler> mockFileHandler = mockStatic(FileTypeHandler.class)) {
+      FileTypeHandler jsonFileTypeHandler = mock(JsonFileTypeHandler.class);
+      mockFileHandler.when(() -> FileTypeHandler.getNewFileTypeHandler(any(), any()))
+          .thenReturn(jsonFileTypeHandler);
+      mockFileHandler.when(() -> FileTypeHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(true).thenReturn(false);
 
       s3StorageClient.initializeFileHandlers();
       s3StorageClient.publishFiles();
       // verify that the processFileAndPublish is only called for the json files
-      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), any());
+      verify(jsonFileTypeHandler, times(2)).processFileAndPublish(any(), any(), any());
     }
 
     s3StorageClient.shutdown();

@@ -9,7 +9,7 @@ import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandlers.FileHandler;
+import com.kmwllc.lucille.core.fileHandlers.FileTypeHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.net.URI;
@@ -86,7 +86,7 @@ public class AzureStorageClient extends BaseStorageClient {
               String fileExtension = FilenameUtils.getExtension(filePath);
 
               // handle file types if needed
-              if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
+              if (!fileOptions.isEmpty() && FileTypeHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                 // get the file content
                 byte[] content = containerClient.getBlobClient(blob.getName()).downloadContent().toBytes();
                 // instantiate the right FileHandler and publish based on content
