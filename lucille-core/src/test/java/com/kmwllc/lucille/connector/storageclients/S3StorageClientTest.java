@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.connector.storageclients;
 
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
 import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
@@ -216,9 +215,9 @@ public class S3StorageClientTest {
 
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
       FileHandler jsonFileHandler = mock(JsonFileHandler.class);
-      mockFileHandler.when(() -> FileHandler.getFileHandler(any(), any()))
+      mockFileHandler.when(() -> FileHandler.getNewFileHandler(any(), any()))
           .thenReturn(jsonFileHandler);
-      mockFileHandler.when(() -> FileHandler.supportsFileType(any(), any()))
+      mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(true).thenReturn(false);
 
       s3StorageClient.publishFiles();

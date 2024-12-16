@@ -28,13 +28,7 @@ import com.kmwllc.lucille.core.fileHandlers.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -225,9 +219,9 @@ public class AzureStorageClientTest {
     azureStorageClient.setContainerClientForTesting(mockClient);
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
       FileHandler jsonFileHandler = mock(JsonFileHandler.class);
-      mockFileHandler.when(() -> FileHandler.getFileHandler(any(), any()))
+      mockFileHandler.when(() -> FileHandler.getNewFileHandler(any(), any()))
           .thenReturn(jsonFileHandler);
-      mockFileHandler.when(() -> FileHandler.supportsFileType(any(), any()))
+      mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(true).thenReturn(false);
 
       azureStorageClient.publishFiles();

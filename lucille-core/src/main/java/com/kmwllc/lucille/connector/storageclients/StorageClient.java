@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.connector.storageclients;
 
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_KEY;
-import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
 import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
@@ -9,15 +8,12 @@ import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_CONNECTION_STRING;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_NAME;
 
-import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Interface for cloud storage clients. Implementations of this interface should be able to connect to a cloud storage service
@@ -29,16 +25,16 @@ import org.slf4j.LoggerFactory;
  *  - publishFiles() - Publish files to Lucille
  *
  */
+
 public interface StorageClient {
-  Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   /**
-   * Initialize the client
+   * Initialize the client, create any connections or resources
    */
   void init();
 
   /**
-   * Shutdown the client
+   * Shutdown the client, closes any open connections or resources
    */
   void shutdown() throws Exception;
 
@@ -48,7 +44,7 @@ public interface StorageClient {
   void publishFiles() throws Exception;
 
   /**
-   * Get the appropriate client based on the URI scheme with authentication/settings from cloudOptions
+   * Gets the appropriate client based on the URI scheme and validate with authentication/settings from cloudOptions
    */
   static StorageClient getClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
@@ -79,7 +75,8 @@ public interface StorageClient {
   }
 
   /**
-   * Validate the cloud options based on the storage URI and cloudOptions. CloudOptions must contain authentication information
+   * Validate that respective cloud authentication information is provided for the given cloud provider.
+   * Only checks the presence of required fields.
    */
   static void validateCloudOptions(URI storageURI, Map<String, Object> cloudOptions) {
     switch (storageURI.getScheme()) {

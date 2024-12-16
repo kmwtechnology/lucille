@@ -8,6 +8,7 @@ import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
+import static com.kmwllc.lucille.core.fileHandlers.FileHandler.SUPPORTED_FILE_TYPES;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -21,6 +22,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +46,7 @@ public abstract class BaseStorageClient implements StorageClient {
   List<Pattern> includes;
   Map<String, Object> cloudOptions;
   Config fileOptions;
+  Map<String, FileHandler> fileHandlers;
   public Integer maxNumOfPages;
   protected boolean getFileContent;
   protected boolean handleArchivedFiles;
@@ -60,6 +63,7 @@ public abstract class BaseStorageClient implements StorageClient {
     this.includes = includes;
     this.cloudOptions = cloudOptions;
     this.fileOptions = fileOptions;
+    this.fileHandlers = new HashMap<>();
     this.getFileContent = !fileOptions.hasPath(GET_FILE_CONTENT) || fileOptions.getBoolean(GET_FILE_CONTENT);
     this.handleArchivedFiles = fileOptions.hasPath(HANDLE_ARCHIVED_FILES) && fileOptions.getBoolean(HANDLE_ARCHIVED_FILES);
     this.handleCompressedFiles = fileOptions.hasPath(HANDLE_COMPRESSED_FILES) && fileOptions.getBoolean(HANDLE_COMPRESSED_FILES);
@@ -81,12 +85,35 @@ public abstract class BaseStorageClient implements StorageClient {
         && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(filePath).matches()));
   }
 
+  public void initializeFileHandlers() throws ConnectorException {
+    // go through fileOptions, and initialize all file handlers
+    for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
+      if (fileOptions.hasPath(fileExtensionSupported)) {
+        try {
+          FileHandler handler = FileHandler.getNewFileHandler(fileExtensionSupported, fileOptions);
+          fileHandlers.put(fileExtensionSupported, handler);
+          // handle cases like json/jsonl
+          if (fileExtensionSupported.equals("json") || fileExtensionSupported.equals("jsonl")) {
+            fileHandlers.put("json", handler);
+            fileHandlers.put("jsonl", handler);
+          }
+        } catch (Exception e) {
+          throw new ConnectorException("Error occurred while putting in file handler for file extension: " + fileExtensionSupported, e);
+        }
+      }
+
+
+    }
+  }
+
+  public void clearFileHandlers() {
+    fileHandlers.clear();
+  }
+
   public void publishUsingFileHandler(String fileExtension, Path path) throws Exception {
-    FileHandler handler = null;
-    try {
-      handler = FileHandler.getFileHandler(fileExtension, fileOptions);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while getting file handler for file: " + path, e);
+    FileHandler handler = fileHandlers.get(fileExtension);
+    if (handler == null) {
+      throw new ConnectorException("No file handler found for file extension: " + fileExtension);
     }
 
     // perform preprocessing
@@ -111,13 +138,11 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   public void publishUsingFileHandler(String fileExtension, byte[] content, String pathStr) throws Exception {
-    FileHandler handler = null;
-    try {
-      handler = FileHandler.getFileHandler(fileExtension, fileOptions);
-    } catch (Exception e) {
-      // throwing exception will skip this file
-      throw new ConnectorException("Error occurred while getting file handler for file: " + pathStr, e);
+    FileHandler handler = fileHandlers.get(fileExtension);
+    if (handler == null) {
+      throw new ConnectorException("No file handler found for file extension: " + fileExtension);
     }
+
     // perform preprocessing
     try {
       handler.beforeProcessingFile(content);
@@ -147,7 +172,7 @@ public abstract class BaseStorageClient implements StorageClient {
       while ((entry = in.getNextEntry()) != null) {
         if (shouldIncludeFile(entry.getName(), includes, excludes) && !entry.isDirectory()) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
-          if (FileHandler.supportsFileType(entryExtension, fileOptions)) {
+          if (FileHandler.supportAndContainFileType(entryExtension, fileOptions)) {
             handleStreamExtensionFiles(publisher, in, entryExtension, entry.getName());
           } else {
             // handle entry to be published as a normal document
@@ -177,7 +202,7 @@ public abstract class BaseStorageClient implements StorageClient {
   private void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fileName)
       throws ConnectorException {
     try {
-      FileHandler handler = FileHandler.getFileHandler(fileExtension, fileOptions);
+      FileHandler handler = FileHandler.getNewFileHandler(fileExtension, fileOptions);
       Iterator<Document> docIterator = handler.processFile(in.readAllBytes(), fileName);
       while (docIterator.hasNext()) {
         publisher.publish(docIterator.next());

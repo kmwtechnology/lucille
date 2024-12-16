@@ -15,7 +15,6 @@ import com.kmwllc.lucille.connector.storageclients.StorageClient;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandlers.FileHandlerManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
@@ -130,7 +129,6 @@ public class FileConnectorTest {
       docCount++;
     }
     Assert.assertEquals(8, docCount);
-    FileHandlerManager.closeAllHandlers();
   }
 
   @Test
@@ -158,7 +156,6 @@ public class FileConnectorTest {
         Assert.assertTrue(content.contains("\"productImg\":\"mug-400_6812876c6c27.jpg\""));
       }
     }
-    FileHandlerManager.closeAllHandlers();
   }
 
   @Test
@@ -186,7 +183,6 @@ public class FileConnectorTest {
     assertEquals("prefix4", jsonDoc4.getId());
     assertEquals("12", normalDoc.getString("file_size_bytes"));
     assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
-    FileHandlerManager.closeAllHandlers();
   }
 
   @Test
@@ -239,7 +235,6 @@ public class FileConnectorTest {
     // skipped line 5 as it was empty
     assertEquals("6", csvDoc6.getString("csvLineNumber"));
 
-    FileHandlerManager.closeAllHandlers();
   }
 
   @Test
@@ -270,7 +265,6 @@ public class FileConnectorTest {
       // delete all created folders and files and reset the FileHandlerManager
       f.delete();
       errorDir.delete();
-      FileHandlerManager.closeAllHandlers();
     }
   }
 
@@ -302,7 +296,6 @@ public class FileConnectorTest {
       // delete all created folders and files and reset the FileHandlerManager
       f.delete();
       successDir.delete();
-      FileHandlerManager.closeAllHandlers();
     }
   }
 
@@ -319,7 +312,6 @@ public class FileConnectorTest {
     List<Document> documentList = messenger.getDocsSentForProcessing();
     // assert that all documents have been processed
 
-    FileHandlerManager.closeAllHandlers();
   }
 
   // we ignore the tests related to compression/achived files ATM, need more investigation on resource management
@@ -348,7 +340,6 @@ public class FileConnectorTest {
     assertEquals("prefix4", jsonDoc4.getId());
     assertEquals("12", normalDoc.getString("file_size_bytes"));
     assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
-    FileHandlerManager.closeAllHandlers();
   }
 
   @Ignore
@@ -376,7 +367,6 @@ public class FileConnectorTest {
     assertEquals("prefix4", jsonDoc4.getId());
     assertEquals("12", normalDoc.getString("file_size_bytes"));
     assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
-    FileHandlerManager.closeAllHandlers();
   }
 
   @Ignore
@@ -402,7 +392,6 @@ public class FileConnectorTest {
     assertEquals("hello World! This is the txt gz file.", new String(txtGzDoc.getBytes("file_content")));
     assertEquals("prefix2", jsonlGzDoc1.getId());
     assertEquals("prefix3", jsonlGzDoc2.getId());
-    FileHandlerManager.closeAllHandlers();
   }
 
   @Ignore
@@ -431,6 +420,5 @@ public class FileConnectorTest {
     assertEquals("prefix4", jsonDoc4.getId());
     assertEquals("12", normalDoc.getString("file_size_bytes"));
     assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
-    FileHandlerManager.closeAllHandlers();
   }
 }

@@ -7,9 +7,9 @@ import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandlers.FileHandler;
-import com.kmwllc.lucille.core.fileHandlers.FileHandlerManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.net.URI;
@@ -60,14 +60,20 @@ public class AzureStorageClient extends BaseStorageClient {
           .containerName(bucketOrContainerName)
           .buildClient();
     }
+
+    try {
+      initializeFileHandlers();
+    } catch (ConnectorException e) {
+      throw new IllegalArgumentException("Error occurred initializing FileHandlers", e);
+    }
   }
 
   @Override
   public void shutdown() throws Exception {
     // azure container client is not closable
     containerClient = null;
-    // close all file handlers if any
-    FileHandlerManager.closeAllHandlers();
+    // clear all file handlers if any
+    clearFileHandlers();
   }
 
   @Override
@@ -80,7 +86,7 @@ public class AzureStorageClient extends BaseStorageClient {
               String fileExtension = FilenameUtils.getExtension(filePath);
 
               // handle file types if needed
-              if (!fileOptions.isEmpty() && FileHandler.supportsFileType(fileExtension, fileOptions)) {
+              if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                 // get the file content
                 byte[] content = containerClient.getBlobClient(blob.getName()).downloadContent().toBytes();
                 // instantiate the right FileHandler and publish based on content

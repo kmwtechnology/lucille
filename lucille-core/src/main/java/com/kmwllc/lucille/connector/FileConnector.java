@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
  *  includes (list of strings, Optional): list of regex patterns to include files
  *  excludes (list of strings, Optional): list of regex patterns to exclude files
  *  cloudOptions (Map, Optional): cloud storage options, required if using cloud storage
+ *  fileOptions (Map, Optional): file options for handling of files
  *
  * Cloud Options based on providers:
  *  Google:
@@ -41,7 +42,15 @@ import org.slf4j.LoggerFactory;
  *    "secretAccessKey" : secret access key
  *    "region" : s3 storage region
  *  Optional:
- *    "maxNumOfPages" : number of reference to the files loaded into memory in a single fetch request, defaults to 100
+ *    "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request, defaults to 100
+ *
+ *  File Options:
+ *    getFileContent (boolean, Optional): whether to fetch the file content or not, defaults to true
+ *    handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false
+ *    handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false
+ *    csv (Map, Optional): csv config options for handling csv type files. Config will be passed to FileTypeHandler
+ *    json (Map, Optional): json config options for handling json type files. Config will be passed to FileTypeHandler
+ *    jsonl (Map, Optional): jsonl config options for handling jsonl type files. Config will be passed to FileTypeHandler
  */
 public class FileConnector extends AbstractConnector {
 

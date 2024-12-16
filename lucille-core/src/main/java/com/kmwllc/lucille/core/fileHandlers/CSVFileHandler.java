@@ -73,6 +73,7 @@ public class CSVFileHandler implements FileHandler {
     this.ignoredTerms = config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : new ArrayList<>();
     // A directory to move the files to after they are doing being processed.
     this.moveToAfterProcessing = config.hasPath("moveToAfterProcessing") ? config.getString("moveToAfterProcessing") : null;
+    log.info("Created CSVFileHandler with config: {}", config);
   }
 
   @Override

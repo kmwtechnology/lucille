@@ -7,9 +7,9 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageOptions;
 import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandlers.FileHandler;
-import com.kmwllc.lucille.core.fileHandlers.FileHandlerManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.FileInputStream;
@@ -43,6 +43,12 @@ public class GoogleStorageClient extends BaseStorageClient {
     } catch (IOException e) {
       throw new IllegalArgumentException("Error occurred getting/using credentials from pathToServiceKey", e);
     }
+
+    try {
+      initializeFileHandlers();
+    } catch (ConnectorException e) {
+      throw new IllegalArgumentException("Error occurred initializing FileHandlers", e);
+    }
   }
 
   @Override
@@ -50,8 +56,8 @@ public class GoogleStorageClient extends BaseStorageClient {
     if (storage != null) {
       storage.close();
     }
-    // close all FileHandlers
-    FileHandlerManager.closeAllHandlers();
+    // clear all FileHandlers if any
+    clearFileHandlers();
   }
 
   @Override
@@ -66,7 +72,7 @@ public class GoogleStorageClient extends BaseStorageClient {
                 String fileExtension = FilenameUtils.getExtension(filePath);
 
                 // handle file types if needed
-                if (!fileOptions.isEmpty() && FileHandler.supportsFileType(fileExtension, fileOptions)) {
+                if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                   // get the file content
                   byte[] content = blob.getContent();
                   // instantiate the right FileHandler and publish based on content

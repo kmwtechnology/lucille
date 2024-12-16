@@ -1,9 +1,9 @@
 package com.kmwllc.lucille.connector.storageclients;
 
 import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandlers.FileHandler;
-import com.kmwllc.lucille.core.fileHandlers.FileHandlerManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.net.URI;
@@ -42,6 +42,12 @@ public class S3StorageClient extends BaseStorageClient {
         .region(Region.of((String) cloudOptions.get(FileConnector.S3_REGION)))
         .credentialsProvider(StaticCredentialsProvider.create(awsCred))
         .build();
+
+    try {
+      initializeFileHandlers();
+    } catch (ConnectorException e) {
+      throw new IllegalArgumentException("Error occurred initializing FileHandlers", e);
+    }
   }
 
   @Override
@@ -50,8 +56,8 @@ public class S3StorageClient extends BaseStorageClient {
       s3.close();
     }
 
-    // close all FileHandlers
-    FileHandlerManager.closeAllHandlers();
+    // clear all FileHandlers if any
+    clearFileHandlers();
   }
 
   @Override
@@ -67,7 +73,7 @@ public class S3StorageClient extends BaseStorageClient {
                 String fileExtension = FilenameUtils.getExtension(filePath);
 
                 // handle file types if needed
-                if (!fileOptions.isEmpty() && FileHandler.supportsFileType(fileExtension, fileOptions)) {
+                if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                   // get the file content
                   byte[] content = s3.getObjectAsBytes(
                     GetObjectRequest.builder().bucket(bucketOrContainerName).key(filePath).build()

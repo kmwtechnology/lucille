@@ -11,7 +11,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
@@ -21,7 +20,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.core.fileHandlers.FileHandler;
-import com.kmwllc.lucille.core.fileHandlers.FileHandlerManager;
 import com.kmwllc.lucille.core.fileHandlers.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -176,7 +174,6 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testPublishUsingFileHandler() throws Exception {
-    FileHandlerManager.closeAllHandlers();
     Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "path/to/service/key");
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
@@ -203,9 +200,9 @@ public class GoogleStorageClientTest {
 
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
       FileHandler jsonFileHandler = mock(JsonFileHandler.class);
-      mockFileHandler.when(() -> FileHandler.getFileHandler(any(), any()))
+      mockFileHandler.when(() -> FileHandler.getNewFileHandler(any(), any()))
           .thenReturn(jsonFileHandler);
-      mockFileHandler.when(() -> FileHandler.supportsFileType(any(), any()))
+      mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(true).thenReturn(false);
 
       gStorageClient.publishFiles();
