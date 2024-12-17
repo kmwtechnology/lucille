@@ -304,14 +304,14 @@ public class CSVFileHandler extends BaseFileHandler {
     }
   }
 
-  private CSVReader getCsvReader(String filePath) throws FileHandlerException {
+  private CSVReader getCsvReader(String pathStr) throws FileHandlerException {
     try {
-      return new CSVReaderBuilder(FileUtils.getReader(filePath)).
+      return new CSVReaderBuilder(FileUtils.getReader(pathStr)).
           withCSVParser(
               new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
           .build();
     } catch (IOException e) {
-      throw new FileHandlerException("Error creating CSVReader for file " + FilenameUtils.getName(filePath), e);
+      throw new FileHandlerException("Error creating CSVReader for file " + FilenameUtils.getName(pathStr), e);
     }
   }
 

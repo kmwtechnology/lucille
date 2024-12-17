@@ -38,9 +38,9 @@ public class LocalStorageClient extends BaseStorageClient {
   private FileSystem fs;
   private Path startingDirectoryPath;
 
-  public LocalStorageClient(URI pathToStorageURI, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
+  public LocalStorageClient(URI pathToStorageURI, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
-    super(pathToStorageURI, publisher, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+    super(pathToStorageURI, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
   }
 
   @Override
@@ -77,7 +77,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void publishFiles() throws Exception {
+  public void traverse(Publisher publisher) throws Exception {
     try (Stream<Path> paths = Files.walk(startingDirectoryPath)) {
       paths.filter(this::isValidPath)
           .forEachOrdered(path -> {
@@ -112,7 +112,7 @@ public class LocalStorageClient extends BaseStorageClient {
               // not archived nor compressed, handling supported file types if fileOptions are provided
               if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                 // instantiate the right FileHandler based on path
-                publishUsingFileHandler(fileExtension, path);
+                publishUsingFileHandler(publisher, fileExtension, path);
                 return;
               }
 

@@ -34,9 +34,9 @@ public class AzureStorageClient extends BaseStorageClient {
   private BlobContainerClient containerClient;
   private static final Logger log = LoggerFactory.getLogger(AzureStorageClient.class);
 
-  public AzureStorageClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
+  public AzureStorageClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
-    super(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+    super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
   }
 
   @Override
@@ -84,26 +84,26 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void publishFiles() throws Exception{
+  public void traverse(Publisher publisher) throws Exception{
     containerClient.listBlobs(new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
         .forEach(blob -> {
           if (isValid(blob)) {
             try {
-              String filePath = blob.getName();
-              String fileExtension = FilenameUtils.getExtension(filePath);
+              String pathStr = blob.getName();
+              String fileExtension = FilenameUtils.getExtension(pathStr);
 
               // handle compressed files if needed
-              if (handleCompressedFiles && isSupportedCompressedFileType(filePath)) {
+              if (handleCompressedFiles && isSupportedCompressedFileType(pathStr)) {
                 byte[] content = containerClient.getBlobClient(blob.getName()).downloadContent().toBytes();
                 // unzip the file, compressorStream will be closed when try block is exited
                 try (BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(content));
                     CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
                   // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
-                  String unzippedFileName = FilenameUtils.removeExtension(filePath);
+                  String unzippedFileName = FilenameUtils.removeExtension(pathStr);
                   if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
                     handleArchiveFiles(publisher, compressorStream);
                   } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
-                    handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), filePath);
+                    handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), pathStr);
                   } else {
                     Document doc = blobItemToDoc(blob, bucketOrContainerName, compressorStream, unzippedFileName);
                     publisher.publish(doc);
@@ -113,7 +113,7 @@ public class AzureStorageClient extends BaseStorageClient {
               }
 
               // handle archived files if needed
-              if (handleArchivedFiles && isSupportedArchiveFileType(filePath)) {
+              if (handleArchivedFiles && isSupportedArchiveFileType(pathStr)) {
                 byte[] content = containerClient.getBlobClient(blob.getName()).downloadContent().toBytes();
                 try (InputStream is = new ByteArrayInputStream(content)) {
                   handleArchiveFiles(publisher, is);
@@ -126,7 +126,7 @@ public class AzureStorageClient extends BaseStorageClient {
                 // get the file content
                 byte[] content = containerClient.getBlobClient(blob.getName()).downloadContent().toBytes();
                 // instantiate the right FileHandler and publish based on content
-                publishUsingFileHandler(fileExtension, content, filePath);
+                publishUsingFileHandler(publisher, fileExtension, content, pathStr);
                 return;
               }
 
@@ -157,7 +157,7 @@ public class AzureStorageClient extends BaseStorageClient {
     return doc;
   }
 
-  private Document blobItemToDoc(BlobItem blob, String container, CompressorInputStream compressorStream, String unzippedFileName)
+  private Document blobItemToDoc(BlobItem blob, String container, InputStream is, String unzippedFileName)
       throws IOException {
     String docId = DigestUtils.md5Hex(unzippedFileName);
     Document doc = Document.create(docIdPrefix + docId);
@@ -167,10 +167,9 @@ public class AzureStorageClient extends BaseStorageClient {
     doc.setField(FileConnector.FILE_PATH, path);
     doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
     doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
-    doc.setField(FileConnector.SIZE, properties.getContentLength());
-
+    // unable to get the decompressed size
     if (getFileContent) {
-      doc.setField(FileConnector.CONTENT, compressorStream.readAllBytes());
+      doc.setField(FileConnector.CONTENT, is.readAllBytes());
     }
 
     return doc;

@@ -26,27 +26,27 @@ public class CSVConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    File pathFile = new File(pathStr);
-    Path filePath = pathFile.toPath();
+    File file = new File(pathStr);
+    Path path = file.toPath();
     try {
       // validate that the path is a valid file and create necessary directories
-      csvFileHandler.beforeProcessingFile(filePath);
+      csvFileHandler.beforeProcessingFile(path);
     } catch (Exception e) {
-      throw new ConnectorException("Error before processing file: " + filePath, e);
+      throw new ConnectorException("Error before processing file: " + path, e);
     }
 
     try {
-      log.info("Processing file: {}", filePath);
-      csvFileHandler.processFileAndPublish(publisher, filePath);
+      log.info("Processing file: {}", path);
+      csvFileHandler.processFileAndPublish(publisher, path);
     } catch (Exception e) {
-      csvFileHandler.errorProcessingFile(filePath);
-      throw new ConnectorException("Error processing or publishing file: " + filePath, e);
+      csvFileHandler.errorProcessingFile(path);
+      throw new ConnectorException("Error processing or publishing file: " + path, e);
     }
 
     try {
-      csvFileHandler.afterProcessingFile(filePath);
+      csvFileHandler.afterProcessingFile(path);
     } catch (Exception e) {
-      throw new ConnectorException("Error after processing file: " + filePath, e);
+      throw new ConnectorException("Error after processing file: " + path, e);
     }
   }
 

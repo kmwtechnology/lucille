@@ -34,9 +34,9 @@ public class S3StorageClient extends BaseStorageClient {
   private S3Client s3;
   private static final Logger log = LoggerFactory.getLogger(S3StorageClient.class);
 
-  public S3StorageClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
+  public S3StorageClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
-    super(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+    super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
   }
 
   @Override
@@ -67,7 +67,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void publishFiles() throws Exception {
+  public void traverse(Publisher publisher) throws Exception {
     ListObjectsV2Request request = ListObjectsV2Request.builder().bucket(bucketOrContainerName).prefix(startingDirectory).maxKeys(maxNumOfPages).build();
     ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
     response.stream()
@@ -75,23 +75,23 @@ public class S3StorageClient extends BaseStorageClient {
           resp.contents().forEach(obj -> {
             if (isValid(obj)) {
               try {
-                String filePath = obj.key();
-                String fileExtension = FilenameUtils.getExtension(filePath);
+                String pathStr = obj.key();
+                String fileExtension = FilenameUtils.getExtension(pathStr);
 
                 // handle compressed files if needed
-                if (handleCompressedFiles && isSupportedCompressedFileType(filePath)) {
+                if (handleCompressedFiles && isSupportedCompressedFileType(pathStr)) {
                   byte[] content = s3.getObjectAsBytes(
-                      GetObjectRequest.builder().bucket(bucketOrContainerName).key(filePath).build()
+                      GetObjectRequest.builder().bucket(bucketOrContainerName).key(pathStr).build()
                   ).asByteArray();
                   // unzip the file, compressorStream will be closed when try block is exited
                   try (BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(content));
                       CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
                     // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
-                    String unzippedFileName = FilenameUtils.removeExtension(filePath);
+                    String unzippedFileName = FilenameUtils.removeExtension(pathStr);
                     if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
                       handleArchiveFiles(publisher, compressorStream);
                     } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
-                      handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), filePath);
+                      handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), pathStr);
                     } else {
                       Document doc = s3ObjectToDoc(obj, bucketOrContainerName, compressorStream, unzippedFileName);
                       publisher.publish(doc);
@@ -101,9 +101,9 @@ public class S3StorageClient extends BaseStorageClient {
                 }
 
                 // handle archive files if needed
-                if (handleArchivedFiles && isSupportedArchiveFileType(filePath)) {
+                if (handleArchivedFiles && isSupportedArchiveFileType(pathStr)) {
                   byte[] content = s3.getObjectAsBytes(
-                    GetObjectRequest.builder().bucket(bucketOrContainerName).key(filePath).build()
+                    GetObjectRequest.builder().bucket(bucketOrContainerName).key(pathStr).build()
                   ).asByteArray();
 
                   try (InputStream is = new ByteArrayInputStream(content)) {
@@ -116,11 +116,11 @@ public class S3StorageClient extends BaseStorageClient {
                 if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                   // get the file content
                   byte[] content = s3.getObjectAsBytes(
-                    GetObjectRequest.builder().bucket(bucketOrContainerName).key(filePath).build()
+                    GetObjectRequest.builder().bucket(bucketOrContainerName).key(pathStr).build()
                   ).asByteArray();
 
                   // instantiate the right FileHandler and publish based on content
-                  publishUsingFileHandler(fileExtension, content, filePath);
+                  publishUsingFileHandler(publisher, fileExtension, content, pathStr);
                   return;
                 }
 
@@ -140,6 +140,7 @@ public class S3StorageClient extends BaseStorageClient {
     Document doc = Document.create(docIdPrefix + docId);
     doc.setField(FileConnector.FILE_PATH, pathToStorageURI.getScheme() + "://" + bucketName + "/" + objKey);
     doc.setField(FileConnector.MODIFIED, obj.lastModified());
+    // s3 doesn't have object creation date
     doc.setField(FileConnector.SIZE, obj.size());
 
     if (getFileContent) {
@@ -156,7 +157,8 @@ public class S3StorageClient extends BaseStorageClient {
     Document doc = Document.create(docIdPrefix + docId);
     doc.setField(FileConnector.FILE_PATH, pathToStorageURI.getScheme() + "://" + bucketName + "/" + fileNameWithoutExtension);
     doc.setField(FileConnector.MODIFIED, obj.lastModified());
-
+    // s3 doesn't have object creation date
+    // compression stream doesn't have size, so we can't set it here
     if (getFileContent) {
       doc.setField(FileConnector.CONTENT, is.readAllBytes());
     }

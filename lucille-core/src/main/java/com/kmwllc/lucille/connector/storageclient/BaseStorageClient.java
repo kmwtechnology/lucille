@@ -40,7 +40,6 @@ public abstract class BaseStorageClient implements StorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(StorageClient.class);
 
-  protected Publisher publisher;
   protected String docIdPrefix;
   protected URI pathToStorageURI;
   protected String bucketOrContainerName;
@@ -55,9 +54,8 @@ public abstract class BaseStorageClient implements StorageClient {
   protected boolean handleArchivedFiles;
   protected boolean handleCompressedFiles;
 
-  public BaseStorageClient(URI pathToStorageURI, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
+  public BaseStorageClient(URI pathToStorageURI, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
-    this.publisher = publisher;
     this.docIdPrefix = docIdPrefix;
     this.pathToStorageURI = pathToStorageURI;
     this.bucketOrContainerName = getContainerOrBucketName();
@@ -83,9 +81,9 @@ public abstract class BaseStorageClient implements StorageClient {
     return startingDirectory;
   }
 
-  public static boolean shouldIncludeFile(String filePath, List<Pattern> includes, List<Pattern> excludes) {
-    return excludes.stream().noneMatch(pattern -> pattern.matcher(filePath).matches())
-        && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(filePath).matches()));
+  public static boolean shouldIncludeFile(String pathStr, List<Pattern> includes, List<Pattern> excludes) {
+    return excludes.stream().noneMatch(pattern -> pattern.matcher(pathStr).matches())
+        && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(pathStr).matches()));
   }
 
   public void initializeFileHandlers() throws ConnectorException {
@@ -93,7 +91,7 @@ public abstract class BaseStorageClient implements StorageClient {
     for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
       if (fileOptions.hasPath(fileExtensionSupported)) {
         try {
-          FileHandler handler = FileHandler.getNewFileTypeHandler(fileExtensionSupported, fileOptions);
+          FileHandler handler = FileHandler.create(fileExtensionSupported, fileOptions);
           fileHandlers.put(fileExtensionSupported, handler);
           // handle cases like json/jsonl
           if (fileExtensionSupported.equals("json") || fileExtensionSupported.equals("jsonl")) {
@@ -111,7 +109,7 @@ public abstract class BaseStorageClient implements StorageClient {
     fileHandlers.clear();
   }
 
-  public void publishUsingFileHandler(String fileExtension, Path path) throws Exception {
+  public void publishUsingFileHandler(Publisher publisher, String fileExtension, Path path) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
@@ -138,7 +136,7 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  public void publishUsingFileHandler(String fileExtension, byte[] content, String pathStr) throws Exception {
+  public void publishUsingFileHandler(Publisher publisher, String fileExtension, byte[] content, String pathStr) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
@@ -185,6 +183,7 @@ public abstract class BaseStorageClient implements StorageClient {
             doc.setField(FILE_PATH, entry.getName());
             doc.setField(MODIFIED, entry.getLastModifiedDate().toInstant());
             // entry does not have creation date
+            // note that some ArchiveEntry implementations may not have a size so will return -1
             doc.setField(SIZE, entry.getSize());
             if (getFileContent) {
               doc.setField(CONTENT, in.readAllBytes());

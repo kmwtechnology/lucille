@@ -41,34 +41,34 @@ public interface StorageClient {
   /**
    * Publish files to the Lucille pipeline
    */
-  void publishFiles() throws Exception;
+  void traverse(Publisher publisher) throws Exception;
 
   /**
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from cloudOptions
    */
-  static StorageClient getClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
+  static StorageClient getClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
     String activeClient = pathToStorage.getScheme() != null ? pathToStorage.getScheme() : "file";
     switch (activeClient) {
       case "gs" -> {
         validateCloudOptions(pathToStorage, cloudOptions);
-        return new GoogleStorageClient(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+        return new GoogleStorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
       }
       case "s3" -> {
         validateCloudOptions(pathToStorage, cloudOptions);
-        return new S3StorageClient(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+        return new S3StorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
       }
       case "https" -> {
         String authority = pathToStorage.getAuthority();
         if (authority != null && authority.contains("blob.core.windows.net")) {
           validateCloudOptions(pathToStorage, cloudOptions);
-          return new AzureStorageClient(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+          return new AzureStorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
         } else {
           throw new RuntimeException("Unsupported client type: " + activeClient + " with authority: " + authority);
         }
       }
       case "file" -> {
-        return new LocalStorageClient(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+        return new LocalStorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
       }
       default -> throw new RuntimeException("Unsupported client type: " + activeClient);
     }

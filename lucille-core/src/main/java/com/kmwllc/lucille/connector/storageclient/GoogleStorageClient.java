@@ -34,9 +34,9 @@ public class GoogleStorageClient extends BaseStorageClient {
   private static final Logger log = LoggerFactory.getLogger(GoogleStorageClient.class);
   private Storage storage;
 
-  public GoogleStorageClient(URI pathToStorage, Publisher publisher, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
+  public GoogleStorageClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
-    super(pathToStorage, publisher, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+    super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
   }
 
   @Override
@@ -67,28 +67,28 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void publishFiles() throws Exception {
+  public void traverse(Publisher publisher) throws Exception {
     Page<Blob> page = storage.list(bucketOrContainerName, BlobListOption.prefix(startingDirectory), BlobListOption.pageSize(maxNumOfPages));
     do {
       page.streamAll()
           .forEachOrdered(blob -> {
             if (isValid(blob)) {
               try {
-                String filePath = blob.getName();
-                String fileExtension = FilenameUtils.getExtension(filePath);
+                String pathStr = blob.getName();
+                String fileExtension = FilenameUtils.getExtension(pathStr);
 
                 // handle compressed files if needed
-                if (handleCompressedFiles && isSupportedCompressedFileType(filePath)) {
+                if (handleCompressedFiles && isSupportedCompressedFileType(pathStr)) {
                   byte[] content = blob.getContent();
                   // unzip the file, compressorStream will be closed when try block is exited
                   try (BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(content));
                       CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
                     // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
-                    String unzippedFileName = FilenameUtils.removeExtension(filePath);
+                    String unzippedFileName = FilenameUtils.removeExtension(pathStr);
                     if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
                       handleArchiveFiles(publisher, compressorStream);
                     } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
-                      handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), filePath);
+                      handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), pathStr);
                     } else {
                       Document doc = blobToDoc(blob, bucketOrContainerName, compressorStream, unzippedFileName);
                       publisher.publish(doc);
@@ -98,7 +98,7 @@ public class GoogleStorageClient extends BaseStorageClient {
                 }
 
                 // handle archived files if needed
-                if (handleArchivedFiles && isSupportedArchiveFileType(filePath)) {
+                if (handleArchivedFiles && isSupportedArchiveFileType(pathStr)) {
                   byte[] content = blob.getContent();
                   try (InputStream is = new ByteArrayInputStream(content)) {
                     handleArchiveFiles(publisher, is);
@@ -111,7 +111,7 @@ public class GoogleStorageClient extends BaseStorageClient {
                   // get the file content
                   byte[] content = blob.getContent();
                   // instantiate the right FileHandler and publish based on content
-                  publishUsingFileHandler(fileExtension, content, filePath);
+                  publishUsingFileHandler(publisher, fileExtension, content, pathStr);
                   return;
                 }
 

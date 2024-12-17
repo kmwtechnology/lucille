@@ -5,7 +5,6 @@ import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.nio.file.Path;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -80,7 +79,7 @@ public interface FileHandler {
    * Note that if you add support for a new file type, you must also add the corresponding handler here
    * AND in SUPPORTED_FILE_TYPES
    */
-  static FileHandler getNewFileTypeHandler(String fileExtension, Config fileOptions) {
+  static FileHandler create(String fileExtension, Config fileOptions) {
     switch (fileExtension) {
       case "json", "jsonl" -> {
         Config jsonConfig = fileOptions.getConfig("json");

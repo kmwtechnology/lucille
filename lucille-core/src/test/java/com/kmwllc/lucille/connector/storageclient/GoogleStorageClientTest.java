@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
 public class GoogleStorageClientTest {
@@ -38,7 +39,7 @@ public class GoogleStorageClientTest {
   @Test
   public void testInvalidPathToServiceKey() throws Exception {
     Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "invalidPath");
-    GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null, null,
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null,
         null, null, cloudOptions, ConfigFactory.empty());
 
     assertThrows(IllegalArgumentException.class, googleStorageClient::init);
@@ -47,7 +48,7 @@ public class GoogleStorageClientTest {
   @Test
   public void testShutdown() throws Exception {
     Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
-    GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null, null,
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null,
         null, null, cloudOptions, ConfigFactory.empty());
     Storage mockStorage = mock(Storage.class);
     googleStorageClient.setStorageForTesting(mockStorage);
@@ -63,7 +64,7 @@ public class GoogleStorageClientTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
-    GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), publisher, "prefix-",
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), "prefix-",
         List.of(), List.of(), cloudOptions, ConfigFactory.empty());
 
     BlobId blobId = BlobId.of("bucket", "my-object");
@@ -83,7 +84,7 @@ public class GoogleStorageClientTest {
     storage.create(blobInfo4, "foo".getBytes());
 
     googleStorageClient.setStorageForTesting(storage);
-    googleStorageClient.publishFiles();
+    googleStorageClient.traverse(publisher);
 
     // validate that all 4 blobs are published
     List<Document> documents = messenger.getDocsSentForProcessing();
@@ -121,7 +122,7 @@ public class GoogleStorageClientTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
-    GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), publisher, "prefix-",
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), "prefix-",
         List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)));
 
     BlobId blobId = BlobId.of("bucket", "my-object");
@@ -129,7 +130,7 @@ public class GoogleStorageClientTest {
     storage.create(blobInfo, "Hello, World!".getBytes());
 
     googleStorageClient.setStorageForTesting(storage);
-    googleStorageClient.publishFiles();
+    googleStorageClient.traverse(publisher);
 
     List<Document> documents = messenger.getDocsSentForProcessing();
     assertEquals(1, documents.size());
@@ -138,12 +139,12 @@ public class GoogleStorageClientTest {
   }
 
   @Test
-  public void testPublishFilesWithSomeInvalid() throws Exception {
+  public void testTraverseWithSomeInvalid() throws Exception {
     Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
-    GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), publisher, "prefix-",
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), "prefix-",
         List.of(Pattern.compile("my-object2"), Pattern.compile("my-object3")), List.of(), cloudOptions, ConfigFactory.empty());
 
     BlobId blobId = BlobId.of("bucket", "my-object");
@@ -163,7 +164,7 @@ public class GoogleStorageClientTest {
     storage.create(blobInfo4, "foo".getBytes());
 
     googleStorageClient.setStorageForTesting(storage);
-    googleStorageClient.publishFiles();
+    googleStorageClient.traverse(publisher);
 
     // validate that only 2 blob are published and none are object2 or object3
     List<Document> documents = messenger.getDocsSentForProcessing();
@@ -194,21 +195,25 @@ public class GoogleStorageClientTest {
 
 
     // google storage client
-    GoogleStorageClient gStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), publisher, "prefix-",
+    GoogleStorageClient gStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), "prefix-",
         List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of())));
     gStorageClient.setStorageForTesting(storage);
 
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
       FileHandler jsonFileHandler = mock(JsonFileHandler.class);
-      mockFileHandler.when(() -> FileHandler.getNewFileTypeHandler(any(), any()))
+      mockFileHandler.when(() -> FileHandler.create(any(), any()))
           .thenReturn(jsonFileHandler);
       mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(false).thenReturn(true); // .json, then object3, then .json
 
       gStorageClient.initializeFileHandlers();
-      gStorageClient.publishFiles();
-      // verify that the processFileAndPublish is only called for the json files
-      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), any());
+      gStorageClient.traverse(publisher);
+      // verify that the processFileAndPublish is only called twice for the 2 json files out of the 3 files
+      ArgumentCaptor<String> fileNameCaptor = ArgumentCaptor.forClass(String.class);
+      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), fileNameCaptor.capture());
+      List<String> capturedFileNames = fileNameCaptor.getAllValues();
+      assertEquals("json-1.json", capturedFileNames.get(0));
+      assertEquals("json-2.json", capturedFileNames.get(1));
     }
 
     gStorageClient.shutdown();

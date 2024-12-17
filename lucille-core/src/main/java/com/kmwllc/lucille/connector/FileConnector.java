@@ -48,9 +48,9 @@ import org.slf4j.LoggerFactory;
  *    getFileContent (boolean, Optional): whether to fetch the file content or not, defaults to true
  *    handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false
  *    handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false
- *    csv (Map, Optional): csv config options for handling csv type files. Config will be passed to FileTypeHandler
- *    json (Map, Optional): json config options for handling json type files. Config will be passed to FileTypeHandler
- *    jsonl (Map, Optional): jsonl config options for handling jsonl type files. Config will be passed to FileTypeHandler
+ *    csv (Map, Optional): csv config options for handling csv type files. Config will be passed to FileHandler
+ *    json (Map, Optional): json config options for handling json type files. Config will be passed to FileHandler
+ *    jsonl (Map, Optional): jsonl config options for handling jsonl type files. Config will be passed to FileHandler
  */
 public class FileConnector extends AbstractConnector {
 
@@ -106,11 +106,11 @@ public class FileConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    storageClient = StorageClient.getClient(storageURI, publisher, getDocIdPrefix(), excludes, includes,
+    storageClient = StorageClient.getClient(storageURI, getDocIdPrefix(), excludes, includes,
         cloudOptions, fileOptions);
     try {
       storageClient.init();
-      storageClient.publishFiles();
+      storageClient.traverse(publisher);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while initializing client or publishing files.", e);
     } finally {

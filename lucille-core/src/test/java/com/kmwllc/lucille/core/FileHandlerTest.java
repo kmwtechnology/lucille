@@ -43,15 +43,15 @@ public class FileHandlerTest {
   }
 
   @Test
-  public void testGetNewFileTypeHandler() throws Exception {
+  public void testCreate() throws Exception {
     // json handler
     String jsonExtension = "json";
-    FileHandler jsonHandler = FileHandler.getNewFileTypeHandler(jsonExtension,
+    FileHandler jsonHandler = FileHandler.create(jsonExtension,
         ConfigFactory.parseMap(Map.of("json", Map.of("key", "value"))));
     assertInstanceOf(JsonFileHandler.class, jsonHandler);
     // jsonl handler using jsonl
     String jsonlExtension = "jsonl";
-    FileHandler jsonlHandler = FileHandler.getNewFileTypeHandler(jsonlExtension,
+    FileHandler jsonlHandler = FileHandler.create(jsonlExtension,
         ConfigFactory.parseMap(Map.of("json", Map.of("key", "value"))));
     assertInstanceOf(JsonFileHandler.class, jsonlHandler);
 
@@ -60,13 +60,13 @@ public class FileHandlerTest {
 
     // csv handler
     String csvExtension = "csv";
-    FileHandler csvHandler = FileHandler.getNewFileTypeHandler(csvExtension,
+    FileHandler csvHandler = FileHandler.create(csvExtension,
         ConfigFactory.parseMap(Map.of("csv", Map.of("csvKey", "csvValue"))));
     assertInstanceOf(CSVFileHandler.class, csvHandler);
 
     // xml handler
     String xmlExtension = "xml";
-    FileHandler xmlHandler = FileHandler.getNewFileTypeHandler(xmlExtension,
+    FileHandler xmlHandler = FileHandler.create(xmlExtension,
         ConfigFactory.parseMap(Map.of("xml", Map.of("xmlRootPath", "path", "xmlIdPath", "idPath"))));
     assertInstanceOf(XMLFileHandler.class, xmlHandler);
   }

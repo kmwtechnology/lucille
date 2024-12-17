@@ -25,47 +25,47 @@ public class StorageClientTest {
   @Test
   public void testGetClient() throws Exception {
     Map<String, Object> gCloudOptions = Map.of(GOOGLE_SERVICE_KEY, "key");
-    StorageClient client = StorageClient.getClient(new URI("gs://bucket/"), null, null,
+    StorageClient client = StorageClient.getClient(new URI("gs://bucket/"), null,
         null, null, gCloudOptions, ConfigFactory.empty());
     assertTrue(client instanceof GoogleStorageClient);
 
     Map<String, Object> s3CloudOptions = Map.of(S3_REGION, "region", S3_ACCESS_KEY_ID, "id", S3_SECRET_ACCESS_KEY, "key");
-    client = StorageClient.getClient(new URI("s3://bucket/"), null, null, null,
+    client = StorageClient.getClient(new URI("s3://bucket/"), null, null,
         null, s3CloudOptions, ConfigFactory.empty());
     assertTrue(client instanceof S3StorageClient);
 
     Map<String, Object> azCloudOptions = Map.of(AZURE_CONNECTION_STRING, "connectionString");
-    client = StorageClient.getClient(new URI("https://storagename.blob.core.windows.net/testblob"), null,
+    client = StorageClient.getClient(new URI("https://storagename.blob.core.windows.net/testblob"),
         null, null, null, azCloudOptions, ConfigFactory.empty());
     assertTrue(client instanceof AzureStorageClient);
 
     azCloudOptions = Map.of(AZURE_ACCOUNT_KEY, "key", AZURE_ACCOUNT_NAME, "name");
-    client = StorageClient.getClient(new URI("https://storagename.blob.core.windows.net/testblob"), null,
+    client = StorageClient.getClient(new URI("https://storagename.blob.core.windows.net/testblob"),
         null, null, null, azCloudOptions, ConfigFactory.empty());
     assertTrue(client instanceof AzureStorageClient);
 
     // test local storage client
-    client = StorageClient.getClient(new URI("file:///path/to/file"), null, null, null,
+    client = StorageClient.getClient(new URI("file:///path/to/file"), null, null,
         null, Map.of(), ConfigFactory.empty());
     assertTrue(client instanceof LocalStorageClient);
 
     // give wrong uri but correct cloudOptions
-    assertThrows(RuntimeException.class, () -> StorageClient.getClient(new URI("unknown://bucket"), null,
+    assertThrows(RuntimeException.class, () -> StorageClient.getClient(new URI("unknown://bucket"),
         null, null, null, gCloudOptions, ConfigFactory.empty()));
 
     // test bad azure cloud options
     Map<String, Object> azCloudOptionsBad = Map.of(AZURE_ACCOUNT_KEY, "key");
-    assertThrows(IllegalArgumentException.class, () ->StorageClient.getClient(new URI("https://storagename.blob.core.windows.net/testblob"), null,
+    assertThrows(IllegalArgumentException.class, () ->StorageClient.getClient(new URI("https://storagename.blob.core.windows.net/testblob"),
         null, null, null, azCloudOptionsBad, ConfigFactory.empty()));
 
     // test bad g cloud options
     Map<String, Object> gCloudOptionsBad = Map.of();
-    assertThrows(IllegalArgumentException.class, () ->StorageClient.getClient(new URI("gs://bucket/"), null,
+    assertThrows(IllegalArgumentException.class, () ->StorageClient.getClient(new URI("gs://bucket/"),
         null, null, null, gCloudOptionsBad, ConfigFactory.empty()));
 
     // test bad s3 cloud options, only 2 of 3
     Map<String, Object> s3CloudOptionsBad = Map.of(S3_REGION, "region", S3_ACCESS_KEY_ID, "id");
-    assertThrows(IllegalArgumentException.class, () ->StorageClient.getClient(new URI("s3://bucket/"), null,
+    assertThrows(IllegalArgumentException.class, () ->StorageClient.getClient(new URI("s3://bucket/"),
         null, null, null, s3CloudOptionsBad, ConfigFactory.empty()));
 
     client.shutdown();

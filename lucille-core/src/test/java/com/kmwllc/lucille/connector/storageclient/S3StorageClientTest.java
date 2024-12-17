@@ -53,7 +53,7 @@ public class S3StorageClientTest {
     // test if region is set but of non-existent region
     Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey");
-    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), null, null,
+    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), null,
         null, null, cloudOptions, ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class);
@@ -70,7 +70,7 @@ public class S3StorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
-    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), publisher, "prefix-",
+    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), "prefix-",
         List.of(), List.of(), cloudOptions, ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
@@ -88,7 +88,7 @@ public class S3StorageClientTest {
         .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{9, 10, 11, 12}))
         .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{13, 14, 15, 16}));
 
-    s3StorageClient.publishFiles();
+    s3StorageClient.traverse(publisher);
 
     List<Document> documents = messenger.getDocsSentForProcessing();
 
@@ -128,7 +128,7 @@ public class S3StorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
-    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), publisher, "prefix-",
+    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), "prefix-",
         List.of(Pattern.compile("obj3"), Pattern.compile("obj4")), List.of() , cloudOptions, ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
@@ -146,7 +146,7 @@ public class S3StorageClientTest {
         .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{9, 10, 11, 12}))
         .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{13, 14, 15, 16}));
 
-    s3StorageClient.publishFiles();
+    s3StorageClient.traverse(publisher);
 
     List<Document> documents = messenger.getDocsSentForProcessing();
     // only obj1 processed, skipping over directory obj2, and obj3 and obj4 because of exclude regex
@@ -166,7 +166,7 @@ public class S3StorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
-    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), publisher, "prefix-",
+    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), "prefix-",
         List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)));
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
@@ -183,7 +183,7 @@ public class S3StorageClientTest {
     when(mockClient.getObjectAsBytes((GetObjectRequest) any()))
         .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{1, 2, 3, 4}));
 
-    s3StorageClient.publishFiles();
+    s3StorageClient.traverse(publisher);
 
     List<Document> documents = messenger.getDocsSentForProcessing();
 
@@ -201,7 +201,7 @@ public class S3StorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     // storage client with json file handler
-    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), publisher, "prefix-",
+    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), "prefix-",
         List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of())));
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
@@ -215,13 +215,13 @@ public class S3StorageClientTest {
 
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
       FileHandler jsonFileHandler = mock(JsonFileHandler.class);
-      mockFileHandler.when(() -> FileHandler.getNewFileTypeHandler(any(), any()))
+      mockFileHandler.when(() -> FileHandler.create(any(), any()))
           .thenReturn(jsonFileHandler);
       mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(true).thenReturn(false);
 
       s3StorageClient.initializeFileHandlers();
-      s3StorageClient.publishFiles();
+      s3StorageClient.traverse(publisher);
       // verify that the processFileAndPublish is only called for the json files
       verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), any());
     }
