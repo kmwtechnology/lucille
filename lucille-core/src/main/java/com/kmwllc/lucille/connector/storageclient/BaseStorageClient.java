@@ -185,12 +185,9 @@ public abstract class BaseStorageClient implements StorageClient {
             doc.setField(FILE_PATH, entry.getName());
             doc.setField(MODIFIED, entry.getLastModifiedDate().toInstant());
             // entry does not have creation date
-            // some cases where entry.getSize() returns -1, so we use in.readAllBytes instead...
-            // cannot use in.available as it shows the remaining bytes including the rest of the files in the archive
-            byte[] content = in.readAllBytes();
-            doc.setField(SIZE, content.length);
+            doc.setField(SIZE, entry.getSize());
             if (getFileContent) {
-              doc.setField(CONTENT, content);
+              doc.setField(CONTENT, in.readAllBytes());
             }
             try {
               publisher.publish(doc);
@@ -203,7 +200,7 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  // inputStream parameter will be closed outside of this method as well
+  // cannot close inputStream as we are iterating through the archived stream and may have more files to process
   public void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fileName)
       throws ConnectorException {
     try {
@@ -224,31 +221,33 @@ public abstract class BaseStorageClient implements StorageClient {
       BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
 
       // setting fields on document
-      doc.setField(FILE_PATH, path.toAbsolutePath().normalize().toString());
+      // remove Extension to show that we have decompressed the file and obtained its information
+      doc.setField(FILE_PATH, FilenameUtils.removeExtension(path.toAbsolutePath().normalize().toString()));
       doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
       doc.setField(CREATED, attrs.creationTime().toInstant());
-      // wont be able to get the size unless we read from the stream :/ so have to readBytes even though we set getFileContent to false
-      byte[] content = in.readAllBytes();
-      doc.setField(SIZE, content.length);
-      if (getFileContent) doc.setField(CONTENT, content);
+      // TODO: find out how to get the size of the decompressed file
+      if (getFileContent) doc.setField(CONTENT, in.readAllBytes());
     } catch (Exception e) {
       throw new ConnectorException("Error occurred getting/setting file attributes to document: " + path, e);
     }
     return doc;
   }
 
+  public boolean isSupportedCompressedFileType(String string) {
+    return string.endsWith(".gz");
+    // string.endsWith(".bz2") ||
+    // string.endsWith(".xz") ||
+    // string.endsWith(".lzma") ||
+    // string.endsWith(".br") ||
+    // string.endsWith(".pack") ||
+    // string.endsWith(".zst") ||
+    // string.endsWith(".Z");
+  }
+
   public boolean isSupportedCompressedFileType(Path path) {
     String fileName = path.getFileName().toString();
 
-    // note that the following are supported by apache-commons-compress, but have yet to been tested, so commented out for now
-    return fileName.endsWith(".gz");
-    // fileName.endsWith(".bz2") ||
-    // fileName.endsWith(".xz") ||
-    // fileName.endsWith(".lzma") ||
-    // fileName.endsWith(".br") ||
-    // fileName.endsWith(".pack") ||
-    // fileName.endsWith(".zst") ||
-    // fileName.endsWith(".Z");
+    return isSupportedCompressedFileType(fileName);
   }
 
   public boolean isSupportedArchiveFileType(Path path) {

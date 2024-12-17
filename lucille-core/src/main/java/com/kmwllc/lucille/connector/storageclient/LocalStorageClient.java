@@ -88,7 +88,7 @@ public class LocalStorageClient extends BaseStorageClient {
                 try (BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(path));
                     CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
                   // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
-                  String unzippedFileName = path.getFileName().toString().replaceFirst("[.][^.]+$", "");
+                  String unzippedFileName = FilenameUtils.removeExtension(path.getFileName().toString());
                   if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
                     handleArchiveFiles(publisher, compressorStream);
                   } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {

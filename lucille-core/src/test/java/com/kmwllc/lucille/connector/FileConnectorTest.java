@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -299,8 +300,6 @@ public class FileConnectorTest {
     }
   }
 
-  // XML handling is still not fully implemented
-  @Ignore
   @Test
   public void testHandleXMLFiles() throws Exception {
     Config config = ConfigFactory.load("FileConnectorTest/handleXML.conf");
@@ -312,19 +311,16 @@ public class FileConnectorTest {
     List<Document> documentList = messenger.getDocsSentForProcessing();
     // assert that all documents have been processed
     Assert.assertEquals(10, documentList.size());
-
-    assertTrue(documentList.get(0).has("xml"));
+    assertTrue(documentList.get(0).has("xml_field"));
     assertEquals("<staff>\n" +
         "        <id>1001</id>\n" +
         "        <name>daniel</name>\n" +
         "        <role>software engineer</role>\n" +
         "        <salary currency=\"USD\">3000</salary>\n" +
         "        <bio>I am from San Diego</bio>\n" +
-        "    </staff>", documentList.get(0).getString("xml"));
+        "    </staff>", documentList.get(0).getString("xml_field"));
   }
 
-  // we ignore the tests related to compression/achived files ATM, need more investigation on resource management
-  @Ignore
   @Test
   public void testHandleZippedJsonFiles() throws Exception {
     Config config = ConfigFactory.load("FileConnectorTest/testHandleZip.conf");
@@ -347,7 +343,7 @@ public class FileConnectorTest {
     assertEquals("prefix2", jsonDoc2.getId());
     assertEquals("prefix3", jsonDoc3.getId());
     assertEquals("prefix4", jsonDoc4.getId());
-    assertEquals("12", normalDoc.getString("file_size_bytes"));
+    assertEquals("-1", normalDoc.getString("file_size_bytes"));
     assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
   }
 
@@ -377,7 +373,6 @@ public class FileConnectorTest {
     assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
   }
 
-  @Ignore
   @Test
   public void testHandleGzFiles() throws Exception {
     Config config = ConfigFactory.load("FileConnectorTest/testHandleGz.conf");
@@ -387,6 +382,7 @@ public class FileConnectorTest {
 
     connector.execute(publisher);
     List<Document> documentList = messenger.getDocsSentForProcessing();
+
     // one from normal txt, one gzipped txt, and two from jsonl.gz
     assertEquals(4, documentList.size());
     Document txtGzDoc = documentList.get(0);
@@ -396,13 +392,12 @@ public class FileConnectorTest {
 
     assertEquals("12", txtDoc.getString("file_size_bytes"));
     assertEquals("hello World!", new String(txtDoc.getBytes("file_content")));
-    assertEquals("37", txtGzDoc.getString("file_size_bytes"));
+    assertFalse(txtGzDoc.has("file_size_bytes"));
     assertEquals("hello World! This is the txt gz file.", new String(txtGzDoc.getBytes("file_content")));
     assertEquals("prefix2", jsonlGzDoc1.getId());
     assertEquals("prefix3", jsonlGzDoc2.getId());
   }
 
-  @Ignore
   @Test
   public void testHandleTarGzFiles() throws Exception {
     Config config = ConfigFactory.load("FileConnectorTest/testHandleTarGz.conf");
@@ -426,6 +421,7 @@ public class FileConnectorTest {
     assertEquals("prefix2", jsonDoc2.getId());
     assertEquals("prefix3", jsonDoc3.getId());
     assertEquals("prefix4", jsonDoc4.getId());
+    // in this case size is available when passed to archivedInputStream
     assertEquals("12", normalDoc.getString("file_size_bytes"));
     assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
   }

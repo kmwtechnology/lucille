@@ -6,11 +6,17 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.compress.compressors.CompressorInputStream;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,6 +78,40 @@ public class S3StorageClient extends BaseStorageClient {
                 String filePath = obj.key();
                 String fileExtension = FilenameUtils.getExtension(filePath);
 
+                // handle compressed files if needed
+                if (handleCompressedFiles && isSupportedCompressedFileType(filePath)) {
+                  byte[] content = s3.getObjectAsBytes(
+                      GetObjectRequest.builder().bucket(bucketOrContainerName).key(filePath).build()
+                  ).asByteArray();
+                  // unzip the file, compressorStream will be closed when try block is exited
+                  try (BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(content));
+                      CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
+                    // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
+                    String unzippedFileName = FilenameUtils.removeExtension(filePath);
+                    if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
+                      handleArchiveFiles(publisher, compressorStream);
+                    } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
+                      handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), filePath);
+                    } else {
+                      Document doc = s3ObjectToDoc(obj, bucketOrContainerName, compressorStream, unzippedFileName);
+                      publisher.publish(doc);
+                    }
+                  }
+                  return;
+                }
+
+                // handle archive files if needed
+                if (handleArchivedFiles && isSupportedArchiveFileType(filePath)) {
+                  byte[] content = s3.getObjectAsBytes(
+                    GetObjectRequest.builder().bucket(bucketOrContainerName).key(filePath).build()
+                  ).asByteArray();
+
+                  try (InputStream is = new ByteArrayInputStream(content)) {
+                    handleArchiveFiles(publisher, is);
+                  }
+                  return;
+                }
+
                 // handle file types if needed
                 if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                   // get the file content
@@ -100,12 +140,25 @@ public class S3StorageClient extends BaseStorageClient {
     Document doc = Document.create(docIdPrefix + docId);
     doc.setField(FileConnector.FILE_PATH, pathToStorageURI.getScheme() + "://" + bucketName + "/" + objKey);
     doc.setField(FileConnector.MODIFIED, obj.lastModified());
-    doc.setField(FileConnector.CREATED, obj.lastModified()); // there isn't an object creation date in S3
     doc.setField(FileConnector.SIZE, obj.size());
 
     if (getFileContent) {
       byte[] content = s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketName).key(objKey).build()).asByteArray();
       doc.setField(FileConnector.CONTENT, content);
+    }
+
+    return doc;
+  }
+
+  private Document s3ObjectToDoc(S3Object obj, String bucketName, InputStream is, String fileNameWithoutExtension)
+      throws IOException {
+    String docId = DigestUtils.md5Hex(fileNameWithoutExtension);
+    Document doc = Document.create(docIdPrefix + docId);
+    doc.setField(FileConnector.FILE_PATH, pathToStorageURI.getScheme() + "://" + bucketName + "/" + fileNameWithoutExtension);
+    doc.setField(FileConnector.MODIFIED, obj.lastModified());
+
+    if (getFileContent) {
+      doc.setField(FileConnector.CONTENT, is.readAllBytes());
     }
 
     return doc;

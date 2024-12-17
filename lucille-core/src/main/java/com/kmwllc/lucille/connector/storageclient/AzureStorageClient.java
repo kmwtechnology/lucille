@@ -12,15 +12,22 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.compress.compressors.CompressorInputStream;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
 public class AzureStorageClient extends BaseStorageClient {
 
@@ -85,6 +92,35 @@ public class AzureStorageClient extends BaseStorageClient {
               String filePath = blob.getName();
               String fileExtension = FilenameUtils.getExtension(filePath);
 
+              // handle compressed files if needed
+              if (handleCompressedFiles && isSupportedCompressedFileType(filePath)) {
+                byte[] content = containerClient.getBlobClient(blob.getName()).downloadContent().toBytes();
+                // unzip the file, compressorStream will be closed when try block is exited
+                try (BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(content));
+                    CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
+                  // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
+                  String unzippedFileName = FilenameUtils.removeExtension(filePath);
+                  if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
+                    handleArchiveFiles(publisher, compressorStream);
+                  } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
+                    handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), filePath);
+                  } else {
+                    Document doc = blobItemToDoc(blob, bucketOrContainerName, compressorStream, unzippedFileName);
+                    publisher.publish(doc);
+                  }
+                }
+                return;
+              }
+
+              // handle archived files if needed
+              if (handleArchivedFiles && isSupportedArchiveFileType(filePath)) {
+                byte[] content = containerClient.getBlobClient(blob.getName()).downloadContent().toBytes();
+                try (InputStream is = new ByteArrayInputStream(content)) {
+                  handleArchiveFiles(publisher, is);
+                }
+                return;
+              }
+
               // handle file types if needed
               if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                 // get the file content
@@ -94,7 +130,7 @@ public class AzureStorageClient extends BaseStorageClient {
                 return;
               }
 
-              Document doc = blobItemToDoc(blob);
+              Document doc = blobItemToDoc(blob, bucketOrContainerName);
               publisher.publish(doc);
             } catch (Exception e) {
               log.error("Error publishing blob: {}", blob.getName(), e);
@@ -103,12 +139,12 @@ public class AzureStorageClient extends BaseStorageClient {
         });
   }
 
-  private Document blobItemToDoc(BlobItem blob) {
+  private Document blobItemToDoc(BlobItem blob, String container) {
     String docId = DigestUtils.md5Hex(blob.getName());
     Document doc = Document.create(docIdPrefix + docId);
     BlobItemProperties properties = blob.getProperties();
     String path = String.format("%s://%s/%s/%s", pathToStorageURI.getScheme(), pathToStorageURI.getAuthority(),
-        bucketOrContainerName, blob.getName());
+        container, blob.getName());
     doc.setField(FileConnector.FILE_PATH, path);
     doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
     doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
@@ -116,6 +152,25 @@ public class AzureStorageClient extends BaseStorageClient {
 
     if (getFileContent) {
       doc.setField(FileConnector.CONTENT, containerClient.getBlobClient(blob.getName()).downloadContent().toBytes());
+    }
+
+    return doc;
+  }
+
+  private Document blobItemToDoc(BlobItem blob, String container, CompressorInputStream compressorStream, String unzippedFileName)
+      throws IOException {
+    String docId = DigestUtils.md5Hex(unzippedFileName);
+    Document doc = Document.create(docIdPrefix + docId);
+    BlobItemProperties properties = blob.getProperties();
+    String path = String.format("%s://%s/%s/%s", pathToStorageURI.getScheme(), pathToStorageURI.getAuthority(),
+        container, unzippedFileName);
+    doc.setField(FileConnector.FILE_PATH, path);
+    doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
+    doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
+    doc.setField(FileConnector.SIZE, properties.getContentLength());
+
+    if (getFileContent) {
+      doc.setField(FileConnector.CONTENT, compressorStream.readAllBytes());
     }
 
     return doc;
