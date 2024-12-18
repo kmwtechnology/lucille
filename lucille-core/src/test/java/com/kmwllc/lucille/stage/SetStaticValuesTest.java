@@ -14,18 +14,26 @@ public class SetStaticValuesTest {
   private StageFactory factory = StageFactory.of(SetStaticValues.class);
 
   @Test
-  public void test() throws Exception {
+  public void testSetValues() throws Exception {
     Stage stage = factory.get("SetStaticValuesTest/config.conf");
 
     Document doc = Document.create("doc");
     stage.processDocument(doc);
 
-    assertEquals("File", doc.getString("type"));
+    assertEquals("File", doc.getString("myString"));
+    assertEquals(1, doc.getInt("myInt").intValue());
+    assertEquals(true, doc.getBoolean("myBool"));
 
-    doc.setField("type", "Directory");
+    doc.setField("myString", "Directory");
+    doc.setField("myInt", 2);
+    doc.setField("myBool", false);
+
     stage.processDocument(doc);
 
-    assertEquals("Directory", doc.getString("type"));
+    // update_mode is set to "skip" in the config
+    assertEquals("Directory", doc.getString("myString"));
+    assertEquals(2, doc.getInt("myInt").intValue());
+    assertEquals(false, doc.getBoolean("myBool"));
   }
 
   @Test
