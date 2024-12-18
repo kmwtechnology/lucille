@@ -8,11 +8,9 @@ import static org.junit.Assert.assertTrue;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 
-import com.kmwllc.lucille.stage.StageFactory;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -54,7 +52,7 @@ public class AddRandomFieldTest {
     assertFalse(doc.isMultiValued("data"));
     assertEquals(10, doc.getString("data").split(" ").length);
   }
-  
+
   /**
    * Tests stage with a basic file path
    *

@@ -11,21 +11,21 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Adds random data to a document field given parameters
+ * Adds random data to a document field given parameters. Note that when randomly selecting multiple values
+ * from an integer range or from file contents, duplicates are possible -- this stage does not currently guarantee
+ * that all random terms added to a field will be distinct.
  * <br>
  * Config Parameters -
  * <br>
  * <p>
  * <b>inputDataPath</b> (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
- *  defaults to numeric data based on range size (0 -&gt; rangeSize - 1)
+ *  defaults to numeric data based on range size (0 -&gt; rangeSize - 1). Note that duplicate entries will not be removed.
  * </p>
  * <p>
  * <b>fieldName</b> (String, Optional) : Field name of field where data is placed, defaults to "data"
@@ -41,10 +41,15 @@ import java.util.stream.IntStream;
  * <b>maxNumOfTerms</b> (Integer, Optional) : maximum number of terms to be in the field, defaults to 1
  * </p>
  * <p>
- * <b>isNested</b> (FieldType, Optional) : setting for structure of field, default or nested
+ * <b>isNested</b> (bool, Optional) : setting for structure of field, default or nested
+ * <p>
+ * <b>concatenate</b> (bool, Optional) : if true, represent multiple terms as a single space-separated string instead of multiple
+ *  values, defaults to false
  * </p>
  */
 public class AddRandomField extends Stage {
+
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final String inputDataPath;
   private final String fieldName;
@@ -52,8 +57,7 @@ public class AddRandomField extends Stage {
   private Integer minNumOfTerms;
   private Integer maxNumOfTerms;
   private final boolean isNested;
-  private List<String> dataArr;
-  private List<String> uniqueValues;
+  private List<String> fileData;
   private final boolean concatenate;
 
   public AddRandomField(Config config) throws StageException {
@@ -65,9 +69,8 @@ public class AddRandomField extends Stage {
     this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "max_num_of_terms", null);
     this.isNested = ConfigUtils.getOrDefault(config, "is_nested", false);
     this.concatenate = ConfigUtils.getOrDefault(config, "concatenate", false);
-    this.dataArr = null;
-    this.rangeSize = null;
-    this.uniqueValues = null;
+    this.rangeSize = ConfigUtils.getOrDefault(config, "range_size", null);
+    this.fileData = null;
 
     if (this.minNumOfTerms == null ^ this.maxNumOfTerms == null) {
       throw new StageException("Both minimum and maximum number of terms must be specified if either is specified");
@@ -79,84 +82,76 @@ public class AddRandomField extends Stage {
     if (this.minNumOfTerms > this.maxNumOfTerms) {
       throw new StageException("Minimum number of terms must be less than or equal to maximum");
     }
+    if (inputDataPath == null && rangeSize == null) {
+      throw new StageException("range_size must be specified if there is no input_data_path");
+    }
   }
 
   @Override
   public void start() throws StageException {
-    this.dataArr = this.inputDataPath != null ? getFileData(this.inputDataPath) : null;
-    this.rangeSize = ConfigUtils.getOrDefault(config, "range_size",
-        this.dataArr != null ? this.dataArr.size() : this.maxNumOfTerms);
-    this.uniqueValues = getUniqueValues(this.dataArr != null, this.dataArr);
+    fileData = (inputDataPath != null) ? getFileData(inputDataPath) : null;
 
-    if (this.dataArr != null && this.rangeSize > this.dataArr.size()) {
+    if (fileData != null && rangeSize > fileData.size()) {
       throw new StageException("Range size must be less than the number of lines in given file");
+    }
+
+    if (fileData != null && rangeSize < fileData.size()) {
+      Collections.shuffle(fileData);
+      fileData = fileData.subList(0, rangeSize);
     }
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    ArrayList<String> fieldDataArr = genFieldDataArr(uniqueValues, minNumOfTerms, maxNumOfTerms);
+
+    int fieldLength = getRandomFieldLength(minNumOfTerms, maxNumOfTerms);
+
+    List<String> data = (fileData == null) ? getRandomIntegerStringList(fieldLength, rangeSize) :
+        selectRandomElements(fileData, fieldLength);
+
     if (isNested) {
-      populateFieldsNested(fieldName, doc, fieldDataArr);
+      ArrayNode array = MAPPER.createArrayNode();
+      for (String value : data) {
+        array.add(MAPPER.createObjectNode().put("data", value));
+      }
+      doc.setField(fieldName, array);
     } else {
-      populateFieldsDefault(fieldName, doc, fieldDataArr);
+      if (concatenate) {
+        doc.setOrAdd(fieldName, String.join(" ", data));
+      } else {
+        for (String value : data) {
+          doc.setOrAdd(fieldName, value);
+        }
+      }
     }
     return null;
   }
 
-  private void populateFieldsNested(String fieldName, Document doc, ArrayList<String> fieldDataArr) {
-    ObjectMapper mapper = new ObjectMapper();
-    ArrayNode array = mapper.createArrayNode();
-    for (String value : fieldDataArr) {
-      array.add(mapper.createObjectNode().put("data", value));
-    }
-    doc.setField(fieldName, array);
-  }
-
-  private void populateFieldsDefault(String fieldName, Document doc, ArrayList<String> fieldDataArr) {
-    if (concatenate) {
-      doc.setOrAdd(fieldName, String.join(" ", fieldDataArr));
-    } else {
-      for (String value : fieldDataArr) {
-        doc.setOrAdd(fieldName, value);
-      }
-    }
-  }
-
-  private List<String> getFileData(String inputDataPath) throws StageException {
+  private static List<String> getFileData(String inputDataPath) throws StageException {
     try {
-      List<String> data = Files.readAllLines(Path.of(inputDataPath));
-      return data;
+      return Files.readAllLines(Path.of(inputDataPath));
     } catch (IOException e) {
       throw new StageException("Could not read provided file path", e);
     }
   }
 
-  private List<String> getUniqueValues(boolean dataExists, List<String> inputData) {
-    List<String> uniqueValues = new ArrayList<>();
-    if (dataExists) {
-      List<String> initialData = new ArrayList(new HashSet<>(inputData));
-      // create set of unique values based on given range size and input data
-      for (int i = 0; i < rangeSize; i++) {
-        int randomPos = (int) (Math.random() * initialData.size());
-        uniqueValues.add(initialData.get(randomPos));
-        initialData.remove(randomPos);
-      }
-    } else {
-      // create sequential list of numbers ending at range size
-      List<Integer> seqList = IntStream.range(0, rangeSize)
-          .boxed().collect(Collectors.toList());
-      uniqueValues = seqList.stream().map(i -> i.toString()).collect(Collectors.toList());
+  private static List<String> getRandomIntegerStringList(int length, int rangeSize) {
+    List<String> result = new ArrayList();
+    for (int i = 0; i < length; i++) {
+      result.add(String.valueOf(ThreadLocalRandom.current().nextInt(0, rangeSize + 1)));
     }
-    return uniqueValues;
+    return result;
   }
 
-  private ArrayList<String> genFieldDataArr(List<String> uniqueValues, int minNumOfTerms, int maxNumOfTerms) {
+  private static List<String> selectRandomElements(List<String> values, int length) {
     ArrayList<String> fieldData = new ArrayList<>();
-    int fieldDataSize = (int) ((Math.random() * (maxNumOfTerms - minNumOfTerms)) + minNumOfTerms);
-    for (int i = 0; i < fieldDataSize; i++) {
-      fieldData.add(uniqueValues.get((int) (Math.random() * uniqueValues.size())));
+    for (int i = 0; i < length; i++) {
+      fieldData.add(values.get(ThreadLocalRandom.current().nextInt(values.size())));
     }
     return fieldData;
+  }
+
+  private static int getRandomFieldLength(int minInclusive, int maxInclusive) {
+    return ThreadLocalRandom.current().nextInt(minInclusive, maxInclusive+1);
   }
 }
