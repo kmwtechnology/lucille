@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Adds random data to a document field given parameters. Note that when randomly selecting multiple values
+ * Adds random Strings to a document field given parameters. Note that when randomly selecting multiple values
  * from an integer range or from file contents, duplicates are possible -- this stage does not currently guarantee
  * that all random terms added to a field will be distinct.
  * <br>
