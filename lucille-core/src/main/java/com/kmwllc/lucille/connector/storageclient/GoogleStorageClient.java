@@ -18,7 +18,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -75,67 +74,45 @@ public class GoogleStorageClient extends BaseStorageClient {
             if (isValid(blob)) {
               String pathStr = blob.getName();
               String fileExtension = FilenameUtils.getExtension(pathStr);
-              try {
-                // preprocessing
-                beforeProcessingFile(pathStr);
-
-                // handle compressed files if needed
-                if (handleCompressedFiles && isSupportedCompressedFileType(pathStr)) {
-                  byte[] content = blob.getContent();
-                  // unzip the file, compressorStream will be closed when try block is exited
-                  try (BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(content));
-                      CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
-                    // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
-                    String unzippedFileName = FilenameUtils.removeExtension(pathStr);
-                    if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
-                      handleArchiveFiles(publisher, compressorStream);
-                    } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
-                      handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), pathStr);
-                    } else {
-                      Document doc = blobToDoc(blob, bucketOrContainerName, compressorStream, unzippedFileName);
-                      publisher.publish(doc);
-                    }
-                  }
-                  afterProcessingFile(pathStr);
-                  return;
-                }
-
-                // handle archived files if needed
-                if (handleArchivedFiles && isSupportedArchiveFileType(pathStr)) {
-                  byte[] content = blob.getContent();
-                  try (InputStream is = new ByteArrayInputStream(content)) {
-                    handleArchiveFiles(publisher, is);
-                  }
-                  afterProcessingFile(pathStr);
-                  return;
-                }
-
-                // handle file types if needed
-                if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
-                  // get the file content
-                  byte[] content = blob.getContent();
-                  // instantiate the right FileHandler and publish based on content
-                  publishUsingFileHandler(publisher, fileExtension, content, pathStr);
-                  afterProcessingFile(pathStr);
-                  return;
-                }
-
-                Document doc = blobToDoc(blob, bucketOrContainerName);
-                publisher.publish(doc);
-                afterProcessingFile(pathStr);
-              } catch (Exception e) {
-                try {
-                  errorProcessingFile(pathStr);
-                } catch (IOException ex) {
-                  log.error("Error occurred while performing error operations on file '{}'", pathStr, ex);
-                  throw new RuntimeException(ex);
-                }
-                log.error("Unable to publish document '{}', SKIPPING", blob.getName(), e);
-              }
+              tryProcessAndPublishFile(publisher, pathStr, fileExtension, new FileReference(blob));
             }
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
     } while (page != null);
+  }
+
+  @Override
+  public Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName) {
+    Blob blob = fileReference.getBlob();
+
+    try {
+      return blobToDoc(blob, bucketOrContainerName);
+    } catch (IOException e) {
+      throw new IllegalArgumentException("Unable to convert blob '" + blob.getName() + "' to Document", e);
+    }
+  }
+
+  @Override
+  public Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+    Blob blob = fileReference.getBlob();
+
+    try {
+      return blobToDoc(blob, bucketOrContainerName, in, fileName);
+    } catch (IOException e) {
+      throw new IllegalArgumentException("Unable to convert blob '" + blob.getName() + "' to Document", e);
+    }
+  }
+
+  @Override
+  public byte[] getObjectContent(FileReference fileReference) {
+    Blob blob = fileReference.getBlob();
+    return blob.getContent();
+  }
+
+  @Override
+  public InputStream getObjectContentStream(FileReference fileReference) {
+    byte[] content = getObjectContent(fileReference);
+    return new ByteArrayInputStream(content);
   }
 
   private boolean isValid(Blob blob) {

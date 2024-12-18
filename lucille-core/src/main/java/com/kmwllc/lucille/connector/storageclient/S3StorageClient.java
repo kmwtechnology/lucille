@@ -76,73 +76,38 @@ public class S3StorageClient extends BaseStorageClient {
             if (isValid(obj)) {
               String pathStr = obj.key();
               String fileExtension = FilenameUtils.getExtension(pathStr);
-              try {
-                beforeProcessingFile(pathStr);
-
-                // handle compressed files if needed
-                if (handleCompressedFiles && isSupportedCompressedFileType(pathStr)) {
-                  byte[] content = s3.getObjectAsBytes(
-                      GetObjectRequest.builder().bucket(bucketOrContainerName).key(pathStr).build()
-                  ).asByteArray();
-                  // unzip the file, compressorStream will be closed when try block is exited
-                  try (BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(content));
-                      CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
-                    // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
-                    String unzippedFileName = FilenameUtils.removeExtension(pathStr);
-                    if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
-                      handleArchiveFiles(publisher, compressorStream);
-                    } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
-                      handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), pathStr);
-                    } else {
-                      Document doc = s3ObjectToDoc(obj, bucketOrContainerName, compressorStream, unzippedFileName);
-                      publisher.publish(doc);
-                    }
-                  }
-                  afterProcessingFile(pathStr);
-                  return;
-                }
-
-                // handle archive files if needed
-                if (handleArchivedFiles && isSupportedArchiveFileType(pathStr)) {
-                  byte[] content = s3.getObjectAsBytes(
-                    GetObjectRequest.builder().bucket(bucketOrContainerName).key(pathStr).build()
-                  ).asByteArray();
-
-                  try (InputStream is = new ByteArrayInputStream(content)) {
-                    handleArchiveFiles(publisher, is);
-                  }
-                  afterProcessingFile(pathStr);
-                  return;
-                }
-
-                // handle file types if needed
-                if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
-                  // get the file content
-                  byte[] content = s3.getObjectAsBytes(
-                    GetObjectRequest.builder().bucket(bucketOrContainerName).key(pathStr).build()
-                  ).asByteArray();
-
-                  // instantiate the right FileHandler and publish based on content
-                  publishUsingFileHandler(publisher, fileExtension, content, pathStr);
-                  afterProcessingFile(pathStr);
-                  return;
-                }
-
-                Document doc = s3ObjectToDoc(obj, bucketOrContainerName);
-                publisher.publish(doc);
-                afterProcessingFile(pathStr);
-              } catch (Exception e) {
-                try {
-                  errorProcessingFile(pathStr);
-                } catch (IOException ex) {
-                  log.error("Error occurred while performing error operations on file '{}'", pathStr, ex);
-                  throw new RuntimeException(ex);
-                }
-                log.error("Unable to publish document '{}', SKIPPING", obj.key(), e);
-              }
+              tryProcessAndPublishFile(publisher, pathStr, fileExtension, new FileReference(obj));
             }
           });
         });
+  }
+
+  @Override
+  public Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName) {
+    S3Object obj = fileReference.getS3Object();
+    return s3ObjectToDoc(obj, bucketOrContainerName);
+  }
+
+  @Override
+  public Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+    S3Object obj = fileReference.getS3Object();
+    try {
+      return s3ObjectToDoc(obj, bucketOrContainerName, in, fileName);
+    } catch (IOException e) {
+      throw new IllegalArgumentException("Unable to convert S3Object '" + obj.key() + "' to Document", e);
+    }
+  }
+
+  @Override
+  public byte[] getObjectContent(FileReference fileReference) {
+    S3Object obj = fileReference.getS3Object();
+    return s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketOrContainerName).key(obj.key()).build()).asByteArray();
+  }
+
+  @Override
+  public InputStream getObjectContentStream(FileReference fileReference) {
+    byte[] content = getObjectContent(fileReference);
+    return new ByteArrayInputStream(content);
   }
 
   private Document s3ObjectToDoc(S3Object obj, String bucketName) {

@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.CREATED;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
@@ -26,7 +25,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +35,8 @@ import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.apache.commons.compress.archivers.ArchiveStreamFactory;
+import org.apache.commons.compress.compressors.CompressorInputStream;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,112 +80,65 @@ public abstract class BaseStorageClient implements StorageClient {
     this.maxNumOfPages = cloudOptions.containsKey("maxNumOfPages") ? (Integer) cloudOptions.get("maxNumOfPages") : 100;
   }
 
-  public String getContainerOrBucketName() {
-    return pathToStorageURI.getAuthority();
-  }
+  /**
+   * Methods below are methods used for traversing the client and publishing files
+   */
 
-  public String getStartingDirectory() {
-    String startingDirectory = Objects.equals(pathToStorageURI.getPath(), "/") ? "" : pathToStorageURI.getPath();
-    if (startingDirectory.startsWith("/")) return startingDirectory.substring(1);
-    return startingDirectory;
-  }
+  public void tryProcessAndPublishFile(Publisher publisher, String pathStr, String fileExtension, FileReference fileReference) {
+    try {
+      // preprocessing
+      beforeProcessingFile(pathStr);
 
-  public static boolean shouldIncludeFile(String pathStr, List<Pattern> includes, List<Pattern> excludes) {
-    return excludes.stream().noneMatch(pattern -> pattern.matcher(pathStr).matches())
-        && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(pathStr).matches()));
-  }
-
-  public void initializeFileHandlers() throws ConnectorException {
-    // go through fileOptions, and initialize all file handlers
-    for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
-      if (fileOptions.hasPath(fileExtensionSupported)) {
-        try {
-          FileHandler handler = FileHandler.create(fileExtensionSupported, fileOptions);
-          fileHandlers.put(fileExtensionSupported, handler);
-          // handle cases like json/jsonl
-          if (fileExtensionSupported.equals("json") || fileExtensionSupported.equals("jsonl")) {
-            fileHandlers.put("json", handler);
-            fileHandlers.put("jsonl", handler);
+      // handle compressed files if needed
+      if (handleCompressedFiles && isSupportedCompressedFileType(pathStr)) {
+        // unzip the file, compressorStream will be closed when try block is exited
+        try (BufferedInputStream bis = new BufferedInputStream(getObjectContentStream(fileReference));
+            CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
+          // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
+          String unzippedFileName = FilenameUtils.removeExtension(pathStr);
+          if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
+            handleArchiveFiles(publisher, compressorStream);
+          } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
+            handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), pathStr);
+          } else {
+            Document doc = convertObjectToDoc(fileReference, bucketOrContainerName, compressorStream, unzippedFileName);
+            publisher.publish(doc);
           }
-        } catch (Exception e) {
-          throw new ConnectorException("Error occurred while putting in file handler for file extension: " + fileExtensionSupported, e);
         }
+        afterProcessingFile(pathStr);
+        return;
       }
-    }
-  }
 
-  public void clearFileHandlers() {
-    fileHandlers.clear();
-  }
-
-  public void beforeProcessingFile(String pathStr) throws Exception {
-    createProcessedAndErrorFoldersIfSet();
-  }
-
-  public void afterProcessingFile(String pathStr) throws IOException {
-    if (moveToAfterProcessing != null) {
-      // move to processed folder
-      moveFile(pathStr, moveToAfterProcessing);
-    }
-  }
-
-  public void errorProcessingFile(String pathStr) throws IOException {
-    if (moveToErrorFolder != null) {
-      // move to error folder
-      moveFile(pathStr, moveToErrorFolder);
-    }
-  }
-
-  private void moveFile(String pathStr, String option) throws IOException {
-    if (pathStr.startsWith("classpath:")) {
-      log.warn("Skipping moving classpath file: {} to {}", pathStr, option);
-      return;
-    }
-
-    // get paths of source and target
-    Path sourcePath = Paths.get(pathStr);
-    Path targetFolderPath = Paths.get(option);
-
-    // ensure target folder exists as a precaution
-    if (!Files.exists(targetFolderPath)) {
-      Files.createDirectory(targetFolderPath);
-    }
-
-    // check if the file exists locally
-    if (Files.exists(sourcePath)) {
-      // move the local file to the target folder
-      Path targetPath = targetFolderPath.resolve(sourcePath.getFileName());
-      Files.move(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
-      log.debug("Moved local file to: {}", targetPath);
-    } else {
-      // handle cloud paths
-      String cloudFileName = createFileNameFromCloudPath(pathStr);
-      Path cloudFilePath = targetFolderPath.resolve(cloudFileName);
-      Files.createFile(cloudFilePath);
-      log.debug("Created placeholder file for cloud path at: {}", cloudFilePath);
-    }
-  }
-
-  private String createFileNameFromCloudPath(String cloudPath) {
-    // replace characters to make a valid filename
-    return cloudPath.replaceAll("[^a-zA-Z0-9.-]", "_");
-  }
-
-  private void createProcessedAndErrorFoldersIfSet() {
-    if (moveToAfterProcessing != null) {
-      // Create the destination directory if it doesn't exist.
-      File destDir = new File(moveToAfterProcessing);
-      if (!destDir.exists()) {
-        destDir.mkdirs();
+      // handle archived files if needed
+      if (handleArchivedFiles && isSupportedArchiveFileType(pathStr)) {
+        try (InputStream is = getObjectContentStream(fileReference)) {
+          handleArchiveFiles(publisher, is);
+        }
+        afterProcessingFile(pathStr);
+        return;
       }
-    }
 
-    if (moveToErrorFolder != null) {
-      File errorDir = new File(moveToErrorFolder);
-      if (!errorDir.exists()) {
-        log.info("Creating error directory {}", errorDir.getAbsolutePath());
-        errorDir.mkdirs();
+      // handle file types if needed
+      if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
+        // get the file content
+        byte[] content = getObjectContent(fileReference);
+        // instantiate the right FileHandler and publish based on content
+        publishUsingFileHandler(publisher, fileExtension, content, pathStr);
+        afterProcessingFile(pathStr);
+        return;
       }
+
+      Document doc = convertObjectToDoc(fileReference, bucketOrContainerName);
+      publisher.publish(doc);
+      afterProcessingFile(pathStr);
+    } catch (Exception e) {
+      try {
+        errorProcessingFile(pathStr);
+      } catch (IOException ex) {
+        log.error("Error occurred while performing error operations on file '{}'", pathStr, ex);
+        throw new RuntimeException(ex);
+      }
+      log.error("Unable to publish document '{}', SKIPPING", pathStr, e);
     }
   }
 
@@ -262,26 +215,129 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  // InputStream parameter will be closed outside of this method as well
-  public Document pathToDoc(Path path, InputStream in) throws ConnectorException {
-    final String docId = DigestUtils.md5Hex(path.toString());
-    final Document doc = Document.create(createDocId(docId));
+  /**
+   * Methods below are methods used for performing operations before, after, during processing files
+   */
 
-    try {
-      // get file attributes
-      BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
+  public void beforeProcessingFile(String pathStr) throws Exception {
+    createProcessedAndErrorFoldersIfSet();
+  }
 
-      // setting fields on document
-      // remove Extension to show that we have decompressed the file and obtained its information
-      doc.setField(FILE_PATH, FilenameUtils.removeExtension(path.toAbsolutePath().normalize().toString()));
-      doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
-      doc.setField(CREATED, attrs.creationTime().toInstant());
-      // TODO: find out how to get the size of the decompressed file
-      if (getFileContent) doc.setField(CONTENT, in.readAllBytes());
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred getting/setting file attributes to document: " + path, e);
+  public void afterProcessingFile(String pathStr) throws IOException {
+    if (moveToAfterProcessing != null) {
+      // move to processed folder
+      moveFile(pathStr, moveToAfterProcessing);
     }
-    return doc;
+  }
+
+  public void errorProcessingFile(String pathStr) throws IOException {
+    if (moveToErrorFolder != null) {
+      // move to error folder
+      moveFile(pathStr, moveToErrorFolder);
+    }
+  }
+
+  private void moveFile(String pathStr, String option) throws IOException {
+    if (pathStr.startsWith("classpath:")) {
+      log.warn("Skipping moving classpath file: {} to {}", pathStr, option);
+      return;
+    }
+
+    // get paths of source and target
+    Path sourcePath = Paths.get(pathStr);
+    Path targetFolderPath = Paths.get(option);
+
+    // ensure target folder exists as a precaution
+    if (!Files.exists(targetFolderPath)) {
+      Files.createDirectory(targetFolderPath);
+    }
+
+    // check if the file exists locally
+    if (Files.exists(sourcePath)) {
+      // move the local file to the target folder
+      Path targetPath = targetFolderPath.resolve(sourcePath.getFileName());
+      Files.move(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+      log.debug("Moved local file to: {}", targetPath);
+    } else {
+      // handle cloud paths
+      String cloudFileName = createFileNameFromCloudPath(pathStr);
+      Path cloudFilePath = targetFolderPath.resolve(cloudFileName);
+      Files.createFile(cloudFilePath);
+      log.debug("Created placeholder file for cloud path at: {}", cloudFilePath);
+    }
+  }
+
+  private String createFileNameFromCloudPath(String cloudPath) {
+    // replace characters to make a valid filename
+    return cloudPath.replaceAll("[^a-zA-Z0-9.-]", "_");
+  }
+
+  private void createProcessedAndErrorFoldersIfSet() {
+    if (moveToAfterProcessing != null) {
+      // Create the destination directory if it doesn't exist.
+      File destDir = new File(moveToAfterProcessing);
+      if (!destDir.exists()) {
+        destDir.mkdirs();
+      }
+    }
+
+    if (moveToErrorFolder != null) {
+      File errorDir = new File(moveToErrorFolder);
+      if (!errorDir.exists()) {
+        log.info("Creating error directory {}", errorDir.getAbsolutePath());
+        errorDir.mkdirs();
+      }
+    }
+  }
+
+  /**
+   * Misc methods
+   */
+
+  public abstract Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName);
+
+  public abstract Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName);
+
+  public abstract byte[] getObjectContent(FileReference fileReference);
+
+  public abstract InputStream getObjectContentStream(FileReference fileReference);
+
+  public String getContainerOrBucketName() {
+    return pathToStorageURI.getAuthority();
+  }
+
+  public String getStartingDirectory() {
+    String startingDirectory = Objects.equals(pathToStorageURI.getPath(), "/") ? "" : pathToStorageURI.getPath();
+    if (startingDirectory.startsWith("/")) return startingDirectory.substring(1);
+    return startingDirectory;
+  }
+
+  public static boolean shouldIncludeFile(String pathStr, List<Pattern> includes, List<Pattern> excludes) {
+    return excludes.stream().noneMatch(pattern -> pattern.matcher(pathStr).matches())
+        && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(pathStr).matches()));
+  }
+
+  public void initializeFileHandlers() throws ConnectorException {
+    // go through fileOptions, and initialize all file handlers
+    for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
+      if (fileOptions.hasPath(fileExtensionSupported)) {
+        try {
+          FileHandler handler = FileHandler.create(fileExtensionSupported, fileOptions);
+          fileHandlers.put(fileExtensionSupported, handler);
+          // handle cases like json/jsonl
+          if (fileExtensionSupported.equals("json") || fileExtensionSupported.equals("jsonl")) {
+            fileHandlers.put("json", handler);
+            fileHandlers.put("jsonl", handler);
+          }
+        } catch (Exception e) {
+          throw new ConnectorException("Error occurred while putting in file handler for file extension: " + fileExtensionSupported, e);
+        }
+      }
+    }
+  }
+
+  public void clearFileHandlers() {
+    fileHandlers.clear();
   }
 
   public boolean isSupportedCompressedFileType(String string) {

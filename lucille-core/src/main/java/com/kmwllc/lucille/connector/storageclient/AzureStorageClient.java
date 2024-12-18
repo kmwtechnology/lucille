@@ -90,63 +90,38 @@ public class AzureStorageClient extends BaseStorageClient {
           if (isValid(blob)) {
             String pathStr = blob.getName();
             String fileExtension = FilenameUtils.getExtension(pathStr);
-            try {
-              beforeProcessingFile(pathStr);
-
-              // handle compressed files if needed
-              if (handleCompressedFiles && isSupportedCompressedFileType(pathStr)) {
-                byte[] content = containerClient.getBlobClient(blob.getName()).downloadContent().toBytes();
-                // unzip the file, compressorStream will be closed when try block is exited
-                try (BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(content));
-                    CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
-                  // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
-                  String unzippedFileName = FilenameUtils.removeExtension(pathStr);
-                  if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
-                    handleArchiveFiles(publisher, compressorStream);
-                  } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
-                    handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), pathStr);
-                  } else {
-                    Document doc = blobItemToDoc(blob, bucketOrContainerName, compressorStream, unzippedFileName);
-                    publisher.publish(doc);
-                  }
-                }
-                afterProcessingFile(pathStr);
-                return;
-              }
-
-              // handle archived files if needed
-              if (handleArchivedFiles && isSupportedArchiveFileType(pathStr)) {
-                byte[] content = containerClient.getBlobClient(blob.getName()).downloadContent().toBytes();
-                try (InputStream is = new ByteArrayInputStream(content)) {
-                  handleArchiveFiles(publisher, is);
-                }
-                afterProcessingFile(pathStr);
-                return;
-              }
-
-              // handle file types if needed
-              if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
-                // get the file content
-                byte[] content = containerClient.getBlobClient(blob.getName()).downloadContent().toBytes();
-                // instantiate the right FileHandler and publish based on content
-                publishUsingFileHandler(publisher, fileExtension, content, pathStr);
-                afterProcessingFile(pathStr);
-                return;
-              }
-
-              Document doc = blobItemToDoc(blob, bucketOrContainerName);
-              publisher.publish(doc);
-            } catch (Exception e) {
-              try {
-                errorProcessingFile(pathStr);
-              } catch (IOException ex) {
-                log.error("Error occurred while performing error operations on file '{}'", pathStr, ex);
-                throw new RuntimeException(ex);
-              }
-              log.error("Error publishing blob: {}", blob.getName(), e);
-            }
+            tryProcessAndPublishFile(publisher, pathStr, fileExtension, new FileReference(blob));
           }
         });
+  }
+
+  @Override
+  public Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName) {
+    BlobItem blobItem = fileReference.getBlobItem();
+    return blobItemToDoc(blobItem, bucketOrContainerName);
+  }
+
+  @Override
+  public Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+    BlobItem blobItem = fileReference.getBlobItem();
+
+    try {
+      return blobItemToDoc(blobItem, bucketOrContainerName, in, fileName);
+    } catch (IOException e) {
+      throw new IllegalArgumentException("Unable to convert BlobItem '" + blobItem.getName() + "' to Document", e);
+    }
+  }
+
+  @Override
+  public byte[] getObjectContent(FileReference fileReference) {
+    BlobItem blobItem = fileReference.getBlobItem();
+    return containerClient.getBlobClient(blobItem.getName()).downloadContent().toBytes();
+  }
+
+  @Override
+  public InputStream getObjectContentStream(FileReference fileReference) {
+    byte[] content = getObjectContent(fileReference);
+    return new ByteArrayInputStream(content);
   }
 
   private Document blobItemToDoc(BlobItem blob, String container) {
