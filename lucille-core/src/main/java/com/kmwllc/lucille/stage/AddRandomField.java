@@ -91,13 +91,17 @@ public class AddRandomField extends Stage {
   public void start() throws StageException {
     fileData = (inputDataPath != null) ? getFileData(inputDataPath) : null;
 
-    if (fileData != null && rangeSize > fileData.size()) {
-      throw new StageException("Range size must be less than the number of lines in given file");
-    }
+    if (fileData != null && rangeSize != null) {
+        if (rangeSize > fileData.size()) {
+          throw new StageException("Range size must be less than the number of lines in given file");
+        }
 
-    if (fileData != null && rangeSize < fileData.size()) {
-      Collections.shuffle(fileData);
-      fileData = fileData.subList(0, rangeSize);
+        if (rangeSize < fileData.size()) {
+          // shuffle contents so when we truncate we're not always using the initial elements
+          // TODO: might be slow for large files, consider whether this is actually needed
+          Collections.shuffle(fileData);
+          fileData = fileData.subList(0, rangeSize);
+        }
     }
   }
 
