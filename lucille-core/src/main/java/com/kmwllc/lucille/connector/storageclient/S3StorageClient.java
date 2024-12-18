@@ -74,9 +74,10 @@ public class S3StorageClient extends BaseStorageClient {
         .forEach(resp -> {
           resp.contents().forEach(obj -> {
             if (isValid(obj)) {
+              String pathStr = obj.key();
+              String fileExtension = FilenameUtils.getExtension(pathStr);
               try {
-                String pathStr = obj.key();
-                String fileExtension = FilenameUtils.getExtension(pathStr);
+                beforeProcessingFile(pathStr);
 
                 // handle compressed files if needed
                 if (handleCompressedFiles && isSupportedCompressedFileType(pathStr)) {
@@ -97,6 +98,7 @@ public class S3StorageClient extends BaseStorageClient {
                       publisher.publish(doc);
                     }
                   }
+                  afterProcessingFile(pathStr);
                   return;
                 }
 
@@ -109,6 +111,7 @@ public class S3StorageClient extends BaseStorageClient {
                   try (InputStream is = new ByteArrayInputStream(content)) {
                     handleArchiveFiles(publisher, is);
                   }
+                  afterProcessingFile(pathStr);
                   return;
                 }
 
@@ -121,12 +124,20 @@ public class S3StorageClient extends BaseStorageClient {
 
                   // instantiate the right FileHandler and publish based on content
                   publishUsingFileHandler(publisher, fileExtension, content, pathStr);
+                  afterProcessingFile(pathStr);
                   return;
                 }
 
                 Document doc = s3ObjectToDoc(obj, bucketOrContainerName);
                 publisher.publish(doc);
+                afterProcessingFile(pathStr);
               } catch (Exception e) {
+                try {
+                  errorProcessingFile(pathStr);
+                } catch (IOException ex) {
+                  log.error("Error occurred while performing error operations on file '{}'", pathStr, ex);
+                  throw new RuntimeException(ex);
+                }
                 log.error("Unable to publish document '{}', SKIPPING", obj.key(), e);
               }
             }

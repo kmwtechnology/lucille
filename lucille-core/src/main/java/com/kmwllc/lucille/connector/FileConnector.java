@@ -73,6 +73,8 @@ public class FileConnector extends AbstractConnector {
   public static final String GET_FILE_CONTENT = "getFileContent";
   public static final String HANDLE_ARCHIVED_FILES = "handleArchivedFiles";
   public static final String HANDLE_COMPRESSED_FILES = "handleCompressedFiles";
+  public static final String MOVE_TO_AFTER_PROCESSING = "moveToAfterProcessing";
+  public static final String MOVE_TO_ERROR_FOLDER = "moveToErrorFolder";
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 

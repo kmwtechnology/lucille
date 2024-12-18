@@ -88,9 +88,10 @@ public class AzureStorageClient extends BaseStorageClient {
     containerClient.listBlobs(new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
         .forEach(blob -> {
           if (isValid(blob)) {
+            String pathStr = blob.getName();
+            String fileExtension = FilenameUtils.getExtension(pathStr);
             try {
-              String pathStr = blob.getName();
-              String fileExtension = FilenameUtils.getExtension(pathStr);
+              beforeProcessingFile(pathStr);
 
               // handle compressed files if needed
               if (handleCompressedFiles && isSupportedCompressedFileType(pathStr)) {
@@ -109,6 +110,7 @@ public class AzureStorageClient extends BaseStorageClient {
                     publisher.publish(doc);
                   }
                 }
+                afterProcessingFile(pathStr);
                 return;
               }
 
@@ -118,6 +120,7 @@ public class AzureStorageClient extends BaseStorageClient {
                 try (InputStream is = new ByteArrayInputStream(content)) {
                   handleArchiveFiles(publisher, is);
                 }
+                afterProcessingFile(pathStr);
                 return;
               }
 
@@ -127,12 +130,19 @@ public class AzureStorageClient extends BaseStorageClient {
                 byte[] content = containerClient.getBlobClient(blob.getName()).downloadContent().toBytes();
                 // instantiate the right FileHandler and publish based on content
                 publishUsingFileHandler(publisher, fileExtension, content, pathStr);
+                afterProcessingFile(pathStr);
                 return;
               }
 
               Document doc = blobItemToDoc(blob, bucketOrContainerName);
               publisher.publish(doc);
             } catch (Exception e) {
+              try {
+                errorProcessingFile(pathStr);
+              } catch (IOException ex) {
+                log.error("Error occurred while performing error operations on file '{}'", pathStr, ex);
+                throw new RuntimeException(ex);
+              }
               log.error("Error publishing blob: {}", blob.getName(), e);
             }
           }

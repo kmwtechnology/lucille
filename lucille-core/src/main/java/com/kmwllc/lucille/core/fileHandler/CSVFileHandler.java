@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core.fileHandler;
 
-import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVParser;
@@ -10,13 +9,10 @@ import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -41,9 +37,7 @@ public class CSVFileHandler extends BaseFileHandler {
   private final char quoteChar;
   private final char escapeChar;
   private final boolean lowercaseFields;
-  private final String moveToErrorFolder;
   private final List<String> ignoredTerms;
-  private final String moveToAfterProcessing;
   private static final String UTF8_BOM = "\uFEFF";
 
   public CSVFileHandler(Config config) {
@@ -68,10 +62,7 @@ public class CSVFileHandler extends BaseFileHandler {
     this.escapeChar = (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar")) ?
         CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_ESCAPE_CHARACTER;
     this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
-    this.moveToErrorFolder = config.hasPath("moveToErrorFolder") ? config.getString("moveToErrorFolder") : null;
     this.ignoredTerms = config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : new ArrayList<>();
-    // A directory to move the files to after they are doing being processed.
-    this.moveToAfterProcessing = config.hasPath("moveToAfterProcessing") ? config.getString("moveToAfterProcessing") : null;
   }
 
   @Override
@@ -150,50 +141,6 @@ public class CSVFileHandler extends BaseFileHandler {
     };
   }
 
-  @Override
-  public void beforeProcessingFile(Path path) throws FileHandlerException {
-    createProcessedAndErrorFoldersIfSet();
-
-    File pathFile = path.toFile();
-    String pathStr = path.toString();
-
-    if (!pathStr.startsWith("classpath:") && !pathFile.exists()) {
-      throw new FileHandlerException("Path " + path + " does not exist");
-    }
-  }
-
-  @Override
-  public void afterProcessingFile(Path path) throws FileHandlerException {
-    if (moveToAfterProcessing != null) {
-      // move to processed folder
-      moveFile(path.toAbsolutePath().normalize(), moveToAfterProcessing);
-    }
-  }
-
-  @Override
-  public void errorProcessingFile(Path path) {
-    if (moveToErrorFolder != null) {
-      // move to error folder
-      moveFile(path.toAbsolutePath().normalize(), moveToErrorFolder);
-    }
-  }
-
-  public void moveFile(Path absolutePath, String option) {
-    if (absolutePath.startsWith("classpath:")) {
-      log.warn("Skipping moving classpath file: {} to {}", absolutePath, moveToAfterProcessing);
-      return;
-    }
-
-    String fileName = absolutePath.getFileName().toString();
-    Path dest = Paths.get(option + File.separatorChar + fileName);
-    try {
-      Files.move(absolutePath, dest);
-      log.info("File {} was successfully moved from source {} to destination {}", fileName, absolutePath, dest);
-    } catch (IOException e) {
-      log.warn("Error moving file to destination directory", e);
-    }
-  }
-
   private Document getDocumentFromLine(List<Integer> idColumns, String[] header, String[] line, String filename, String path, int lineNum) {
     String docId = "";
     if (!idColumns.isEmpty()) {
@@ -223,25 +170,6 @@ public class CSVFileHandler extends BaseFileHandler {
     doc.setField(lineNumField, lineNum);
 
     return doc;
-  }
-
-  private void createProcessedAndErrorFoldersIfSet() {
-    if (moveToAfterProcessing != null) {
-      // Create the destination directory if it doesn't exist.
-      File destDir = new File(moveToAfterProcessing);
-      if (!destDir.exists()) {
-        log.info("Creating archive directory {}", destDir.getAbsolutePath());
-        destDir.mkdirs();
-      }
-    }
-    log.info("Error folder: {}", moveToErrorFolder);
-    if (moveToErrorFolder != null) {
-      File errorDir = new File(moveToErrorFolder);
-      if (!errorDir.exists()) {
-        log.info("Creating error directory {}", errorDir.getAbsolutePath());
-        errorDir.mkdirs();
-      }
-    }
   }
 
   private List<Integer> getIdColumns(HashMap<String, Integer> columnIndexMap) {

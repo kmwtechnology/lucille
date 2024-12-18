@@ -25,24 +25,12 @@ public class JSONConnector extends AbstractConnector {
   public void execute(Publisher publisher) throws ConnectorException {
     File file = new File(pathStr);
     Path path = file.toPath();
-    try {
-      jsonFileHandler.beforeProcessingFile(path);
-    } catch (Exception e) {
-      throw new ConnectorException("Error before processing file: " + path, e);
-    }
 
     try {
       log.info("Processing file: {}", path);
       jsonFileHandler.processFileAndPublish(publisher, path);
     } catch (Exception e) {
-      jsonFileHandler.errorProcessingFile(path);
       throw new ConnectorException("Error processing or publishing file: " + path, e);
-    }
-
-    try {
-      jsonFileHandler.afterProcessingFile(path);
-    } catch (Exception e) {
-      throw new ConnectorException("Error after processing file: " + path, e);
     }
   }
 }

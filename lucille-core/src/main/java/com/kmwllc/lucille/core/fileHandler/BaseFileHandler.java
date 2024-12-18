@@ -21,8 +21,6 @@ public abstract class BaseFileHandler implements FileHandler {
     try {
       docIterator = this.processFile(path);
     } catch (Exception e) {
-      // going to skip this file if an error occurs
-      this.errorProcessingFile(path);
       throw new FileHandlerException("Unable to set up iterator for this file " + path, e);
     }
     // once docIterator.hasNext() is false, it will close its resources in handler and return
@@ -35,7 +33,6 @@ public abstract class BaseFileHandler implements FileHandler {
       } catch (Exception e) {
         // if we fail to publish a document, we log the error and continue to the next document
         // to "finish" the iterator and close its resources
-        this.errorProcessingFile(path);
         throw new FileHandlerException("Error occurred while publishing file " + path, e);
       }
     }
@@ -52,7 +49,6 @@ public abstract class BaseFileHandler implements FileHandler {
       docIterator = this.processFile(fileContent, pathStr);
     } catch (Exception e) {
       // going to skip this file if an error occurs
-      this.errorProcessingFile(fileContent);
       throw new FileHandlerException("Unable to set up iterator for this file " + pathStr, e);
     }
     // once docIterator.hasNext() is false, it will close its resources in handler and return
@@ -65,33 +61,8 @@ public abstract class BaseFileHandler implements FileHandler {
       } catch (Exception e) {
         // if we fail to publish a document, we log the error and continue to the next document
         // to "finish" the iterator and close its resources
-        this.errorProcessingFile(fileContent);
         throw new FileHandlerException("Error occurred while publishing file " + pathStr, e);
       }
     }
-  }
-
-  public void beforeProcessingFile(Path path) throws FileHandlerException {
-    return;
-  }
-
-  public void beforeProcessingFile(byte[] content) throws FileHandlerException {
-    return;
-  }
-
-  public void afterProcessingFile(Path path) throws FileHandlerException {
-    return;
-  }
-
-  public void afterProcessingFile(byte[] content) throws FileHandlerException {
-    return;
-  }
-
-  public void errorProcessingFile(Path path) {
-    return;
-  }
-
-  public void errorProcessingFile(byte[] content) {
-    return;
   }
 }

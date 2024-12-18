@@ -7,6 +7,8 @@ import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
+import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_AFTER_PROCESSING;
+import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_ERROR_FOLDER;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.core.fileHandler.FileHandler.SUPPORTED_FILE_TYPES;
 
@@ -16,11 +18,14 @@ import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.List;
@@ -53,6 +58,8 @@ public abstract class BaseStorageClient implements StorageClient {
   protected boolean getFileContent;
   protected boolean handleArchivedFiles;
   protected boolean handleCompressedFiles;
+  protected String moveToAfterProcessing;
+  protected String moveToErrorFolder;
 
   public BaseStorageClient(URI pathToStorageURI, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
@@ -68,6 +75,8 @@ public abstract class BaseStorageClient implements StorageClient {
     this.getFileContent = !fileOptions.hasPath(GET_FILE_CONTENT) || fileOptions.getBoolean(GET_FILE_CONTENT);
     this.handleArchivedFiles = fileOptions.hasPath(HANDLE_ARCHIVED_FILES) && fileOptions.getBoolean(HANDLE_ARCHIVED_FILES);
     this.handleCompressedFiles = fileOptions.hasPath(HANDLE_COMPRESSED_FILES) && fileOptions.getBoolean(HANDLE_COMPRESSED_FILES);
+    this.moveToAfterProcessing = fileOptions.hasPath(MOVE_TO_AFTER_PROCESSING) ? fileOptions.getString(MOVE_TO_AFTER_PROCESSING) : null;
+    this.moveToErrorFolder = fileOptions.hasPath(MOVE_TO_ERROR_FOLDER) ? fileOptions.getString(MOVE_TO_ERROR_FOLDER) : null;
     this.maxNumOfPages = cloudOptions.containsKey("maxNumOfPages") ? (Integer) cloudOptions.get("maxNumOfPages") : 100;
   }
 
@@ -109,30 +118,87 @@ public abstract class BaseStorageClient implements StorageClient {
     fileHandlers.clear();
   }
 
+  public void beforeProcessingFile(String pathStr) throws Exception {
+    createProcessedAndErrorFoldersIfSet();
+  }
+
+  public void afterProcessingFile(String pathStr) throws IOException {
+    if (moveToAfterProcessing != null) {
+      // move to processed folder
+      moveFile(pathStr, moveToAfterProcessing);
+    }
+  }
+
+  public void errorProcessingFile(String pathStr) throws IOException {
+    if (moveToErrorFolder != null) {
+      // move to error folder
+      moveFile(pathStr, moveToErrorFolder);
+    }
+  }
+
+  private void moveFile(String pathStr, String option) throws IOException {
+    if (pathStr.startsWith("classpath:")) {
+      log.warn("Skipping moving classpath file: {} to {}", pathStr, option);
+      return;
+    }
+
+    // get paths of source and target
+    Path sourcePath = Paths.get(pathStr);
+    Path targetFolderPath = Paths.get(option);
+
+    // ensure target folder exists as a precaution
+    if (!Files.exists(targetFolderPath)) {
+      Files.createDirectory(targetFolderPath);
+    }
+
+    // check if the file exists locally
+    if (Files.exists(sourcePath)) {
+      // move the local file to the target folder
+      Path targetPath = targetFolderPath.resolve(sourcePath.getFileName());
+      Files.move(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+      log.debug("Moved local file to: {}", targetPath);
+    } else {
+      // handle cloud paths
+      String cloudFileName = createFileNameFromCloudPath(pathStr);
+      Path cloudFilePath = targetFolderPath.resolve(cloudFileName);
+      Files.createFile(cloudFilePath);
+      log.debug("Created placeholder file for cloud path at: {}", cloudFilePath);
+    }
+  }
+
+  private String createFileNameFromCloudPath(String cloudPath) {
+    // replace characters to make a valid filename
+    return cloudPath.replaceAll("[^a-zA-Z0-9.-]", "_");
+  }
+
+  private void createProcessedAndErrorFoldersIfSet() {
+    if (moveToAfterProcessing != null) {
+      // Create the destination directory if it doesn't exist.
+      File destDir = new File(moveToAfterProcessing);
+      if (!destDir.exists()) {
+        destDir.mkdirs();
+      }
+    }
+
+    if (moveToErrorFolder != null) {
+      File errorDir = new File(moveToErrorFolder);
+      if (!errorDir.exists()) {
+        log.info("Creating error directory {}", errorDir.getAbsolutePath());
+        errorDir.mkdirs();
+      }
+    }
+  }
+
   public void publishUsingFileHandler(Publisher publisher, String fileExtension, Path path) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
     }
 
-    // perform preprocessing
-    try {
-      handler.beforeProcessingFile(path);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while preprocessing file: " + path, e);
-    }
-
     try {
       handler.processFileAndPublish(publisher, path);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while processing or publishing file: " + path, e);
-    }
-
-    // all iterations have been successfully published, perform afterProcessing
-    try {
-      handler.afterProcessingFile(path);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while postprocessing file: " + path, e);
     }
   }
 
@@ -142,24 +208,10 @@ public abstract class BaseStorageClient implements StorageClient {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
     }
 
-    // perform preprocessing
-    try {
-      handler.beforeProcessingFile(content);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while preprocessing file: " + pathStr, e);
-    }
-
     try {
       handler.processFileAndPublish(publisher, content, pathStr);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while processing or publishing file: " + pathStr, e);
-    }
-
-    // all iterations have been successfully published, perform afterProcessing
-    try {
-      handler.afterProcessingFile(content);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while postprocessing file: " + pathStr, e);
     }
   }
 

@@ -57,15 +57,6 @@ public class XMLFileHandler extends BaseFileHandler {
   }
 
   @Override
-  public void beforeProcessingFile(Path path) throws FileHandlerException {
-    // validate that it is a xml
-    if (!FilenameUtils.getExtension(path.toString()).equalsIgnoreCase("xml")) {
-      log.info("File {} is not an XML file", path);
-      throw new FileHandlerException("File is not an XML file");
-    }
-  }
-
-  @Override
   public void processFileAndPublish(Publisher publisher, Path path) throws FileHandlerException {
     // set up Factory, parser, reader and handler
     ChunkingXMLHandler xmlHandler = setUpParserReaderAndHandlerIfNeeded(publisher);

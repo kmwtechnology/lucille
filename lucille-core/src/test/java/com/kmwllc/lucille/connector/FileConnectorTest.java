@@ -265,6 +265,7 @@ public class FileConnectorTest {
       // delete all created folders and files and reset the FileHandlerManager
       f.delete();
       errorDir.delete();
+      tempDir.delete();
     }
   }
 
@@ -296,6 +297,7 @@ public class FileConnectorTest {
       // delete all created folders and files and reset the FileHandlerManager
       f.delete();
       successDir.delete();
+      tempDir.delete();
     }
   }
 

@@ -81,8 +81,11 @@ public class LocalStorageClient extends BaseStorageClient {
     try (Stream<Path> paths = Files.walk(startingDirectoryPath)) {
       paths.filter(this::isValidPath)
           .forEachOrdered(path -> {
+            String pathStr = path.toString();
             String fileExtension = FilenameUtils.getExtension(path.toString());
             try {
+              beforeProcessingFile(pathStr);
+
               if (handleCompressedFiles && isSupportedCompressedFileType(path)) {
                 // unzip the file, compressorStream will be closed when try block is exited
                 try (BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(path));
@@ -92,12 +95,13 @@ public class LocalStorageClient extends BaseStorageClient {
                   if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
                     handleArchiveFiles(publisher, compressorStream);
                   } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
-                    handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), path.toString());
+                    handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), pathStr);
                   } else {
                     Document doc = pathToDoc(path, compressorStream);
                     publisher.publish(doc);
                   }
                 }
+                afterProcessingFile(pathStr);
                 return;
               }
 
@@ -106,6 +110,7 @@ public class LocalStorageClient extends BaseStorageClient {
                 try (InputStream in = Files.newInputStream(path)) {
                   handleArchiveFiles(publisher, in);
                 }
+                afterProcessingFile(pathStr);
                 return;
               }
 
@@ -113,13 +118,21 @@ public class LocalStorageClient extends BaseStorageClient {
               if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
                 // instantiate the right FileHandler based on path
                 publishUsingFileHandler(publisher, fileExtension, path);
+                afterProcessingFile(pathStr);
                 return;
               }
 
               // default handling of files
               Document doc = pathToDoc(path);
               publisher.publish(doc);
+              afterProcessingFile(pathStr);
             } catch (Exception e) {
+              try {
+                errorProcessingFile(pathStr);
+              } catch (IOException ex) {
+                log.error("Error occurred while performing error operations on file '{}'", pathStr, ex);
+                throw new RuntimeException(ex);
+              }
               log.error("Unable to publish document '{}', SKIPPING", path, e);
             }
           });

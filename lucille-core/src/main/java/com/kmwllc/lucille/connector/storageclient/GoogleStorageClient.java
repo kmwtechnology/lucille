@@ -73,9 +73,11 @@ public class GoogleStorageClient extends BaseStorageClient {
       page.streamAll()
           .forEachOrdered(blob -> {
             if (isValid(blob)) {
+              String pathStr = blob.getName();
+              String fileExtension = FilenameUtils.getExtension(pathStr);
               try {
-                String pathStr = blob.getName();
-                String fileExtension = FilenameUtils.getExtension(pathStr);
+                // preprocessing
+                beforeProcessingFile(pathStr);
 
                 // handle compressed files if needed
                 if (handleCompressedFiles && isSupportedCompressedFileType(pathStr)) {
@@ -94,6 +96,7 @@ public class GoogleStorageClient extends BaseStorageClient {
                       publisher.publish(doc);
                     }
                   }
+                  afterProcessingFile(pathStr);
                   return;
                 }
 
@@ -103,6 +106,7 @@ public class GoogleStorageClient extends BaseStorageClient {
                   try (InputStream is = new ByteArrayInputStream(content)) {
                     handleArchiveFiles(publisher, is);
                   }
+                  afterProcessingFile(pathStr);
                   return;
                 }
 
@@ -112,12 +116,20 @@ public class GoogleStorageClient extends BaseStorageClient {
                   byte[] content = blob.getContent();
                   // instantiate the right FileHandler and publish based on content
                   publishUsingFileHandler(publisher, fileExtension, content, pathStr);
+                  afterProcessingFile(pathStr);
                   return;
                 }
 
                 Document doc = blobToDoc(blob, bucketOrContainerName);
                 publisher.publish(doc);
+                afterProcessingFile(pathStr);
               } catch (Exception e) {
+                try {
+                  errorProcessingFile(pathStr);
+                } catch (IOException ex) {
+                  log.error("Error occurred while performing error operations on file '{}'", pathStr, ex);
+                  throw new RuntimeException(ex);
+                }
                 log.error("Unable to publish document '{}', SKIPPING", blob.getName(), e);
               }
             }

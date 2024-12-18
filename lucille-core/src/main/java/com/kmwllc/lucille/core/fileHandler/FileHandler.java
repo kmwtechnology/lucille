@@ -33,36 +33,6 @@ public interface FileHandler {
   Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException;
 
   /**
-   * performs any necessary setup before processing a file.
-   */
-  void beforeProcessingFile(Path path) throws FileHandlerException;
-
-  /**
-   * performs any necessary setup after processing a file.
-   */
-  void afterProcessingFile(Path path) throws FileHandlerException;
-
-  /**
-   * performs any necessary setup if handler encountered any error processing a file.
-   */
-  void errorProcessingFile(Path path);
-
-  /**
-   * performs any necessary setup before processing a file.
-   */
-  void beforeProcessingFile(byte[] content) throws FileHandlerException;
-
-  /**
-   * performs any necessary setup after processing a file.
-   */
-  void afterProcessingFile(byte[] content) throws FileHandlerException;
-
-  /**
-   * performs any necessary setup if handler encountered any error processing a file.
-   */
-  void errorProcessingFile(byte[] content);
-
-  /**
    * A helper function that processes a file and publishes the documents to a Publisher
    * using Path to file.
    */
