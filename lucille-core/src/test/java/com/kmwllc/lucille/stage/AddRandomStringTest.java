@@ -16,9 +16,9 @@ import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
 
-public class AddRandomFieldTest {
+public class AddRandomStringTest {
 
-  private final StageFactory factory = StageFactory.of(AddRandomField.class);
+  private final StageFactory factory = StageFactory.of(AddRandomString.class);
 
   /**
    * Tests stage without a file path
