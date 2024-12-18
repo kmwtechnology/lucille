@@ -6,18 +6,14 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -58,15 +54,17 @@ public class AddRandomField extends Stage {
   private final boolean isNested;
   private List<String> dataArr;
   private List<String> uniqueValues;
+  private final boolean concatenate;
 
   public AddRandomField(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("input_data_path", "field_name", "range_size", "min_num_of_terms",
-        "max_num_of_terms", "is_nested"));
+        "max_num_of_terms", "is_nested", "concatenate"));
     this.inputDataPath = ConfigUtils.getOrDefault(config, "input_data_path", null);
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
     this.minNumOfTerms = ConfigUtils.getOrDefault(config, "min_num_of_terms", null);
     this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "max_num_of_terms", null);
     this.isNested = ConfigUtils.getOrDefault(config, "is_nested", false);
+    this.concatenate = ConfigUtils.getOrDefault(config, "concatenate", false);
     this.dataArr = null;
     this.rangeSize = null;
     this.uniqueValues = null;
@@ -116,8 +114,12 @@ public class AddRandomField extends Stage {
   }
 
   private void populateFieldsDefault(String fieldName, Document doc, ArrayList<String> fieldDataArr) {
-    for (String value : fieldDataArr) {
-      doc.setOrAdd(fieldName, value);
+    if (concatenate) {
+      doc.setOrAdd(fieldName, String.join(" ", fieldDataArr));
+    } else {
+      for (String value : fieldDataArr) {
+        doc.setOrAdd(fieldName, value);
+      }
     }
   }
 

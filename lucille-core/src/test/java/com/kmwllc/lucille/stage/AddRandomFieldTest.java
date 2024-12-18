@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -45,6 +46,15 @@ public class AddRandomFieldTest {
     assertTrue(0 <= docVal3 && docVal3 < 20);
   }
 
+  @Test
+  public void testConcatenate() throws StageException {
+    Stage stage = factory.get("AddRandomFieldTest/concatenate.conf");
+    Document doc = Document.create("doc1");
+    stage.processDocument(doc);
+    assertFalse(doc.isMultiValued("data"));
+    assertEquals(10, doc.getString("data").split(" ").length);
+  }
+  
   /**
    * Tests stage with a basic file path
    *
