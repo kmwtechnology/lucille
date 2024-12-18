@@ -16,30 +16,30 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * Interface for cloud storage clients. Implementations of this interface should be able to connect to a cloud storage service
- * and publish files to Lucille.
+ * Interface for storage clients. Implementations of this interface should be able to traverse a storage system
+ * and publish files to the Lucille pipeline.
  *
  *  - getClient() - Get the appropriate client based on the URI scheme with authentication/settings from cloudOptions
  *  - init() - Initialize the client
  *  - shutdown() - Shutdown the client
- *  - publishFiles() - Publish files to Lucille
+ *  - traverse(Publisher) - traverse through the storage client and publish files to Lucille
  *
  */
 
 public interface StorageClient {
 
   /**
-   * Initialize the client, create any connections or resources
+   * Initialize the client and creates necessary connections and/or resources
    */
   void init();
 
   /**
-   * Shutdown the client, closes any open connections or resources
+   * Shutdown the client, closes any open connections and/or resources
    */
   void shutdown() throws Exception;
 
   /**
-   * Publish files to the Lucille pipeline
+   * Traverses through the storage client and publish files to Lucille
    */
   void traverse(Publisher publisher) throws Exception;
 
@@ -76,7 +76,7 @@ public interface StorageClient {
 
   /**
    * Validate that respective cloud authentication information is provided for the given cloud provider.
-   * Only checks the presence of required fields.
+   * Only checks the presence of required authentication fields.
    */
   static void validateCloudOptions(URI storageURI, Map<String, Object> cloudOptions) {
     switch (storageURI.getScheme()) {

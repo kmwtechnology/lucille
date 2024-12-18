@@ -3,10 +3,8 @@ package com.kmwllc.lucille.connector.storageclient;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
-import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,8 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.compress.compressors.CompressorInputStream;
-import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,13 +79,13 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  public Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName) {
+  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
     S3Object obj = fileReference.getS3Object();
     return s3ObjectToDoc(obj, bucketOrContainerName);
   }
 
   @Override
-  public Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
     S3Object obj = fileReference.getS3Object();
     try {
       return s3ObjectToDoc(obj, bucketOrContainerName, in, fileName);
@@ -99,14 +95,14 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  public byte[] getObjectContent(FileReference fileReference) {
+  public byte[] getFileReferenceContent(FileReference fileReference) {
     S3Object obj = fileReference.getS3Object();
     return s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketOrContainerName).key(obj.key()).build()).asByteArray();
   }
 
   @Override
-  public InputStream getObjectContentStream(FileReference fileReference) {
-    byte[] content = getObjectContent(fileReference);
+  public InputStream getFileReferenceContentStream(FileReference fileReference) {
+    byte[] content = getFileReferenceContent(fileReference);
     return new ByteArrayInputStream(content);
   }
 

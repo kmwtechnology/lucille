@@ -94,7 +94,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName) {
+  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
     Path path = fileReference.getPath();
     try {
       return pathToDoc(path);
@@ -104,7 +104,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
     Path path = fileReference.getPath();
     try {
       return pathToDoc(path, in);
@@ -114,7 +114,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public byte[] getObjectContent(FileReference fileReference) {
+  public byte[] getFileReferenceContent(FileReference fileReference) {
     Path path = fileReference.getPath();
     try {
       return Files.readAllBytes(path);
@@ -124,7 +124,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public InputStream getObjectContentStream(FileReference fileReference) {
+  public InputStream getFileReferenceContentStream(FileReference fileReference) {
     Path path = fileReference.getPath();
     try {
       return Files.newInputStream(path);

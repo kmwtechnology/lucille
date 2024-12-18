@@ -48,9 +48,12 @@ import org.slf4j.LoggerFactory;
  *    getFileContent (boolean, Optional): whether to fetch the file content or not, defaults to true
  *    handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false
  *    handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false
+ *    moveToAfterProcessing (string, Optional): path to move files to after processing, currently only supported for local file system
+ *    moveToErrorFolder (string, Optional): path to move files to if an error occurs during processing, currently only supported for local file system
  *    csv (Map, Optional): csv config options for handling csv type files. Config will be passed to FileHandler
  *    json (Map, Optional): json config options for handling json type files. Config will be passed to FileHandler
  *    jsonl (Map, Optional): jsonl config options for handling jsonl type files. Config will be passed to FileHandler
+ *    xml (Map, Optional): xml config options for handling xml type files. Config will be passed to FileHandler
  */
 public class FileConnector extends AbstractConnector {
 

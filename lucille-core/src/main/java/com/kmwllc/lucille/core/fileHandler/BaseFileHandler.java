@@ -12,10 +12,6 @@ public abstract class BaseFileHandler implements FileHandler {
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
   }
 
-  /**
-   * processFileAndPublish is a default helper function that processes a file and publishes the documents to a Publisher
-   * using Path to file.
-   */
   public void processFileAndPublish(Publisher publisher, Path path) throws FileHandlerException {
     Iterator<Document> docIterator;
     try {
@@ -38,11 +34,6 @@ public abstract class BaseFileHandler implements FileHandler {
     }
   }
 
-
-  /**
-   * processFileAndPublish is a default helper function that processes a file and publishes the documents to a Publisher
-   * using byte[] content.
-   */
   public void processFileAndPublish(Publisher publisher, byte[] fileContent, String pathStr) throws FileHandlerException {
     Iterator<Document> docIterator;
     try {

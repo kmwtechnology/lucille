@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core.fileHandler;
 
-import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;

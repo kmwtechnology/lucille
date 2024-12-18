@@ -92,7 +92,7 @@ public abstract class BaseStorageClient implements StorageClient {
       // handle compressed files if needed
       if (handleCompressedFiles && isSupportedCompressedFileType(pathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
-        try (BufferedInputStream bis = new BufferedInputStream(getObjectContentStream(fileReference));
+        try (BufferedInputStream bis = new BufferedInputStream(getFileReferenceContentStream(fileReference));
             CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
           // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
           String unzippedFileName = FilenameUtils.removeExtension(pathStr);
@@ -101,7 +101,7 @@ public abstract class BaseStorageClient implements StorageClient {
           } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
             handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), pathStr);
           } else {
-            Document doc = convertObjectToDoc(fileReference, bucketOrContainerName, compressorStream, unzippedFileName);
+            Document doc = convertFileReferenceToDoc(fileReference, bucketOrContainerName, compressorStream, unzippedFileName);
             publisher.publish(doc);
           }
         }
@@ -111,7 +111,7 @@ public abstract class BaseStorageClient implements StorageClient {
 
       // handle archived files if needed
       if (handleArchivedFiles && isSupportedArchiveFileType(pathStr)) {
-        try (InputStream is = getObjectContentStream(fileReference)) {
+        try (InputStream is = getFileReferenceContentStream(fileReference)) {
           handleArchiveFiles(publisher, is);
         }
         afterProcessingFile(pathStr);
@@ -120,15 +120,23 @@ public abstract class BaseStorageClient implements StorageClient {
 
       // handle file types if needed
       if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
-        // get the file content
-        byte[] content = getObjectContent(fileReference);
-        // instantiate the right FileHandler and publish based on content
-        publishUsingFileHandler(publisher, fileExtension, content, pathStr);
+
+        if (fileReference.isCloudFileReference()) {
+          // get the file content
+          byte[] content = getFileReferenceContent(fileReference);
+          // get the right FileHandler and publish based on content
+          publishUsingFileHandler(publisher, fileExtension, content, pathStr);
+        } else {
+          // get path instead to be less resource intensive
+          Path path = fileReference.getPath();
+          // get the right FileHandler and publish based on content
+          publishUsingFileHandler(publisher, fileExtension, path);
+        }
         afterProcessingFile(pathStr);
         return;
       }
 
-      Document doc = convertObjectToDoc(fileReference, bucketOrContainerName);
+      Document doc = convertFileReferenceToDoc(fileReference, bucketOrContainerName);
       publisher.publish(doc);
       afterProcessingFile(pathStr);
     } catch (Exception e) {
@@ -136,7 +144,6 @@ public abstract class BaseStorageClient implements StorageClient {
         errorProcessingFile(pathStr);
       } catch (IOException ex) {
         log.error("Error occurred while performing error operations on file '{}'", pathStr, ex);
-        throw new RuntimeException(ex);
       }
       log.error("Unable to publish document '{}', SKIPPING", pathStr, e);
     }
@@ -260,10 +267,7 @@ public abstract class BaseStorageClient implements StorageClient {
       log.debug("Moved local file to: {}", targetPath);
     } else {
       // handle cloud paths
-      String cloudFileName = createFileNameFromCloudPath(pathStr);
-      Path cloudFilePath = targetFolderPath.resolve(cloudFileName);
-      Files.createFile(cloudFilePath);
-      log.debug("Created placeholder file for cloud path at: {}", cloudFilePath);
+      throw new UnsupportedOperationException("Moving cloud files is not supported yet");
     }
   }
 
@@ -294,13 +298,13 @@ public abstract class BaseStorageClient implements StorageClient {
    * Misc methods
    */
 
-  public abstract Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName);
+  public abstract Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName);
 
-  public abstract Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName);
+  public abstract Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName);
 
-  public abstract byte[] getObjectContent(FileReference fileReference);
+  public abstract byte[] getFileReferenceContent(FileReference fileReference);
 
-  public abstract InputStream getObjectContentStream(FileReference fileReference);
+  public abstract InputStream getFileReferenceContentStream(FileReference fileReference);
 
   public String getContainerOrBucketName() {
     return pathToStorageURI.getAuthority();
@@ -340,8 +344,9 @@ public abstract class BaseStorageClient implements StorageClient {
     fileHandlers.clear();
   }
 
-  public boolean isSupportedCompressedFileType(String string) {
-    return string.endsWith(".gz");
+  // note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
+  public boolean isSupportedCompressedFileType(String pathStr) {
+    return pathStr.endsWith(".gz");
     // string.endsWith(".bz2") ||
     // string.endsWith(".xz") ||
     // string.endsWith(".lzma") ||
@@ -351,21 +356,9 @@ public abstract class BaseStorageClient implements StorageClient {
     // string.endsWith(".Z");
   }
 
-  public boolean isSupportedCompressedFileType(Path path) {
-    String fileName = path.getFileName().toString();
-
-    return isSupportedCompressedFileType(fileName);
-  }
-
-  public boolean isSupportedArchiveFileType(Path path) {
-    String fileName = path.getFileName().toString();
-    return isSupportedArchiveFileType(fileName);
-  }
-
-  public boolean isSupportedArchiveFileType(String string) {
-    // note that the following are supported by apache-commons compress, but have yet to been tested, so commented out for now
-    return string.endsWith(".tar") ||
-        string.endsWith(".zip");
+  public boolean isSupportedArchiveFileType(String pathStr) {
+    return pathStr.endsWith(".tar") ||
+        pathStr.endsWith(".zip");
     // string.endsWith(".7z") ||
     // string.endsWith(".ar") ||
     // string.endsWith(".arj") ||

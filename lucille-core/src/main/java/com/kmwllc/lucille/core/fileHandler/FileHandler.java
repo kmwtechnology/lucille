@@ -8,46 +8,44 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
- * each implementation of the FileHandler handles a specific file type
+ * Each implementation of the FileHandler handles a specific file type and is able to process the file and return an Iterator
+ * of documents. It can also publish straight to the Lucille pipeline if given a Publisher.
  */
 
 public interface FileHandler {
 
   /**
-   * collection of file types that are supported by the FileHandler interface.
-   * Note that if you add a new file type to list, you must also add the corresponding handler in getNewFileHandler
+   * Collection of file types that are supported by the FileHandler interface.
+   * Note that if you add a new file type to the collection, you must also add the corresponding handler in create() method
    */
   Set<String> SUPPORTED_FILE_TYPES = Set.of("json", "jsonl", "csv", "xml");
 
   /**
-   * processes a file given the Path to it and returns an iterator of Documents. The Iterator should close all resources
+   * Processes a file given the Path to it and returns an iterator of Documents. The Iterator should close all resources
    * when completed (hasNext() is false) or when an exception is thrown.
    */
   Iterator<Document> processFile(Path path) throws FileHandlerException;
 
   /**
-   * processes a file given the file contents and representation path string to it and returns an iterator of Documents.
+   * Processes a file given the file contents and representation path string to it and returns an iterator of Documents.
    * The Iterator should close all resources when completed (hasNext() is false) or when an exception is thrown.
    * Path string is used for populating file path field of document and for logging/error/debugging purposes.
    */
   Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException;
 
   /**
-   * A helper function that processes a file and publishes the documents to a Publisher
-   * using Path to file.
+   * A helper function that processes a file and publishes the documents to a Publisher using a Path to a file
    */
   void processFileAndPublish(Publisher publisher, Path path) throws FileHandlerException;
 
   /**
-   * A helper function that processes a file and publishes the documents to a Publisher
-   * using byte[] content.
+   * A helper function that processes a file and publishes the documents to a Publisher using the file content
    */
   void processFileAndPublish(Publisher publisher, byte[] fileContent, String pathStr) throws FileHandlerException;
 
   /**
-   * getNewFileHandler returns a new FileHandler based on the file extension and file options.
-   * Note that if you add support for a new file type, you must also add the corresponding handler here
-   * AND in SUPPORTED_FILE_TYPES
+   * Returns a new FileHandler based on the file extension and file options. Note that if you add support
+   * for a new file type, you must also add the corresponding handler here AND in SUPPORTED_FILE_TYPES collection
    */
   static FileHandler create(String fileExtension, Config fileOptions) {
     switch (fileExtension) {
@@ -71,7 +69,7 @@ public interface FileHandler {
 
   /**
    * supportAndContainFileType returns true if the file extension is in SUPPORTED_FILE_TYPES and
-   * the file options contain the file extension.
+   * the file options contain the file extension. Handles the special case of json and jsonl files.
    */
   static boolean supportAndContainFileType(String fileExtension, Config fileOptions) {
     return SUPPORTED_FILE_TYPES.contains(fileExtension) &&

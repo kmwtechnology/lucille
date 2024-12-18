@@ -9,10 +9,8 @@ import com.google.cloud.storage.StorageOptions;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
-import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -22,8 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.compress.compressors.CompressorInputStream;
-import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,7 +78,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName) {
+  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
     Blob blob = fileReference.getBlob();
 
     try {
@@ -93,7 +89,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public Document convertObjectToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
     Blob blob = fileReference.getBlob();
 
     try {
@@ -104,14 +100,14 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public byte[] getObjectContent(FileReference fileReference) {
+  public byte[] getFileReferenceContent(FileReference fileReference) {
     Blob blob = fileReference.getBlob();
     return blob.getContent();
   }
 
   @Override
-  public InputStream getObjectContentStream(FileReference fileReference) {
-    byte[] content = getObjectContent(fileReference);
+  public InputStream getFileReferenceContentStream(FileReference fileReference) {
+    byte[] content = getFileReferenceContent(fileReference);
     return new ByteArrayInputStream(content);
   }
 

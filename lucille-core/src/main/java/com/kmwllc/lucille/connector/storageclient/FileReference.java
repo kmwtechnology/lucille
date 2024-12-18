@@ -5,6 +5,10 @@ import com.google.cloud.storage.Blob;
 import java.nio.file.Path;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
+/**
+ * Stores a reference to a file in a cloud storage service or a local file system.
+ */
+
 public class FileReference {
   Path path;
   S3Object s3Object;
@@ -41,5 +45,9 @@ public class FileReference {
 
   public Blob getBlob() {
     return blob;
+  }
+
+  public boolean isCloudFileReference() {
+    return s3Object != null || blobItem != null || blob != null;
   }
 }
