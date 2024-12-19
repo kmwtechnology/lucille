@@ -85,6 +85,9 @@ public class AddRandomString extends Stage {
     if (inputDataPath == null && rangeSize == null) {
       throw new StageException("range_size must be specified if there is no input_data_path");
     }
+    if (concatenate && isNested) {
+      throw new StageException("concatenate=true is not currently supported when is_nested=true");
+    }
   }
 
   @Override
@@ -115,6 +118,7 @@ public class AddRandomString extends Stage {
 
     if (isNested) {
       ArrayNode array = MAPPER.createArrayNode();
+      // TODO: concatenate option not yet supported with nested mode; need tests for nested mode
       for (String value : data) {
         array.add(MAPPER.createObjectNode().put("data", value));
       }
