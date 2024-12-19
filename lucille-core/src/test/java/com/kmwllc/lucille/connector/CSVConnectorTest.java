@@ -13,6 +13,7 @@ import java.io.File;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class CSVConnectorTest {
@@ -116,7 +117,7 @@ public class CSVConnectorTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
 
-    connector.execute(publisher);
+    assertThrows(ConnectorException.class, () -> connector.execute(publisher));
 
     // verify error directory is made
     File errorDir = new File("error");
