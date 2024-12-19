@@ -7,9 +7,7 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.concurrent.ThreadLocalRandom;
@@ -52,8 +50,8 @@ public class AddRandomDate extends Stage {
 
   @Override
   public void start() throws StageException {
-    rangeStartDate = rangeStartDateString.isEmpty() ? Date.from(Instant.ofEpochMilli(0)) : LocalDateToDate(LocalDate.parse(rangeStartDateString));
-    rangeEndDate = rangeEndDateString.isEmpty() ? Date.from(Instant.now()) : LocalDateToDate(LocalDate.parse(rangeEndDateString));
+    rangeStartDate = rangeStartDateString.isEmpty() ? Date.from(Instant.ofEpochMilli(0)) : localDateToDate(LocalDate.parse(rangeStartDateString));
+    rangeEndDate = rangeEndDateString.isEmpty() ? Date.from(Instant.now()) : localDateToDate(LocalDate.parse(rangeEndDateString));
 
     if (rangeStartDate.after(rangeEndDate)) {
       throw new StageException("The provided range_start_date is after the range_end_date.");
@@ -72,7 +70,7 @@ public class AddRandomDate extends Stage {
     return null;
   }
 
-  protected Date LocalDateToDate(LocalDate ld) {
+  private Date localDateToDate(LocalDate ld) {
     return Date.from(
         ld.atStartOfDay().toInstant(ZoneOffset.UTC)
     );
