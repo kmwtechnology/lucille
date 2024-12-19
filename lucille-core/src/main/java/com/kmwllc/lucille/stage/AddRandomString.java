@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Adds random data to a document field given parameters. Note that when randomly selecting multiple values
+ * Adds random Strings to a document field given parameters. Note that when randomly selecting multiple values
  * from an integer range or from file contents, duplicates are possible -- this stage does not currently guarantee
  * that all random terms added to a field will be distinct.
  * <br>
@@ -47,7 +47,7 @@ import java.util.concurrent.ThreadLocalRandom;
  *  values, defaults to false
  * </p>
  */
-public class AddRandomField extends Stage {
+public class AddRandomString extends Stage {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -60,7 +60,7 @@ public class AddRandomField extends Stage {
   private List<String> fileData;
   private final boolean concatenate;
 
-  public AddRandomField(Config config) throws StageException {
+  public AddRandomString(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("input_data_path", "field_name", "range_size", "min_num_of_terms",
         "max_num_of_terms", "is_nested", "concatenate"));
     this.inputDataPath = ConfigUtils.getOrDefault(config, "input_data_path", null);

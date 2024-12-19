@@ -16,9 +16,9 @@ import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
 
-public class AddRandomFieldTest {
+public class AddRandomStringTest {
 
-  private final StageFactory factory = StageFactory.of(AddRandomField.class);
+  private final StageFactory factory = StageFactory.of(AddRandomString.class);
 
   /**
    * Tests stage without a file path
@@ -27,7 +27,7 @@ public class AddRandomFieldTest {
    */
   @Test
   public void testNumeric() throws StageException {
-    Stage stage = factory.get("AddRandomFieldTest/nofilepath.conf");
+    Stage stage = factory.get("AddRandomStringTest/nofilepath.conf");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
     Document doc3 = Document.create("doc3");
@@ -46,7 +46,7 @@ public class AddRandomFieldTest {
 
   @Test
   public void testConcatenate() throws StageException {
-    Stage stage = factory.get("AddRandomFieldTest/concatenate.conf");
+    Stage stage = factory.get("AddRandomStringTest/concatenate.conf");
     Document doc = Document.create("doc1");
     stage.processDocument(doc);
     assertFalse(doc.isMultiValued("data"));
@@ -60,7 +60,7 @@ public class AddRandomFieldTest {
    */
   @Test
   public void testBasicFilePath() throws StageException, IOException {
-    Stage stage = factory.get("AddRandomFieldTest/basicfilepath.conf");
+    Stage stage = factory.get("AddRandomStringTest/basicfilepath.conf");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
     Document doc3 = Document.create("doc3");
@@ -69,7 +69,7 @@ public class AddRandomFieldTest {
       stage.processDocument(doc);
     }
 
-    List<String> data = Files.readAllLines(Path.of("src/test/resources/AddRandomFieldTest/foods.txt"));
+    List<String> data = Files.readAllLines(Path.of("src/test/resources/AddRandomStringTest/foods.txt"));
 
     String docVal1 = doc1.getString("data");
     String docVal2 = doc2.getString("data");
@@ -88,7 +88,7 @@ public class AddRandomFieldTest {
    */
   @Test
   public void testRangeSize() throws StageException {
-    Stage stage = factory.get("AddRandomFieldTest/basicfilepath.conf");
+    Stage stage = factory.get("AddRandomStringTest/basicfilepath.conf");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
     Document doc3 = Document.create("doc3");
@@ -113,7 +113,7 @@ public class AddRandomFieldTest {
    */
   @Test
   public void testMinMax() throws StageException {
-    Stage stage = factory.get("AddRandomFieldTest/basicfilepath.conf");
+    Stage stage = factory.get("AddRandomStringTest/basicfilepath.conf");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
     Document doc3 = Document.create("doc3");
