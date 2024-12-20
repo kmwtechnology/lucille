@@ -1,16 +1,24 @@
 package com.kmwllc.lucille.endpoints;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.kmwllc.lucille.core.RunDetails;
 import com.kmwllc.lucille.core.RunnerManager;
 import com.kmwllc.lucille.objects.RunStatus;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.dropwizard.auth.Auth;
 import io.dropwizard.auth.PrincipalImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -30,6 +38,8 @@ import jakarta.ws.rs.core.Response;
 @Produces(MediaType.APPLICATION_JSON)
 public class LucilleResource {
 
+  private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
+    
   private final RunnerManager runnerManager;
 
   public LucilleResource(RunnerManager runnerManager) {
@@ -62,23 +72,40 @@ public class LucilleResource {
   
   
   @POST
-  @Operation(summary = "Start a new Lucille run", 
-            description = "Triggers a new Lucille run if none is currently running.")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Start a new Lucille run", 
+      description = "Triggers a new Lucille run with the specified configuration if none is currently running."
+  )
   public Response startRun(
-      @Parameter(hidden = true) @Auth Optional<PrincipalImpl> user) {
-    if (user.isPresent()) {
-      String runId = UUID.randomUUID().toString();
-      boolean status = runnerManager.run(runId);
+      @Parameter(hidden = true) @Auth Optional<PrincipalImpl> user,
+      Map<String, Object> configBody) { // Receive the request body as a Map
+      if (user.isPresent()) {
+          try {
+              // Convert the request body into a Config object
+              Config config = ConfigFactory.parseMap(configBody);
 
-      if (status) {
-        return Response.ok("Lucille run has been triggered.").build();
+              String runId = UUID.randomUUID().toString();
+              boolean status = runnerManager.runWithConfig(runId, config);
+              RunDetails details = runnerManager.getRunDetails(runId);
+              log.info("Lucille run has been triggered. Run ID: " + runId);
+              log.info("details: {}", details);
+
+              if (status) {
+                  return Response.ok("Lucille run has been triggered. Run ID: " + runId).build();
+              } else {
+                  return Response.status(424)
+                      .entity("This Lucille run has been skipped. An instance of Lucille is already running.")
+                      .build();
+              }
+          } catch (Exception e) {
+              return Response.status(Response.Status.BAD_REQUEST)
+                  .entity("Invalid configuration provided: " + e.getMessage())
+                  .build();
+          }
       } else {
-        return Response.status(424)
-            .entity("This Lucille run has been skipped. An instance of Lucille is already running.")
-            .build();
+          return Response.status(Response.Status.UNAUTHORIZED).build();
       }
-    } else {
-      return Response.status(Response.Status.UNAUTHORIZED).build();
-    }
   }
+  
 }
