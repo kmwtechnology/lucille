@@ -1,15 +1,13 @@
-package com.kmwllc.lucille.core;
+package com.kmwllc.lucille.core.fileHandler;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
-import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
-import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
 import java.util.Map;
 import org.junit.Test;
@@ -17,7 +15,32 @@ import org.junit.Test;
 public class FileHandlerTest {
 
   @Test
-  public void testSupportAndContainFileType() throws Exception {
+  public void testCreate() {
+    // test csv
+    Config csvConfig = ConfigFactory.parseMap(Map.of("csv", Map.of()));
+    FileHandler csvHandler = FileHandler.create("csv", csvConfig);
+    assertInstanceOf(CSVFileHandler.class, csvHandler);
+    // test xml
+    Config xmlConfig = ConfigFactory.parseMap(Map.of("xml", Map.of("xmlRootPath", "path", "xmlIdPath", "idPath")));
+    FileHandler xmlHandler = FileHandler.create("xml", xmlConfig);
+    assertInstanceOf(XMLFileHandler.class, xmlHandler);
+    // test xml without required configs
+    assertThrows(ConfigException.class, () -> FileHandler.create("xml", ConfigFactory.parseMap(Map.of("xml", Map.of()))));
+    // test json
+    Config jsonConfig = ConfigFactory.parseMap(Map.of("jsonl", Map.of()));
+    FileHandler jsonHandler = FileHandler.create("json", jsonConfig);
+    assertInstanceOf(JsonFileHandler.class, jsonHandler);
+    // test jsonl
+    jsonConfig = ConfigFactory.parseMap(Map.of("json", Map.of()));
+    jsonHandler = FileHandler.create("jsonl", jsonConfig);
+    assertInstanceOf(JsonFileHandler.class, jsonHandler);
+    // test unsupported file type
+    assertThrows(UnsupportedOperationException.class, () -> FileHandler.create("unsupported", ConfigFactory.parseMap(Map.of())));
+  }
+
+
+  @Test
+  public void testSupportAndContainFileType() {
     // json file
     String jsonExtension = "json";
     assertTrue(FileHandler.supportAndContainFileType(jsonExtension, ConfigFactory.parseMap(Map.of("json", "content"))));
@@ -40,34 +63,8 @@ public class FileHandlerTest {
     String xmlExtension = "xml";
     assertTrue(FileHandler.supportAndContainFileType(xmlExtension, ConfigFactory.parseMap(Map.of("xml", "content"))));
     assertFalse(FileHandler.supportAndContainFileType(xmlExtension, ConfigFactory.parseMap(Map.of("json", "content"))));
-  }
 
-  @Test
-  public void testCreate() throws Exception {
-    // json handler
-    String jsonExtension = "json";
-    FileHandler jsonHandler = FileHandler.create(jsonExtension,
-        ConfigFactory.parseMap(Map.of("json", Map.of("key", "value"))));
-    assertInstanceOf(JsonFileHandler.class, jsonHandler);
-    // jsonl handler using jsonl
-    String jsonlExtension = "jsonl";
-    FileHandler jsonlHandler = FileHandler.create(jsonlExtension,
-        ConfigFactory.parseMap(Map.of("json", Map.of("key", "value"))));
-    assertInstanceOf(JsonFileHandler.class, jsonlHandler);
-
-    // validate that a different handler is given
-    assertNotEquals(jsonHandler, jsonlHandler);
-
-    // csv handler
-    String csvExtension = "csv";
-    FileHandler csvHandler = FileHandler.create(csvExtension,
-        ConfigFactory.parseMap(Map.of("csv", Map.of("csvKey", "csvValue"))));
-    assertInstanceOf(CSVFileHandler.class, csvHandler);
-
-    // xml handler
-    String xmlExtension = "xml";
-    FileHandler xmlHandler = FileHandler.create(xmlExtension,
-        ConfigFactory.parseMap(Map.of("xml", Map.of("xmlRootPath", "path", "xmlIdPath", "idPath"))));
-    assertInstanceOf(XMLFileHandler.class, xmlHandler);
+    // test unsupported file type
+    assertFalse(FileHandler.supportAndContainFileType("unsupported", ConfigFactory.parseMap(Map.of("unsupported", "content"))));
   }
 }

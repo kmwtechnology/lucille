@@ -49,6 +49,10 @@ public class StorageClientTest {
         null, Map.of(), ConfigFactory.empty());
     assertTrue(client instanceof LocalStorageClient);
 
+    client = StorageClient.getClient(new URI("/path/to/file"), null, null,
+        null, Map.of(), ConfigFactory.empty());
+    assertTrue(client instanceof LocalStorageClient);
+
     // give wrong uri but correct cloudOptions
     assertThrows(RuntimeException.class, () -> StorageClient.getClient(new URI("unknown://bucket"),
         null, null, null, gCloudOptions, ConfigFactory.empty()));

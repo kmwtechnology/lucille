@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -53,9 +54,12 @@ public class GoogleStorageClientTest {
     Storage mockStorage = mock(Storage.class);
     googleStorageClient.setStorageForTesting(mockStorage);
     googleStorageClient.shutdown();
-
     // verify that storage.close() is called
     verify(mockStorage, times(1)).close();
+
+    GoogleStorageClient spy = spy(googleStorageClient);
+    spy.shutdown();
+    verify(spy, times(1)).clearFileHandlers();
   }
 
   @Test

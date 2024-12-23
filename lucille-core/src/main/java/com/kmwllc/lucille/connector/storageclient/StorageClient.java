@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
  *  - getClient() - Get the appropriate client based on the URI scheme with authentication/settings from cloudOptions
  *  - init() - Initialize the client
  *  - shutdown() - Shutdown the client
- *  - traverse(Publisher) - traverse through the storage client and publish files to Lucille
+ *  - traverse(Publisher) - traverse through the storage client and publish files to Lucille pipeline
  *
  */
 
@@ -39,7 +39,7 @@ public interface StorageClient {
   void shutdown() throws Exception;
 
   /**
-   * Traverses through the storage client and publish files to Lucille
+   * Traverses through the storage client and publish files to Lucille pipeline
    */
   void traverse(Publisher publisher) throws Exception;
 

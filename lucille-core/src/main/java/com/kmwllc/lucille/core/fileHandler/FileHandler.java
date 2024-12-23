@@ -50,8 +50,7 @@ public interface FileHandler {
   static FileHandler create(String fileExtension, Config fileOptions) {
     switch (fileExtension) {
       case "json", "jsonl" -> {
-        Config jsonConfig = fileOptions.getConfig("json");
-        if (jsonConfig == null) jsonConfig = fileOptions.getConfig("jsonl");
+        Config jsonConfig = fileOptions.hasPath("json") ? fileOptions.getConfig("json") : fileOptions.getConfig("jsonl");
 
         return new JsonFileHandler(jsonConfig);
       }
@@ -63,7 +62,7 @@ public interface FileHandler {
         Config xmlConfig = fileOptions.getConfig("xml");
         return new XMLFileHandler(xmlConfig);
       }
-      default -> throw new RuntimeException("Unsupported file type: " + fileExtension);
+      default -> throw new UnsupportedOperationException("Unsupported file type: " + fileExtension);
     }
   }
 
