@@ -231,17 +231,21 @@ public class Runner {
       return RunType.LOCAL;
     }
   }
+  
+  public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
+	  return runWithResultLog(config, runType, null);
+  }
 
   /**
    * Kicks off a new Lucille run and logs information about the run to the console after completion.
    */
-  public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
+  public static RunResult runWithResultLog(Config config, RunType runType, String runId) throws Exception {
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
     RunResult result;
 
     try {
-      result = run(config, runType);
+      result = run(config, runType, runId);
 
       // log detailed metrics
       Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
@@ -256,12 +260,32 @@ public class Runner {
       log.info(String.format("Run took %.2f secs.", (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
     }
   }
-
+  
   /**
-   * Generates a run ID and performs an end-to-end run of the designated type.
+   * Non managed Run with internal generated runId 
+   * @param config
+   * @param type
+   * @return
+   * @throws Exception
    */
   public static RunResult run(Config config, RunType type) throws Exception {
-    String runId = UUID.randomUUID().toString();
+	  return run(config, type, null);
+  }
+
+  /**
+   * Generates a run ID if not supplied and performs an end-to-end run of the designated type.
+   * 
+   * @param config
+   * @param type
+   * @param runId
+   * @return
+   * @throws Exception
+   */
+  public static RunResult run(Config config, RunType type, String runId) throws Exception {
+    if (runId  == null) {
+      runId = UUID.randomUUID().toString();
+    }
+	
     log.info("Starting run with id " + runId);
 
     List<Connector> connectors = Connector.fromConfig(config);

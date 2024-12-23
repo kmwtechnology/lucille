@@ -1,13 +1,18 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.core.Runner;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.kmwllc.lucille.core.Runner.RunType;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Public API for starting lucille runs and viewing their status. Will be used by external resources, namely the Admin API to kick
@@ -15,66 +20,128 @@ import org.slf4j.LoggerFactory;
  */
 public class RunnerManager {
 
-  private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
+    private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
 
-  // Use the eager-initialization singleton pattern
-  private static volatile RunnerManager instance = new RunnerManager();
+    // Singleton instance
+    private static final RunnerManager instance = new RunnerManager();
 
-  private RunnerManager() {}
+    private final Map<String, RunDetails> runStatusMap = new ConcurrentHashMap<>();
 
-  public static RunnerManager getInstance() {
-    return instance;
-  }
+    private RunnerManager() {}
 
-  // Check whether the CompleteableFuture exists and is not done
-  synchronized public boolean isRunning() {
-    return !future.isDone();
-  }
-
-  /**
-   * Blocks the calling thread until the current lucille run is completed. This method is primarily intended to be used for testing,
-   * but has been made public to facilitate testing in other modules, namely lucille-plugins/lucille-api.
-   */
-  public void waitForRunCompletion() throws ExecutionException, InterruptedException {
-    future.get();
-  }
-
-  private CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
-
-  /**
-   * Main entrypoint for kicking off lucille runs. This method spawns a new thread for lucille to run in, but will not start a new
-   * instance of lucille until the previous one terminates.
-   *
-   * @return boolean representing whether the lucille run was initiated or not. This will return false if and only if the lucille
-   * run was skipped due to the previous run still existing.
-   */
-  synchronized public boolean run() {
-    return runWithConfig(ConfigFactory.load());
-  }
-
-  /**
-   * Internal abstraction used to support testing.
-   */
-  synchronized protected boolean runWithConfig(Config config) {
-    if (isRunning()) {
-      log.warn("Skipping new run; previous lucille run is still in progress.");
-      return false;
+    public static RunnerManager getInstance() {
+        return instance;
     }
 
-    future = CompletableFuture.runAsync(() -> {
-      try {
-        log.info("Starting lucille run via the Runner Manager.");
-        log.info(config.entrySet().toString());
+    /**
+     * Check whether a specific run is still in progress.
+     *
+     * @param runId the ID of the run to check
+     * @return true if the run exists and is not completed; false otherwise
+     */
+    public synchronized boolean isRunning(String runId) {
+        RunDetails details = runStatusMap.get(runId);
+        return details != null && !details.isDone();
+    }
 
-        // For now we will always use local mode without kafka
-        RunType runType = Runner.getRunType(false, true);
+    /**
+     * Waits for the specified run to complete.
+     *
+     * @param runId the ID of the run to wait for
+     * @throws Exception if the run throws an exception or is interrupted
+     */
+    public void waitForRunCompletion(String runId) throws Exception {
+        RunDetails details = runStatusMap.get(runId);
+        if (details != null) {
+            details.getFuture().get();
+        } else {
+            throw new IllegalArgumentException("No such run with ID: " + runId);
+        }
+    }
 
-        Runner.runWithResultLog(config, runType);
-      } catch (Exception e) {
-        log.error("Failed to run lucille via the Runner Manager.", e);
-      }
-    });
+    /**
+     * Starts a new lucille run with the given runId and default configuration. Will not start if a run with the given runId is
+     * already in progress.
+     *
+     * @param runId the unique ID for the lucille run
+     * @return true if the run was started successfully; false if a run with the given ID is already in progress
+     */
+    public synchronized boolean run(String runId) {
+        return runWithConfig(runId, ConfigFactory.load());
+    }
+    
+    /**
+     * Internal runId
+     * @param config
+     * @return
+     */
+    protected synchronized boolean runWithConfig(Config config) {
+    	return runWithConfig(null, config);
+    }
 
-    return true;
-  }
+    /**
+     * Internal method to start a lucille run with a custom configuration. Supports testing.
+     *
+     * @param runId the unique ID for the lucille run
+     * @param config the configuration to use for the run
+     * @return true if the run was started successfully; false if a run with the given ID is already in progress
+     */
+    public synchronized boolean runWithConfig(String runId, Config config) {
+    	if (runId ==  null) {
+    		runId = UUID.randomUUID().toString();
+    	}
+    	
+    	final String finalRunId = runId;
+    	
+        if (isRunning(runId)) {
+            log.warn("Skipping new run with ID '{}'; previous lucille run is still in progress.", runId);
+            return false;
+        }
+
+        RunDetails runDetails = new RunDetails(runId, config);
+        runStatusMap.put(runId, runDetails);
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                log.info("Starting lucille run with ID '{}' via the Runner Manager.", finalRunId);
+                log.info(config.entrySet().toString());
+
+                // For now, we will always use local mode without Kafka
+                RunType runType = Runner.getRunType(false, true);
+
+                RunResult runResult = Runner.runWithResultLog(config, runType);
+                runDetails.setRunResult(runResult);
+                runDetails.complete();
+            } catch (Exception e) {
+                log.error("Failed to run lucille with ID '{}' via the Runner Manager.", finalRunId, e);
+                runDetails.setErrorCount(runDetails.getErrorCount() + 1);
+                runDetails.completeExceptionally(e);
+            } finally {
+                // optionally remove from memory
+                // runDetailsMap.remove(runId);
+            	log.info("finished run with id {}", finalRunId);
+            }
+        });
+
+        return true;
+    }
+
+    /**
+     * Retrieves the details of a specific run.
+     *
+     * @param runId the ID of the run
+     * @return the RunDetails object, or null if no such run exists
+     */
+    public RunDetails getStatus(String runId) {
+        return runStatusMap.get(runId);
+    }
+
+    /**
+     * List of details of run
+     * @param runId
+     * @return
+     */
+	public List<RunDetails> getStatusList() {		
+		return new ArrayList<>(runStatusMap.values());
+	}
 }
