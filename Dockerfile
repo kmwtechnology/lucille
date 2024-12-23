@@ -27,4 +27,4 @@ WORKDIR /lucille/lucille-plugins/lucille-api/
 EXPOSE 8080
 
 # Define the default command to run the application
-CMD ["java", "-Dconfig.file=conf/simple-config.conf", "-cp", "/lucille/lucille-core/target/lucille.jar:/lucille/lucille-examples/lucille-s3-ingest-example/target/lib/*:/lucille/lucille-s3-ingest-example-0.4.2-SNAPSHOT.jar:/lucille/lucille-plugins/lucille-api/target/lucille-api-plugin.jar", "com.kmwllc.lucille.APIApplication", "server", "conf/api.yml"]
+CMD ["java", "-Dconfig.file=conf/simple-config.conf", "-cp", "/lucille/lucille-core/target/lucille.jar:/lucille/lucille-examples/lucille-s3-ingest-example/conf/tika-config.xml:/lucille/lucille-examples/lucille-s3-ingest-example/target/lib/*:/lucille/lucille-s3-ingest-example-0.4.2-SNAPSHOT.jar:/lucille/lucille-plugins/lucille-api/target/lucille-api-plugin.jar", "com.kmwllc.lucille.APIApplication", "server", "conf/api.yml"]
