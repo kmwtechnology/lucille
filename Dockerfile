@@ -18,7 +18,7 @@ RUN git clone --branch LC-579-s3-text-chunking-example https://github.com/supert
 WORKDIR /lucille
 
 # Build the project using Maven
-RUN mvn clean install -DskipTests
+RUN mvn clean install --quiet -DskipTests
 
 # Set the working directory for the starting command
 WORKDIR /lucille/lucille-plugins/lucille-api/
