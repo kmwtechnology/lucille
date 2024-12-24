@@ -254,8 +254,8 @@ public class GoogleStorageClientTest {
       ArgumentCaptor<String> fileNameCaptor = ArgumentCaptor.forClass(String.class);
       verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), fileNameCaptor.capture());
       List<String> capturedFileNames = fileNameCaptor.getAllValues();
-      assertEquals("json-1.json", capturedFileNames.get(0));
-      assertEquals("json-2.json", capturedFileNames.get(1));
+      assertEquals("gs://bucket/json-1.json", capturedFileNames.get(0));
+      assertEquals("gs://bucket/json-2.json", capturedFileNames.get(1));
     }
 
     // closes storage too

@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -254,7 +255,11 @@ public class S3StorageClientTest {
       s3StorageClient.initializeFileHandlers();
       s3StorageClient.traverse(publisher);
       // verify that the processFileAndPublish is only called for the json files
-      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), any());
+      ArgumentCaptor<String> fileNameCaptor = ArgumentCaptor.forClass(String.class);
+      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), fileNameCaptor.capture());
+      List<String> fileNames = fileNameCaptor.getAllValues();
+      assertEquals("s3://bucket/obj1.json", fileNames.get(0));
+      assertEquals("s3://bucket/obj2.json", fileNames.get(1));
     }
 
     s3StorageClient.shutdown();
@@ -301,28 +306,6 @@ public class S3StorageClientTest {
     s3StorageClient.traverse(publisher);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
-
-    /*
-    {id=default.csv-1, source=default.csv, filename=default.csv, field1=a, field2=b, field3=c, csvLineNumber=1, run_id=run1}
-    {id=default.csv-2, source=default.csv, filename=default.csv, field1=d, field2=e,f, field3=g, csvLineNumber=2, run_id=run1}
-    {id=default.csv-3, source=default.csv, filename=default.csv, field1=x, field2=y, field3=z, csvLineNumber=3, run_id=run1}
-    {id=2, imageCredit={artist=Jessica Polar, link=http://www.resplashed.com/photographer/jessica_polar/}, tags=[Person, Woman, Desert], imageUrl=http://www.resplashed.com/img/400_1f92142bd71b.jpg, filename=400_1f92142bd71b.jpg, imageHash=1aaeac2de7c48e4e7773b1f92138291f, price=10.99, name=Gorgeous Woman Mug, description=doloremque architecto ducimus sit nemo voluptatem dolor vel ratione sed quis nostrum et voluptatem quisquam nihil labore recusandae quas nisi rem sit, slug=Gorgeous-Woman-Mug, added=1479995150673, manufacturer=Heathcote-Kautzer-and-Turner, itemType=mug, productImg=mug-400_1f92142bd71b.jpg, run_id=run1}
-    {id=3, imageCredit={artist=Lou Levit, link=http://www.resplashed.com/photographer/lou_levit/}, tags=[Cars, City], imageUrl=http://www.resplashed.com/img/400_6812876c6c27.jpg, filename=400_6812876c6c27.jpg, imageHash=63886eb0e3a452da535d175fd1683d05, price=10.99, name=Awesome City Mug, description=et omnis sed facere ab doloribus corrupti esse soluta repudiandae exercitationem impedit ipsum magnam omnis totam quo iure fuga quae sint eligendi culpa possimus et, slug=Awesome-City-Mug-2, added=1481616714312, manufacturer=Dickens-Franecki, itemType=mug, productImg=mug-400_6812876c6c27.jpg, run_id=run1}
-    {id=prefix-a917f9309ce20fd85cd87f340e582c97, file_path=FolderWithFooTxt/foo.txt, file_modification_date=2024-12-24T13:58:48Z, file_size_bytes=4, file_content=[B@79ca7bea, run_id=run1}
-    {id=prefix-5d41402abc4b2a76b9719d911017c592, file_path=hello, file_modification_date=2024-12-24T14:52:45Z, file_size_bytes=-1, file_content=[B@54f6b629, run_id=run1}
-    {id=prefix-0f44513cc7167d999a233c909ac58a14, file_path=helloWorld.txt, file_modification_date=2024-12-24T13:47:07Z, file_size_bytes=12, file_content=[B@4bc9ca97, run_id=run1}
-    {id=prefix-24b97e4637e8edc9f34fbb9aaaa71896, file_path=goodbye.txt, file_modification_date=2024-12-24T13:54:56Z, file_size_bytes=0, file_content=[B@3e43f049, run_id=run1}
-    {id=default.csv-1, source=default.csv, filename=default.csv, field1=a, field2=b, field3=c, csvLineNumber=1, run_id=run1}
-    {id=default.csv-2, source=default.csv, filename=default.csv, field1=d, field2=e,f, field3=g, csvLineNumber=2, run_id=run1}
-    {id=default.csv-3, source=default.csv, filename=default.csv, field1=x, field2=y, field3=z, csvLineNumber=3, run_id=run1}
-    {id=2, imageCredit={artist=Jessica Polar, link=http://www.resplashed.com/photographer/jessica_polar/}, tags=[Person, Woman, Desert], imageUrl=http://www.resplashed.com/img/400_1f92142bd71b.jpg, filename=400_1f92142bd71b.jpg, imageHash=1aaeac2de7c48e4e7773b1f92138291f, price=10.99, name=Gorgeous Woman Mug, description=doloremque architecto ducimus sit nemo voluptatem dolor vel ratione sed quis nostrum et voluptatem quisquam nihil labore recusandae quas nisi rem sit, slug=Gorgeous-Woman-Mug, added=1479995150673, manufacturer=Heathcote-Kautzer-and-Turner, itemType=mug, productImg=mug-400_1f92142bd71b.jpg, run_id=run1}
-    {id=3, imageCredit={artist=Lou Levit, link=http://www.resplashed.com/photographer/lou_levit/}, tags=[Cars, City], imageUrl=http://www.resplashed.com/img/400_6812876c6c27.jpg, filename=400_6812876c6c27.jpg, imageHash=63886eb0e3a452da535d175fd1683d05, price=10.99, name=Awesome City Mug, description=et omnis sed facere ab doloribus corrupti esse soluta repudiandae exercitationem impedit ipsum magnam omnis totam quo iure fuga quae sint eligendi culpa possimus et, slug=Awesome-City-Mug-2, added=1481616714312, manufacturer=Dickens-Franecki, itemType=mug, productImg=mug-400_6812876c6c27.jpg, run_id=run1}
-    {id=prefix-a917f9309ce20fd85cd87f340e582c97, file_path=FolderWithFooTxt/foo.txt, file_modification_date=2024-12-24T13:58:48Z, file_size_bytes=4, file_content=[B@147cc940, run_id=run1}
-    {id=prefix-443e7fd8e68a53936ade6011c81d7bc5, file_path=zippedFolder/foo.txt, file_modification_date=2024-12-24T13:58:48Z, file_size_bytes=-1, file_content=[B@755a7218, run_id=run1}
-    {id=zipped.csv-1, source=zipped.csv, filename=zipped.csv, field1=a, field2=b, field3=c, csvLineNumber=1, run_id=run1}
-    {id=zipped.csv-2, source=zipped.csv, filename=zipped.csv, field1=d, field2=e,f, field3=g, csvLineNumber=2, run_id=run1}
-    {id=zipped.csv-3, source=zipped.csv, filename=zipped.csv, field1=x, field2=y, field3=z, csvLineNumber=3, run_id=run1}
-     */
 
     assertEquals(19, docs.size());
 

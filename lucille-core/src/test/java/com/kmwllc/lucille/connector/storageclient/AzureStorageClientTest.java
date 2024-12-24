@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -262,7 +263,11 @@ public class AzureStorageClientTest {
       azureStorageClient.initializeFileHandlers();
       azureStorageClient.traverse(publisher);
       // verify that the processFileAndPublish is only called for the json files
-      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), any());
+      ArgumentCaptor<String> fileNameCaptor = ArgumentCaptor.forClass(String.class);
+      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), fileNameCaptor.capture());
+      List<String> fileNames = fileNameCaptor.getAllValues();
+      assertEquals("https://storagename.blob.core.windows.net/folder/blob1.json", fileNames.get(0));
+      assertEquals("https://storagename.blob.core.windows.net/folder/blob2.json", fileNames.get(1));
     }
 
     // shutdown client and handlers
