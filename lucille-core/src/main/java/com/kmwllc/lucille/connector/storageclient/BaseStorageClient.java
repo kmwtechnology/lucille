@@ -84,38 +84,37 @@ public abstract class BaseStorageClient implements StorageClient {
    * Methods below are methods used for traversing the client and publishing files
    */
 
-  protected void tryProcessAndPublishFile(Publisher publisher, String pathStr, String fileExtension, FileReference fileReference) {
+  protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference) {
     try {
       // preprocessing
-      beforeProcessingFile(pathStr);
+      beforeProcessingFile(fullPathStr);
 
       // handle compressed files if needed
-      if (handleCompressedFiles && isSupportedCompressedFileType(pathStr)) {
+      if (handleCompressedFiles && isSupportedCompressedFileType(fullPathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
         try (BufferedInputStream bis = new BufferedInputStream(getFileReferenceContentStream(fileReference));
             CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
-          compressorStream.getUncompressedCount();
           // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
-          String unzippedFileName = FilenameUtils.removeExtension(pathStr);
-          if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
+          String unzippedFullPathStr = FilenameUtils.removeExtension(fullPathStr);
+          if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFullPathStr)) {
             handleArchiveFiles(publisher, compressorStream);
-          } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFileName), fileOptions)) {
-            handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFileName), pathStr);
+          } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFullPathStr), fileOptions)) {
+            handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFullPathStr), unzippedFullPathStr);
           } else {
-            Document doc = convertFileReferenceToDoc(fileReference, bucketOrContainerName, compressorStream, unzippedFileName);
+            Document doc = convertFileReferenceToDoc(fileReference, bucketOrContainerName, compressorStream, unzippedFullPathStr);
             publisher.publish(doc);
           }
         }
-        afterProcessingFile(pathStr);
+        afterProcessingFile(fullPathStr);
         return;
       }
 
       // handle archived files if needed
-      if (handleArchivedFiles && isSupportedArchiveFileType(pathStr)) {
+      if (handleArchivedFiles && isSupportedArchiveFileType(fullPathStr)) {
         try (InputStream is = getFileReferenceContentStream(fileReference)) {
           handleArchiveFiles(publisher, is);
         }
-        afterProcessingFile(pathStr);
+        afterProcessingFile(fullPathStr);
         return;
       }
 
@@ -126,27 +125,29 @@ public abstract class BaseStorageClient implements StorageClient {
           // get the file content
           byte[] content = getFileReferenceContent(fileReference);
           // get the right FileHandler and publish based on content
-          publishUsingFileHandler(publisher, fileExtension, content, pathStr);
+          publishUsingFileHandler(publisher, fileExtension, content, fullPathStr);
         } else {
           // get path instead to be less resource intensive
           Path path = fileReference.getPath();
           // get the right FileHandler and publish based on content
           publishUsingFileHandler(publisher, fileExtension, path);
         }
-        afterProcessingFile(pathStr);
+        afterProcessingFile(fullPathStr);
         return;
       }
 
       Document doc = convertFileReferenceToDoc(fileReference, bucketOrContainerName);
       publisher.publish(doc);
-      afterProcessingFile(pathStr);
+      afterProcessingFile(fullPathStr);
+    } catch (UnsupportedOperationException e) {
+      throw new UnsupportedOperationException("Encountered unsupported operation", e);
     } catch (Exception e) {
       try {
-        errorProcessingFile(pathStr);
+        errorProcessingFile(fullPathStr);
       } catch (IOException ex) {
-        log.error("Error occurred while performing error operations on file '{}'", pathStr, ex);
+        log.error("Error occurred while performing error operations on file '{}'", fullPathStr, ex);
       }
-      log.error("Unable to publish document '{}', SKIPPING", pathStr, e);
+      log.error("Unable to publish document '{}', SKIPPING", fullPathStr, e);
     }
   }
 
@@ -186,6 +187,7 @@ public abstract class BaseStorageClient implements StorageClient {
           log.info("Cannot read entry data for entry: '{}'. Skipping...", entry.getName());
           continue;
         }
+        // TODO: resolve fullPathStr with entry name correctly
         if (!entry.isDirectory() && shouldIncludeFile(entry.getName(), includes, excludes)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(entryExtension, fileOptions)) {
@@ -213,13 +215,13 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   // cannot close inputStream as we are iterating through the archived stream and may have more files to process
-  protected void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fileName)
+  protected void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fullPathStr)
       throws ConnectorException {
     try {
       FileHandler handler = fileHandlers.get(fileExtension);
-      handler.processFileAndPublish(publisher, in.readAllBytes(), fileName);
+      handler.processFileAndPublish(publisher, in.readAllBytes(), fullPathStr);
     } catch (Exception e) {
-      throw new ConnectorException("Error occurred while handling file: " + fileName, e);
+      throw new ConnectorException("Error occurred while handling file: " + fullPathStr, e);
     }
   }
 
@@ -255,12 +257,11 @@ public abstract class BaseStorageClient implements StorageClient {
     Path sourcePath = Paths.get(pathStr);
     Path targetFolderPath = Paths.get(option);
 
-    // ensure target folder exists as a precaution
-    if (!Files.exists(targetFolderPath)) {
+    // ensure target folder exists as a precaution, only create if source path is local, meaning it is not a cloud path
+    if (Files.exists(sourcePath) && !Files.exists(targetFolderPath)) {
       Files.createDirectory(targetFolderPath);
     }
 
-    // check if the file exists locally
     if (Files.exists(sourcePath)) {
       // move the local file to the target folder
       Path targetPath = targetFolderPath.resolve(sourcePath.getFileName());
@@ -276,16 +277,15 @@ public abstract class BaseStorageClient implements StorageClient {
     Path path = Paths.get(pathStr);
 
     // if file does not exist locally, means it is a cloud path, not supported yet
-    boolean fileExistsLocally = Files.exists(path);
-    if (moveToAfterProcessing != null && fileExistsLocally) {
+    boolean sourceFileExistsLocally = Files.exists(path);
+    if (moveToAfterProcessing != null && sourceFileExistsLocally) {
       // Create the destination directory if it doesn't exist.
       File destDir = new File(moveToAfterProcessing);
       if (!destDir.exists()) {
         destDir.mkdirs();
       }
     }
-
-    if (moveToErrorFolder != null && fileExistsLocally) {
+    if (moveToErrorFolder != null && sourceFileExistsLocally) {
       File errorDir = new File(moveToErrorFolder);
       if (!errorDir.exists()) {
         log.info("Creating error directory {}", errorDir.getAbsolutePath());
@@ -300,7 +300,7 @@ public abstract class BaseStorageClient implements StorageClient {
 
   protected abstract Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName);
 
-  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName);
+  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fullPathStr);
 
   protected abstract byte[] getFileReferenceContent(FileReference fileReference);
 

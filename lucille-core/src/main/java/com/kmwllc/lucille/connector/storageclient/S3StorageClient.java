@@ -70,9 +70,9 @@ public class S3StorageClient extends BaseStorageClient {
         .forEach(resp -> {
           resp.contents().forEach(obj -> {
             if (isValid(obj)) {
-              String pathStr = obj.key();
-              String fileExtension = FilenameUtils.getExtension(pathStr);
-              tryProcessAndPublishFile(publisher, pathStr, fileExtension, new FileReference(obj));
+              String fullPathStr = getFullPath(obj);
+              String fileExtension = FilenameUtils.getExtension(fullPathStr);
+              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(obj));
             }
           });
         });
@@ -85,10 +85,10 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fullPathStr) {
     S3Object obj = fileReference.getS3Object();
     try {
-      return s3ObjectToDoc(obj, bucketOrContainerName, in, fileName);
+      return s3ObjectToDoc(obj, bucketOrContainerName, in, fullPathStr);
     } catch (IOException e) {
       throw new IllegalArgumentException("Unable to convert S3Object '" + obj.key() + "' to Document", e);
     }
@@ -143,6 +143,10 @@ public class S3StorageClient extends BaseStorageClient {
     if (key.endsWith("/")) return false;
 
     return shouldIncludeFile(key, includes, excludes);
+  }
+
+  private String getFullPath(S3Object obj) {
+    return "s3://" + bucketOrContainerName + "/" + obj.key();
   }
 
   // Only for testing

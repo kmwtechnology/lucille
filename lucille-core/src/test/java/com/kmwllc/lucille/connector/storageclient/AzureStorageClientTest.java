@@ -25,6 +25,7 @@ import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
+import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
@@ -68,7 +69,7 @@ public class AzureStorageClientTest {
       assertInstanceOf(JsonFileHandler.class, azureStorageClient.fileHandlers.get("json"));
       assertInstanceOf(JsonFileHandler.class, azureStorageClient.fileHandlers.get("jsonl"));
       assertEquals(azureStorageClient.fileHandlers.get("json"), azureStorageClient.fileHandlers.get("json"));
-      assertInstanceOf(JsonFileHandler.class, azureStorageClient.fileHandlers.get("csv"));
+      assertInstanceOf(CSVFileHandler.class, azureStorageClient.fileHandlers.get("csv"));
 
       verify(builder.constructed().get(0), times(1)).connectionString("connectionString");
     }
@@ -344,12 +345,12 @@ public class AzureStorageClientTest {
     assertEquals("default.csv", doc11.getString("source"));
     Document doc12 = docs.get(11);
     assertEquals("2", doc12.getId());
-    assertEquals("Gorgeous Woman Mug", doc4.getString("name"));
+    assertEquals("Gorgeous Woman Mug", doc12.getString("name"));
     Document doc13 = docs.get(12);
     assertEquals("3", doc13.getId());
-    assertEquals("Awesome City Mug", doc5.getString("name"));
+    assertEquals("Awesome City Mug", doc13.getString("name"));
     Document doc14 = docs.get(13);
-    assertEquals("FolderWithFooTxt/foo.txt", doc6.getString("file_path"));
+    assertEquals("FolderWithFooTxt/foo.txt", doc14.getString("file_path"));
     // check documents published from zipped.csv.zip
     Document doc15 = docs.get(14);
     assertEquals("zipped.csv-1", doc15.getId());
@@ -380,8 +381,8 @@ public class AzureStorageClientTest {
     AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
         List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(
             Map.of(
-                "moveToAfterProcessing", true,
-                "moveToErrorFolder", true
+                "moveToAfterProcessing", "https://storagename.blob.core.windows.net/folder/processed",
+                "moveToErrorFolder", "https://storagename.blob.core.windows.net/folder/error"
             )
     ));
 
@@ -397,6 +398,8 @@ public class AzureStorageClientTest {
         .thenReturn(new byte[]{13, 14, 15, 16}); // blob4
 
     assertThrows(UnsupportedOperationException.class, () -> azureStorageClient.traverse(publisher));
+
+    azureStorageClient.shutdown();
   }
 
   private Stream<BlobItem> getCompressedAndArchivedBlobStream() {

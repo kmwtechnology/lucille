@@ -68,9 +68,9 @@ public class GoogleStorageClient extends BaseStorageClient {
       page.streamAll()
           .forEachOrdered(blob -> {
             if (isValid(blob)) {
-              String pathStr = blob.getName();
-              String fileExtension = FilenameUtils.getExtension(pathStr);
-              tryProcessAndPublishFile(publisher, pathStr, fileExtension, new FileReference(blob));
+              String fullPathStr = getFullPath(blob);
+              String fileExtension = FilenameUtils.getExtension(fullPathStr);
+              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob));
             }
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
@@ -89,11 +89,11 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fullPathStr) {
     Blob blob = fileReference.getBlob();
 
     try {
-      return blobToDoc(blob, bucketOrContainerName, in, fileName);
+      return blobToDoc(blob, bucketOrContainerName, in, fullPathStr);
     } catch (IOException e) {
       throw new IllegalArgumentException("Unable to convert blob '" + blob.getName() + "' to Document", e);
     }
@@ -115,6 +115,10 @@ public class GoogleStorageClient extends BaseStorageClient {
     if (blob.isDirectory()) return false;
 
     return shouldIncludeFile(blob.getName(), includes, excludes);
+  }
+
+  private String getFullPath(Blob blob) {
+    return "gs://" + bucketOrContainerName + "/" + blob.getName();
   }
 
   private Document blobToDoc(Blob blob, String bucketName) throws IOException {

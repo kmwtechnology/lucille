@@ -365,10 +365,10 @@ public class S3StorageClientTest {
     assertEquals("default.csv", doc12.getString("source"));
     Document doc13 = docs.get(12);
     assertEquals("2", doc13.getId());
-    assertEquals("Gorgeous Woman Mug", doc4.getString("name"));
+    assertEquals("Gorgeous Woman Mug", doc13.getString("name"));
     Document doc14 = docs.get(13);
     assertEquals("3", doc14.getId());
-    assertEquals("Awesome City Mug", doc5.getString("name"));
+    assertEquals("Awesome City Mug", doc14.getString("name"));
     Document doc15 = docs.get(14);
     assertEquals("FolderWithFooTxt/foo.txt", doc15.getString("file_path"));
     // check document published from zippedFolder.zip
@@ -399,8 +399,8 @@ public class S3StorageClientTest {
     // simulate a proper s3StorageClient with valid files
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), "",
         List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of(
-        "moveAfterProcessing", "temp/",
-        "moveToErrorFolder", "error/")));
+        "moveToAfterProcessing", "s3://bucket/Processed",
+        "moveToErrorFolder", "s3://bucket/Error")));
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
     ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
@@ -416,6 +416,7 @@ public class S3StorageClientTest {
 
     // encounter error when traversing if moveAfterProcessing is set
     assertThrows(UnsupportedOperationException.class, () -> s3StorageClient.traverse(publisher));
+    s3StorageClient.shutdown();
   }
 
   private List<S3Object> getMockedS3Objects() throws Exception {

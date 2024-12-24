@@ -83,9 +83,9 @@ public class AzureStorageClient extends BaseStorageClient {
     containerClient.listBlobs(new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
         .forEach(blob -> {
           if (isValid(blob)) {
-            String pathStr = blob.getName();
-            String fileExtension = FilenameUtils.getExtension(pathStr);
-            tryProcessAndPublishFile(publisher, pathStr, fileExtension, new FileReference(blob));
+            String fullPathStr = getFullPath(blob);
+            String fileExtension = FilenameUtils.getExtension(fullPathStr);
+            tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob));
           }
         });
   }
@@ -97,11 +97,11 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fullPathStr) {
     BlobItem blobItem = fileReference.getBlobItem();
 
     try {
-      return blobItemToDoc(blobItem, bucketOrContainerName, in, fileName);
+      return blobItemToDoc(blobItem, bucketOrContainerName, in, fullPathStr);
     } catch (IOException e) {
       throw new IllegalArgumentException("Unable to convert BlobItem '" + blobItem.getName() + "' to Document", e);
     }
@@ -117,6 +117,11 @@ public class AzureStorageClient extends BaseStorageClient {
   protected InputStream getFileReferenceContentStream(FileReference fileReference) {
     byte[] content = getFileReferenceContent(fileReference);
     return new ByteArrayInputStream(content);
+  }
+
+  private String getFullPath(BlobItem blobItem) {
+    return String.format("%s://%s/%s/%s", pathToStorageURI.getScheme(), pathToStorageURI.getAuthority(),
+        bucketOrContainerName, blobItem.getName());
   }
 
   private Document blobItemToDoc(BlobItem blob, String container) {

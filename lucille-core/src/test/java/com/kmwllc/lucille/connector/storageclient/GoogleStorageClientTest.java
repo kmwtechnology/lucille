@@ -349,12 +349,12 @@ public class GoogleStorageClientTest {
     assertEquals("default.csv", doc11.getString("source"));
     Document doc12 = docs.get(11);
     assertEquals("2", doc12.getId());
-    assertEquals("Gorgeous Woman Mug", doc4.getString("name"));
+    assertEquals("Gorgeous Woman Mug", doc12.getString("name"));
     Document doc13 = docs.get(12);
     assertEquals("3", doc13.getId());
-    assertEquals("Awesome City Mug", doc5.getString("name"));
+    assertEquals("Awesome City Mug", doc13.getString("name"));
     Document doc14 = docs.get(13);
-    assertEquals("FolderWithFooTxt/foo.txt", doc6.getString("file_path"));
+    assertEquals("FolderWithFooTxt/foo.txt", doc14.getString("file_path"));
     // check documents published from zipped.csv.zip
     Document doc15 = docs.get(14);
     assertEquals("zipped.csv-1", doc15.getId());
@@ -386,8 +386,8 @@ public class GoogleStorageClientTest {
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), "prefix-",
         List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(
             Map.of(
-                "moveToAfterProcessing", true,
-                "moveToErrorFolder", true
+                "moveToAfterProcessing", "gs://bucket/processed",
+                "moveToErrorFolder", "gs://bucket/error"
             )
     ));
 
@@ -409,6 +409,9 @@ public class GoogleStorageClientTest {
 
     googleStorageClient.setStorageForTesting(storage);
     assertThrows(UnsupportedOperationException.class, () -> googleStorageClient.traverse(publisher));
+
+    // closes storage too
+    googleStorageClient.shutdown();
   }
 
   private static Map<String, byte[]> readAllFilesAsBytesWithMap(String folderPath) throws Exception {

@@ -77,9 +77,10 @@ public class LocalStorageClient extends BaseStorageClient {
     try (Stream<Path> paths = Files.walk(startingDirectoryPath)) {
       paths.filter(this::isValidPath)
           .forEachOrdered(path -> {
-            String pathStr = path.toString();
-            String fileExtension = FilenameUtils.getExtension(path.toString());
-            tryProcessAndPublishFile(publisher, pathStr, fileExtension, new FileReference(path));
+            Path fullPath = path.toAbsolutePath().normalize();
+            String fullPathStr = fullPath.toString();
+            String fileExtension = FilenameUtils.getExtension(fullPathStr);
+            tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(fullPath));
           });
     } catch (InvalidPathException e) {
       throw new ConnectorException("Path string provided cannot be converted to a Path.", e);
@@ -99,7 +100,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fullPathStr) {
     Path path = fileReference.getPath();
     try {
       return pathToDoc(path, in);
