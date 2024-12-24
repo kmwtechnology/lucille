@@ -78,7 +78,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
     Blob blob = fileReference.getBlob();
 
     try {
@@ -89,7 +89,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
     Blob blob = fileReference.getBlob();
 
     try {
@@ -100,13 +100,13 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public byte[] getFileReferenceContent(FileReference fileReference) {
+  protected byte[] getFileReferenceContent(FileReference fileReference) {
     Blob blob = fileReference.getBlob();
     return blob.getContent();
   }
 
   @Override
-  public InputStream getFileReferenceContentStream(FileReference fileReference) {
+  protected InputStream getFileReferenceContentStream(FileReference fileReference) {
     byte[] content = getFileReferenceContent(fileReference);
     return new ByteArrayInputStream(content);
   }

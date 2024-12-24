@@ -6,14 +6,10 @@ import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 
-import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
-import java.io.BufferedInputStream;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -28,8 +24,6 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.compress.compressors.CompressorInputStream;
-import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +52,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public String getStartingDirectory() {
+  protected String getStartingDirectory() {
     return pathToStorageURI.getPath();
   }
 
@@ -67,7 +61,6 @@ public class LocalStorageClient extends BaseStorageClient {
     if (fs != null) {
       try {
         fs.close();
-        clearFileHandlers();
       } catch (UnsupportedOperationException e) {
         // Some file systems may not need closing
         fs = null;
@@ -75,6 +68,8 @@ public class LocalStorageClient extends BaseStorageClient {
         throw new IOException("Failed to close file system.", e);
       }
     }
+    // clear all FileHandlers if any
+    clearFileHandlers();
   }
 
   @Override
@@ -94,7 +89,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
     Path path = fileReference.getPath();
     try {
       return pathToDoc(path);
@@ -104,7 +99,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
     Path path = fileReference.getPath();
     try {
       return pathToDoc(path, in);
@@ -114,7 +109,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public byte[] getFileReferenceContent(FileReference fileReference) {
+  protected byte[] getFileReferenceContent(FileReference fileReference) {
     Path path = fileReference.getPath();
     try {
       return Files.readAllBytes(path);
@@ -124,7 +119,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public InputStream getFileReferenceContentStream(FileReference fileReference) {
+  protected InputStream getFileReferenceContentStream(FileReference fileReference) {
     Path path = fileReference.getPath();
     try {
       return Files.newInputStream(path);

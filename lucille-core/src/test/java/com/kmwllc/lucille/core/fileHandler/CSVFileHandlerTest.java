@@ -36,7 +36,7 @@ public class CSVFileHandlerTest {
     //  x	y	z
 
     // verify number of documents and exhaust iterator to close resources
-    Iterator<Document> docs = handler.processFile(Paths.get("src/test/resources/FileHandlerTest/CSVFileHandler/semicolons.csv"));
+    Iterator<Document> docs = handler.processFile(Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/semicolons.csv"));
     Document doc1 = docs.next();
     Document doc2 = docs.next();
     Document doc3 = docs.next();
@@ -56,7 +56,7 @@ public class CSVFileHandlerTest {
     // Tofu Soup, 12, Korea
 
     // verify number of documents and exhaust iterator to close resources
-    Iterator<Document> docs = handler.processFile(Paths.get("src/test/resources/FileHandlerTest/CSVFileHandler/bom.csv"));
+    Iterator<Document> docs = handler.processFile(Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/bom.csv"));
     Document doc1 = docs.next();
     Document doc2 = docs.next();
     Document doc3 = docs.next();
@@ -84,7 +84,7 @@ public class CSVFileHandlerTest {
     //  x	y	z
 
     // verify number of documents and exhaust iterator to close resources
-    Iterator<Document> docs = handler.processFile(Paths.get("src/test/resources/FileHandlerTest/CSVFileHandler/tabs.tsv"));
+    Iterator<Document> docs = handler.processFile(Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/tabs.csv"));
     // verify number of documents and exhaust iterator to close resources
     Document doc1 = docs.next();
     Document doc2 = docs.next();
@@ -100,7 +100,7 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of("csv", Map.of()));
     FileHandler csvFileHandler = FileHandler.create("csv", config);
 
-    Path path = Paths.get("src/test/resources/FileHandlerTest/CSVFileHandler/defaults.csv");
+    Path path = Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
     Iterator<Document> docs = csvFileHandler.processFile(path);
 
     // contents of CSVConnectorTest/config.conf
@@ -133,8 +133,8 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of("csv", Map.of()));
     FileHandler csvFileHandler = FileHandler.create("csv", config);
 
-    byte[] fileBytes = Files.readAllBytes(Paths.get("src/test/resources/FileHandlerTest/CSVFileHandler/defaults.csv"));
-    Iterator<Document> docs = csvFileHandler.processFile(fileBytes, "src/test/resources/FileHandlerTest/CSVFileHandler/defaults.csv");
+    byte[] fileBytes = Files.readAllBytes(Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"));
+    Iterator<Document> docs = csvFileHandler.processFile(fileBytes, "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
 
     // contents of CSVConnectorTest/config.conf
     // field1, field2, field3
@@ -166,7 +166,7 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("docIdPrefix", "csv_")));
     FileHandler csvFileHandler = FileHandler.create("csv", config);
 
-    Path path = Paths.get("src/test/resources/FileHandlerTest/CSVFileHandler/defaults.csv");
+    Path path = Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
     Iterator<Document> docs = csvFileHandler.processFile(path);
 
 
@@ -187,7 +187,7 @@ public class CSVFileHandlerTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     CSVFileHandler spyCsvHandler = (CSVFileHandler) spy(FileHandler.create("csv", config));
-    Path path = Paths.get("src/test/resources/FileHandlerTest/CSVFileHandler/defaults.csv");
+    Path path = Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
 
     // adding a null Document to the iterator to check that we do not publish it
     Iterator<Document> docs = mock(Iterator.class);
@@ -215,7 +215,7 @@ public class CSVFileHandlerTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     CSVFileHandler spyCsvHandler = (CSVFileHandler) spy(FileHandler.create("csv", config));
-    Path path = Paths.get("src/test/resources/FileHandlerTest/CSVFileHandler/defaults.csv");
+    Path path = Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
 
     // adding an exception when calling next()
     // note for this test we are arbitrarily creating fake documents with ids 1, 2, 3. We just want to test that document id 3

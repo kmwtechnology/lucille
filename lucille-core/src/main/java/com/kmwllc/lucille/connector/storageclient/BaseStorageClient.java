@@ -49,12 +49,12 @@ public abstract class BaseStorageClient implements StorageClient {
   protected URI pathToStorageURI;
   protected String bucketOrContainerName;
   protected String startingDirectory;
-  List<Pattern> excludes;
-  List<Pattern> includes;
-  Map<String, Object> cloudOptions;
-  Config fileOptions;
-  Map<String, FileHandler> fileHandlers;
-  public Integer maxNumOfPages;
+  protected List<Pattern> excludes;
+  protected List<Pattern> includes;
+  protected Map<String, Object> cloudOptions;
+  protected Config fileOptions;
+  protected Map<String, FileHandler> fileHandlers;
+  protected Integer maxNumOfPages;
   protected boolean getFileContent;
   protected boolean handleArchivedFiles;
   protected boolean handleCompressedFiles;
@@ -84,7 +84,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * Methods below are methods used for traversing the client and publishing files
    */
 
-  public void tryProcessAndPublishFile(Publisher publisher, String pathStr, String fileExtension, FileReference fileReference) {
+  protected void tryProcessAndPublishFile(Publisher publisher, String pathStr, String fileExtension, FileReference fileReference) {
     try {
       // preprocessing
       beforeProcessingFile(pathStr);
@@ -94,6 +94,7 @@ public abstract class BaseStorageClient implements StorageClient {
         // unzip the file, compressorStream will be closed when try block is exited
         try (BufferedInputStream bis = new BufferedInputStream(getFileReferenceContentStream(fileReference));
             CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
+          compressorStream.getUncompressedCount();
           // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
           String unzippedFileName = FilenameUtils.removeExtension(pathStr);
           if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFileName)) {
@@ -149,7 +150,7 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  public void publishUsingFileHandler(Publisher publisher, String fileExtension, Path path) throws Exception {
+  protected void publishUsingFileHandler(Publisher publisher, String fileExtension, Path path) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
@@ -162,7 +163,7 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  public void publishUsingFileHandler(Publisher publisher, String fileExtension, byte[] content, String pathStr) throws Exception {
+  protected void publishUsingFileHandler(Publisher publisher, String fileExtension, byte[] content, String pathStr) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
@@ -176,7 +177,7 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   // inputStream parameter will be closed via the try with resources
-  public void handleArchiveFiles(Publisher publisher, InputStream inputStream) throws ArchiveException, IOException, ConnectorException {
+  protected void handleArchiveFiles(Publisher publisher, InputStream inputStream) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
@@ -212,7 +213,7 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   // cannot close inputStream as we are iterating through the archived stream and may have more files to process
-  public void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fileName)
+  protected void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fileName)
       throws ConnectorException {
     try {
       FileHandler handler = fileHandlers.get(fileExtension);
@@ -226,18 +227,18 @@ public abstract class BaseStorageClient implements StorageClient {
    * Methods below are methods used for performing operations before, after, during processing files
    */
 
-  public void beforeProcessingFile(String pathStr) throws Exception {
-    createProcessedAndErrorFoldersIfSet();
+  protected void beforeProcessingFile(String pathStr) throws Exception {
+    createProcessedAndErrorFoldersIfSet(pathStr);
   }
 
-  public void afterProcessingFile(String pathStr) throws IOException {
+  protected void afterProcessingFile(String pathStr) throws IOException {
     if (moveToAfterProcessing != null) {
       // move to processed folder
       moveFile(pathStr, moveToAfterProcessing);
     }
   }
 
-  public void errorProcessingFile(String pathStr) throws IOException {
+  protected void errorProcessingFile(String pathStr) throws IOException {
     if (moveToErrorFolder != null) {
       // move to error folder
       moveFile(pathStr, moveToErrorFolder);
@@ -271,13 +272,12 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  private String createFileNameFromCloudPath(String cloudPath) {
-    // replace characters to make a valid filename
-    return cloudPath.replaceAll("[^a-zA-Z0-9.-]", "_");
-  }
+  private void createProcessedAndErrorFoldersIfSet(String pathStr) {
+    Path path = Paths.get(pathStr);
 
-  private void createProcessedAndErrorFoldersIfSet() {
-    if (moveToAfterProcessing != null) {
+    // if file does not exist locally, means it is a cloud path, not supported yet
+    boolean fileExistsLocally = Files.exists(path);
+    if (moveToAfterProcessing != null && fileExistsLocally) {
       // Create the destination directory if it doesn't exist.
       File destDir = new File(moveToAfterProcessing);
       if (!destDir.exists()) {
@@ -285,7 +285,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
     }
 
-    if (moveToErrorFolder != null) {
+    if (moveToErrorFolder != null && fileExistsLocally) {
       File errorDir = new File(moveToErrorFolder);
       if (!errorDir.exists()) {
         log.info("Creating error directory {}", errorDir.getAbsolutePath());
@@ -298,30 +298,30 @@ public abstract class BaseStorageClient implements StorageClient {
    * Misc methods
    */
 
-  public abstract Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName);
+  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName);
 
-  public abstract Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName);
+  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName);
 
-  public abstract byte[] getFileReferenceContent(FileReference fileReference);
+  protected abstract byte[] getFileReferenceContent(FileReference fileReference);
 
-  public abstract InputStream getFileReferenceContentStream(FileReference fileReference);
+  protected abstract InputStream getFileReferenceContentStream(FileReference fileReference);
 
-  public String getContainerOrBucketName() {
+  protected String getContainerOrBucketName() {
     return pathToStorageURI.getAuthority();
   }
 
-  public String getStartingDirectory() {
+  protected String getStartingDirectory() {
     String startingDirectory = Objects.equals(pathToStorageURI.getPath(), "/") ? "" : pathToStorageURI.getPath();
     if (startingDirectory.startsWith("/")) return startingDirectory.substring(1);
     return startingDirectory;
   }
 
-  public static boolean shouldIncludeFile(String pathStr, List<Pattern> includes, List<Pattern> excludes) {
+  protected static boolean shouldIncludeFile(String pathStr, List<Pattern> includes, List<Pattern> excludes) {
     return excludes.stream().noneMatch(pattern -> pattern.matcher(pathStr).matches())
         && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(pathStr).matches()));
   }
 
-  public void initializeFileHandlers() throws ConnectorException {
+  protected void initializeFileHandlers() throws ConnectorException {
     // go through fileOptions, and initialize all file handlers
     for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
       if (fileOptions.hasPath(fileExtensionSupported)) {
@@ -340,12 +340,12 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  public void clearFileHandlers() {
+  protected void clearFileHandlers() {
     fileHandlers.clear();
   }
 
   // note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
-  public boolean isSupportedCompressedFileType(String pathStr) {
+  private boolean isSupportedCompressedFileType(String pathStr) {
     return pathStr.endsWith(".gz");
     // string.endsWith(".bz2") ||
     // string.endsWith(".xz") ||
@@ -356,7 +356,7 @@ public abstract class BaseStorageClient implements StorageClient {
     // string.endsWith(".Z");
   }
 
-  public boolean isSupportedArchiveFileType(String pathStr) {
+  private boolean isSupportedArchiveFileType(String pathStr) {
     return pathStr.endsWith(".tar") ||
         pathStr.endsWith(".zip");
     // string.endsWith(".7z") ||
@@ -368,7 +368,7 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   //TODO: sync with abstract connector
-  public String createDocId(String docId) {
+  protected String createDocId(String docId) {
     return docIdPrefix + docId;
   }
 }

@@ -35,12 +35,12 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public String getContainerOrBucketName() {
+  protected String getContainerOrBucketName() {
     return pathToStorageURI.getPath().split("/")[1];
   }
 
   @Override
-  public String getStartingDirectory() {
+  protected String getStartingDirectory() {
     String path = pathToStorageURI.getPath();
     String[] subPaths = path.split("/", 3);
     return subPaths.length > 2 ? subPaths[2] : "";
@@ -91,13 +91,13 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
     BlobItem blobItem = fileReference.getBlobItem();
     return blobItemToDoc(blobItem, bucketOrContainerName);
   }
 
   @Override
-  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
     BlobItem blobItem = fileReference.getBlobItem();
 
     try {
@@ -108,13 +108,13 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public byte[] getFileReferenceContent(FileReference fileReference) {
+  protected byte[] getFileReferenceContent(FileReference fileReference) {
     BlobItem blobItem = fileReference.getBlobItem();
     return containerClient.getBlobClient(blobItem.getName()).downloadContent().toBytes();
   }
 
   @Override
-  public InputStream getFileReferenceContentStream(FileReference fileReference) {
+  protected InputStream getFileReferenceContentStream(FileReference fileReference) {
     byte[] content = getFileReferenceContent(fileReference);
     return new ByteArrayInputStream(content);
   }

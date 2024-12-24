@@ -79,13 +79,13 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
     S3Object obj = fileReference.getS3Object();
     return s3ObjectToDoc(obj, bucketOrContainerName);
   }
 
   @Override
-  public Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fileName) {
     S3Object obj = fileReference.getS3Object();
     try {
       return s3ObjectToDoc(obj, bucketOrContainerName, in, fileName);
@@ -95,13 +95,13 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  public byte[] getFileReferenceContent(FileReference fileReference) {
+  protected byte[] getFileReferenceContent(FileReference fileReference) {
     S3Object obj = fileReference.getS3Object();
     return s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketOrContainerName).key(obj.key()).build()).asByteArray();
   }
 
   @Override
-  public InputStream getFileReferenceContentStream(FileReference fileReference) {
+  protected InputStream getFileReferenceContentStream(FileReference fileReference) {
     byte[] content = getFileReferenceContent(fileReference);
     return new ByteArrayInputStream(content);
   }
