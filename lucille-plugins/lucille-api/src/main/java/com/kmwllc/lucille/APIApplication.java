@@ -1,8 +1,5 @@
 package com.kmwllc.lucille;
-
-import java.util.Map;
-
-import org.checkerframework.checker.units.qual.A;
+import java.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,6 +83,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
   }
 
   public static void main(String[] args) throws Exception {
+	  System.out.println(String.format("starting lucille-api from %s args %s", System.getProperty("user.dir"), Arrays.toString(args)));
     new APIApplication().run(args);
   }
 }
