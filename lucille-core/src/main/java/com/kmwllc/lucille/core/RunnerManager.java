@@ -138,7 +138,6 @@ public class RunnerManager {
 
     /**
      * List of details of run
-     * @param runId
      * @return
      */
 	public List<RunDetails> getStatusList() {		
