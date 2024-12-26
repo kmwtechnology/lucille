@@ -23,11 +23,11 @@ import java.util.stream.Collectors;
  * - dropOriginal (Boolean, Optional): if set to true, will drop documents in the pipeline that were marked for deletion
  *   as dropped. Does not apply to emitted documents, only the original documents. Defaults to false
  * - addPrefix (String, optional) : String that adds on to all document ids used for listing
- *    e.g. if id of doc is "doc1" & addPrefix is "-v1", then this stage will retrieve and emit documents where their
+ *    e.g. if id of doc is "doc1" and addPrefix is "-v1", then this stage will retrieve and emit documents where their
  *         id prefix is "doc1-v1".
  * - index (String) : name of the index to perform operation on.
  * - apiKey (String) : apiKey used to create the client.
- * - namespaces (Map<String, Object>, Optional) : mapping of namespaces of which you would like to collect ids on. If not given, will
+ * - namespaces (Map&lt;String, Object&gt;, Optional) : mapping of namespaces of which you would like to collect ids on. If not given, will
  *    retrieve from default namespace.
  *   - note that value of mapping will not matter, rather intended to make it convenient for user to reuse same namespaces configs as
  *     PineconeIndexer
