@@ -145,6 +145,72 @@ public class LocalStorageClientTest {
 
   @Test
   public void testPublishUsingFileHandler() throws Exception {
+    LocalStorageClient localStorageClient = new LocalStorageClient(
+        new URI("src/test/resources/StorageClientTest/testPublishFilesDefault/"), "file_",
+        List.of(Pattern.compile(".*\\.DS_Store$")), List.of(),
+        Map.of(), ConfigFactory.parseMap(
+        Map.of(
+            "json", Map.of()
+        )
+    ));
+
+    localStorageClient.init();
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    localStorageClient.traverse(publisher);
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+
+    Assert.assertEquals(12, documents.size());
+
+    Document doc1 = documents.get(0);
+    Assert.assertEquals("a", doc1.getId());
+    Assert.assertEquals("Rustic Cows Mug", doc1.getString("name"));
+
+    Document doc2 = documents.get(1);
+    Assert.assertEquals("d", doc2.getId());
+    Assert.assertEquals("Incredible People Mug", doc2.getString("name"));
+
+    Document doc3 = documents.get(2);
+    Assert.assertEquals("e", doc3.getId());
+    Assert.assertEquals("Awesome Wood Mug", doc3.getString("name"));
+
+    Document doc4 = documents.get(3);
+    Assert.assertEquals("f1", doc4.getId());
+    Assert.assertEquals("Awesome Night Mug", doc4.getString("name"));
+
+    Document doc5 = documents.get(4);
+    Assert.assertEquals("f2", doc5.getId());
+    Assert.assertEquals("Ergonomic Mountains Mug", doc5.getString("name"));
+
+    Document doc6 = documents.get(5);
+    Assert.assertEquals("f3", doc6.getId());
+    Assert.assertEquals("Refined Fog Mug", doc6.getString("name"));
+
+    Document doc7 = documents.get(6);
+    Assert.assertEquals("f4", doc7.getId());
+    Assert.assertEquals("Sleek Castle Mug", doc7.getString("name"));
+
+    Document doc8 = documents.get(7);
+    Assert.assertEquals("f5", doc8.getId());
+    Assert.assertEquals("Small City Mug", doc8.getString("name"));
+
+    Document doc9 = documents.get(8);
+    Assert.assertEquals("file_76ad6cc964453df6031d9660ba4f29d6", doc9.getId());
+    Assert.assertTrue(doc9.getString(FILE_PATH).endsWith("subdir1/e.yaml"));
+
+    Document doc10 = documents.get(9);
+    Assert.assertEquals("file_660eb217f0ca5cfbfa51d8150fb2ede0", doc10.getId());
+    Assert.assertTrue(doc10.getString(FILE_PATH).endsWith("subdir1/e.json.gz"));
+
+    Document doc11 = documents.get(10);
+    Assert.assertEquals("c", doc11.getId());
+    Assert.assertEquals("Awesome City Mug", doc11.getString("name"));
+
+    Document doc12 = documents.get(11);
+    Assert.assertEquals("b", doc12.getId());
+    Assert.assertEquals("Gorgeous Woman Mug", doc12.getString("name"));
 
   }
 
@@ -172,22 +238,18 @@ public class LocalStorageClientTest {
         .filter(doc -> !doc.has(FILE_PATH) || !doc.getString(FILE_PATH).endsWith(".DS_Store"))
         .toList();
 
-    for (Document doc : docs) {
-      System.out.println(doc.asMap());
-    }
-
     Assert.assertEquals(19, docs.size());
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar
     Document doc1 = docs.get(0);
-    Assert.assertEquals("default.csv-1", doc1.getId());
-    Assert.assertEquals("default.csv", doc1.getString("source"));
+    Assert.assertTrue(doc1.getId().endsWith("default.csv-1"));
+    Assert.assertEquals("default.csv", doc1.getString("filename"));
     Document doc2 = docs.get(1);
-    Assert.assertEquals("default.csv-2", doc2.getId());
-    Assert.assertEquals("default.csv", doc2.getString("source"));
+    Assert.assertTrue(doc2.getId().endsWith("default.csv-2"));
+    Assert.assertEquals("default.csv", doc2.getString("filename"));
     Document doc3 = docs.get(2);
-    Assert.assertEquals("default.csv-3", doc3.getId());
-    Assert.assertEquals("default.csv", doc3.getString("source"));
+    Assert.assertTrue(doc3.getId().endsWith("default.csv-3"));
+    Assert.assertEquals("default.csv", doc3.getString("filename"));
     Document doc4 = docs.get(3);
     Assert.assertEquals("2", doc4.getId());
     Assert.assertEquals("Gorgeous Woman Mug", doc4.getString("name"));
@@ -195,24 +257,24 @@ public class LocalStorageClientTest {
     Assert.assertEquals("3", doc5.getId());
     Assert.assertEquals("Awesome City Mug", doc5.getString("name"));
     Document doc6 = docs.get(5);
-    Assert.assertEquals("FolderWithFooTxt/foo.txt", doc6.getString("file_path"));
+    Assert.assertTrue(doc6.getString("file_path").endsWith("FolderWithFooTxt/foo.txt"));
 
     // check documents published from textFiles.tar
     Document doc7 = docs.get(6);
-    Assert.assertEquals("helloWorld.txt", doc7.getString("file_path"));
+    Assert.assertTrue(doc7.getString("file_path").endsWith("helloWorld.txt"));
     Document doc8 = docs.get(7);
-    Assert.assertEquals("goodbye.txt", doc8.getString("file_path"));
+    Assert.assertTrue(doc8.getString("file_path").endsWith("goodbye.txt"));
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc9 = docs.get(8);
-    Assert.assertEquals("default.csv-1", doc9.getId());
-    Assert.assertEquals("default.csv", doc9.getString("source"));
+    Assert.assertTrue(doc9.getId().endsWith("default.csv-1"));
+    Assert.assertEquals("default.csv", doc9.getString("filename"));
     Document doc10 = docs.get(9);
-    Assert.assertEquals("default.csv-2", doc10.getId());
-    Assert.assertEquals("default.csv", doc10.getString("source"));
+    Assert.assertTrue(doc10.getId().endsWith("default.csv-2"));
+    Assert.assertEquals("default.csv", doc10.getString("filename"));
     Document doc11 = docs.get(10);
-    Assert.assertEquals("default.csv-3", doc11.getId());
-    Assert.assertEquals("default.csv", doc11.getString("source"));
+    Assert.assertTrue(doc11.getId().endsWith("default.csv-3"));
+    Assert.assertEquals("default.csv", doc11.getString("filename"));
     Document doc12 = docs.get(11);
     Assert.assertEquals("2", doc12.getId());
     Assert.assertEquals("Gorgeous Woman Mug", doc12.getString("name"));
@@ -220,23 +282,23 @@ public class LocalStorageClientTest {
     Assert.assertEquals("3", doc13.getId());
     Assert.assertEquals("Awesome City Mug", doc13.getString("name"));
     Document doc14 = docs.get(13);
-    Assert.assertEquals("FolderWithFooTxt/foo.txt", doc14.getString("file_path"));
+    Assert.assertTrue(doc14.getString("file_path").endsWith("FolderWithFooTxt/foo.txt"));
     // check documents published from zippedFolder.zip
     Document doc15 = docs.get(14);
-    Assert.assertEquals("zippedFolder/foo.txt", doc15.getString("file_path"));
+    Assert.assertTrue(doc15.getString("file_path").endsWith("zippedFolder/foo.txt"));
     // check document published from hello.zip
     Document doc16 = docs.get(15);
-    Assert.assertEquals("hello", doc16.getString("file_path"));
+    Assert.assertTrue(doc16.getString("file_path").endsWith("hello"));
     // check documents published from zipped.csv
     Document doc17 = docs.get(16);
-    Assert.assertEquals("zipped.csv-1", doc17.getId());
-    Assert.assertEquals("zipped.csv", doc17.getString("source"));
+    Assert.assertTrue(doc17.getId().endsWith("zipped.csv-1"));
+    Assert.assertEquals("zipped.csv", doc17.getString("filename"));
     Document doc18 = docs.get(17);
-    Assert.assertEquals("zipped.csv-2", doc18.getId());
-    Assert.assertEquals("zipped.csv", doc18.getString("source"));
+    Assert.assertTrue(doc18.getId().endsWith("zipped.csv-2"));
+    Assert.assertEquals("zipped.csv", doc18.getString("filename"));
     Document doc19 = docs.get(18);
-    Assert.assertEquals("zipped.csv-3", doc19.getId());
-    Assert.assertEquals("zipped.csv", doc19.getString("source"));
+    Assert.assertTrue(doc19.getId().endsWith("zipped.csv-3"));
+    Assert.assertEquals("zipped.csv", doc19.getString("filename"));
 
     localStorageClient.shutdown();
   }

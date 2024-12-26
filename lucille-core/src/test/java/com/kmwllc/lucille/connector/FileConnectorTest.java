@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -102,142 +103,6 @@ public class FileConnectorTest {
   }
 
   @Test
-  public void testExecuteWithLocalFiles() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/localfs.conf");
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
-
-    connector.execute(publisher);
-    String[] fileNames = {"a.json", "b.json", "c.json", "d.json",
-        "subdir1/e.json", "subdir1/e.json.gz", "subdir1/e.yaml", "subdir1/f.jsonl"};
-    int docCount = 0;
-    for (Document doc : messenger.getDocsSentForProcessing()) {
-      String docId = doc.getId();
-      String filePath = doc.getString(FileConnector.FILE_PATH);
-      // skip if it's an automatically generated Finder file because the directory was opened
-      if (filePath.endsWith(".DS_Store")) continue;
-      String content = new String(doc.getBytes(FileConnector.CONTENT));
-      Assert.assertTrue(docId.startsWith("file_"));
-      Assert.assertTrue(Arrays.stream(fileNames).anyMatch(filePath::endsWith));
-      if (filePath.endsWith("c.json")) {
-        Assert.assertTrue(content.contains("\"artist\":\"Lou Levit\""));
-      }
-      if (filePath.endsWith("subdir1/e.yaml")) {
-        Assert.assertTrue(content.contains("slug: Awesome-Wood-Mug"));
-      }
-      docCount++;
-    }
-    Assert.assertEquals(8, docCount);
-  }
-
-  @Test
-  public void testExecuteWithLocalFilesFiltered() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/localfs_filtered.conf");
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
-
-    connector.execute(publisher);
-    Assert.assertEquals(3, messenger.getDocsSentForProcessing().size());
-    String[] fileNames = {"a.json", "b.json", "c.json"};
-    for (Document doc : messenger.getDocsSentForProcessing()) {
-      String docId = doc.getId();
-      String filePath = doc.getString(VFSConnector.FILE_PATH);
-      String content = new String(doc.getBytes(VFSConnector.CONTENT));
-      Assert.assertTrue(Arrays.stream(fileNames).anyMatch(filePath::endsWith));
-      if (filePath.endsWith("a.json")) {
-        Assert.assertTrue(content.contains("\"filename\":\"400_106547e2f83b.jpg\""));
-      }
-      if (filePath.endsWith("b.json")) {
-        Assert.assertTrue(content.contains("\"imageHash\":\"1aaeac2de7c48e4e7773b1f92138291f\""));
-      }
-      if (filePath.endsWith("c.json")) {
-        Assert.assertTrue(content.contains("\"productImg\":\"mug-400_6812876c6c27.jpg\""));
-      }
-    }
-  }
-
-  @Test
-  public void testHandleJsonFiles() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/handleJson.conf");
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
-
-    connector.execute(publisher);
-
-    List<Document> documentList = messenger.getDocsSentForProcessing();
-    // assert that all documents have been processed
-    Assert.assertEquals(5, documentList.size());
-
-    Document jsonDoc2 = documentList.get(0);
-    Document jsonDoc3 = documentList.get(1);
-    Document jsonDoc1 = documentList.get(2);
-    Document jsonDoc4 = documentList.get(4);
-    Document normalDoc = documentList.get(3);
-
-    assertEquals("prefix1", jsonDoc1.getId());
-    assertEquals("prefix2", jsonDoc2.getId());
-    assertEquals("prefix3", jsonDoc3.getId());
-    assertEquals("prefix4", jsonDoc4.getId());
-    assertEquals("12", normalDoc.getString("file_size_bytes"));
-    assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
-  }
-
-  @Test
-  public void testHandleCSVFiles() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/handleCSV.conf");
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
-
-    connector.execute(publisher);
-
-    List<Document> documentList = messenger.getDocsSentForProcessing();
-
-    assertEquals(5, documentList.size());
-
-    Document csvDoc1 = documentList.get(0);
-    Document csvDoc2 = documentList.get(1);
-    Document csvDoc3 = documentList.get(2);
-    Document csvDoc4 = documentList.get(3);
-    Document csvDoc6 = documentList.get(4);
-    assertEquals("example.csv-1", csvDoc1.getId());
-    assertEquals("example.csv-2", csvDoc2.getId());
-    assertEquals("example.csv-3", csvDoc3.getId());
-    assertEquals("example.csv-4", csvDoc4.getId());
-    assertEquals("example.csv-6", csvDoc6.getId());
-
-    assertEquals("foo", csvDoc1.getString("field1"));
-    assertEquals("bar", csvDoc1.getString("field2"));
-    assertEquals("baz", csvDoc1.getString("field3"));
-    assertEquals("1", csvDoc1.getString("csvLineNumber"));
-
-    assertEquals("giraffe", csvDoc2.getString("field1"));
-    assertEquals("apple", csvDoc2.getString("field2"));
-    assertEquals("pineapple", csvDoc2.getString("field3"));
-    assertEquals("2", csvDoc2.getString("csvLineNumber"));
-
-    assertEquals("quartz", csvDoc3.getString("field1"));
-    assertEquals("zinc", csvDoc3.getString("field2"));
-    assertEquals("copper", csvDoc3.getString("field3"));
-    assertEquals("3", csvDoc3.getString("csvLineNumber"));
-
-    assertEquals("val1", csvDoc4.getString("field1"));
-    assertEquals("val2", csvDoc4.getString("field2"));
-    assertEquals("val3", csvDoc4.getString("field3"));
-    assertEquals("4", csvDoc4.getString("csvLineNumber"));
-
-    assertEquals("abc", csvDoc6.getString("field1"));
-    assertEquals("def", csvDoc6.getString("field2"));
-    assertEquals("ghi", csvDoc6.getString("field3"));
-    // skipped line 5 as it was empty
-    assertEquals("6", csvDoc6.getString("csvLineNumber"));
-
-  }
-
-  @Test
   public void testErrorDirectory() throws Exception {
     File tempDir = new File("temp");
 
@@ -302,128 +167,98 @@ public class FileConnectorTest {
   }
 
   @Test
-  public void testHandleXMLFiles() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/handleXML.conf");
+  public void testExampleTraversal() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/example.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new FileConnector(config);
 
     connector.execute(publisher);
     List<Document> documentList = messenger.getDocsSentForProcessing();
+
     // assert that all documents have been processed
-    Assert.assertEquals(10, documentList.size());
-    assertTrue(documentList.get(0).has("xml_field"));
+    Assert.assertEquals(15, documentList.size());
+
+    Document doc1 = documentList.get(0);
+    assertEquals("jsonHandled-a", doc1.getId());
+    assertEquals("Rustic Cows Mug", doc1.getString("name"));
+
+    Document doc2 = documentList.get(1);
+    assertEquals("jsonHandled-b", doc2.getId());
+    assertEquals("Gorgeous Woman Mug", doc2.getString("name"));
+
+    Document doc3 = documentList.get(2);
+    assertTrue(doc3.getString(FILE_PATH).endsWith("e.yaml"));
+    assertEquals("586", doc3.getString("file_size_bytes"));
+
+    Document doc4 = documentList.get(3);
+    assertEquals("jsonHandled-c1", doc4.getId());
+    assertEquals("Awesome Night Mug", doc4.getString("name"));
+
+    Document doc5 = documentList.get(4);
+    assertEquals("jsonHandled-c2", doc5.getId());
+    assertEquals("Ergonomic Mountains Mug", doc5.getString("name"));
+
+    Document doc6 = documentList.get(5);
+    assertEquals("jsonHandled-c3", doc6.getId());
+    assertEquals("Refined Fog Mug", doc6.getString("name"));
+
+    Document doc7 = documentList.get(6);
+    assertEquals("jsonHandled-c4", doc7.getId());
+    assertEquals("Sleek Castle Mug", doc7.getString("name"));
+
+    Document doc8 = documentList.get(7);
+    assertEquals("jsonHandled-c5", doc8.getId());
+    assertEquals("Small City Mug", doc8.getString("name"));
+
+    Document doc9 = documentList.get(8);
+    assertTrue(doc9.getString(FILE_PATH).endsWith("first.txt"));
+    assertEquals("First!", new String(doc9.getBytes("file_content")));
+
+    Document doc10 = documentList.get(9);
+    assertTrue(doc10.getString(FILE_PATH).endsWith("second.txt"));
+    assertEquals("Second!", new String(doc10.getBytes("file_content")));
+
+    Document doc11 = documentList.get(10);
+    assertEquals("csvHandled-default.csv-1", doc11.getId());
+    assertEquals("a", doc11.getString("field1"));
+    assertEquals("b", doc11.getString("field2"));
+    assertEquals("c", doc11.getString("field3"));
+    assertTrue(doc11.getString("source").endsWith("default.csv"));
+
+    Document doc12 = documentList.get(11);
+    assertEquals("csvHandled-default.csv-2", doc12.getId());
+    assertEquals("d", doc12.getString("field1"));
+    assertEquals("e,f", doc12.getString("field2"));
+    assertEquals("g", doc12.getString("field3"));
+    assertTrue(doc12.getString("source").endsWith("default.csv"));
+
+    Document doc13 = documentList.get(12);
+    assertEquals("csvHandled-default.csv-3", doc13.getId());
+    assertEquals("x", doc13.getString("field1"));
+    assertEquals("y", doc13.getString("field2"));
+    assertEquals("z", doc13.getString("field3"));
+    assertTrue(doc13.getString("source").endsWith("default.csv"));
+
+    Document doc14 = documentList.get(13);
+    assertEquals("xmlHandled-1001", doc14.getId());
     assertEquals("<staff>\n" +
         "        <id>1001</id>\n" +
         "        <name>daniel</name>\n" +
         "        <role>software engineer</role>\n" +
         "        <salary currency=\"USD\">3000</salary>\n" +
         "        <bio>I am from San Diego</bio>\n" +
-        "    </staff>", documentList.get(0).getString("xml_field"));
-  }
+        "    </staff>", doc14.getString("xml"));
 
-  @Test
-  public void testHandleZippedJsonFiles() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/testHandleZip.conf");
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
+    Document doc15 = documentList.get(14);
+    assertEquals("xmlHandled-1002", doc15.getId());
+    assertEquals("<staff>\n" +
+        "        <id>1002</id>\n" +
+        "        <name>brian</name>\n" +
+        "        <role>admin</role>\n" +
+        "        <salary currency=\"EUR\">8000</salary>\n" +
+        "        <bio>I enjoy reading</bio>\n" +
+        "    </staff>", doc15.getString("xml"));
 
-    connector.execute(publisher);
-    List<Document> documentList = messenger.getDocsSentForProcessing();
-    // assert that all documents have been processed
-    Assert.assertEquals(5, documentList.size());
-
-    Document jsonDoc2 = documentList.get(0);
-    Document jsonDoc3 = documentList.get(1);
-    Document jsonDoc1 = documentList.get(2);
-    Document jsonDoc4 = documentList.get(4);
-    Document normalDoc = documentList.get(3);
-
-    assertEquals("prefix1", jsonDoc1.getId());
-    assertEquals("prefix2", jsonDoc2.getId());
-    assertEquals("prefix3", jsonDoc3.getId());
-    assertEquals("prefix4", jsonDoc4.getId());
-    assertEquals("-1", normalDoc.getString("file_size_bytes"));
-    assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
-  }
-
-  @Test
-  public void testHandleTarJsonFiles() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/testHandleTar.conf");
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
-
-    connector.execute(publisher);
-    List<Document> documentList = messenger.getDocsSentForProcessing();
-    // assert that all documents have been processed
-    Assert.assertEquals(5, documentList.size());
-
-    Document jsonDoc2 = documentList.get(0);
-    Document jsonDoc3 = documentList.get(1);
-    Document jsonDoc1 = documentList.get(2);
-    Document jsonDoc4 = documentList.get(4);
-    Document normalDoc = documentList.get(3);
-
-    assertEquals("prefix1", jsonDoc1.getId());
-    assertEquals("prefix2", jsonDoc2.getId());
-    assertEquals("prefix3", jsonDoc3.getId());
-    assertEquals("prefix4", jsonDoc4.getId());
-    assertEquals("12", normalDoc.getString("file_size_bytes"));
-    assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
-  }
-
-  @Test
-  public void testHandleGzFiles() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/testHandleGz.conf");
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
-
-    connector.execute(publisher);
-    List<Document> documentList = messenger.getDocsSentForProcessing();
-
-    // one from normal txt, one gzipped txt, and two from jsonl.gz
-    assertEquals(4, documentList.size());
-    Document txtGzDoc = documentList.get(0);
-    Document txtDoc = documentList.get(1);
-    Document jsonlGzDoc1 = documentList.get(2);
-    Document jsonlGzDoc2 = documentList.get(3);
-
-    assertEquals("12", txtDoc.getString("file_size_bytes"));
-    assertEquals("hello World!", new String(txtDoc.getBytes("file_content")));
-    assertFalse(txtGzDoc.has("file_size_bytes"));
-    assertEquals("hello World! This is the txt gz file.", new String(txtGzDoc.getBytes("file_content")));
-    assertEquals("prefix2", jsonlGzDoc1.getId());
-    assertEquals("prefix3", jsonlGzDoc2.getId());
-  }
-
-  @Test
-  public void testHandleTarGzFiles() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/testHandleTarGz.conf");
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
-
-    connector.execute(publisher);
-    List<Document> documentList = messenger.getDocsSentForProcessing();
-
-    // assert that all documents have been processed
-    Assert.assertEquals(5, documentList.size());
-
-    Document jsonDoc2 = documentList.get(0);
-    Document jsonDoc3 = documentList.get(1);
-    Document jsonDoc1 = documentList.get(2);
-    Document jsonDoc4 = documentList.get(4);
-    Document normalDoc = documentList.get(3);
-
-    assertEquals("prefix1", jsonDoc1.getId());
-    assertEquals("prefix2", jsonDoc2.getId());
-    assertEquals("prefix3", jsonDoc3.getId());
-    assertEquals("prefix4", jsonDoc4.getId());
-    // in this case size is available when passed to archivedInputStream
-    assertEquals("12", normalDoc.getString("file_size_bytes"));
-    assertEquals("Hello World!", new String(normalDoc.getBytes("file_content")));
   }
 }

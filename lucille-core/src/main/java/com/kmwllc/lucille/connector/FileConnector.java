@@ -17,7 +17,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Config parameters:
- *  getFileContent (boolean, Optional): whether to fetch the file content or not, defaults to true
+ *  docIdPrefix (string, Optional): prefix to add to the docId when not handled by a file handler, defaults to empty string. To
+ *  configure docIdPrefix for files handled by handlers, configure it in its respective file handler config in fileOptions
  *  pathToStorage (string): path to storage, can be local file system or cloud bucket/container
  *  e.g.
  *    /path/to/storage/in/local/filesystem
@@ -33,7 +34,7 @@ import org.slf4j.LoggerFactory;
  *  Google:
  *    "pathToServiceKey" : "path/To/Service/Key.json"
  *  Azure:
- *    connectionString" : azure connection string
+ *    "connectionString" : azure connection string
  *      Or:
  *    "accountName" : azure account name
  *    "accountKey" : azure account key
@@ -46,15 +47,19 @@ import org.slf4j.LoggerFactory;
  *
  *  File Options:
  *    getFileContent (boolean, Optional): whether to fetch the file content or not, defaults to true
- *    handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false
- *    handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false
+ *    handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. Recurring not supported.
+ *    Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the archived file before processing
+ *    Also, if there exists a file of the same name within the same current directory as the entry files, they will give the same id
+ *    handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. Recurring not supported.
+ *    Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the compressed file before processing.
+ *    Also, if there exists a file of the same name within the same current directory as the decompressed file, they will give the same id
  *    moveToAfterProcessing (string, Optional): path to move files to after processing, currently only supported for local file system
  *    moveToErrorFolder (string, Optional): path to move files to if an error occurs during processing, currently only supported for local file system
- *    csv (Map, Optional): csv config options for handling csv type files. Config will be passed to FileHandler
- *    json (Map, Optional): json config options for handling json type files. Config will be passed to FileHandler
- *    jsonl (Map, Optional): jsonl config options for handling jsonl type files. Config will be passed to FileHandler
- *    xml (Map, Optional): xml config options for handling xml type files. Config will be passed to FileHandler
+ *    csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
+ *    json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
+ *    xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler
  */
+
 public class FileConnector extends AbstractConnector {
 
   public static final String FILE_PATH = "file_path";
@@ -72,7 +77,7 @@ public class FileConnector extends AbstractConnector {
   public static final String S3_SECRET_ACCESS_KEY = "secretAccessKey";
   public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
 
-  // fileOption Keys
+  // fileOption Config Options
   public static final String GET_FILE_CONTENT = "getFileContent";
   public static final String HANDLE_ARCHIVED_FILES = "handleArchivedFiles";
   public static final String HANDLE_COMPRESSED_FILES = "handleCompressedFiles";

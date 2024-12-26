@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
 
 public abstract class BaseStorageClient implements StorageClient {
 
-  private static final Logger log = LoggerFactory.getLogger(StorageClient.class);
+  private static final Logger log = LoggerFactory.getLogger(BaseStorageClient.class);
 
   protected String docIdPrefix;
   protected URI pathToStorageURI;
@@ -97,7 +97,7 @@ public abstract class BaseStorageClient implements StorageClient {
           // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
           String unzippedFullPathStr = FilenameUtils.removeExtension(fullPathStr);
           if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFullPathStr)) {
-            handleArchiveFiles(publisher, compressorStream);
+            handleArchiveFiles(publisher, compressorStream, fullPathStr);
           } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFullPathStr), fileOptions)) {
             handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFullPathStr), unzippedFullPathStr);
           } else {
@@ -112,7 +112,7 @@ public abstract class BaseStorageClient implements StorageClient {
       // handle archived files if needed
       if (handleArchivedFiles && isSupportedArchiveFileType(fullPathStr)) {
         try (InputStream is = getFileReferenceContentStream(fileReference)) {
-          handleArchiveFiles(publisher, is);
+          handleArchiveFiles(publisher, is, fullPathStr);
         }
         afterProcessingFile(fullPathStr);
         return;
@@ -178,24 +178,26 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   // inputStream parameter will be closed via the try with resources
-  protected void handleArchiveFiles(Publisher publisher, InputStream inputStream) throws ArchiveException, IOException, ConnectorException {
+  protected void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fullPathStr) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
       while ((entry = in.getNextEntry()) != null) {
+        String entryFullPathStr = getEntryFullPath(fullPathStr, entry.getName());
         if (!in.canReadEntryData(entry)) {
-          log.info("Cannot read entry data for entry: '{}'. Skipping...", entry.getName());
+          log.info("Cannot read entry data for entry: '{}' in '{}'. Skipping...", entry.getName(), fullPathStr);
           continue;
         }
-        // TODO: resolve fullPathStr with entry name correctly
+        // checking validity only for the entries
         if (!entry.isDirectory() && shouldIncludeFile(entry.getName(), includes, excludes)) {
-          String entryExtension = FilenameUtils.getExtension(entry.getName());
+          String entryExtension = FilenameUtils.getExtension(entryFullPathStr);
           if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(entryExtension, fileOptions)) {
-            handleStreamExtensionFiles(publisher, in, entryExtension, entry.getName());
+            handleStreamExtensionFiles(publisher, in, entryExtension, entryFullPathStr);
           } else {
             // handle entry to be published as a normal document
-            Document doc = Document.create(createDocId(DigestUtils.md5Hex(entry.getName())));
-            doc.setField(FILE_PATH, entry.getName());
+            // note that if there exists a file within the same parent directory with the same name as the entries, it will have the same id
+            Document doc = Document.create(createDocId(DigestUtils.md5Hex(entryFullPathStr)));
+            doc.setField(FILE_PATH, entryFullPathStr);
             doc.setField(MODIFIED, entry.getLastModifiedDate().toInstant());
             // entry does not have creation date
             // note that some ArchiveEntry implementations may not have a size so will return -1
@@ -206,11 +208,25 @@ public abstract class BaseStorageClient implements StorageClient {
             try {
               publisher.publish(doc);
             } catch (Exception e) {
-              throw new ConnectorException("Error occurred while publishing archive entry: " + entry.getName(), e);
+              throw new ConnectorException("Error occurred while publishing archive entry: " + entry.getName() + " in " + fullPathStr, e);
             }
           }
         }
       }
+    }
+  }
+
+  protected String getEntryFullPath(String fullPathStr, String entryName) {
+    // get parent directory
+    int lastSlashIndex = fullPathStr.lastIndexOf("/");
+    // handling different cases for zip and other archive files because entry names are different for different archive types
+    if (fullPathStr.endsWith(".zip")) {
+      return fullPathStr.substring(0, lastSlashIndex) + "/" + entryName;
+    } else {
+      String fileName = fullPathStr.substring(lastSlashIndex + 1);
+      int firstExtensionIndex = fileName.indexOf(".");
+      String resolvedFileName = firstExtensionIndex == -1 ? fileName : fileName.substring(0, firstExtensionIndex);
+      return fullPathStr.substring(0, lastSlashIndex) + "/" + resolvedFileName + "/" + entryName;
     }
   }
 
