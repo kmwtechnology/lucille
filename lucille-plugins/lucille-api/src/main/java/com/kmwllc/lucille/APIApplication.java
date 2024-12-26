@@ -53,6 +53,8 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
 
   @Override
   public void run(LucilleAPIConfiguration config, Environment env) throws Exception {
+    System.out.println(String.format("starting lucille-api from %s config %s env %s", System.getProperty("user.dir"), config, env));
+    
     RunnerManager runnerManager = RunnerManager.getInstance();
 
     boolean authEnabled = config.getAuthConfig().isEnabled();
