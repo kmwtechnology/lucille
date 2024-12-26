@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -27,25 +28,25 @@ import org.slf4j.LoggerFactory;
  *    https://accountName.blob.core.windows.net/containerName/prefix/
  *  includes (list of strings, Optional): list of regex patterns to include files
  *  excludes (list of strings, Optional): list of regex patterns to exclude files
- *  cloudOptions (Map, Optional): cloud storage options, required if using cloud storage
- *  fileOptions (Map, Optional): file options for handling of files
+ *  cloudOptions (Map, Optional): cloud storage options, required if using cloud storage. Example of cloudOptions below
+ *  fileOptions (Map, Optional): file options for handling of files and file types. Example of fileOptions below
  *
- * Cloud Options based on providers:
- *  Google:
+ * CloudOptions:
+ *  If using GoogleStorageClient:
  *    "pathToServiceKey" : "path/To/Service/Key.json"
- *  Azure:
+ *  If using AzureStorageClient:
  *    "connectionString" : azure connection string
- *      Or:
+ *      Or
  *    "accountName" : azure account name
  *    "accountKey" : azure account key
- *  Amazon:
+ *  If using S3StorageClient:
  *    "accessKeyId" : s3 key id
  *    "secretAccessKey" : secret access key
  *    "region" : s3 storage region
  *  Optional:
  *    "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request, defaults to 100
  *
- *  File Options:
+ *  FileOptions:
  *    getFileContent (boolean, Optional): whether to fetch the file content or not, defaults to true
  *    handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. Recurring not supported.
  *    Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the archived file before processing
@@ -116,8 +117,13 @@ public class FileConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    storageClient = StorageClient.getClient(storageURI, getDocIdPrefix(), excludes, includes,
-        cloudOptions, fileOptions);
+    try {
+      storageClient = StorageClient.create(storageURI, getDocIdPrefix(), excludes, includes,
+          cloudOptions, fileOptions);
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred while creating storage client.", e);
+    }
+
     try {
       storageClient.init();
       storageClient.traverse(publisher);
@@ -127,7 +133,7 @@ public class FileConnector extends AbstractConnector {
       try {
         // closes clients and file handlers if any
         storageClient.shutdown();
-      } catch (Exception e) {
+      } catch (IOException e) {
         throw new ConnectorException("Error occurred while shutting down client.", e);
       }
     }

@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
+import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
 import static org.junit.Assert.assertEquals;
@@ -18,6 +20,7 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.contrib.nio.testing.LocalStorageHelper;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
@@ -49,7 +52,7 @@ public class GoogleStorageClientTest {
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null,
         null, null, cloudOptions, ConfigFactory.empty());
 
-    assertThrows(IllegalArgumentException.class, googleStorageClient::init);
+    assertThrows(ConnectorException.class, googleStorageClient::init);
   }
 
   @Test
@@ -125,16 +128,16 @@ public class GoogleStorageClientTest {
     assertEquals(4, documents.size());
 
     // validate that file_path is correct
-    assertEquals("gs://bucket/my-object", documents.get(3).getString("file_path"));
-    assertEquals("gs://bucket/my-object2", documents.get(0).getString("file_path"));
-    assertEquals("gs://bucket/my-object3", documents.get(1).getString("file_path"));
-    assertEquals("gs://bucket/my-object4", documents.get(2).getString("file_path"));
+    assertEquals("gs://bucket/my-object", documents.get(3).getString(FILE_PATH));
+    assertEquals("gs://bucket/my-object2", documents.get(0).getString(FILE_PATH));
+    assertEquals("gs://bucket/my-object3", documents.get(1).getString(FILE_PATH));
+    assertEquals("gs://bucket/my-object4", documents.get(2).getString(FILE_PATH));
 
     // validate that the content of the documents is correct
-    assertEquals("Hello, World!", new String(documents.get(3).getBytes("file_content")));
-    assertEquals("Hello!", new String(documents.get(0).getBytes("file_content")));
-    assertEquals("World!", new String(documents.get(1).getBytes("file_content")));
-    assertEquals("foo", new String(documents.get(2).getBytes("file_content")));
+    assertEquals("Hello, World!", new String(documents.get(3).getBytes(CONTENT)));
+    assertEquals("Hello!", new String(documents.get(0).getBytes(CONTENT)));
+    assertEquals("World!", new String(documents.get(1).getBytes(CONTENT)));
+    assertEquals("foo", new String(documents.get(2).getBytes(CONTENT)));
 
     // validate that the docIdPrefix is correct
     assertTrue(documents.get(3).getId().startsWith("prefix-"));
@@ -171,8 +174,8 @@ public class GoogleStorageClientTest {
 
     List<Document> documents = messenger.getDocsSentForProcessing();
     assertEquals(1, documents.size());
-    assertEquals("gs://bucket/my-object", documents.get(0).getString("file_path"));
-    assertFalse(documents.get(0).has("file_content"));
+    assertEquals("gs://bucket/my-object", documents.get(0).getString(FILE_PATH));
+    assertFalse(documents.get(0).has(CONTENT));
 
     // closes storage too
     googleStorageClient.shutdown();
@@ -209,8 +212,8 @@ public class GoogleStorageClientTest {
     // validate that only 2 blob are published and none are object2 or object3
     List<Document> documents = messenger.getDocsSentForProcessing();
     assertEquals(2, documents.size());
-    assertEquals("gs://bucket/my-object4", documents.get(0).getString("file_path"));
-    assertEquals("gs://bucket/my-object", documents.get(1).getString("file_path"));
+    assertEquals("gs://bucket/my-object4", documents.get(0).getString(FILE_PATH));
+    assertEquals("gs://bucket/my-object", documents.get(1).getString(FILE_PATH));
 
     // closes storage too
     googleStorageClient.shutdown();
@@ -333,13 +336,13 @@ public class GoogleStorageClientTest {
     assertEquals("3", doc5.getId());
     assertEquals("Awesome City Mug", doc5.getString("name"));
     Document doc6 = docs.get(5);
-    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc6.getString("file_path"));
+    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc6.getString(FILE_PATH));
 
     // check documents published from textFiles.tar
     Document doc7 = docs.get(6);
-    assertEquals("gs://bucket/textFiles/helloWorld.txt", doc7.getString("file_path"));
+    assertEquals("gs://bucket/textFiles/helloWorld.txt", doc7.getString(FILE_PATH));
     Document doc8 = docs.get(7);
-    assertEquals("gs://bucket/textFiles/goodbye.txt", doc8.getString("file_path"));
+    assertEquals("gs://bucket/textFiles/goodbye.txt", doc8.getString(FILE_PATH));
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc9 = docs.get(8);
@@ -361,7 +364,7 @@ public class GoogleStorageClientTest {
     assertEquals("3", doc13.getId());
     assertEquals("Awesome City Mug", doc13.getString("name"));
     Document doc14 = docs.get(13);
-    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc14.getString("file_path"));
+    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc14.getString(FILE_PATH));
     // check documents published from zipped.csv.zip
     Document doc15 = docs.get(14);
     assertEquals("zipped.csv-1", doc15.getId());
@@ -377,10 +380,10 @@ public class GoogleStorageClientTest {
     assertEquals("gs://bucket/zipped.csv", doc17.getString("source"));
     // check documents published from zippedFolder.zip
     Document doc18 = docs.get(17);
-    assertEquals("gs://bucket/zippedFolder/foo.txt", doc18.getString("file_path"));
+    assertEquals("gs://bucket/zippedFolder/foo.txt", doc18.getString(FILE_PATH));
     // check documents published from hello.zip
     Document doc19 = docs.get(18);
-    assertEquals("gs://bucket/hello", doc19.getString("file_path"));
+    assertEquals("gs://bucket/hello", doc19.getString(FILE_PATH));
 
 
     // closes storage too

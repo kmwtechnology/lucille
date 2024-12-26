@@ -39,16 +39,16 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void init() {
-    fs = FileSystems.getDefault();
-    // get current working directory path
-    startingDirectoryPath = fs.getPath(startingDirectory);
-
+  public void init() throws ConnectorException {
     try {
-      initializeFileHandlers();
-    } catch (ConnectorException e) {
-      throw new IllegalArgumentException("Error occurred initializing FileHandlers", e);
+      fs = FileSystems.getDefault();
+      // get current working directory path
+      startingDirectoryPath = fs.getPath(startingDirectory);
+    } catch (Exception e) {
+      throw new ConnectorException("Error getting fileSystem or starting directory", e);
     }
+
+    initializeFileHandlers();
   }
 
   @Override
@@ -57,7 +57,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void shutdown() throws Exception {
+  public void shutdown() throws IOException {
     if (fs != null) {
       try {
         fs.close();

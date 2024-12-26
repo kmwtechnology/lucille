@@ -81,15 +81,14 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * Methods below are methods used for traversing the client and publishing files
+   * Methods for traversing and processing files
    */
-
   protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference) {
     try {
       // preprocessing
       beforeProcessingFile(fullPathStr);
 
-      // handle compressed files if needed
+      // handle compressed files if needed to the end
       if (handleCompressedFiles && isSupportedCompressedFileType(fullPathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
         try (BufferedInputStream bis = new BufferedInputStream(getFileReferenceContentStream(fileReference));
@@ -109,7 +108,7 @@ public abstract class BaseStorageClient implements StorageClient {
         return;
       }
 
-      // handle archived files if needed
+      // handle archived files if needed to the end
       if (handleArchivedFiles && isSupportedArchiveFileType(fullPathStr)) {
         try (InputStream is = getFileReferenceContentStream(fileReference)) {
           handleArchiveFiles(publisher, is, fullPathStr);
@@ -118,7 +117,7 @@ public abstract class BaseStorageClient implements StorageClient {
         return;
       }
 
-      // handle file types if needed
+      // handle file types using fileHandler if needed to the end
       if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
 
         if (fileReference.isCloudFileReference()) {
@@ -136,6 +135,7 @@ public abstract class BaseStorageClient implements StorageClient {
         return;
       }
 
+      // handle normal files
       Document doc = convertFileReferenceToDoc(fileReference, bucketOrContainerName);
       publisher.publish(doc);
       afterProcessingFile(fullPathStr);
@@ -148,32 +148,6 @@ public abstract class BaseStorageClient implements StorageClient {
         log.error("Error occurred while performing error operations on file '{}'", fullPathStr, ex);
       }
       log.error("Unable to publish document '{}', SKIPPING", fullPathStr, e);
-    }
-  }
-
-  protected void publishUsingFileHandler(Publisher publisher, String fileExtension, Path path) throws Exception {
-    FileHandler handler = fileHandlers.get(fileExtension);
-    if (handler == null) {
-      throw new ConnectorException("No file handler found for file extension: " + fileExtension);
-    }
-
-    try {
-      handler.processFileAndPublish(publisher, path);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while processing or publishing file: " + path, e);
-    }
-  }
-
-  protected void publishUsingFileHandler(Publisher publisher, String fileExtension, byte[] content, String pathStr) throws Exception {
-    FileHandler handler = fileHandlers.get(fileExtension);
-    if (handler == null) {
-      throw new ConnectorException("No file handler found for file extension: " + fileExtension);
-    }
-
-    try {
-      handler.processFileAndPublish(publisher, content, pathStr);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while processing or publishing file: " + pathStr, e);
     }
   }
 
@@ -216,6 +190,43 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
+  // cannot close inputStream as we are iterating through the archived stream and may have more files to process
+  protected void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fullPathStr)
+      throws ConnectorException {
+    try {
+      FileHandler handler = fileHandlers.get(fileExtension);
+      handler.processFileAndPublish(publisher, in.readAllBytes(), fullPathStr);
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred while handling file: " + fullPathStr, e);
+    }
+  }
+
+  protected void publishUsingFileHandler(Publisher publisher, String fileExtension, Path path) throws Exception {
+    FileHandler handler = fileHandlers.get(fileExtension);
+    if (handler == null) {
+      throw new ConnectorException("No file handler found for file extension: " + fileExtension);
+    }
+
+    try {
+      handler.processFileAndPublish(publisher, path);
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred while processing or publishing file: " + path, e);
+    }
+  }
+
+  protected void publishUsingFileHandler(Publisher publisher, String fileExtension, byte[] content, String pathStr) throws Exception {
+    FileHandler handler = fileHandlers.get(fileExtension);
+    if (handler == null) {
+      throw new ConnectorException("No file handler found for file extension: " + fileExtension);
+    }
+
+    try {
+      handler.processFileAndPublish(publisher, content, pathStr);
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred while processing or publishing file: " + pathStr, e);
+    }
+  }
+
   protected String getEntryFullPath(String fullPathStr, String entryName) {
     // get parent directory
     int lastSlashIndex = fullPathStr.lastIndexOf("/");
@@ -230,19 +241,8 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  // cannot close inputStream as we are iterating through the archived stream and may have more files to process
-  protected void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fullPathStr)
-      throws ConnectorException {
-    try {
-      FileHandler handler = fileHandlers.get(fileExtension);
-      handler.processFileAndPublish(publisher, in.readAllBytes(), fullPathStr);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while handling file: " + fullPathStr, e);
-    }
-  }
-
   /**
-   * Methods below are methods used for performing operations before, after, during processing files
+   * Methods for performing operations before, after, during processing files
    */
 
   protected void beforeProcessingFile(String pathStr) throws Exception {
@@ -311,7 +311,7 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * Misc methods
+   * abstract methods
    */
 
   protected abstract Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName);
@@ -321,6 +321,10 @@ public abstract class BaseStorageClient implements StorageClient {
   protected abstract byte[] getFileReferenceContent(FileReference fileReference);
 
   protected abstract InputStream getFileReferenceContentStream(FileReference fileReference);
+
+  /**
+   * helper methods
+   */
 
   protected String getContainerOrBucketName() {
     return pathToStorageURI.getAuthority();

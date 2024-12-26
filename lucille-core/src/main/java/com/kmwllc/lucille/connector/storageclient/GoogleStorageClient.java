@@ -35,27 +35,27 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void init() {
+  public void init() throws ConnectorException{
     try (FileInputStream serviceAccountStream = new FileInputStream((String) cloudOptions.get(FileConnector.GOOGLE_SERVICE_KEY))) {
       storage = StorageOptions.newBuilder()
           .setCredentials(ServiceAccountCredentials.fromStream(serviceAccountStream))
           .build()
           .getService();
     } catch (IOException e) {
-      throw new IllegalArgumentException("Error occurred getting/using credentials from pathToServiceKey", e);
+      throw new ConnectorException("Error occurred getting/using credentials from pathToServiceKey", e);
     }
 
-    try {
-      initializeFileHandlers();
-    } catch (ConnectorException e) {
-      throw new IllegalArgumentException("Error occurred initializing FileHandlers", e);
-    }
+    initializeFileHandlers();
   }
 
   @Override
-  public void shutdown() throws Exception {
+  public void shutdown() throws IOException {
     if (storage != null) {
-      storage.close();
+      try {
+        storage.close();
+      } catch (Exception e) {
+        throw new IOException("Error occurred closing storage", e);
+      }
     }
     // clear all FileHandlers if any
     clearFileHandlers();

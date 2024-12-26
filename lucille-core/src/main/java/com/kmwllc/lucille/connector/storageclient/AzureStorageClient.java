@@ -47,31 +47,31 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void init() {
-    if (cloudOptions.containsKey(FileConnector.AZURE_CONNECTION_STRING)) {
-      containerClient = new BlobContainerClientBuilder()
-          .connectionString((String) cloudOptions.get(FileConnector.AZURE_CONNECTION_STRING))
-          .containerName(bucketOrContainerName)
-          .buildClient();
-    } else {
-      String accountName = (String) cloudOptions.get(FileConnector.AZURE_ACCOUNT_NAME);
-      String accountKey = (String) cloudOptions.get(FileConnector.AZURE_ACCOUNT_KEY);
-
-      containerClient = new BlobContainerClientBuilder()
-          .credential(new StorageSharedKeyCredential(accountName, accountKey))
-          .containerName(bucketOrContainerName)
-          .buildClient();
-    }
-
+  public void init() throws ConnectorException {
     try {
-      initializeFileHandlers();
-    } catch (ConnectorException e) {
-      throw new IllegalArgumentException("Error occurred initializing FileHandlers", e);
+      if (cloudOptions.containsKey(FileConnector.AZURE_CONNECTION_STRING)) {
+        containerClient = new BlobContainerClientBuilder()
+            .connectionString((String) cloudOptions.get(FileConnector.AZURE_CONNECTION_STRING))
+            .containerName(bucketOrContainerName)
+            .buildClient();
+      } else {
+        String accountName = (String) cloudOptions.get(FileConnector.AZURE_ACCOUNT_NAME);
+        String accountKey = (String) cloudOptions.get(FileConnector.AZURE_ACCOUNT_KEY);
+
+        containerClient = new BlobContainerClientBuilder()
+            .credential(new StorageSharedKeyCredential(accountName, accountKey))
+            .containerName(bucketOrContainerName)
+            .buildClient();
+      }
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred building AzureStorageClient", e);
     }
+
+    initializeFileHandlers();
   }
 
   @Override
-  public void shutdown() throws Exception {
+  public void shutdown() throws IOException {
     // azure container client is not closable
     containerClient = null;
     // clear all file handlers if any

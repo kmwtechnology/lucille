@@ -1,9 +1,12 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
+import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
+import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -128,27 +131,27 @@ public class S3StorageClientTest {
     assertEquals(4, documents.size());
     Document doc1 = documents.get(0);
     assertTrue(doc1.getId().startsWith("prefix-"));
-    assertEquals("s3://bucket/obj1", doc1.getString("file_path"));
-    assertEquals("1", doc1.getString("file_size_bytes"));
-    assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes("file_content"));
+    assertEquals("s3://bucket/obj1", doc1.getString(FILE_PATH));
+    assertEquals("1", doc1.getString(SIZE));
+    assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes(CONTENT));
 
     Document doc2 = documents.get(1);
     assertTrue(doc2.getId().startsWith("prefix-"));
-    assertEquals("s3://bucket/obj2", doc2.getString("file_path"));
-    assertEquals("2", doc2.getString("file_size_bytes"));
-    assertArrayEquals(new byte[]{5, 6, 7, 8}, doc2.getBytes("file_content"));
+    assertEquals("s3://bucket/obj2", doc2.getString(FILE_PATH));
+    assertEquals("2", doc2.getString(SIZE));
+    assertArrayEquals(new byte[]{5, 6, 7, 8}, doc2.getBytes(CONTENT));
 
     Document doc3 = documents.get(2);
     assertTrue(doc3.getId().startsWith("prefix-"));
-    assertEquals("s3://bucket/obj3", doc3.getString("file_path"));
-    assertEquals("3", doc3.getString("file_size_bytes"));
-    assertArrayEquals(new byte[]{9, 10, 11, 12}, doc3.getBytes("file_content"));
+    assertEquals("s3://bucket/obj3", doc3.getString(FILE_PATH));
+    assertEquals("3", doc3.getString(SIZE));
+    assertArrayEquals(new byte[]{9, 10, 11, 12}, doc3.getBytes(CONTENT));
 
     Document doc4 = documents.get(3);
     assertTrue(doc4.getId().startsWith("prefix-"));
-    assertEquals("s3://bucket/obj4", doc4.getString("file_path"));
-    assertEquals("4", doc4.getString("file_size_bytes"));
-    assertArrayEquals(new byte[]{13, 14, 15, 16}, doc4.getBytes("file_content"));
+    assertEquals("s3://bucket/obj4", doc4.getString(FILE_PATH));
+    assertEquals("4", doc4.getString(SIZE));
+    assertArrayEquals(new byte[]{13, 14, 15, 16}, doc4.getBytes(CONTENT));
   }
 
 
@@ -185,9 +188,9 @@ public class S3StorageClientTest {
     assertEquals(1, documents.size());
     Document doc1 = documents.get(0);
     assertTrue(doc1.getId().startsWith("prefix-"));
-    assertEquals("s3://bucket/obj1", doc1.getString("file_path"));
-    assertEquals("1", doc1.getString("file_size_bytes"));
-    assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes("file_content"));
+    assertEquals("s3://bucket/obj1", doc1.getString(FILE_PATH));
+    assertEquals("1", doc1.getString(SIZE));
+    assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes(CONTENT));
   }
 
   @Test
@@ -221,7 +224,7 @@ public class S3StorageClientTest {
 
     // check that only one document published without file_content
     assertEquals(1, documents.size());
-    assertNull(documents.get(0).getBytes("file_content"));
+    assertNull(documents.get(0).getBytes(CONTENT));
   }
 
   @Test
@@ -326,16 +329,16 @@ public class S3StorageClientTest {
     assertEquals("3", doc5.getId());
     assertEquals("Awesome City Mug", doc5.getString("name"));
     Document doc6 = docs.get(5);
-    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc6.getString("file_path"));
+    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc6.getString(FILE_PATH));
 
     // check document published from hello.zip
     Document doc7 = docs.get(6);
-    assertEquals("s3://bucket/hello", doc7.getString("file_path"));
+    assertEquals("s3://bucket/hello", doc7.getString(FILE_PATH));
     // check documents published from textFiles.tar
     Document doc8 = docs.get(7);
-    assertEquals("s3://bucket/textFiles/helloWorld.txt", doc8.getString("file_path"));
+    assertEquals("s3://bucket/textFiles/helloWorld.txt", doc8.getString(FILE_PATH));
     Document doc9 = docs.get(8);
-    assertEquals("s3://bucket/textFiles/goodbye.txt", doc9.getString("file_path"));
+    assertEquals("s3://bucket/textFiles/goodbye.txt", doc9.getString(FILE_PATH));
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc10 = docs.get(9);
     assertEquals("default.csv-1", doc10.getId());
@@ -353,10 +356,10 @@ public class S3StorageClientTest {
     assertEquals("3", doc14.getId());
     assertEquals("Awesome City Mug", doc14.getString("name"));
     Document doc15 = docs.get(14);
-    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc15.getString("file_path"));
+    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc15.getString(FILE_PATH));
     // check document published from zippedFolder.zip
     Document doc16 = docs.get(15);
-    assertEquals("s3://bucket/zippedFolder/foo.txt", doc16.getString("file_path"));
+    assertEquals("s3://bucket/zippedFolder/foo.txt", doc16.getString(FILE_PATH));
     // check documents published from zipped.csv.zip
     Document doc17 = docs.get(16);
     assertEquals("zipped.csv-1", doc17.getId());

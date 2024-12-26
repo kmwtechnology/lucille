@@ -8,8 +8,10 @@ import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_CONNECTION_STRING;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_NAME;
 
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -19,11 +21,12 @@ import java.util.regex.Pattern;
  * Interface for storage clients. Implementations of this interface should be able to traverse a storage system
  * and publish files to the Lucille pipeline.
  *
- *  - getClient() - Get the appropriate client based on the URI scheme with authentication/settings from cloudOptions
- *  - init() - Initialize the client
- *  - shutdown() - Shutdown the client
- *  - traverse(Publisher) - traverse through the storage client and publish files to Lucille pipeline
- *
+ *  - create : create appropriate client based on the URI scheme with authentication/settings from cloudOptions
+ *  - init : Initialize the client
+ *  - shutdown : Shutdown the client
+ *  - traverse : traverse through the storage client and publish files to Lucille pipeline
+ *  - validateCloudOptions : Validate that respective cloud authentication information is present for the given cloud provider.
+ *    Does not validate the correctness of the authentication information.
  */
 
 public interface StorageClient {
@@ -31,12 +34,12 @@ public interface StorageClient {
   /**
    * Initialize the client and creates necessary connections and/or resources
    */
-  void init();
+  void init() throws ConnectorException;
 
   /**
    * Shutdown the client, closes any open connections and/or resources
    */
-  void shutdown() throws Exception;
+  void shutdown() throws IOException;
 
   /**
    * Traverses through the storage client and publish files to Lucille pipeline
@@ -46,7 +49,7 @@ public interface StorageClient {
   /**
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from cloudOptions
    */
-  static StorageClient getClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
+  static StorageClient create(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
     String activeClient = pathToStorage.getScheme() != null ? pathToStorage.getScheme() : "file";
     switch (activeClient) {
@@ -64,19 +67,19 @@ public interface StorageClient {
           validateCloudOptions(pathToStorage, cloudOptions);
           return new AzureStorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
         } else {
-          throw new RuntimeException("Unsupported client type: " + activeClient + " with authority: " + authority);
+          throw new IllegalArgumentException("Unsupported client type: " + activeClient + " with authority: " + authority);
         }
       }
       case "file" -> {
         return new LocalStorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
       }
-      default -> throw new RuntimeException("Unsupported client type: " + activeClient);
+      default -> throw new IllegalArgumentException("Unsupported client type: " + activeClient);
     }
   }
 
   /**
-   * Validate that respective cloud authentication information is provided for the given cloud provider.
-   * Only checks the presence of required authentication fields.
+   * Validate that respective cloud authentication information is present for the given cloud provider.
+   * Does not validate the correctness of the authentication information.
    */
   static void validateCloudOptions(URI storageURI, Map<String, Object> cloudOptions) {
     switch (storageURI.getScheme()) {

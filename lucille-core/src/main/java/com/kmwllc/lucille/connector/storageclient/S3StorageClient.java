@@ -36,26 +36,30 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void init() {
-    AwsBasicCredentials awsCred = AwsBasicCredentials.create((String) cloudOptions.get(FileConnector.S3_ACCESS_KEY_ID),
-        (String) cloudOptions.get(FileConnector.S3_SECRET_ACCESS_KEY));
-    s3 = S3Client
-        .builder()
-        .region(Region.of((String) cloudOptions.get(FileConnector.S3_REGION)))
-        .credentialsProvider(StaticCredentialsProvider.create(awsCred))
-        .build();
-
+  public void init() throws ConnectorException {
     try {
-      initializeFileHandlers();
-    } catch (ConnectorException e) {
-      throw new IllegalArgumentException("Error occurred initializing FileHandlers", e);
+      AwsBasicCredentials awsCred = AwsBasicCredentials.create((String) cloudOptions.get(FileConnector.S3_ACCESS_KEY_ID),
+          (String) cloudOptions.get(FileConnector.S3_SECRET_ACCESS_KEY));
+      s3 = S3Client
+          .builder()
+          .region(Region.of((String) cloudOptions.get(FileConnector.S3_REGION)))
+          .credentialsProvider(StaticCredentialsProvider.create(awsCred))
+          .build();
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred building S3Client", e);
     }
+
+    initializeFileHandlers();
   }
 
   @Override
-  public void shutdown() throws Exception {
+  public void shutdown() throws IOException {
     if (s3 != null) {
-      s3.close();
+      try {
+        s3.close();
+      } catch (Exception e) {
+        throw new IOException("Error occurred closing S3Client", e);
+      }
     }
 
     // clear all FileHandlers if any

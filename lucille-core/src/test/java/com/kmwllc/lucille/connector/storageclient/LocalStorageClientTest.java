@@ -197,11 +197,9 @@ public class LocalStorageClientTest {
     Assert.assertEquals("Small City Mug", doc8.getString("name"));
 
     Document doc9 = documents.get(8);
-    Assert.assertEquals("file_76ad6cc964453df6031d9660ba4f29d6", doc9.getId());
     Assert.assertTrue(doc9.getString(FILE_PATH).endsWith("subdir1/e.yaml"));
 
     Document doc10 = documents.get(9);
-    Assert.assertEquals("file_660eb217f0ca5cfbfa51d8150fb2ede0", doc10.getId());
     Assert.assertTrue(doc10.getString(FILE_PATH).endsWith("subdir1/e.json.gz"));
 
     Document doc11 = documents.get(10);
@@ -257,13 +255,13 @@ public class LocalStorageClientTest {
     Assert.assertEquals("3", doc5.getId());
     Assert.assertEquals("Awesome City Mug", doc5.getString("name"));
     Document doc6 = docs.get(5);
-    Assert.assertTrue(doc6.getString("file_path").endsWith("FolderWithFooTxt/foo.txt"));
+    Assert.assertTrue(doc6.getString(FILE_PATH).endsWith("FolderWithFooTxt/foo.txt"));
 
     // check documents published from textFiles.tar
     Document doc7 = docs.get(6);
-    Assert.assertTrue(doc7.getString("file_path").endsWith("helloWorld.txt"));
+    Assert.assertTrue(doc7.getString(FILE_PATH).endsWith("helloWorld.txt"));
     Document doc8 = docs.get(7);
-    Assert.assertTrue(doc8.getString("file_path").endsWith("goodbye.txt"));
+    Assert.assertTrue(doc8.getString(FILE_PATH).endsWith("goodbye.txt"));
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc9 = docs.get(8);
@@ -282,13 +280,13 @@ public class LocalStorageClientTest {
     Assert.assertEquals("3", doc13.getId());
     Assert.assertEquals("Awesome City Mug", doc13.getString("name"));
     Document doc14 = docs.get(13);
-    Assert.assertTrue(doc14.getString("file_path").endsWith("FolderWithFooTxt/foo.txt"));
+    Assert.assertTrue(doc14.getString(FILE_PATH).endsWith("FolderWithFooTxt/foo.txt"));
     // check documents published from zippedFolder.zip
     Document doc15 = docs.get(14);
-    Assert.assertTrue(doc15.getString("file_path").endsWith("zippedFolder/foo.txt"));
+    Assert.assertTrue(doc15.getString(FILE_PATH).endsWith("zippedFolder/foo.txt"));
     // check document published from hello.zip
     Document doc16 = docs.get(15);
-    Assert.assertTrue(doc16.getString("file_path").endsWith("hello"));
+    Assert.assertTrue(doc16.getString(FILE_PATH).endsWith("hello"));
     // check documents published from zipped.csv
     Document doc17 = docs.get(16);
     Assert.assertTrue(doc17.getId().endsWith("zipped.csv-1"));

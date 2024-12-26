@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
+import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -143,27 +145,27 @@ public class AzureStorageClientTest {
     assertEquals(4, documents.size());
     Document doc1 = documents.get(0);
     assertTrue(doc1.getId().startsWith("prefix-"));
-    assertEquals("https://storagename.blob.core.windows.net/folder/blob1", doc1.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/blob1", doc1.getString(FILE_PATH));
     assertEquals("1", doc1.getString("file_size_bytes"));
-    assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes("file_content"));
+    assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes(CONTENT));
 
     Document doc2 = documents.get(1);
     assertTrue(doc2.getId().startsWith("prefix-"));
-    assertEquals("https://storagename.blob.core.windows.net/folder/blob2", doc2.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/blob2", doc2.getString(FILE_PATH));
     assertEquals("2", doc2.getString("file_size_bytes"));
-    assertArrayEquals(new byte[]{5, 6, 7, 8}, doc2.getBytes("file_content"));
+    assertArrayEquals(new byte[]{5, 6, 7, 8}, doc2.getBytes(CONTENT));
 
     Document doc3 = documents.get(2);
     assertTrue(doc3.getId().startsWith("prefix-"));
-    assertEquals("https://storagename.blob.core.windows.net/folder/blob3", doc3.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/blob3", doc3.getString(FILE_PATH));
     assertEquals("3", doc3.getString("file_size_bytes"));
-    assertArrayEquals(new byte[]{9, 10, 11, 12}, doc3.getBytes("file_content"));
+    assertArrayEquals(new byte[]{9, 10, 11, 12}, doc3.getBytes(CONTENT));
 
     Document doc4 = documents.get(3);
     assertTrue(doc4.getId().startsWith("prefix-"));
-    assertEquals("https://storagename.blob.core.windows.net/folder/blob4", doc4.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/blob4", doc4.getString(FILE_PATH));
     assertEquals("4", doc4.getString("file_size_bytes"));
-    assertArrayEquals(new byte[]{13, 14, 15, 16}, doc4.getBytes("file_content"));
+    assertArrayEquals(new byte[]{13, 14, 15, 16}, doc4.getBytes(CONTENT));
   }
 
   @Test
@@ -199,7 +201,7 @@ public class AzureStorageClientTest {
     // only 1 blob
     assertEquals(1, documents.size());
     // no fileContent
-    assertNull(documents.get(0).getBytes("file_content"));
+    assertNull(documents.get(0).getBytes(CONTENT));
   }
 
   @Test
@@ -231,9 +233,9 @@ public class AzureStorageClientTest {
     assertEquals(1, documents.size());
     Document doc1 = documents.get(0);
     assertTrue(doc1.getId().startsWith("prefix-"));
-    assertEquals("https://storagename.blob.core.windows.net/folder/blob1", doc1.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/blob1", doc1.getString(FILE_PATH));
     assertEquals("1", doc1.getString("file_size_bytes"));
-    assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes("file_content"));
+    assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes(CONTENT));
   }
 
   @Test
@@ -330,13 +332,13 @@ public class AzureStorageClientTest {
     assertEquals("3", doc5.getId());
     assertEquals("Awesome City Mug", doc5.getString("name"));
     Document doc6 = docs.get(5);
-    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc6.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc6.getString(FILE_PATH));
 
     // check documents published from textFiles.tar
     Document doc7 = docs.get(6);
-    assertEquals("https://storagename.blob.core.windows.net/folder/textFiles/helloWorld.txt", doc7.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/textFiles/helloWorld.txt", doc7.getString(FILE_PATH));
     Document doc8 = docs.get(7);
-    assertEquals("https://storagename.blob.core.windows.net/folder/textFiles/goodbye.txt", doc8.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/textFiles/goodbye.txt", doc8.getString(FILE_PATH));
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc9 = docs.get(8);
@@ -355,7 +357,7 @@ public class AzureStorageClientTest {
     assertEquals("3", doc13.getId());
     assertEquals("Awesome City Mug", doc13.getString("name"));
     Document doc14 = docs.get(13);
-    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc14.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc14.getString(FILE_PATH));
     // check documents published from zipped.csv.zip
     Document doc15 = docs.get(14);
     assertEquals("zipped.csv-1", doc15.getId());
@@ -368,10 +370,10 @@ public class AzureStorageClientTest {
     assertEquals("https://storagename.blob.core.windows.net/folder/zipped.csv", doc17.getString("source"));
     // check documents published from zippedFolder.zip
     Document doc18 = docs.get(17);
-    assertEquals("https://storagename.blob.core.windows.net/folder/zippedFolder/foo.txt", doc18.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/zippedFolder/foo.txt", doc18.getString(FILE_PATH));
     // check documents published from hello.zip
     Document doc19 = docs.get(18);
-    assertEquals("https://storagename.blob.core.windows.net/folder/hello", doc19.getString("file_path"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/hello", doc19.getString(FILE_PATH));
 
     azureStorageClient.shutdown();
   }
