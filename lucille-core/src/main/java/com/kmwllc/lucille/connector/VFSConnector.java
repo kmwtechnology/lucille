@@ -23,6 +23,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+/**
+ * @deprecated
+ * This Connector is deprecated and will be removed in future releases. Use FileConnector instead.
+ */
+@Deprecated
 public class VFSConnector extends AbstractConnector {
 
   public static final String FILE_PATH = "file_path";
