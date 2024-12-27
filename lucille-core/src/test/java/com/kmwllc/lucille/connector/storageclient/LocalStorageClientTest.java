@@ -217,7 +217,7 @@ public class LocalStorageClientTest {
   public void testPublishOnCompressedAndArchived() throws Exception {
     LocalStorageClient localStorageClient = new LocalStorageClient(
         new URI("src/test/resources/StorageClientTest/testCompressedAndArchived"), "",
-        List.of(), List.of(),
+        List.of(Pattern.compile(".*\\.DS_Store$")), List.of(),
         Map.of(), ConfigFactory.parseMap(
         Map.of(
             "json", Map.of(),
@@ -231,10 +231,7 @@ public class LocalStorageClientTest {
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     localStorageClient.traverse(publisher);
 
-    // remove .DS_Store file if present
-    List<Document> docs = messenger.getDocsSentForProcessing().stream()
-        .filter(doc -> !doc.has(FILE_PATH) || !doc.getString(FILE_PATH).endsWith(".DS_Store"))
-        .toList();
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
     Assert.assertEquals(19, docs.size());
 

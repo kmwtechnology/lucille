@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core.fileHandler;
 
+import static com.kmwllc.lucille.connector.FileConnector.ARCHIVED_FILE_SEPARATOR;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVParser;
@@ -9,6 +11,7 @@ import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -78,7 +81,15 @@ public class CSVFileHandler extends BaseFileHandler {
   public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException {
     CSVReader reader = getCsvReader(fileContent);
     // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
-    return getDocumentIterator(reader, FilenameUtils.getName(pathStr), pathStr);
+    String fileName = FilenameUtils.getName(pathStr);
+
+    // handle the case where pathStr is a path of an entry of an archived file
+    if (pathStr.contains(ARCHIVED_FILE_SEPARATOR)) {
+      String entryName = pathStr.substring(pathStr.lastIndexOf(ARCHIVED_FILE_SEPARATOR) + 1);
+      fileName = entryName.substring(entryName.lastIndexOf("/") + 1);
+    }
+
+    return getDocumentIterator(reader, fileName, pathStr);
   }
 
 
@@ -264,7 +275,7 @@ public class CSVFileHandler extends BaseFileHandler {
   private String createDocId(ArrayList<String> idColumnData) {
     // format the string with the data and pre-pend the doc id prefix
     if (docIdFormat != null) {
-      return docIdPrefix + String.format(docIdFormat, idColumnData.toArray());
+      return createDocId(String.format(docIdFormat, idColumnData.toArray()));
     } else {
       // no doc id.. just choose the first value in the idColumnData
       // Join the column data with an underscore if no docIdFormat provided.

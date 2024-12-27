@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import static com.kmwllc.lucille.connector.FileConnector.ARCHIVED_FILE_SEPARATOR;
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
@@ -315,13 +316,13 @@ public class S3StorageClientTest {
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar
     Document doc1 = docs.get(0);
     assertEquals("default.csv-1", doc1.getId());
-    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt/default.csv", doc1.getString("source"));
+    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVED_FILE_SEPARATOR + "default.csv", doc1.getString("source"));
     Document doc2 = docs.get(1);
     assertEquals("default.csv-2", doc2.getId());
-    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt/default.csv", doc2.getString("source"));
+    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVED_FILE_SEPARATOR + "default.csv", doc2.getString("source"));
     Document doc3 = docs.get(2);
     assertEquals("default.csv-3", doc3.getId());
-    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt/default.csv", doc3.getString("source"));
+    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVED_FILE_SEPARATOR + "default.csv", doc3.getString("source"));
     Document doc4 = docs.get(3);
     assertEquals("2", doc4.getId());
     assertEquals("Gorgeous Woman Mug", doc4.getString("name"));
@@ -329,26 +330,26 @@ public class S3StorageClientTest {
     assertEquals("3", doc5.getId());
     assertEquals("Awesome City Mug", doc5.getString("name"));
     Document doc6 = docs.get(5);
-    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc6.getString(FILE_PATH));
+    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVED_FILE_SEPARATOR + "FolderWithFooTxt/foo.txt", doc6.getString(FILE_PATH));
 
     // check document published from hello.zip
     Document doc7 = docs.get(6);
-    assertEquals("s3://bucket/hello", doc7.getString(FILE_PATH));
+    assertEquals("s3://bucket/hello.zip" + ARCHIVED_FILE_SEPARATOR + "hello", doc7.getString(FILE_PATH));
     // check documents published from textFiles.tar
     Document doc8 = docs.get(7);
-    assertEquals("s3://bucket/textFiles/helloWorld.txt", doc8.getString(FILE_PATH));
+    assertEquals("s3://bucket/textFiles.tar" + ARCHIVED_FILE_SEPARATOR + "helloWorld.txt", doc8.getString(FILE_PATH));
     Document doc9 = docs.get(8);
-    assertEquals("s3://bucket/textFiles/goodbye.txt", doc9.getString(FILE_PATH));
+    assertEquals("s3://bucket/textFiles.tar" + ARCHIVED_FILE_SEPARATOR + "goodbye.txt", doc9.getString(FILE_PATH));
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc10 = docs.get(9);
     assertEquals("default.csv-1", doc10.getId());
-    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt/default.csv", doc10.getString("source"));
+    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVED_FILE_SEPARATOR + "default.csv", doc10.getString("source"));
     Document doc11 = docs.get(10);
     assertEquals("default.csv-2", doc11.getId());
-    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt/default.csv", doc11.getString("source"));
+    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVED_FILE_SEPARATOR + "default.csv", doc11.getString("source"));
     Document doc12 = docs.get(11);
     assertEquals("default.csv-3", doc12.getId());
-    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt/default.csv", doc12.getString("source"));
+    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVED_FILE_SEPARATOR + "default.csv", doc12.getString("source"));
     Document doc13 = docs.get(12);
     assertEquals("2", doc13.getId());
     assertEquals("Gorgeous Woman Mug", doc13.getString("name"));
@@ -356,20 +357,20 @@ public class S3StorageClientTest {
     assertEquals("3", doc14.getId());
     assertEquals("Awesome City Mug", doc14.getString("name"));
     Document doc15 = docs.get(14);
-    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc15.getString(FILE_PATH));
+    assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVED_FILE_SEPARATOR + "FolderWithFooTxt/foo.txt", doc15.getString(FILE_PATH));
     // check document published from zippedFolder.zip
     Document doc16 = docs.get(15);
-    assertEquals("s3://bucket/zippedFolder/foo.txt", doc16.getString(FILE_PATH));
+    assertEquals("s3://bucket/zippedFolder.zip" + ARCHIVED_FILE_SEPARATOR + "zippedFolder/foo.txt", doc16.getString(FILE_PATH));
     // check documents published from zipped.csv.zip
     Document doc17 = docs.get(16);
     assertEquals("zipped.csv-1", doc17.getId());
-    assertEquals("s3://bucket/zipped.csv", doc17.getString("source"));
+    assertEquals("s3://bucket/zipped.csv.zip" + ARCHIVED_FILE_SEPARATOR + "zipped.csv", doc17.getString("source"));
     Document doc18 = docs.get(17);
     assertEquals("zipped.csv-2", doc18.getId());
-    assertEquals("s3://bucket/zipped.csv", doc18.getString("source"));
+    assertEquals("s3://bucket/zipped.csv.zip" + ARCHIVED_FILE_SEPARATOR + "zipped.csv", doc18.getString("source"));
     Document doc19 = docs.get(18);
     assertEquals("zipped.csv-3", doc19.getId());
-    assertEquals("s3://bucket/zipped.csv", doc19.getString("source"));
+    assertEquals("s3://bucket/zipped.csv.zip" + ARCHIVED_FILE_SEPARATOR + "zipped.csv", doc19.getString("source"));
 
     s3StorageClient.shutdown();
   }

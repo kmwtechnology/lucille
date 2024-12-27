@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import static com.kmwllc.lucille.connector.FileConnector.ARCHIVED_FILE_SEPARATOR;
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
@@ -164,7 +165,7 @@ public abstract class BaseStorageClient implements StorageClient {
         }
         // checking validity only for the entries
         if (!entry.isDirectory() && shouldIncludeFile(entry.getName(), includes, excludes)) {
-          String entryExtension = FilenameUtils.getExtension(entryFullPathStr);
+          String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(entryExtension, fileOptions)) {
             handleStreamExtensionFiles(publisher, in, entryExtension, entryFullPathStr);
           } else {
@@ -228,17 +229,7 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   protected String getEntryFullPath(String fullPathStr, String entryName) {
-    // get parent directory
-    int lastSlashIndex = fullPathStr.lastIndexOf("/");
-    // handling different cases for zip and other archive files because entry names are different for different archive types
-    if (fullPathStr.endsWith(".zip")) {
-      return fullPathStr.substring(0, lastSlashIndex) + "/" + entryName;
-    } else {
-      String fileName = fullPathStr.substring(lastSlashIndex + 1);
-      int firstExtensionIndex = fileName.indexOf(".");
-      String resolvedFileName = firstExtensionIndex == -1 ? fileName : fileName.substring(0, firstExtensionIndex);
-      return fullPathStr.substring(0, lastSlashIndex) + "/" + resolvedFileName + "/" + entryName;
-    }
+    return fullPathStr + ARCHIVED_FILE_SEPARATOR + entryName;
   }
 
   /**

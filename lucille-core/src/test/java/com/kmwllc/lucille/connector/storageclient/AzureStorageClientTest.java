@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import static com.kmwllc.lucille.connector.FileConnector.ARCHIVED_FILE_SEPARATOR;
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
@@ -318,13 +319,16 @@ public class AzureStorageClientTest {
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar
     Document doc1 = docs.get(0);
     assertEquals("default.csv-1", doc1.getId());
-    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt/default.csv", doc1.getString("source"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar"
+        + ARCHIVED_FILE_SEPARATOR + "default.csv", doc1.getString("source"));
     Document doc2 = docs.get(1);
     assertEquals("default.csv-2", doc2.getId());
-    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt/default.csv", doc2.getString("source"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar"
+        + ARCHIVED_FILE_SEPARATOR + "default.csv", doc2.getString("source"));
     Document doc3 = docs.get(2);
     assertEquals("default.csv-3", doc3.getId());
-    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt/default.csv", doc3.getString("source"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar"
+        + ARCHIVED_FILE_SEPARATOR + "default.csv", doc3.getString("source"));
     Document doc4 = docs.get(3);
     assertEquals("2", doc4.getId());
     assertEquals("Gorgeous Woman Mug", doc4.getString("name"));
@@ -332,24 +336,28 @@ public class AzureStorageClientTest {
     assertEquals("3", doc5.getId());
     assertEquals("Awesome City Mug", doc5.getString("name"));
     Document doc6 = docs.get(5);
-    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc6.getString(FILE_PATH));
+    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar"
+        + ARCHIVED_FILE_SEPARATOR + "FolderWithFooTxt/foo.txt", doc6.getString(FILE_PATH));
 
     // check documents published from textFiles.tar
     Document doc7 = docs.get(6);
-    assertEquals("https://storagename.blob.core.windows.net/folder/textFiles/helloWorld.txt", doc7.getString(FILE_PATH));
+    assertEquals("https://storagename.blob.core.windows.net/folder/textFiles.tar" + ARCHIVED_FILE_SEPARATOR + "helloWorld.txt", doc7.getString(FILE_PATH));
     Document doc8 = docs.get(7);
-    assertEquals("https://storagename.blob.core.windows.net/folder/textFiles/goodbye.txt", doc8.getString(FILE_PATH));
+    assertEquals("https://storagename.blob.core.windows.net/folder/textFiles.tar" + ARCHIVED_FILE_SEPARATOR + "goodbye.txt", doc8.getString(FILE_PATH));
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc9 = docs.get(8);
     assertEquals("default.csv-1", doc9.getId());
-    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt/default.csv", doc9.getString("source"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar.gz"
+        + ARCHIVED_FILE_SEPARATOR + "default.csv", doc9.getString("source"));
     Document doc10 = docs.get(9);
     assertEquals("default.csv-2", doc10.getId());
-    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt/default.csv", doc10.getString("source"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar.gz"
+        + ARCHIVED_FILE_SEPARATOR + "default.csv", doc10.getString("source"));
     Document doc11 = docs.get(10);
     assertEquals("default.csv-3", doc11.getId());
-    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt/default.csv", doc11.getString("source"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar.gz"
+        + ARCHIVED_FILE_SEPARATOR + "default.csv", doc11.getString("source"));
     Document doc12 = docs.get(11);
     assertEquals("2", doc12.getId());
     assertEquals("Gorgeous Woman Mug", doc12.getString("name"));
@@ -357,23 +365,29 @@ public class AzureStorageClientTest {
     assertEquals("3", doc13.getId());
     assertEquals("Awesome City Mug", doc13.getString("name"));
     Document doc14 = docs.get(13);
-    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt/FolderWithFooTxt/foo.txt", doc14.getString(FILE_PATH));
+    assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar.gz"
+        + ARCHIVED_FILE_SEPARATOR + "FolderWithFooTxt/foo.txt", doc14.getString(FILE_PATH));
     // check documents published from zipped.csv.zip
     Document doc15 = docs.get(14);
     assertEquals("zipped.csv-1", doc15.getId());
-    assertEquals("https://storagename.blob.core.windows.net/folder/zipped.csv", doc15.getString("source"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/zipped.csv.zip"
+        + ARCHIVED_FILE_SEPARATOR + "zipped.csv", doc15.getString("source"));
     Document doc16 = docs.get(15);
     assertEquals("zipped.csv-2", doc16.getId());
-    assertEquals("https://storagename.blob.core.windows.net/folder/zipped.csv", doc16.getString("source"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/zipped.csv.zip"
+        + ARCHIVED_FILE_SEPARATOR + "zipped.csv", doc16.getString("source"));
     Document doc17 = docs.get(16);
     assertEquals("zipped.csv-3", doc17.getId());
-    assertEquals("https://storagename.blob.core.windows.net/folder/zipped.csv", doc17.getString("source"));
+    assertEquals("https://storagename.blob.core.windows.net/folder/zipped.csv.zip"
+        + ARCHIVED_FILE_SEPARATOR + "zipped.csv", doc17.getString("source"));
     // check documents published from zippedFolder.zip
     Document doc18 = docs.get(17);
-    assertEquals("https://storagename.blob.core.windows.net/folder/zippedFolder/foo.txt", doc18.getString(FILE_PATH));
+    assertEquals("https://storagename.blob.core.windows.net/folder/zippedFolder.zip"
+        + ARCHIVED_FILE_SEPARATOR + "zippedFolder/foo.txt", doc18.getString(FILE_PATH));
     // check documents published from hello.zip
     Document doc19 = docs.get(18);
-    assertEquals("https://storagename.blob.core.windows.net/folder/hello", doc19.getString(FILE_PATH));
+    assertEquals("https://storagename.blob.core.windows.net/folder/hello.zip"
+        + ARCHIVED_FILE_SEPARATOR + "hello", doc19.getString(FILE_PATH));
 
     azureStorageClient.shutdown();
   }
