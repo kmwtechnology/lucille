@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
  *
  * Config Parameters:
  * - drop_parent (Boolean, Optional): if set to true, will mark parent document as dropped. Defaults to false
- *
+ * - fields_to_copy (List<String>, Optional): list of fields to copy from parent to children
  */
 public class EmitNestedChildren extends Stage {
 
@@ -28,7 +28,7 @@ public class EmitNestedChildren extends Stage {
   public EmitNestedChildren(Config config) {
     super(config, new StageSpec().withOptionalProperties("drop_parent", "fields_to_copy", "update_mode"));
     this.dropParent = config.hasPath("drop_parent") ? config.getBoolean("drop_parent") : false;
-    this.fieldsToCopy = config.hasPath("fields_to_copy") ? config.getStringList("fields_to_copy") : null;
+    this.fieldsToCopy = config.hasPath("fields_to_copy") ? config.getStringList("fields_to_copy") : List.of();
     this.updateMode = UpdateMode.fromConfig(config);
   }
 
@@ -43,7 +43,7 @@ public class EmitNestedChildren extends Stage {
     List<Document> children = doc.getChildren();
 
     // copy fields from parent to children
-    if (fieldsToCopy != null) {
+    if (!fieldsToCopy.isEmpty()) {
       for (Document child : children) {
         for (String field : fieldsToCopy) {
           if (!doc.has(field)) {
@@ -56,7 +56,7 @@ public class EmitNestedChildren extends Stage {
             child.update(field, updateMode, doc.getStringList(field).toArray(new String[0]));
           } else {
             child.update(field, updateMode, doc.getString(field));
-          };
+          }
         }
       }
     }
