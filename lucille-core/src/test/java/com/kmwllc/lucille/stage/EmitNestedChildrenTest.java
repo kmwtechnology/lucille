@@ -102,4 +102,47 @@ public class EmitNestedChildrenTest {
     // 3 documents expected out of processing the parent document with 2 attached children
     assertEquals(3, results.size());
   }
+
+  @Test
+  public void testCopyFields() throws Exception {
+    Stage stage = factory.get("EmitNestedChildrenTest/fieldsToCopy.conf");
+
+    Document parent = Document.create("parentId");
+    parent.setOrAdd("multivaluedField", "value1");
+    parent.setOrAdd("multivaluedField", "value2");
+    parent.setOrAdd("singleValueField", "singleValue");
+    parent.setOrAdd("integerValueField", 1);
+    parent.setOrAdd("booleanValueField", true);
+    parent.setOrAdd("multivaluedBooleanField", true);
+    parent.setOrAdd("multivaluedBooleanField", false);
+    // field that we do not want to copy
+    parent.setOrAdd("fieldToNotCopy", "value");
+
+    Document child = Document.create("child1");
+    Document child2 = Document.create("child2");
+    child.setField("parent", parent.getId());
+    child2.setField("parent", parent.getId());
+
+    parent.addChild(child);
+    parent.addChild(child2);
+
+    List<Document> documents = IteratorUtils.toList(stage.processDocument(parent));
+    Document doc1 = documents.get(0);
+    Document doc2 = documents.get(1);
+
+    assertEquals("child1", doc1.getId());
+    assertEquals("child2", doc2.getId());
+
+    for (Document doc : documents) {
+      assertEquals("parentId", doc.getString("parent"));
+      assertEquals("value1", doc.getString("multivaluedField"));
+      assertEquals(List.of("value1", "value2"), doc.getStringList("multivaluedField"));
+      assertEquals("singleValue", doc.getString("singleValueField"));
+      assertFalse(doc.isMultiValued("singleValueField"));
+      assertEquals(Integer.valueOf(1), doc.getInt("integerValueField"));
+      assertEquals(Boolean.TRUE, doc.getBoolean("booleanValueField"));
+      assertEquals(List.of(Boolean.TRUE, Boolean.FALSE), doc.getBooleanList("multivaluedBooleanField"));
+      assertFalse(doc.has("fieldToNotCopy"));
+    }
+  }
 }

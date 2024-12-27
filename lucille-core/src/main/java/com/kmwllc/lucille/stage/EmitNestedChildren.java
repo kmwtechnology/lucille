@@ -4,6 +4,7 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import java.util.Iterator;
 import java.util.List;
@@ -20,11 +21,15 @@ import org.slf4j.LoggerFactory;
 public class EmitNestedChildren extends Stage {
 
   private final boolean dropParent;
+  private final List<String> fieldsToCopy;
+  private final UpdateMode updateMode;
   private static final Logger log = LoggerFactory.getLogger(EmitNestedChildren.class);
 
   public EmitNestedChildren(Config config) {
-    super(config, new StageSpec().withOptionalProperties("drop_parent"));
+    super(config, new StageSpec().withOptionalProperties("drop_parent", "fields_to_copy", "update_mode"));
     this.dropParent = config.hasPath("drop_parent") ? config.getBoolean("drop_parent") : false;
+    this.fieldsToCopy = config.hasPath("fields_to_copy") ? config.getStringList("fields_to_copy") : null;
+    this.updateMode = UpdateMode.fromConfig(config);
   }
 
   @Override
@@ -36,6 +41,26 @@ public class EmitNestedChildren extends Stage {
 
     doc.setDropped(dropParent);
     List<Document> children = doc.getChildren();
+
+    // copy fields from parent to children
+    if (fieldsToCopy != null) {
+      for (Document child : children) {
+        for (String field : fieldsToCopy) {
+          if (!doc.has(field)) {
+            log.warn("Field '{}' not found in parent document", field);
+            continue;
+          }
+          // handle multivalued fields if needed, we want to be a list if multivalued
+          // Note we are grabbing the String version of the contents
+          if (doc.isMultiValued(field)) {
+            child.update(field, updateMode, doc.getStringList(field).toArray(new String[0]));
+          } else {
+            child.update(field, updateMode, doc.getString(field));
+          };
+        }
+      }
+    }
+
     doc.removeChildren();
 
     return children.iterator();
