@@ -90,7 +90,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference) {
     Path path = fileReference.getPath();
     try {
       return pathToDoc(path);
@@ -100,10 +100,10 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fullPathStr) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr) {
     Path path = fileReference.getPath();
     try {
-      return pathToDoc(path, in);
+      return pathToDoc(path, in, decompressedFullPathStr);
     } catch (ConnectorException e) {
       throw new IllegalArgumentException("Unable to convert path '" + path + "' to Document", e);
     }
@@ -138,17 +138,18 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   private Document pathToDoc(Path path) throws ConnectorException {
-    final String docId = DigestUtils.md5Hex(path.toString());
-    final Document doc = Document.create(createDocId(docId));
+    String fullPath = path.toAbsolutePath().normalize().toString();
+    String docId = DigestUtils.md5Hex(fullPath);
+    Document doc = Document.create(createDocId(docId));
 
     try {
       // get file attributes
       BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
 
       // setting fields on document
-      doc.setField(FILE_PATH, path.toAbsolutePath().normalize().toString());
-      doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
-      doc.setField(CREATED, attrs.creationTime().toInstant());
+      doc.setField(FILE_PATH, fullPath);
+      if (attrs.lastModifiedTime() != null) doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
+      if (attrs.creationTime() != null) doc.setField(CREATED, attrs.creationTime().toInstant());
       doc.setField(SIZE, attrs.size());
       if (getFileContent) doc.setField(CONTENT, Files.readAllBytes(path));
     } catch (Exception e) {
@@ -157,9 +158,9 @@ public class LocalStorageClient extends BaseStorageClient {
     return doc;
   }
 
-  private Document pathToDoc(Path path, InputStream in) throws ConnectorException {
-    final String docId = DigestUtils.md5Hex(path.toString());
-    final Document doc = Document.create(createDocId(docId));
+  private Document pathToDoc(Path path, InputStream in, String decompressedFullPathStr) throws ConnectorException {
+    String docId = DigestUtils.md5Hex(decompressedFullPathStr);
+    Document doc = Document.create(createDocId(docId));
 
     try {
       // get file attributes
@@ -167,7 +168,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
       // setting fields on document
       // remove Extension to show that we have decompressed the file and obtained its information
-      doc.setField(FILE_PATH, FilenameUtils.removeExtension(path.toAbsolutePath().normalize().toString()));
+      doc.setField(FILE_PATH, decompressedFullPathStr);
       doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
       doc.setField(CREATED, attrs.creationTime().toInstant());
       // unable to get decompressed file size

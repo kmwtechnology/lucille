@@ -91,17 +91,17 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference) {
     BlobItem blobItem = fileReference.getBlobItem();
-    return blobItemToDoc(blobItem, bucketOrContainerName);
+    return blobItemToDoc(blobItem);
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fullPathStr) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr) {
     BlobItem blobItem = fileReference.getBlobItem();
 
     try {
-      return blobItemToDoc(blobItem, bucketOrContainerName, in, fullPathStr);
+      return blobItemToDoc(blobItem, in, decompressedFullPathStr);
     } catch (IOException e) {
       throw new IllegalArgumentException("Unable to convert BlobItem '" + blobItem.getName() + "' to Document", e);
     }
@@ -124,15 +124,22 @@ public class AzureStorageClient extends BaseStorageClient {
         bucketOrContainerName, blobItem.getName());
   }
 
-  private Document blobItemToDoc(BlobItem blob, String container) {
-    String docId = DigestUtils.md5Hex(blob.getName());
+  private Document blobItemToDoc(BlobItem blob) {
+    String fullPath = getFullPath(blob);
+    String docId = DigestUtils.md5Hex(fullPath);
     Document doc = Document.create(docIdPrefix + docId);
+
     BlobItemProperties properties = blob.getProperties();
-    String path = String.format("%s://%s/%s/%s", pathToStorageURI.getScheme(), pathToStorageURI.getAuthority(),
-        container, blob.getName());
-    doc.setField(FileConnector.FILE_PATH, path);
-    doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
-    doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
+    doc.setField(FileConnector.FILE_PATH, fullPath);
+
+    if (properties.getLastModified() != null) {
+      doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
+    }
+
+    if (properties.getCreationTime() != null) {
+      doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
+    }
+
     doc.setField(FileConnector.SIZE, properties.getContentLength());
 
     if (getFileContent) {
@@ -142,17 +149,23 @@ public class AzureStorageClient extends BaseStorageClient {
     return doc;
   }
 
-  private Document blobItemToDoc(BlobItem blob, String container, InputStream is, String unzippedFileName)
+  private Document blobItemToDoc(BlobItem blob, InputStream is, String decompressedFullPathStr)
       throws IOException {
-    String docId = DigestUtils.md5Hex(unzippedFileName);
+    String docId = DigestUtils.md5Hex(decompressedFullPathStr);
     Document doc = Document.create(docIdPrefix + docId);
+
     BlobItemProperties properties = blob.getProperties();
-    String path = String.format("%s://%s/%s/%s", pathToStorageURI.getScheme(), pathToStorageURI.getAuthority(),
-        container, unzippedFileName);
-    doc.setField(FileConnector.FILE_PATH, path);
-    doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
-    doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
-    // unable to get the decompressed size
+    doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
+
+    if (properties.getLastModified() != null) {
+      doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
+    }
+
+    if (properties.getCreationTime() != null) {
+      doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
+    }
+
+    // unable to get the decompressed size via inputStream
     if (getFileContent) {
       doc.setField(FileConnector.CONTENT, is.readAllBytes());
     }

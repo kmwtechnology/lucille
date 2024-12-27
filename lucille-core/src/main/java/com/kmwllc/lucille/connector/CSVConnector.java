@@ -7,6 +7,7 @@ import com.typesafe.config.Config;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,12 +35,17 @@ public class CSVConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     File file = new File(pathStr);
-    Path path = file.toPath();
+    Path path;
+    try {
+      path = file.toPath();
+    } catch (InvalidPathException e) {
+      throw new ConnectorException("Error converting " + pathStr + "to Path", e);
+    }
 
     createProcessedAndErrorFoldersIfSet();
 
     try {
-      log.info("Processing file: {}", path);
+      log.debug("Processing file: {}", path);
       csvFileHandler.processFileAndPublish(publisher, path);
     } catch (Exception e) {
       if (moveToErrorFolder != null) {
@@ -68,7 +74,7 @@ public class CSVConnector extends AbstractConnector {
         destDir.mkdirs();
       }
     }
-    log.info("Error folder: {}", moveToErrorFolder);
+
     if (moveToErrorFolder != null) {
       File errorDir = new File(moveToErrorFolder);
       if (!errorDir.exists()) {
@@ -89,7 +95,7 @@ public class CSVConnector extends AbstractConnector {
     Path dest = Paths.get(option + File.separatorChar + fileName);
     try {
       Files.move(absolutePath, dest);
-      log.info("File {} was successfully moved from source {} to destination {}", fileName, absolutePath, dest);
+      log.debug("File {} was successfully moved from source {} to destination {}", fileName, absolutePath, dest);
     } catch (IOException e) {
       log.warn("Error moving file to destination directory", e);
     }

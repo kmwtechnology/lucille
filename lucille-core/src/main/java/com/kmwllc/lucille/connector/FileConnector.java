@@ -109,7 +109,7 @@ public class FileConnector extends AbstractConnector {
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
     try {
       this.storageURI = new URI(pathToStorage);
-      log.info("using path {} with scheme {}", pathToStorage, storageURI.getScheme());
+      log.debug("using path {} with scheme {}", pathToStorage, storageURI.getScheme());
     } catch (URISyntaxException e) {
       throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
     }
@@ -131,7 +131,7 @@ public class FileConnector extends AbstractConnector {
       throw new ConnectorException("Error occurred while initializing client or publishing files.", e);
     } finally {
       try {
-        // closes clients and file handlers if any
+        // closes clients and clears file handlers if any
         storageClient.shutdown();
       } catch (IOException e) {
         throw new ConnectorException("Error occurred while shutting down client.", e);

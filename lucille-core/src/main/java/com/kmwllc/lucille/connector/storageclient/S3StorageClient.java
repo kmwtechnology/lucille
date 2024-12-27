@@ -83,16 +83,16 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference) {
     S3Object obj = fileReference.getS3Object();
-    return s3ObjectToDoc(obj, bucketOrContainerName);
+    return s3ObjectToDoc(obj);
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fullPathStr) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr) {
     S3Object obj = fileReference.getS3Object();
     try {
-      return s3ObjectToDoc(obj, bucketOrContainerName, in, fullPathStr);
+      return s3ObjectToDoc(obj, in, decompressedFullPathStr);
     } catch (IOException e) {
       throw new IllegalArgumentException("Unable to convert S3Object '" + obj.key() + "' to Document", e);
     }
@@ -110,28 +110,30 @@ public class S3StorageClient extends BaseStorageClient {
     return new ByteArrayInputStream(content);
   }
 
-  private Document s3ObjectToDoc(S3Object obj, String bucketName) {
-    String objKey = obj.key();
-    String docId = DigestUtils.md5Hex(objKey);
+  private Document s3ObjectToDoc(S3Object obj) {
+    String fullPath = getFullPath(obj);
+    String docId = DigestUtils.md5Hex(fullPath);
     Document doc = Document.create(docIdPrefix + docId);
-    doc.setField(FileConnector.FILE_PATH, pathToStorageURI.getScheme() + "://" + bucketName + "/" + objKey);
+    doc.setField(FileConnector.FILE_PATH, fullPath);
     doc.setField(FileConnector.MODIFIED, obj.lastModified());
     // s3 doesn't have object creation date
     doc.setField(FileConnector.SIZE, obj.size());
 
     if (getFileContent) {
-      byte[] content = s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketName).key(objKey).build()).asByteArray();
+      byte[] content = s3.getObjectAsBytes(
+          GetObjectRequest.builder().bucket(bucketOrContainerName).key(obj.key()).build()
+      ).asByteArray();
       doc.setField(FileConnector.CONTENT, content);
     }
 
     return doc;
   }
 
-  private Document s3ObjectToDoc(S3Object obj, String bucketName, InputStream is, String fileNameWithoutExtension)
+  private Document s3ObjectToDoc(S3Object obj, InputStream is, String decompressedFullPathStr)
       throws IOException {
-    String docId = DigestUtils.md5Hex(fileNameWithoutExtension);
+    String docId = DigestUtils.md5Hex(decompressedFullPathStr);
     Document doc = Document.create(docIdPrefix + docId);
-    doc.setField(FileConnector.FILE_PATH, pathToStorageURI.getScheme() + "://" + bucketName + "/" + fileNameWithoutExtension);
+    doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
     doc.setField(FileConnector.MODIFIED, obj.lastModified());
     // s3 doesn't have object creation date
     // compression stream doesn't have size, so we can't set it here
@@ -150,7 +152,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   private String getFullPath(S3Object obj) {
-    return "s3://" + bucketOrContainerName + "/" + obj.key();
+    return pathToStorageURI.getScheme() + "://" + bucketOrContainerName + "/" + obj.key();
   }
 
   // Only for testing

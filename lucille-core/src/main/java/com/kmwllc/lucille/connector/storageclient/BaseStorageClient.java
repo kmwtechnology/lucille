@@ -94,13 +94,13 @@ public abstract class BaseStorageClient implements StorageClient {
         try (BufferedInputStream bis = new BufferedInputStream(getFileReferenceContentStream(fileReference));
             CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
           // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
-          String unzippedFullPathStr = FilenameUtils.removeExtension(fullPathStr);
-          if (handleArchivedFiles && isSupportedArchiveFileType(unzippedFullPathStr)) {
+          String decompressedFullPathStr = FilenameUtils.removeExtension(fullPathStr);
+          if (handleArchivedFiles && isSupportedArchiveFileType(decompressedFullPathStr)) {
             handleArchiveFiles(publisher, compressorStream, fullPathStr);
-          } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(unzippedFullPathStr), fileOptions)) {
-            handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(unzippedFullPathStr), unzippedFullPathStr);
+          } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(decompressedFullPathStr), fileOptions)) {
+            handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(decompressedFullPathStr), decompressedFullPathStr);
           } else {
-            Document doc = convertFileReferenceToDoc(fileReference, bucketOrContainerName, compressorStream, unzippedFullPathStr);
+            Document doc = convertFileReferenceToDoc(fileReference, compressorStream, decompressedFullPathStr);
             publisher.publish(doc);
           }
         }
@@ -136,7 +136,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       // handle normal files
-      Document doc = convertFileReferenceToDoc(fileReference, bucketOrContainerName);
+      Document doc = convertFileReferenceToDoc(fileReference);
       publisher.publish(doc);
       afterProcessingFile(fullPathStr);
     } catch (UnsupportedOperationException e) {
@@ -314,9 +314,9 @@ public abstract class BaseStorageClient implements StorageClient {
    * abstract methods
    */
 
-  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName);
+  protected abstract Document convertFileReferenceToDoc(FileReference fileReference);
 
-  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fullPathStr);
+  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String fullPathStr);
 
   protected abstract byte[] getFileReferenceContent(FileReference fileReference);
 

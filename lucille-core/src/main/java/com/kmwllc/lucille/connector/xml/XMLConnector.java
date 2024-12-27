@@ -6,6 +6,8 @@ import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
 import com.typesafe.config.Config;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,14 +36,14 @@ public class XMLConnector extends AbstractConnector {
   private List<String> filePaths;
   private List<String> urlFiles;
 
-  private FileHandler fileHandler;
+  private XMLFileHandler xmlFileHandler;
 
 
   public XMLConnector(Config config) {
     super(config);
     filePaths = config.hasPath("filePaths") ? config.getStringList("filePaths") : null;
     urlFiles = config.hasPath("urlFiles") ? config.getStringList("urlFiles") : null;
-    this.fileHandler = new XMLFileHandler(config);
+    this.xmlFileHandler = new XMLFileHandler(config);
   }
 
   @Override
@@ -55,12 +57,21 @@ public class XMLConnector extends AbstractConnector {
   }
   
   private void processFilesBasedOnType(Publisher publisher, List<String> files, boolean isUrlFile) throws ConnectorException {
-    for (String file : files) {
-      if (isUrlFile && file.startsWith("file://")) {
-        file = file.replaceFirst("file://", "");
+    for (String fileStr : files) {
+      if (isUrlFile && fileStr.startsWith("file://")) {
+        fileStr = fileStr.replaceFirst("file://", "");
       }
+
+      File file = new File(fileStr);
+      Path path;
       try {
-        fileHandler.processFileAndPublish(publisher, new File(file).toPath());
+        path = file.toPath();
+      } catch (InvalidPathException e) {
+        throw new ConnectorException("Error converting " + fileStr + "to Path", e);
+      }
+
+      try {
+        xmlFileHandler.processFileAndPublish(publisher, path);
       } catch (Exception e) {
         throw new ConnectorException("Error processing file: " + file, e);
       }

@@ -78,22 +78,22 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference) {
     Blob blob = fileReference.getBlob();
 
     try {
-      return blobToDoc(blob, bucketOrContainerName);
+      return blobToDoc(blob);
     } catch (IOException e) {
       throw new IllegalArgumentException("Unable to convert blob '" + blob.getName() + "' to Document", e);
     }
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, String bucketOrContainerName, InputStream in, String fullPathStr) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr) {
     Blob blob = fileReference.getBlob();
 
     try {
-      return blobToDoc(blob, bucketOrContainerName, in, fullPathStr);
+      return blobToDoc(blob, in, decompressedFullPathStr);
     } catch (IOException e) {
       throw new IllegalArgumentException("Unable to convert blob '" + blob.getName() + "' to Document", e);
     }
@@ -118,48 +118,52 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   private String getFullPath(Blob blob) {
-    return "gs://" + bucketOrContainerName + "/" + blob.getName();
+    return pathToStorageURI.getScheme() + "://" + bucketOrContainerName + "/" + blob.getName();
   }
 
-  private Document blobToDoc(Blob blob, String bucketName) throws IOException {
-    final String docId = DigestUtils.md5Hex(blob.getName());
-    final Document doc = Document.create(docIdPrefix + docId);
-    try {
-      doc.setField(FileConnector.FILE_PATH, pathToStorageURI.getScheme() + "://" + bucketName + "/" + blob.getName());
-      if (blob.getUpdateTimeOffsetDateTime() != null) {
-        doc.setField(FileConnector.MODIFIED, blob.getUpdateTimeOffsetDateTime().toInstant());
-      }
-      if (blob.getCreateTimeOffsetDateTime() != null) {
-        doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
-      }
-      doc.setField(FileConnector.SIZE, blob.getSize());
-      if (getFileContent) {
-        doc.setField(FileConnector.CONTENT, blob.getContent());
-      }
-    } catch (Exception e) {
-      throw new IOException("Error occurred getting/setting file attributes to document: " + blob.getName(), e);
+  private Document blobToDoc(Blob blob) throws IOException {
+    String fullPath = getFullPath(blob);
+    String docId = DigestUtils.md5Hex(fullPath);
+    Document doc = Document.create(docIdPrefix + docId);
+
+    doc.setField(FileConnector.FILE_PATH, fullPath);
+
+    if (blob.getUpdateTimeOffsetDateTime() != null) {
+      doc.setField(FileConnector.MODIFIED, blob.getUpdateTimeOffsetDateTime().toInstant());
     }
+
+    if (blob.getCreateTimeOffsetDateTime() != null) {
+      doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
+    }
+
+    doc.setField(FileConnector.SIZE, blob.getSize());
+
+    if (getFileContent) {
+      doc.setField(FileConnector.CONTENT, blob.getContent());
+    }
+
     return doc;
   }
 
-  private Document blobToDoc(Blob blob, String bucketName, InputStream content, String nameWithoutExtension) throws IOException {
-    final String docId = DigestUtils.md5Hex(nameWithoutExtension);
+  private Document blobToDoc(Blob blob, InputStream content, String decompressedFullPathStr) throws IOException {
+    final String docId = DigestUtils.md5Hex(decompressedFullPathStr);
     final Document doc = Document.create(docIdPrefix + docId);
-    try {
-      doc.setField(FileConnector.FILE_PATH, pathToStorageURI.getScheme() + "://" + bucketName + "/" + nameWithoutExtension);
-      if (blob.getUpdateTimeOffsetDateTime() != null) {
-        doc.setField(FileConnector.MODIFIED, blob.getUpdateTimeOffsetDateTime().toInstant());
-      }
-      if (blob.getCreateTimeOffsetDateTime() != null) {
-        doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
-      }
-      // unable to get decompressed file size
-      if (getFileContent) {
-        doc.setField(FileConnector.CONTENT, content.readAllBytes());
-      }
-    } catch (Exception e) {
-      throw new IOException("Error occurred getting/setting file attributes to document: " + blob.getName(), e);
+
+    doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
+
+    if (blob.getUpdateTimeOffsetDateTime() != null) {
+      doc.setField(FileConnector.MODIFIED, blob.getUpdateTimeOffsetDateTime().toInstant());
     }
+
+    if (blob.getCreateTimeOffsetDateTime() != null) {
+      doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
+    }
+
+    // unable to get decompressed file size
+    if (getFileContent) {
+      doc.setField(FileConnector.CONTENT, content.readAllBytes());
+    }
+
     return doc;
   }
 
