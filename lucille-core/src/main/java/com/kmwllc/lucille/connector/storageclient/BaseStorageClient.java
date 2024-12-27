@@ -82,7 +82,13 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * Methods for traversing and processing files
+   * This method would try to process and publish the file. It also performs any preprocessing, error handling, and post-processing.
+   *
+   * @param publisher publisher used to publish documents
+   * @param fullPathStr full path of the file, can be a cloud path or local path. Cloud path would include schema and bucket/container name
+   *                    e.g gs://bucket-name/folder/file.txt or s3://bucket-name/file.txt
+   * @param fileExtension fileExtension of the file. Used to determine if the file should be processed by file handler
+   * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
    */
   protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference) {
     try {
@@ -152,7 +158,17 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  // inputStream parameter will be closed via the try with resources
+  /**
+   * This handles all entries of an archive file. Performs validity of an entry using includes/excludes as configured
+   * in the config file before processing. Entries do not have a created date, and depending on the implementation
+   * of the ArchiveInputStream, may return size as -1. Does not support recursive archives.
+   *
+   * @param publisher publisher used to publish documents
+   * @param inputStream input stream of the archive file. Used to create an ArchiveInputStream
+   * @param fullPathStr full path of the archive file including the extension. Can be a cloud path or local path.
+   *                    Cloud path would include schema and bucket/container name
+   *                    e.g gs://bucket-name/folder/file.zip or s3://bucket-name/file.tar
+   */
   protected void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fullPathStr) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
@@ -191,7 +207,17 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  // cannot close inputStream as we are iterating through the archived stream and may have more files to process
+  /**
+   * This handles the processing of the file after it has been decompressed AND/OR resolved from an archive file &
+   * has a fileExtension that is supported by a file handler and configured to use by the user in the config.
+   * e.g. example.csv.zip -> example.csv -> handleStreamExtensionFiles
+   *
+   * @param publisher publisher used to publish documents
+   * @param in InputStream of the archive file. Used to create an ArchiveInputStream
+   * @param fullPathStr full path of the archive file including the extension. Can be a cloud path or local path.
+   *                    Cloud path would include schema and bucket/container name
+   *                    e.g gs://bucket-name/folder/file.zip or s3://bucket-name/file.tar
+   */
   protected void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fullPathStr)
       throws ConnectorException {
     try {
@@ -202,6 +228,9 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
+  /**
+   * helper method to publish using file handler using Path (local file)
+   */
   protected void publishUsingFileHandler(Publisher publisher, String fileExtension, Path path) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
@@ -215,6 +244,9 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
+  /**
+   * helper method to publish using file handler using file content (byte[])
+   */
   protected void publishUsingFileHandler(Publisher publisher, String fileExtension, byte[] content, String pathStr) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
@@ -228,18 +260,25 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
+  /**
+   * helper method to get the full path of an entry in an archived file. Only used for archive files
+   */
   protected String getEntryFullPath(String fullPathStr, String entryName) {
     return fullPathStr + ARCHIVED_FILE_SEPARATOR + entryName;
   }
 
   /**
-   * Methods for performing operations before, after, during processing files
+   * method for performing operations before processing files. Additional operations can be added
+   * in the implementation of this method. Will be called before processing each file in traversal.
    */
-
   protected void beforeProcessingFile(String pathStr) throws Exception {
     createProcessedAndErrorFoldersIfSet(pathStr);
   }
 
+  /**
+   * method for performing operations after processing files. Additional operations can be added
+   * in the implementation of this method. Will be called after processing each file in traversal.
+   */
   protected void afterProcessingFile(String pathStr) throws IOException {
     if (moveToAfterProcessing != null) {
       // move to processed folder
@@ -247,6 +286,11 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
+  /**
+   * method for performing operations when encountering an error while processing files. Additional operations can be added
+   * in the implementation of this method. Will be called in the catch block for each file in traversal
+   * in the tryProcessAndPublishFile method.
+   */
   protected void errorProcessingFile(String pathStr) throws IOException {
     if (moveToErrorFolder != null) {
       // move to error folder
@@ -302,36 +346,52 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * abstract methods
+   * converts a file reference (Path or cloud Storage object implementation) to a document.
    */
-
   protected abstract Document convertFileReferenceToDoc(FileReference fileReference);
 
-  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String fullPathStr);
+  /**
+   * will only be called in the scenario where after decompression and file will not be handled by a file handler
+   */
+  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr);
 
+  /**
+   * get the content of the file reference as a byte array
+   */
   protected abstract byte[] getFileReferenceContent(FileReference fileReference);
 
+  /**
+   * get the content of the file reference as an InputStream. Always called within a try-with-resources block
+   */
   protected abstract InputStream getFileReferenceContentStream(FileReference fileReference);
 
   /**
-   * helper methods
+   * default implementation to obtain the container or bucket name from the path. Only used for cloud based storage clients.
    */
-
   protected String getContainerOrBucketName() {
     return pathToStorageURI.getAuthority();
   }
 
+  /**
+   * default implementation to obtain starting directory
+   */
   protected String getStartingDirectory() {
     String startingDirectory = Objects.equals(pathToStorageURI.getPath(), "/") ? "" : pathToStorageURI.getPath();
     if (startingDirectory.startsWith("/")) return startingDirectory.substring(1);
     return startingDirectory;
   }
 
+  /**
+   * helper method to decide if a file should be processed based on the includes and excludes patterns
+   */
   protected static boolean shouldIncludeFile(String pathStr, List<Pattern> includes, List<Pattern> excludes) {
     return excludes.stream().noneMatch(pattern -> pattern.matcher(pathStr).matches())
         && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(pathStr).matches()));
   }
 
+  /**
+   * helper method to initialize all file handlers based on the fileOptions
+   */
   protected void initializeFileHandlers() throws ConnectorException {
     // go through fileOptions, and initialize all file handlers
     for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
@@ -351,11 +411,17 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
+  /**
+   * clear all file handlers if any. Should be called in the shutdown method
+   */
   protected void clearFileHandlers() {
     fileHandlers.clear();
   }
 
-  // note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
+  /**
+   * helper method to check if the file is a supported compressed file type.
+   * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
+   */
   private boolean isSupportedCompressedFileType(String pathStr) {
     return pathStr.endsWith(".gz");
     // string.endsWith(".bz2") ||
@@ -367,6 +433,10 @@ public abstract class BaseStorageClient implements StorageClient {
     // string.endsWith(".Z");
   }
 
+  /**
+   * helper method to check if the file is a supported archived file type.
+   * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
+   */
   private boolean isSupportedArchiveFileType(String pathStr) {
     return pathStr.endsWith(".tar") ||
         pathStr.endsWith(".zip");
@@ -378,7 +448,7 @@ public abstract class BaseStorageClient implements StorageClient {
     // string.endsWith(".dmp");
   }
 
-  //TODO: sync with abstract connector
+  //should sync with abstract connector class?
   protected String createDocId(String docId) {
     return docIdPrefix + docId;
   }
