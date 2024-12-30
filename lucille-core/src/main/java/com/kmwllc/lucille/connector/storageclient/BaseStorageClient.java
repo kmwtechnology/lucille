@@ -208,15 +208,13 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * This handles the processing of the file after it has been decompressed AND/OR resolved from an archive file &
-   * has a fileExtension that is supported by a file handler and configured to use by the user in the config.
-   * e.g. example.csv.zip -> example.csv -> handleStreamExtensionFiles
+   * This processes the file after it has been decompressed or extracted from an archive. This method is only called when
+   * the resolved file has a supported extension and user has configured the appropriate file handler.
    *
    * @param publisher publisher used to publish documents
    * @param in InputStream of the archive file. Used to create an ArchiveInputStream
-   * @param fullPathStr full path of the archive file including the extension. Can be a cloud path or local path.
-   *                    Cloud path would include schema and bucket/container name
-   *                    e.g gs://bucket-name/folder/file.zip or s3://bucket-name/file.tar
+   * @param fullPathStr can be entry full path or decompressed full path. Can be a cloud path or local path.
+   *                    e.g. gs://bucket-name/folder/file.zip:entry.json OR path/to/example.csv
    */
   protected void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fullPathStr)
       throws ConnectorException {

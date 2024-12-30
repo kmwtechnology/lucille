@@ -42,7 +42,7 @@ public class GoogleStorageClient extends BaseStorageClient {
           .build()
           .getService();
     } catch (IOException e) {
-      throw new ConnectorException("Error occurred getting/using credentials from pathToServiceKey", e);
+      throw new ConnectorException("Error occurred building storage client", e);
     }
 
     initializeFileHandlers();
