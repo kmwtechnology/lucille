@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
+
 import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.storage.Blob;
@@ -36,7 +38,7 @@ public class GoogleStorageClient extends BaseStorageClient {
 
   @Override
   public void init() throws ConnectorException{
-    try (FileInputStream serviceAccountStream = new FileInputStream((String) cloudOptions.get(FileConnector.GOOGLE_SERVICE_KEY))) {
+    try (FileInputStream serviceAccountStream = new FileInputStream((String) cloudOptions.get(GOOGLE_SERVICE_KEY))) {
       storage = StorageOptions.newBuilder()
           .setCredentials(ServiceAccountCredentials.fromStream(serviceAccountStream))
           .build()
@@ -165,6 +167,12 @@ public class GoogleStorageClient extends BaseStorageClient {
     }
 
     return doc;
+  }
+
+  public static void validateOptions(Map<String, Object> cloudOptions) {
+    if (!cloudOptions.containsKey(GOOGLE_SERVICE_KEY)) {
+      throw new IllegalArgumentException("Missing " + GOOGLE_SERVICE_KEY + " in cloudOptions for GoogleStorageClient.");
+    }
   }
 
   // Only for testing

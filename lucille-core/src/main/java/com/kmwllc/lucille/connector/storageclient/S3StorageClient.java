@@ -1,5 +1,9 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
+import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
+import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
+
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -38,11 +42,11 @@ public class S3StorageClient extends BaseStorageClient {
   @Override
   public void init() throws ConnectorException {
     try {
-      AwsBasicCredentials awsCred = AwsBasicCredentials.create((String) cloudOptions.get(FileConnector.S3_ACCESS_KEY_ID),
-          (String) cloudOptions.get(FileConnector.S3_SECRET_ACCESS_KEY));
+      AwsBasicCredentials awsCred = AwsBasicCredentials.create((String) cloudOptions.get(S3_ACCESS_KEY_ID),
+          (String) cloudOptions.get(S3_SECRET_ACCESS_KEY));
       s3 = S3Client
           .builder()
-          .region(Region.of((String) cloudOptions.get(FileConnector.S3_REGION)))
+          .region(Region.of((String) cloudOptions.get(S3_REGION)))
           .credentialsProvider(StaticCredentialsProvider.create(awsCred))
           .build();
     } catch (Exception e) {
@@ -153,6 +157,14 @@ public class S3StorageClient extends BaseStorageClient {
 
   private String getFullPath(S3Object obj) {
     return pathToStorageURI.getScheme() + "://" + bucketOrContainerName + "/" + obj.key();
+  }
+
+  public static void validateOptions(Map<String, Object> cloudOptions) {
+    if (!cloudOptions.containsKey(S3_ACCESS_KEY_ID) ||
+        !cloudOptions.containsKey(S3_SECRET_ACCESS_KEY) ||
+        !cloudOptions.containsKey(S3_REGION)) {
+      throw new IllegalArgumentException("Missing '" + S3_ACCESS_KEY_ID + "' or '" + S3_SECRET_ACCESS_KEY + "' or '" + S3_REGION + "' in cloudOptions for S3StorageClient.");
+    }
   }
 
   // Only for testing

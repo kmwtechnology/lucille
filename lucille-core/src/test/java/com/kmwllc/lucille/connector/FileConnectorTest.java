@@ -176,7 +176,7 @@ public class FileConnectorTest {
     List<Document> documentList = messenger.getDocsSentForProcessing();
 
     // assert that all documents have been processed
-    Assert.assertEquals(15, documentList.size());
+    Assert.assertEquals(16, documentList.size());
 
     Document doc1 = documentList.get(0);
     assertEquals("jsonHandled-a", doc1.getId());
@@ -219,45 +219,50 @@ public class FileConnectorTest {
     assertEquals("Second!", new String(doc10.getBytes("file_content")));
 
     Document doc11 = documentList.get(10);
-    assertEquals("csvHandled-default.csv-1", doc11.getId());
-    assertEquals("a", doc11.getString("field1"));
-    assertEquals("b", doc11.getString("field2"));
-    assertEquals("c", doc11.getString("field3"));
-    assertTrue(doc11.getString("source").endsWith("default.csv"));
+    assertTrue(doc11.getId().startsWith("normal-"));
+    assertTrue(doc11.getString(FILE_PATH).endsWith("helloWorld.txt.gz:helloWorld.txt"));
+
 
     Document doc12 = documentList.get(11);
-    assertEquals("csvHandled-default.csv-2", doc12.getId());
-    assertEquals("d", doc12.getString("field1"));
-    assertEquals("e,f", doc12.getString("field2"));
-    assertEquals("g", doc12.getString("field3"));
+    assertEquals("csvHandled-default.csv-1", doc12.getId());
+    assertEquals("a", doc12.getString("field1"));
+    assertEquals("b", doc12.getString("field2"));
+    assertEquals("c", doc12.getString("field3"));
     assertTrue(doc12.getString("source").endsWith("default.csv"));
 
     Document doc13 = documentList.get(12);
-    assertEquals("csvHandled-default.csv-3", doc13.getId());
-    assertEquals("x", doc13.getString("field1"));
-    assertEquals("y", doc13.getString("field2"));
-    assertEquals("z", doc13.getString("field3"));
+    assertEquals("csvHandled-default.csv-2", doc13.getId());
+    assertEquals("d", doc13.getString("field1"));
+    assertEquals("e,f", doc13.getString("field2"));
+    assertEquals("g", doc13.getString("field3"));
     assertTrue(doc13.getString("source").endsWith("default.csv"));
 
     Document doc14 = documentList.get(13);
-    assertEquals("xmlHandled-1001", doc14.getId());
+    assertEquals("csvHandled-default.csv-3", doc14.getId());
+    assertEquals("x", doc14.getString("field1"));
+    assertEquals("y", doc14.getString("field2"));
+    assertEquals("z", doc14.getString("field3"));
+    assertTrue(doc14.getString("source").endsWith("default.csv"));
+
+    Document doc15 = documentList.get(14);
+    assertEquals("xmlHandled-1001", doc15.getId());
     assertEquals("<staff>\n" +
         "        <id>1001</id>\n" +
         "        <name>daniel</name>\n" +
         "        <role>software engineer</role>\n" +
         "        <salary currency=\"USD\">3000</salary>\n" +
         "        <bio>I am from San Diego</bio>\n" +
-        "    </staff>", doc14.getString("xml"));
+        "    </staff>", doc15.getString("xml"));
 
-    Document doc15 = documentList.get(14);
-    assertEquals("xmlHandled-1002", doc15.getId());
+    Document doc16 = documentList.get(15);
+    assertEquals("xmlHandled-1002", doc16.getId());
     assertEquals("<staff>\n" +
         "        <id>1002</id>\n" +
         "        <name>brian</name>\n" +
         "        <role>admin</role>\n" +
         "        <salary currency=\"EUR\">8000</salary>\n" +
         "        <bio>I enjoy reading</bio>\n" +
-        "    </staff>", doc15.getString("xml"));
+        "    </staff>", doc16.getString("xml"));
 
   }
 }

@@ -1,11 +1,12 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.ARCHIVED_FILE_SEPARATOR;
+import static com.kmwllc.lucille.connector.FileConnector.FILE_SEPARATOR;
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
+import static com.kmwllc.lucille.connector.FileConnector.MAX_NUM_OF_PAGES;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_AFTER_PROCESSING;
 import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_ERROR_FOLDER;
@@ -78,7 +79,7 @@ public abstract class BaseStorageClient implements StorageClient {
     this.handleCompressedFiles = fileOptions.hasPath(HANDLE_COMPRESSED_FILES) && fileOptions.getBoolean(HANDLE_COMPRESSED_FILES);
     this.moveToAfterProcessing = fileOptions.hasPath(MOVE_TO_AFTER_PROCESSING) ? fileOptions.getString(MOVE_TO_AFTER_PROCESSING) : null;
     this.moveToErrorFolder = fileOptions.hasPath(MOVE_TO_ERROR_FOLDER) ? fileOptions.getString(MOVE_TO_ERROR_FOLDER) : null;
-    this.maxNumOfPages = cloudOptions.containsKey("maxNumOfPages") ? (Integer) cloudOptions.get("maxNumOfPages") : 100;
+    this.maxNumOfPages = cloudOptions.containsKey(MAX_NUM_OF_PAGES) ? (Integer) cloudOptions.get(MAX_NUM_OF_PAGES) : 100;
   }
 
   /**
@@ -86,7 +87,7 @@ public abstract class BaseStorageClient implements StorageClient {
    *
    * @param publisher publisher used to publish documents
    * @param fullPathStr full path of the file, can be a cloud path or local path. Cloud path would include schema and bucket/container name
-   *                    e.g gs://bucket-name/folder/file.txt or s3://bucket-name/file.txt
+   *                    e.g. gs://bucket-name/folder/file.txt or s3://bucket-name/file.txt
    * @param fileExtension fileExtension of the file. Used to determine if the file should be processed by file handler
    * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
    */
@@ -101,14 +102,21 @@ public abstract class BaseStorageClient implements StorageClient {
         try (BufferedInputStream bis = new BufferedInputStream(getFileReferenceContentStream(fileReference));
             CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
           // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
-          String decompressedFullPathStr = FilenameUtils.removeExtension(fullPathStr);
-          if (handleArchivedFiles && isSupportedArchiveFileType(decompressedFullPathStr)) {
+          String decompressedPath = FilenameUtils.removeExtension(fullPathStr);
+          String resolvedExtension = FilenameUtils.getExtension(decompressedPath);
+
+          // if detected to be an archive type after decompression
+          if (handleArchivedFiles && isSupportedArchiveFileType(decompressedPath)) {
             handleArchiveFiles(publisher, compressorStream, fullPathStr);
-          } else if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(FilenameUtils.getExtension(decompressedFullPathStr), fileOptions)) {
-            handleStreamExtensionFiles(publisher, compressorStream, FilenameUtils.getExtension(decompressedFullPathStr), decompressedFullPathStr);
           } else {
-            Document doc = convertFileReferenceToDoc(fileReference, compressorStream, decompressedFullPathStr);
-            publisher.publish(doc);
+            String filePathFormat = fullPathStr + FILE_SEPARATOR + FilenameUtils.getName(decompressedPath);
+            // if file is a supported file type that should be handled by a file handler
+            if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(resolvedExtension, fileOptions)) {
+              handleStreamExtensionFiles(publisher, compressorStream, resolvedExtension, filePathFormat);
+            } else {
+              Document doc = convertFileReferenceToDoc(fileReference, compressorStream, filePathFormat);
+              publisher.publish(doc);
+            }
           }
         }
         afterProcessingFile(fullPathStr);
@@ -262,7 +270,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * helper method to get the full path of an entry in an archived file. Only used for archive files
    */
   protected String getEntryFullPath(String fullPathStr, String entryName) {
-    return fullPathStr + ARCHIVED_FILE_SEPARATOR + entryName;
+    return fullPathStr + FILE_SEPARATOR + entryName;
   }
 
   /**

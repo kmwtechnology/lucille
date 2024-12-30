@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.core.fileHandler;
 
-import static com.kmwllc.lucille.connector.FileConnector.ARCHIVED_FILE_SEPARATOR;
+import static com.kmwllc.lucille.connector.FileConnector.FILE_SEPARATOR;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.util.FileUtils;
@@ -11,7 +11,6 @@ import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -84,8 +83,8 @@ public class CSVFileHandler extends BaseFileHandler {
     String fileName = FilenameUtils.getName(pathStr);
 
     // handle the case where pathStr is a path of an entry of an archived file
-    if (pathStr.contains(ARCHIVED_FILE_SEPARATOR)) {
-      String entryName = pathStr.substring(pathStr.lastIndexOf(ARCHIVED_FILE_SEPARATOR) + 1);
+    if (pathStr.contains(FILE_SEPARATOR)) {
+      String entryName = pathStr.substring(pathStr.lastIndexOf(FILE_SEPARATOR) + 1);
       fileName = entryName.substring(entryName.lastIndexOf("/") + 1);
     }
 

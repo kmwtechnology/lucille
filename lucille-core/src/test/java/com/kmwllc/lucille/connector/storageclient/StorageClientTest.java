@@ -7,13 +7,8 @@ import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
 import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
-import static com.kmwllc.lucille.connector.storageclient.StorageClient.validateCloudOptions;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verify;
 
 import com.typesafe.config.ConfigFactory;
 import java.net.URI;
@@ -73,23 +68,5 @@ public class StorageClientTest {
         null, null, null, s3CloudOptionsBad, ConfigFactory.empty()));
 
     client.shutdown();
-  }
-
-  @Test
-  public void testValidateCloudOptions() throws Exception {
-    // test google cloud options
-    validateCloudOptions(new URI("gs://bucket/"), Map.of(GOOGLE_SERVICE_KEY, "key"));
-    // test s3 cloud options
-    validateCloudOptions(new URI("s3://bucket/"), Map.of(S3_REGION, "region", S3_ACCESS_KEY_ID, "id", S3_SECRET_ACCESS_KEY, "key"));
-    // test azure cloud options
-    validateCloudOptions(new URI("https://storagename.blob.core.windows.net/testblob"), Map.of(AZURE_CONNECTION_STRING, "connectionString"));
-    // test http bad cloud option (authority is wrong/mistyped)
-    assertThrows(IllegalArgumentException.class, () -> validateCloudOptions(
-        new URI("https://storagename.blob.core.widows.net/testblob"),
-        Map.of(AZURE_CONNECTION_STRING, "connectionString")));
-    // test default bad option
-    assertThrows(IllegalArgumentException.class, () -> validateCloudOptions(
-        new URI("anotherCloudOption://bucket/"),
-        Map.of(GOOGLE_SERVICE_KEY, "Key")));
   }
 }

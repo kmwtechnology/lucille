@@ -1,5 +1,9 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_KEY;
+import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_NAME;
+import static com.kmwllc.lucille.connector.FileConnector.AZURE_CONNECTION_STRING;
+
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
@@ -16,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -42,6 +47,7 @@ public class AzureStorageClient extends BaseStorageClient {
   @Override
   protected String getStartingDirectory() {
     String path = pathToStorageURI.getPath();
+    // path is in the format /containerName/folder1/folder2/... so need to return folder1/folder2/...
     String[] subPaths = path.split("/", 3);
     return subPaths.length > 2 ? subPaths[2] : "";
   }
@@ -49,14 +55,14 @@ public class AzureStorageClient extends BaseStorageClient {
   @Override
   public void init() throws ConnectorException {
     try {
-      if (cloudOptions.containsKey(FileConnector.AZURE_CONNECTION_STRING)) {
+      if (cloudOptions.containsKey(AZURE_CONNECTION_STRING)) {
         containerClient = new BlobContainerClientBuilder()
-            .connectionString((String) cloudOptions.get(FileConnector.AZURE_CONNECTION_STRING))
+            .connectionString((String) cloudOptions.get(AZURE_CONNECTION_STRING))
             .containerName(bucketOrContainerName)
             .buildClient();
       } else {
-        String accountName = (String) cloudOptions.get(FileConnector.AZURE_ACCOUNT_NAME);
-        String accountKey = (String) cloudOptions.get(FileConnector.AZURE_ACCOUNT_KEY);
+        String accountName = (String) cloudOptions.get(AZURE_ACCOUNT_NAME);
+        String accountKey = (String) cloudOptions.get(AZURE_ACCOUNT_KEY);
 
         containerClient = new BlobContainerClientBuilder()
             .credential(new StorageSharedKeyCredential(accountName, accountKey))
@@ -177,6 +183,13 @@ public class AzureStorageClient extends BaseStorageClient {
     if (blob.isPrefix()) return false;
 
     return shouldIncludeFile(blob.getName(), includes, excludes);
+  }
+
+  public static void validateOptions(Map<String, Object> cloudOptions) {
+    if (!cloudOptions.containsKey(AZURE_CONNECTION_STRING) &&
+        !(cloudOptions.containsKey(AZURE_ACCOUNT_NAME) && cloudOptions.containsKey(AZURE_ACCOUNT_KEY))) {
+      throw new IllegalArgumentException("Either '" + AZURE_CONNECTION_STRING + "' or '" + AZURE_ACCOUNT_NAME + "' & '" + AZURE_ACCOUNT_KEY + "' has to be in cloudOptions for AzureStorageClient.");
+    }
   }
 
   // Only for testing

@@ -18,8 +18,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Config parameters:
- *  docIdPrefix (string, Optional): prefix to add to the docId when not handled by a file handler, defaults to empty string. To
- *  configure docIdPrefix for files handled by handlers, configure it in its respective file handler config in fileOptions
+ *  docIdPrefix (string, Optional): prefix to add to the docId when not handled by a file handler, defaults to empty string. To configure docIdPrefix for CSV, JSON or XML files, configure it in its respective file handler config in fileOptions
  *  pathToStorage (string): path to storage, can be local file system or cloud bucket/container
  *  e.g.
  *    /path/to/storage/in/local/filesystem
@@ -46,19 +45,15 @@ import org.slf4j.LoggerFactory;
  *  Optional:
  *    "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request, defaults to 100
  *
- *  FileOptions:
- *    getFileContent (boolean, Optional): whether to fetch the file content or not, defaults to true
- *    handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. Recurring not supported.
- *    Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the archived file before processing
- *    Also, if there exists a file of the same name within the same current directory as the entry files, they will give the same id
- *    handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. Recurring not supported.
- *    Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the compressed file before processing.
- *    Also, if there exists a file of the same name within the same current directory as the decompressed file, they will give the same id
- *    moveToAfterProcessing (string, Optional): path to move files to after processing, currently only supported for local file system
- *    moveToErrorFolder (string, Optional): path to move files to if an error occurs during processing, currently only supported for local file system
- *    csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
- *    json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
- *    xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler
+ * FileOptions:
+ *  getFileContent (boolean, Optional): whether to fetch the file content or not, defaults to true
+ *  handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. Recurring not supported. Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the compressed file before processing. The file path field of extracted file will be in the format of "{path/to/archive/archive.zip}:{extractedFileName}" unless handled by fileHandler in which in that case will follow the id creation of that fileHandler
+ *  handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. Recurring not supported.Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the compressed file before processing.The file path field of decompressed file will be in the format of "{path/to/compressed/compressedFileName.gz}:{compressedFileName}" unless handled by fileHandler in which in that case will follow the id creation of that fileHandler
+ *  moveToAfterProcessing (string, Optional): path to move files to after processing, currently only supported for local file system
+ *  moveToErrorFolder (string, Optional): path to move files to if an error occurs during processing, currently only supported for local file system
+ *  csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
+ *  json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
+ *  xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler
  */
 
 public class FileConnector extends AbstractConnector {
@@ -68,7 +63,7 @@ public class FileConnector extends AbstractConnector {
   public static final String CREATED = "file_creation_date";
   public static final String SIZE = "file_size_bytes";
   public static final String CONTENT = "file_content";
-  public static final String ARCHIVED_FILE_SEPARATOR = ":";
+  public static final String FILE_SEPARATOR = ":";
 
   // cloudOption Keys
   public static final String AZURE_CONNECTION_STRING = "connectionString";
@@ -78,6 +73,7 @@ public class FileConnector extends AbstractConnector {
   public static final String S3_ACCESS_KEY_ID = "accessKeyId";
   public static final String S3_SECRET_ACCESS_KEY = "secretAccessKey";
   public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
+  public static final String MAX_NUM_OF_PAGES = "maxNumOfPages";
 
   // fileOption Config Options
   public static final String GET_FILE_CONTENT = "getFileContent";
