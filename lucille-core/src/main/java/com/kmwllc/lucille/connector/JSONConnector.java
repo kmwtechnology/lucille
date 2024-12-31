@@ -1,42 +1,41 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.typesafe.config.Config;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.io.LineIterator;
+import java.io.File;
+import java.nio.file.Path;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.util.function.UnaryOperator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class JSONConnector extends AbstractConnector {
-
-  private final String path;
-
-  private final UnaryOperator<String> idUpdater;
+  private static final Logger log = LoggerFactory.getLogger(JSONConnector.class);
+  private final String pathStr;
+  private final JsonFileHandler jsonFileHandler;
 
   public JSONConnector(Config config) {
     super(config);
-    this.path = config.getString("jsonPath");
-    this.idUpdater = (id) -> createDocId(id);
+    this.pathStr = config.getString("jsonPath");
+    this.jsonFileHandler = new JsonFileHandler(config);
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-
-    try (Reader reader = FileUtils.getReader(path)) {
-      LineIterator it = IOUtils.lineIterator(reader);
-      while (it.hasNext()) {
-        String line = it.nextLine();
-        publisher.publish(Document.createFromJson(line, idUpdater));
-      }
-    } catch (IOException e) {
-      throw new ConnectorException("Error reading file: ", e);
+    File file = new File(pathStr);
+    Path path;
+    try {
+      path = file.toPath();
     } catch (Exception e) {
-      throw new ConnectorException("Error creating or publishing document", e);
+      throw new ConnectorException("Error converting " + pathStr + "to Path", e);
+    }
+
+    try {
+      log.debug("Processing file: {}", path);
+      jsonFileHandler.processFileAndPublish(publisher, path);
+    } catch (Exception e) {
+      throw new ConnectorException("Error processing or publishing file: " + path, e);
     }
   }
 }

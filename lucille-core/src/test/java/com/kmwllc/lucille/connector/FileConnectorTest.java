@@ -1,14 +1,19 @@
 package com.kmwllc.lucille.connector;
 
+import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.kmwllc.lucille.connector.cloudstorageclients.CloudStorageClient;
+import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -17,9 +22,10 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.File;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
-import java.util.Arrays;
+import java.util.List;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -36,155 +42,227 @@ public class FileConnectorTest {
   }
 
   @Test
-  public void testExecuteForCloudFiles() throws Exception {
+  public void testExecuteSuccessful() throws Exception {
     Config config = ConfigFactory.load("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new FileConnector(config);
 
-    try (MockedStatic<CloudStorageClient> mockCloudStorageClient = mockStatic(CloudStorageClient.class)) {
-      CloudStorageClient cloudStorageClient = mock(CloudStorageClient.class);
-      mockCloudStorageClient.when(() -> CloudStorageClient.getClient(any(), any(), any(), any(), any(), any()))
-          .thenReturn(cloudStorageClient);
+    try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
+      StorageClient storageClient = mock(StorageClient.class);
+      mockCloudStorageClient.when(() -> StorageClient.create(any(), any(), any(), any(), any(), any()))
+          .thenReturn(storageClient);
 
       connector.execute(publisher);
-      verify(cloudStorageClient, times(1)).init();
-      verify(cloudStorageClient, times(1)).publishFiles();
+      verify(storageClient, times(1)).init();
+      verify(storageClient, times(1)).traverse(publisher);
+      verify(storageClient, times(1)).shutdown();
     }
   }
 
   @Test
-  public void testValidateGCloudOptions() throws Exception {
-    CloudStorageClient cloudStorageClient = mock(CloudStorageClient.class);
+  public void testInitFailed() throws Exception {
     Config config = ConfigFactory.load("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new FileConnector(config);
 
-    Config badConfig = ConfigFactory.load("FileConnectorTest/gcloudtraversalbad.conf");
-    TestMessenger badMessenger = new TestMessenger();
-    Publisher badPublisher = new PublisherImpl(badConfig, badMessenger, "run", "pipeline1");
-    Connector badConnector = new FileConnector(badConfig);
+    try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
+      StorageClient storageClient = mock(StorageClient.class);
+      mockCloudStorageClient.when(() -> StorageClient.create(any(), any(), any(), any(), any(), any()))
+          .thenReturn(storageClient);
 
-
-    try (MockedStatic<CloudStorageClient> mockCloudStorageClient = mockStatic(CloudStorageClient.class)) {
-      mockCloudStorageClient.when(() -> CloudStorageClient.getClient(any(), any(), any(), any(), any(), any()))
-          .thenReturn(cloudStorageClient);
-
-      connector.execute(publisher);
-      verify(cloudStorageClient, times(1)).init();
-      verify(cloudStorageClient, times(1)).publishFiles();
-
-      assertThrows(IllegalArgumentException.class, () -> badConnector.execute(badPublisher));
+      // init method did not declare to throw any Exception, so using RuntimeException
+      // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
+      doThrow(new RuntimeException("Failed to initialize client")).when(storageClient).init();
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+      // verify that shutdown is called even gettingClient fails
+      verify(storageClient, times(1)).shutdown();
     }
   }
 
   @Test
-  public void testValidateS3CloudOptions() throws Exception {
-    CloudStorageClient cloudStorageClient = mock(CloudStorageClient.class);
-    Config config = ConfigFactory.load("FileConnectorTest/s3cloudtraversal.conf");
+  public void testPublishFilesFailed() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new FileConnector(config);
 
-    Config badConfig = ConfigFactory.load("FileConnectorTest/s3cloudtraversalbad.conf");
-    TestMessenger badMessenger = new TestMessenger();
-    Publisher badPublisher = new PublisherImpl(badConfig, badMessenger, "run", "pipeline1");
-    Connector badConnector = new FileConnector(badConfig);
+    try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
+      StorageClient storageClient = mock(StorageClient.class);
+      mockCloudStorageClient.when(() -> StorageClient.create(any(), any(), any(), any(), any(), any()))
+          .thenReturn(storageClient);
 
-
-    try (MockedStatic<CloudStorageClient> mockCloudStorageClient = mockStatic(CloudStorageClient.class)) {
-      mockCloudStorageClient.when(() -> CloudStorageClient.getClient(any(), any(), any(), any(), any(), any()))
-          .thenReturn(cloudStorageClient);
-
-      connector.execute(publisher);
-      verify(cloudStorageClient, times(1)).init();
-      verify(cloudStorageClient, times(1)).publishFiles();
-
-      assertThrows(IllegalArgumentException.class, () -> badConnector.execute(badPublisher));
+      // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
+      doThrow(new Exception("Failed to publish files")).when(storageClient).traverse(publisher);
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+      // verify that shutdown is called even gettingClient fails
+      verify(storageClient, times(1)).shutdown();
     }
   }
 
   @Test
-  public void testValidateAzureCloudOptions() throws Exception {
-    CloudStorageClient cloudStorageClient = mock(CloudStorageClient.class);
-    Config config = ConfigFactory.load("FileConnectorTest/azbcloudtraversal.conf");
+  public void testErrorDirectory() throws Exception {
+    File tempDir = new File("temp");
+
+    // copy faulty csv into temp directory
+    File copy = new File("src/test/resources/FileConnectorTest/faulty.csv");
+    org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
+
+    Config config = ConfigFactory.load("FileConnectorTest/faulty.conf");
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new FileConnector(config);
 
-    Config badConfig = ConfigFactory.load("FileConnectorTest/azbcloudtraversalbad.conf");
-    TestMessenger badMessenger = new TestMessenger();
-    Publisher badPublisher = new PublisherImpl(badConfig, badMessenger, "run", "pipeline1");
-    Connector badConnector = new FileConnector(badConfig);
+    connector.execute(publisher);
 
+    // verify error directory is made
+    File errorDir = new File("error");
+    File f = new File("error/faulty.csv");
 
-    try (MockedStatic<CloudStorageClient> mockCloudStorageClient = mockStatic(CloudStorageClient.class)) {
-      mockCloudStorageClient.when(() -> CloudStorageClient.getClient(any(), any(), any(), any(), any(), any()))
-          .thenReturn(cloudStorageClient);
-
-      connector.execute(publisher);
-      verify(cloudStorageClient, times(1)).init();
-      verify(cloudStorageClient, times(1)).publishFiles();
-
-      assertThrows(IllegalArgumentException.class, () -> badConnector.execute(badPublisher));
+    try {
+      // verify error directory is made
+      assertTrue(errorDir.exists());
+      // verify file is moved inside error directory
+      assertTrue(f.exists());
+    } finally {
+      // delete all created folders and files and reset the FileHandlerManager
+      f.delete();
+      errorDir.delete();
+      tempDir.delete();
     }
   }
 
   @Test
-  public void testExecuteWithLocalFiles() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/localfs.conf");
+  public void testSuccessfulDirectory() throws Exception {
+    File tempDir = new File("temp");
+
+    // copy successful csv into temp directory
+    File copy = new File("src/test/resources/FileConnectorTest/defaults.csv");
+    org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
+
+    Config config = ConfigFactory.load("FileConnectorTest/success.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    connector.execute(publisher);
+
+    // verify error directory is made
+    File successDir = new File("success");
+    File f = new File("success/defaults.csv");
+
+    try {
+      // verify error directory is made
+      assertTrue(successDir.exists());
+      // verify file is moved inside error directory
+      assertTrue(f.exists());
+    } finally {
+      // delete all created folders and files and reset the FileHandlerManager
+      f.delete();
+      successDir.delete();
+      tempDir.delete();
+    }
+  }
+
+  @Test
+  public void testExampleTraversal() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/example.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new FileConnector(config);
 
     connector.execute(publisher);
-    String[] fileNames = {"a.json", "b.json", "c.json", "d.json",
-        "subdir1/e.json", "subdir1/e.json.gz", "subdir1/e.yaml", "subdir1/f.jsonl"};
-    int docCount = 0;
-    for (Document doc : messenger.getDocsSentForProcessing()) {
-      String docId = doc.getId();
-      String filePath = doc.getString(FileConnector.FILE_PATH);
-      // skip if it's an automatically generated Finder file because the directory was opened
-      if (filePath.endsWith(".DS_Store")) continue;
-      String content = new String(doc.getBytes(FileConnector.CONTENT));
-      Assert.assertTrue(docId.startsWith("file_"));
-      Assert.assertTrue(Arrays.stream(fileNames).anyMatch(filePath::endsWith));
-      if (filePath.endsWith("c.json")) {
-        Assert.assertTrue(content.contains("\"artist\":\"Lou Levit\""));
-      }
-      if (filePath.endsWith("subdir1/e.yaml")) {
-        Assert.assertTrue(content.contains("slug: Awesome-Wood-Mug"));
-      }
-      docCount++;
-    }
-    Assert.assertEquals(8, docCount);
-  }
+    List<Document> documentList = messenger.getDocsSentForProcessing();
 
-  @Test
-  public void testExecuteWithLocalFilesFiltered() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/localfs_filtered.conf");
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
+    // assert that all documents have been processed
+    Assert.assertEquals(16, documentList.size());
 
-    connector.execute(publisher);
-    Assert.assertEquals(3, messenger.getDocsSentForProcessing().size());
-    String[] fileNames = {"a.json", "b.json", "c.json"};
-    for (Document doc : messenger.getDocsSentForProcessing()) {
-      String docId = doc.getId();
-      String filePath = doc.getString(VFSConnector.FILE_PATH);
-      String content = new String(doc.getBytes(VFSConnector.CONTENT));
-      Assert.assertTrue(Arrays.stream(fileNames).anyMatch(filePath::endsWith));
-      if (filePath.endsWith("a.json")) {
-        Assert.assertTrue(content.contains("\"filename\":\"400_106547e2f83b.jpg\""));
-      }
-      if (filePath.endsWith("b.json")) {
-        Assert.assertTrue(content.contains("\"imageHash\":\"1aaeac2de7c48e4e7773b1f92138291f\""));
-      }
-      if (filePath.endsWith("c.json")) {
-        Assert.assertTrue(content.contains("\"productImg\":\"mug-400_6812876c6c27.jpg\""));
-      }
-    }
+    Document doc1 = documentList.get(0);
+    assertEquals("jsonHandled-a", doc1.getId());
+    assertEquals("Rustic Cows Mug", doc1.getString("name"));
+
+    Document doc2 = documentList.get(1);
+    assertEquals("jsonHandled-b", doc2.getId());
+    assertEquals("Gorgeous Woman Mug", doc2.getString("name"));
+
+    Document doc3 = documentList.get(2);
+    assertTrue(doc3.getString(FILE_PATH).endsWith("e.yaml"));
+    assertEquals("586", doc3.getString("file_size_bytes"));
+
+    Document doc4 = documentList.get(3);
+    assertEquals("jsonHandled-c1", doc4.getId());
+    assertEquals("Awesome Night Mug", doc4.getString("name"));
+
+    Document doc5 = documentList.get(4);
+    assertEquals("jsonHandled-c2", doc5.getId());
+    assertEquals("Ergonomic Mountains Mug", doc5.getString("name"));
+
+    Document doc6 = documentList.get(5);
+    assertEquals("jsonHandled-c3", doc6.getId());
+    assertEquals("Refined Fog Mug", doc6.getString("name"));
+
+    Document doc7 = documentList.get(6);
+    assertEquals("jsonHandled-c4", doc7.getId());
+    assertEquals("Sleek Castle Mug", doc7.getString("name"));
+
+    Document doc8 = documentList.get(7);
+    assertEquals("jsonHandled-c5", doc8.getId());
+    assertEquals("Small City Mug", doc8.getString("name"));
+
+    Document doc9 = documentList.get(8);
+    assertTrue(doc9.getString(FILE_PATH).endsWith("first.txt"));
+    assertEquals("First!", new String(doc9.getBytes("file_content")));
+
+    Document doc10 = documentList.get(9);
+    assertTrue(doc10.getString(FILE_PATH).endsWith("second.txt"));
+    assertEquals("Second!", new String(doc10.getBytes("file_content")));
+
+    Document doc11 = documentList.get(10);
+    assertTrue(doc11.getId().startsWith("normal-"));
+    assertTrue(doc11.getString(FILE_PATH).endsWith("helloWorld.txt.gz:helloWorld.txt"));
+
+
+    Document doc12 = documentList.get(11);
+    assertEquals("csvHandled-default.csv-1", doc12.getId());
+    assertEquals("a", doc12.getString("field1"));
+    assertEquals("b", doc12.getString("field2"));
+    assertEquals("c", doc12.getString("field3"));
+    assertTrue(doc12.getString("source").endsWith("default.csv"));
+
+    Document doc13 = documentList.get(12);
+    assertEquals("csvHandled-default.csv-2", doc13.getId());
+    assertEquals("d", doc13.getString("field1"));
+    assertEquals("e,f", doc13.getString("field2"));
+    assertEquals("g", doc13.getString("field3"));
+    assertTrue(doc13.getString("source").endsWith("default.csv"));
+
+    Document doc14 = documentList.get(13);
+    assertEquals("csvHandled-default.csv-3", doc14.getId());
+    assertEquals("x", doc14.getString("field1"));
+    assertEquals("y", doc14.getString("field2"));
+    assertEquals("z", doc14.getString("field3"));
+    assertTrue(doc14.getString("source").endsWith("default.csv"));
+
+    Document doc15 = documentList.get(14);
+    assertEquals("xmlHandled-1001", doc15.getId());
+    assertEquals("<staff>\n" +
+        "        <id>1001</id>\n" +
+        "        <name>daniel</name>\n" +
+        "        <role>software engineer</role>\n" +
+        "        <salary currency=\"USD\">3000</salary>\n" +
+        "        <bio>I am from San Diego</bio>\n" +
+        "    </staff>", doc15.getString("xml"));
+
+    Document doc16 = documentList.get(15);
+    assertEquals("xmlHandled-1002", doc16.getId());
+    assertEquals("<staff>\n" +
+        "        <id>1002</id>\n" +
+        "        <name>brian</name>\n" +
+        "        <role>admin</role>\n" +
+        "        <salary currency=\"EUR\">8000</salary>\n" +
+        "        <bio>I enjoy reading</bio>\n" +
+        "    </staff>", doc16.getString("xml"));
+
   }
 }

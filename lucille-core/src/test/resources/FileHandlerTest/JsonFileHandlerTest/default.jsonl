@@ -1,0 +1,3 @@
+{"id": "1", "field1":"val1-1", "field2":["val2-1a", "val2-1b"]}
+{"id": "2", "field3":"val3", "field2":["val2-2a", "val2-2b"]}
+{"id": "3", "field4":"val4", "field5":"val5"}
