@@ -74,7 +74,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
   @Override
   public void traverse(Publisher publisher) throws Exception {
-    try (Stream<Path> paths = Files.walk(startingDirectoryPath)) {
+    try (Stream<Path> paths = Files.walk(startingDirectoryPath).sorted()) {
       paths.filter(this::isValidPath)
           .forEachOrdered(path -> {
             Path fullPath = path.toAbsolutePath().normalize();
