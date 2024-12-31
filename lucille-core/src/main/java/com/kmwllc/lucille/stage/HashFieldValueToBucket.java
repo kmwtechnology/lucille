@@ -3,6 +3,8 @@ package com.kmwllc.lucille.stage;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -33,20 +35,26 @@ public class HashFieldValueToBucket extends Stage {
 	private final String destField;
 	private final int numBuckets;
 
-	public HashFieldValueToBucket(Config config) {
+	public HashFieldValueToBucket(Config config) throws StageException {
 		super(config, new StageSpec().withRequiredProperties("field_name", "dest", "buckets"));
 		this.fieldName = config.getString("field_name");
 		this.buckets = config.getStringList("buckets");
 		this.destField = config.getString("dest");
 		numBuckets = buckets.size();
+    if (buckets.size() == 0) {
+      throw new StageException("There must be at least one bucket defined in the buckets parameter.");
+    }
+    if (StringUtils.isEmpty(fieldName)) {
+      throw new StageException("field_name must not be null or empty");
+    }
+    if (StringUtils.isEmpty(destField)) {
+      throw new StageException("dest field name must not be null or empty");
+    }
 	}
 
 	@Override
 	public Iterator<Document> processDocument(Document doc) throws StageException {
-		int hashIndex = doc.getId().hashCode() % numBuckets;
-		if (hashIndex < 0) {
-			hashIndex = hashIndex * -1;
-		}
+		int hashIndex = Math.abs(doc.getId().hashCode() % numBuckets);
 		doc.setField(destField, buckets.get(hashIndex));
 		return null;
 	}
