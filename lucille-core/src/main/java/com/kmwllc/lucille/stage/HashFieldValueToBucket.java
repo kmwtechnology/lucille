@@ -31,16 +31,16 @@ import com.typesafe.config.Config;
 public class HashFieldValueToBucket extends Stage {
 
   private final String fieldName;
-	private final List<String> buckets;
-	private final String destField;
-	private final int numBuckets;
+  private final List<String> buckets;
+  private final String destField;
+  private final int numBuckets;
 
-	public HashFieldValueToBucket(Config config) throws StageException {
-		super(config, new StageSpec().withRequiredProperties("field_name", "dest", "buckets"));
-		this.fieldName = config.getString("field_name");
-		this.buckets = config.getStringList("buckets");
-		this.destField = config.getString("dest");
-		numBuckets = buckets.size();
+  public HashFieldValueToBucket(Config config) throws StageException {
+    super(config, new StageSpec().withRequiredProperties("field_name", "dest", "buckets"));
+    this.fieldName = config.getString("field_name");
+    this.buckets = config.getStringList("buckets");
+    this.destField = config.getString("dest");
+    numBuckets = buckets.size();
     if (buckets.size() == 0) {
       throw new StageException("There must be at least one bucket defined in the buckets parameter.");
     }
@@ -50,13 +50,13 @@ public class HashFieldValueToBucket extends Stage {
     if (StringUtils.isEmpty(destField)) {
       throw new StageException("dest field name must not be null or empty");
     }
-	}
+  }
 
-	@Override
-	public Iterator<Document> processDocument(Document doc) throws StageException {
-		int hashIndex = Math.abs(doc.getId().hashCode() % numBuckets);
-		doc.setField(destField, buckets.get(hashIndex));
-		return null;
-	}
+  @Override
+  public Iterator<Document> processDocument(Document doc) throws StageException {
+    int hashIndex = Math.abs(doc.getId().hashCode() % numBuckets);
+    doc.setField(destField, buckets.get(hashIndex));
+    return null;
+  }
 
 }
