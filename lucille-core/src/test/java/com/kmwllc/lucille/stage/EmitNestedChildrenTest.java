@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import org.apache.commons.collections4.IteratorUtils;
 import org.junit.Test;
 
@@ -133,16 +134,27 @@ public class EmitNestedChildrenTest {
     assertEquals("child1", doc1.getId());
     assertEquals("child2", doc2.getId());
 
-    for (Document doc : documents) {
-      assertEquals("parentId", doc.getString("parent"));
-      assertEquals("value1", doc.getString("multivaluedField"));
-      assertEquals(List.of("value1", "value2"), doc.getStringList("multivaluedField"));
-      assertEquals("singleValue", doc.getString("singleValueField"));
-      assertFalse(doc.isMultiValued("singleValueField"));
-      assertEquals(Integer.valueOf(1), doc.getInt("integerValueField"));
-      assertEquals(Boolean.TRUE, doc.getBoolean("booleanValueField"));
-      assertEquals(List.of(Boolean.TRUE, Boolean.FALSE), doc.getBooleanList("multivaluedBooleanField"));
-      assertFalse(doc.has("fieldToNotCopy"));
-    }
+    Map<String, Object> child1MapExpected = Map.of(
+        "id", "child1",
+        "parent", "parentId",
+        "multivaluedField", List.of("value1", "value2"),
+        "singleValueField", "singleValue",
+        "integerValueField", 1,
+        "booleanValueField", true,
+        "multivaluedBooleanField", List.of(true, false)
+    );
+
+    Map<String, Object> child2MapExpected = Map.of(
+        "id", "child2",
+        "parent", "parentId",
+        "multivaluedField", List.of("value1", "value2"),
+        "singleValueField", "singleValue",
+        "integerValueField", 1,
+        "booleanValueField", true,
+        "multivaluedBooleanField", List.of(true, false)
+    );
+
+    assertEquals(child1MapExpected, doc1.asMap());
+    assertEquals(child2MapExpected, doc2.asMap());
   }
 }

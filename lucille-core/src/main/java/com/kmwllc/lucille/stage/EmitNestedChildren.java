@@ -51,11 +51,10 @@ public class EmitNestedChildren extends Stage {
             continue;
           }
           // handle multivalued fields if needed, we want to be a list if multivalued
-          // Note we are grabbing the String version of the contents
           if (doc.isMultiValued(field)) {
-            child.update(field, updateMode, doc.getStringList(field).toArray(new String[0]));
+            child.update(field, updateMode, doc.getJsonList(field).toArray(new com.fasterxml.jackson.databind.JsonNode[0]));
           } else {
-            child.update(field, updateMode, doc.getString(field));
+            child.update(field, updateMode, doc.getJson(field));
           }
         }
       }
