@@ -87,7 +87,7 @@ public class AzureStorageClient extends BaseStorageClient {
   @Override
   public void traverse(Publisher publisher) throws Exception{
     containerClient.listBlobs(new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
-        .forEach(blob -> {
+        .forEachOrdered(blob -> {
           if (isValid(blob)) {
             String fullPathStr = getFullPath(blob);
             String fileExtension = FilenameUtils.getExtension(fullPathStr);
