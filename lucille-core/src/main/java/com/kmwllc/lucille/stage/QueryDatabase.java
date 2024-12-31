@@ -25,11 +25,11 @@ import java.util.Map;
  * - jdbcUser (String) : username to access database
  * - jdbcPassword (String) : password to access database
  * - sql (String, Optional) : SQL statement that would be requested to the database. Allow for "?" character for keyFields configuration
- * - keyFields (List<String>) : Strings to replace ? in the statement made in sql
+ * - keyFields (List&lt;String&gt;) : Strings to replace ? in the statement made in sql
  *   e.g. keyFields : ["123"]
  *        sql: SELECT name FROM meal WHERE id = ?
- * - inputTypes (List<String>) : Each input type of each of the keyField
- * - fieldMapping (Map<String, String>) : map of columns retrieved from result set to the name of the field in the Lucille document
+ * - inputTypes (List&lt;String&gt;) : Each input type of each of the keyField
+ * - fieldMapping (Map&lt;String, String&gt;) : map of columns retrieved from result set to the name of the field in the Lucille document
  *   it will populate with.
  * - connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1
  * - connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds

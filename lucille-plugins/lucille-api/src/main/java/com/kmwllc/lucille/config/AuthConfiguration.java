@@ -15,6 +15,8 @@ public final class AuthConfiguration {
   private AuthType type;
 
   private String password;
+  
+  private boolean enabled = true; 
 
   @JsonProperty
   public AuthType getType() {
@@ -29,6 +31,16 @@ public final class AuthConfiguration {
       this.type = AuthType.NO_AUTH;
     }
   }
+  
+  @JsonProperty
+  public boolean isEnabled() {
+      return enabled;
+  }
+
+  @JsonProperty
+  public void setEnabled(boolean enabled) {
+      this.enabled = enabled;
+  }  
 
   @JsonProperty
   public String getPassword() {

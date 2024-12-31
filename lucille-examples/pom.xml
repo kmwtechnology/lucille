@@ -23,6 +23,7 @@
     <module>lucille-distributed-example</module>
     <module>lucille-simple-csv-solr-example</module>
     <module>lucille-opensearch-ingest-example</module>
+    <module>lucille-s3-ingest-example</module>
   </modules>
 
   <dependencies>

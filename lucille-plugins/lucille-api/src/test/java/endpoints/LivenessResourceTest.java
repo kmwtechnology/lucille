@@ -17,7 +17,7 @@ public class LivenessResourceTest {
   @Test
   public void testLivenessEndpoint() {
     Optional<PrincipalImpl> user = Optional.of(new PrincipalImpl("test"));
-    Response response = liveness.isAlive(user);
+    Response response = liveness.isAlive();    
 
     assertEquals(Response.ok().build().toString(), response.toString());
   }

@@ -48,7 +48,7 @@ import org.apache.logging.log4j.Logger;
  *    e.g. chunks_to_overlap: 1 -> { chunk1/chunk2/chunk3, chunk3/chunk4/chunk5, chunk5/chunk6/chunk7}
  *         chunks_to_overlap: 2 -> { chunk1/chunk2/chunk3, chunk2/chunk3/chunk4, chunk3/chunk4/chunk5}
  * - character_limit (Integer, optional) : hard limit number of characters in the final chunk. Truncate rest. Performed after
- *   merging & overlapping if they are set.
+ *   merging and overlapping if they are set.
  *
  *  - child document fields:
  *       - "id" : the child id, in the format of "parent_id-chunk_number"
