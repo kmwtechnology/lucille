@@ -18,7 +18,6 @@ public class HashFieldValueToBucketTest {
     Document doc = Document.create("id");
     stage.processDocument(doc);
     assertEquals("shard4", doc.getString("bucket"));
-
   }
 
 }

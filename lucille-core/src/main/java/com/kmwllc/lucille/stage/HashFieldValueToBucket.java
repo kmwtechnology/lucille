@@ -40,7 +40,7 @@ public class HashFieldValueToBucket extends Stage {
     this.fieldName = config.getString("field_name");
     this.buckets = config.getStringList("buckets");
     this.destField = config.getString("dest");
-    numBuckets = buckets.size();
+    this.numBuckets = buckets.size();
     if (buckets.size() == 0) {
       throw new StageException("There must be at least one bucket defined in the buckets parameter.");
     }
