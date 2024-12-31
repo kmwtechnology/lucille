@@ -37,6 +37,7 @@ public class SolrUtils {
    */
   public static SolrClient getSolrClient(Config config) {
     SSLUtils.setSSLSystemProperties(config);
+    
     if (config.hasPath("solr.useCloudClient") && config.getBoolean("solr.useCloudClient")) {
       CloudHttp2SolrClient cloudSolrClient = getCloudClient(config);
       return cloudSolrClient;
@@ -80,6 +81,11 @@ public class SolrUtils {
   public static Http2SolrClient getHttpClient(Config config) {
     Http2SolrClient.Builder clientBuilder = new Http2SolrClient.Builder();
 
+    if (getAllowInvalidCert(config)) {
+    	// disable the solr ssl host checking if configured to do so.
+    	System.setProperty("solr.ssl.checkPeerName", "false");
+    }
+    
     if (requiresAuth(config)) {
       CredentialsProvider provider = new BasicCredentialsProvider();
       String userName = config.getString("solr.userName");
@@ -89,6 +95,7 @@ public class SolrUtils {
       clientBuilder.withBasicAuthCredentials(userName, password);
     }
 
+    
     return clientBuilder.build();
   }
 
@@ -159,4 +166,12 @@ public class SolrUtils {
 
     return d;
   }
+  
+  public static boolean getAllowInvalidCert(Config config) {
+    if (config.hasPath("solr.acceptInvalidCert")) {
+      return config.getString("solr.acceptInvalidCert").equalsIgnoreCase("true");
+    }
+    return false;
+  }
+  
 }
