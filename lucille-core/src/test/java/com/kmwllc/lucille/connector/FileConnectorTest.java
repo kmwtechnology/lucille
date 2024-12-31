@@ -183,66 +183,58 @@ public class FileConnectorTest {
     assertEquals("Rustic Cows Mug", doc1.getString("name"));
 
     Document doc2 = documentList.get(1);
-    assertEquals("jsonHandled-b", doc2.getId());
-    assertEquals("Gorgeous Woman Mug", doc2.getString("name"));
+    assertTrue(doc2.getId().startsWith("normal-"));
+    assertTrue(doc2.getString(FILE_PATH).endsWith("helloWorld.txt.gz:helloWorld.txt"));
 
     Document doc3 = documentList.get(2);
-    assertTrue(doc3.getString(FILE_PATH).endsWith("e.yaml"));
-    assertEquals("586", doc3.getString("file_size_bytes"));
+    assertTrue(doc3.getId().startsWith("normal-"));
+    assertTrue(doc3.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip:subDirWith2TxtFiles/first.txt"));
+    assertEquals("First!", new String(doc3.getBytes("file_content")));
 
     Document doc4 = documentList.get(3);
-    assertEquals("jsonHandled-c1", doc4.getId());
-    assertEquals("Awesome Night Mug", doc4.getString("name"));
+    assertTrue(doc4.getId().startsWith("normal-"));
+    assertTrue(doc4.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip:subDirWith2TxtFiles/second.txt"));
+    assertEquals("Second!", new String(doc4.getBytes("file_content")));
 
     Document doc5 = documentList.get(4);
-    assertEquals("jsonHandled-c2", doc5.getId());
-    assertEquals("Ergonomic Mountains Mug", doc5.getString("name"));
+    assertEquals("jsonHandled-b", doc5.getId());
+    assertEquals("Gorgeous Woman Mug", doc5.getString("name"));
 
     Document doc6 = documentList.get(5);
-    assertEquals("jsonHandled-c3", doc6.getId());
-    assertEquals("Refined Fog Mug", doc6.getString("name"));
+    assertEquals("jsonHandled-c1", doc6.getId());
+    assertEquals("Awesome Night Mug", doc6.getString("name"));
 
     Document doc7 = documentList.get(6);
-    assertEquals("jsonHandled-c4", doc7.getId());
-    assertEquals("Sleek Castle Mug", doc7.getString("name"));
+    assertEquals("jsonHandled-c2", doc7.getId());
+    assertEquals("Ergonomic Mountains Mug", doc7.getString("name"));
 
     Document doc8 = documentList.get(7);
-    assertEquals("jsonHandled-c5", doc8.getId());
-    assertEquals("Small City Mug", doc8.getString("name"));
+    assertEquals("jsonHandled-c3", doc8.getId());
+    assertEquals("Refined Fog Mug", doc8.getString("name"));
 
     Document doc9 = documentList.get(8);
-    assertTrue(doc9.getString(FILE_PATH).endsWith("first.txt"));
-    assertEquals("First!", new String(doc9.getBytes("file_content")));
+    assertEquals("jsonHandled-c4", doc9.getId());
+    assertEquals("Sleek Castle Mug", doc9.getString("name"));
 
     Document doc10 = documentList.get(9);
-    assertTrue(doc10.getString(FILE_PATH).endsWith("second.txt"));
-    assertEquals("Second!", new String(doc10.getBytes("file_content")));
+    assertEquals("jsonHandled-c5", doc10.getId());
+    assertEquals("Small City Mug", doc10.getString("name"));
 
     Document doc11 = documentList.get(10);
     assertTrue(doc11.getId().startsWith("normal-"));
-    assertTrue(doc11.getString(FILE_PATH).endsWith("helloWorld.txt.gz:helloWorld.txt"));
-
+    assertTrue(doc11.getString(FILE_PATH).endsWith("subdir/e.yaml"));
 
     Document doc12 = documentList.get(11);
     assertEquals("csvHandled-default.csv-1", doc12.getId());
-    assertEquals("a", doc12.getString("field1"));
-    assertEquals("b", doc12.getString("field2"));
-    assertEquals("c", doc12.getString("field3"));
-    assertTrue(doc12.getString("source").endsWith("default.csv"));
+    assertTrue(doc12.getString("source").endsWith("subdirWith1csv1xml.tar.gz:subdirWith1csv1xml/default.csv"));
 
     Document doc13 = documentList.get(12);
     assertEquals("csvHandled-default.csv-2", doc13.getId());
-    assertEquals("d", doc13.getString("field1"));
-    assertEquals("e,f", doc13.getString("field2"));
-    assertEquals("g", doc13.getString("field3"));
-    assertTrue(doc13.getString("source").endsWith("default.csv"));
+    assertTrue(doc13.getString("source").endsWith("subdirWith1csv1xml.tar.gz:subdirWith1csv1xml/default.csv"));
 
     Document doc14 = documentList.get(13);
     assertEquals("csvHandled-default.csv-3", doc14.getId());
-    assertEquals("x", doc14.getString("field1"));
-    assertEquals("y", doc14.getString("field2"));
-    assertEquals("z", doc14.getString("field3"));
-    assertTrue(doc14.getString("source").endsWith("default.csv"));
+    assertTrue(doc14.getString("source").endsWith("subdirWith1csv1xml.tar.gz:subdirWith1csv1xml/default.csv"));
 
     Document doc15 = documentList.get(14);
     assertEquals("xmlHandled-1001", doc15.getId());
@@ -263,6 +255,5 @@ public class FileConnectorTest {
         "        <salary currency=\"EUR\">8000</salary>\n" +
         "        <bio>I enjoy reading</bio>\n" +
         "    </staff>", doc16.getString("xml"));
-
   }
 }

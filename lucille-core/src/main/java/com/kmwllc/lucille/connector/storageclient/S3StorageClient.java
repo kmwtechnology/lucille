@@ -75,7 +75,7 @@ public class S3StorageClient extends BaseStorageClient {
     ListObjectsV2Request request = ListObjectsV2Request.builder().bucket(bucketOrContainerName).prefix(startingDirectory).maxKeys(maxNumOfPages).build();
     ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
     response.stream()
-        .forEach(resp -> {
+        .forEachOrdered(resp -> {
           resp.contents().forEach(obj -> {
             if (isValid(obj)) {
               String fullPathStr = getFullPath(obj);
