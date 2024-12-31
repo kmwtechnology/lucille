@@ -267,20 +267,27 @@ public class FileConnector extends AbstractConnector {
       if (getFileACLs) {
         try {
 
+          FileSystem fileSystem = path.getFileSystem();
+
+          // Retrieve supported file attribute views
+          String supportedViews = String.join(", ", fileSystem.supportedFileAttributeViews());
+          log.debug("Supported file attribute views: " + supportedViews);
+
+
           // Dynamically retrieve supported permission types
           FileStore fileStore = Files.getFileStore(path);
-    
+
           // Check for ACL support
           if (fileStore.supportsFileAttributeView(AclFileAttributeView.class)) {
-              System.out.println("Using ACLs for permissions.");
+              log.debug("Using ACLs for permissions.");
               handleAclPermissions(path, doc);
           }
           // Check for POSIX support
           else if (fileStore.supportsFileAttributeView(PosixFileAttributeView.class)) {
-              System.out.println("Using POSIX permissions.");
+              log.debug("Using POSIX permissions.");
               handlePosixPermissions(path, doc);
           } else {
-              System.out.println("No supported permissions view for this file system.");
+              log.debug("No supported permissions view for this file system.");
           }
         } catch (IOException | UnsupportedOperationException e) {
           // If ACLs cannot be retrieved or not supported, log it and continue

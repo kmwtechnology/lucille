@@ -8,14 +8,13 @@ RUN apt-get update && \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory to /lucille
-WORKDIR /lucille
 
 # Clone the specific branch of the repository
 RUN git clone --branch LC-579-s3-text-chunking-example https://github.com/supertick/lucille.git /lucille
 
 # Set working directory to the cloned repository
 WORKDIR /lucille
+RUN get pull
 
 # Build the project using Maven
 RUN mvn clean install --quiet -DskipTests
