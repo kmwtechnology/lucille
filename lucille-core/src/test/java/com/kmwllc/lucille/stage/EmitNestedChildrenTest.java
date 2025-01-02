@@ -137,7 +137,7 @@ public class EmitNestedChildrenTest {
     Map<String, Object> child1MapExpected = Map.of(
         "id", "child1",
         "parent", "parentId",
-        "multivaluedField", List.of("value1", "value2"),
+        "multivaluedField_c", List.of("value1", "value2"),
         "singleValueField", "singleValue",
         "integerValueField", 1,
         "booleanValueField", true,
@@ -147,7 +147,7 @@ public class EmitNestedChildrenTest {
     Map<String, Object> child2MapExpected = Map.of(
         "id", "child2",
         "parent", "parentId",
-        "multivaluedField", List.of("value1", "value2"),
+        "multivaluedField_c", List.of("value1", "value2"),
         "singleValueField", "singleValue",
         "integerValueField", 1,
         "booleanValueField", true,
