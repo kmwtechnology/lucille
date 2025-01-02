@@ -12,11 +12,10 @@ import java.util.regex.Pattern;
 public class SecurityNTACL {
 
 	/**
-	 * Definitions for "standard" windows perms
+	 * Definitions for "standard" windows permissions.
+	 * These are well-known Security Identifiers (SIDs) used to represent common
+	 * user and group accounts in Windows,
 	 */
-
-	// These are well-known Security Identifiers (SIDs) used to represent common
-	// user and group accounts in Windows,
 	public static final Map<String, String> SEC_ACE_SIDS = Map.ofEntries(Map.entry("S-1-0-0", "NULL"),
 			Map.entry("S-1-1-0", "EVERYONE"), Map.entry("S-1-2-0", "LOCAL"), Map.entry("S-1-2-1", "CONSOLE_LOGON"),
 			Map.entry("S-1-3-0", "CREATOR_OWNER"), Map.entry("S-1-3-1", "CREATOR_GROUP"),
