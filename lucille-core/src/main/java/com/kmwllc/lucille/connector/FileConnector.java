@@ -16,17 +16,15 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kmwllc.lucille.connector.cloudstorageclients.CloudStorageClient;
-import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Publisher;
-import com.typesafe.config.Config;
-
 /**
  * Config parameters:
  *  docIdPrefix (string, Optional): prefix to add to the docId when not handled by a file handler, defaults to empty string. To configure docIdPrefix for CSV, JSON or XML files, configure it in its respective file handler config in fileOptions
  *  pathToStorage (string): path to storage, can be local file system or cloud bucket/container
+ *  e.g.
+ *    /path/to/storage/in/local/filesystem
+ *    gs://bucket-name/folder/
+ *    s3://bucket-name/folder/
+ *    https://accountName.blob.core.windows.net/containerName/prefix/
  *  includes (list of strings, Optional): list of regex patterns to include files
  *  excludes (list of strings, Optional): list of regex patterns to exclude files
  *  cloudOptions (Map, Optional): cloud storage options, required if using cloud storage. Example of cloudOptions below
@@ -97,6 +95,7 @@ public class FileConnector extends AbstractConnector {
   public FileConnector(Config config) throws ConnectorException {
     super(config);
     this.pathToStorage = config.getString("pathToStorage");
+    // compile include and exclude regex paths or set an empty list if none were provided (allow all files)
     List<String> includeRegex = config.hasPath("includes") ?
         config.getStringList("includes") : Collections.emptyList();
     this.includes = includeRegex.stream().map(Pattern::compile).collect(Collectors.toList());

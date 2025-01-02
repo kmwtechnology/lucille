@@ -1,8 +1,10 @@
 package com.kmwllc.lucille.fileToFile;
 
-import com.kmwllc.lucille.test.ConfigValidationUtils;
 import java.util.List;
+
 import org.junit.Test;
+
+import com.kmwllc.lucille.test.ConfigValidationUtils;
 
 public class ConfigValidationTest {
 

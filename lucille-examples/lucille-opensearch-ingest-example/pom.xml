@@ -53,7 +53,7 @@
         <executions>
           <execution>
             <id>copy-dependencies</id>
-            <phase>package</phase>
+            <phase>post-package</phase>
             <goals>
               <goal>copy-dependencies</goal>
             </goals>
