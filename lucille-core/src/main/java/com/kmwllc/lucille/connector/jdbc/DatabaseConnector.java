@@ -42,10 +42,10 @@ import java.util.stream.Collectors;
  *    e.g. INSERT, DELETE, UPDATE, SQL DDL statement.
  * - postSQL (String, Optional): SQL statement that returns nothing. Performed after sql is executed.
  *    e.g. INSERT, DELETE, UPDATE, SQL DDL statement.
- * - otherSQLs (List<String>, Optional): list of SQL statements to query and retrieve another result set of size fetchSize if set.
+ * - otherSQLs (List&lt;String&gt;, Optional): list of SQL statements to query and retrieve another result set of size fetchSize if set.
  *    For joining result sets.
  * - otherJoinFields (String, Optional, required if otherSQL is provided) : join field used for other result sets retrieved from otherSQLs
- * - ignoreColumns (List<String>, Optional) : list of columns to ignore when populating Lucille document from sql result set.
+ * - ignoreColumns (List&lt;String&gt;, Optional) : list of columns to ignore when populating Lucille document from sql result set.
  * - connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1
  * - connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds
  *
