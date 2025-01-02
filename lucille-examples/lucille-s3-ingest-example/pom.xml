@@ -12,9 +12,9 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>lucille-vector-ingest-example</artifactId>
+  <artifactId>lucille-s3-ingest-example</artifactId>
   <packaging>jar</packaging>
-  <name>Lucille Examples: Lucille Vector Ingest Example</name>
+  <name>Lucille Examples: Ingesting Into S3</name>
 
   <dependencyManagement>
     <dependencies>
@@ -33,20 +33,15 @@
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-core</artifactId>
     </dependency>
-
     <dependency>
       <groupId>com.kmwllc</groupId>
-      <artifactId>lucille-parquet</artifactId>
+      <artifactId>lucille-tika</artifactId>
     </dependency>
-
     <dependency>
-      <groupId>com.kmwllc</groupId>
-      <artifactId>lucille-pinecone</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>com.kmwllc</groupId>
-      <artifactId>lucille-weaviate</artifactId>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>${junit4.version}</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -80,7 +75,7 @@
               <goal>single</goal>
             </goals>
             <configuration>
-              <finalName>lucille-vector-ingest-example</finalName>
+              <finalName>lucille-s3-ingest-example</finalName>
               <descriptors>
                 <descriptor>assembly/assembly.xml</descriptor>
               </descriptors>

@@ -49,3 +49,19 @@ For more information regarding Lucille, please [contact us](https://kmwllc.com/i
 
 
 
+## Docker
+A Dockerfile is provided to build a Docker image that can be used to run Lucille.
+```bash
+docker build -t lucille-app .
+```
+Lucille should be available at http://localhost:8080/v1/docs
+
+Clean build:
+```bash
+docker build --no-cache -t lucille-app .
+```
+
+Run the image:
+```bash
+docker run -p 8080:8080 lucille-app
+```
