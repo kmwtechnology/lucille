@@ -34,6 +34,7 @@ public class LivenessResource {
   @Operation(summary = "Liveness Check", description = "Returns 204 No Content to indicate the service is live.")
   public Response isAlive() {
     log.debug("Liveness check endpoint accessed.");
-    return Response.noContent().build();
+    // return Response.noContent().build();
+    return Response.ok().build();
   }
 }
