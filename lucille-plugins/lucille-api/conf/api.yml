@@ -17,7 +17,7 @@ swagger:
   title: Lucille API
   description: Lucille API
   version: 0.0.1
-  contact: kmwllc@gmail.com
+  contact: info@kmwllc.com
   license: Apache 2.0
   securityDefinitions:
     basicAuth:
