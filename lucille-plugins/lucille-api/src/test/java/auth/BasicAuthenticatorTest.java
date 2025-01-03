@@ -2,15 +2,20 @@ package auth;
 
 import static org.junit.Assert.assertEquals;
 
-import com.kmwllc.lucille.core.RunnerManager;
-import com.kmwllc.lucille.endpoints.LucilleResource;
-import io.dropwizard.auth.PrincipalImpl;
-import jakarta.ws.rs.core.Response;
 import java.util.Optional;
-import javax.swing.text.html.Option;
+
 import org.junit.Test;
 
+import com.kmwllc.lucille.AuthHandler;
+import com.kmwllc.lucille.core.RunnerManager;
+import com.kmwllc.lucille.endpoints.LucilleResource;
+
+import io.dropwizard.auth.PrincipalImpl;
+import jakarta.ws.rs.core.Response;
+
 public class BasicAuthenticatorTest {
+	
+	  private final AuthHandler authHandler = new AuthHandler(true);
 
   @Test
   public void testAuthSuccess() {
@@ -19,9 +24,9 @@ public class BasicAuthenticatorTest {
      */
     Optional<PrincipalImpl> user = Optional.of(new PrincipalImpl("test"));
     RunnerManager runnerManager = RunnerManager.getInstance();
-    LucilleResource api = new LucilleResource(runnerManager);
-
-    Response status = api.getRunStatus(user);
+    LucilleResource api = new LucilleResource(runnerManager, authHandler);
+    String jobId = "jobId";
+    Response status = api.getRunStatus(user, jobId);
     assertEquals(200, status.getStatus());
   }
 
@@ -32,9 +37,9 @@ public class BasicAuthenticatorTest {
      */
     Optional<PrincipalImpl> noUser = Optional.empty();
     RunnerManager runnerManager = RunnerManager.getInstance();
-    LucilleResource api = new LucilleResource(runnerManager);
-
-    Response status = api.getRunStatus(noUser);
+    LucilleResource api = new LucilleResource(runnerManager, authHandler);
+    String jobId = "jobId";
+    Response status = api.getRunStatus(noUser, jobId);
     assertEquals(401, status.getStatus());
   }
 }
