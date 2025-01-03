@@ -15,7 +15,7 @@ public class ReadinessResourceTest {
   @Test
   public void testReadinessEndpoint() {
     Optional<PrincipalImpl> user = Optional.of(new PrincipalImpl("test"));
-    Response response = readiness.isReady(user);
+    Response response = readiness.isReady();
 
     assertEquals(Response.ok().build().toString(), response.toString());
   }
