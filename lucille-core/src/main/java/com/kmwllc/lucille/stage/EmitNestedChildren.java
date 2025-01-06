@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -15,7 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This stage emits attached children documents, removing them from the parent document. Will skip document if no children is found.
+ * This stage emits attached children documents, removing them from the parent document. Will skip document if no children are found.
  *
  * Config Parameters:
  * - drop_parent (Boolean, Optional): if set to true, will mark parent document as dropped. Defaults to false
@@ -55,10 +56,10 @@ public class EmitNestedChildren extends Stage {
             log.warn("Field '{}' not found in parent document", sourceField);
             continue;
           }
-          // handle multivalued fields if needed, we want to be a list if multivalued
+          // handle multivalued fields if needed; treat values as Json to preserve types
           String destField = fieldsToCopy.get(sourceField).toString();
           if (doc.isMultiValued(sourceField)) {
-            child.update(destField, updateMode, doc.getJsonList(sourceField).toArray(new com.fasterxml.jackson.databind.JsonNode[0]));
+            child.update(destField, updateMode, doc.getJsonList(sourceField).toArray(new JsonNode[0]));
           } else {
             child.update(destField, updateMode, doc.getJson(sourceField));
           }
