@@ -12,8 +12,16 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.config.Configurator;
+
+
 
 public class APIIntegrationTest {
+
+  private static final Logger log = LogManager.getLogger(APIIntegrationTest.class);
 
   @ClassRule
   public static final DropwizardAppRule<LucilleAPIConfiguration> RULE = new DropwizardAppRule<>(APIApplication.class, ResourceHelpers.resourceFilePath("test-conf.yml"));
@@ -21,6 +29,11 @@ public class APIIntegrationTest {
   private final Client client = RULE.client();
   private final String url = String.format("http://localhost:%d/", RULE.getLocalPort());
   private final String authHeader = "Basic " + Base64.getEncoder().encodeToString("test:test".getBytes());
+
+  @BeforeAll
+  static void setup() {
+      Configurator.initialize(null, "log4j2.xml");
+  }
 
   @Test
   public void testAuthSuccessful() {

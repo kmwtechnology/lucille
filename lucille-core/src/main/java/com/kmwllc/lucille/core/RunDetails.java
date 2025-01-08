@@ -1,117 +1,176 @@
 package com.kmwllc.lucille.core;
 
 import java.time.Instant;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-
-import com.typesafe.config.Config;
+import java.util.concurrent.ExecutionException;
+import com.kmwllc.lucille.core.Runner.RunType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "Details about a specific run, including metadata, start time, and processing stats.")
+@Schema(
+    description = "Details about a specific run, including metadata, start time, and processing stats.")
 public class RunDetails {
 
-    @Schema(description = "Unique identifier for the run.", example = "run123")
-    protected final String runId;
+  @Schema(description = "Unique identifier for the run.", example = "run123")
+  private final String runId;
 
-    @Schema(description = "Start time of the run in ISO-8601 format.", example = "2023-12-20T14:48:00.000Z")
-    protected final Instant startTime;
+  @Schema(description = "Configuration ID for the run.")
+  private String configId;
 
-    @Schema(description = "End time of the run in ISO-8601 format. Null if the run has not completed.", example = "2023-12-20T15:48:00.000Z")
-    protected Instant endTime;
+  @Schema(description = "Start time of the run in ISO-8601 format.",
+      example = "2023-12-20T14:48:00.000Z")
+  private final Instant startTime;
 
-    @Schema(description = "Number of documents processed during the run.", example = "5000")
-    protected long docsProcessed;
+  @Schema(
+      description = "End time of the run in ISO-8601 format. Null if the run has not completed.",
+      example = "2023-12-20T15:48:00.000Z")
+  private Instant endTime;
 
-    @Schema(description = "Number of errors encountered during the run.", example = "5")
-    protected long errorCount;
+  @Schema(description = "Number of documents processed during the run.", example = "5000")
+  private long docsProcessed;
 
-    @Schema(description = "Configuration settings for the run.", example = "{\"batchSize\": 100, \"timeout\": 30}")
-    protected Map<String, Object> config;
+  @Schema(description = "Number of errors encountered during the run.", example = "5")
+  private long errorCount;
 
-    private final transient CompletableFuture<Void> future;
+  @Schema(hidden = true)
+  private final transient CompletableFuture<Void> future;
 
-    protected RunResult runResult = null;
+  @Schema(description = "Run result")
+  private RunResult runResult;
 
-    public RunDetails(String runId, Config config) {
-        this.runId = runId;
-        this.config = config.root().unwrapped();
-        this.startTime = Instant.now();
-        this.future = new CompletableFuture<>();
+  @Schema(description = "Current status")
+  private volatile String status = "new";
+
+  @Schema(description = "Run type")
+  private RunType runType;
+
+  @Schema(description = "Exception of run")
+  private Throwable exception;
+
+
+  public RunDetails(String runId, String configId) {
+    this.runId = runId;
+    this.configId = configId;
+    this.future = new CompletableFuture<>();
+    this.startTime = Instant.now();
+  }
+
+  public String getConfigId() {
+    return configId;
+  }
+
+  public void setConfigId(String configId) {
+    this.configId = configId;
+  }
+
+  public String getRunId() {
+    return runId;
+  }
+
+  public Instant getStartTime() {
+    return startTime;
+  }
+
+  public Instant getEndTime() {
+    return endTime;
+  }
+
+  public void setEndTime(Instant endTime) {
+    this.endTime = endTime;
+  }
+
+  public long getDocsProcessed() {
+    return docsProcessed;
+  }
+
+  public void setDocsProcessed(long docsProcessed) {
+    this.docsProcessed = docsProcessed;
+  }
+
+  public long getErrorCount() {
+    return errorCount;
+  }
+
+  public void setErrorCount(long errorCount) {
+    this.errorCount = errorCount;
+  }
+
+  public CompletableFuture<Void> getFuture() {
+    return future;
+  }
+
+  public void complete() {
+    this.endTime = Instant.now();
+    this.future.complete(null);
+  }
+
+  public void completeExceptionally(Throwable ex) {
+    this.endTime = Instant.now();
+    this.errorCount++;
+    this.exception = ex;
+    this.future.completeExceptionally(ex);
+  }
+
+  public boolean isDone() {
+    return future.isDone();
+  }
+
+  public RunResult getRunResult() {
+    return runResult;
+  }
+
+  public void setRunResult(RunResult runResult) {
+    this.runResult = runResult;
+  }
+
+  public RunType getRunType() {
+    return runType;
+  }
+
+  public void setRunType(RunType runType) {
+    this.runType = runType;
+  }
+
+  public String getStatus() {
+    return status;
+  }
+
+  public void setStatus(String status) {
+    this.status = status;
+  }
+
+  public Throwable getException() {
+    return exception;
+  }
+
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder("RunDetails{");
+    sb.append("runId='").append(runId).append('\'');
+    sb.append(", configId='").append(configId).append('\'');
+    sb.append(", startTime=").append(startTime);
+    sb.append(", endTime=").append(endTime);
+    sb.append(", docsProcessed=").append(docsProcessed);
+    sb.append(", errorCount=").append(errorCount);
+    sb.append(", exception=").append(exception);
+    sb.append(", status='").append(status).append('\'');
+    sb.append(", runType=").append(runType);
+
+    if (runResult != null) {
+      sb.append(", runResult='").append(runResult).append('\'');
     }
 
-    @Schema(description = "Get the configuration settings for the run.")
-    public Map<String, Object> getConfig() {
-        return config;
+    if (future.isDone()) {
+      try {
+        future.get(); // Check if completed successfully
+        sb.append(", completedSuccessfully=true");
+      } catch (InterruptedException | ExecutionException e) {
+        sb.append(", completedExceptionally='").append(e.getCause().getMessage()).append('\'');
+      }
+    } else {
+      sb.append(", completedSuccessfully=false");
     }
 
-    @Schema(description = "Set the configuration settings for the run.")
-    public void setConfig(Map<String, Object> config) {
-        this.config = config;
-    }
-
-    @Schema(description = "Get the unique identifier for the run.")
-    public String getRunId() {
-        return runId;
-    }
-
-    @Schema(description = "Get the start time of the run.")
-    public Instant getStartTime() {
-        return startTime;
-    }
-
-    @Schema(description = "Get the end time of the run.")
-    public Instant getEndTime() {
-        return endTime;
-    }
-
-    public void setEndTime(Instant endTime) {
-        this.endTime = endTime;
-    }
-
-    @Schema(description = "Get the number of documents processed during the run.")
-    public long getDocsProcessed() {
-        return docsProcessed;
-    }
-
-    public void setDocsProcessed(long docsProcessed) {
-        this.docsProcessed = docsProcessed;
-    }
-
-    @Schema(description = "Get the number of errors encountered during the run.")
-    public long getErrorCount() {
-        return errorCount;
-    }
-
-    public void setErrorCount(long errorCount) {
-        this.errorCount = errorCount;
-    }
-
-    @Schema(hidden = true)
-    public CompletableFuture<Void> getFuture() {
-        return future;
-    }
-
-    public void complete() {
-        this.endTime = Instant.now();
-        this.future.complete(null);
-    }
-
-    public void completeExceptionally(Throwable ex) {
-        this.endTime = Instant.now();
-        this.future.completeExceptionally(ex);
-    }
-
-    @Schema(description = "Check if the run is complete.", example = "true")
-    public boolean isDone() {
-        return future.isDone();
-    }
-
-    public RunResult getRunResult() {
-        return runResult;
-    }
-
-    public void setRunResult(RunResult runResult) {
-        this.runResult = runResult;
-    }
-    
+    sb.append('}');
+    return sb.toString();
+  }
 }
