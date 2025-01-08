@@ -9,7 +9,7 @@ logging:
 
 auth:
   type: "basicAuth"
-  enabled: false
+  enabled: true
   password: "password"
 
 swagger:

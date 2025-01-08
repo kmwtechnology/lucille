@@ -167,6 +167,10 @@ public class RunnerManager {
     return new ArrayList<>(runDetailsMap.values());
   }
 
+  public Map<String, RunDetails> getRunDetailsMap() {
+    return runDetailsMap;
+  }
+
   public Map<String, Config> getConfigMap() {
     return configMap;
   }
