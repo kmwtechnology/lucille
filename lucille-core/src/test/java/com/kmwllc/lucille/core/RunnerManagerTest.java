@@ -9,11 +9,15 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 
 public class RunnerManagerTest {
+  
+  public static final Logger log = LoggerFactory.getLogger(RunnerManagerTest.class);
 
   final String runId = "runId";
 
@@ -77,9 +81,9 @@ public class RunnerManagerTest {
       new Thread(() -> {
         try {
           boolean started = runnerManager.runWithConfig(runId, runnerManager.createConfig(config));
-          // log.info("Run {} started: {}", runId, started);
+          log.info("Run {} started: {}", runId, started);
         } catch (Exception e) {
-          // log.error("Error in run {}", runId, e);
+          log.error("Error in run {}", runId, e);
         } finally {
           latch.countDown();
         }
