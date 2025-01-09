@@ -91,7 +91,7 @@ public class LucilleResource {
       return authResponse; // Return if authentication fails
     }
     Map<String, Object> ret = new HashMap<>();
-    for (String configId : runnerManager.getConfigMap().keySet()) {
+    for (String configId : runnerManager.getConfigKeys  ()) {
       ret.put(configId, runnerManager.getConfig(configId).root().unwrapped());
     }
     return Response.ok(ret).build();

@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,8 +23,10 @@ public class RunnerManager {
   // Singleton instance
   private static final RunnerManager instance = new RunnerManager();
 
+  // A runID keyed map containing run details of current and historical Lucille runs
   private final Map<String, RunDetails> runDetailsMap = new ConcurrentHashMap<>();
 
+  // An in memory map of configs which can be used to create new Lucille runs
   private final Map<String, Config> configMap = new ConcurrentHashMap<>();
 
   private RunnerManager() {}
@@ -76,7 +79,7 @@ public class RunnerManager {
   }
 
   /**
-   * Internal runId
+   * Run with config and an internal runId will be generated
    * 
    * @param config
    * @return
@@ -164,7 +167,7 @@ public class RunnerManager {
   }
 
   /**
-   * List of details of run
+   * List of details of all runs
    * 
    * @return
    */
@@ -172,13 +175,27 @@ public class RunnerManager {
     return new ArrayList<>(runDetailsMap.values());
   }
 
-  // FIXME - reconcile with getRunDetailsList
-  public Map<String, RunDetails> getRunDetailsMap() {
-    return runDetailsMap;
+  /**
+   * Clears all run details 
+   * @return
+   */  
+  public void clearAllRunDetails() {
+    runDetailsMap.clear();
+  }
+  
+  /**
+   * Removes all config
+   */
+  public void clearConfig() {
+    configMap.clear();
   }
 
-  public Map<String, Config> getConfigMap() {
-    return configMap;
+  /**
+   * Returns the key set for all configs
+   * @return
+   */
+  public Set<String> getConfigKeys(){
+    return configMap.keySet();
   }
 
   public Config getConfig(String configId) {

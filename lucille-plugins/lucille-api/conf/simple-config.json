@@ -17,9 +17,8 @@
       "type": "CSV"
     },
     "csv": {
-      "columns": ["col1", "col2", "col3"],
+      "columns": ["Name", "Age", "City"],
       "path": "conf/dummy.csv",
       "includeHeader": false
     }
 }
-  

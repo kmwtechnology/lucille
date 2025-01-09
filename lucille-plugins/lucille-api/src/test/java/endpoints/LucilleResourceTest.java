@@ -36,8 +36,8 @@ public class LucilleResourceTest {
     @Before
     public void setUp() {
         runnerManager = RunnerManager.getInstance();  // Real instance
-        runnerManager.getConfigMap().clear();
-        runnerManager.getRunDetailsMap().clear();
+        runnerManager.clearConfig();
+        runnerManager.clearAllRunDetails();
         lucilleResource = new LucilleResource(runnerManager, authHandler);
         mockUser = Optional.of(new PrincipalImpl("testUser"));
     }
