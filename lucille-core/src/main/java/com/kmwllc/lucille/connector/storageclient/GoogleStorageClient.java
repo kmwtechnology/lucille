@@ -32,8 +32,8 @@ public class GoogleStorageClient extends BaseStorageClient {
   private Storage storage;
 
   public GoogleStorageClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions, Config fileOptions) {
-    super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+      Map<String, Object> cloudOptions, Config fileOptions, Publisher publisher) {
+    super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions, publisher);
   }
 
   @Override

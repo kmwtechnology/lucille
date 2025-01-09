@@ -58,9 +58,13 @@ public class AzureStorageClientTest {
   public void testInit() throws Exception{
     Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
 
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    
     AzureStorageClient azureStorageClient = new AzureStorageClient(
         new URI("https://storagename.blob.core.windows.net/testblob"), null, null, null,
-        cloudOptions, ConfigFactory.parseMap(Map.of("csv", Map.of(), "json", Map.of())));
+        cloudOptions, ConfigFactory.parseMap(Map.of("csv", Map.of(), "json", Map.of())), publisher);
 
     try(MockedConstruction<BlobContainerClientBuilder> builder = Mockito.mockConstruction(BlobContainerClientBuilder.class,(mock,context)-> {
       when(mock.connectionString(anyString())).thenReturn(mock);
@@ -83,7 +87,7 @@ public class AzureStorageClientTest {
     cloudOptions.put("accountKey", "accountKey");
 
     azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/testblob"),
-        null, null, null, cloudOptions, ConfigFactory.empty());
+        null, null, null, cloudOptions, ConfigFactory.empty(), publisher);
 
     try(MockedConstruction<BlobContainerClientBuilder> builder = Mockito.mockConstruction(BlobContainerClientBuilder.class,(mock,context)-> {
 
@@ -100,10 +104,14 @@ public class AzureStorageClientTest {
 
   @Test
   public void testShutdown() throws Exception{
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    
     Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
     AzureStorageClient azureStorageClient = new AzureStorageClient(
         new URI("https://storagename.blob.core.windows.net/testblob"), null, null, null,
-        cloudOptions, ConfigFactory.parseMap(Map.of("csv", Map.of(), "json", Map.of())));
+        cloudOptions, ConfigFactory.parseMap(Map.of("csv", Map.of(), "json", Map.of())), publisher);
     try(MockedConstruction<BlobContainerClientBuilder> builder = Mockito.mockConstruction(BlobContainerClientBuilder.class,(mock,context)-> {
       when(mock.connectionString(anyString())).thenReturn(mock);
       when(mock.containerName(anyString())).thenReturn(mock);
@@ -125,7 +133,7 @@ public class AzureStorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(), cloudOptions, ConfigFactory.empty());
+        List.of(), List.of(), cloudOptions, ConfigFactory.empty(), publisher);
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -177,7 +185,7 @@ public class AzureStorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)));
+        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)), publisher);
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -213,7 +221,7 @@ public class AzureStorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(Pattern.compile("blob3"), Pattern.compile("blob4")), List.of(), cloudOptions, ConfigFactory.empty());
+        List.of(Pattern.compile("blob3"), Pattern.compile("blob4")), List.of(), cloudOptions, ConfigFactory.empty(), publisher);
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -248,7 +256,7 @@ public class AzureStorageClientTest {
 
     // azure storage client that handles json files
     AzureStorageClient azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of(), GET_FILE_CONTENT, false)));
+        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of(), GET_FILE_CONTENT, false)), publisher);
 
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
@@ -292,7 +300,7 @@ public class AzureStorageClientTest {
                 "handleArchivedFiles", true,
                 "handleCompressedFiles", true
             )
-    ));
+    ), publisher);
 
     Map<String, byte[]> fileContents = readAllFilesAsBytesWithMap("src/test/resources/StorageClientTest/testCompressedAndArchived");
 
@@ -405,7 +413,7 @@ public class AzureStorageClientTest {
                 "moveToAfterProcessing", "https://storagename.blob.core.windows.net/folder/processed",
                 "moveToErrorFolder", "https://storagename.blob.core.windows.net/folder/error"
             )
-    ));
+    ), publisher);
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);

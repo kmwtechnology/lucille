@@ -35,12 +35,10 @@ public class LocalStorageClient extends BaseStorageClient implements FileVisitor
   private static final Logger log = LoggerFactory.getLogger(LocalStorageClient.class);
   private FileSystem fs;
   private Path startingDirectoryPath;
-
-  Publisher publisher = null;
   
   public LocalStorageClient(URI pathToStorageURI, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions, Config fileOptions) {
-    super(pathToStorageURI, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+      Map<String, Object> cloudOptions, Config fileOptions, Publisher publisher) {
+    super(pathToStorageURI, docIdPrefix, excludes, includes, cloudOptions, fileOptions, publisher);
   }
 
   @Override
@@ -85,11 +83,7 @@ public class LocalStorageClient extends BaseStorageClient implements FileVisitor
   @Override
   public void traverse(Publisher publisher) throws Exception {
     
-    // FileVisitor<Path> visitor = new LucilleFileVisitor(publisher);
-    // TODO: we shouldn't have to do this here.. this is not safe!
-    this.publisher = publisher;
-    
-    // this class implements the FileVisitor so we can just walk with it.
+    // LocalStorage class implements the FileVisitor so we can just walk it.
     Files.walkFileTree(startingDirectoryPath, this);
     
   }

@@ -62,9 +62,11 @@ public abstract class BaseStorageClient implements StorageClient {
   protected boolean handleCompressedFiles;
   protected String moveToAfterProcessing;
   protected String moveToErrorFolder;
+  protected Publisher publisher;
 
   public BaseStorageClient(URI pathToStorageURI, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions, Config fileOptions) {
+      Map<String, Object> cloudOptions, Config fileOptions, Publisher publisher) {
+    this.publisher = publisher;
     this.docIdPrefix = docIdPrefix;
     this.pathToStorageURI = pathToStorageURI;
     this.bucketOrContainerName = getContainerOrBucketName();
