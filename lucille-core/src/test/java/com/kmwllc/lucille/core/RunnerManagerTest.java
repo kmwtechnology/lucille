@@ -70,18 +70,20 @@ public class RunnerManagerTest {
   @Test
   public void testSimultaneousRuns() throws Exception {
     int numRuns = 5;
+    log.info("Starting testSimultaneousRuns with {} runs", numRuns);
     CountDownLatch latch = new CountDownLatch(numRuns);
     RunnerManager runnerManager = RunnerManager.getInstance();
-
+    Config c = ConfigFactory.load("conf/simple-config.conf");
+    String configId = runnerManager.createConfig(c);
 
     for (int i = 0; i < numRuns; i++) {
       final String runId = "test-run-" + i;
-      final Config config = ConfigFactory.parseString("dummySetting = " + i);
+      
 
       new Thread(() -> {
         try {
-          boolean started = runnerManager.runWithConfig(runId, runnerManager.createConfig(config));
-          log.info("Run {} started: {}", runId, started);
+          boolean started = runnerManager.runWithConfig(runId, configId);
+          log.info("Simultaneous Run {} started: {}", runId, started);
         } catch (Exception e) {
           log.error("Error in run {}", runId, e);
         } finally {
