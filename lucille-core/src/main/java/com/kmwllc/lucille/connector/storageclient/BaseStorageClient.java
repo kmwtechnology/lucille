@@ -96,7 +96,8 @@ public abstract class BaseStorageClient implements StorageClient {
   protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference) {
     try {
       // preprocessing
-      beforeProcessingFile(fullPathStr);
+      // TODO: this call is very expensive!!
+      // beforeProcessingFile(fullPathStr);
 
       // handle compressed files if needed to the end
       if (handleCompressedFiles && isSupportedCompressedFileType(fullPathStr)) {
@@ -335,9 +336,11 @@ public abstract class BaseStorageClient implements StorageClient {
   private void createProcessedAndErrorFoldersIfSet(String pathStr) {
     Path path = Paths.get(pathStr);
 
+    //TODO: this is a bad and expensive check.
     // if file does not exist locally, means it is a cloud path, not supported yet
     boolean sourceFileExistsLocally = Files.exists(path);
     if (moveToAfterProcessing != null && sourceFileExistsLocally) {
+      // TODO: create these as needed once done processing, not pre-emptively.
       // Create the destination directory if it doesn't exist.
       File destDir = new File(moveToAfterProcessing);
       if (!destDir.exists()) {
@@ -345,6 +348,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
     }
     if (moveToErrorFolder != null && sourceFileExistsLocally) {
+      // TODO: same. this should be done on error, not preemptively.
       File errorDir = new File(moveToErrorFolder);
       if (!errorDir.exists()) {
         log.info("Creating error directory {}", errorDir.getAbsolutePath());
