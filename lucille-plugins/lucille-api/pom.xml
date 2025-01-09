@@ -5,10 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.kmwllc</groupId>
-        <artifactId>lucille-plugins</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-plugins</artifactId>
+      <version>0.4.2-SNAPSHOT</version>
+      <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>lucille-api</artifactId>
@@ -16,39 +16,41 @@
     <name>Lucille Plugins: Lucille API</name>
 
     <dependencies>
-        <dependency>
-            <groupId>com.kmwllc</groupId>
-            <artifactId>lucille-core</artifactId>
-            <version>${project.version}</version>
-            <scope>compile</scope>
-        </dependency>
+      <dependency>
+        <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-core</artifactId>
+        <version>${project.version}</version>
+        <scope>compile</scope>
+      </dependency>
 
-        <!-- Dropwizard Core dependency for Lucille Admin API -->
-        <dependency>
-            <groupId>io.dropwizard</groupId>
-            <artifactId>dropwizard-core</artifactId>
-            <version>${dropwizard-core.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>ch.qos.logback</groupId>
-                    <artifactId>logback-classic</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>ch.qos.logback</groupId>
-                    <artifactId>logback-access</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>log4j-over-slf4j</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+      <!-- Dropwizard Core dependency for Lucille Admin API -->
+      <dependency>
+        <groupId>io.dropwizard</groupId>
+        <artifactId>dropwizard-core</artifactId>
+        <version>${dropwizard-core.version}</version>
 
-        <dependency>
-            <groupId>io.dropwizard</groupId>
-            <artifactId>dropwizard-auth</artifactId>
-            <version>${dropwizard-core.version}</version>
-        </dependency>
+        <exclusions>
+          <exclusion>
+              <groupId>ch.qos.logback</groupId>
+              <artifactId>logback-classic</artifactId>
+          </exclusion>
+          <exclusion>
+              <groupId>ch.qos.logback</groupId>
+              <artifactId>logback-access</artifactId>
+          </exclusion>
+          <exclusion>
+              <groupId>org.slf4j</groupId>
+              <artifactId>log4j-over-slf4j</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+
+      <dependency>
+        <groupId>io.dropwizard</groupId>
+        <artifactId>dropwizard-auth</artifactId>
+        <version>${dropwizard-core.version}</version>
+      </dependency>
+
 
         <dependency>
             <groupId>io.dropwizard.modules</groupId>
@@ -82,14 +84,14 @@
             <version>4.0.5-1</version>
         </dependency>
 
-        <!-- SLF4J API -->
+     <!-- Add slf4j API frontend -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
         </dependency>
-
-        <!-- Log4j2 binding to classpath (routes SLF4J to Log4j2) -->
+      <!-- add log4j2 binding to classpath -->
+      <!-- routes slf4j calls to log4j2 -->
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j2-impl</artifactId>
