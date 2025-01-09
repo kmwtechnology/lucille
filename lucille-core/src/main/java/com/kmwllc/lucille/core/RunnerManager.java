@@ -168,7 +168,7 @@ public class RunnerManager {
    * 
    * @return
    */
-  public List<RunDetails> getRunDetailsList() {
+  public List<RunDetails> getRunDetails() {
     return new ArrayList<>(runDetailsMap.values());
   }
 

@@ -151,7 +151,6 @@ public class LucilleResourceTest {
     @Test
     public void testGetAllRuns_Empty() {
         when(authHandler.authenticate(any())).thenReturn(null);
-        System.out.println("=== GetAllRuns_Empty === " + runnerManager.getRunDetailsList().size());
         Response response = lucilleResource.getAllRuns(mockUser);
 
         assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());

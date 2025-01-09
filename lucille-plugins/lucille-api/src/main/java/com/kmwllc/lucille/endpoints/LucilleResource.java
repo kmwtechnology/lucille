@@ -181,7 +181,7 @@ public class LucilleResource {
       return authResponse;
     }
 
-    return Response.ok(runnerManager.getRunDetailsList()).build();
+    return Response.ok(runnerManager.getRunDetails()).build();
   }
 
   @GET
