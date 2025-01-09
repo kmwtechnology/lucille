@@ -109,7 +109,7 @@ public class LucilleResourceTest {
 
         Response response = lucilleResource.startRun(mockUser, requestBody);
 
-        assertEquals(Response.Status.NOT_FOUND.getStatusCode(), response.getStatus());
+        assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
     }
 
     @Test

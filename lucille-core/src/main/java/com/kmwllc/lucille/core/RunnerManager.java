@@ -67,8 +67,9 @@ public class RunnerManager {
    * @param runId the unique ID for the lucille run
    * @return true if the run was started successfully; false if a run with the given ID is already
    *         in progress
+   * @throws ConfigException 
    */
-  public synchronized boolean run(String runId) {
+  public synchronized boolean run(String runId) throws ConfigException {
     Config config = ConfigFactory.load();
     String configId = createConfig(config);
     return runWithConfig(runId, configId);
@@ -79,8 +80,9 @@ public class RunnerManager {
    * 
    * @param config
    * @return
+   * @throws ConfigException 
    */
-  protected synchronized boolean runWithConfig(Config config) {
+  protected synchronized boolean runWithConfig(Config config) throws ConfigException {
     String configId = createConfig(config);
     return runWithConfig(null, configId);
   }
@@ -106,17 +108,24 @@ public class RunnerManager {
    * @param config the configuration to use for the run
    * @return true if the run was started successfully; false if a run with the given ID is already
    *         in progress
+   * @throws Exception 
    */
-  public synchronized boolean runWithConfig(String inRunId, String configId) {
+  public synchronized boolean runWithConfig(String inRunId, String configId) throws ConfigException {
     final String runId = (inRunId != null) ? inRunId : UUID.randomUUID().toString();
 
     if (isRunning(runId)) {
       log.warn("Skipping new run with ID '{}'; previous lucille run is still in progress.", runId);
       return false;
     }
-
+    
     final RunDetails runDetails = new RunDetails(runId, configId);
     runDetailsMap.put(runId, runDetails);
+
+    final Config config = configMap.get(configId);
+    if (config == null) {
+      log.error("Config with id {} not found", configId);
+      throw new ConfigException("Config with id " + configId + " not found");
+    }
 
     CompletableFuture.runAsync(() -> {
       try {
@@ -126,11 +135,7 @@ public class RunnerManager {
         // For now, we will always use local mode without Kafka
         runDetails.setRunType(Runner.getRunType(false, true));
 
-        Config config = configMap.get(configId);
-        if (config == null) {
-          log.error("Config with id {} not found", configId);
-          throw new Exception("Config with id " + configId + " not found");
-        }
+
         log.info(config.entrySet().toString());
 
         runDetails.setRunResult(Runner.runWithResultLog(config, runDetails.getRunType(), runId));
@@ -167,6 +172,7 @@ public class RunnerManager {
     return new ArrayList<>(runDetailsMap.values());
   }
 
+  // FIXME - reconcile with getRunDetailsList
   public Map<String, RunDetails> getRunDetailsMap() {
     return runDetailsMap;
   }
