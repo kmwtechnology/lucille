@@ -1,10 +1,17 @@
 package com.kmwllc.lucille.core;
 
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+
 
 public class RunnerManagerTest {
 
@@ -54,4 +61,49 @@ public class RunnerManagerTest {
     runnerManager.waitForRunCompletion(runId);
     assertFalse(runnerManager.isRunning(runId));
   }
+
+
+  @Test
+  public void testSimultaneousRuns() throws Exception {
+    int numRuns = 5;
+    CountDownLatch latch = new CountDownLatch(numRuns);
+    RunnerManager runnerManager = RunnerManager.getInstance();
+
+
+    for (int i = 0; i < numRuns; i++) {
+      final String runId = "test-run-" + i;
+      final Config config = ConfigFactory.parseString("dummySetting = " + i);
+
+      new Thread(() -> {
+        try {
+          boolean started = runnerManager.runWithConfig(runId, runnerManager.createConfig(config));
+          // log.info("Run {} started: {}", runId, started);
+        } catch (Exception e) {
+          // log.error("Error in run {}", runId, e);
+        } finally {
+          latch.countDown();
+        }
+      }).start();
+    }
+
+    // Wait for all runs to start
+    boolean completed = latch.await(10, TimeUnit.SECONDS);
+    assertTrue(completed, "Not all runs started within the expected time.");
+
+    // Verify that all runs are in progress
+    List<RunDetails> runDetailsList = runnerManager.getRunDetails();
+    assertEquals(numRuns, runDetailsList.size(), "Unexpected number of runs in progress.");
+
+    // Verify that each run is independent
+    for (int i = 0; i < numRuns; i++) {
+      String runId = "test-run-" + i;
+      RunDetails details = runnerManager.getRunDetails(runId);
+      assertNotNull(details, "RunDetails should not be null for runId: " + runId);
+      assertEquals(runId, details.getRunId(), "Run ID mismatch.");
+      assertFalse(details.isDone(), "Run should not be completed immediately.");
+    }
+
+    // log.info("All simultaneous runs started independently.");
+  }
+
 }
