@@ -74,7 +74,18 @@ public class RunnerManagerTest {
     CountDownLatch latch = new CountDownLatch(numRuns);
     RunnerManager runnerManager = RunnerManager.getInstance();
     // Config c = ConfigFactory.load("conf/simple-config.conf");
-    String config = "connectors: [{class: \"com.kmwllc.lucille.connector.CSVConnector\", path: \"conf/dummy.csv\", name: \"connector1\", pipeline: \"pipeline1\"}] pipelines: [{name: \"pipeline1\", stages: []}] indexer { type: \"CSV\" } csv { columns: [\"Name\", \"Age\", \"City\"] path: \"conf/dummy.csv\" includeHeader: false }";
+    String config = "connectors: [\n" +
+        "    {class: \"com.kmwllc.lucille.connector.CSVConnector\", path: \"conf/dummy.csv\", name: \"connector1\", pipeline: \"pipeline1\"}\n" +
+        "]\n" +
+        "pipelines: [{name: \"pipeline1\", stages: []}]\n" +
+        "indexer {\n" +
+        "  type: \"CSV\"\n" +
+        "}\n" +
+        "csv {\n" +
+        "  columns: [\"Name\", \"Age\", \"City\"]\n" +
+        "  path: \"conf/dummy.csv\"\n" +
+        "  includeHeader: false\n" +
+        "}";
     Config c = ConfigFactory.parseString(config);
     String configId = runnerManager.createConfig(c);
 
