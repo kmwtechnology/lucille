@@ -10,29 +10,34 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LocalStorageClient extends BaseStorageClient {
+public class LocalStorageClient extends BaseStorageClient implements FileVisitor<Path> {
   private static final Logger log = LoggerFactory.getLogger(LocalStorageClient.class);
   private FileSystem fs;
   private Path startingDirectoryPath;
 
+  Publisher publisher = null;
+  
   public LocalStorageClient(URI pathToStorageURI, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
     super(pathToStorageURI, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
@@ -41,9 +46,10 @@ public class LocalStorageClient extends BaseStorageClient {
   @Override
   public void init() throws ConnectorException {
     try {
+      // TODO: why not just use the uri we already have?
       fs = FileSystems.getDefault();
       // get current working directory path
-      startingDirectoryPath = fs.getPath(startingDirectory);
+      startingDirectoryPath = Paths.get(pathToStorageURI);
     } catch (Exception e) {
       throw new ConnectorException("Error getting fileSystem or starting directory", e);
     }
@@ -53,7 +59,11 @@ public class LocalStorageClient extends BaseStorageClient {
 
   @Override
   protected String getStartingDirectory() {
-    return pathToStorageURI.getPath();
+    // the normal java URI.getPath prepends a forward slash on stuff like /c:/foo/bar.txt
+    File f = new File(pathToStorageURI.getPath());
+    return f.getPath();
+    
+    // return pathToStorageURI.getPath();
   }
 
   @Override
@@ -74,19 +84,14 @@ public class LocalStorageClient extends BaseStorageClient {
 
   @Override
   public void traverse(Publisher publisher) throws Exception {
-    try (Stream<Path> paths = Files.walk(startingDirectoryPath).sorted()) {
-      paths.filter(this::isValidPath)
-          .forEachOrdered(path -> {
-            Path fullPath = path.toAbsolutePath().normalize();
-            String fullPathStr = fullPath.toString();
-            String fileExtension = FilenameUtils.getExtension(fullPathStr);
-            tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(fullPath));
-          });
-    } catch (InvalidPathException e) {
-      throw new ConnectorException("Path string provided cannot be converted to a Path.", e);
-    } catch (SecurityException | IOException e) {
-      throw new ConnectorException("Error while traversing file system.", e);
-    }
+    
+    // FileVisitor<Path> visitor = new LucilleFileVisitor(publisher);
+    // TODO: we shouldn't have to do this here.. this is not safe!
+    this.publisher = publisher;
+    
+    // this class implements the FileVisitor so we can just walk with it.
+    Files.walkFileTree(startingDirectoryPath, this);
+    
   }
 
   @Override
@@ -178,4 +183,36 @@ public class LocalStorageClient extends BaseStorageClient {
     }
     return doc;
   }
+
+  // From the FileVisitor interface to define how we handle errors better.
+  
+  @Override
+  public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+    // We don't care about preVisiting a directory
+    return  FileVisitResult.CONTINUE;
+  }
+
+  @Override
+  public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+    // Visit the file and actually process it!
+    Path fullPath = file.toAbsolutePath().normalize();
+    String fullPathStr = fullPath.toString();
+    String fileExtension = FilenameUtils.getExtension(fullPathStr);
+    tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(fullPath));
+    return  FileVisitResult.CONTINUE;
+  }
+
+  @Override
+  public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+    // TODO: do we care about creating a tombstone or other log message here?
+    log.warn("Visit File Failed for : {}", file.toString(), exc);
+    return  FileVisitResult.CONTINUE;
+  }
+
+  @Override
+  public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+    // we don't care about after we finished the directory
+    return  FileVisitResult.CONTINUE;
+  }
+
 }
