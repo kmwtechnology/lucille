@@ -25,16 +25,16 @@ public class ParseFilePathTest {
     // System.err.println(doc1);
     
     assertTrue(doc1.has("filename"));
-    assertEquals(doc1.getString("filename"), "myfile.xml");
+    assertEquals("myfile.xml", doc1.getString("filename"));
     
     assertTrue(doc1.has("file_extension"));
-    assertEquals(doc1.getString("file_extension"), "XML");
+    assertEquals("XML", doc1.getString("file_extension"));
 
     assertTrue(doc1.has("folder"));
-    assertEquals(doc1.getString("folder"), "Z:\\folder1\\folder2\\folder3");
+    assertEquals("Z:\\folder1\\folder2\\folder3", doc1.getString("folder"));
     
     assertTrue(doc1.has("file_paths"));
-    assertEquals(doc1.getStringList("file_paths").size(), 4);
+    assertEquals(4, doc1.getStringList("file_paths").size());
     
     assertEquals("Z:", doc1.getStringList("file_paths").get(0));
     assertEquals("Z:\\folder1", doc1.getStringList("file_paths").get(1));
