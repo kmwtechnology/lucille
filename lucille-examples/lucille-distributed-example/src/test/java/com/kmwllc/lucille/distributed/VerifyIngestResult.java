@@ -26,7 +26,7 @@ public class VerifyIngestResult {
     for (int i = 0; i < numDocs; i++) {
       docs.add(json.get("response").get("docs").get(i));
     }
-    
+
     assertTrue(docs.stream()
         .anyMatch(doc -> doc.get("id").asText().equals("source.csv-1")
             && doc.get("source").get(0).asText().equals("/conf/source.csv")
