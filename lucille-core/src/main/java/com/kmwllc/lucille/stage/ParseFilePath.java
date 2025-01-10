@@ -20,6 +20,19 @@ import com.typesafe.config.Config;
 
 import opennlp.tools.stemmer.snowball.finnishStemmer;
 
+/**
+ * This stage will take a field that contains a file path on it like  c:\directory\filename.txt and parse out the filename, 
+ * file extension, folder and it will also create a heirarchical representation of the folder.
+ *
+ * Config Parameters:
+ *
+ *   - file_path_field (String) - the field name that contains the file path
+ *   - file_sep (String) - the file system separator defaults to backslash.
+ *   - uppercase_extension (Boolean) - if this is true the extracted file extension will be upper case
+ *   - include_heirarchy (Boolean) - if this is true a field will be populated with all of the subpaths 
+ *   in the directory structure so a heirarchical aggregator/facet can be generated in a search engine with it.
+ *   
+ */
 public class ParseFilePath extends Stage {
 
   private final String filePathField;
@@ -31,7 +44,7 @@ public class ParseFilePath extends Stage {
   public ParseFilePath(Config config) {
     super(config, new StageSpec().withOptionalProperties("file_path_field", "file_sep", "uppercase_extension","include_heirarchy"));
     this.filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : "file_path";
-    this.fileSep = config.hasPath("file_sep") ? config.getString("file_sep") : "\\\\";
+    this.fileSep = config.hasPath("file_sep") ? config.getString("file_sep") : "\\";
     this.uppercaseExtension = config.hasPath("uppercase_extension") ? config.getBoolean("uppercase_extension") : true;
     this.includeHeirarchy = config.hasPath("include_heirarchy") ? config.getBoolean("include_heirarchy") : true;
   }
@@ -51,7 +64,7 @@ public class ParseFilePath extends Stage {
         doc.addToField("file_extension", FilenameUtils.getExtension(f.getName()));
       }
       if (includeHeirarchy) {
-        String[] paths = f.getPath().split(fileSep);
+        String[] paths = StringUtils.split(f.getPath(), fileSep);
         for (int i = 1; i < paths.length; i++) {
           String subPath = StringUtils.join(Arrays.copyOfRange(paths, 0, i), fileSep);
           doc.addToField("file_paths", subPath);
