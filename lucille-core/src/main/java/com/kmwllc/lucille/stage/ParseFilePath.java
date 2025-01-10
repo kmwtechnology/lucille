@@ -37,10 +37,10 @@ public class ParseFilePath extends Stage {
 
   private final String filePathField;
   private final String fileSep;
-  private static final Logger log = LogManager.getLogger(ParseFilePath.class);
   private final boolean uppercaseExtension;
   private final boolean includeHeirarchy;
-
+  private static final Logger log = LogManager.getLogger(ParseFilePath.class);
+  
   public ParseFilePath(Config config) {
     super(config, new StageSpec().withOptionalProperties("file_path_field", "file_sep", "uppercase_extension","include_heirarchy"));
     this.filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : "file_path";
