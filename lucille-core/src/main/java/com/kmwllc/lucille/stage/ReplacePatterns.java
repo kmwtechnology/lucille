@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  * <br>
  * - replacement (String) : The String to replace regex matches with.
  * <br>
- * - replacement_field (String): Specify a field in the document mapped to a String. If non-null, when replacements are
+ * - replacement_field (String, Optional): Specify a field in the document mapped to a String. If non-null, when replacements are
  * performed within this Document, they will use the String mapped to this field name (in lieu of the replacement from the config).
  * <br>
  * - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
