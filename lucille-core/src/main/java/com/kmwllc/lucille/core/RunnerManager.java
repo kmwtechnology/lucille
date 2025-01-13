@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+
 
 /**
  * Public API for starting lucille runs and viewing their status. Will be used by external
@@ -71,9 +71,9 @@ public class RunnerManager {
    * @param runId the unique ID for the lucille run
    * @return true if the run was started successfully; false if a run with the given ID is already
    *         in progress
-   * @throws FileNotFoundException 
+   * @throws RunnerManagerException 
    */
-  public synchronized boolean run(String runId) throws FileNotFoundException {
+  public synchronized boolean run(String runId) throws RunnerManagerException {
     Config config = ConfigFactory.load();
     String configId = createConfig(config);
     return runWithConfig(runId, configId);
@@ -84,9 +84,9 @@ public class RunnerManager {
    * 
    * @param config
    * @return
-   * @throws FileNotFoundException 
+   * @throws RunnerManagerException 
    */
-  protected synchronized boolean runWithConfig(Config config) throws FileNotFoundException {
+  protected synchronized boolean runWithConfig(Config config) throws RunnerManagerException {
     String configId = createConfig(config);
     return runWithConfig(null, configId);
   }
@@ -112,9 +112,9 @@ public class RunnerManager {
    * @param config the configuration to use for the run
    * @return true if the run was started successfully; false if a run with the given ID is already
    *         in progress
-   * @throws Exception 
+   * @throws RunnerManagerException 
    */
-  public synchronized boolean runWithConfig(String inRunId, String configId) throws FileNotFoundException {
+  public synchronized boolean runWithConfig(String inRunId, String configId) throws RunnerManagerException {
     final String runId = (inRunId != null) ? inRunId : UUID.randomUUID().toString();
 
     if (isRunning(runId)) {
@@ -128,7 +128,7 @@ public class RunnerManager {
     final Config config = configMap.get(configId);
     if (config == null) {
       log.error("Config with id {} not found", configId);
-      throw new FileNotFoundException("Config with id " + configId + " not found");
+      throw new RunnerManagerException("Config with id " + configId + " not found");
     }
 
     CompletableFuture.runAsync(() -> {
