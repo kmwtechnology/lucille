@@ -51,6 +51,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class Runner {
 
+  
   public static final int DEFAULT_CONNECTOR_TIMEOUT = 1000 * 60 * 60 * 24;
 
   public static final long DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT = 3000;
@@ -233,7 +234,7 @@ public class Runner {
   }
   
   public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
-	  return runWithResultLog(config, runType, null);
+    return runWithResultLog(config, runType, null);
   }
 
   /**
@@ -262,14 +263,15 @@ public class Runner {
   }
   
   /**
-   * Non managed Run with internal generated runId 
+   * Non managed Run with internal generated runId
+   * 
    * @param config
    * @param type
    * @return
    * @throws Exception
    */
   public static RunResult run(Config config, RunType type) throws Exception {
-	  return run(config, type, null);
+    return run(config, type, null);
   }
 
   /**

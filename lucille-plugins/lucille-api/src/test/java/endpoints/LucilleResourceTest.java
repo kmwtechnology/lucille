@@ -155,7 +155,6 @@ public class LucilleResourceTest {
     Response response = lucilleResource.getAllRuns(mockUser);
 
     assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
-    System.out.println(response.getEntity());
     assertTrue(((List<?>) response.getEntity()).isEmpty());
   }
 }

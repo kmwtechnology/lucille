@@ -12,8 +12,6 @@ public class AuthHandler {
     this.authEnabled = authEnabled;
   }
 
-
-
   /**
    * Handles authentication for a request.
    * 
