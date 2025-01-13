@@ -25,136 +25,137 @@ import jakarta.ws.rs.core.Response;
 @RunWith(MockitoJUnitRunner.class)
 public class LucilleResourceTest {
 
-    private RunnerManager runnerManager;  // Real instance
-    private LucilleResource lucilleResource;  // Real instance
+  private RunnerManager runnerManager; // Real instance
+  private LucilleResource lucilleResource; // Real instance
 
-    @Mock
-    private AuthHandler authHandler;  // Mock authentication only
+  @Mock
+  private AuthHandler authHandler; // Mock authentication only
 
-    private Optional<PrincipalImpl> mockUser;
+  private Optional<PrincipalImpl> mockUser;
 
-    @Before
-    public void setUp() {
-        runnerManager = RunnerManager.getInstance();  // Real instance
-        runnerManager.clearConfig();
-        runnerManager.clearAllRunDetails();
-        lucilleResource = new LucilleResource(runnerManager, authHandler);
-        mockUser = Optional.of(new PrincipalImpl("testUser"));
-    }
+  @Before
+  public void setUp() {
+    runnerManager = RunnerManager.getInstance(); // Real instance
+    runnerManager.clearConfig();
+    runnerManager.clearAllRunDetails();
+    lucilleResource = new LucilleResource(runnerManager, authHandler);
+    mockUser = Optional.of(new PrincipalImpl("testUser"));
+  }
 
-    @Test
-    public void testCreateRun_Success() {
-        Map<String, Object> configBody = new HashMap<>();
-        configBody.put("connectors", Collections.singletonList("dummyConnector"));
+  @Test
+  public void testCreateRun_Success() {
+    Map<String, Object> configBody = new HashMap<>();
+    configBody.put("connectors", Collections.singletonList("dummyConnector"));
 
-        when(authHandler.authenticate(any())).thenReturn(null); // Simulate successful authentication
+    when(authHandler.authenticate(any())).thenReturn(null); // Simulate successful authentication
 
-        Response response = lucilleResource.createRun(mockUser, configBody);
-        
-        assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
-        Map<String, Object> responseBody = (Map<String, Object>) response.getEntity();
-        assertNotNull(responseBody.get("configId"));
-    }
+    Response response = lucilleResource.createRun(mockUser, configBody);
 
-    @Test
-    public void testCreateRun_AuthFailure() {
-        when(authHandler.authenticate(any())).thenReturn(Response.status(Response.Status.UNAUTHORIZED).build());
+    assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+    Map<String, Object> responseBody = (Map<String, Object>) response.getEntity();
+    assertNotNull(responseBody.get("configId"));
+  }
 
-        Map<String, Object> configBody = new HashMap<>();
-        Response response = lucilleResource.createRun(mockUser, configBody);
+  @Test
+  public void testCreateRun_AuthFailure() {
+    when(authHandler.authenticate(any()))
+        .thenReturn(Response.status(Response.Status.UNAUTHORIZED).build());
 
-        assertEquals(Response.Status.UNAUTHORIZED.getStatusCode(), response.getStatus());
-    }
+    Map<String, Object> configBody = new HashMap<>();
+    Response response = lucilleResource.createRun(mockUser, configBody);
 
-    @Test
-    public void testGetAllConfigs_Empty() {
-        when(authHandler.authenticate(any())).thenReturn(null);
+    assertEquals(Response.Status.UNAUTHORIZED.getStatusCode(), response.getStatus());
+  }
 
-        Response response = lucilleResource.getAllConfigs(mockUser);
+  @Test
+  public void testGetAllConfigs_Empty() {
+    when(authHandler.authenticate(any())).thenReturn(null);
 
-        assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
-        assertTrue(((Map<?, ?>) response.getEntity()).isEmpty());
-    }
+    Response response = lucilleResource.getAllConfigs(mockUser);
 
-    @Test
-    public void testStartRun_Success() {
-        when(authHandler.authenticate(any())).thenReturn(null);
+    assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+    assertTrue(((Map<?, ?>) response.getEntity()).isEmpty());
+  }
 
-        // Create a config first
-        Map<String, Object> configBody = new HashMap<>();
-        configBody.put("pipeline", "testPipeline");
+  @Test
+  public void testStartRun_Success() {
+    when(authHandler.authenticate(any())).thenReturn(null);
 
-        Response configResponse = lucilleResource.createRun(mockUser, configBody);
-        String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
+    // Create a config first
+    Map<String, Object> configBody = new HashMap<>();
+    configBody.put("pipeline", "testPipeline");
 
-        // Start run
-        Map<String, String> requestBody = new HashMap<>();
-        requestBody.put("configId", configId);
+    Response configResponse = lucilleResource.createRun(mockUser, configBody);
+    String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
 
-        Response runResponse = lucilleResource.startRun(mockUser, requestBody);
+    // Start run
+    Map<String, String> requestBody = new HashMap<>();
+    requestBody.put("configId", configId);
 
-        assertEquals(Response.Status.OK.getStatusCode(), runResponse.getStatus());
-        RunDetails runDetails = (RunDetails) runResponse.getEntity();
-        assertNotNull(runDetails);
-        assertEquals(configId, runDetails.getConfigId());
-    }
+    Response runResponse = lucilleResource.startRun(mockUser, requestBody);
 
-    @Test
-    public void testStartRun_InvalidConfigId() {
-        when(authHandler.authenticate(any())).thenReturn(null);
+    assertEquals(Response.Status.OK.getStatusCode(), runResponse.getStatus());
+    RunDetails runDetails = (RunDetails) runResponse.getEntity();
+    assertNotNull(runDetails);
+    assertEquals(configId, runDetails.getConfigId());
+  }
 
-        // Invalid configId
-        Map<String, String> requestBody = new HashMap<>();
-        requestBody.put("configId", "invalid-config-id");
+  @Test
+  public void testStartRun_InvalidConfigId() {
+    when(authHandler.authenticate(any())).thenReturn(null);
 
-        Response response = lucilleResource.startRun(mockUser, requestBody);
+    // Invalid configId
+    Map<String, String> requestBody = new HashMap<>();
+    requestBody.put("configId", "invalid-config-id");
 
-        assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
-    }
+    Response response = lucilleResource.startRun(mockUser, requestBody);
 
-    @Test
-    public void testGetRunById_Success() {
-        when(authHandler.authenticate(any())).thenReturn(null);
+    assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+  }
 
-        // Create and start a run
-        Map<String, Object> configBody = new HashMap<>();
-        configBody.put("pipeline", "testPipeline");
+  @Test
+  public void testGetRunById_Success() {
+    when(authHandler.authenticate(any())).thenReturn(null);
 
-        Response configResponse = lucilleResource.createRun(mockUser, configBody);
-        String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
+    // Create and start a run
+    Map<String, Object> configBody = new HashMap<>();
+    configBody.put("pipeline", "testPipeline");
 
-        Map<String, String> requestBody = new HashMap<>();
-        requestBody.put("configId", configId);
-        Response runResponse = lucilleResource.startRun(mockUser, requestBody);
+    Response configResponse = lucilleResource.createRun(mockUser, configBody);
+    String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
 
-        RunDetails runDetails = (RunDetails) runResponse.getEntity();
-        String runId = runDetails.getRunId();
+    Map<String, String> requestBody = new HashMap<>();
+    requestBody.put("configId", configId);
+    Response runResponse = lucilleResource.startRun(mockUser, requestBody);
 
-        // Fetch run details
-        Response fetchedRunResponse = lucilleResource.getRunById(mockUser, runId);
+    RunDetails runDetails = (RunDetails) runResponse.getEntity();
+    String runId = runDetails.getRunId();
 
-        assertEquals(Response.Status.OK.getStatusCode(), fetchedRunResponse.getStatus());
-        RunDetails fetchedRunDetails = (RunDetails) fetchedRunResponse.getEntity();
-        assertEquals(runId, fetchedRunDetails.getRunId());  
-        assertEquals(configId, fetchedRunDetails.getConfigId());
-    }
+    // Fetch run details
+    Response fetchedRunResponse = lucilleResource.getRunById(mockUser, runId);
 
-    @Test
-    public void testGetRunById_NotFound() {
-        when(authHandler.authenticate(any())).thenReturn(null);
+    assertEquals(Response.Status.OK.getStatusCode(), fetchedRunResponse.getStatus());
+    RunDetails fetchedRunDetails = (RunDetails) fetchedRunResponse.getEntity();
+    assertEquals(runId, fetchedRunDetails.getRunId());
+    assertEquals(configId, fetchedRunDetails.getConfigId());
+  }
 
-        Response response = lucilleResource.getRunById(mockUser, "non-existent-run-id");
+  @Test
+  public void testGetRunById_NotFound() {
+    when(authHandler.authenticate(any())).thenReturn(null);
 
-        assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
-    }
+    Response response = lucilleResource.getRunById(mockUser, "non-existent-run-id");
 
-    @Test
-    public void testGetAllRuns_Empty() {
-        when(authHandler.authenticate(any())).thenReturn(null);
-        Response response = lucilleResource.getAllRuns(mockUser);
+    assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+  }
 
-        assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
-        System.out.println(response.getEntity());
-        assertTrue(((List<?>) response.getEntity()).isEmpty());
-    }
+  @Test
+  public void testGetAllRuns_Empty() {
+    when(authHandler.authenticate(any())).thenReturn(null);
+    Response response = lucilleResource.getAllRuns(mockUser);
+
+    assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+    System.out.println(response.getEntity());
+    assertTrue(((List<?>) response.getEntity()).isEmpty());
+  }
 }
