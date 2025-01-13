@@ -24,6 +24,9 @@ import java.util.regex.Pattern;
  * <br>
  * - replacement (String) : The String to replace regex matches with.
  * <br>
+ * - replacement_field (String): Specify a field in the document mapped to a String. If non-null, when replacements are
+ * performed within this Document, they will use the String mapped to this field name (in lieu of the replacement from the config).
+ * <br>
  * - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  * Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  * <br>
@@ -41,6 +44,7 @@ public class ReplacePatterns extends Stage {
   private final List<String> destFields;
   private final List<String> regexExprs;
   private final String replacement;
+  private final String replacementField;
   private final UpdateMode updateMode;
 
   private final boolean ignoreCase;
@@ -52,7 +56,7 @@ public class ReplacePatterns extends Stage {
 
   public ReplacePatterns(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "regex", "replacement")
-        .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
+        .withOptionalProperties("replacement_field", "update_mode", "ignore_case", "multiline", "dotall", "literal"));
 
     this.patterns = new ArrayList<>();
 
@@ -60,6 +64,7 @@ public class ReplacePatterns extends Stage {
     this.destFields = config.getStringList("dest");
     this.regexExprs = config.getStringList("regex");
     this.replacement = config.getString("replacement");
+    this.replacementField = ConfigUtils.getOrDefault(config, "replacement_field", null);
     this.updateMode = UpdateMode.fromConfig(config);
 
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
@@ -125,6 +130,8 @@ public class ReplacePatterns extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
+    String replacementForDoc = doc.has(replacementField) ? doc.getString(replacementField) : replacement;
+
     for (int i = 0; i < sourceFields.size(); i++) {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
@@ -137,7 +144,7 @@ public class ReplacePatterns extends Stage {
       for (String value : doc.getStringList(sourceField)) {
         for (Pattern pattern : patterns) {
           Matcher matcher = pattern.matcher(value);
-          value = matcher.replaceAll(replacement);
+          value = matcher.replaceAll(replacementForDoc);
         }
 
         outputValues.add(value);

@@ -78,6 +78,24 @@ public class ReplacePatternsTest {
     assertEquals("The term REPLACED\\ should be replaced,\n but not this false", doc.getStringList("output1").get(0));
   }
 
+  // Configured to check "replacement_string" field within documents for a new replacement.
+  @Test
+  public void testReplacementField() throws Exception {
+    Stage stage = factory.get("ReplacePatternsTest/replacement_field.conf");
+
+    // No mapping for "replacement_string"
+    Document doc = Document.create("doc");
+    doc.setField("input1", "The term false should be replaced.");
+    stage.processDocument(doc);
+    assertEquals("The term REPLACED should be replaced.", doc.getStringList("output1").get(0));
+
+    Document replacement_doc = Document.create("replacement_document");
+    replacement_doc.setField("input1", "The term false should be replaced.");
+    replacement_doc.setField("replacement_string", "OVERWRITTEN");
+    stage.processDocument(replacement_doc);
+    assertEquals("The term OVERWRITTEN should be replaced.", replacement_doc.getStringList("output1").get(0));
+  }
+
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("ReplacePatternsTest/config.conf");
@@ -92,6 +110,7 @@ public class ReplacePatternsTest {
             "dest",
             "conditions",
             "replacement",
+            "replacement_field",
             "class",
             "dotall",
             "literal",
