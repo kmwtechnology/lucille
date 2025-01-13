@@ -53,7 +53,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
 
   @Override
   public void run(LucilleAPIConfiguration config, Environment env) throws Exception {
-    System.out.println(String.format("starting lucille-api from %s config %s env %s",
+    log.info(String.format("starting lucille-api from %s config %s env %s",
         System.getProperty("user.dir"), config, env));
 
     RunnerManager runnerManager = RunnerManager.getInstance();
@@ -85,13 +85,13 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
   }
 
   public static void main(String[] args) throws Exception {
-    System.out.println(String.format("starting lucille-api from %s args %s",
+    log.info(String.format("starting lucille-api from %s args %s",
         System.getProperty("user.dir"), Arrays.toString(args)));
 
     // Use default config if no arguments are provided
     if (args.length == 0) {
       args = new String[] {"server", "conf/default-config.yml"}; // Specify the default config file
-      System.out.println("No config file supplied. Using default: default-config.yml");
+      log.info("No config file supplied. Using default: default-config.yml");
     }
     new APIApplication().run(args);
   }
