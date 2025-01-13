@@ -34,7 +34,6 @@ public class ReadinessResource {
   @Operation(summary = "Readiness Check", description = "Returns 204 No Content to indicate the service is ready.")
   public Response isReady() {
     log.debug("Readiness check endpoint accessed.");
-    // return Response.noContent().build();
     return Response.ok().build();
   }
 }
