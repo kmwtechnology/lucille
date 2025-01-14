@@ -59,7 +59,7 @@ public class RunnerManager {
       details.getFuture().get();
     } else {
       log.error("No such run with ID: " + runId);
-      return;
+      throw new IllegalArgumentException("No such run with ID: " + runId);
     }
   }
 
