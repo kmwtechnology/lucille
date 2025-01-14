@@ -8,6 +8,7 @@ import org.junit.Test;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 public class ReplacePatternsTest {
 
@@ -78,22 +79,57 @@ public class ReplacePatternsTest {
     assertEquals("The term REPLACED\\ should be replaced,\n but not this false", doc.getStringList("output1").get(0));
   }
 
-  // Configured to check "replacement_string" field within documents for a new replacement.
   @Test
   public void testReplacementField() throws Exception {
     Stage stage = factory.get("ReplacePatternsTest/replacement_field.conf");
-
-    // No mapping for "replacement_string"
-    Document doc = Document.create("doc");
-    doc.setField("input1", "The term false should be replaced.");
-    stage.processDocument(doc);
-    assertEquals("The term REPLACED should be replaced.", doc.getStringList("output1").get(0));
 
     Document replacement_doc = Document.create("replacement_document");
     replacement_doc.setField("input1", "The term false should be replaced.");
     replacement_doc.setField("replacement_string", "OVERWRITTEN");
     stage.processDocument(replacement_doc);
     assertEquals("The term OVERWRITTEN should be replaced.", replacement_doc.getStringList("output1").get(0));
+  }
+
+  @Test
+  public void testReplacementFieldFallback() throws Exception {
+    Stage stage = factory.get("ReplacePatternsTest/replacement_field.conf");
+
+    // 1. Fallback to "replacement" if the replacement_field isn't in the document.
+    Document doc = Document.create("doc");
+    doc.setField("input1", "The term false should be replaced.");
+    stage.processDocument(doc);
+    assertEquals("The term REPLACED should be replaced.", doc.getStringList("output1").get(0));
+
+    // 2. Fallback to "replacement" if the replacement_field is mapped to null.
+    doc = Document.create("doc");
+    doc.setField("input1", "The term false should be replaced.");
+    doc.setField("replacement_string", (String) null);
+    stage.processDocument(doc);
+    assertEquals("The term REPLACED should be replaced.", doc.getStringList("output1").get(0));
+  }
+
+  @Test
+  public void testNoPatternMatching() throws Exception {
+    // 1. A stage without a replacement OR a replacement_field.
+    Stage noFallback = factory.get("ReplacePatternsTest/no_fallback.conf");
+    Document doc = Document.create("doc");
+    doc.setField("input1", "The term false will not be replaced.");
+    noFallback.processDocument(doc);
+    assertNull(doc.getStringList("output1"));
+
+    // 2. A stage with just a replacement_field. No matching at all if the replacement_field isn't present
+    // in a Document or if it is mapped to null. (No fallbacks!)
+    Stage replacementFieldNoFallback = factory.get("ReplacePatternsTest/replacement_field_no_fallback.conf");
+    doc = Document.create("doc");
+    doc.setField("input1", "The term false will not be replaced.");
+    replacementFieldNoFallback.processDocument(doc);
+    assertNull(doc.getStringList("output1"));
+
+    Document docWithNullReplacement = Document.create("doc_with_null");
+    docWithNullReplacement.setField("input1", "The term false will not be replaced.");
+    docWithNullReplacement.setField("replacement_string", (String) null);
+    replacementFieldNoFallback.processDocument(docWithNullReplacement);
+    assertNull(docWithNullReplacement.getStringList("output1"));
   }
 
   @Test

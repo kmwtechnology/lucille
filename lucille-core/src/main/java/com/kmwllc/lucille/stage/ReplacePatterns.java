@@ -57,8 +57,8 @@ public class ReplacePatterns extends Stage {
   private List<Pattern> patterns;
 
   public ReplacePatterns(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "dest", "regex", "replacement")
-        .withOptionalProperties("replacement_field", "update_mode", "ignore_case", "multiline", "dotall", "literal"));
+    super(config, new StageSpec().withRequiredProperties("source", "dest", "regex")
+        .withOptionalProperties("replacement", "replacement_field", "update_mode", "ignore_case", "multiline", "dotall", "literal"));
 
     this.patterns = new ArrayList<>();
 
@@ -132,10 +132,8 @@ public class ReplacePatterns extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    String replacementForDoc = doc.has(replacementField) ? doc.getString(replacementField) : replacement;
+    String replacementForDoc = doc.getString(replacementField) == null ? replacement : doc.getString(replacementField);
 
-    // no replacementField specified OR the doc didn't have it; and replacement (the default) was null.
-    // OR the doc had a specified replacement field, but it was explicitly mapped to null.
     if (replacementForDoc == null) {
       return null;
     }
