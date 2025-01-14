@@ -197,10 +197,10 @@ public class LocalStorageClientTest {
     Assert.assertEquals("Awesome Wood Mug", doc5.getString("name"));
 
     Document doc6 = documents.get(5);
-    Assert.assertTrue(doc6.getString(FILE_PATH).endsWith("subdir1/e.json.gz"));
+    Assert.assertTrue(doc6.getString(FILE_PATH).endsWith("subdir1"+File.separatorChar+"e.json.gz"));
 
     Document doc7 = documents.get(6);
-    Assert.assertTrue(doc7.getString(FILE_PATH).endsWith("subdir1/e.yaml"));
+    Assert.assertTrue(doc7.getString(FILE_PATH).endsWith("subdir1"+File.separatorChar+"e.yaml"));
 
     Document doc8 = documents.get(7);
     Assert.assertEquals("f1", doc8.getId());
