@@ -51,31 +51,30 @@
         <version>${dropwizard-core.version}</version>
       </dependency>
 
-
-        <dependency>
-            <groupId>io.dropwizard.modules</groupId>
-            <artifactId>dropwizard-testing-junit4</artifactId>
-            <version>${dropwizard-core.version}</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>junit</groupId>
-                    <artifactId>junit</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>ch.qos.logback</groupId>
-                    <artifactId>logback-classic</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>ch.qos.logback</groupId>
-                    <artifactId>logback-access</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>log4j-over-slf4j</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+     <dependency>
+        <groupId>io.dropwizard.modules</groupId>
+        <artifactId>dropwizard-testing-junit4</artifactId>
+        <version>${dropwizard-core.version}</version>
+        <scope>test</scope>
+        <exclusions>
+            <exclusion>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+            </exclusion>
+          <exclusion>
+              <groupId>ch.qos.logback</groupId>
+              <artifactId>logback-classic</artifactId>
+          </exclusion>
+          <exclusion>
+              <groupId>ch.qos.logback</groupId>
+              <artifactId>logback-access</artifactId>
+          </exclusion>
+          <exclusion>
+              <groupId>org.slf4j</groupId>
+              <artifactId>log4j-over-slf4j</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
 
         <!-- Swagger -->
         <dependency>
@@ -85,36 +84,28 @@
         </dependency>
 
      <!-- Add slf4j API frontend -->
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>${slf4j.version}</version>
-        </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${slf4j.version}</version>
+      </dependency>
       <!-- add log4j2 binding to classpath -->
       <!-- routes slf4j calls to log4j2 -->
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-slf4j2-impl</artifactId>
-            <version>${log4j.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-api</artifactId>
-            <version>${log4j.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-core</artifactId>
-            <version>${log4j.version}</version>
-        </dependency>
-
-        <!-- Logback for testing only -->
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <version>1.4.14</version>
-            <scope>test</scope>
-        </dependency>
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-slf4j2-impl</artifactId>
+        <version>${log4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-api</artifactId>
+        <version>${log4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-core</artifactId>
+        <version>${log4j.version}</version>
+      </dependency>
     </dependencies>
 
     <build>
@@ -124,7 +115,7 @@
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.2.4</version>
                 <configuration>
-                    <finalName>${project.artifactId}-plugin</finalName>
+                <finalName>${project.artifactId}-plugin</finalName>
                     <createDependencyReducedPom>false</createDependencyReducedPom>
                     <filters>
                         <filter>
