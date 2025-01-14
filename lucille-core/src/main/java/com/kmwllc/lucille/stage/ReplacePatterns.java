@@ -22,10 +22,12 @@ import java.util.regex.Pattern;
  * <br>
  * - regex (List&lt;String&gt;) : A list regex expression to find matches for. Matches will be extracted and placed in the destination fields.
  * <br>
- * - replacement (String) : The String to replace regex matches with.
+ * - replacement (String, Optional) : The String to replace regex matches with. If null, pattern replacement will only take place if
+ * a replacement_field is specified and found in a document.
  * <br>
- * - replacement_field (String, Optional): Specify a field in the document mapped to a String. If non-null, when replacements are
- * performed within this Document, they will use the String mapped to this field name (in lieu of the replacement from the config).
+ * - replacement_field (String, Optional): Specify a field in the document that maps to a String. If non-null, replacements of a
+ * pattern within a document will use the string mapped to the replacement_field, if present. Otherwise, the default
+ * replacement String is used (if it is not null).
  * <br>
  * - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  * Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
@@ -63,7 +65,7 @@ public class ReplacePatterns extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.regexExprs = config.getStringList("regex");
-    this.replacement = config.getString("replacement");
+    this.replacement = ConfigUtils.getOrDefault(config, "replacement", null);
     this.replacementField = ConfigUtils.getOrDefault(config, "replacement_field", null);
     this.updateMode = UpdateMode.fromConfig(config);
 
@@ -131,6 +133,12 @@ public class ReplacePatterns extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     String replacementForDoc = doc.has(replacementField) ? doc.getString(replacementField) : replacement;
+
+    // no replacementField specified OR the doc didn't have it; and replacement (the default) was null.
+    // OR the doc had a specified replacement field, but it was explicitly mapped to null.
+    if (replacementForDoc == null) {
+      return null;
+    }
 
     for (int i = 0; i < sourceFields.size(); i++) {
       String sourceField = sourceFields.get(i);
