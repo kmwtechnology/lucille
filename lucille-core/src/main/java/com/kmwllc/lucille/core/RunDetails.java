@@ -101,11 +101,6 @@ public class RunDetails {
     this.future = future;
   }
 
-  public void complete() {
-    this.endTime = Instant.now();
-    this.future.complete(null);
-  }
-
   public void completeExceptionally(Throwable ex) {
     this.endTime = Instant.now();
     this.errorCount++;
