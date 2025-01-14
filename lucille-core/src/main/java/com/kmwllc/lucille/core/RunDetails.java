@@ -101,11 +101,14 @@ public class RunDetails {
     this.future = future;
   }
 
+  public void complete() {
+    this.endTime = Instant.now();
+  }
+
   public void completeExceptionally(Throwable ex) {
     this.endTime = Instant.now();
     this.errorCount++;
     this.exception = ex;
-    this.future.completeExceptionally(ex);
   }
 
   public boolean isDone() {
