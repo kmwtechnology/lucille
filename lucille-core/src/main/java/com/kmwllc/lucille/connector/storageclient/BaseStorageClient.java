@@ -95,10 +95,12 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference) {
     try {
-      // preprocessing
-      // TODO: this call is very expensive!!
-      // beforeProcessingFile(fullPathStr);
-
+      // preprocessing, currently a NO-OP unless a subclass overrides it
+      if (!beforeProcessingFile(fullPathStr)) {
+        // The preprocessing check failed, let's skip the file.
+        return;
+      }
+      
       // handle compressed files if needed to the end
       if (handleCompressedFiles && isSupportedCompressedFileType(fullPathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
@@ -277,11 +279,13 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * method for performing operations before processing files. Additional operations can be added
-   * in the implementation of this method. Will be called before processing each file in traversal.
+   * method for performing operations before processing files. This method is ill be called before processing 
+   * each file in traversal.  If the method returns true, the file will be processed.  A return of false indicates
+   * the file should be skipped.
    */
-  protected void beforeProcessingFile(String pathStr) throws Exception {
-    createProcessedAndErrorFoldersIfSet(pathStr);
+  protected boolean beforeProcessingFile(String pathStr) throws Exception {
+    // Base implementation, process all files. 
+    return true;
   }
 
   /**
@@ -330,30 +334,6 @@ public abstract class BaseStorageClient implements StorageClient {
     } else {
       // handle cloud paths
       throw new UnsupportedOperationException("Moving cloud files is not supported yet");
-    }
-  }
-
-  private void createProcessedAndErrorFoldersIfSet(String pathStr) {
-    Path path = Paths.get(pathStr);
-
-    //TODO: this is a bad and expensive check.
-    // if file does not exist locally, means it is a cloud path, not supported yet
-    boolean sourceFileExistsLocally = Files.exists(path);
-    if (moveToAfterProcessing != null && sourceFileExistsLocally) {
-      // TODO: create these as needed once done processing, not pre-emptively.
-      // Create the destination directory if it doesn't exist.
-      File destDir = new File(moveToAfterProcessing);
-      if (!destDir.exists()) {
-        destDir.mkdirs();
-      }
-    }
-    if (moveToErrorFolder != null && sourceFileExistsLocally) {
-      // TODO: same. this should be done on error, not preemptively.
-      File errorDir = new File(moveToErrorFolder);
-      if (!errorDir.exists()) {
-        log.info("Creating error directory {}", errorDir.getAbsolutePath());
-        errorDir.mkdirs();
-      }
     }
   }
 
