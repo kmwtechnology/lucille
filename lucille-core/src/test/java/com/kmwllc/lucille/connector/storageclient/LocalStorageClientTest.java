@@ -78,7 +78,7 @@ public class LocalStorageClientTest {
     localStorageClient.traverse(publisher);
 
     String[] fileNames = {"a.json", "b.json", "c.json", "d.json",
-        "subdir1/e.json", "subdir1/e.json.gz", "subdir1/e.yaml", "subdir1/f.jsonl"};
+        "subdir1"+File.separatorChar+"e.json", "subdir1"+File.separatorChar+"e.json.gz", "subdir1"+File.separatorChar+"e.yaml", "subdir1"+File.separatorChar+"f.jsonl"};
     int docCount = 0;
     for (Document doc : messenger.getDocsSentForProcessing()) {
       String docId = doc.getId();
