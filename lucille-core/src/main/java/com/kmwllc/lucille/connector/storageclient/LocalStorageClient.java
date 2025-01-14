@@ -15,8 +15,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
@@ -33,7 +31,7 @@ import org.slf4j.LoggerFactory;
 
 public class LocalStorageClient extends BaseStorageClient implements FileVisitor<Path> {
   private static final Logger log = LoggerFactory.getLogger(LocalStorageClient.class);
-  private FileSystem fs;
+
   private Path startingDirectoryPath;
   
   public LocalStorageClient(URI pathToStorageURI, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
@@ -44,14 +42,15 @@ public class LocalStorageClient extends BaseStorageClient implements FileVisitor
   @Override
   public void init() throws ConnectorException {
     try {
-      // TODO: why not just use the uri we already have?
-      fs = FileSystems.getDefault();
-      // get current working directory path
-      startingDirectoryPath = Paths.get(pathToStorageURI);
+      File f = new File(startingDirectory);
+      if (f.exists()) {
+        startingDirectoryPath = Paths.get(f.toURI());
+      } else {
+        startingDirectoryPath = Paths.get(pathToStorageURI);
+      }
     } catch (Exception e) {
       throw new ConnectorException("Error getting fileSystem or starting directory", e);
     }
-
     initializeFileHandlers();
   }
 
@@ -60,32 +59,18 @@ public class LocalStorageClient extends BaseStorageClient implements FileVisitor
     // the normal java URI.getPath prepends a forward slash on stuff like /c:/foo/bar.txt
     File f = new File(pathToStorageURI.getPath());
     return f.getPath();
-    
-    // return pathToStorageURI.getPath();
   }
 
   @Override
   public void shutdown() throws IOException {
-    if (fs != null) {
-      try {
-        fs.close();
-      } catch (UnsupportedOperationException e) {
-        // Some file systems may not need closing
-        fs = null;
-      } catch (IOException e) {
-        throw new IOException("Failed to close file system.", e);
-      }
-    }
     // clear all FileHandlers if any
     clearFileHandlers();
   }
 
   @Override
   public void traverse(Publisher publisher) throws Exception {
-    
     // LocalStorage class implements the FileVisitor so we can just walk it.
     Files.walkFileTree(startingDirectoryPath, this);
-    
   }
 
   @Override
