@@ -53,8 +53,8 @@ public class LucilleResource {
   @Path("/config")
   @Consumes(MediaType.APPLICATION_JSON)
   @Operation(summary = "Create a new Lucille config to be run later",
-      description = "Creates a new Lucille run with the specified configuration")
-  public Response createRun(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user,
+      description = "Creates a new Lucille config, which can be used later by its referenced uuid.")
+  public Response createConfig(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user,
       @RequestBody(description = "Run configuration as a key-value map", required = true,
           content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(
               type = "object",

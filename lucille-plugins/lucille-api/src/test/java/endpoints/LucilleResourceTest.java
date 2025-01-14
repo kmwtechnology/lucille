@@ -49,7 +49,7 @@ public class LucilleResourceTest {
 
     when(authHandler.authenticate(any())).thenReturn(null); // Simulate successful authentication
 
-    Response response = lucilleResource.createRun(mockUser, configBody);
+    Response response = lucilleResource.createConfig(mockUser, configBody);
 
     assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
     Map<String, Object> responseBody = (Map<String, Object>) response.getEntity();
@@ -62,7 +62,7 @@ public class LucilleResourceTest {
         .thenReturn(Response.status(Response.Status.UNAUTHORIZED).build());
 
     Map<String, Object> configBody = new HashMap<>();
-    Response response = lucilleResource.createRun(mockUser, configBody);
+    Response response = lucilleResource.createConfig(mockUser, configBody);
 
     assertEquals(Response.Status.UNAUTHORIZED.getStatusCode(), response.getStatus());
   }
@@ -85,7 +85,7 @@ public class LucilleResourceTest {
     Map<String, Object> configBody = new HashMap<>();
     configBody.put("pipeline", "testPipeline");
 
-    Response configResponse = lucilleResource.createRun(mockUser, configBody);
+    Response configResponse = lucilleResource.createConfig(mockUser, configBody);
     String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
 
     // Start run
@@ -121,7 +121,7 @@ public class LucilleResourceTest {
     Map<String, Object> configBody = new HashMap<>();
     configBody.put("pipeline", "testPipeline");
 
-    Response configResponse = lucilleResource.createRun(mockUser, configBody);
+    Response configResponse = lucilleResource.createConfig(mockUser, configBody);
     String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
 
     Map<String, String> requestBody = new HashMap<>();
