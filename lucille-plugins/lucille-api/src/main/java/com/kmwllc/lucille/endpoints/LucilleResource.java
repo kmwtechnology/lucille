@@ -3,11 +3,11 @@ package com.kmwllc.lucille.endpoints;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.kmwllc.lucille.AuthHandler;
 import com.kmwllc.lucille.core.RunDetails;
+import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.RunnerManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -149,13 +149,12 @@ public class LucilleResource {
             "configId is required in the request body.");
       }
 
-      String runId = UUID.randomUUID().toString();
-      boolean status = runnerManager.runWithConfig(runId, configId);
-      RunDetails details = runnerManager.getRunDetails(runId);
+      String runId = Runner.generateRunId();
+      RunDetails details = runnerManager.runWithConfig(runId, configId);
       log.info("Lucille run has been triggered. Run ID: " + runId);
       log.info("details: {}", details);
 
-      if (status) {
+      if (details.getErrorCount() == 0) {
         return Response.ok(details).build();
       } else {
         return Response.status(424)

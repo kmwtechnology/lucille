@@ -68,11 +68,10 @@ public class RunnerManager {
    * run with the given runId is already in progress.
    *
    * @param runId the unique ID for the lucille run
-   * @return true if the run was started successfully; false if a run with the given ID is already
-   *         in progress
+   * @return RunDetails
    * @throws RunnerManagerException 
    */
-  public synchronized boolean run(String runId) throws RunnerManagerException {
+  public synchronized RunDetails run(String runId) throws RunnerManagerException {
     Config config = ConfigFactory.load();
     String configId = createConfig(config);
     return runWithConfig(runId, configId);
@@ -82,12 +81,12 @@ public class RunnerManager {
    * Run with config and an internal runId will be generated
    * 
    * @param config
-   * @return
+   * @return RunDetails
    * @throws RunnerManagerException 
    */
-  protected synchronized boolean runWithConfig(Config config) throws RunnerManagerException {
+  protected synchronized RunDetails runWithConfig(Config config) throws RunnerManagerException {
     String configId = createConfig(config);
-    return runWithConfig(null, configId);
+    return runWithConfig(Runner.generateRunId(), configId);
   }
 
   /**
@@ -109,21 +108,23 @@ public class RunnerManager {
    *
    * @param runId the unique ID for the lucille run
    * @param config the configuration to use for the run
-   * @return true if the run was started successfully; false if a run with the given ID is already
-   *         in progress
+   * @return RunDetails
    * @throws RunnerManagerException 
    */
-  public synchronized boolean runWithConfig(String inRunId, String configId) throws RunnerManagerException {
-    final String runId = (inRunId != null) ? inRunId : UUID.randomUUID().toString();
+  public synchronized RunDetails runWithConfig(String runId, String configId) throws RunnerManagerException {
 
-    if (isRunning(runId)) {
-      log.warn("Skipping new run with ID '{}'; previous lucille run is still in progress.", runId);
-      return false;
+    if (runId == null) {
+      throw new RunnerManagerException("runId cannot be null");
     }
     
     final RunDetails runDetails = new RunDetails(runId, configId);
     runDetailsMap.put(runId, runDetails);
-
+    
+    if (isRunning(runId)) {
+      log.warn("Skipping new run with ID '{}'; previous lucille run is still in progress.", runId);
+      return runDetails;
+    }
+    
     final Config config = configMap.get(configId);
     if (config == null) {
       log.error("Config with id {} not found", configId);
@@ -154,7 +155,7 @@ public class RunnerManager {
       }
     }));
 
-    return true;
+    return runDetails;
   }
 
   /**

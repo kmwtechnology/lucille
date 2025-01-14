@@ -32,18 +32,21 @@ public class RunnerManagerTest {
     String configId = runnerManager.createConfig(config);
 
     // Kick off a lucille run and ensure it is not skipped
-    assertTrue(runnerManager.runWithConfig(runId, configId));
+    RunDetails details = runnerManager.runWithConfig(runId, configId);
+    assertTrue(details.getErrorCount() == 0);
 
     // While we lucille is running, ensure lucille isRunning and a new run is skipped
     assertTrue(runnerManager.isRunning(runId));
-    assertFalse(runnerManager.runWithConfig(runId, configId));
+    details = runnerManager.runWithConfig(runId, configId);
+    assertFalse(details.getErrorCount() == 0);
 
     // Wait until the run is over
     runnerManager.waitForRunCompletion(runId);
 
     // Ensure lucille is not running and make sure we can now kick off a new run
     assertFalse(runnerManager.isRunning(runId));
-    assertTrue(runnerManager.runWithConfig(runId, configId));
+    details = runnerManager.runWithConfig(runId, configId);
+    assertTrue(details.getErrorCount() == 0);
 
     // Wait for all lucille threads to finish before exiting
     runnerManager.waitForRunCompletion(runId);
@@ -110,7 +113,8 @@ public class RunnerManagerTest {
         long individualRunStart = System.nanoTime();
         try {
           log.info("[{}] Starting run...", runId);
-          boolean started = runnerManager.runWithConfig(runId, configId);
+          RunDetails details = runnerManager.runWithConfig(runId, configId);
+          boolean started = (details.getErrorCount() == 0);
 
           if (!started) {
             log.warn("[{}] Could not start; skipping.", runId);
