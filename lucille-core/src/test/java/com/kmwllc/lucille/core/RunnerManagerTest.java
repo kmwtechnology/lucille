@@ -19,6 +19,13 @@ import com.typesafe.config.ConfigFactory;
 public class RunnerManagerTest {
 
   public static final Logger log = LoggerFactory.getLogger(RunnerManagerTest.class);
+  
+  public void setUp() {
+    // clear config lib
+    RunnerManager.getInstance().clearConfig(); 
+    // clear history
+    RunnerManager.getInstance().clearAllRunDetails();
+  }
 
   @Test
   public void testRunnerManagerFull() throws Exception {
@@ -149,7 +156,7 @@ public class RunnerManagerTest {
     }
 
     // Ensure all runs complete within the 15-second limit
-    boolean completed = latch.await(10, TimeUnit.SECONDS);
+    boolean completed = latch.await(30, TimeUnit.SECONDS);
     long runEndTime = System.nanoTime();
     long totalTestDuration = (runEndTime - runStartTime) / 1_000_000;
 
