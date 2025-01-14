@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 
+import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -19,12 +20,11 @@ public class RunnerManagerTest {
 
   public static final Logger log = LoggerFactory.getLogger(RunnerManagerTest.class);
 
-  final String runId = "runId";
-
   @Test
   public void testRunnerManagerFull() throws Exception {
     RunnerManager runnerManager = RunnerManager.getInstance();
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
+    String runId = Runner.generateRunId();
 
     // Ensure no lucille run is running at the start of the test
     assertFalse(runnerManager.isRunning(runId));
@@ -35,17 +35,17 @@ public class RunnerManagerTest {
     RunDetails details = runnerManager.runWithConfig(runId, configId);
     assertTrue(details.getErrorCount() == 0);
 
-    // While we lucille is running, ensure lucille isRunning and a new run is skipped
+    // Ensure the run is currently running
     assertTrue(runnerManager.isRunning(runId));
-    details = runnerManager.runWithConfig(runId, configId);
-    assertFalse(details.getErrorCount() == 0);
+
+    // Expect an exception when attempting to start the same run again
+    assertThrows(RunnerManagerException.class, () -> runnerManager.runWithConfig(runId, configId));
 
     // Wait until the run is over
     runnerManager.waitForRunCompletion(runId);
 
     // Ensure lucille is not running and make sure we can now kick off a new run
     assertFalse(runnerManager.isRunning(runId));
-    details = runnerManager.runWithConfig(runId, configId);
     assertTrue(details.getErrorCount() == 0);
 
     // Wait for all lucille threads to finish before exiting
@@ -57,6 +57,7 @@ public class RunnerManagerTest {
     RunnerManager runnerManager = RunnerManager.getInstance();
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
     String configId = runnerManager.createConfig(config);
+    String runId = Runner.generateRunId();
 
     // Ensure lucille is not running first
     assertFalse(runnerManager.isRunning(runId));
@@ -90,7 +91,7 @@ public class RunnerManagerTest {
     RunnerManager runnerManager = RunnerManager.getInstance();
     Random random = new Random();
 
-    
+
     // Configuration setup timing
     long configStartTime = System.nanoTime();
     String config = "connectors: [\n"

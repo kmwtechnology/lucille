@@ -112,7 +112,7 @@ public class RunDetails {
   }
 
   public boolean isDone() {
-    return future.isDone();
+    return (future != null && future.isDone());
   }
 
   public RunResult getRunResult() {
