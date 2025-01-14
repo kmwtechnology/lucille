@@ -113,14 +113,6 @@ public class LocalStorageClient extends BaseStorageClient implements FileVisitor
     }
   }
 
-  private boolean isValidPath(Path path) {
-    if (!Files.isRegularFile(path)) {
-      return false;
-    }
-
-    return shouldIncludeFile(path.toString(), includes, excludes);
-  }
-
   private Document pathToDoc(Path path) throws ConnectorException {
     String fullPath = path.toAbsolutePath().normalize().toString();
     String docId = DigestUtils.md5Hex(fullPath);
@@ -174,16 +166,20 @@ public class LocalStorageClient extends BaseStorageClient implements FileVisitor
   @Override
   public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
     // Visit the file and actually process it!
+    if (!shouldIncludeFile(file.toString(), includes, excludes)) {
+      // this file is skipped by the configuration.
+      return FileVisitResult.CONTINUE;
+    }
     Path fullPath = file.toAbsolutePath().normalize();
     String fullPathStr = fullPath.toString();
     String fileExtension = FilenameUtils.getExtension(fullPathStr);
     tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(fullPath));
-    return  FileVisitResult.CONTINUE;
+    return FileVisitResult.CONTINUE;
   }
 
   @Override
   public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-    // TODO: do we care about creating a tombstone or other log message here?
+    // At some point we can add a feature to create a tombstone document, for now just log the failure.
     log.warn("Visit File Failed for : {}", file.toString(), exc);
     return  FileVisitResult.CONTINUE;
   }

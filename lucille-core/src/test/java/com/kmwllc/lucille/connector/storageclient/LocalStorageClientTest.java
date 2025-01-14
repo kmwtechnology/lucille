@@ -107,7 +107,7 @@ public class LocalStorageClientTest {
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_",
-        List.of(Pattern.compile(".*/subdir1/.*$")), List.of(Pattern.compile(".*/[a-c]\\.json$")), Map.of(), ConfigFactory.empty(), publisher);
+        List.of(Pattern.compile(".*subdir1.*$")), List.of(Pattern.compile(".*[a-c]\\.json$")), Map.of(), ConfigFactory.empty(), publisher);
     localStorageClient.init();
 
     localStorageClient.traverse(publisher);
