@@ -130,6 +130,7 @@ public class RunnerManager {
       throw new RunnerManagerException("Config with id " + configId + " not found");
     }
 
+    runDetails.setFuture(
     CompletableFuture.runAsync(() -> {
       try {
         log.info("Starting lucille run with ID '{}' via the Runner Manager using configId {}.",
@@ -151,7 +152,7 @@ public class RunnerManager {
         // runDetailsMap.remove(runId);
         log.info("finished run with id {}", runId);
       }
-    });
+    }));
 
     return true;
   }

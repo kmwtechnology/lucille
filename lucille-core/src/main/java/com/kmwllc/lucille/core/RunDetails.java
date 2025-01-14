@@ -32,7 +32,7 @@ public class RunDetails {
   private long errorCount;
 
   @Schema(hidden = true)
-  private final transient CompletableFuture<Void> future;
+  private transient CompletableFuture<Void> future;
 
   @Schema(description = "Run result")
   private RunResult runResult;
@@ -50,7 +50,6 @@ public class RunDetails {
   public RunDetails(String runId, String configId) {
     this.runId = runId;
     this.configId = configId;
-    this.future = new CompletableFuture<>();
     this.startTime = Instant.now();
   }
 
@@ -96,6 +95,10 @@ public class RunDetails {
 
   public CompletableFuture<Void> getFuture() {
     return future;
+  }
+  
+  public void setFuture(CompletableFuture<Void> future) {
+    this.future = future;
   }
 
   public void complete() {
