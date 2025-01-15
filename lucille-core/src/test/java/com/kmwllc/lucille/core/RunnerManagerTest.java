@@ -6,9 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.time.StopWatch;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,82 +95,45 @@ public class RunnerManagerTest {
 
   @Test
   public void testSimultaneousRuns() throws Exception {
-    log.info("======== testSimultaneousRuns begin ========");
-
-    int numRuns = 5;
-    log.info("Starting testSimultaneousRuns with {} runs", numRuns);
-
-    CountDownLatch latch = new CountDownLatch(numRuns);
+    Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
     RunnerManager runnerManager = RunnerManager.getInstance();
-    Random random = new Random();
+    String configId = runnerManager.createConfig(config);
+    List<String> runIds = new ArrayList();
 
-
-    // Configuration setup timing
-    long configStartTime = System.nanoTime();
-    String config = "connectors: [\n"
-        + "    {class: \"com.kmwllc.lucille.connector.SleepConnector\", name: \"connector1\", duration: 5000, pipeline: \"pipeline1\"}\n"
-        + "]\n" + "pipelines: [{name: \"pipeline1\", stages: []}]\n" + "indexer {\n"
-        + "  sendEnabled: false\n" + "}\n";
-    Config c = ConfigFactory.parseString(config);
-    String configId = runnerManager.createConfig(c);
-    long configEndTime = System.nanoTime();
-    log.info("Configuration setup completed in {} ms",
-        (configEndTime - configStartTime) / 1_000_000);
-
-    long runStartTime = System.nanoTime();
-
-    for (int i = 0; i < numRuns; i++) {
-      final String runId = "test-run-" + i;
-      // force random delay between threads to guarantee varied interleave
-      Thread.sleep(random.nextInt(3000));
-      new Thread(() -> {
-        long individualRunStart = System.nanoTime();
+    for (int i = 0; i < 5; i++) {
+      String runId = "test-run-" + i;
+      // runnerManager.runWithConfig is non-blocking so we don't need to invoke it here via CompleteableFuture.runAsync()
+      // but this approach simulates a scenerio where multiple threads are calling it concurrently
+      CompletableFuture.runAsync(()-> {
         try {
-          log.info("[{}] Starting run...", runId);
-          RunDetails details = runnerManager.runWithConfig(runId, configId);
-          boolean started = (details.getErrorCount() == 0);
-
-          if (!started) {
-            log.warn("[{}] Could not start; skipping.", runId);
-          } else {
-            log.info("[{}] Run started successfully.", runId);
-
-            // Interleave checking: monitor while waiting for completion
-            while (!runnerManager.getRunDetails(runId).isDone()) {
-              Thread.sleep(500); // Poll every 500ms
-            }
-
-            long individualRunEnd = System.nanoTime();
-            long runDuration = (individualRunEnd - individualRunStart) / 1_000_000;
-
-            RunDetails detail = runnerManager.getRunDetails(runId);
-
-            assertNotNull(detail, () -> "[%s] RunDetails should not be null.".formatted(runId));
-            assertEquals(runId, detail.getRunId(), () -> "[%s] Run ID mismatch.".formatted(runId));
-            assertEquals(0, detail.getErrorCount(),
-                () -> "[%s] Run should complete without errors.".formatted(runId));
-
-            log.info("[{}] Finished in {} ms with {} errors.", runId, runDuration,
-                detail.getErrorCount());
-          }
-        } catch (Exception e) {
-          log.error("[{}] Error during execution.", runId, e);
-        } finally {
-          latch.countDown();
+          runnerManager.runWithConfig(runId, configId);
+          assertFalse(runnerManager.getRunDetails(runId).isDone());
+        } catch (RunnerManagerException e) {
+          throw new RuntimeException(e);
         }
-      }).start();
+      });
+      runIds.add(runId);
     }
 
-    // Ensure all runs complete within the 15-second limit
-    boolean completed = latch.await(30, TimeUnit.SECONDS);
-    long runEndTime = System.nanoTime();
-    long totalTestDuration = (runEndTime - runStartTime) / 1_000_000;
+    assertEquals(5, runIds.size());
 
-    log.info("All runs completed: {} (Test duration: {} ms)", completed, totalTestDuration);
-    assertTrue(completed, "Not all runs completed within the expected time.");
+    StopWatch stopWatch = new StopWatch();
+    stopWatch.start();
+    while (runIds.stream().anyMatch(x -> !runnerManager.getRunDetails(x).isDone())) {
+      if (stopWatch.getTime(TimeUnit.SECONDS)>10) {
+        fail("5 concurrent Lucille Runs are taking longer than 10 seconds to complete.");
+      }
+      Thread.sleep(100);
+    }
 
-    log.info("======== testSimultaneousRuns end ========");
+    for (String runId : runIds) {
+      RunDetails details = runnerManager.getRunDetails(runId);
+      assertEquals(runId, details.getRunId());
+      assertEquals(runId, details.getRunResult().getRunId());
+      assertTrue(details.getRunResult().getStatus());
+      assertTrue(Duration.between(details.getStartTime(), details.getEndTime()).getSeconds() >= 1,
+          "Each run expected to take 1 second or more.");
+    }
   }
-
-
+  
 }
