@@ -30,9 +30,6 @@ public class RunDetails {
       example = "2023-12-20T15:48:00.000Z")
   private Instant endTime;
 
-  @Schema(description = "Number of documents processed during the run.", example = "5000")
-  private long docsProcessed;
-
   @Schema(hidden = true)
   private transient CompletableFuture<Void> future;
 
@@ -129,7 +126,6 @@ public class RunDetails {
     sb.append(", configId='").append(configId).append('\'');
     sb.append(", startTime=").append(startTime);
     sb.append(", endTime=").append(endTime);
-    sb.append(", docsProcessed=").append(docsProcessed);
     sb.append(", exception=").append(exception);
     sb.append(", status='").append(status).append('\'');
     sb.append(", runType=").append(runType);
