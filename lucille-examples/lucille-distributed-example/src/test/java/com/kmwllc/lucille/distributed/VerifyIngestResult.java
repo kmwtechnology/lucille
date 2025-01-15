@@ -29,17 +29,17 @@ public class VerifyIngestResult {
 
     assertTrue(docs.stream()
         .anyMatch(doc -> doc.get("id").asText().equals("source.csv-1")
-            && doc.get("source").get(0).asText().equals("conf/source.csv")
+            && doc.get("source").get(0).asText().equals("/conf/source.csv")
             && doc.get("filename").get(0).asText().equals("source.csv") && doc.get("my_country").get(0).asText().equals("Italy")
             && doc.get("my_price").get(0).asInt() == 30 && doc.get("my_name").get(0).asText().equals("Carbonara")));
     assertTrue(docs.stream()
         .anyMatch(doc -> doc.get("id").asText().equals("source.csv-2")
-            && doc.get("source").get(0).asText().equals("conf/source.csv")
+            && doc.get("source").get(0).asText().equals("/conf/source.csv")
             && doc.get("filename").get(0).asText().equals("source.csv") && doc.get("my_country").get(0).asText().equals("Italy")
             && doc.get("my_price").get(0).asInt() == 10 && doc.get("my_name").get(0).asText().equals("Pizza")));
     assertTrue(docs.stream()
         .anyMatch(doc -> doc.get("id").asText().equals("source.csv-3")
-            && doc.get("source").get(0).asText().equals("conf/source.csv")
+            && doc.get("source").get(0).asText().equals("/conf/source.csv")
             && doc.get("filename").get(0).asText().equals("source.csv") && doc.get("my_country").get(0).asText().equals("Korea")
             && doc.get("my_price").get(0).asInt() == 12 && doc.get("my_name").get(0).asText().equals("Tofu Soup")));
 
