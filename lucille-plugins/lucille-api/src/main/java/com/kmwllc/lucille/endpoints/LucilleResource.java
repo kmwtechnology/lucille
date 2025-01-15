@@ -151,16 +151,10 @@ public class LucilleResource {
 
       String runId = Runner.generateRunId();
       RunDetails details = runnerManager.runWithConfig(runId, configId);
-      log.info("Lucille run has been triggered. Run ID: " + runId);
-      log.info("details: {}", details);
-
-      if (!details.hasError()) {
-        return Response.ok(details).build();
-      } else {
-        return Response.status(424)
-            .entity("This Lucille run has been skipped. An instance of Lucille is already running.")
-            .build();
-      }
+      log.debug("Lucille run has been triggered. Run ID: " + runId);
+      log.debug("details: {}", details);
+      return Response.ok(details).build();
+      
     } catch (Exception e) {
       return StandardErrorResponse.buildResponse(Response.Status.BAD_REQUEST,
           "Invalid configuration provided: " + e.getMessage());

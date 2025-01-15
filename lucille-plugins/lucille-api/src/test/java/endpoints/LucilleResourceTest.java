@@ -2,12 +2,10 @@ package endpoints;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.Before;
@@ -36,7 +34,6 @@ public class LucilleResourceTest {
   @Before
   public void setUp() {
     runnerManager = RunnerManager.getInstance(); // Real instance
-    runnerManager.clearConfig();
     lucilleResource = new LucilleResource(runnerManager, authHandler);
     mockUser = Optional.of(new PrincipalImpl("testUser"));
   }
@@ -64,16 +61,6 @@ public class LucilleResourceTest {
     Response response = lucilleResource.createConfig(mockUser, configBody);
 
     assertEquals(Response.Status.UNAUTHORIZED.getStatusCode(), response.getStatus());
-  }
-
-  @Test
-  public void testGetAllConfigs_Empty() {
-    when(authHandler.authenticate(any())).thenReturn(null);
-
-    Response response = lucilleResource.getAllConfigs(mockUser);
-
-    assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
-    assertTrue(((Map<?, ?>) response.getEntity()).isEmpty());
   }
 
   @Test

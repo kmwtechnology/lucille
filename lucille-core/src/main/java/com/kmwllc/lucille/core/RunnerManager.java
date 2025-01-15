@@ -175,14 +175,6 @@ public class RunnerManager {
     return new ArrayList<>(runDetailsMap.values());
   }
 
-
-  /**
-   * Removes all config
-   */
-  public void clearConfig() {
-    configMap.clear();
-  }
-
   /**
    * Returns the key set for all configs
    * 

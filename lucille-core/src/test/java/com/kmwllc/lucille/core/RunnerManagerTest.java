@@ -23,11 +23,6 @@ public class RunnerManagerTest {
 
   public static final Logger log = LoggerFactory.getLogger(RunnerManagerTest.class);
 
-  public void setUp() {
-    // clear config lib
-    RunnerManager.getInstance().clearConfig();
-  }
-
   @Test
   public void testRunnerManagerFull() throws Exception {
     RunnerManager runnerManager = RunnerManager.getInstance();
