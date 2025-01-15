@@ -110,6 +110,7 @@ public class RunnerManagerTest {
 
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
+    Thread.sleep(50);
     while (runIds.stream().anyMatch(x -> {
       RunDetails details = runnerManager.getRunDetails(x);
       return !details.isDone();
