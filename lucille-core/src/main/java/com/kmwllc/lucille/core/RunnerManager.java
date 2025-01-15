@@ -124,11 +124,6 @@ public class RunnerManager {
     final RunDetails runDetails = new RunDetails(runId, configId);
     runDetailsMap.put(runId, runDetails);
 
-    if (isRunning(runId)) {
-      log.warn("Skipping new run with ID '{}'; previous lucille run is still in progress.", runId);
-      return runDetails;
-    }
-
     final Config config = configMap.get(configId);
     if (config == null) {
       log.error("Config with id {} not found", configId);
