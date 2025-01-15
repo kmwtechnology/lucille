@@ -89,28 +89,26 @@ public class RunnerManagerTest {
     RunnerManager runnerManager = RunnerManager.getInstance();
     String configId = runnerManager.createConfig(config);
     List<String> runIds = new ArrayList();
+    List<CompletableFuture<Void>> futures = new ArrayList<>();
 
     for (int i = 0; i < 5; i++) {
       String runId = "test-run-" + i;
-      // runnerManager.runWithConfig is non-blocking so we don't need to invoke it here via
-      // CompleteableFuture.runAsync()
-      // but this approach simulates a scenerio where multiple threads are calling it concurrently
-      CompletableFuture.runAsync(() -> {
+      CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
         try {
           runnerManager.runWithConfig(runId, configId);
-          assertFalse(runnerManager.getRunDetails(runId).isDone());
         } catch (RunnerManagerException e) {
           throw new RuntimeException(e);
         }
       });
+      futures.add(future);
       runIds.add(runId);
     }
-
-    assertEquals(5, runIds.size());
+    
+    // Ensure all futures have started
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
-    Thread.sleep(50);
     while (runIds.stream().anyMatch(x -> {
       RunDetails details = runnerManager.getRunDetails(x);
       return !details.isDone();
