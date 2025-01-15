@@ -26,8 +26,6 @@ public class RunnerManagerTest {
   public void setUp() {
     // clear config lib
     RunnerManager.getInstance().clearConfig();
-    // clear history
-    RunnerManager.getInstance().clearAllRunDetails();
   }
 
   @Test

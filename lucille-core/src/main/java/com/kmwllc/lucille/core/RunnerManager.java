@@ -181,14 +181,6 @@ public class RunnerManager {
     return new ArrayList<>(runDetailsMap.values());
   }
 
-  /**
-   * Clears all run details
-   * 
-   * @return
-   */
-  public void clearAllRunDetails() {
-    runDetailsMap.clear();
-  }
 
   /**
    * Removes all config

@@ -37,7 +37,6 @@ public class LucilleResourceTest {
   public void setUp() {
     runnerManager = RunnerManager.getInstance(); // Real instance
     runnerManager.clearConfig();
-    runnerManager.clearAllRunDetails();
     lucilleResource = new LucilleResource(runnerManager, authHandler);
     mockUser = Optional.of(new PrincipalImpl("testUser"));
   }
@@ -149,12 +148,4 @@ public class LucilleResourceTest {
     assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
   }
 
-  @Test
-  public void testGetAllRuns_Empty() {
-    when(authHandler.authenticate(any())).thenReturn(null);
-    Response response = lucilleResource.getAllRuns(mockUser);
-
-    assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
-    assertTrue(((List<?>) response.getEntity()).isEmpty());
-  }
 }
