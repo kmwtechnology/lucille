@@ -22,10 +22,10 @@ import com.typesafe.config.ConfigFactory;
 public class RunnerManagerTest {
 
   public static final Logger log = LoggerFactory.getLogger(RunnerManagerTest.class);
-  
+
   public void setUp() {
     // clear config lib
-    RunnerManager.getInstance().clearConfig(); 
+    RunnerManager.getInstance().clearConfig();
     // clear history
     RunnerManager.getInstance().clearAllRunDetails();
   }
@@ -99,9 +99,10 @@ public class RunnerManagerTest {
 
     for (int i = 0; i < 5; i++) {
       String runId = "test-run-" + i;
-      // runnerManager.runWithConfig is non-blocking so we don't need to invoke it here via CompleteableFuture.runAsync()
+      // runnerManager.runWithConfig is non-blocking so we don't need to invoke it here via
+      // CompleteableFuture.runAsync()
       // but this approach simulates a scenerio where multiple threads are calling it concurrently
-      CompletableFuture.runAsync(()-> {
+      CompletableFuture.runAsync(() -> {
         try {
           runnerManager.runWithConfig(runId, configId);
           assertFalse(runnerManager.getRunDetails(runId).isDone());
@@ -116,13 +117,19 @@ public class RunnerManagerTest {
 
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
-    while (runIds.stream().anyMatch(x -> !runnerManager.getRunDetails(x).isDone())) {
-      if (stopWatch.getTime(TimeUnit.SECONDS)>10) {
+    while (runIds.stream().anyMatch(x -> {
+      RunDetails details = runnerManager.getRunDetails(x);
+      if (details == null) {
+        log.info("RunDetails is null for runId: " + x);
+      }
+      return details == null || !details.isDone();
+    })) {
+      if (stopWatch.getTime(TimeUnit.SECONDS) > 10) {
         fail("5 concurrent Lucille Runs are taking longer than 10 seconds to complete.");
       }
       Thread.sleep(100);
     }
-
+    
     for (String runId : runIds) {
       RunDetails details = runnerManager.getRunDetails(runId);
       assertEquals(runId, details.getRunId());
@@ -132,5 +139,5 @@ public class RunnerManagerTest {
           "Each run expected to take 1 second or more.");
     }
   }
-  
+
 }

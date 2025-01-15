@@ -133,7 +133,9 @@ public class RunnerManager {
     final Config config = configMap.get(configId);
     if (config == null) {
       log.error("Config with id {} not found", configId);
-      throw new RunnerManagerException("Config with id " + configId + " not found");
+      RunnerManagerException exception = new RunnerManagerException("Config with id " + configId + " not found");
+      runDetails.completeExceptionally(exception);
+      throw exception;
     }
 
     runDetails.setFuture(CompletableFuture.runAsync(() -> {
