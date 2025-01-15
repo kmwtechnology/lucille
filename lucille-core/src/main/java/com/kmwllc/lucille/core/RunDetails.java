@@ -40,7 +40,7 @@ public class RunDetails {
   private RunType runType;
 
   @Schema(description = "Exception of run")
-  private Throwable exception;
+  private Throwable throwable;
 
 
   public RunDetails(String runId, String configId) {
@@ -77,9 +77,9 @@ public class RunDetails {
     this.future = future;
   }
 
-  public void setError(Throwable ex) {
+  public void setThrowable(Throwable ex) {
     this.endTime = Instant.now();
-    this.exception = ex;
+    this.throwable = ex;
   }
 
   public boolean isDone() {
@@ -104,8 +104,8 @@ public class RunDetails {
     this.runType = runType;
   }
   
-  public boolean hasError() {
-    return exception != null;
+  public boolean hasThrowable() {
+    return throwable != null;
   }
 
   @Override
@@ -115,7 +115,7 @@ public class RunDetails {
     sb.append(", configId='").append(configId).append('\'');
     sb.append(", startTime=").append(startTime);
     sb.append(", endTime=").append(endTime);
-    sb.append(", exception=").append(exception);
+    sb.append(", throwable=").append(throwable);
     sb.append(", runType=").append(runType);
 
     if (runResult != null) {

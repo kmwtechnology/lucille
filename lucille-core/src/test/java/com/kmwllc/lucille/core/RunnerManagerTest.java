@@ -36,7 +36,7 @@ public class RunnerManagerTest {
 
     // Kick off a lucille run and ensure it is not skipped
     RunDetails details = runnerManager.runWithConfig(runId, configId);
-    assertTrue(!details.hasError());
+    assertTrue(!details.hasThrowable());
 
     // Ensure the run is currently running
     assertTrue(runnerManager.isRunning(runId));
@@ -49,7 +49,7 @@ public class RunnerManagerTest {
 
     // Ensure lucille is not running and make sure we can now kick off a new run
     assertFalse(runnerManager.isRunning(runId));
-    assertTrue(!details.hasError());
+    assertTrue(!details.hasThrowable());
 
     // Wait for all lucille threads to finish before exiting
     runnerManager.waitForRunCompletion(runId);
