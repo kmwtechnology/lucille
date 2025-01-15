@@ -16,7 +16,7 @@ import jakarta.ws.rs.core.Response;
 
 public class BasicAuthenticatorTest {
 	
-	  private final AuthHandler authHandler = new AuthHandler(true);
+  private final AuthHandler authHandler = new AuthHandler(true);
 
   @Test
   public void testAuthSuccess() {
