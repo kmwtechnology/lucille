@@ -36,9 +36,6 @@ public class RunDetails {
   @Schema(description = "Run result")
   private RunResult runResult;
 
-  @Schema(description = "Current status")
-  private volatile String status = "new";
-
   @Schema(description = "Run type")
   private RunType runType;
 
@@ -106,14 +103,6 @@ public class RunDetails {
   public void setRunType(RunType runType) {
     this.runType = runType;
   }
-
-  public String getStatus() {
-    return status;
-  }
-
-  public void setStatus(String status) {
-    this.status = status;
-  }
   
   public boolean hasError() {
     return exception != null;
@@ -127,7 +116,6 @@ public class RunDetails {
     sb.append(", startTime=").append(startTime);
     sb.append(", endTime=").append(endTime);
     sb.append(", exception=").append(exception);
-    sb.append(", status='").append(status).append('\'');
     sb.append(", runType=").append(runType);
 
     if (runResult != null) {
