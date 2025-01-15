@@ -237,31 +237,35 @@ public class Runner {
     }
   }
 
+  public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
+    return runWithResultLog(config, runType, null);
+  }
+  
   /**
    * Kicks off a new Lucille run and logs information about the run to the console after completion.
    */
-  public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
+  public static RunResult runWithResultLog(Config config, RunType runType, String runId)
+      throws Exception {
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
     RunResult result;
 
     try {
-      result = run(config, runType);
+      result = run(config, runType, runId);
 
       // log detailed metrics
       Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
           .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
-
       // log run summary
       log.info(result.toString());
-
       return result;
     } finally {
       stopWatch.stop();
-      log.info(String.format("Run took %.2f secs.", (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
+      log.info(String.format("Run took %.2f secs.",
+          (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
     }
   }
-
+  
   /**
    * Non managed Run with internal generated runId
    *
