@@ -27,7 +27,7 @@ import opennlp.tools.stemmer.snowball.finnishStemmer;
  * Config Parameters:
  *
  *   - file_path_field (String) - the field name that contains the file path
- *   - file_sep (String) - the file system separator defaults to backslash.
+ *   - file_sep (String) - the file system separator defaults to the operating system separator
  *   - uppercase_extension (Boolean) - if this is true the extracted file extension will be upper case
  *   - include_heirarchy (Boolean) - if this is true a field will be populated with all of the subpaths 
  *   in the directory structure so a heirarchical aggregator/facet can be generated in a search engine with it.
@@ -44,7 +44,7 @@ public class ParseFilePath extends Stage {
   public ParseFilePath(Config config) {
     super(config, new StageSpec().withOptionalProperties("file_path_field", "file_sep", "uppercase_extension","include_heirarchy"));
     this.filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : "file_path";
-    this.fileSep = config.hasPath("file_sep") ? config.getString("file_sep") : "\\";
+    this.fileSep = config.hasPath("file_sep") ? config.getString("file_sep") : ""+File.separatorChar;
     this.uppercaseExtension = config.hasPath("uppercase_extension") ? config.getBoolean("uppercase_extension") : true;
     this.includeHeirarchy = config.hasPath("include_heirarchy") ? config.getBoolean("include_heirarchy") : true;
   }
@@ -54,6 +54,7 @@ public class ParseFilePath extends Stage {
 
     if (doc.has(filePathField)) {
       String filePath = doc.getString(filePathField);
+      
       File f = new File(filePath);
       doc.addToField("filename" ,f.getName());
       doc.addToField("folder" ,f.getParent());
