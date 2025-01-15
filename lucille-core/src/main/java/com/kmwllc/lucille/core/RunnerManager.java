@@ -121,16 +121,15 @@ public class RunnerManager {
       throw new RunnerManagerException("Run with runId " + runId + " already defined - cannot use this runId again");
     }
 
+    final Config config = configMap.get(configId);
+    if (config == null) {
+      RunnerManagerException exception = new RunnerManagerException("Config with id " + configId + " not found");
+      throw exception;
+    }
+    
     final RunDetails runDetails = new RunDetails(runId, configId);
     runDetailsMap.put(runId, runDetails);
 
-    final Config config = configMap.get(configId);
-    if (config == null) {
-      log.error("Config with id {} not found", configId);
-      RunnerManagerException exception = new RunnerManagerException("Config with id " + configId + " not found");
-      runDetails.setError(exception);
-      throw exception;
-    }
 
     runDetails.setFuture(CompletableFuture.runAsync(() -> {
       try {
