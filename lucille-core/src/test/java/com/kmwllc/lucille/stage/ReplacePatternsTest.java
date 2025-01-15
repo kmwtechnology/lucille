@@ -9,6 +9,7 @@ import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 
 public class ReplacePatternsTest {
 
@@ -100,7 +101,7 @@ public class ReplacePatternsTest {
     stage.processDocument(doc);
     assertEquals("The term REPLACED should be replaced.", doc.getStringList("output1").get(0));
 
-    // 2. Fallback to "replacement" if the replacement_field is mapped to null.
+    // 2. Fallback to "replacement" if the replacement_field is set to null.
     doc = Document.create("doc");
     doc.setField("input1", "The term false should be replaced.");
     doc.setField("replacement_string", (String) null);
@@ -110,26 +111,27 @@ public class ReplacePatternsTest {
 
   @Test
   public void testNoPatternMatching() throws Exception {
-    // 1. A stage without a replacement OR a replacement_field.
-    Stage noFallback = factory.get("ReplacePatternsTest/no_fallback.conf");
-    Document doc = Document.create("doc");
-    doc.setField("input1", "The term false will not be replaced.");
-    noFallback.processDocument(doc);
-    assertNull(doc.getStringList("output1"));
-
-    // 2. A stage with just a replacement_field. No matching at all if the replacement_field isn't present
-    // in a Document or if it is mapped to null. (No fallbacks!)
+    // 1. No matching if no replacement and the replacement_field is not in a document
     Stage replacementFieldNoFallback = factory.get("ReplacePatternsTest/replacement_field_no_fallback.conf");
-    doc = Document.create("doc");
+    Document doc = Document.create("doc");
     doc.setField("input1", "The term false will not be replaced.");
     replacementFieldNoFallback.processDocument(doc);
     assertNull(doc.getStringList("output1"));
 
+    // 2. No matching if no replacement and the replacement_field is set to null in a document
     Document docWithNullReplacement = Document.create("doc_with_null");
     docWithNullReplacement.setField("input1", "The term false will not be replaced.");
     docWithNullReplacement.setField("replacement_string", (String) null);
     replacementFieldNoFallback.processDocument(docWithNullReplacement);
     assertNull(docWithNullReplacement.getStringList("output1"));
+  }
+
+  @Test
+  public void testInvalidConfig() throws Exception {
+    // This .conf has no replacement or replacement_field.
+    assertThrows(StageException.class,
+        () -> factory.get("ReplacePatternsTest/no_fallback.conf")
+    );
   }
 
   @Test

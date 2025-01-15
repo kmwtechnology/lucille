@@ -23,11 +23,11 @@ import java.util.regex.Pattern;
  * - regex (List&lt;String&gt;) : A list regex expression to find matches for. Matches will be extracted and placed in the destination fields.
  * <br>
  * - replacement (String, Optional) : The String to replace regex matches with. If null, pattern replacement will only take place if
- * a replacement_field is specified and found in a document.
+ * a replacement_field is specified and set to a String in a document.
  * <br>
- * - replacement_field (String, Optional): Specify a field in the document that maps to a String. If non-null, replacements of a
- * pattern within a document will use the string mapped to the replacement_field, if present. Otherwise, the default
- * replacement String is used (if it is not null).
+ * - replacement_field (String, Optional): Specify a field in the document that is set to a String. If non-null, replacements of a
+ * pattern within a document will use the string set to the replacement_field, if present. Otherwise, we fall back onto replacement:
+ * If it is not null, patterns are replaced with it; if it is null, no replacement takes place.
  * <br>
  * - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  * Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
@@ -56,7 +56,7 @@ public class ReplacePatterns extends Stage {
 
   private List<Pattern> patterns;
 
-  public ReplacePatterns(Config config) {
+  public ReplacePatterns(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "regex")
         .withOptionalProperties("replacement", "replacement_field", "update_mode", "ignore_case", "multiline", "dotall", "literal"));
 
@@ -67,6 +67,11 @@ public class ReplacePatterns extends Stage {
     this.regexExprs = config.getStringList("regex");
     this.replacement = ConfigUtils.getOrDefault(config, "replacement", null);
     this.replacementField = ConfigUtils.getOrDefault(config, "replacement_field", null);
+
+    if (replacement == null && replacementField == null) {
+      throw new StageException("Did not provide a replacement String or a replacement_field.");
+    }
+
     this.updateMode = UpdateMode.fromConfig(config);
 
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
