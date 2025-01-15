@@ -145,10 +145,6 @@ public class RunnerManager {
       } catch (Exception e) {
         log.error("Failed to run lucille with ID '{}' via the Runner Manager.", runId, e);
         runDetails.setError(e);
-      } finally {
-        // optionally remove from memory
-        // runDetailsMap.remove(runId);
-        log.info("finished run with id {}", runId);
       }
     }));
 
