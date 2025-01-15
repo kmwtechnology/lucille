@@ -1,14 +1,19 @@
 package com.kmwllc.lucille.core;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.kmwllc.lucille.core.Runner.RunType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(
     description = "Details about a specific run, including metadata, start time, and processing stats.")
 public class RunDetails {
+
+  private static final Logger log = LoggerFactory.getLogger(RunDetails.class);
 
   @Schema(description = "Unique identifier for the run.", example = "run123")
   private final String runId;
@@ -77,14 +82,6 @@ public class RunDetails {
     this.endTime = endTime;
   }
 
-  public long getDocsProcessed() {
-    return docsProcessed;
-  }
-
-  public void setDocsProcessed(long docsProcessed) {
-    this.docsProcessed = docsProcessed;
-  }
-
   public long getErrorCount() {
     return errorCount;
   }
@@ -96,13 +93,14 @@ public class RunDetails {
   public CompletableFuture<Void> getFuture() {
     return future;
   }
-  
+
   public void setFuture(CompletableFuture<Void> future) {
     this.future = future;
   }
 
   public void complete() {
     this.endTime = Instant.now();
+    log.info("==completed run {} took {} ms==", runId, Duration.between(startTime, endTime));
   }
 
   public void completeExceptionally(Throwable ex) {
