@@ -237,10 +237,6 @@ public class Runner {
     }
   }
 
-  public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
-    return runWithResultLog(config, runType, null);
-  }
-
   /**
    * Kicks off a new Lucille run and logs information about the run to the console after completion.
    */
