@@ -115,12 +115,12 @@ public class LucilleResource {
     try {
       Config config = runnerManager.getConfig(configId);
       if (config == null) {
-        return StandardErrorResponse.buildResponse(Response.Status.NOT_FOUND,
+        return ResponseUtils.buildErrorResponse(Response.Status.NOT_FOUND,
             "Configuration with ID " + configId + " not found.");
       }
       return Response.ok(config.root().unwrapped()).build();
     } catch (Exception e) {
-      return StandardErrorResponse.buildResponse(Response.Status.INTERNAL_SERVER_ERROR,
+      return ResponseUtils.buildErrorResponse(Response.Status.INTERNAL_SERVER_ERROR,
           "Error retrieving configuration: " + e.getMessage());
     }
   }
@@ -145,7 +145,7 @@ public class LucilleResource {
       // Extract configId from the request body
       String configId = requestBody.get("configId");
       if (configId == null || configId.isBlank()) {
-        return StandardErrorResponse.buildResponse(Response.Status.BAD_REQUEST,
+        return ResponseUtils.buildErrorResponse(Response.Status.BAD_REQUEST,
             "configId is required in the request body.");
       }
 
@@ -156,7 +156,7 @@ public class LucilleResource {
       return Response.ok(details).build();
       
     } catch (Exception e) {
-      return StandardErrorResponse.buildResponse(Response.Status.BAD_REQUEST,
+      return ResponseUtils.buildErrorResponse(Response.Status.BAD_REQUEST,
           "Invalid configuration provided: " + e.getMessage());
     }
   }
@@ -194,7 +194,7 @@ public class LucilleResource {
     RunDetails details = runnerManager.getRunDetails(runId);
     if (details == null) {
 
-      return StandardErrorResponse.buildResponse(Response.Status.BAD_REQUEST,
+      return ResponseUtils.buildErrorResponse(Response.Status.BAD_REQUEST,
           "No run with the given ID was found.");
     }
 

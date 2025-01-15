@@ -4,25 +4,11 @@ import java.util.HashMap;
 import java.util.Map;
 import jakarta.ws.rs.core.Response;
 
-public class StandardErrorResponse {
+public class ResponseUtils {
 
-  private final int status;
-  private final String message;
+  private ResponseUtils() {}
 
-  public StandardErrorResponse(int status, String message) {
-    this.status = status;
-    this.message = message;
-  }
-
-  public int getStatus() {
-    return status;
-  }
-
-  public String getMessage() {
-    return message;
-  }
-
-  public static Response buildResponse(Response.Status status, String message) {
+  public static Response buildErrorResponse(Response.Status status, String message) {
     Map<String, Object> errorBody = new HashMap<>();
     errorBody.put("status", status.getStatusCode());
     errorBody.put("error", status.getReasonPhrase());
