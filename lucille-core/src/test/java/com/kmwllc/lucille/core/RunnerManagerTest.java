@@ -119,9 +119,6 @@ public class RunnerManagerTest {
     stopWatch.start();
     while (runIds.stream().anyMatch(x -> {
       RunDetails details = runnerManager.getRunDetails(x);
-      if (details == null) {
-        log.info("RunDetails is null for runId: " + x);
-      }
       return details == null || !details.isDone();
     })) {
       if (stopWatch.getTime(TimeUnit.SECONDS) > 10) {
