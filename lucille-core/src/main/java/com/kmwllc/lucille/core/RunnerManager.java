@@ -134,7 +134,7 @@ public class RunnerManager {
     if (config == null) {
       log.error("Config with id {} not found", configId);
       RunnerManagerException exception = new RunnerManagerException("Config with id " + configId + " not found");
-      runDetails.completeExceptionally(exception);
+      runDetails.setError(exception);
       throw exception;
     }
 
@@ -150,10 +150,9 @@ public class RunnerManager {
         log.info(config.entrySet().toString());
 
         runDetails.setRunResult(Runner.runWithResultLog(config, runDetails.getRunType(), runId));
-        runDetails.complete();
       } catch (Exception e) {
         log.error("Failed to run lucille with ID '{}' via the Runner Manager.", runId, e);
-        runDetails.completeExceptionally(e);
+        runDetails.setError(e);
       } finally {
         // optionally remove from memory
         // runDetailsMap.remove(runId);

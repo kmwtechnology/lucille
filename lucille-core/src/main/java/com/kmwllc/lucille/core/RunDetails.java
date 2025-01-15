@@ -33,9 +33,6 @@ public class RunDetails {
   @Schema(description = "Number of documents processed during the run.", example = "5000")
   private long docsProcessed;
 
-  @Schema(description = "Number of errors encountered during the run.", example = "5")
-  private long errorCount;
-
   @Schema(hidden = true)
   private transient CompletableFuture<Void> future;
 
@@ -78,18 +75,6 @@ public class RunDetails {
     return endTime;
   }
 
-  public void setEndTime(Instant endTime) {
-    this.endTime = endTime;
-  }
-
-  public long getErrorCount() {
-    return errorCount;
-  }
-
-  public void setErrorCount(long errorCount) {
-    this.errorCount = errorCount;
-  }
-
   public CompletableFuture<Void> getFuture() {
     return future;
   }
@@ -98,14 +83,8 @@ public class RunDetails {
     this.future = future;
   }
 
-  public void complete() {
+  public void setError(Throwable ex) {
     this.endTime = Instant.now();
-    log.info("==completed run {} took {} ms==", runId, Duration.between(startTime, endTime));
-  }
-
-  public void completeExceptionally(Throwable ex) {
-    this.endTime = Instant.now();
-    this.errorCount++;
     this.exception = ex;
   }
 
@@ -118,6 +97,8 @@ public class RunDetails {
   }
 
   public void setRunResult(RunResult runResult) {
+    this.endTime = Instant.now();
+    log.info("==completed run {} took {} ms==", runId, Duration.between(startTime, endTime));
     this.runResult = runResult;
   }
 
@@ -136,9 +117,9 @@ public class RunDetails {
   public void setStatus(String status) {
     this.status = status;
   }
-
-  public Throwable getException() {
-    return exception;
+  
+  public boolean hasError() {
+    return exception != null;
   }
 
   @Override
@@ -149,7 +130,6 @@ public class RunDetails {
     sb.append(", startTime=").append(startTime);
     sb.append(", endTime=").append(endTime);
     sb.append(", docsProcessed=").append(docsProcessed);
-    sb.append(", errorCount=").append(errorCount);
     sb.append(", exception=").append(exception);
     sb.append(", status='").append(status).append('\'');
     sb.append(", runType=").append(runType);

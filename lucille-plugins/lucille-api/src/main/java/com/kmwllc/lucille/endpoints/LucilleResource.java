@@ -154,7 +154,7 @@ public class LucilleResource {
       log.info("Lucille run has been triggered. Run ID: " + runId);
       log.info("details: {}", details);
 
-      if (details.getErrorCount() == 0) {
+      if (!details.hasError()) {
         return Response.ok(details).build();
       } else {
         return Response.status(424)
