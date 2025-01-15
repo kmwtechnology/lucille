@@ -149,7 +149,7 @@ public class RunnerManager {
 
         log.info(config.entrySet().toString());
 
-        runDetails.setRunResult(Runner.runWithResultLog(config, runDetails.getRunType()));
+        runDetails.setRunResult(Runner.runWithResultLog(config, runDetails.getRunType(), runId));
       } catch (Exception e) {
         log.error("Failed to run lucille with ID '{}' via the Runner Manager.", runId, e);
         runDetails.setError(e);
