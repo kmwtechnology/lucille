@@ -289,7 +289,7 @@ public class Runner {
    */
   public static RunResult run(Config config, RunType type, String runId) throws Exception {
     if (runId == null) {
-      runId = UUID.randomUUID().toString();
+      runId = Runner.generateRunId();
     }
 
     log.info("Starting run with id " + runId);
