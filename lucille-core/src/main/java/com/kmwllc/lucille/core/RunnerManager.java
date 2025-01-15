@@ -146,7 +146,7 @@ public class RunnerManager {
         runDetails.setRunType(Runner.getRunType(false, true));
 
 
-        log.info(config.entrySet().toString());
+        log.debug(config.entrySet().toString());
 
         runDetails.setRunResult(Runner.runWithResultLog(config, runDetails.getRunType(), runId));
       } catch (Exception e) {
