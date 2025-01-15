@@ -123,8 +123,7 @@ public class RunnerManager {
 
     final Config config = configMap.get(configId);
     if (config == null) {
-      RunnerManagerException exception = new RunnerManagerException("Config with id " + configId + " not found");
-      throw exception;
+      throw new RunnerManagerException("Config with id " + configId + " not found");
     }
     
     final RunDetails runDetails = new RunDetails(runId, configId);
