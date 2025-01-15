@@ -112,7 +112,7 @@ public class RunnerManagerTest {
     stopWatch.start();
     while (runIds.stream().anyMatch(x -> {
       RunDetails details = runnerManager.getRunDetails(x);
-      return details == null || !details.isDone();
+      return !details.isDone();
     })) {
       if (stopWatch.getTime(TimeUnit.SECONDS) > 10) {
         fail("5 concurrent Lucille Runs are taking longer than 10 seconds to complete.");
