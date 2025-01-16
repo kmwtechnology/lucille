@@ -12,7 +12,7 @@
             <DefaultRolloverStrategy max="20" />
         </RollingFile>
         <RollingFile name="heartbeat" fileName="./log/heartbeat.log" filePattern="./log/heartbeat-%i.log" immediateFlush="true">
-            <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} (%X{run_id}) %p %c{1}: %m%n" />
+            <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %X{run_id} %p %c{1}: %m%n" />
             <Policies>
                 <SizeBasedTriggeringPolicy size="5 KB" />
             </Policies>
