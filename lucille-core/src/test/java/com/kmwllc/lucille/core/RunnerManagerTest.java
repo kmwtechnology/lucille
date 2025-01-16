@@ -104,7 +104,7 @@ public class RunnerManagerTest {
       runIds.add(runId);
     }
     
-    // Ensure all futures have started
+    // blocking until all the test futures to start async runWithConfig have completed
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
     StopWatch stopWatch = new StopWatch();
