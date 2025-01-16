@@ -122,17 +122,6 @@ public class RunDetails {
       sb.append(", runResult='").append(runResult).append('\'');
     }
 
-    if (future.isDone()) {
-      try {
-        future.get(); // Check if completed successfully
-        sb.append(", completedSuccessfully=true");
-      } catch (InterruptedException | ExecutionException e) {
-        sb.append(", completedExceptionally='").append(e.getCause().getMessage()).append('\'');
-      }
-    } else {
-      sb.append(", completedSuccessfully=false");
-    }
-
     sb.append('}');
     return sb.toString();
   }

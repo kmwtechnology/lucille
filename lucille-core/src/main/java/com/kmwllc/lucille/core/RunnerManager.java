@@ -44,7 +44,7 @@ public class RunnerManager {
    */
   public synchronized boolean isRunning(String runId) {
     RunDetails details = runDetailsMap.get(runId);
-    return details != null && details.getFuture() != null && !details.isDone();
+    return details != null && !details.isDone();
   }
 
   /**
