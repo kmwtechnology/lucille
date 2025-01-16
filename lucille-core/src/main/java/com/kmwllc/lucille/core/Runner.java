@@ -13,6 +13,7 @@ import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -262,6 +263,7 @@ public class Runner {
    */
   public static RunResult run(Config config, RunType type) throws Exception {
     String runId = UUID.randomUUID().toString();
+    MDC.put("run_id", runId);
     log.info("Starting run with id " + runId);
 
     List<Connector> connectors = Connector.fromConfig(config);
