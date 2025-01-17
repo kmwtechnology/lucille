@@ -755,7 +755,9 @@ public class RunnerTest {
   public void testMetrics() throws Exception {
     SharedMetricRegistries.clear();
     assertEquals(0, SharedMetricRegistries.names().size());
-    Runner.runInTestMode("RunnerTest/twoConnectors.conf");
+    Map<String, TestMessenger> runnerMessengerMap = Runner.runInTestMode("RunnerTest/twoConnectors.conf");
+    String connector1ID = runnerMessengerMap.get("connector1").getRunId();
+    String connector2ID = runnerMessengerMap.get("connector2").getRunId();
     assertEquals(1, SharedMetricRegistries.names().size());
     assertEquals(LogUtils.METRICS_REG, SharedMetricRegistries.names().toArray()[0]);
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
@@ -763,9 +765,9 @@ public class RunnerTest {
     // confirm that each stage instance within each connector/pipeline pair creates a timer with a unique name
     // note: it's important for names to be unique, otherwise metrics across instances of a stage would be combined
     SortedMap<String, Timer> connector1Pipeline1Stage1Timers =
-        metrics.getTimers(MetricFilter.contains("connector1.pipeline1.stage.stage_1.processDocumentTime"));
+        metrics.getTimers(MetricFilter.contains(connector1ID + ".connector1.pipeline1.stage.stage_1.processDocumentTime"));
     SortedMap<String, Timer> connector2Pipeline2Stage1Timers =
-        metrics.getTimers(MetricFilter.contains("connector2.pipeline2.stage.stage_1.processDocumentTime"));
+        metrics.getTimers(MetricFilter.contains(connector2ID + ".connector2.pipeline2.stage.stage_1.processDocumentTime"));
     assertEquals(1, connector1Pipeline1Stage1Timers.size());
     assertEquals(1, connector2Pipeline2Stage1Timers.size());
 
