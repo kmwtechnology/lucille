@@ -786,9 +786,15 @@ public class RunnerTest {
     SortedMap<String, Timer> run2Connector2Pipeline2Stage1Timers =
         metrics.getTimers(MetricFilter.contains(run2ID + ".connector2.pipeline2.stage.stage_1.processDocumentTime"));
 
+    // Checking the first run wasn't affected by the second one.
+    assertEquals(1, run1Connector1Pipeline1Stage1Timers.size());
+    assertEquals(1, run1Connector2Pipeline2Stage1Timers.size());
+    assertEquals(1, run1Connector1Pipeline1Stage1Timers.get(run1Connector1Pipeline1Stage1Timers.firstKey()).getCount());
+    assertEquals(1, run1Connector2Pipeline2Stage1Timers.get(run1Connector2Pipeline2Stage1Timers.firstKey()).getCount());
+
+    // Checking the results of the second run itself
     assertEquals(1, run2Connector1Pipeline1Stage1Timers.size());
     assertEquals(1, run2Connector2Pipeline2Stage1Timers.size());
-
     assertEquals(1, run2Connector1Pipeline1Stage1Timers.get(run2Connector1Pipeline1Stage1Timers.firstKey()).getCount());
     assertEquals(1, run2Connector2Pipeline2Stage1Timers.get(run2Connector2Pipeline2Stage1Timers.firstKey()).getCount());
 
