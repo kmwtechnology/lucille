@@ -756,29 +756,41 @@ public class RunnerTest {
     SharedMetricRegistries.clear();
     assertEquals(0, SharedMetricRegistries.names().size());
     Map<String, TestMessenger> runnerMessengerMap = Runner.runInTestMode("RunnerTest/twoConnectors.conf");
-    String connector1ID = runnerMessengerMap.get("connector1").getRunId();
-    String connector2ID = runnerMessengerMap.get("connector2").getRunId();
+    String run1ID = runnerMessengerMap.get("connector1").getRunId();
+    assertEquals(run1ID, runnerMessengerMap.get("connector2").getRunId());
     assertEquals(1, SharedMetricRegistries.names().size());
     assertEquals(LogUtils.METRICS_REG, SharedMetricRegistries.names().toArray()[0]);
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
 
     // confirm that each stage instance within each connector/pipeline pair creates a timer with a unique name
     // note: it's important for names to be unique, otherwise metrics across instances of a stage would be combined
-    SortedMap<String, Timer> connector1Pipeline1Stage1Timers =
-        metrics.getTimers(MetricFilter.contains(connector1ID + ".connector1.pipeline1.stage.stage_1.processDocumentTime"));
-    SortedMap<String, Timer> connector2Pipeline2Stage1Timers =
-        metrics.getTimers(MetricFilter.contains(connector2ID + ".connector2.pipeline2.stage.stage_1.processDocumentTime"));
-    assertEquals(1, connector1Pipeline1Stage1Timers.size());
-    assertEquals(1, connector2Pipeline2Stage1Timers.size());
+    SortedMap<String, Timer> run1Connector1Pipeline1Stage1Timers =
+        metrics.getTimers(MetricFilter.contains(run1ID + ".connector1.pipeline1.stage.stage_1.processDocumentTime"));
+    SortedMap<String, Timer> run1Connector2Pipeline2Stage1Timers =
+        metrics.getTimers(MetricFilter.contains(run1ID + ".connector2.pipeline2.stage.stage_1.processDocumentTime"));
+
+    assertEquals(1, run1Connector1Pipeline1Stage1Timers.size());
+    assertEquals(1, run1Connector2Pipeline2Stage1Timers.size());
 
     // each timer should have a count of one because each connector produces one document
-    assertEquals(1, connector1Pipeline1Stage1Timers.get(connector1Pipeline1Stage1Timers.firstKey()).getCount());
-    assertEquals(1, connector2Pipeline2Stage1Timers.get(connector2Pipeline2Stage1Timers.firstKey()).getCount());
+    assertEquals(1, run1Connector1Pipeline1Stage1Timers.get(run1Connector1Pipeline1Stage1Timers.firstKey()).getCount());
+    assertEquals(1, run1Connector2Pipeline2Stage1Timers.get(run1Connector2Pipeline2Stage1Timers.firstKey()).getCount());
 
     // metrics for the same connector/pipeline pairs are independent across multiple runs in the same JVM.
-    Runner.runInTestMode("RunnerTest/twoConnectors.conf");
-    assertEquals(1, connector1Pipeline1Stage1Timers.get(connector1Pipeline1Stage1Timers.firstKey()).getCount());
-    assertEquals(1, connector2Pipeline2Stage1Timers.get(connector2Pipeline2Stage1Timers.firstKey()).getCount());
+    runnerMessengerMap = Runner.runInTestMode("RunnerTest/twoConnectors.conf");
+    String run2ID = runnerMessengerMap.get("connector1").getRunId();
+    assertEquals(run2ID, runnerMessengerMap.get("connector2").getRunId());
+
+    SortedMap<String, Timer> run2Connector1Pipeline1Stage1Timers =
+        metrics.getTimers(MetricFilter.contains(run2ID + ".connector1.pipeline1.stage.stage_1.processDocumentTime"));
+    SortedMap<String, Timer> run2Connector2Pipeline2Stage1Timers =
+        metrics.getTimers(MetricFilter.contains(run2ID + ".connector2.pipeline2.stage.stage_1.processDocumentTime"));
+
+    assertEquals(1, run2Connector1Pipeline1Stage1Timers.size());
+    assertEquals(1, run2Connector2Pipeline2Stage1Timers.size());
+
+    assertEquals(1, run2Connector1Pipeline1Stage1Timers.get(run2Connector1Pipeline1Stage1Timers.firstKey()).getCount());
+    assertEquals(1, run2Connector2Pipeline2Stage1Timers.get(run2Connector2Pipeline2Stage1Timers.firstKey()).getCount());
 
     // not tested:
     // 1) other metrics collected by Stage beyond the counts in the processDocumentTime timer
