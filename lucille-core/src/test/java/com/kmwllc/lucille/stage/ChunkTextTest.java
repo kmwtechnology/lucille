@@ -9,6 +9,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 
 public class ChunkTextTest {
 
@@ -462,5 +463,26 @@ public class ChunkTextTest {
     assertEquals("Children play. Trees sway. Leaves rustle. A car drives by. The breeze is cool.", child3.getString("chunk"));
     assertEquals("Leaves rustle. A car drives by. The breeze is cool. Flowers bloom. A cat sleeps.", child4.getString("chunk"));
     assertEquals("The breeze is cool. Flowers bloom. A cat sleeps. The clock ticks. The phone rings.", child5.getString("chunk"));
+  }
+
+  @Test
+  public void testInvalidConfigs() {
+    assertThrows(StageException.class,
+        () -> factory.get("ChunkTextTest/customEmptyRegex.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("ChunkTextTest/fixedNullSplitLength.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("ChunkTextTest/invalidCharacterLimit.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("ChunkTextTest/invalidChunksToMerge.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("ChunkTextTest/tooMuchOverlap.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("ChunkTextTest/tooMuchOverlapPercent.conf"));
   }
 }

@@ -130,4 +130,22 @@ public class AddRandomStringTest {
       assertTrue(docVal.size() == 10);
     }
   }
+
+  @Test
+  public void testInvalidConfig() {
+    assertThrows(StageException.class,
+        () -> factory.get("AddRandomStringTest/moreMinThanMax.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("AddRandomStringTest/inputAndRangeNull.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("AddRandomStringTest/concatAndNested.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("AddRandomStringTest/minIsNullMaxIsNot.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("AddRandomStringTest/maxIsNullMinIsNot.conf"));
+  }
 }
