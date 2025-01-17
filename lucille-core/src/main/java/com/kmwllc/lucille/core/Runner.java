@@ -434,7 +434,7 @@ public class Runner {
 
       // create a common metrics naming prefix to be used by all components that will be collecting metrics,
       // to ensure that metrics are collected separately for each connector/pipeline pair
-      String metricsPrefix = connector.getName() + "." + connector.getPipelineName();
+      String metricsPrefix = runId + "." + connector.getName() + "." + connector.getPipelineName();
 
       if (startWorkerAndIndexer && connector.getPipelineName() != null) {
         workerPool = new WorkerPool(config, pipelineName, workerMessengerFactory, metricsPrefix);

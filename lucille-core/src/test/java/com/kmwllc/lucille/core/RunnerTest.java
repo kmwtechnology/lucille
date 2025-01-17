@@ -773,14 +773,10 @@ public class RunnerTest {
     assertEquals(1, connector1Pipeline1Stage1Timers.get(connector1Pipeline1Stage1Timers.firstKey()).getCount());
     assertEquals(1, connector2Pipeline2Stage1Timers.get(connector2Pipeline2Stage1Timers.firstKey()).getCount());
 
-    // currently, metrics for the same connector/pipeline pairs will be combined across mulitple runs occurring in the
-    // same JVM;
-    // if we re-execute the run from above the counts will not be reset but will increase from their earlier values;
-    // we may wish to prevent this in the future by including the runId in the metrics naming scheme
-    // or by updating Runner to call SharedMetricRegistries.clear() before each run, assuming runs are sequential
+    // metrics for the same connector/pipeline pairs are independent across multiple runs in the same JVM.
     Runner.runInTestMode("RunnerTest/twoConnectors.conf");
-    assertEquals(2, connector1Pipeline1Stage1Timers.get(connector1Pipeline1Stage1Timers.firstKey()).getCount());
-    assertEquals(2, connector2Pipeline2Stage1Timers.get(connector2Pipeline2Stage1Timers.firstKey()).getCount());
+    assertEquals(1, connector1Pipeline1Stage1Timers.get(connector1Pipeline1Stage1Timers.firstKey()).getCount());
+    assertEquals(1, connector2Pipeline2Stage1Timers.get(connector2Pipeline2Stage1Timers.firstKey()).getCount());
 
     // not tested:
     // 1) other metrics collected by Stage beyond the counts in the processDocumentTime timer
