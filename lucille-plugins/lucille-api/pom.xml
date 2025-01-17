@@ -76,6 +76,13 @@
         </exclusions>
       </dependency>
 
+        <!-- Swagger -->
+        <dependency>
+            <groupId>com.smoketurner</groupId>
+            <artifactId>dropwizard-swagger</artifactId>
+            <version>4.0.5-1</version>
+        </dependency>
+
      <!-- Add slf4j API frontend -->
       <dependency>
         <groupId>org.slf4j</groupId>

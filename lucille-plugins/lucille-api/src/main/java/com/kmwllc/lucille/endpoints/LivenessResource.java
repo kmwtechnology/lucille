@@ -1,16 +1,16 @@
 package com.kmwllc.lucille.endpoints;
 
-import io.dropwizard.auth.Auth;
-import io.dropwizard.auth.PrincipalImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.security.PermitAll;
-import jakarta.ws.rs.Path;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Lucille Liveness Health Check Endpoint:
@@ -18,20 +18,22 @@ import org.slf4j.LoggerFactory;
  * - endpoint: '/livez'
  *   - GET: lucille liveness status (always OK)
  */
-@Path("/livez")
+@Path("/v1/livez")
+@Tag(name = "Health", description = "Health info.")
 @Produces(MediaType.APPLICATION_JSON)
 @PermitAll
 public class LivenessResource {
 
   private static final Logger log = LoggerFactory.getLogger(LivenessResource.class);
 
-
   public LivenessResource() {
     super();
   }
 
   @GET
-  public Response isAlive(@Auth Optional<PrincipalImpl> user) {
+  @Operation(summary = "Liveness Check", description = "Returns 204 No Content to indicate the service is live.")
+  public Response isAlive() {
+    log.debug("Liveness check endpoint accessed.");
     return Response.ok().build();
   }
 }

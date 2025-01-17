@@ -1,13 +1,26 @@
+# This is the DropWizard configuration file. For now we are not configuring anything, but we may want
+# to in prod. https://www.dropwizard.io/en/stable/manual/configuration.html#man-configuration
 server:
-  type: simple
-  applicationContextPath: /
-
+  type: default
   requestLog:
     type: external
-    enabled: false
 logging:
   type: external
 
 auth:
-  type: basicAuth
-  password: test
+  type: "basicAuth"
+  enabled: true
+  password: "password"
+
+swagger:
+  resourcePackage: "com.kmwllc.lucille.endpoints"
+  title: Lucille API
+  description: Lucille API
+  version: 0.0.1
+  contact: info@kmwllc.com
+  license: Apache 2.0
+  securityDefinitions:
+    basicAuth:
+      type: "basic"
+  security:
+    - basicAuth: []      
