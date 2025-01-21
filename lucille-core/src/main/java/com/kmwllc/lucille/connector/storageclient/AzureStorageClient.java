@@ -35,8 +35,8 @@ public class AzureStorageClient extends BaseStorageClient {
   private static final Logger log = LoggerFactory.getLogger(AzureStorageClient.class);
 
   public AzureStorageClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions, Config fileOptions, Publisher publisher) {
-    super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions, publisher);
+      Map<String, Object> cloudOptions, Config fileOptions) {
+    super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
   }
 
   @Override

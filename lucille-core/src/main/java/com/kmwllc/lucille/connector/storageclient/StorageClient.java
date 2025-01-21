@@ -48,28 +48,28 @@ public interface StorageClient {
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from cloudOptions
    */
   static StorageClient create(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions, Config fileOptions, Publisher publisher) {
+      Map<String, Object> cloudOptions, Config fileOptions) {
     String activeClient = pathToStorage.getScheme() != null ? pathToStorage.getScheme() : "file";
     switch (activeClient) {
       case "gs" -> {
         GoogleStorageClient.validateOptions(cloudOptions);
-        return new GoogleStorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions, publisher);
+        return new GoogleStorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
       }
       case "s3" -> {
         S3StorageClient.validateOptions(cloudOptions);
-        return new S3StorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions, publisher);
+        return new S3StorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
       }
       case "https" -> {
         String authority = pathToStorage.getAuthority();
         if (authority != null && authority.contains("blob.core.windows.net")) {
           AzureStorageClient.validateOptions(cloudOptions);
-          return new AzureStorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions, publisher);
+          return new AzureStorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
         } else {
           throw new IllegalArgumentException("Unsupported client type: " + activeClient + " with authority: " + authority);
         }
       }
       case "file" -> {
-        return new LocalStorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions, publisher);
+        return new LocalStorageClient(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
       }
       default -> throw new IllegalArgumentException("Unsupported client type: " + activeClient);
     }

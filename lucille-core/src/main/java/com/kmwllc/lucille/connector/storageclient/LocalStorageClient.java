@@ -29,14 +29,15 @@ import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LocalStorageClient extends BaseStorageClient implements FileVisitor<Path> {
+public class LocalStorageClient extends BaseStorageClient {
+
   private static final Logger log = LoggerFactory.getLogger(LocalStorageClient.class);
 
   private Path startingDirectoryPath;
-  
+
   public LocalStorageClient(URI pathToStorageURI, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions, Config fileOptions, Publisher publisher) {
-    super(pathToStorageURI, docIdPrefix, excludes, includes, cloudOptions, fileOptions, publisher);
+      Map<String, Object> cloudOptions, Config fileOptions) {
+    super(pathToStorageURI, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
   }
 
   @Override
@@ -69,8 +70,7 @@ public class LocalStorageClient extends BaseStorageClient implements FileVisitor
 
   @Override
   public void traverse(Publisher publisher) throws Exception {
-    // LocalStorage class implements the FileVisitor so we can just walk it.
-    Files.walkFileTree(startingDirectoryPath, this);
+    Files.walkFileTree(startingDirectoryPath, new LocalFileVisitor(publisher));
   }
 
   @Override
@@ -124,10 +124,13 @@ public class LocalStorageClient extends BaseStorageClient implements FileVisitor
 
       // setting fields on document
       doc.setField(FILE_PATH, fullPath);
-      if (attrs.lastModifiedTime() != null) doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
-      if (attrs.creationTime() != null) doc.setField(CREATED, attrs.creationTime().toInstant());
+      if (attrs.lastModifiedTime() != null)
+        doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
+      if (attrs.creationTime() != null)
+        doc.setField(CREATED, attrs.creationTime().toInstant());
       doc.setField(SIZE, attrs.size());
-      if (getFileContent) doc.setField(CONTENT, Files.readAllBytes(path));
+      if (getFileContent)
+        doc.setField(CONTENT, Files.readAllBytes(path));
     } catch (Exception e) {
       throw new ConnectorException("Error occurred getting/setting file attributes to document: " + path, e);
     }
@@ -148,46 +151,53 @@ public class LocalStorageClient extends BaseStorageClient implements FileVisitor
       doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
       doc.setField(CREATED, attrs.creationTime().toInstant());
       // unable to get decompressed file size
-      if (getFileContent) doc.setField(CONTENT, in.readAllBytes());
+      if (getFileContent)
+        doc.setField(CONTENT, in.readAllBytes());
     } catch (Exception e) {
       throw new ConnectorException("Error occurred getting/setting file attributes to document: " + path, e);
     }
     return doc;
   }
 
-  // From the FileVisitor interface to define how we handle errors better.
-  
-  @Override
-  public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-    // We don't care about preVisiting a directory
-    return  FileVisitResult.CONTINUE;
-  }
+  public class LocalFileVisitor implements FileVisitor<Path> {
 
-  @Override
-  public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-    // Visit the file and actually process it!
-    if (!shouldIncludeFile(file.toString(), includes, excludes)) {
-      // this file is skipped by the configuration.
+    private Publisher publisher;
+
+    public LocalFileVisitor(Publisher publisher) {
+      this.publisher = publisher;
+    }
+
+    @Override
+    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+      // We don't care about preVisiting a directory
       return FileVisitResult.CONTINUE;
     }
-    Path fullPath = file.toAbsolutePath().normalize();
-    String fullPathStr = fullPath.toString();
-    String fileExtension = FilenameUtils.getExtension(fullPathStr);
-    tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(fullPath));
-    return FileVisitResult.CONTINUE;
-  }
 
-  @Override
-  public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-    // At some point we can add a feature to create a tombstone document, for now just log the failure.
-    log.warn("Visit File Failed for : {}", file.toString(), exc);
-    return  FileVisitResult.CONTINUE;
-  }
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+      // Visit the file and actually process it!
+      if (!shouldIncludeFile(file.toString(), includes, excludes)) {
+        // this file is skipped by the configuration.
+        return FileVisitResult.CONTINUE;
+      }
+      Path fullPath = file.toAbsolutePath().normalize();
+      String fullPathStr = fullPath.toString();
+      String fileExtension = FilenameUtils.getExtension(fullPathStr);
+      tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(fullPath));
+      return FileVisitResult.CONTINUE;
+    }
 
-  @Override
-  public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-    // we don't care about after we finished the directory
-    return  FileVisitResult.CONTINUE;
-  }
+    @Override
+    public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+      // At some point we can add a feature to create a tombstone document, for now just log the failure.
+      log.warn("Visit File Failed for : {}", file.toString(), exc);
+      return FileVisitResult.CONTINUE;
+    }
 
+    @Override
+    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+      // we don't care about after we finished the directory
+      return FileVisitResult.CONTINUE;
+    }
+  }
 }

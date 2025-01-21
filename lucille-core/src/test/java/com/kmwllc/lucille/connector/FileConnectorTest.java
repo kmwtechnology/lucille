@@ -49,7 +49,7 @@ public class FileConnectorTest {
 
     try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
       StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any(), any(), any(), any(), any(), any()))
+      mockCloudStorageClient.when(() -> StorageClient.create(any(), any(), any(), any(), any(), any()))
           .thenReturn(storageClient);
 
       connector.execute(publisher);
@@ -68,7 +68,7 @@ public class FileConnectorTest {
 
     try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
       StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any(), any(), any(), any(), any(), any()))
+      mockCloudStorageClient.when(() -> StorageClient.create(any(), any(), any(), any(), any(), any()))
           .thenReturn(storageClient);
 
       // init method did not declare to throw any Exception, so using RuntimeException
@@ -89,7 +89,7 @@ public class FileConnectorTest {
 
     try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
       StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any(), any(), any(), any(), any(), any()))
+      mockCloudStorageClient.when(() -> StorageClient.create(any(), any(), any(), any(), any(), any()))
           .thenReturn(storageClient);
 
       // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException

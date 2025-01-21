@@ -54,7 +54,7 @@ public class GoogleStorageClientTest {
     
     Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "invalidPath");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null,
-        null, null, cloudOptions, ConfigFactory.empty(), publisher);
+        null, null, cloudOptions, ConfigFactory.empty());
 
     assertThrows(ConnectorException.class, googleStorageClient::init);
   }
@@ -68,7 +68,7 @@ public class GoogleStorageClientTest {
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null,
         null, null, cloudOptions, ConfigFactory.parseMap(
             Map.of("json", Map.of(),
-                "csv", Map.of())), publisher);
+                "csv", Map.of())));
 
     // cannot call init directly because it tries to get stream of the valid key
     googleStorageClient.initializeFileHandlers();
@@ -89,7 +89,7 @@ public class GoogleStorageClientTest {
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null,
         null, null, cloudOptions, ConfigFactory.parseMap(
         Map.of("json", Map.of(),
-            "csv", Map.of())), publisher);
+            "csv", Map.of())));
 
     Storage mockStorage = mock(Storage.class);
     googleStorageClient.setStorageForTesting(mockStorage);
@@ -113,7 +113,7 @@ public class GoogleStorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), "prefix-",
-        List.of(), List.of(), cloudOptions, ConfigFactory.empty(), publisher);
+        List.of(), List.of(), cloudOptions, ConfigFactory.empty());
 
     BlobId blobId = BlobId.of("bucket", "my-object");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
@@ -174,7 +174,7 @@ public class GoogleStorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), "prefix-",
-        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)), publisher);
+        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)));
 
     BlobId blobId = BlobId.of("bucket", "my-object");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
@@ -199,7 +199,7 @@ public class GoogleStorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), "prefix-",
-        List.of(Pattern.compile("my-object2"), Pattern.compile("my-object3")), List.of(), cloudOptions, ConfigFactory.empty(), publisher);
+        List.of(Pattern.compile("my-object2"), Pattern.compile("my-object3")), List.of(), cloudOptions, ConfigFactory.empty());
 
     BlobId blobId = BlobId.of("bucket", "my-object");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
@@ -253,7 +253,7 @@ public class GoogleStorageClientTest {
 
     // google storage client
     GoogleStorageClient gStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), "prefix-",
-        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of())), publisher);
+        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of())));
     gStorageClient.setStorageForTesting(storage);
 
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
@@ -291,7 +291,7 @@ public class GoogleStorageClientTest {
                 "handleArchivedFiles", true,
                 "handleCompressedFiles", true
             )
-    ), publisher);
+    ));
 
     Map<String, byte[]> fileContents = readAllFilesAsBytesWithMap("src/test/resources/StorageClientTest/testCompressedAndArchived");
 
@@ -413,7 +413,7 @@ public class GoogleStorageClientTest {
                 "moveToAfterProcessing", "gs://bucket/processed",
                 "moveToErrorFolder", "gs://bucket/error"
             )
-    ), publisher);
+    ));
 
     BlobId blobId = BlobId.of("bucket", "my-object");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
