@@ -57,7 +57,7 @@ public class AzureStorageClientTest {
   @Test
   public void testInit() throws Exception{
     Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
-    
+
     AzureStorageClient azureStorageClient = new AzureStorageClient(
         new URI("https://storagename.blob.core.windows.net/testblob"), null, null, null,
         cloudOptions, ConfigFactory.parseMap(Map.of("csv", Map.of(), "json", Map.of())));
@@ -99,7 +99,7 @@ public class AzureStorageClientTest {
   }
 
   @Test
-  public void testShutdown() throws Exception {
+  public void testShutdown() throws Exception{
     Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
     AzureStorageClient azureStorageClient = new AzureStorageClient(
         new URI("https://storagename.blob.core.windows.net/testblob"), null, null, null,
