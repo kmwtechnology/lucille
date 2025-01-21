@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.core;
 
-import org.apache.logging.log4j.ThreadContext;
+import org.slf4j.MDC;
 
 public class ConnectorThread extends Thread {
 
@@ -19,7 +19,7 @@ public class ConnectorThread extends Thread {
 
   @Override
   public void run() {
-    ThreadContext.put("run_id", runId);
+    MDC.put("run_id", runId);
     try {
       connector.execute(publisher);
       publisher.flush();

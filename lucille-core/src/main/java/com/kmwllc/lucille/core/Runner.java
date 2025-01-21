@@ -11,7 +11,6 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
-import org.apache.logging.log4j.ThreadContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,6 +18,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.MDC;
 
 /**
  * Executes a Lucille run. A run is a sequential execution of one or more Connectors.
@@ -263,7 +263,7 @@ public class Runner {
    */
   public static RunResult run(Config config, RunType type) throws Exception {
     String runId = UUID.randomUUID().toString();
-    ThreadContext.put("run_id", runId);
+    MDC.put("run_id", runId);
     log.info("Starting run with id " + runId);
 
     List<Connector> connectors = Connector.fromConfig(config);
