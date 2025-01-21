@@ -112,6 +112,7 @@ public class CSVIndexerTest {
 
   @Test
   public void testInvalidConfig() {
+    // cannot use the indexOverrideField
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("CSVIndexerTest/invalidConfig.conf");
 
