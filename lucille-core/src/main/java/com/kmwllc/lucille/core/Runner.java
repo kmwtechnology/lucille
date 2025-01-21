@@ -11,9 +11,9 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
+import org.apache.logging.log4j.ThreadContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -263,7 +263,7 @@ public class Runner {
    */
   public static RunResult run(Config config, RunType type) throws Exception {
     String runId = UUID.randomUUID().toString();
-    MDC.put("run_id", runId);
+    ThreadContext.put("run_id", runId);
     log.info("Starting run with id " + runId);
 
     List<Connector> connectors = Connector.fromConfig(config);
@@ -384,7 +384,7 @@ public class Runner {
       }
     } else {
       try {
-        ConnectorThread connectorThread = new ConnectorThread(connector, publisher, ThreadNameUtils.createName("Connector"));
+        ConnectorThread connectorThread = new ConnectorThread(connector, publisher, runId, ThreadNameUtils.createName("Connector"));
         connectorThread.start();
         final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
             config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
