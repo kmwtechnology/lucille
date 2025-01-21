@@ -8,6 +8,8 @@ import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.elasticsearch.core.bulk.IndexOperation;
 import co.elastic.clients.elasticsearch._types.VersionType;
+import co.elastic.clients.elasticsearch.core.bulk.UpdateOperation;
+import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,10 +40,16 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class ElasticsearchIndexerTest {
 
   private ElasticsearchClient mockClient;
+  // throws an exception when you ping
+  private ElasticsearchClient mockFailPingClient;
+
+  private ElasticsearchTransport mockTransport;
+  private ElasticsearchClient mockTransportClient;
 
   @Before
   public void setup() throws IOException {
@@ -56,6 +64,13 @@ public class ElasticsearchIndexerTest {
 
     BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
     Mockito.when(mockClient.bulk(any(BulkRequest.class))).thenReturn(mockResponse);
+
+    mockFailPingClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(mockFailPingClient.ping()).thenThrow(RuntimeException.class);
+
+    mockTransport = Mockito.mock(ElasticsearchTransport.class);
+    mockTransportClient = Mockito.mock(ElasticsearchClient.class);
+    when(mockTransportClient._transport()).thenReturn(mockTransport);
   }
 
   /**
@@ -68,6 +83,50 @@ public class ElasticsearchIndexerTest {
   public void testElasticsearchIndexer() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
+
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    indexer.run(2);
+
+    Assert.assertEquals(2, messenger.getSentEvents().size());
+
+    List<Event> events = messenger.getSentEvents();
+    for (int i = 1; i <= events.size(); i++) {
+      Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      Assert.assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
+    }
+  }
+
+  // Unsupported, but shouldn't cause any errors.
+  @Test
+  public void testIndexerWithChildDocs() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
+
+    Document doc = Document.create("doc1", "test_run");
+    doc.addChild(Document.create("childDoc1", "test_run"));
+
+    Document doc2 = Document.create("doc2", "test_run");
+    Document childDoc2 = Document.create("childDoc2", "test_run");
+    doc2.addChild(childDoc2);
+    childDoc2.addChild(Document.create("child_childDoc2", "test_run"));
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    indexer.run(2);
+
+    Assert.assertEquals(2, messenger.getSentEvents().size());
+  }
+
+  @Test
+  public void testElasticsearchIndexerUpdate() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/updateConfig.conf");
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
@@ -122,6 +181,11 @@ public class ElasticsearchIndexerTest {
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
 
+    ElasticsearchIndexer nullClientIndexer = new ElasticsearchIndexer(config, messenger, null, "testing");
+    Assert.assertFalse(nullClientIndexer.validateConnection());
+
+    ElasticsearchIndexer failPingClientIndexer = new ElasticsearchIndexer(config, messenger, mockFailPingClient, "testing");
+    Assert.assertFalse(failPingClientIndexer.validateConnection());
   }
 
   @Test
@@ -294,6 +358,30 @@ public class ElasticsearchIndexerTest {
   }
 
   @Test
+  public void testRoutingAndUpdate() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/routingAndUpdate.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("routing", "routing1");
+    doc.setField("field1", "value1");
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+
+    List<BulkOperation> requests = br.operations();
+    UpdateOperation updateRequest = requests.get(0).update();
+
+    assertEquals("doc1", updateRequest.id());
+    assertEquals("routing1", updateRequest.routing());
+  }
+
+  @Test
   public void testDocumentVersioning() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/versioning.conf");
@@ -320,6 +408,32 @@ public class ElasticsearchIndexerTest {
     assertEquals(Long.valueOf(100), indexRequest.version());
     assertEquals(VersionType.ExternalGte, indexRequest.versionType());
     assertEquals(Map.of("id", "doc1", "field1", "value1"), indexRequest.document());
+  }
+
+  @Test
+  public void testDocumentVersioningWithUpdate() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/versioningUpdate.conf");
+
+    KafkaDocument doc = new KafkaDocument(
+        new ObjectMapper().createObjectNode()
+            .put("id", "doc1")
+            .put("field1", "value1"));
+    doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+
+    UpdateOperation indexRequest = requests.get(0).update();
+    assertEquals("doc1", indexRequest.id());
+    assertEquals(Long.valueOf(100), indexRequest.version());
   }
 
   private void testJoin(String configPath, Document doc, Map<String, Object> expected) throws Exception {
@@ -540,6 +654,42 @@ public class ElasticsearchIndexerTest {
 
     // check that id has been overwritten and that other_id field remains
     assertEquals(Map.of("id", "otherId", "other_id", "otherId"), indexRequest.document());
+  }
+
+  @Test
+  public void testInvalidConfig() {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/invalidConfig.conf");
+
+    System.out.println(config.getString("indexer.indexOverrideField"));
+    assertThrows(IllegalArgumentException.class,
+        () -> new ElasticsearchIndexer(config, messenger, mockClient, "testing")
+    );
+  }
+
+  @Test
+  public void testCloseConnection() throws IOException {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/testOverride.conf");
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, null, "testing");
+    // will print out to the logs but no errors despite null client.
+    indexer.closeConnection();
+
+    // only the call to check if it is null
+    indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    indexer.closeConnection();
+    verify(mockClient, times(1))._transport();
+
+    indexer = new ElasticsearchIndexer(config, messenger, mockTransportClient, "testing");
+    indexer.closeConnection();
+    // call to check if null (it isn't) and then a call to close.
+    verify(mockTransportClient, times(2))._transport();
+    verify(mockTransport, times(1)).close();
+
+    // No error if the close goes wrong
+    Mockito.doThrow(new RuntimeException("Mock Exception")).when(mockTransport).close();
+    indexer.closeConnection();
   }
 
   private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
