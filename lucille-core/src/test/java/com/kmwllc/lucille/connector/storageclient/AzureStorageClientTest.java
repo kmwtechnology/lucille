@@ -57,10 +57,6 @@ public class AzureStorageClientTest {
   @Test
   public void testInit() throws Exception{
     Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
-
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     
     AzureStorageClient azureStorageClient = new AzureStorageClient(
         new URI("https://storagename.blob.core.windows.net/testblob"), null, null, null,
@@ -103,11 +99,7 @@ public class AzureStorageClientTest {
   }
 
   @Test
-  public void testShutdown() throws Exception{
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
-    
+  public void testShutdown() throws Exception {
     Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
     AzureStorageClient azureStorageClient = new AzureStorageClient(
         new URI("https://storagename.blob.core.windows.net/testblob"), null, null, null,

@@ -48,10 +48,6 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testInvalidPathToServiceKey() throws Exception {
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
-    
     Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "invalidPath");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null,
         null, null, cloudOptions, ConfigFactory.empty());
@@ -61,9 +57,6 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testInitFileHandlers() throws Exception {
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null,
         null, null, cloudOptions, ConfigFactory.parseMap(
@@ -81,10 +74,6 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testShutdown() throws Exception {
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
-    
     Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null,
         null, null, cloudOptions, ConfigFactory.parseMap(

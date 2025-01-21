@@ -61,9 +61,6 @@ public class S3StorageClientTest {
 
   @Test
   public void testInitFileHandlers() throws Exception{
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey");
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), null,
@@ -84,9 +81,6 @@ public class S3StorageClientTest {
 
   @Test
   public void testShutdown() throws Exception {
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey");
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), null,

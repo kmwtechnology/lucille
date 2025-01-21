@@ -30,9 +30,6 @@ public class LocalStorageClientTest {
 
   @Test
   public void testInitFileHandlers() throws Exception{
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     LocalStorageClient localStorageClient = new LocalStorageClient(new URI("src/test/resources/StorageClientTest"), "",
         List.of(), List.of(), Map.of(), ConfigFactory.parseMap(
             Map.of("json", Map.of(), "csv", Map.of())
@@ -50,9 +47,6 @@ public class LocalStorageClientTest {
 
   @Test
   public void testShutdown() throws Exception{
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     LocalStorageClient localStorageClient = new LocalStorageClient(new URI("src/test/resources/StorageClientTest"), "",
         List.of(), List.of(), Map.of(), ConfigFactory.parseMap(
         Map.of("json", Map.of(), "csv", Map.of())
