@@ -41,15 +41,18 @@ public class WorkerPool {
 
   private final Config config;
   private final String pipelineName;
+  // runId may be null. In Kafka modes we allow messengers to pass runIds through (for MDC) via messengers / documents.
+  private final String runId;
   private Integer numWorkers = null;
   private WorkerMessengerFactory workerMessengerFactory;
   private boolean started = false;
   private final int logSeconds;
   private final String metricsPrefix;
 
-  public WorkerPool(Config config, String pipelineName, WorkerMessengerFactory factory, String metricsPrefix) {
+  public WorkerPool(Config config, String pipelineName, String runId, WorkerMessengerFactory factory, String metricsPrefix) {
     this.config = config;
     this.pipelineName = pipelineName;
+    this.runId = runId;
     this.workerMessengerFactory = factory;
     this.metricsPrefix = metricsPrefix;
     try {
@@ -82,7 +85,8 @@ public class WorkerPool {
 
         String name = ThreadNameUtils.createName("Worker-" + (i + 1));
         // will throw exception if pipeline has errors
-        Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix);
+        // TODO: What to do here.
+        Worker worker = new Worker(config, messenger, null, pipelineName, metricsPrefix);
         workers.add(worker);
         // start workerThread
         threads.add(Worker.startThread(worker, name));

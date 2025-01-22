@@ -21,6 +21,7 @@ class Worker implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
   private final WorkerMessenger messenger;
+  private final String runId;
 
   private final Pipeline pipeline;
 
@@ -37,10 +38,9 @@ class Worker implements Runnable {
     running = false;
   }
 
-  public Worker(Config config, WorkerMessenger messenger, String pipelineName, String metricsPrefix) throws Exception {
-
-    // TODO: Appropriate to have a field for the run_id? Could be null if we are in Distrib/Hybrid modes.
+  public Worker(Config config, WorkerMessenger messenger, String runId, String pipelineName, String metricsPrefix) throws Exception {
     this.messenger = messenger;
+    this.runId = runId;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
     if (config.hasPath("worker.maxRetries")) {
       log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
@@ -54,6 +54,11 @@ class Worker implements Runnable {
 
   @Override
   public void run() {
+    // The check isn't really necessary here.
+    if (runId != null) {
+      MDC.put(Document.RUNID_FIELD, runId);
+    }
+
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     Timer timer = metrics.timer(metricsPrefix + METRICS_SUFFIX);
 
@@ -63,6 +68,8 @@ class Worker implements Runnable {
         pollInstant.set(Instant.now());
         // blocking poll with a timeout which we assume to be in the range of
         // several milliseconds to several seconds
+
+        // This may set the MDC if not in a local mode.
         doc = messenger.pollDocToProcess();
       } catch (Exception e) {
         log.info("interrupted " + e);
@@ -187,7 +194,8 @@ class Worker implements Runnable {
     WorkerMessengerFactory workerMessengerFactory =
         WorkerMessengerFactory.getKafkaFactory(config, pipelineName);
 
-    WorkerPool workerPool = new WorkerPool(config, pipelineName, workerMessengerFactory, pipelineName);
+    // TODO: What to do here.
+    WorkerPool workerPool = new WorkerPool(config, pipelineName, null, workerMessengerFactory, pipelineName);
     workerPool.start();
 
     Signal.handle(new Signal("INT"), signal -> {

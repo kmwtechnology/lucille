@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
+import org.slf4j.MDC;
 
 public class KafkaWorkerMessenger implements WorkerMessenger {
 
@@ -50,6 +51,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
       KafkaDocument doc = record.value();
       // TODO: Appropriate place to set the MDC.
 
+      MDC.put(Document.RUNID_FIELD, doc.getRunId());
       doc.setKafkaMetadata(record);
       return doc;
     }

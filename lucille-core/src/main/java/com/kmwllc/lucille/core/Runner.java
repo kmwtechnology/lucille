@@ -328,7 +328,7 @@ public class Runner {
       }
 
       ConnectorResult result =
-          runConnectorWithComponents(config, runId, connector,
+          runConnectorWithComponents(config, runId, type, connector,
               workerMessengerFactory, indexerMessengerFactory, publisherMessengerFactory, startWorkerAndIndexer, bypassSolr);
 
       connectorResults.add(result);
@@ -450,6 +450,7 @@ public class Runner {
    */
   private static ConnectorResult runConnectorWithComponents(Config config,
       String runId,
+      RunType runType,
       Connector connector,
       WorkerMessengerFactory workerMessengerFactory,
       IndexerMessengerFactory indexerMessengerFactory,
@@ -469,7 +470,13 @@ public class Runner {
       String metricsPrefix = runId + "." + connector.getName() + "." + connector.getPipelineName();
 
       if (startWorkerAndIndexer && connector.getPipelineName() != null) {
-        workerPool = new WorkerPool(config, pipelineName, workerMessengerFactory, metricsPrefix);
+        // If local/test/KAFKA_LOCAL we want to give WorkerPool the run_id directly.
+        // (Otherwise let Kafka messengers pass it thru in the documents.)
+        if (runType.equals(RunType.LOCAL) || runType.equals(RunType.TEST)) {
+          workerPool = new WorkerPool(config, pipelineName, runId, workerMessengerFactory, metricsPrefix);
+        } else {
+          workerPool = new WorkerPool(config, pipelineName, null, workerMessengerFactory, metricsPrefix);
+        }
 
         try {
           workerPool.start();
@@ -480,6 +487,7 @@ public class Runner {
 
         try {
           IndexerMessenger indexerMessenger = indexerMessengerFactory.create();
+          // TODO: Modify indexer to get the run_id in there? Or leave it as it is (getting stamped from documents)
           indexer = IndexerFactory.fromConfig(config, indexerMessenger, bypassIndexer, metricsPrefix);
         } catch (Exception e) {
           log.error("Error creating indexer from config.", e);

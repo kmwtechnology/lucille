@@ -177,8 +177,7 @@ public abstract class Indexer implements Runnable {
       // several milliseconds to several seconds
       doc = messenger.pollDocToIndex();
 
-      MDC.put("run_id", doc.getRunId());
-      // TODO: Set MDC
+//      MDC.put("run_id", doc.getRunId());
     } catch (Exception e) {
       log.info("Indexer interrupted ", e);
       terminate();
@@ -187,12 +186,12 @@ public abstract class Indexer implements Runnable {
 
     if (doc == null) {
       sendToIndexWithAccounting(batch.flushIfExpired());
-      MDC.remove(Document.RUNID_FIELD);
+//      MDC.remove(Document.RUNID_FIELD);
       return;
     }
 
     sendToIndexWithAccounting(batch.add(doc));
-    MDC.remove(Document.RUNID_FIELD);
+//    MDC.remove(Document.RUNID_FIELD);
   }
 
   private void sendToIndexWithAccounting(List<Document> batchedDocs) {
