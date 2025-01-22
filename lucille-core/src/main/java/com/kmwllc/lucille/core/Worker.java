@@ -38,6 +38,8 @@ class Worker implements Runnable {
   }
 
   public Worker(Config config, WorkerMessenger messenger, String pipelineName, String metricsPrefix) throws Exception {
+
+    // TODO: Appropriate to have a field for the run_id? Could be null if we are in Distrib/Hybrid modes.
     this.messenger = messenger;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
     if (config.hasPath("worker.maxRetries")) {
@@ -62,82 +64,76 @@ class Worker implements Runnable {
         // blocking poll with a timeout which we assume to be in the range of
         // several milliseconds to several seconds
         doc = messenger.pollDocToProcess();
-
-
-        // TODO: This is an appropriate place to set the MDC? How to handle cleanup
-        MDC.put("run_id", doc.getRunId());
       } catch (Exception e) {
         log.info("interrupted " + e);
         terminate();
         return;
       }
 
-      try (MDC.MDCCloseable runIdMDC = MDC.putCloseable("run_id", doc.getRunId())) {
-        if (doc == null) {
-          commitOffsetsAndRemoveCounter(null);
-          continue;
-        }
+      if (doc == null) {
+        commitOffsetsAndRemoveCounter(null);
+        continue;
+      }
 
-        if (trackRetries && counter.add(doc)) {
-          try {
-            log.info("Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");
-            messenger.sendFailed(doc);
-          } catch (Exception e) {
-            log.error("Failed to send doc to failure topic: " + doc.getId(), e);
-          }
-
-          try {
-            messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
-          } catch (Exception e) {
-            log.error("Failed to send completion event for: " + doc.getId(), e);
-          }
-
-          commitOffsetsAndRemoveCounter(doc);
-          continue;
+      if (trackRetries && counter.add(doc)) {
+        try {
+          log.info("Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");
+          messenger.sendFailed(doc);
+        } catch (Exception e) {
+          log.error("Failed to send doc to failure topic: " + doc.getId(), e);
         }
 
         try {
-          Timer.Context context = timer.time();
-          Iterator<Document> results = pipeline.processDocument(doc);
-
-          while (results.hasNext()) {
-
-            Document result = results.next();
-
-            // if we're looking at a child document, send a CREATE events for it;
-            // a document is a child if it has a different ID from the input document;
-            // Note: we want to make sure that the Publisher is notified of any generated children
-            // BEFORE the input/parent document is completed. This prevents a situation where the Runner
-            // assumes the run is complete because the parent is complete and the Publisher didn't know
-            // about the children. This code assumes the pipeline emits children before parents.
-            if (!doc.getId().equals(result.getId())) {
-              messenger.sendEvent(result, null, Event.Type.CREATE);
-            }
-
-            if (result.isDropped()) {
-              messenger.sendEvent(result, null, Event.Type.DROP);
-            } else {
-              // send the completed document to the queue for indexing
-              messenger.sendForIndexing(result);
-            }
-          }
-
-          context.stop();
+          messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
         } catch (Exception e) {
-          log.error("Error processing document: " + doc.getId(), e);
-          try {
-            messenger.sendEvent(doc, null, Event.Type.FAIL);
-          } catch (Exception e2) {
-            log.error("Error sending failure event for document: " + doc.getId(), e2);
-          }
-
-          commitOffsetsAndRemoveCounter(doc);
-
-          continue;
+          log.error("Failed to send completion event for: " + doc.getId(), e);
         }
 
         commitOffsetsAndRemoveCounter(doc);
+        continue;
       }
+
+      try {
+        Timer.Context context = timer.time();
+        Iterator<Document> results = pipeline.processDocument(doc);
+
+        while (results.hasNext()) {
+
+          Document result = results.next();
+
+          // if we're looking at a child document, send a CREATE events for it;
+          // a document is a child if it has a different ID from the input document;
+          // Note: we want to make sure that the Publisher is notified of any generated children
+          // BEFORE the input/parent document is completed. This prevents a situation where the Runner
+          // assumes the run is complete because the parent is complete and the Publisher didn't know
+          // about the children. This code assumes the pipeline emits children before parents.
+          if (!doc.getId().equals(result.getId())) {
+            messenger.sendEvent(result, null, Event.Type.CREATE);
+          }
+
+          if (result.isDropped()) {
+            messenger.sendEvent(result, null, Event.Type.DROP);
+          } else {
+            // send the completed document to the queue for indexing
+            messenger.sendForIndexing(result);
+          }
+        }
+
+        context.stop();
+      } catch (Exception e) {
+        log.error("Error processing document: " + doc.getId(), e);
+        try {
+          messenger.sendEvent(doc, null, Event.Type.FAIL);
+        } catch (Exception e2) {
+          log.error("Error sending failure event for document: " + doc.getId(), e2);
+        }
+
+        commitOffsetsAndRemoveCounter(doc);
+
+        continue;
+      }
+
+      commitOffsetsAndRemoveCounter(doc);
     }
 
     // commit any remaining offsets before termination

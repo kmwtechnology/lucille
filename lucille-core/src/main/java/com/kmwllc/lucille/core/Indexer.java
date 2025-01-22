@@ -187,11 +187,12 @@ public abstract class Indexer implements Runnable {
 
     if (doc == null) {
       sendToIndexWithAccounting(batch.flushIfExpired());
-    } else {
-      sendToIndexWithAccounting(batch.add(doc));
+      MDC.remove(Document.RUNID_FIELD);
+      return;
     }
 
-    MDC.clear();
+    sendToIndexWithAccounting(batch.add(doc));
+    MDC.remove(Document.RUNID_FIELD);
   }
 
   private void sendToIndexWithAccounting(List<Document> batchedDocs) {

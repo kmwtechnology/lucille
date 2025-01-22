@@ -68,6 +68,8 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     if (consumerRecords.count() > 0) {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
+
+      // TODO: May be an appropriate place to set "run_id" in MDC.
       doc.setKafkaMetadata(record);
       return doc;
     }
