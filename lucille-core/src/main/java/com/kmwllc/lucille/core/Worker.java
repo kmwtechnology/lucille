@@ -63,6 +63,7 @@ class Worker implements Runnable {
         // several milliseconds to several seconds
         doc = messenger.pollDocToProcess();
 
+
         // TODO: This is an appropriate place to set the MDC? How to handle cleanup
         MDC.put("run_id", doc.getRunId());
       } catch (Exception e) {
@@ -71,76 +72,72 @@ class Worker implements Runnable {
         return;
       }
 
-      if (doc == null) {
-        commitOffsetsAndRemoveCounter(null);
-        MDC.clear();
-        // TODO: remove MDC here.
-        continue;
-      }
+      try (MDC.MDCCloseable runIdMDC = MDC.putCloseable("run_id", doc.getRunId())) {
+        if (doc == null) {
+          commitOffsetsAndRemoveCounter(null);
+          continue;
+        }
 
-      if (trackRetries && counter.add(doc)) {
-        try {
-          log.info("Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");
-          messenger.sendFailed(doc);
-        } catch (Exception e) {
-          log.error("Failed to send doc to failure topic: " + doc.getId(), e);
+        if (trackRetries && counter.add(doc)) {
+          try {
+            log.info("Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");
+            messenger.sendFailed(doc);
+          } catch (Exception e) {
+            log.error("Failed to send doc to failure topic: " + doc.getId(), e);
+          }
+
+          try {
+            messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
+          } catch (Exception e) {
+            log.error("Failed to send completion event for: " + doc.getId(), e);
+          }
+
+          commitOffsetsAndRemoveCounter(doc);
+          continue;
         }
 
         try {
-          messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
+          Timer.Context context = timer.time();
+          Iterator<Document> results = pipeline.processDocument(doc);
+
+          while (results.hasNext()) {
+
+            Document result = results.next();
+
+            // if we're looking at a child document, send a CREATE events for it;
+            // a document is a child if it has a different ID from the input document;
+            // Note: we want to make sure that the Publisher is notified of any generated children
+            // BEFORE the input/parent document is completed. This prevents a situation where the Runner
+            // assumes the run is complete because the parent is complete and the Publisher didn't know
+            // about the children. This code assumes the pipeline emits children before parents.
+            if (!doc.getId().equals(result.getId())) {
+              messenger.sendEvent(result, null, Event.Type.CREATE);
+            }
+
+            if (result.isDropped()) {
+              messenger.sendEvent(result, null, Event.Type.DROP);
+            } else {
+              // send the completed document to the queue for indexing
+              messenger.sendForIndexing(result);
+            }
+          }
+
+          context.stop();
         } catch (Exception e) {
-          log.error("Failed to send completion event for: " + doc.getId(), e);
+          log.error("Error processing document: " + doc.getId(), e);
+          try {
+            messenger.sendEvent(doc, null, Event.Type.FAIL);
+          } catch (Exception e2) {
+            log.error("Error sending failure event for document: " + doc.getId(), e2);
+          }
+
+          commitOffsetsAndRemoveCounter(doc);
+
+          continue;
         }
 
         commitOffsetsAndRemoveCounter(doc);
-        // TODO: remove MDC here.
-        MDC.clear();
-        continue;
       }
-
-      try {
-        Timer.Context context = timer.time();
-        Iterator<Document> results = pipeline.processDocument(doc);
-
-        while (results.hasNext()) {
-
-          Document result = results.next();
-
-          // if we're looking at a child document, send a CREATE events for it;
-          // a document is a child if it has a different ID from the input document;
-          // Note: we want to make sure that the Publisher is notified of any generated children
-          // BEFORE the input/parent document is completed. This prevents a situation where the Runner
-          // assumes the run is complete because the parent is complete and the Publisher didn't know
-          // about the children. This code assumes the pipeline emits children before parents.
-          if (!doc.getId().equals(result.getId())) {
-            messenger.sendEvent(result, null, Event.Type.CREATE);
-          }
-
-          if (result.isDropped()) {
-            messenger.sendEvent(result, null, Event.Type.DROP);
-          } else {
-            // send the completed document to the queue for indexing
-            messenger.sendForIndexing(result);
-          }
-        }
-
-        context.stop();
-      } catch (Exception e) {
-        log.error("Error processing document: " + doc.getId(), e);
-        try {
-          messenger.sendEvent(doc, null, Event.Type.FAIL);
-        } catch (Exception e2) {
-          log.error("Error sending failure event for document: " + doc.getId(), e2);
-        }
-
-        commitOffsetsAndRemoveCounter(doc);
-
-        // TODO: remove MDC here.
-        MDC.clear();
-        continue;
-      }
-
-      commitOffsetsAndRemoveCounter(doc);
     }
 
     // commit any remaining offsets before termination
@@ -159,8 +156,6 @@ class Worker implements Runnable {
     }
 
     log.debug("Exiting");
-    // TODO: remove MDC here.
-    MDC.clear();
   }
 
   public void logMetrics() {
