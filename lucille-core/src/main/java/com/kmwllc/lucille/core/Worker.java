@@ -8,6 +8,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import sun.misc.Signal;
 
 import java.time.Instant;
@@ -61,6 +62,9 @@ class Worker implements Runnable {
         // blocking poll with a timeout which we assume to be in the range of
         // several milliseconds to several seconds
         doc = messenger.pollDocToProcess();
+
+        // TODO: This is an appropriate place to set the MDC? How to handle cleanup
+        MDC.put("run_id", doc.getRunId());
       } catch (Exception e) {
         log.info("interrupted " + e);
         terminate();
@@ -69,6 +73,8 @@ class Worker implements Runnable {
 
       if (doc == null) {
         commitOffsetsAndRemoveCounter(null);
+        MDC.clear();
+        // TODO: remove MDC here.
         continue;
       }
 
@@ -87,6 +93,8 @@ class Worker implements Runnable {
         }
 
         commitOffsetsAndRemoveCounter(doc);
+        // TODO: remove MDC here.
+        MDC.clear();
         continue;
       }
 
@@ -127,6 +135,8 @@ class Worker implements Runnable {
 
         commitOffsetsAndRemoveCounter(doc);
 
+        // TODO: remove MDC here.
+        MDC.clear();
         continue;
       }
 
@@ -149,6 +159,8 @@ class Worker implements Runnable {
     }
 
     log.debug("Exiting");
+    // TODO: remove MDC here.
+    MDC.clear();
   }
 
   public void logMetrics() {
