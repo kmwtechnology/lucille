@@ -1,13 +1,10 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import java.io.File;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 
-import org.apache.commons.compress.compressors.FileNameUtil;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
@@ -18,19 +15,22 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
-import opennlp.tools.stemmer.snowball.finnishStemmer;
-
 /**
- * This stage will take a field that contains a file path on it like  c:\directory\filename.txt and parse out the filename, 
- * file extension, folder and it will also create a heirarchical representation of the folder.
+ * This stage will take a field that contains a file path (like  c:\directory\filename.txt) and parse out information about the
+ * path:
+ *   <br> - filename: The name of the file.
+ *   <br> - folder: The parent of the file.
+ *   <br> - path: The path to the file.
+ *   <br> - file_extension: The extension of the file.
  *
- * Config Parameters:
+ * <br> <br> <b>Config Parameters:</b>
  *
- *   - file_path_field (String) - the field name that contains the file path
- *   - file_sep (String) - the file system separator defaults to the operating system separator
- *   - uppercase_extension (Boolean) - if this is true the extracted file extension will be upper case
- *   - include_heirarchy (Boolean) - if this is true a field will be populated with all of the subpaths 
- *   in the directory structure so a heirarchical aggregator/facet can be generated in a search engine with it.
+ *   <br> - filePathField (String, Optional) - The field name that contains the file path. Defaults to "file_path".
+ *   <br> - fileSep (String, Optional) - The separator for your file system. Defaults to the operating system's separator.
+ *   <br> - uppercaseExtension (Boolean, Optional) - If true, the extracted file extension will be in all uppercase letters. Defaults
+ *   to true.
+ *   <br> - includeHierarchy (Boolean, Optional) - If true, a field ("file_paths") will be populated with all of the subpaths
+ *   leading up to the full file path (to aid in building a hierarchical aggregator/facet for a search engine).
  *   
  */
 public class ParseFilePath extends Stage {
@@ -38,44 +38,46 @@ public class ParseFilePath extends Stage {
   private final String filePathField;
   private final String fileSep;
   private final boolean uppercaseExtension;
-  private final boolean includeHeirarchy;
+  private final boolean includeHierarchy;
+
   private static final Logger log = LogManager.getLogger(ParseFilePath.class);
   
   public ParseFilePath(Config config) {
-    super(config, new StageSpec().withOptionalProperties("file_path_field", "file_sep", "uppercase_extension","include_heirarchy"));
-    this.filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : "file_path";
-    this.fileSep = config.hasPath("file_sep") ? config.getString("file_sep") : ""+File.separatorChar;
-    this.uppercaseExtension = config.hasPath("uppercase_extension") ? config.getBoolean("uppercase_extension") : true;
-    this.includeHeirarchy = config.hasPath("include_heirarchy") ? config.getBoolean("include_heirarchy") : true;
+    super(config, new StageSpec().withOptionalProperties("filePathField", "fileSep", "uppercaseExtension", "includeHierarchy"));
+    this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
+    this.fileSep = ConfigUtils.getOrDefault(config, "fileSep", File.separator);
+    this.uppercaseExtension = ConfigUtils.getOrDefault(config, "uppercaseExtension", true);
+    this.includeHierarchy = ConfigUtils.getOrDefault(config, "includeHierarchy", true);
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
+    if (!doc.has(filePathField)) {
+      return null;
+    }
 
-    if (doc.has(filePathField)) {
-      String filePath = doc.getString(filePathField);
-      
-      File f = new File(filePath);
-      doc.addToField("filename" ,f.getName());
-      doc.addToField("folder" ,f.getParent());
-      doc.addToField("path" ,f.getPath());
-      if (uppercaseExtension) {
-        doc.addToField("file_extension", FilenameUtils.getExtension(f.getName()).toUpperCase());
-      } else {
-        doc.addToField("file_extension", FilenameUtils.getExtension(f.getName()));
-      }
-      if (includeHeirarchy) {
-        String[] paths = StringUtils.split(f.getPath(), fileSep);
-        for (int i = 1; i < paths.length; i++) {
-          String subPath = StringUtils.join(Arrays.copyOfRange(paths, 0, i), fileSep);
-          doc.addToField("file_paths", subPath);
-        }
+    String filePath = doc.getString(filePathField);
+
+    File f = new File(filePath);
+    doc.addToField("filename", f.getName());
+    doc.addToField("folder", f.getParent());
+    doc.addToField("path", f.getPath());
+
+    if (uppercaseExtension) {
+      doc.addToField("file_extension", FilenameUtils.getExtension(f.getName()).toUpperCase());
+    } else {
+      doc.addToField("file_extension", FilenameUtils.getExtension(f.getName()));
+    }
+
+    if (includeHierarchy) {
+      String[] paths = StringUtils.split(f.getPath(), fileSep);
+      for (int i = 1; i < paths.length; i++) {
+        String subPath = StringUtils.join(Arrays.copyOfRange(paths, 0, i), fileSep);
+        doc.addToField("file_paths", subPath);
       }
     }
 
     return null;
-
   }
-
 }
 
