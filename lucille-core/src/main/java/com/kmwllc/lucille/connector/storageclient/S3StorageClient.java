@@ -35,8 +35,8 @@ public class S3StorageClient extends BaseStorageClient {
   private static final Logger log = LoggerFactory.getLogger(S3StorageClient.class);
 
   public S3StorageClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions, Config fileOptions) {
-    super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+      Map<String, Object> cloudOptions, Config fileOptions, Publisher publisher) {
+    super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions, publisher);
   }
 
   @Override

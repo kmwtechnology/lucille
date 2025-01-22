@@ -116,7 +116,7 @@ public class FileConnector extends AbstractConnector {
   public void execute(Publisher publisher) throws ConnectorException {
     try {
       storageClient = StorageClient.create(storageURI, getDocIdPrefix(), excludes, includes,
-          cloudOptions, fileOptions);
+          cloudOptions, fileOptions, publisher);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while creating storage client.", e);
     }

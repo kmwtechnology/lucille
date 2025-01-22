@@ -61,10 +61,13 @@ public class S3StorageClientTest {
 
   @Test
   public void testInitFileHandlers() throws Exception{
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey");
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), null,
-        null, null, cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of(), "csv", Map.of())));
+        null, null, cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of(), "csv", Map.of())), publisher);
 
     s3StorageClient.init();
 
@@ -81,10 +84,13 @@ public class S3StorageClientTest {
 
   @Test
   public void testShutdown() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey");
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), null,
-        null, null, cloudOptions, ConfigFactory.parseMap(Map.of("csv", Map.of())));
+        null, null, cloudOptions, ConfigFactory.parseMap(Map.of("csv", Map.of())), publisher);
 
     s3StorageClient.init();
     assertEquals(1, s3StorageClient.fileHandlers.size());
@@ -107,7 +113,7 @@ public class S3StorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), "prefix-",
-        List.of(), List.of(), cloudOptions, ConfigFactory.empty());
+        List.of(), List.of(), cloudOptions, ConfigFactory.empty(), publisher);
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -165,7 +171,7 @@ public class S3StorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), "prefix-",
-        List.of(Pattern.compile("obj3"), Pattern.compile("obj4")), List.of() , cloudOptions, ConfigFactory.empty());
+        List.of(Pattern.compile("obj3"), Pattern.compile("obj4")), List.of() , cloudOptions, ConfigFactory.empty(), publisher);
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -203,7 +209,7 @@ public class S3StorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), "prefix-",
-        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)));
+        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)), publisher);
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -238,7 +244,7 @@ public class S3StorageClientTest {
 
     // storage client with json file handler
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), "prefix-",
-        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of())));
+        List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of())), publisher);
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -283,7 +289,7 @@ public class S3StorageClientTest {
             "json", Map.of(),
         "csv", Map.of(),
         "handleArchivedFiles", true,
-        "handleCompressedFiles", true)));
+        "handleCompressedFiles", true)), publisher);
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -387,7 +393,7 @@ public class S3StorageClientTest {
     S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), "",
         List.of(), List.of(), cloudOptions, ConfigFactory.parseMap(Map.of(
         "moveToAfterProcessing", "s3://bucket/Processed",
-        "moveToErrorFolder", "s3://bucket/Error")));
+        "moveToErrorFolder", "s3://bucket/Error")), publisher);
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
     ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
