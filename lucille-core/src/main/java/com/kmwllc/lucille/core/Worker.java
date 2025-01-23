@@ -38,7 +38,8 @@ class Worker implements Runnable {
     running = false;
   }
 
-  public Worker(Config config, WorkerMessenger messenger, String runId, String pipelineName, String metricsPrefix) throws Exception {
+  public Worker(Config config, WorkerMessenger messenger, String runId, String pipelineName, String metricsPrefix)
+      throws Exception {
     this.messenger = messenger;
     this.runId = runId;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
@@ -54,10 +55,8 @@ class Worker implements Runnable {
 
   @Override
   public void run() {
-    // The check isn't really necessary here.
-    if (runId != null) {
-      MDC.put(Document.RUNID_FIELD, runId);
-    }
+    // Again, the runID here will be null in a non-local mode.
+    MDC.put(Document.RUNID_FIELD, runId);
 
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     Timer timer = metrics.timer(metricsPrefix + METRICS_SUFFIX);
@@ -194,7 +193,6 @@ class Worker implements Runnable {
     WorkerMessengerFactory workerMessengerFactory =
         WorkerMessengerFactory.getKafkaFactory(config, pipelineName);
 
-    // TODO: What to do here.
     WorkerPool workerPool = new WorkerPool(config, pipelineName, null, workerMessengerFactory, pipelineName);
     workerPool.start();
 

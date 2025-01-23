@@ -95,7 +95,6 @@ public class WorkerIndexer {
     indexerThread = new Thread(indexer);
     indexerThread.start();
     String name = ThreadNameUtils.createName("WorkerIndexer");
-    // TODO: What to do here. This is temporary
     Worker worker = new Worker(config, workerMessageManager, null, pipelineName, pipelineName);
     workerThread = Worker.startThread(worker, name);
   }

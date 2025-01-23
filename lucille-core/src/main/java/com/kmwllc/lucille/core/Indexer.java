@@ -171,8 +171,6 @@ public abstract class Indexer implements Runnable {
 
   private void checkForDoc() {
     Document doc;
-
-    // TODO: Can wrap in a try-with-resources to have the values automatically removed
     try {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
