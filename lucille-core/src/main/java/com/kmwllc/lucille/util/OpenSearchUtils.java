@@ -71,25 +71,21 @@ public class OpenSearchUtils {
       TlsStrategy tlsStrategy;
       SSLContext sslContext;
 
-      try {
-        if (allowInvalidCert) {
-          sslContext = SSLContextBuilder.create()
-              .loadTrustMaterial(null, (chains, authType) -> true)
-              .build();
+      if (allowInvalidCert) {
+        sslContext = SSLContextBuilder.create()
+            .loadTrustMaterial(null, (chains, authType) -> true)
+            .build();
 
-          tlsStrategy = ClientTlsStrategyBuilder.create()
-              .setSslContext(sslContext)
-              .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-              .build();
-        } else {
-          sslContext = SSLContextBuilder.create()
-              .build();
-          tlsStrategy = ClientTlsStrategyBuilder.create()
-              .setSslContext(sslContext)
-              .build();
-        }
-      } catch (NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
-        throw new RuntimeException(e);
+        tlsStrategy = ClientTlsStrategyBuilder.create()
+            .setSslContext(sslContext)
+            .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+            .build();
+      } else {
+        sslContext = SSLContextBuilder.create()
+            .build();
+        tlsStrategy = ClientTlsStrategyBuilder.create()
+            .setSslContext(sslContext)
+            .build();
       }
 
       final var transport = ApacheHttpClient5TransportBuilder
