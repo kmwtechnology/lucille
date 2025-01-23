@@ -5,7 +5,6 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.indexer.IndexerFactory;
-import com.kmwllc.lucille.indexer.SolrIndexer;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.LogUtils;
@@ -177,7 +176,9 @@ public abstract class Indexer implements Runnable {
       // several milliseconds to several seconds
       doc = messenger.pollDocToIndex();
 
-//      MDC.put("run_id", doc.getRunId());
+      if (doc != null) {
+        MDC.put(Document.RUNID_FIELD, doc.getRunId());
+      }
     } catch (Exception e) {
       log.info("Indexer interrupted ", e);
       terminate();
@@ -186,12 +187,11 @@ public abstract class Indexer implements Runnable {
 
     if (doc == null) {
       sendToIndexWithAccounting(batch.flushIfExpired());
-//      MDC.remove(Document.RUNID_FIELD);
-      return;
+    } else {
+      sendToIndexWithAccounting(batch.add(doc));
     }
 
-    sendToIndexWithAccounting(batch.add(doc));
-//    MDC.remove(Document.RUNID_FIELD);
+    MDC.remove(Document.RUNID_FIELD);
   }
 
   private void sendToIndexWithAccounting(List<Document> batchedDocs) {
