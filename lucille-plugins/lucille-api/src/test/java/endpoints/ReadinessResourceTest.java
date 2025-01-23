@@ -1,12 +1,11 @@
 package endpoints;
 
 import static org.junit.Assert.assertEquals;
-
+import java.util.Optional;
+import org.junit.Test;
 import com.kmwllc.lucille.endpoints.ReadinessResource;
 import io.dropwizard.auth.PrincipalImpl;
 import jakarta.ws.rs.core.Response;
-import java.util.Optional;
-import org.junit.Test;
 
 public class ReadinessResourceTest {
 
@@ -15,8 +14,7 @@ public class ReadinessResourceTest {
   @Test
   public void testReadinessEndpoint() {
     Optional<PrincipalImpl> user = Optional.of(new PrincipalImpl("test"));
-    Response response = readiness.isReady(user);
-
+    Response response = readiness.isReady();
     assertEquals(Response.ok().build().toString(), response.toString());
   }
 

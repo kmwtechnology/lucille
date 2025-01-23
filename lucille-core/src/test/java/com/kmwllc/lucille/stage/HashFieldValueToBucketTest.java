@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -18,6 +19,18 @@ public class HashFieldValueToBucketTest {
     Document doc = Document.create("id");
     stage.processDocument(doc);
     assertEquals("shard4", doc.getString("bucket"));
+  }
+
+  @Test
+  public void testInvalidConfig() {
+    assertThrows(StageException.class,
+        () -> factory.get("emptyBuckets.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("emptyFieldName.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("emptyDestField.conf"));
   }
 
 }
