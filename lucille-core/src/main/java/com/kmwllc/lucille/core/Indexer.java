@@ -151,6 +151,7 @@ public abstract class Indexer implements Runnable {
         checkForDoc();
       }
       sendToIndexWithAccounting(batch.flush()); // handle final batch
+      MDC.remove(Document.RUNID_FIELD);
     } finally {
       close();
     }
@@ -162,6 +163,7 @@ public abstract class Indexer implements Runnable {
         checkForDoc();
       }
       sendToIndexWithAccounting(batch.flush()); // handle final batch
+      MDC.remove(Document.RUNID_FIELD);
     } finally {
       close();
     }
@@ -190,8 +192,6 @@ public abstract class Indexer implements Runnable {
     } else {
       sendToIndexWithAccounting(batch.add(doc));
     }
-
-    MDC.remove(Document.RUNID_FIELD);
   }
 
   private void sendToIndexWithAccounting(List<Document> batchedDocs) {
