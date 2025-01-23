@@ -92,14 +92,14 @@ public class OpenSearchUtils {
         throw new RuntimeException(e);
       }
 
-      final var connectionManager = PoolingAsyncClientConnectionManagerBuilder.create()
-          .setTlsStrategy(tlsStrategy)
-          .build();
-
       final var transport = ApacheHttpClient5TransportBuilder
           .builder(hosts)
           .setMapper(new JacksonJsonpMapper())
           .setHttpClientConfigCallback(httpClientBuilder -> {
+            final var connectionManager = PoolingAsyncClientConnectionManagerBuilder.create()
+                .setTlsStrategy(tlsStrategy)
+                .build();
+
             return httpClientBuilder
                 .setDefaultCredentialsProvider(credentialsProvider)
                 .setConnectionManager(connectionManager);
