@@ -63,9 +63,6 @@ public class ParseFilePath extends Stage {
 
     String filePath = doc.getString(filePathField);
 
-    FilenameUtils.getName(filePath);
-
-    File f = new File(filePath);
     doc.addToField("filename", FilenameUtils.getName(filePath));
     doc.addToField("folder", FilenameUtils.getFullPathNoEndSeparator(filePath));
 
@@ -73,13 +70,13 @@ public class ParseFilePath extends Stage {
     doc.addToField("path", FilenameUtils.normalizeNoEndSeparator(filePath, useUnix));
 
     if (uppercaseExtension) {
-      doc.addToField("file_extension", FilenameUtils.getExtension(f.getName()).toUpperCase());
+      doc.addToField("file_extension", FilenameUtils.getExtension(filePath).toUpperCase());
     } else {
-      doc.addToField("file_extension", FilenameUtils.getExtension(f.getName()));
+      doc.addToField("file_extension", FilenameUtils.getExtension(filePath));
     }
 
     if (includeHierarchy) {
-      String[] paths = StringUtils.split(f.getPath(), fileSep);
+      String[] paths = StringUtils.split(FilenameUtils.normalizeNoEndSeparator(filePath, useUnix), fileSep);
       for (int i = 1; i < paths.length; i++) {
         String subPath = StringUtils.join(Arrays.copyOfRange(paths, 0, i), fileSep);
         doc.addToField("file_paths", subPath);
