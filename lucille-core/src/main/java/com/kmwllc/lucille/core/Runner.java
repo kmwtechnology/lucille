@@ -470,7 +470,7 @@ public class Runner {
       String metricsPrefix = runId + "." + connector.getName() + "." + connector.getPipelineName();
 
       if (startWorkerAndIndexer && connector.getPipelineName() != null) {
-        // If local/test/KAFKA_LOCAL we want to give WorkerPool the run_id directly.
+        // If local/test we want to give WorkerPool the run_id directly.
         // (Otherwise let Kafka messengers pass it thru in the documents.)
         if (runType.equals(RunType.LOCAL) || runType.equals(RunType.TEST)) {
           workerPool = new WorkerPool(config, pipelineName, runId, workerMessengerFactory, metricsPrefix);
@@ -487,7 +487,6 @@ public class Runner {
 
         try {
           IndexerMessenger indexerMessenger = indexerMessengerFactory.create();
-          // TODO: Modify indexer to get the run_id in there? Or leave it as it is (getting stamped from documents)
           indexer = IndexerFactory.fromConfig(config, indexerMessenger, bypassIndexer, metricsPrefix);
         } catch (Exception e) {
           log.error("Error creating indexer from config.", e);
