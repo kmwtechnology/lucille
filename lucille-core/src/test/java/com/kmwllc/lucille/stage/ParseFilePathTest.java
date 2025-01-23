@@ -2,9 +2,13 @@ package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.File;
 
+import java.util.Map;
 import org.junit.Test;
 
 import com.kmwllc.lucille.core.Document;
@@ -83,5 +87,63 @@ public class ParseFilePathTest {
     assertEquals("myfile.csv", doc1.getString("filename"));
     assertEquals("csv", doc1.getString("file_extension"));
     assertEquals("Z:" + File.separatorChar + "folder1", doc1.getString("folder"));
+  }
+
+  // Since you'll be testing on either Unix or Windows, we run both the tests to ensure being on one
+  // machine doesn't prevent you from handling file paths on the other.
+  @Test
+  public void testForceWindowsSeparator() throws StageException {
+    Stage stage = factory.get("ParseFilePathTest/windows.conf");
+    Document doc1 = Document.create("doc1");
+    // Z:\folder1\myfile.csv
+    doc1.setField("file_path", "Z:\\folder1\\myfile.csv");
+
+    stage.processDocument(doc1);
+    assertEquals("myfile.csv", doc1.getString("filename"));
+    assertEquals("Z:\\folder1", doc1.getString("folder"));
+    assertEquals("Z:\\folder1\\myfile.csv", doc1.getString("path"));
+
+    assertEquals(2, doc1.getStringList("file_paths").size());
+    assertEquals("Z:", doc1.getStringList("file_paths").get(0));
+    assertEquals("Z:\\folder1", doc1.getStringList("file_paths").get(1));
+  }
+
+  @Test
+  public void testForceUnixSeparator() throws StageException {
+    Stage stage = factory.get("ParseFilePathTest/unix.conf");
+    Document doc1 = Document.create("doc1");
+    doc1.setField("file_path", "Z:/folder1/myfile.csv");
+
+    stage.processDocument(doc1);
+    assertEquals("myfile.csv", doc1.getString("filename"));
+    assertEquals("Z:/folder1", doc1.getString("folder"));
+    assertEquals("Z:/folder1/myfile.csv", doc1.getString("path"));
+
+    assertEquals(2, doc1.getStringList("file_paths").size());
+    assertEquals("Z:", doc1.getStringList("file_paths").get(0));
+    assertEquals("Z:/folder1", doc1.getStringList("file_paths").get(1));
+  }
+
+  @Test
+  public void testInvalidConf() {
+    Map<String, String> confMap = Map.of("fileSep", "*");
+    Config faultyConfig = ConfigFactory.parseMap(confMap);
+
+    assertThrows(IllegalArgumentException.class,
+        () -> new ParseFilePath(faultyConfig)
+    );
+  }
+
+  @Test
+  public void testEmptyDoc() throws StageException {
+    Stage stage = factory.get("ParseFilePathTest/allDefault.conf");
+    Document doc1 = Document.create("doc1");
+
+    stage.processDocument(doc1);
+
+    assertFalse(doc1.has("filename"));
+    assertFalse(doc1.has("folder"));
+    assertFalse(doc1.has("path"));
+    assertFalse(doc1.has("file_extension"));
   }
 }

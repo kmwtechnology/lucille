@@ -46,6 +46,11 @@ public class ParseFilePath extends Stage {
     super(config, new StageSpec().withOptionalProperties("filePathField", "fileSep", "uppercaseExtension", "includeHierarchy"));
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
     this.fileSep = ConfigUtils.getOrDefault(config, "fileSep", File.separator);
+
+    if (!fileSep.equals("/") && !fileSep.equals("\\")) {
+      throw new IllegalArgumentException("ParseFilePath stage initialized with invalid fileSep.");
+    }
+
     this.uppercaseExtension = ConfigUtils.getOrDefault(config, "uppercaseExtension", true);
     this.includeHierarchy = ConfigUtils.getOrDefault(config, "includeHierarchy", true);
   }
@@ -58,10 +63,14 @@ public class ParseFilePath extends Stage {
 
     String filePath = doc.getString(filePathField);
 
+    FilenameUtils.getName(filePath);
+
     File f = new File(filePath);
-    doc.addToField("filename", f.getName());
-    doc.addToField("folder", f.getParent());
-    doc.addToField("path", f.getPath());
+    doc.addToField("filename", FilenameUtils.getName(filePath));
+    doc.addToField("folder", FilenameUtils.getFullPathNoEndSeparator(filePath));
+
+    boolean useUnix = fileSep.equals("/");
+    doc.addToField("path", FilenameUtils.normalizeNoEndSeparator(filePath, useUnix));
 
     if (uppercaseExtension) {
       doc.addToField("file_extension", FilenameUtils.getExtension(f.getName()).toUpperCase());
