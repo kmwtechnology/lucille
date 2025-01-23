@@ -37,67 +37,69 @@ public class OpenSearchUtils {
    */
   public static OpenSearchClient getOpenSearchRestClient(Config config) {
     try {
-
       // get host uri
       URI hostUri = URI.create(getOpenSearchUrl(config));
-
       String userInfo = hostUri.getUserInfo();
 
       final var hosts = new HttpHost[]{
           new HttpHost(hostUri.getScheme(), hostUri.getHost(), hostUri.getPort())
       };
 
-
-      // code for Apache Client is taken from following link:
+      // code for building an Apache Client is inspired by the following link:
       // https://github.com/opensearch-project/opensearch-java/blob/main/samples/src/main/java/org/opensearch/client/samples/SampleClient.java
       // When comparing to example code, here are differences:
       //  - We gather data from our config rather than providing directly
       //  - We disable TLS/SSL verification only if acceptInvalidCerts is true (from config)
+
+      final BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+
+      if (userInfo != null) {
+        int pos = userInfo.indexOf(":");
+        String username = userInfo.substring(0, pos);
+        String password = userInfo.substring(pos + 1);
+
+        for (HttpHost host : hosts) {
+          credentialsProvider.setCredentials(
+              new AuthScope(host),
+              new UsernamePasswordCredentials(username, password.toCharArray())
+          );
+        }
+      }
+
+      // Potentially disable SSL/TLS verification for when testing locally
+      boolean allowInvalidCert = getAllowInvalidCert(config);
+      TlsStrategy tlsStrategy;
+      SSLContext sslContext;
+
+      try {
+        if (allowInvalidCert) {
+          sslContext = SSLContextBuilder.create()
+              .loadTrustMaterial(null, (chains, authType) -> true)
+              .build();
+
+          tlsStrategy = ClientTlsStrategyBuilder.create()
+              .setSslContext(sslContext)
+              .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+              .build();
+        } else {
+          sslContext = SSLContextBuilder.create()
+              .build();
+          tlsStrategy = ClientTlsStrategyBuilder.create()
+              .setSslContext(sslContext)
+              .build();
+        }
+      } catch (NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
+        throw new RuntimeException(e);
+      }
+
+      final var connectionManager = PoolingAsyncClientConnectionManagerBuilder.create()
+          .setTlsStrategy(tlsStrategy)
+          .build();
+
       final var transport = ApacheHttpClient5TransportBuilder
           .builder(hosts)
           .setMapper(new JacksonJsonpMapper())
           .setHttpClientConfigCallback(httpClientBuilder -> {
-            final var credentialsProvider = new BasicCredentialsProvider();
-            if (userInfo != null) {
-              int pos = userInfo.indexOf(":");
-              String username = userInfo.substring(0, pos);
-              String password = userInfo.substring(pos + 1);
-              for (final var host : hosts) {
-                credentialsProvider.setCredentials(
-                    new AuthScope(host),
-                    new UsernamePasswordCredentials(username, password.toCharArray()));
-              }
-            }
-
-            // Potentially disable SSL/TLS verification for when testing locally
-            boolean allowInvalidCert = getAllowInvalidCert(config);
-            TlsStrategy tlsStrategy = null;
-            SSLContext sslContext = null;
-            try {
-              if (allowInvalidCert) {
-                sslContext = SSLContextBuilder.create()
-                    .loadTrustMaterial(null, (chains, authType) -> true)
-                    .build();
-
-                tlsStrategy = ClientTlsStrategyBuilder.create()
-                    .setSslContext(sslContext)
-                    .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-                    .build();
-              } else {
-                sslContext = SSLContextBuilder.create()
-                    .build();
-                tlsStrategy = ClientTlsStrategyBuilder.create()
-                    .setSslContext(sslContext)
-                    .build();
-              }
-            } catch (NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
-              throw new RuntimeException(e);
-            }
-
-            final var connectionManager = PoolingAsyncClientConnectionManagerBuilder.create()
-                .setTlsStrategy(tlsStrategy)
-                .build();
-
             return httpClientBuilder
                 .setDefaultCredentialsProvider(credentialsProvider)
                 .setConnectionManager(connectionManager);
