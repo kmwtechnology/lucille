@@ -11,6 +11,7 @@ import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_AFTER_PROCESSING;
 import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_ERROR_FOLDER;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
+import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 import static com.kmwllc.lucille.core.fileHandler.FileHandler.SUPPORTED_FILE_TYPES;
 
 import com.kmwllc.lucille.core.ConnectorException;
@@ -270,7 +271,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * helper method to get the full path of an entry in an archived file. Only used for archive files
    */
   protected String getEntryFullPath(String fullPathStr, String entryName) {
-    return fullPathStr + FILE_SEPARATOR + entryName;
+    return fullPathStr + ARCHIVE_FILE_SEPARATOR + entryName;
   }
 
   /**
