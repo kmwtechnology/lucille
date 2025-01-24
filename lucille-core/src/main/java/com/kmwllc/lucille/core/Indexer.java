@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
+
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
@@ -151,7 +153,7 @@ public abstract class Indexer implements Runnable {
         checkForDoc();
       }
       sendToIndexWithAccounting(batch.flush()); // handle final batch
-      MDC.remove(Document.RUNID_FIELD);
+      MDC.remove(RUNID_FIELD);
     } finally {
       close();
     }
@@ -163,7 +165,7 @@ public abstract class Indexer implements Runnable {
         checkForDoc();
       }
       sendToIndexWithAccounting(batch.flush()); // handle final batch
-      MDC.remove(Document.RUNID_FIELD);
+      MDC.remove(RUNID_FIELD);
     } finally {
       close();
     }
@@ -177,7 +179,7 @@ public abstract class Indexer implements Runnable {
       doc = messenger.pollDocToIndex();
 
       if (doc != null) {
-        MDC.put(Document.RUNID_FIELD, doc.getRunId());
+        MDC.put(RUNID_FIELD, doc.getRunId());
       }
     } catch (Exception e) {
       log.info("Indexer interrupted ", e);
