@@ -23,10 +23,10 @@ public class WorkerPoolTest {
   public void testParseConfig() throws Exception {
     Config config = ConfigFactory.load("WorkerPoolTest/config.conf");
 
-    WorkerPool pool1 = new WorkerPool(config, "pipeline1", null, "");
-    WorkerPool pool2 = new WorkerPool(config, "pipeline2", null, "");
-    WorkerPool pool3 = new WorkerPool(config, "pipeline3", null, "");
-    WorkerPool pool4 = new WorkerPool(ConfigFactory.empty(), "pipeline4", null, "");
+    WorkerPool pool1 = new WorkerPool(config, "pipeline1", null, null, "");
+    WorkerPool pool2 = new WorkerPool(config, "pipeline2", null, null, "");
+    WorkerPool pool3 = new WorkerPool(config, "pipeline3", null, null, "");
+    WorkerPool pool4 = new WorkerPool(ConfigFactory.empty(), "pipeline4", null, null, "");
 
     assertEquals(14, pool1.getNumWorkers());
     assertEquals(23, pool2.getNumWorkers());
@@ -55,7 +55,7 @@ public class WorkerPoolTest {
     TestMessenger messenger = Mockito.spy(new TestMessenger());
     WorkerMessengerFactory factory = WorkerMessengerFactory.getConstantFactory(messenger);
     WorkerPool pool = new WorkerPool(ConfigFactory.load("WorkerPoolTest/onePipeline.conf"),
-        "pipeline1", factory, "metricsPrefix");
+        "pipeline1", null, factory, "metricsPrefix");
     pool.start();
     pool.stop();
     pool.join();
@@ -69,7 +69,7 @@ public class WorkerPoolTest {
     WorkerMessengerFactory factory = WorkerMessengerFactory.getConstantFactory(messenger);
     Config config = ConfigFactory.load("WorkerPoolTest/config.conf");
     // pipeline12345 is not present in config.conf
-    WorkerPool pool = new WorkerPool(config, "pipeline12345", factory, "");
+    WorkerPool pool = new WorkerPool(config, "pipeline12345", null, factory, "");
 
     assertThrows(Exception.class, () -> { pool.start(); });
 
@@ -79,7 +79,7 @@ public class WorkerPoolTest {
   @Test
   public void testThreadCleanupUponEncounteringNullMessenger() throws Exception {
     Config config = ConfigFactory.load("WorkerPoolTest/config.conf");
-    WorkerPool pool = new WorkerPool(config, "pipeline1", null, "");
+    WorkerPool pool = new WorkerPool(config, "pipeline1", null, null, "");
 
     assertThrows(Exception.class, () -> { pool.start(); });
 

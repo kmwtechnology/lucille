@@ -1,11 +1,12 @@
 package com.kmwllc.lucille.core;
 
+import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
+
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.indexer.IndexerFactory;
-import com.kmwllc.lucille.indexer.SolrIndexer;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.LogUtils;
@@ -19,6 +20,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.MDC;
 import sun.misc.Signal;
 
 public abstract class Indexer implements Runnable {
@@ -151,6 +153,7 @@ public abstract class Indexer implements Runnable {
         checkForDoc();
       }
       sendToIndexWithAccounting(batch.flush()); // handle final batch
+      MDC.remove(RUNID_FIELD);
     } finally {
       close();
     }
@@ -162,6 +165,7 @@ public abstract class Indexer implements Runnable {
         checkForDoc();
       }
       sendToIndexWithAccounting(batch.flush()); // handle final batch
+      MDC.remove(RUNID_FIELD);
     } finally {
       close();
     }
@@ -173,6 +177,10 @@ public abstract class Indexer implements Runnable {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
       doc = messenger.pollDocToIndex();
+
+      if (doc != null) {
+        MDC.put(RUNID_FIELD, doc.getRunId());
+      }
     } catch (Exception e) {
       log.info("Indexer interrupted ", e);
       terminate();
@@ -181,10 +189,9 @@ public abstract class Indexer implements Runnable {
 
     if (doc == null) {
       sendToIndexWithAccounting(batch.flushIfExpired());
-      return;
+    } else {
+      sendToIndexWithAccounting(batch.add(doc));
     }
-
-    sendToIndexWithAccounting(batch.add(doc));
   }
 
   private void sendToIndexWithAccounting(List<Document> batchedDocs) {

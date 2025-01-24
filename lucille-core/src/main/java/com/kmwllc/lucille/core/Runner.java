@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
+
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
 import com.kmwllc.lucille.indexer.IndexerFactory;
@@ -18,6 +20,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.MDC;
 
 /**
  * Executes a Lucille run. A run is a sequential execution of one or more Connectors.
@@ -240,7 +243,7 @@ public class Runner {
   public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
     return runWithResultLog(config, runType, null);
   }
-  
+
   /**
    * Kicks off a new Lucille run and logs information about the run to the console after completion.
    */
@@ -265,7 +268,7 @@ public class Runner {
           (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
     }
   }
-  
+
   /**
    * Non managed Run with internal generated runId
    *
@@ -292,6 +295,7 @@ public class Runner {
       runId = Runner.generateRunId();
     }
 
+    MDC.put(RUNID_FIELD, runId);
     log.info("Starting run with id " + runId);
 
     List<Connector> connectors = Connector.fromConfig(config);
@@ -326,7 +330,7 @@ public class Runner {
       }
 
       ConnectorResult result =
-          runConnectorWithComponents(config, runId, connector,
+          runConnectorWithComponents(config, runId, type, connector,
               workerMessengerFactory, indexerMessengerFactory, publisherMessengerFactory, startWorkerAndIndexer, bypassSolr);
 
       connectorResults.add(result);
@@ -412,7 +416,7 @@ public class Runner {
       }
     } else {
       try {
-        ConnectorThread connectorThread = new ConnectorThread(connector, publisher, ThreadNameUtils.createName("Connector"));
+        ConnectorThread connectorThread = new ConnectorThread(connector, publisher, runId, ThreadNameUtils.createName("Connector"));
         connectorThread.start();
         final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
             config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
@@ -448,6 +452,7 @@ public class Runner {
    */
   private static ConnectorResult runConnectorWithComponents(Config config,
       String runId,
+      RunType runType,
       Connector connector,
       WorkerMessengerFactory workerMessengerFactory,
       IndexerMessengerFactory indexerMessengerFactory,
@@ -467,7 +472,13 @@ public class Runner {
       String metricsPrefix = runId + "." + connector.getName() + "." + connector.getPipelineName();
 
       if (startWorkerAndIndexer && connector.getPipelineName() != null) {
-        workerPool = new WorkerPool(config, pipelineName, workerMessengerFactory, metricsPrefix);
+        // If local/test we want to give WorkerPool the run_id directly.
+        // (Otherwise let Kafka messengers pass it thru in the documents.)
+        if (runType.equals(RunType.LOCAL) || runType.equals(RunType.TEST)) {
+          workerPool = new WorkerPool(config, pipelineName, runId, workerMessengerFactory, metricsPrefix);
+        } else {
+          workerPool = new WorkerPool(config, pipelineName, null, workerMessengerFactory, metricsPrefix);
+        }
 
         try {
           workerPool.start();

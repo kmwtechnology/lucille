@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.message;
 
+import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.KafkaDocument;
@@ -15,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
+import org.slf4j.MDC;
 
 public class KafkaWorkerMessenger implements WorkerMessenger {
 
@@ -48,6 +51,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     if (consumerRecords.count() > 0) {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
+      MDC.put(RUNID_FIELD, doc.getRunId());
       doc.setKafkaMetadata(record);
       return doc;
     }
