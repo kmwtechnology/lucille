@@ -40,6 +40,33 @@ public class ParseFilePathTest {
   }
 
   @Test
+  public void testNormalization() throws StageException {
+    Stage stage = factory.get("ParseFilePathTest/allDefault.conf");
+    Document doc1 = Document.create("doc1");
+
+    // Z:/folder1/./folder2/../folder3/myfile.xml
+    doc1.setField("file_path",
+        "Z:" + File.separatorChar
+            + "folder1" + File.separatorChar
+            + "." + File.separatorChar
+            + "folder2" + File.separatorChar
+            + ".." + File.separatorChar
+            + "folder3" + File.separatorChar
+            + "myfile.xml");
+
+    stage.processDocument(doc1);
+
+    assertEquals("myfile.xml", doc1.getString("filename"));
+    assertEquals("XML", doc1.getString("file_extension"));
+    assertEquals("Z:" + File.separatorChar + "folder1" + File.separatorChar + "folder3", doc1.getString("folder"));
+
+    assertEquals(3, doc1.getStringList("file_paths").size());
+    assertEquals("Z:", doc1.getStringList("file_paths").get(0));
+    assertEquals("Z:" + File.separatorChar + "folder1", doc1.getStringList("file_paths").get(1));
+    assertEquals("Z:" + File.separatorChar + "folder1" + File.separatorChar + "folder3", doc1.getStringList("file_paths").get(2));
+  }
+
+  @Test
   public void testNonDefaultPathField() throws StageException {
     Stage stage = factory.get("ParseFilePathTest/pathHere.conf");
     Document doc1 = Document.create("doc1");
