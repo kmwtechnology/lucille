@@ -34,8 +34,6 @@ public class CSVConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    log.info("CSVConnector is running now.");
-
     File file = new File(pathStr);
     Path path;
     try {

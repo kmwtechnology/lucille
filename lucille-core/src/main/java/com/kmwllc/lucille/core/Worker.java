@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
+
 import com.codahale.metrics.*;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
@@ -21,7 +23,7 @@ class Worker implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
   private final WorkerMessenger messenger;
-  private final String runId;
+  private final String localRunId;
 
   private final Pipeline pipeline;
 
@@ -38,10 +40,10 @@ class Worker implements Runnable {
     running = false;
   }
 
-  public Worker(Config config, WorkerMessenger messenger, String runId, String pipelineName, String metricsPrefix)
+  public Worker(Config config, WorkerMessenger messenger, String localRunId, String pipelineName, String metricsPrefix)
       throws Exception {
     this.messenger = messenger;
-    this.runId = runId;
+    this.localRunId = localRunId;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
     if (config.hasPath("worker.maxRetries")) {
       log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
@@ -56,7 +58,7 @@ class Worker implements Runnable {
   @Override
   public void run() {
     // Again, the runID here will be null in a non-local mode.
-    MDC.put(Document.RUNID_FIELD, runId);
+    MDC.put(RUNID_FIELD, localRunId);
 
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     Timer timer = metrics.timer(metricsPrefix + METRICS_SUFFIX);
@@ -68,7 +70,7 @@ class Worker implements Runnable {
         // blocking poll with a timeout which we assume to be in the range of
         // several milliseconds to several seconds
 
-        // This may set the MDC if not in a local mode.
+        // This will update the run_id in MDC.
         doc = messenger.pollDocToProcess();
       } catch (Exception e) {
         log.info("interrupted " + e);

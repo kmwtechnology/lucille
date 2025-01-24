@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
+
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
 import com.kmwllc.lucille.indexer.IndexerFactory;
@@ -293,7 +295,7 @@ public class Runner {
       runId = Runner.generateRunId();
     }
 
-    MDC.put("run_id", runId);
+    MDC.put(RUNID_FIELD, runId);
     log.info("Starting run with id " + runId);
 
     List<Connector> connectors = Connector.fromConfig(config);

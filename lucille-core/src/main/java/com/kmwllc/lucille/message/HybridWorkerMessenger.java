@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.message;
 
+import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.KafkaDocument;
@@ -70,7 +72,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
 
-      MDC.put(Document.RUNID_FIELD, doc.getRunId());
+      MDC.put(RUNID_FIELD, doc.getRunId());
       doc.setKafkaMetadata(record);
       return doc;
     }
