@@ -119,18 +119,22 @@ public class LocalStorageClient extends BaseStorageClient {
     Document doc = Document.create(createDocId(docId));
 
     try {
-      // get file attributes
       BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
 
-      // setting fields on document
       doc.setField(FILE_PATH, fullPath);
-      if (attrs.lastModifiedTime() != null)
-        doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
-      if (attrs.creationTime() != null)
-        doc.setField(CREATED, attrs.creationTime().toInstant());
       doc.setField(SIZE, attrs.size());
-      if (getFileContent)
+
+      if (attrs.lastModifiedTime() != null) {
+        doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
+      }
+
+      if (attrs.creationTime() != null) {
+        doc.setField(CREATED, attrs.creationTime().toInstant());
+      }
+
+      if (getFileContent) {
         doc.setField(CONTENT, Files.readAllBytes(path));
+      }
     } catch (Exception e) {
       throw new ConnectorException("Error occurred getting/setting file attributes to document: " + path, e);
     }
