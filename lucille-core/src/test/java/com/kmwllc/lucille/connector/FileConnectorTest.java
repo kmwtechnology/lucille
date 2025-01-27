@@ -5,7 +5,6 @@ import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -183,10 +182,9 @@ public class FileConnectorTest {
     assertEquals("jsonHandled-a", doc1.getId());
     assertEquals("Rustic Cows Mug", doc1.getString("name"));
 
-    // compressed, but non-archived, file
     Document doc2 = documentList.get(1);
     assertTrue(doc2.getId().startsWith("normal-"));
-    assertTrue(doc2.getString(FILE_PATH).endsWith("helloWorld.txt.gz" + File.pathSeparatorChar + "helloWorld.txt"));
+    assertTrue(doc2.getString(FILE_PATH).endsWith("helloWorld.txt.gz!helloWorld.txt"));
 
     Document doc3 = documentList.get(2);
     assertTrue(doc3.getId().startsWith("normal-"));

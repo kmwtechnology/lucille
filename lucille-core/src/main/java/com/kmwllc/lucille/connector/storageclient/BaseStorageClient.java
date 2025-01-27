@@ -109,7 +109,7 @@ public abstract class BaseStorageClient implements StorageClient {
           if (handleArchivedFiles && isSupportedArchiveFileType(decompressedPath)) {
             handleArchiveFiles(publisher, compressorStream, fullPathStr);
           } else {
-            String filePathFormat = fullPathStr + File.pathSeparatorChar + FilenameUtils.getName(decompressedPath);
+            String filePathFormat = fullPathStr + ARCHIVE_FILE_SEPARATOR + FilenameUtils.getName(decompressedPath);
             // if file is a supported file type that should be handled by a file handler
             if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(resolvedExtension, fileOptions)) {
               handleStreamExtensionFiles(publisher, compressorStream, resolvedExtension, filePathFormat);
