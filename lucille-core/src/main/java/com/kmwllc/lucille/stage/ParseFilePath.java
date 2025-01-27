@@ -26,9 +26,11 @@ import com.typesafe.config.Config;
  * <br> <br> <b>Config Parameters:</b>
  *
  *   <br> - filePathField (String, Optional) - The field name that contains the file path. Defaults to "file_path".
- *   <br> - fileSep (String, Optional) - The separator used for the file paths you are parsing. Defaults to the operating system's separator.
- *   <b>Must</b> be either "/" or "\". You should specify the separator if you are running Lucille on Windows but working with file
- *   paths in Unix (or vice versa). The outputs of this stage will use the same separator.
+ *   <br> - fileSep (String, Optional) - The separator to use in the normalized path output from this stage.
+ *   Defaults to the operating system's separator. <b>Must</b> be either "/" or "\". You should specify the separator if you are
+ *   running Lucille on Windows but working with Unix file paths (or vice versa) and you want the original separators to be
+ *   preserved. Note that this stage will parse Windows and Unix paths regardless of fileSep / operating system - this property
+ *   only controls output behavior.
  *   <br> - uppercaseExtension (Boolean, Optional) - If true, the extracted file extension will be in all uppercase letters. Defaults
  *   to true.
  *   <br> - includeHierarchy (Boolean, Optional) - If true, a field ("file_paths") will be populated with all of the normalized

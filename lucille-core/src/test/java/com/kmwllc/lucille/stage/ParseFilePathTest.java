@@ -133,6 +133,18 @@ public class ParseFilePathTest {
     assertEquals(2, doc1.getStringList("file_paths").size());
     assertEquals("Z:", doc1.getStringList("file_paths").get(0));
     assertEquals("Z:\\folder1", doc1.getStringList("file_paths").get(1));
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("file_path", "Z:/folder1/myfile.csv");
+
+    stage.processDocument(doc2);
+    assertEquals("myfile.csv", doc2.getString("filename"));
+    assertEquals("Z:\\folder1", doc2.getString("folder"));
+    assertEquals("Z:\\folder1\\myfile.csv", doc2.getString("path"));
+
+    assertEquals(2, doc2.getStringList("file_paths").size());
+    assertEquals("Z:", doc2.getStringList("file_paths").get(0));
+    assertEquals("Z:\\folder1", doc2.getStringList("file_paths").get(1));
   }
 
   @Test
@@ -149,6 +161,18 @@ public class ParseFilePathTest {
     assertEquals(2, doc1.getStringList("file_paths").size());
     assertEquals("Z:", doc1.getStringList("file_paths").get(0));
     assertEquals("Z:/folder1", doc1.getStringList("file_paths").get(1));
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("file_path", "Z:\\folder1\\myfile.csv");
+
+    stage.processDocument(doc2);
+    assertEquals("myfile.csv", doc2.getString("filename"));
+    assertEquals("Z:/folder1", doc2.getString("folder"));
+    assertEquals("Z:/folder1/myfile.csv", doc2.getString("path"));
+
+    assertEquals(2, doc2.getStringList("file_paths").size());
+    assertEquals("Z:", doc2.getStringList("file_paths").get(0));
+    assertEquals("Z:/folder1", doc2.getStringList("file_paths").get(1));
   }
 
   @Test
