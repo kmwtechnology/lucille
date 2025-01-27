@@ -52,10 +52,6 @@ import org.opensearch.client.transport.endpoints.BooleanResponse;
 public class OpenSearchIndexerTest {
 
   private OpenSearchClient mockClient;
-  private OpenSearchClient mockFailPingClient;
-
-  private OpenSearchTransport mockTransport;
-  private OpenSearchClient mockTransportClient;
 
   @Before
   public void setup() throws IOException {
@@ -80,13 +76,6 @@ public class OpenSearchIndexerTest {
     DeleteByQueryResponse mockDeleteByQueryResponse = Mockito.mock(DeleteByQueryResponse.class);
     when(mockClient.deleteByQuery(any(DeleteByQueryRequest.class))).thenReturn(mockDeleteByQueryResponse);
     when(mockDeleteByQueryResponse.failures()).thenReturn(new ArrayList<>());
-
-    mockFailPingClient = Mockito.mock(OpenSearchClient.class);
-    when(mockFailPingClient.ping()).thenThrow(RuntimeException.class);
-
-    mockTransport = Mockito.mock(OpenSearchTransport.class);
-    mockTransportClient = Mockito.mock(OpenSearchClient.class);
-    when(mockTransportClient._transport()).thenReturn(mockTransport);
   }
 
   /**
@@ -189,6 +178,9 @@ public class OpenSearchIndexerTest {
 
   @Test
   public void testValidateConnection() throws Exception {
+    OpenSearchClient mockFailPingClient = Mockito.mock(OpenSearchClient.class);
+    when(mockFailPingClient.ping()).thenThrow(RuntimeException.class);
+
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
@@ -811,6 +803,10 @@ public class OpenSearchIndexerTest {
 
   @Test
   public void testCloseConnection() throws IOException {
+    OpenSearchTransport mockTransport = Mockito.mock(OpenSearchTransport.class);
+    OpenSearchClient mockTransportClient = Mockito.mock(OpenSearchClient.class);
+    when(mockTransportClient._transport()).thenReturn(mockTransport);
+
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 

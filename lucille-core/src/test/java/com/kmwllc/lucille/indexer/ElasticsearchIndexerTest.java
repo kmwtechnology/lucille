@@ -45,11 +45,6 @@ import static org.mockito.Mockito.when;
 public class ElasticsearchIndexerTest {
 
   private ElasticsearchClient mockClient;
-  // throws an exception when you ping
-  private ElasticsearchClient mockFailPingClient;
-
-  private ElasticsearchTransport mockTransport;
-  private ElasticsearchClient mockTransportClient;
 
   @Before
   public void setup() throws IOException {
@@ -64,13 +59,6 @@ public class ElasticsearchIndexerTest {
 
     BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
     Mockito.when(mockClient.bulk(any(BulkRequest.class))).thenReturn(mockResponse);
-
-    mockFailPingClient = Mockito.mock(ElasticsearchClient.class);
-    Mockito.when(mockFailPingClient.ping()).thenThrow(RuntimeException.class);
-
-    mockTransport = Mockito.mock(ElasticsearchTransport.class);
-    mockTransportClient = Mockito.mock(ElasticsearchClient.class);
-    when(mockTransportClient._transport()).thenReturn(mockTransport);
   }
 
   /**
@@ -174,6 +162,9 @@ public class ElasticsearchIndexerTest {
 
   @Test
   public void testValidateConnection() throws Exception {
+    ElasticsearchClient mockFailPingClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(mockFailPingClient.ping()).thenThrow(RuntimeException.class);
+
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
@@ -670,6 +661,10 @@ public class ElasticsearchIndexerTest {
 
   @Test
   public void testCloseConnection() throws IOException {
+    ElasticsearchTransport mockTransport = Mockito.mock(ElasticsearchTransport.class);
+    ElasticsearchClient mockTransportClient = Mockito.mock(ElasticsearchClient.class);
+    when(mockTransportClient._transport()).thenReturn(mockTransport);
+
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/testOverride.conf");
 
