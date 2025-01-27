@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
+import org.slf4j.MDC;
 
 public class KafkaWorkerMessenger implements WorkerMessenger {
 
@@ -48,6 +49,9 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     if (consumerRecords.count() > 0) {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
+
+      MDC.put(Document.ID_FIELD, doc.getId());
+
       doc.setKafkaMetadata(record);
       return doc;
     }

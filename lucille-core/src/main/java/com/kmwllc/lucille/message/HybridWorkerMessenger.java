@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
+import org.slf4j.MDC;
 
 public class HybridWorkerMessenger implements WorkerMessenger {
 
@@ -68,6 +69,9 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     if (consumerRecords.count() > 0) {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
+
+      MDC.put(Document.ID_FIELD, doc.getId());
+
       doc.setKafkaMetadata(record);
       return doc;
     }

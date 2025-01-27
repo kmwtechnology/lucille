@@ -173,6 +173,8 @@ public abstract class Indexer implements Runnable {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
       doc = messenger.pollDocToIndex();
+
+      // TODO: may want to put MDC here?
     } catch (Exception e) {
       log.info("Indexer interrupted ", e);
       terminate();
