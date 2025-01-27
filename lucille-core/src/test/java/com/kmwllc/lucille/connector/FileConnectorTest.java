@@ -182,9 +182,10 @@ public class FileConnectorTest {
     assertEquals("jsonHandled-a", doc1.getId());
     assertEquals("Rustic Cows Mug", doc1.getString("name"));
 
+    // compressed, but non-archived, file
     Document doc2 = documentList.get(1);
     assertTrue(doc2.getId().startsWith("normal-"));
-    assertTrue(doc2.getString(FILE_PATH).endsWith("helloWorld.txt.gz:helloWorld.txt"));
+    assertTrue(doc2.getString(FILE_PATH).endsWith("helloWorld.txt.gz" + File.pathSeparatorChar + "helloWorld.txt"));
 
     Document doc3 = documentList.get(2);
     assertTrue(doc3.getId().startsWith("normal-"));

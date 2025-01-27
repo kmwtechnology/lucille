@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.FILE_SEPARATOR;
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
@@ -110,7 +109,7 @@ public abstract class BaseStorageClient implements StorageClient {
           if (handleArchivedFiles && isSupportedArchiveFileType(decompressedPath)) {
             handleArchiveFiles(publisher, compressorStream, fullPathStr);
           } else {
-            String filePathFormat = fullPathStr + FILE_SEPARATOR + FilenameUtils.getName(decompressedPath);
+            String filePathFormat = fullPathStr + File.pathSeparatorChar + FilenameUtils.getName(decompressedPath);
             // if file is a supported file type that should be handled by a file handler
             if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(resolvedExtension, fileOptions)) {
               handleStreamExtensionFiles(publisher, compressorStream, resolvedExtension, filePathFormat);
@@ -183,7 +182,7 @@ public abstract class BaseStorageClient implements StorageClient {
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
       while ((entry = in.getNextEntry()) != null) {
-        String entryFullPathStr = getEntryFullPath(fullPathStr, entry.getName());
+        String entryFullPathStr = getArchiveEntryFullPath(fullPathStr, entry.getName());
         if (!in.canReadEntryData(entry)) {
           log.info("Cannot read entry data for entry: '{}' in '{}'. Skipping...", entry.getName(), fullPathStr);
           continue;
@@ -270,7 +269,7 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * helper method to get the full path of an entry in an archived file. Only used for archive files
    */
-  protected String getEntryFullPath(String fullPathStr, String entryName) {
+  protected String getArchiveEntryFullPath(String fullPathStr, String entryName) {
     return fullPathStr + ARCHIVE_FILE_SEPARATOR + entryName;
   }
 
