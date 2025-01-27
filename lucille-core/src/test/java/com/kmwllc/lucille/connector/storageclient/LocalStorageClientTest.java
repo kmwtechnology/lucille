@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static org.junit.Assert.assertTrue;
@@ -239,7 +240,7 @@ public class LocalStorageClientTest {
     Assert.assertEquals(19, docs.size());
 
     Document doc1 = docs.get(0);
-    Assert.assertTrue(doc1.getString(FILE_PATH).endsWith("hello.zip!hello"));
+    Assert.assertTrue(doc1.getString(FILE_PATH).endsWith("hello.zip" + ARCHIVE_FILE_SEPARATOR + "hello"));
 
     Document doc2 = docs.get(1);
     Assert.assertEquals("default.csv-1", doc2.getId());
@@ -268,7 +269,7 @@ public class LocalStorageClientTest {
     Assert.assertEquals("Awesome City Mug", doc6.getString("name"));
 
     Document doc7 = docs.get(6);
-    Assert.assertTrue(doc7.getString(FILE_PATH).endsWith("jsonlCsvAndFolderWithFooTxt.tar!FolderWithFooTxt/foo.txt"));
+    Assert.assertTrue(doc7.getString(FILE_PATH).endsWith("jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "FolderWithFooTxt/foo.txt"));
 
     Document doc8 = docs.get(7);
     Assert.assertEquals("default.csv-1", doc8.getId());
@@ -297,13 +298,13 @@ public class LocalStorageClientTest {
     Assert.assertEquals("Awesome City Mug", doc12.getString("name"));
 
     Document doc13 = docs.get(12);
-    Assert.assertTrue(doc13.getString(FILE_PATH).endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!FolderWithFooTxt/foo.txt"));
+    Assert.assertTrue(doc13.getString(FILE_PATH).endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "FolderWithFooTxt/foo.txt"));
 
     Document doc14 = docs.get(13);
-    Assert.assertTrue(doc14.getString(FILE_PATH).endsWith("textFiles.tar!helloWorld.txt"));
+    Assert.assertTrue(doc14.getString(FILE_PATH).endsWith("textFiles.tar" + ARCHIVE_FILE_SEPARATOR + "helloWorld.txt"));
 
     Document doc15 = docs.get(14);
-    Assert.assertTrue(doc15.getString(FILE_PATH).endsWith("textFiles.tar!goodbye.txt"));
+    Assert.assertTrue(doc15.getString(FILE_PATH).endsWith("textFiles.tar" + ARCHIVE_FILE_SEPARATOR + "goodbye.txt"));
 
     Document doc16 = docs.get(15);
     Assert.assertEquals("zipped.csv-1", doc16.getId());
@@ -315,7 +316,7 @@ public class LocalStorageClientTest {
     Assert.assertEquals("zipped.csv-3", doc18.getId());
 
     Document doc19 = docs.get(18);
-    Assert.assertTrue(doc19.getString(FILE_PATH).endsWith("zippedFolder.zip!zippedFolder/foo.txt"));
+    Assert.assertTrue(doc19.getString(FILE_PATH).endsWith("zippedFolder.zip" + ARCHIVE_FILE_SEPARATOR + "zippedFolder/foo.txt"));
 
     localStorageClient.shutdown();
   }

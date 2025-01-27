@@ -340,9 +340,9 @@ public class GoogleStorageClientTest {
 
     // check documents published from textFiles.tar
     Document doc7 = docs.get(6);
-    assertEquals("gs://bucket/textFiles.tar!helloWorld.txt", doc7.getString(FILE_PATH));
+    assertEquals("gs://bucket/textFiles.tar" + ARCHIVE_FILE_SEPARATOR + "helloWorld.txt", doc7.getString(FILE_PATH));
     Document doc8 = docs.get(7);
-    assertEquals("gs://bucket/textFiles.tar!goodbye.txt", doc8.getString(FILE_PATH));
+    assertEquals("gs://bucket/textFiles.tar" + ARCHIVE_FILE_SEPARATOR + "goodbye.txt", doc8.getString(FILE_PATH));
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc9 = docs.get(8);
