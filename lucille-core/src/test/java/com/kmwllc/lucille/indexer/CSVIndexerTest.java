@@ -30,15 +30,11 @@ public class CSVIndexerTest {
   @Before
   public void init() {
     outputFile.delete();
-    nestedOutputFile.delete();
-    parentDirFile.delete();
   }
 
   @After
   public void teardown() {
     outputFile.delete();
-    nestedOutputFile.delete();
-    parentDirFile.delete();
   }
 
   /**
@@ -144,13 +140,21 @@ public class CSVIndexerTest {
   // Ensures the CSVIndexer is willing to create directories for output files.
   @Test
   public void testMakeParentDir() {
-    assertFalse(parentDirFile.exists());
+    try {
+      nestedOutputFile.delete();
+      parentDirFile.delete();
 
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("CSVIndexerTest/missingParentConfig.conf");
-    new CSVIndexer(config, messenger, false, "testing");
+      assertFalse(parentDirFile.exists());
 
-    assertTrue(parentDirFile.exists());
+      TestMessenger messenger = new TestMessenger();
+      Config config = ConfigFactory.load("CSVIndexerTest/missingParentConfig.conf");
+      new CSVIndexer(config, messenger, false, "testing");
+
+      assertTrue(parentDirFile.exists());
+    } finally {
+      nestedOutputFile.delete();
+      parentDirFile.delete();
+    }
   }
 
   @Test
