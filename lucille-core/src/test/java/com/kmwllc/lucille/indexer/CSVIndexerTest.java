@@ -24,8 +24,6 @@ import static org.junit.Assert.assertTrue;
 public class CSVIndexerTest {
 
   private final File outputFile = new File("output.csv");
-  private final File parentDirFile = new File("my_files");
-  private final File nestedOutputFile = new File("my_files/output.csv");
 
   @Before
   public void init() {
@@ -140,10 +138,13 @@ public class CSVIndexerTest {
   // Ensures the CSVIndexer is willing to create directories for output files.
   @Test
   public void testMakeParentDir() {
-    try {
-      nestedOutputFile.delete();
-      parentDirFile.delete();
+    File parentDirFile = new File("my_files");
+    File nestedOutputFile = new File("my_files/output.csv");
 
+    nestedOutputFile.delete();
+    parentDirFile.delete();
+
+    try {
       assertFalse(parentDirFile.exists());
 
       TestMessenger messenger = new TestMessenger();
