@@ -155,8 +155,9 @@ public class LocalStorageClient extends BaseStorageClient {
       doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
       doc.setField(CREATED, attrs.creationTime().toInstant());
       // unable to get decompressed file size
-      if (getFileContent)
+      if (getFileContent) {
         doc.setField(CONTENT, in.readAllBytes());
+      }
     } catch (Exception e) {
       throw new ConnectorException("Error occurred getting/setting file attributes to document: " + path, e);
     }
