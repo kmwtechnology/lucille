@@ -52,7 +52,7 @@ public class ParseFilePath extends Stage {
     this.fileSep = ConfigUtils.getOrDefault(config, "fileSep", File.separator);
 
     if (!fileSep.equals("/") && !fileSep.equals("\\")) {
-      throw new IllegalArgumentException("ParseFilePath stage initialized with invalid fileSep.");
+      throw new IllegalArgumentException("ParseFilePath must have fileSep set to either / or \\. Remember to escape \\ in your .conf.");
     }
 
     this.uppercaseExtension = ConfigUtils.getOrDefault(config, "uppercaseExtension", true);
