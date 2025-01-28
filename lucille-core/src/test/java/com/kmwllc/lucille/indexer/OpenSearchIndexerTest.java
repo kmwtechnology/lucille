@@ -109,7 +109,7 @@ public class OpenSearchIndexerTest {
   @Test
   public void testIndexerWithChildDocs() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("OpensearchIndexerTest/config.conf");
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
     Document doc = Document.create("doc1", "test_run");
     doc.addChild(Document.create("childDoc1", "test_run"));
