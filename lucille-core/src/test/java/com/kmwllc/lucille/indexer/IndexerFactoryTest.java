@@ -18,7 +18,7 @@ public class IndexerFactoryTest {
   public void testFromDefaultTypeConfig() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("IndexerFactoryTest/config_default_type.conf");
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
+    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing", null);
     Assert.assertTrue(indexer instanceof SolrIndexer);
   }
 
@@ -26,7 +26,7 @@ public class IndexerFactoryTest {
   public void testFromValidTypeConfig() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("IndexerFactoryTest/config_valid_type.conf");
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
+    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing", null);
     Assert.assertTrue(indexer instanceof SolrIndexer);
   }
 
@@ -35,7 +35,7 @@ public class IndexerFactoryTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("IndexerFactoryTest/config_invalid_type.conf");
     Exception exception = assertThrows(IndexerException.class, () -> {
-      Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
+      Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing", null);
     });
     Assert.assertTrue(exception.getMessage().contains("Unknown indexer.type configuration of:"));
   }
@@ -44,7 +44,7 @@ public class IndexerFactoryTest {
   public void testFromValidTypeConfigOpen() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("IndexerFactoryTest/config_valid_type_open.conf");
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
+    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing", null);
     Assert.assertTrue(indexer instanceof OpenSearchIndexer);
   }
 
@@ -52,7 +52,7 @@ public class IndexerFactoryTest {
   public void testFromValidTypeConfigElastic() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("IndexerFactoryTest/config_valid_type_elastic.conf");
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
+    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing", null);
     Assert.assertTrue(indexer instanceof ElasticsearchIndexer);
   }
 
@@ -60,7 +60,7 @@ public class IndexerFactoryTest {
   public void testFromValidTypeConfigCSV() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("IndexerFactoryTest/config_valid_type_csv.conf");
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
+    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing", null);
     Assert.assertTrue(indexer instanceof CSVIndexer);
 
     // removing the foo file created from test

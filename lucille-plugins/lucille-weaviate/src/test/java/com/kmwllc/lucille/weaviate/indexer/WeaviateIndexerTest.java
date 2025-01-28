@@ -82,7 +82,7 @@ public class WeaviateIndexerTest {
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
-    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
+    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing", null);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -127,7 +127,7 @@ public class WeaviateIndexerTest {
   public void testValidateConnection() {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");
-    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
+    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing", null);
     Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
@@ -137,7 +137,7 @@ public class WeaviateIndexerTest {
   public void testMultipleBatches() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("WeaviateIndexerTest/batching.conf");
-    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
+    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing", null);
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
@@ -175,7 +175,7 @@ public class WeaviateIndexerTest {
 
     public CorruptedWeaviateIndexer(Config config, IndexerMessenger messenger,
         WeaviateClient client, String metricsPrefix) {
-      super(config, messenger, client, "testing");
+      super(config, messenger, client, "testing", null);
     }
 
     @Override

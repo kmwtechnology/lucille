@@ -33,14 +33,14 @@ public class SolrIndexer extends Indexer {
   private final SolrClient solrClient;
 
   public SolrIndexer(
-      Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix) {
-    super(config, messenger, metricsPrefix);
+      Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix, String localRunId) {
+    super(config, messenger, metricsPrefix, localRunId);
     this.solrClient = solrClient;
   }
 
   public SolrIndexer(
-      Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    super(config, messenger, metricsPrefix);
+      Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
+    super(config, messenger, metricsPrefix, localRunId);
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
     this.solrClient = getSolrClient(config, bypass);

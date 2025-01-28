@@ -12,8 +12,8 @@ import java.util.List;
  */
 public class NopIndexer extends Indexer {
 
-  public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    super(config, messenger, metricsPrefix);
+  public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
+    super(config, messenger, metricsPrefix, localRunId);
   }
 
   @Override

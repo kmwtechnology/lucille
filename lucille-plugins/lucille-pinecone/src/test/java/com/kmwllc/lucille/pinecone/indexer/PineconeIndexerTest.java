@@ -127,7 +127,7 @@ public class PineconeIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/good-config.conf");
-      PineconeIndexer indexer = new PineconeIndexer(configGood, messenger, "testing");
+      PineconeIndexer indexer = new PineconeIndexer(configGood, messenger, "testing", null);
 
       // false, then true
       assertFalse(indexer.validateConnection());
@@ -152,7 +152,7 @@ public class PineconeIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/good-config.conf");
-      PineconeIndexer indexer = new PineconeIndexer(configGood, messenger, "testing");
+      PineconeIndexer indexer = new PineconeIndexer(configGood, messenger, "testing", null);
       indexer.closeConnection();
       assertFalse(indexer.validateConnection());
       // should have called close once
@@ -176,11 +176,11 @@ public class PineconeIndexerTest {
       Config configUpdate = ConfigFactory.load("PineconeIndexerTest/empty-namespaces-update.conf");
 
       assertThrows(IndexerException.class, () -> {
-        new PineconeIndexer(configUpdate, messenger, "testing");
+        new PineconeIndexer(configUpdate, messenger, "testing", null);
       });
 
       assertThrows(IndexerException.class, () -> {
-        new PineconeIndexer(configUpsert, messenger2, "testing");
+        new PineconeIndexer(configUpsert, messenger2, "testing", null);
       });
     }
   }
@@ -205,7 +205,7 @@ public class PineconeIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config configUpsert = ConfigFactory.load("PineconeIndexerTest/no-namespaces.conf");
-      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpsert, messenger, "testing");
+      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpsert, messenger, "testing", null);
 
       indexerUpsert.validateConnection();
 
@@ -238,7 +238,7 @@ public class PineconeIndexerTest {
     })) {
       TestMessenger messenger = new TestMessenger();
       Config configUpsert = ConfigFactory.load("PineconeIndexerTest/no-namespaces.conf");
-      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpsert, messenger, "testing");
+      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpsert, messenger, "testing", null);
 
       indexerUpsert.validateConnection();
       messenger.sendForIndexing(doc2);
@@ -266,7 +266,7 @@ public class PineconeIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config configUpdate = ConfigFactory.load("PineconeIndexerTest/no-namespaces-update.conf");
-      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpdate, messenger, "testing");
+      PineconeIndexer indexerUpsert = new PineconeIndexer(configUpdate, messenger, "testing", null);
 
       indexerUpsert.validateConnection();
 
@@ -303,7 +303,7 @@ public class PineconeIndexerTest {
       when(goodIndex.upsert(anyList(), anyString())).thenReturn(response);
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/two-namespaces.conf");
-      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing", null);
       indexerGood.validateConnection();
 
       messenger.sendForIndexing(doc0);
@@ -354,7 +354,7 @@ public class PineconeIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/two-namespaces.conf");
-      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing", null);
       indexerGood.validateConnection();
 
       messenger.sendForIndexing(doc0);
@@ -409,7 +409,7 @@ public class PineconeIndexerTest {
     })) {
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/two-namespaces-update.conf");
-      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing", null);
       indexerGood.validateConnection();
 
       messenger.sendForIndexing(doc0);
@@ -463,7 +463,7 @@ public class PineconeIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/deletion-config.conf");
-      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing", null);
       indexerGood.validateConnection();
 
       messenger.sendForIndexing(doc3ToDelete);
@@ -502,7 +502,7 @@ public class PineconeIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/upsert-and-delete.conf");
-      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing", null);
       indexerGood.validateConnection();
 
       messenger.sendForIndexing(doc0);
@@ -555,7 +555,7 @@ public class PineconeIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/update-and-delete.conf");
-      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing", null);
       indexerGood.validateConnection();
 
       messenger.sendForIndexing(doc0);
@@ -604,7 +604,7 @@ public class PineconeIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/update-and-delete.conf");
-      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing", null);
       indexerGood.validateConnection();
 
       messenger.sendForIndexing(doc0);
@@ -650,7 +650,7 @@ public class PineconeIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config configGood = ConfigFactory.load("PineconeIndexerTest/update-and-delete.conf");
-      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing");
+      PineconeIndexer indexerGood = new PineconeIndexer(configGood, messenger, "testing", null);
       indexerGood.validateConnection();
 
       messenger.sendForIndexing(doc3ToDelete);
@@ -687,7 +687,7 @@ public class PineconeIndexerTest {
       Config configGood = ConfigFactory.load("PineconeIndexerTest/invalidBatchSize.conf");
 
       // throw error if indexer batch size is set to 1001
-      assertThrows(IndexerException.class,() -> new PineconeIndexer(configGood, messenger, "testing"));
+      assertThrows(IndexerException.class,() -> new PineconeIndexer(configGood, messenger, "testing", null));
     }
   }
 }

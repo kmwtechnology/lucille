@@ -45,8 +45,8 @@ public class OpenSearchIndexer extends Indexer {
   //flag for using partial update API when sending documents to opensearch
   private final boolean update;
 
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix) {
-    super(config, messenger, metricsPrefix);
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
+    super(config, messenger, metricsPrefix, localRunId);
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create OpenSearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by OpenSearchIndexer.");
@@ -59,8 +59,8 @@ public class OpenSearchIndexer extends Indexer {
         config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, getClient(config, bypass), metricsPrefix);
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
+    this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
   }
 
   private static OpenSearchClient getClient(Config config, boolean bypass) {

@@ -46,8 +46,8 @@ public class WeaviateIndexer extends Indexer {
   private final String vectorField;
 
   public WeaviateIndexer(Config config, IndexerMessenger messenger, WeaviateClient client,
-      String metricsPrefix) {
-    super(config, messenger, metricsPrefix);
+      String metricsPrefix, String localRunId) {
+    super(config, messenger, metricsPrefix, localRunId);
     this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
         "id_original";
@@ -56,8 +56,8 @@ public class WeaviateIndexer extends Indexer {
     this.client = client;
   }
 
-  public WeaviateIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, getClient(config, bypass), metricsPrefix);
+  public WeaviateIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
+    this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
   }
 
   private static WeaviateClient getClient(Config config, boolean bypass) {

@@ -466,19 +466,16 @@ public class Runner {
     Publisher publisher = null;
 
     try {
+      // If local/test we want to give WorkerPool/Indexer the run_id directly.
+      // (Otherwise let Kafka messengers pass it thru in the documents.)
+      String localRunId = (runType.equals(RunType.LOCAL) || runType.equals(RunType.TEST)) ? runId : null;
 
       // create a common metrics naming prefix to be used by all components that will be collecting metrics,
       // to ensure that metrics are collected separately for each connector/pipeline pair
       String metricsPrefix = runId + "." + connector.getName() + "." + connector.getPipelineName();
 
       if (startWorkerAndIndexer && connector.getPipelineName() != null) {
-        // If local/test we want to give WorkerPool the run_id directly.
-        // (Otherwise let Kafka messengers pass it thru in the documents.)
-        if (runType.equals(RunType.LOCAL) || runType.equals(RunType.TEST)) {
-          workerPool = new WorkerPool(config, pipelineName, runId, workerMessengerFactory, metricsPrefix);
-        } else {
-          workerPool = new WorkerPool(config, pipelineName, null, workerMessengerFactory, metricsPrefix);
-        }
+        workerPool = new WorkerPool(config, pipelineName, localRunId, workerMessengerFactory, metricsPrefix);
 
         try {
           workerPool.start();
@@ -489,7 +486,7 @@ public class Runner {
 
         try {
           IndexerMessenger indexerMessenger = indexerMessengerFactory.create();
-          indexer = IndexerFactory.fromConfig(config, indexerMessenger, bypassIndexer, metricsPrefix);
+          indexer = IndexerFactory.fromConfig(config, indexerMessenger, bypassIndexer, metricsPrefix, localRunId);
         } catch (Exception e) {
           log.error("Error creating indexer from config.", e);
           return new ConnectorResult(connector, publisher, false, "Error creating indexer from config.");
