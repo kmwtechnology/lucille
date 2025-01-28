@@ -1,10 +1,10 @@
 package com.kmwllc.lucille.connector;
 
+import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -184,16 +184,16 @@ public class FileConnectorTest {
 
     Document doc2 = documentList.get(1);
     assertTrue(doc2.getId().startsWith("normal-"));
-    assertTrue(doc2.getString(FILE_PATH).endsWith("helloWorld.txt.gz:helloWorld.txt"));
+    assertTrue(doc2.getString(FILE_PATH).endsWith("helloWorld.txt.gz!helloWorld.txt"));
 
     Document doc3 = documentList.get(2);
     assertTrue(doc3.getId().startsWith("normal-"));
-    assertTrue(doc3.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip:subDirWith2TxtFiles/first.txt"));
+    assertTrue(doc3.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip" + ARCHIVE_FILE_SEPARATOR + "subDirWith2TxtFiles/first.txt"));
     assertEquals("First!", new String(doc3.getBytes("file_content")));
 
     Document doc4 = documentList.get(3);
     assertTrue(doc4.getId().startsWith("normal-"));
-    assertTrue(doc4.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip:subDirWith2TxtFiles/second.txt"));
+    assertTrue(doc4.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip" + ARCHIVE_FILE_SEPARATOR + "subDirWith2TxtFiles/second.txt"));
     assertEquals("Second!", new String(doc4.getBytes("file_content")));
 
     Document doc5 = documentList.get(4);
@@ -226,15 +226,15 @@ public class FileConnectorTest {
 
     Document doc12 = documentList.get(11);
     assertEquals("csvHandled-default.csv-1", doc12.getId());
-    assertTrue(doc12.getString("source").endsWith("subdirWith1csv1xml.tar.gz:subdirWith1csv1xml/default.csv"));
+    assertTrue(doc12.getString("source").endsWith("subdirWith1csv1xml.tar.gz" + ARCHIVE_FILE_SEPARATOR + "subdirWith1csv1xml/default.csv"));
 
     Document doc13 = documentList.get(12);
     assertEquals("csvHandled-default.csv-2", doc13.getId());
-    assertTrue(doc13.getString("source").endsWith("subdirWith1csv1xml.tar.gz:subdirWith1csv1xml/default.csv"));
+    assertTrue(doc13.getString("source").endsWith("subdirWith1csv1xml.tar.gz" + ARCHIVE_FILE_SEPARATOR + "subdirWith1csv1xml/default.csv"));
 
     Document doc14 = documentList.get(13);
     assertEquals("csvHandled-default.csv-3", doc14.getId());
-    assertTrue(doc14.getString("source").endsWith("subdirWith1csv1xml.tar.gz:subdirWith1csv1xml/default.csv"));
+    assertTrue(doc14.getString("source").endsWith("subdirWith1csv1xml.tar.gz" + ARCHIVE_FILE_SEPARATOR + "subdirWith1csv1xml/default.csv"));
 
     Document doc15 = documentList.get(14);
     assertEquals("xmlHandled-1001", doc15.getId());
