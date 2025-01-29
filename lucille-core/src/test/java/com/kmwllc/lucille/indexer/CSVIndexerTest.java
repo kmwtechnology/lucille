@@ -3,8 +3,10 @@ package com.kmwllc.lucille.indexer;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.message.TestMessenger;
+import com.opencsv.ICSVWriter;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.IOException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -12,9 +14,12 @@ import org.junit.Test;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.List;
+import org.mockito.Mockito;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 public class CSVIndexerTest {
 
@@ -97,5 +102,82 @@ public class CSVIndexerTest {
     assertEquals(2, lines.size());
     assertEquals("\"doc1\",\"123\",\"abc\"", lines.get(0));
     assertEquals("\"doc2\",\"456\",\"def\"", lines.get(1));
+  }
+
+  @Test
+  public void testInvalidConfig() {
+    // cannot use the indexOverrideField
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("CSVIndexerTest/invalidConfig.conf");
+
+    assertThrows(IllegalArgumentException.class,
+        () -> new CSVIndexer(config, messenger, false, "testing"));
+  }
+
+  @Test
+  public void testValidateConnection() {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("CSVIndexerTest/includeHeader.conf");
+
+    CSVIndexer noErrorIndexer = new CSVIndexer(config, messenger, null, false, "testing");
+    assertFalse(noErrorIndexer.validateConnection());
+
+    CSVIndexer faultyIndexer = new CSVIndexer(config, messenger, null, true, "testing");
+    assertThrows(NullPointerException.class,
+        () -> faultyIndexer.validateConnection());
+
+    CSVIndexer indexer = new CSVIndexer(config, messenger, false, "testing");
+    assertTrue(indexer.validateConnection());
+
+    // no include header
+    config = ConfigFactory.load("CSVIndexerTest/config.conf");
+    indexer = new CSVIndexer(config, messenger, false, "testing");
+    assertTrue(indexer.validateConnection());
+  }
+
+  // Ensures the CSVIndexer is willing to create directories for output files.
+  @Test
+  public void testMakeParentDir() {
+    File parentDirFile = new File("my_files");
+    File nestedOutputFile = new File("my_files/output.csv");
+
+    nestedOutputFile.delete();
+    parentDirFile.delete();
+
+    try {
+      assertFalse(parentDirFile.exists());
+
+      TestMessenger messenger = new TestMessenger();
+      Config config = ConfigFactory.load("CSVIndexerTest/missingParentConfig.conf");
+      new CSVIndexer(config, messenger, false, "testing");
+
+      assertTrue(parentDirFile.exists());
+    } finally {
+      nestedOutputFile.delete();
+      parentDirFile.delete();
+    }
+  }
+
+  @Test
+  public void testCloseNullWriter() {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("CSVIndexerTest/config.conf");
+    CSVIndexer indexer = new CSVIndexer(config, messenger, null, false, "testing");
+
+    // should not throw an error.
+    indexer.closeConnection();
+  }
+
+  @Test
+  public void testCloseConnectionWithError() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("CSVIndexerTest/config.conf");
+
+    ICSVWriter mockWriter = Mockito.mock(ICSVWriter.class);
+    Mockito.doThrow(new IOException("Mocked Error")).when(mockWriter).close();
+    CSVIndexer indexer = new CSVIndexer(config, messenger, mockWriter, false, "testing");
+
+    // Again, doesn't throw an error.
+    indexer.closeConnection();
   }
 }

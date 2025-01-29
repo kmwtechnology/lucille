@@ -63,7 +63,7 @@ public class FileConnector extends AbstractConnector {
   public static final String CREATED = "file_creation_date";
   public static final String SIZE = "file_size_bytes";
   public static final String CONTENT = "file_content";
-  public static final String FILE_SEPARATOR = ":";
+  public static final String ARCHIVE_FILE_SEPARATOR = "!";
 
   // cloudOption Keys
   public static final String AZURE_CONNECTION_STRING = "connectionString";

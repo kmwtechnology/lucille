@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -44,6 +45,8 @@ import org.opensearch.client.opensearch.core.DeleteByQueryResponse;
 import org.opensearch.client.opensearch.core.bulk.BulkOperation;
 import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
 import org.opensearch.client.opensearch.core.bulk.IndexOperation;
+import org.opensearch.client.opensearch.core.bulk.UpdateOperation;
+import org.opensearch.client.transport.OpenSearchTransport;
 import org.opensearch.client.transport.endpoints.BooleanResponse;
 
 public class OpenSearchIndexerTest {
@@ -102,6 +105,50 @@ public class OpenSearchIndexerTest {
     }
   }
 
+  // Unsupported, but shouldn't cause any errors.
+  @Test
+  public void testIndexerWithChildDocs() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
+
+    Document doc = Document.create("doc1", "test_run");
+    doc.addChild(Document.create("childDoc1", "test_run"));
+
+    Document doc2 = Document.create("doc2", "test_run");
+    Document childDoc2 = Document.create("childDoc2", "test_run");
+    doc2.addChild(childDoc2);
+    childDoc2.addChild(Document.create("child_childDoc2", "test_run"));
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    indexer.run(2);
+
+    Assert.assertEquals(2, messenger.getSentEvents().size());
+  }
+
+  @Test
+  public void testOpensearchIndexerUpdate() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/updateConfig.conf");
+
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    indexer.run(2);
+
+    assertEquals(2, messenger.getSentEvents().size());
+
+    List<Event> events = messenger.getSentEvents();
+    for (int i = 1; i <= events.size(); i++) {
+      assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
+    }
+  }
+
   @Test
   public void testOpenSearchIndexerException() throws Exception {
     TestMessenger messenger = new TestMessenger();
@@ -131,6 +178,9 @@ public class OpenSearchIndexerTest {
 
   @Test
   public void testValidateConnection() throws Exception {
+    OpenSearchClient mockFailPingClient = Mockito.mock(OpenSearchClient.class);
+    when(mockFailPingClient.ping()).thenThrow(RuntimeException.class);
+
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing", null);
@@ -138,6 +188,11 @@ public class OpenSearchIndexerTest {
     assertFalse(indexer.validateConnection());
     assertFalse(indexer.validateConnection());
 
+    OpenSearchIndexer nullClientIndexer = new OpenSearchIndexer(config, messenger, null, "testing");
+    Assert.assertTrue(nullClientIndexer.validateConnection());
+
+    OpenSearchIndexer failPingClientIndexer = new OpenSearchIndexer(config, messenger, mockFailPingClient, "testing");
+    Assert.assertFalse(failPingClientIndexer.validateConnection());
   }
 
   @Test
@@ -468,6 +523,31 @@ public class OpenSearchIndexerTest {
   }
 
   @Test
+  public void testRoutingAndUpdate() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/routingAndUpdate.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("routing", "routing1");
+    doc.setField("field1", "value1");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    UpdateOperation updateRequest = requests.get(0).update();
+
+    assertEquals("doc1", updateRequest.id());
+    assertEquals("routing1", updateRequest.routing());
+  }
+
+  @Test
   public void testDocumentVersioning() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf");
@@ -495,6 +575,33 @@ public class OpenSearchIndexerTest {
     assertEquals(expectedVersion, indexRequest.version());
     assertEquals(VersionType.ExternalGte, indexRequest.versionType());
     assertEquals(Map.of("id", "doc1", "field1", "value1"), map);
+  }
+
+  @Test
+  public void testDocumentVersioningWithUpdate() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/versioningUpdate.conf");
+
+    KafkaDocument doc = new KafkaDocument(
+        new ObjectMapper().createObjectNode()
+            .put("id", "doc1")
+            .put("field1", "value1"));
+    doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    UpdateOperation indexRequest = requests.get(0).update();
+
+    Long expectedVersion = Long.valueOf(100);
+    assertEquals("doc1", indexRequest.id());
+    assertEquals(expectedVersion, indexRequest.version());
   }
 
   @Test
@@ -684,6 +791,44 @@ public class OpenSearchIndexerTest {
     assertEquals(Map.of("id", "otherId", "other_id", "otherId"), map);
   }
 
+  @Test
+  public void testInvalidConfig() {
+    // cannot use the indexOverrideField
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/invalidConfig.conf");
+
+    assertThrows(IllegalArgumentException.class,
+        () -> new OpenSearchIndexer(config, messenger, mockClient, "testing"));
+  }
+
+  @Test
+  public void testCloseConnection() throws IOException {
+    OpenSearchTransport mockTransport = Mockito.mock(OpenSearchTransport.class);
+    OpenSearchClient mockTransportClient = Mockito.mock(OpenSearchClient.class);
+    when(mockTransportClient._transport()).thenReturn(mockTransport);
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, null, "testing");
+    // will print out to the logs but no errors despite null client.
+    indexer.closeConnection();
+
+    // only the call to check if it is null
+    indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+    indexer.closeConnection();
+    verify(mockClient, times(1))._transport();
+
+    indexer = new OpenSearchIndexer(config, messenger, mockTransportClient, "testing");
+    indexer.closeConnection();
+    // call to check if null (it isn't) and then a call to close.
+    verify(mockTransportClient, times(2))._transport();
+    verify(mockTransport, times(1)).close();
+
+    // No error if the close goes wrong
+    Mockito.doThrow(new RuntimeException("Mock Exception")).when(mockTransport).close();
+    indexer.closeConnection();
+  }
 
   private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
 
