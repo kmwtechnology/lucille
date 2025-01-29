@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.message;
 
+import static com.kmwllc.lucille.core.Document.ID_FIELD;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.typesafe.config.Config;
@@ -10,6 +12,7 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.MDC;
 
 /**
  * Implementation of the messenger APIs used by Indexers, Publishers, and Workers, suitable for
@@ -50,12 +53,24 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
 
   @Override
   public Document pollDocToIndex() throws Exception {
-    return pipelineDest.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    Document doc = pipelineDest.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
+    if (doc != null) {
+      MDC.put(ID_FIELD, doc.getId());
+    }
+
+    return doc;
   }
 
   @Override
   public Document pollDocToProcess() throws Exception {
-    return pipelineSource.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    Document doc = pipelineSource.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
+    if (doc != null) {
+      MDC.put(ID_FIELD, doc.getId());
+    }
+
+    return doc;
   }
 
   @Override

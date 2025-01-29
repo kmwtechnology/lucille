@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.message;
 
+import static com.kmwllc.lucille.core.Document.ID_FIELD;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.KafkaDocument;
@@ -15,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.List;
+import org.slf4j.MDC;
 
 public class KafkaIndexerMessenger implements IndexerMessenger {
 
@@ -44,6 +47,9 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
       destConsumer.commitSync();
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
+
+      MDC.put(ID_FIELD, doc.getId());
+
       doc.setKafkaMetadata(record);
       return doc;
     }

@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import static com.kmwllc.lucille.core.Document.ID_FIELD;
+
 import com.codahale.metrics.*;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
@@ -8,6 +10,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import sun.misc.Signal;
 
 import java.time.Instant;
@@ -133,6 +136,7 @@ class Worker implements Runnable {
       commitOffsetsAndRemoveCounter(doc);
     }
 
+    MDC.remove(ID_FIELD);
     // commit any remaining offsets before termination
     commitOffsetsAndRemoveCounter(null);
 
