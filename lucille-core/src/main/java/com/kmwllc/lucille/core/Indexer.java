@@ -1,13 +1,10 @@
 package com.kmwllc.lucille.core;
 
-import static com.kmwllc.lucille.core.Document.ID_FIELD;
-
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.indexer.IndexerFactory;
-import com.kmwllc.lucille.indexer.SolrIndexer;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.LogUtils;
@@ -21,7 +18,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.MDC;
 import sun.misc.Signal;
 
 public abstract class Indexer implements Runnable {
@@ -176,8 +172,6 @@ public abstract class Indexer implements Runnable {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
       doc = messenger.pollDocToIndex();
-
-      // TODO: may want to put MDC here?
     } catch (Exception e) {
       log.info("Indexer interrupted ", e);
       terminate();
@@ -218,7 +212,7 @@ public abstract class Indexer implements Runnable {
       log.error("Error sending documents to index: " + e.getMessage(), e);
 
       for (Document d : batchedDocs) {
-        try (MDC.MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
+        try {
           messenger.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
         } catch (Exception e2) {
           // TODO: The run won't be able to finish if this event isn't received; can we do something
@@ -237,7 +231,7 @@ public abstract class Indexer implements Runnable {
     }
 
     for (Document d : batchedDocs) {
-      try (MDC.MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
+      try {
         messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
       } catch (Exception e) {
         // TODO: The run won't be able to finish if this event isn't received; can we do something

@@ -1,7 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import static com.kmwllc.lucille.core.Document.ID_FIELD;
-
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
@@ -15,8 +13,6 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.slf4j.MDC;
 
 /**
  * An operation that can be performed on a Document.<br>
@@ -163,7 +159,7 @@ public abstract class Stage {
       if (timer != null) {
         context = timer.time();
       }
-      try (MDC.MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
+      try {
         return processDocument(doc);
       } finally {
         if (context != null) {
