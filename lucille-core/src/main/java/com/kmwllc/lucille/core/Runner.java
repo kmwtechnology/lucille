@@ -133,6 +133,11 @@ public class Runner {
     }
   }
 
+  /** Utility method to generate a Run ID. */
+  public static String generateRunId() {
+    return UUID.randomUUID().toString();
+  }
+
   /**
    * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
    * config file. Stop the run if any of the connectors fails.
@@ -232,36 +237,61 @@ public class Runner {
     }
   }
 
+  public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
+    return runWithResultLog(config, runType, null);
+  }
+  
   /**
    * Kicks off a new Lucille run and logs information about the run to the console after completion.
    */
-  public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
+  public static RunResult runWithResultLog(Config config, RunType runType, String runId)
+      throws Exception {
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
     RunResult result;
 
     try {
-      result = run(config, runType);
+      result = run(config, runType, runId);
 
       // log detailed metrics
       Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
           .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
-
       // log run summary
       log.info(result.toString());
-
       return result;
     } finally {
       stopWatch.stop();
-      log.info(String.format("Run took %.2f secs.", (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
+      log.info(String.format("Run took %.2f secs.",
+          (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
     }
+  }
+  
+  /**
+   * Non managed Run with internal generated runId
+   *
+   * @param config
+   * @param type
+   * @return
+   * @throws Exception
+   */
+  public static RunResult run(Config config, RunType type) throws Exception {
+    return run(config, type, null);
   }
 
   /**
-   * Generates a run ID and performs an end-to-end run of the designated type.
+   * Generates a run ID if not supplied and performs an end-to-end run of the designated type.
+   *
+   * @param config
+   * @param type
+   * @param runId
+   * @return
+   * @throws Exception
    */
-  public static RunResult run(Config config, RunType type) throws Exception {
-    String runId = UUID.randomUUID().toString();
+  public static RunResult run(Config config, RunType type, String runId) throws Exception {
+    if (runId == null) {
+      runId = Runner.generateRunId();
+    }
+
     log.info("Starting run with id " + runId);
 
     List<Connector> connectors = Connector.fromConfig(config);
@@ -434,7 +464,7 @@ public class Runner {
 
       // create a common metrics naming prefix to be used by all components that will be collecting metrics,
       // to ensure that metrics are collected separately for each connector/pipeline pair
-      String metricsPrefix = connector.getName() + "." + connector.getPipelineName();
+      String metricsPrefix = runId + "." + connector.getName() + "." + connector.getPipelineName();
 
       if (startWorkerAndIndexer && connector.getPipelineName() != null) {
         workerPool = new WorkerPool(config, pipelineName, workerMessengerFactory, metricsPrefix);

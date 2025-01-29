@@ -1,14 +1,9 @@
 package endpoints;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-import com.codahale.metrics.health.HealthCheck.Result;
-import io.dropwizard.auth.PrincipalImpl;
+import org.junit.Test;
 import com.kmwllc.lucille.endpoints.LivenessResource;
 import jakarta.ws.rs.core.Response;
-import java.util.Optional;
-import org.junit.Test;
 
 public class LivenessResourceTest {
 
@@ -16,9 +11,7 @@ public class LivenessResourceTest {
 
   @Test
   public void testLivenessEndpoint() {
-    Optional<PrincipalImpl> user = Optional.of(new PrincipalImpl("test"));
-    Response response = liveness.isAlive(user);
-
+    Response response = liveness.isAlive();      
     assertEquals(Response.ok().build().toString(), response.toString());
   }
 

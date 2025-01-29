@@ -24,9 +24,7 @@ import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Stream;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -184,18 +182,19 @@ public class FileConnectorTest {
     assertEquals("Rustic Cows Mug", doc1.getString("name"));
 
     Document doc2 = documentList.stream().filter(d ->
-        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("helloWorld.txt.gz:helloWorld.txt")).findAny().orElseThrow();
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("helloWorld.txt.gz!helloWorld.txt")).findAny().orElseThrow();
     // we don't know second portion of the ID because it will be the MD5 hex of the absolute path of the zip entry which will be
     // different in different environments
     assertTrue(doc2.getId().startsWith("normal-"));
 
     Document doc3 = documentList.stream().filter(d ->
-        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip:subDirWith2TxtFiles/first.txt")).findAny().orElseThrow();
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip!subDirWith2TxtFiles/first.txt")).findAny().orElseThrow();
     assertTrue(doc3.getId().startsWith("normal-"));
+
     assertEquals("First!", new String(doc3.getBytes("file_content")));
 
     Document doc4 = documentList.stream().filter(d ->
-        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip:subDirWith2TxtFiles/second.txt")).findAny().orElseThrow();
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip!subDirWith2TxtFiles/second.txt")).findAny().orElseThrow();
     assertTrue(doc4.getId().startsWith("normal-"));
     assertEquals("Second!", new String(doc4.getBytes("file_content")));
 
@@ -222,13 +221,13 @@ public class FileConnectorTest {
     assertTrue(doc11.getId().startsWith("normal-"));
 
     Document doc12 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-1")).findAny().orElseThrow();
-    assertTrue(doc12.getString("source").endsWith("subdirWith1csv1xml.tar.gz:subdirWith1csv1xml/default.csv"));
+    assertTrue(doc12.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
     Document doc13 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-2")).findAny().orElseThrow();
-    assertTrue(doc13.getString("source").endsWith("subdirWith1csv1xml.tar.gz:subdirWith1csv1xml/default.csv"));
+    assertTrue(doc13.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
     Document doc14 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-3")).findAny().orElseThrow();
-    assertTrue(doc14.getString("source").endsWith("subdirWith1csv1xml.tar.gz:subdirWith1csv1xml/default.csv"));
+    assertTrue(doc14.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
     Document doc15 = documentList.stream().filter(d -> d.getId().equals("xmlHandled-1001")).findAny().orElseThrow();
     assertEquals("<staff>\n" +

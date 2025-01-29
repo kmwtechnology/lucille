@@ -22,7 +22,12 @@ import java.util.regex.Pattern;
  * <br>
  * - regex (List&lt;String&gt;) : A list regex expression to find matches for. Matches will be extracted and placed in the destination fields.
  * <br>
- * - replacement (String) : The String to replace regex matches with.
+ * - replacement (String, Optional) : The String to replace regex matches with. If null, pattern replacement will only take place if
+ * a replacement_field is specified and set to a String in a document.
+ * <br>
+ * - replacement_field (String, Optional): Specify a field in the document that is set to a String. If non-null, replacements of a
+ * pattern within a document will use the string set to the replacement_field, if present. Otherwise, we fall back onto replacement:
+ * If it is not null, patterns are replaced with it; if it is null, no replacement takes place.
  * <br>
  * - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  * Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
@@ -41,6 +46,7 @@ public class ReplacePatterns extends Stage {
   private final List<String> destFields;
   private final List<String> regexExprs;
   private final String replacement;
+  private final String replacementField;
   private final UpdateMode updateMode;
 
   private final boolean ignoreCase;
@@ -50,16 +56,22 @@ public class ReplacePatterns extends Stage {
 
   private List<Pattern> patterns;
 
-  public ReplacePatterns(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "dest", "regex", "replacement")
-        .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
+  public ReplacePatterns(Config config) throws StageException {
+    super(config, new StageSpec().withRequiredProperties("source", "dest", "regex")
+        .withOptionalProperties("replacement", "replacement_field", "update_mode", "ignore_case", "multiline", "dotall", "literal"));
 
     this.patterns = new ArrayList<>();
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.regexExprs = config.getStringList("regex");
-    this.replacement = config.getString("replacement");
+    this.replacement = ConfigUtils.getOrDefault(config, "replacement", null);
+    this.replacementField = ConfigUtils.getOrDefault(config, "replacement_field", null);
+
+    if (replacement == null && replacementField == null) {
+      throw new StageException("Did not provide a replacement String or a replacement_field.");
+    }
+
     this.updateMode = UpdateMode.fromConfig(config);
 
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
@@ -125,6 +137,12 @@ public class ReplacePatterns extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
+    String replacementForDoc = doc.getString(replacementField) == null ? replacement : doc.getString(replacementField);
+
+    if (replacementForDoc == null) {
+      return null;
+    }
+
     for (int i = 0; i < sourceFields.size(); i++) {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
@@ -137,7 +155,7 @@ public class ReplacePatterns extends Stage {
       for (String value : doc.getStringList(sourceField)) {
         for (Pattern pattern : patterns) {
           Matcher matcher = pattern.matcher(value);
-          value = matcher.replaceAll(replacement);
+          value = matcher.replaceAll(replacementForDoc);
         }
 
         outputValues.add(value);
