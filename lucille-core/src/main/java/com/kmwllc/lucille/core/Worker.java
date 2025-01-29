@@ -70,8 +70,12 @@ class Worker implements Runnable {
         // blocking poll with a timeout which we assume to be in the range of
         // several milliseconds to several seconds
 
-        // This will update the run_id in MDC.
         doc = messenger.pollDocToProcess();
+
+        // continuously update the MDC if we haven't been given a localRunID (in Kafka modes).
+        if (localRunId == null && doc != null) {
+          MDC.put(RUNID_FIELD, doc.getRunId());
+        }
       } catch (Exception e) {
         log.info("interrupted " + e);
         terminate();
@@ -142,6 +146,11 @@ class Worker implements Runnable {
       }
 
       commitOffsetsAndRemoveCounter(doc);
+    }
+
+    // Don't have a run id attached to the logs below if in a non-local mode.
+    if (localRunId == null) {
+      MDC.remove(RUNID_FIELD);
     }
 
     // commit any remaining offsets before termination

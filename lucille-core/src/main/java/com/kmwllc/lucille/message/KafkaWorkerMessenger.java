@@ -51,7 +51,6 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     if (consumerRecords.count() > 0) {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
-      MDC.put(RUNID_FIELD, doc.getRunId());
       doc.setKafkaMetadata(record);
       return doc;
     }
