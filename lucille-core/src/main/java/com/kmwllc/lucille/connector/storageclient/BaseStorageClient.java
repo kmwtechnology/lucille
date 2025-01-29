@@ -19,7 +19,6 @@ import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.BufferedInputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -93,9 +92,12 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference) {
     try {
-      // preprocessing
-      beforeProcessingFile(fullPathStr);
-
+      // preprocessing, currently a NO-OP unless a subclass overrides it
+      if (!beforeProcessingFile(fullPathStr)) {
+        // The preprocessing check failed, let's skip the file.
+        return;
+      }
+      
       // handle compressed files if needed to the end
       if (handleCompressedFiles && isSupportedCompressedFileType(fullPathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
@@ -274,11 +276,13 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * method for performing operations before processing files. Additional operations can be added
-   * in the implementation of this method. Will be called before processing each file in traversal.
+   * method for performing operations before processing files. This method is ill be called before processing 
+   * each file in traversal.  If the method returns true, the file will be processed.  A return of false indicates
+   * the file should be skipped.
    */
-  protected void beforeProcessingFile(String pathStr) throws Exception {
-    createProcessedAndErrorFoldersIfSet(pathStr);
+  protected boolean beforeProcessingFile(String pathStr) throws Exception {
+    // Base implementation, process all files. 
+    return true;
   }
 
   /**
@@ -327,27 +331,6 @@ public abstract class BaseStorageClient implements StorageClient {
     } else {
       // handle cloud paths
       throw new UnsupportedOperationException("Moving cloud files is not supported yet");
-    }
-  }
-
-  private void createProcessedAndErrorFoldersIfSet(String pathStr) {
-    Path path = Paths.get(pathStr);
-
-    // if file does not exist locally, means it is a cloud path, not supported yet
-    boolean sourceFileExistsLocally = Files.exists(path);
-    if (moveToAfterProcessing != null && sourceFileExistsLocally) {
-      // Create the destination directory if it doesn't exist.
-      File destDir = new File(moveToAfterProcessing);
-      if (!destDir.exists()) {
-        destDir.mkdirs();
-      }
-    }
-    if (moveToErrorFolder != null && sourceFileExistsLocally) {
-      File errorDir = new File(moveToErrorFolder);
-      if (!errorDir.exists()) {
-        log.info("Creating error directory {}", errorDir.getAbsolutePath());
-        errorDir.mkdirs();
-      }
     }
   }
 

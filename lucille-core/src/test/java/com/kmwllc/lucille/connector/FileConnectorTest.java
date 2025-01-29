@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector;
 
-import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
@@ -177,67 +176,60 @@ public class FileConnectorTest {
 
     // assert that all documents have been processed
     Assert.assertEquals(16, documentList.size());
-
-    Document doc1 = documentList.get(0);
-    assertEquals("jsonHandled-a", doc1.getId());
+    
+    // find docs by ID in an order-independent way
+    Document doc1 = documentList.stream().filter(d -> d.getId().equals("jsonHandled-a")).findAny().orElseThrow();
     assertEquals("Rustic Cows Mug", doc1.getString("name"));
 
-    Document doc2 = documentList.get(1);
+    Document doc2 = documentList.stream().filter(d ->
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("helloWorld.txt.gz!helloWorld.txt")).findAny().orElseThrow();
+    // we don't know second portion of the ID because it will be the MD5 hex of the absolute path of the zip entry which will be
+    // different in different environments
     assertTrue(doc2.getId().startsWith("normal-"));
-    assertTrue(doc2.getString(FILE_PATH).endsWith("helloWorld.txt.gz!helloWorld.txt"));
 
-    Document doc3 = documentList.get(2);
+    Document doc3 = documentList.stream().filter(d ->
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip!subDirWith2TxtFiles/first.txt")).findAny().orElseThrow();
     assertTrue(doc3.getId().startsWith("normal-"));
-    assertTrue(doc3.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip" + ARCHIVE_FILE_SEPARATOR + "subDirWith2TxtFiles/first.txt"));
+
     assertEquals("First!", new String(doc3.getBytes("file_content")));
 
-    Document doc4 = documentList.get(3);
+    Document doc4 = documentList.stream().filter(d ->
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip!subDirWith2TxtFiles/second.txt")).findAny().orElseThrow();
     assertTrue(doc4.getId().startsWith("normal-"));
-    assertTrue(doc4.getString(FILE_PATH).endsWith("subDirWith2TxtFiles.zip" + ARCHIVE_FILE_SEPARATOR + "subDirWith2TxtFiles/second.txt"));
     assertEquals("Second!", new String(doc4.getBytes("file_content")));
 
-    Document doc5 = documentList.get(4);
-    assertEquals("jsonHandled-b", doc5.getId());
+    Document doc5 = documentList.stream().filter(d -> d.getId().equals("jsonHandled-b")).findAny().orElseThrow();
     assertEquals("Gorgeous Woman Mug", doc5.getString("name"));
 
-    Document doc6 = documentList.get(5);
-    assertEquals("jsonHandled-c1", doc6.getId());
+    Document doc6 = documentList.stream().filter(d -> d.getId().equals("jsonHandled-c1")).findAny().orElseThrow();
     assertEquals("Awesome Night Mug", doc6.getString("name"));
 
-    Document doc7 = documentList.get(6);
-    assertEquals("jsonHandled-c2", doc7.getId());
+    Document doc7 = documentList.stream().filter(d -> d.getId().equals("jsonHandled-c2")).findAny().orElseThrow();
     assertEquals("Ergonomic Mountains Mug", doc7.getString("name"));
 
-    Document doc8 = documentList.get(7);
-    assertEquals("jsonHandled-c3", doc8.getId());
+    Document doc8 = documentList.stream().filter(d -> d.getId().equals("jsonHandled-c3")).findAny().orElseThrow();
     assertEquals("Refined Fog Mug", doc8.getString("name"));
 
-    Document doc9 = documentList.get(8);
-    assertEquals("jsonHandled-c4", doc9.getId());
+    Document doc9 = documentList.stream().filter(d -> d.getId().equals("jsonHandled-c4")).findAny().orElseThrow();
     assertEquals("Sleek Castle Mug", doc9.getString("name"));
 
-    Document doc10 = documentList.get(9);
-    assertEquals("jsonHandled-c5", doc10.getId());
+    Document doc10 = documentList.stream().filter(d -> d.getId().equals("jsonHandled-c5")).findAny().orElseThrow();
     assertEquals("Small City Mug", doc10.getString("name"));
 
-    Document doc11 = documentList.get(10);
+    Document doc11 = documentList.stream().filter(d ->
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir"+File.separatorChar+"e.yaml")).findAny().orElseThrow();
     assertTrue(doc11.getId().startsWith("normal-"));
-    assertTrue(doc11.getString(FILE_PATH).endsWith("subdir/e.yaml"));
 
-    Document doc12 = documentList.get(11);
-    assertEquals("csvHandled-default.csv-1", doc12.getId());
-    assertTrue(doc12.getString("source").endsWith("subdirWith1csv1xml.tar.gz" + ARCHIVE_FILE_SEPARATOR + "subdirWith1csv1xml/default.csv"));
+    Document doc12 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-1")).findAny().orElseThrow();
+    assertTrue(doc12.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
-    Document doc13 = documentList.get(12);
-    assertEquals("csvHandled-default.csv-2", doc13.getId());
-    assertTrue(doc13.getString("source").endsWith("subdirWith1csv1xml.tar.gz" + ARCHIVE_FILE_SEPARATOR + "subdirWith1csv1xml/default.csv"));
+    Document doc13 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-2")).findAny().orElseThrow();
+    assertTrue(doc13.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
-    Document doc14 = documentList.get(13);
-    assertEquals("csvHandled-default.csv-3", doc14.getId());
-    assertTrue(doc14.getString("source").endsWith("subdirWith1csv1xml.tar.gz" + ARCHIVE_FILE_SEPARATOR + "subdirWith1csv1xml/default.csv"));
+    Document doc14 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-3")).findAny().orElseThrow();
+    assertTrue(doc14.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
-    Document doc15 = documentList.get(14);
-    assertEquals("xmlHandled-1001", doc15.getId());
+    Document doc15 = documentList.stream().filter(d -> d.getId().equals("xmlHandled-1001")).findAny().orElseThrow();
     assertEquals("<staff>\n" +
         "        <id>1001</id>\n" +
         "        <name>daniel</name>\n" +
@@ -246,8 +238,7 @@ public class FileConnectorTest {
         "        <bio>I am from San Diego</bio>\n" +
         "    </staff>", doc15.getString("xml"));
 
-    Document doc16 = documentList.get(15);
-    assertEquals("xmlHandled-1002", doc16.getId());
+    Document doc16 = documentList.stream().filter(d -> d.getId().equals("xmlHandled-1002")).findAny().orElseThrow();
     assertEquals("<staff>\n" +
         "        <id>1002</id>\n" +
         "        <name>brian</name>\n" +

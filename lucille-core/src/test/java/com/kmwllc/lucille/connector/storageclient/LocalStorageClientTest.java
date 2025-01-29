@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static org.junit.Assert.assertTrue;
@@ -63,15 +62,16 @@ public class LocalStorageClientTest {
 
   @Test
   public void testPublishValidFiles() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
     LocalStorageClient localStorageClient = new LocalStorageClient(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_",
         List.of(), List.of(), Map.of(), ConfigFactory.empty());
     localStorageClient.init();
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     localStorageClient.traverse(publisher);
 
     String[] fileNames = {"a.json", "b.json", "c.json", "d.json",
-        "subdir1/e.json", "subdir1/e.json.gz", "subdir1/e.yaml", "subdir1/f.jsonl"};
+        "subdir1"+File.separatorChar+"e.json", "subdir1"+File.separatorChar+"e.json.gz", "subdir1"+File.separatorChar+"e.yaml", "subdir1"+File.separatorChar+"f.jsonl"};
     int docCount = 0;
     for (Document doc : messenger.getDocsSentForProcessing()) {
       String docId = doc.getId();
@@ -96,11 +96,12 @@ public class LocalStorageClientTest {
 
   @Test
   public void testPublishFilesWithExclude() throws Exception {
-    LocalStorageClient localStorageClient = new LocalStorageClient(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_",
-        List.of(Pattern.compile(".*/subdir1/.*$")), List.of(Pattern.compile(".*/[a-c]\\.json$")), Map.of(), ConfigFactory.empty());
-    localStorageClient.init();
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    LocalStorageClient localStorageClient = new LocalStorageClient(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_",
+        List.of(Pattern.compile(".*subdir1.*$")), List.of(Pattern.compile(".*[a-c]\\.json$")), Map.of(), ConfigFactory.empty());
+    localStorageClient.init();
 
     localStorageClient.traverse(publisher);
     Assert.assertEquals(3, messenger.getDocsSentForProcessing().size());
@@ -126,6 +127,9 @@ public class LocalStorageClientTest {
 
   @Test
   public void testSkipFileContent() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
     LocalStorageClient localStorageClient = new LocalStorageClient(
         new URI("src/test/resources/StorageClientTest/testPublishFilesDefault/a.json"), "file_",
         List.of(), List.of(),
@@ -134,8 +138,6 @@ public class LocalStorageClientTest {
     ));
 
     localStorageClient.init();
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     localStorageClient.traverse(publisher);
 
@@ -146,6 +148,9 @@ public class LocalStorageClientTest {
 
   @Test
   public void testPublishUsingFileHandler() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
     LocalStorageClient localStorageClient = new LocalStorageClient(
         new URI("src/test/resources/StorageClientTest/testPublishFilesDefault/"), "file_",
         List.of(Pattern.compile(".*\\.DS_Store$")), List.of(),
@@ -155,62 +160,47 @@ public class LocalStorageClientTest {
         )
     ));
 
-
     localStorageClient.init();
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
-
     localStorageClient.traverse(publisher);
+    List<Document> docs = messenger.getDocsSentForProcessing();
 
-    List<Document> documents = messenger.getDocsSentForProcessing();
+    assertEquals(12, docs.size());
 
-    Assert.assertEquals(12, documents.size());
+    Document doc1 = docs.stream().filter(d -> d.getId().equals("a")).findAny().orElseThrow();
+    assertEquals("Rustic Cows Mug", doc1.getString("name"));
 
-    Document doc1 = documents.get(0);
-    Assert.assertEquals("a", doc1.getId());
-    Assert.assertEquals("Rustic Cows Mug", doc1.getString("name"));
+    Document doc2 = docs.stream().filter(d -> d.getId().equals("b")).findAny().orElseThrow();
+    assertEquals("Gorgeous Woman Mug", doc2.getString("name"));
 
-    Document doc2 = documents.get(1);
-    Assert.assertEquals("b", doc2.getId());
-    Assert.assertEquals("Gorgeous Woman Mug", doc2.getString("name"));
+    Document doc3 = docs.stream().filter(d -> d.getId().equals("c")).findAny().orElseThrow();
+    assertEquals("Awesome City Mug", doc3.getString("name"));
 
-    Document doc3 = documents.get(2);
-    Assert.assertEquals("c", doc3.getId());
-    Assert.assertEquals("Awesome City Mug", doc3.getString("name"));
+    Document doc4 = docs.stream().filter(d -> d.getId().equals("d")).findAny().orElseThrow();
+    assertEquals("Incredible People Mug", doc4.getString("name"));
 
-    Document doc4 = documents.get(3);
-    Assert.assertEquals("d", doc4.getId());
-    Assert.assertEquals("Incredible People Mug", doc4.getString("name"));
+    Document doc5 = docs.stream().filter(d -> d.getId().equals("e")).findAny().orElseThrow();
+    assertEquals("Awesome Wood Mug", doc5.getString("name"));
 
-    Document doc5 = documents.get(4);
-    Assert.assertEquals("e", doc5.getId());
-    Assert.assertEquals("Awesome Wood Mug", doc5.getString("name"));
+    Document doc6 = docs.stream().filter(d -> d.has(FILE_PATH) &&
+        d.getString(FILE_PATH).endsWith("subdir1"+File.separatorChar+"e.json.gz")).findAny().orElseThrow();
 
-    Document doc6 = documents.get(5);
-    Assert.assertTrue(doc6.getString(FILE_PATH).endsWith("subdir1/e.json.gz"));
+    Document doc7 = docs.stream().filter(d ->
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir1"+File.separatorChar+"e.yaml")).findAny().orElseThrow();
 
-    Document doc7 = documents.get(6);
-    Assert.assertTrue(doc7.getString(FILE_PATH).endsWith("subdir1/e.yaml"));
+    Document doc8 = docs.stream().filter(d -> d.getId().equals("f1")).findAny().orElseThrow();
+    assertEquals("Awesome Night Mug", doc8.getString("name"));
 
-    Document doc8 = documents.get(7);
-    Assert.assertEquals("f1", doc8.getId());
-    Assert.assertEquals("Awesome Night Mug", doc8.getString("name"));
+    Document doc9 = docs.stream().filter(d -> d.getId().equals("f2")).findAny().orElseThrow();
+    assertEquals("Ergonomic Mountains Mug", doc9.getString("name"));
 
-    Document doc9 = documents.get(8);
-    Assert.assertEquals("f2", doc9.getId());
-    Assert.assertEquals("Ergonomic Mountains Mug", doc9.getString("name"));
+    Document doc10 = docs.stream().filter(d -> d.getId().equals("f3")).findAny().orElseThrow();
+    assertEquals("Refined Fog Mug", doc10.getString("name"));
 
-    Document doc10 = documents.get(9);
-    Assert.assertEquals("f3", doc10.getId());
-    Assert.assertEquals("Refined Fog Mug", doc10.getString("name"));
+    Document doc11 = docs.stream().filter(d -> d.getId().equals("f4")).findAny().orElseThrow();
+    assertEquals("Sleek Castle Mug", doc11.getString("name"));
 
-    Document doc11 = documents.get(10);
-    Assert.assertEquals("f4", doc11.getId());
-    Assert.assertEquals("Sleek Castle Mug", doc11.getString("name"));
-
-    Document doc12 = documents.get(11);
-    Assert.assertEquals("f5", doc12.getId());
-    Assert.assertEquals("Small City Mug", doc12.getString("name"));
+    Document doc12 = docs.stream().filter(d -> d.getId().equals("f5")).findAny().orElseThrow();
+    assertEquals("Small City Mug", doc12.getString("name"));
 
     localStorageClient.shutdown();
   }
@@ -218,6 +208,10 @@ public class LocalStorageClientTest {
 
   @Test
   public void testPublishOnCompressedAndArchived() throws Exception {
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
     LocalStorageClient localStorageClient = new LocalStorageClient(
         new URI("src/test/resources/StorageClientTest/testCompressedAndArchived"), "",
         List.of(Pattern.compile(".*\\.DS_Store$")), List.of(),
@@ -229,94 +223,81 @@ public class LocalStorageClientTest {
             "handleCompressedFiles", true
         )));
 
-
     localStorageClient.init();
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     localStorageClient.traverse(publisher);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
 
-    Assert.assertEquals(19, docs.size());
+    assertEquals(19, docs.size());
 
-    Document doc1 = docs.get(0);
-    Assert.assertTrue(doc1.getString(FILE_PATH).endsWith("hello.zip" + ARCHIVE_FILE_SEPARATOR + "hello"));
+    docs.stream().filter(d -> d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("hello.zip!hello")).findAny().orElseThrow();
 
-    Document doc2 = docs.get(1);
-    Assert.assertEquals("default.csv-1", doc2.getId());
-    Assert.assertEquals("a", doc2.getString("field1"));
-    Assert.assertEquals("b", doc2.getString("field2"));
-    Assert.assertEquals("c", doc2.getString("field3"));
+    Document doc = docs.stream().filter(d -> d.getId().equals("default.csv-1") && d.has("source") &&
+        d.getString("source").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv")).findAny().orElseThrow();
+    assertEquals("a", doc.getString("field1"));
+    assertEquals("b", doc.getString("field2"));
+    assertEquals("c", doc.getString("field3"));
 
-    Document doc3 = docs.get(2);
-    Assert.assertEquals("default.csv-2", doc3.getId());
-    Assert.assertEquals("d", doc3.getString("field1"));
-    Assert.assertEquals("e,f", doc3.getString("field2"));
-    Assert.assertEquals("g", doc3.getString("field3"));
+    doc = docs.stream().filter(d -> d.getId().equals("default.csv-2") && d.has("source") &&
+        d.getString("source").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv")).findAny().orElseThrow();
+    assertEquals("d", doc.getString("field1"));
+    assertEquals("e,f", doc.getString("field2"));
+    assertEquals("g", doc.getString("field3"));
 
-    Document doc4 = docs.get(3);
-    Assert.assertEquals("default.csv-3", doc4.getId());
-    Assert.assertEquals("x", doc4.getString("field1"));
-    Assert.assertEquals("y", doc4.getString("field2"));
-    Assert.assertEquals("z", doc4.getString("field3"));
+    doc = docs.stream().filter(d -> d.getId().equals("default.csv-3") && d.has("source") &&
+        d.getString("source").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv")).findAny().orElseThrow();
+    assertEquals("x", doc.getString("field1"));
+    assertEquals("y", doc.getString("field2"));
+    assertEquals("z", doc.getString("field3"));
 
-    Document doc5 = docs.get(4);
-    Assert.assertEquals("2", doc5.getId());
-    Assert.assertEquals("Gorgeous Woman Mug", doc5.getString("name"));
+    List<Document> docsWithId2 = docs.stream().filter(d -> d.getId().equals("2")).toList();
+    assertEquals(2, docsWithId2.size());
+    assertEquals("Gorgeous Woman Mug", docsWithId2.get(0).getString("name"));
+    assertEquals(docsWithId2.get(0), docsWithId2.get(1));
 
-    Document doc6 = docs.get(5);
-    Assert.assertEquals("3", doc6.getId());
-    Assert.assertEquals("Awesome City Mug", doc6.getString("name"));
+    List<Document> docsWithId3 = docs.stream().filter(d -> d.getId().equals("3")).toList();
+    assertEquals(2, docsWithId3.size());
+    assertEquals("Awesome City Mug", docsWithId3.get(0).getString("name"));
+    assertEquals(docsWithId3.get(0), docsWithId3.get(1));
 
-    Document doc7 = docs.get(6);
-    Assert.assertTrue(doc7.getString(FILE_PATH).endsWith("jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "FolderWithFooTxt/foo.txt"));
+    docs.stream().filter(d ->
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("jsonlCsvAndFolderWithFooTxt.tar!FolderWithFooTxt/foo.txt")).findAny().orElseThrow();
 
-    Document doc8 = docs.get(7);
-    Assert.assertEquals("default.csv-1", doc8.getId());
-    Assert.assertEquals("a", doc8.getString("field1"));
-    Assert.assertEquals("b", doc8.getString("field2"));
-    Assert.assertEquals("c", doc8.getString("field3"));
+    doc = docs.stream().filter(d -> d.getId().equals("default.csv-1") && d.has("source") &&
+        d.getString("source").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv")).findAny().orElseThrow();
+    assertEquals("a", doc.getString("field1"));
+    assertEquals("b", doc.getString("field2"));
+    assertEquals("c", doc.getString("field3"));
 
-    Document doc9 = docs.get(8);
-    Assert.assertEquals("default.csv-2", doc9.getId());
-    Assert.assertEquals("d", doc9.getString("field1"));
-    Assert.assertEquals("e,f", doc9.getString("field2"));
-    Assert.assertEquals("g", doc9.getString("field3"));
+    doc = docs.stream().filter(d -> d.getId().equals("default.csv-2") && d.has("source") &&
+        d.getString("source").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv")).findAny().orElseThrow();
+    assertEquals("d", doc.getString("field1"));
+    assertEquals("e,f", doc.getString("field2"));
+    assertEquals("g", doc.getString("field3"));
 
-    Document doc10 = docs.get(9);
-    Assert.assertEquals("default.csv-3", doc10.getId());
-    Assert.assertEquals("x", doc10.getString("field1"));
-    Assert.assertEquals("y", doc10.getString("field2"));
-    Assert.assertEquals("z", doc10.getString("field3"));
+    doc = docs.stream().filter(d -> d.getId().equals("default.csv-3") && d.has("source") &&
+        d.getString("source").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv")).findAny().orElseThrow();
+    assertEquals("x", doc.getString("field1"));
+    assertEquals("y", doc.getString("field2"));
+    assertEquals("z", doc.getString("field3"));
 
-    Document doc11 = docs.get(10);
-    Assert.assertEquals("2", doc11.getId());
-    Assert.assertEquals("Gorgeous Woman Mug", doc11.getString("name"));
+    docs.stream().filter(d ->
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!FolderWithFooTxt/foo.txt")).findAny().orElseThrow();
 
-    Document doc12 = docs.get(11);
-    Assert.assertEquals("3", doc12.getId());
-    Assert.assertEquals("Awesome City Mug", doc12.getString("name"));
+    docs.stream().filter(d ->
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("textFiles.tar!helloWorld.txt")).findAny().orElseThrow();
 
-    Document doc13 = docs.get(12);
-    Assert.assertTrue(doc13.getString(FILE_PATH).endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "FolderWithFooTxt/foo.txt"));
+    docs.stream().filter(d ->
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("textFiles.tar!goodbye.txt")).findAny().orElseThrow();
 
-    Document doc14 = docs.get(13);
-    Assert.assertTrue(doc14.getString(FILE_PATH).endsWith("textFiles.tar" + ARCHIVE_FILE_SEPARATOR + "helloWorld.txt"));
+    docs.stream().filter(d -> d.getId().equals("zipped.csv-1")).findAny().orElseThrow();
 
-    Document doc15 = docs.get(14);
-    Assert.assertTrue(doc15.getString(FILE_PATH).endsWith("textFiles.tar" + ARCHIVE_FILE_SEPARATOR + "goodbye.txt"));
+    docs.stream().filter(d -> d.getId().equals("zipped.csv-2")).findAny().orElseThrow();
 
-    Document doc16 = docs.get(15);
-    Assert.assertEquals("zipped.csv-1", doc16.getId());
+    docs.stream().filter(d -> d.getId().equals("zipped.csv-3")).findAny().orElseThrow();
 
-    Document doc17 = docs.get(16);
-    Assert.assertEquals("zipped.csv-2", doc17.getId());
-
-    Document doc18 = docs.get(17);
-    Assert.assertEquals("zipped.csv-3", doc18.getId());
-
-    Document doc19 = docs.get(18);
-    Assert.assertTrue(doc19.getString(FILE_PATH).endsWith("zippedFolder.zip" + ARCHIVE_FILE_SEPARATOR + "zippedFolder/foo.txt"));
+    docs.stream().filter(d ->
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("zippedFolder.zip!zippedFolder/foo.txt")).findAny().orElseThrow();
 
     localStorageClient.shutdown();
   }
