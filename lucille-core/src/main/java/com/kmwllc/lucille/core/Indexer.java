@@ -178,6 +178,7 @@ public abstract class Indexer implements Runnable {
       return;
     }
 
+    // TODO: How to handle MDC here? Logs will have the doc-id of the most recently polled document... desired?
     if (doc == null) {
       sendToIndexWithAccounting(batch.flushIfExpired());
       return;
