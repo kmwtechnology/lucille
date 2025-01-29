@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import org.slf4j.MDC;
 
 /**
  * Publisher implementation that maintains an in-memory list of pending documents.
