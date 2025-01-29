@@ -33,8 +33,6 @@ public class LocalStorageClient extends BaseStorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(LocalStorageClient.class);
 
-  private Path startingDirectoryPath;
-
   public LocalStorageClient(URI pathToStorageURI, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
     super(pathToStorageURI, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
@@ -42,24 +40,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
   @Override
   public void init() throws ConnectorException {
-    try {
-      File f = new File(startingDirectory);
-      if (f.exists()) {
-        startingDirectoryPath = Paths.get(f.toURI());
-      } else {
-        startingDirectoryPath = Paths.get(pathToStorageURI);
-      }
-    } catch (Exception e) {
-      throw new ConnectorException("Error getting fileSystem or starting directory", e);
-    }
     initializeFileHandlers();
-  }
-
-  @Override
-  protected String getStartingDirectory() {
-    // the normal java URI.getPath prepends a forward slash on stuff like /c:/foo/bar.txt
-    File f = new File(pathToStorageURI.getPath());
-    return f.getPath();
   }
 
   @Override
@@ -70,7 +51,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
   @Override
   public void traverse(Publisher publisher) throws Exception {
-    Files.walkFileTree(startingDirectoryPath, new LocalFileVisitor(publisher));
+    Files.walkFileTree(Paths.get(startingDirectory), new LocalFileVisitor(publisher));
   }
 
   @Override
