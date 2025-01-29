@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+
+import com.kmwllc.lucille.message.TestMessenger;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -129,4 +131,45 @@ public class RunnerManagerTest {
     }
   }
 
+  @Test
+  public void testNonTrivialSimultaneousRuns() throws Exception {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    List<String> runIds = new ArrayList<>();
+    List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+    for (int i = 1; i <= 3; i++) {
+      Config currentConfig = ConfigFactory.load("RunnerManagerTest/imdb-" + i + ".conf");
+      String configId = runnerManager.createConfig(currentConfig);
+      String runId = "imdb-run-" + i;
+
+      CompletableFuture<Void> futureImdb = CompletableFuture.runAsync(() -> {
+        try {
+          runnerManager.runWithConfig(runId, configId);
+        } catch (RunnerManagerException e) {
+          throw new RuntimeException(e);
+        }
+      });
+
+      futures.add(futureImdb);
+      runIds.add(runId);
+    }
+
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+    StopWatch stopWatch = new StopWatch();
+    stopWatch.start();
+    while (runIds.stream().anyMatch(x -> {
+      RunDetails details = runnerManager.getRunDetails(x);
+      return !details.isDone();
+    })) {
+      if (stopWatch.getTime(TimeUnit.SECONDS) > 20) {
+        fail("The non-trivial, concurrent Lucille Runs are taking longer than 20 seconds to complete.");
+      }
+      Thread.sleep(100);
+    }
+
+    RunDetails run1Details = runnerManager.getRunDetails("imdb-run-1");
+    RunDetails run2Details = runnerManager.getRunDetails("imdb-run-2");
+    RunDetails run3Details = runnerManager.getRunDetails("imdb-run-3");
+  }
 }
