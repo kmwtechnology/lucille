@@ -75,8 +75,17 @@ public class PineconeIndexer extends Indexer {
     }
   }
 
-  public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String runId) throws IndexerException {
-    this(config, messenger, metricsPrefix, runId);
+  public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
+    this(config, messenger, metricsPrefix, localRunId);
+  }
+
+  // Convenience Constructors
+  public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) throws IndexerException {
+    this(config, messenger, metricsPrefix, null);
+  }
+
+  public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
+    this(config, messenger, metricsPrefix, null);
   }
 
   @Override

@@ -40,6 +40,16 @@ public class CSVIndexer extends Indexer {
     this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix, localRunId);
   }
 
+  // Convenience constructor, mostly for testing. (No localRunId)
+  public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix) {
+    this(config, messenger, writer, bypass, metricsPrefix, null);
+  }
+
+  // Convenience constructor, mostly for testing. (No localRunId)
+  public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix, null);
+  }
+
   private static ICSVWriter getCsvWriter(Config config, boolean bypass) {
     boolean append = config.hasPath("csv.append") ? config.getBoolean("csv.append") : false;
     try {

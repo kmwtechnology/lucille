@@ -61,6 +61,15 @@ public class ElasticsearchIndexer extends Indexer {
     this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
   }
 
+  // Convenience Constructors
+  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, ElasticsearchClient client, String metricsPrefix) {
+    this(config, messenger, client, metricsPrefix, null);
+  }
+
+  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    this(config, messenger, getClient(config, bypass), metricsPrefix, null);
+  }
+
   private static ElasticsearchClient getClient(Config config, boolean bypass) {
     return bypass ? null : ElasticsearchUtils.getElasticsearchOfficialClient(config);
   }

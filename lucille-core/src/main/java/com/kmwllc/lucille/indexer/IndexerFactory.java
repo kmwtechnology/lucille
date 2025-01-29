@@ -61,4 +61,12 @@ public class IndexerFactory {
       throw new IndexerException("Unknown indexer.type configuration of: '" + typeName + "'");
     }
   }
+
+  /**
+   * Instantiates an Indexer from the designated Config, without a localRunId.
+   */
+  public static Indexer fromConfig(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix)
+      throws IndexerException {
+    return fromConfig(config, messenger, bypass, metricsPrefix, null);
+  }
 }

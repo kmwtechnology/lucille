@@ -60,6 +60,15 @@ public class WeaviateIndexer extends Indexer {
     this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
   }
 
+  // Convenience Constructors
+  public WeaviateIndexer(Config config, IndexerMessenger messenger, WeaviateClient client, String metricsPrefix) {
+    this(config, messenger, client, metricsPrefix, null);
+  }
+
+  public WeaviateIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    this(config, messenger, getClient(config, bypass), metricsPrefix, null);
+  }
+
   private static WeaviateClient getClient(Config config, boolean bypass) {
     if (bypass) {
       return null;

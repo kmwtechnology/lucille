@@ -46,6 +46,17 @@ public class SolrIndexer extends Indexer {
     this.solrClient = getSolrClient(config, bypass);
   }
 
+  // Convenience Constructors
+  public SolrIndexer(
+      Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix) {
+    this(config, messenger, solrClient, metricsPrefix, null);
+  }
+
+  public SolrIndexer(
+      Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    this(config, messenger, bypass, metricsPrefix, null);
+  }
+
   private static SolrClient getSolrClient(Config config, boolean bypass) {
     return bypass ? null : SolrUtils.getSolrClient(config);
   }

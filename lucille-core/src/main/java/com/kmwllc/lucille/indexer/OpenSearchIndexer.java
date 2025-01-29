@@ -63,6 +63,15 @@ public class OpenSearchIndexer extends Indexer {
     this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
   }
 
+  // Convenience Constructors
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix) {
+    this(config, messenger, client, metricsPrefix, null);
+  }
+
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    this(config, messenger, getClient(config, bypass), metricsPrefix, null);
+  }
+
   private static OpenSearchClient getClient(Config config, boolean bypass) {
     return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(config);
   }

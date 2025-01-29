@@ -16,6 +16,10 @@ public class NopIndexer extends Indexer {
     super(config, messenger, metricsPrefix, localRunId);
   }
 
+  public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    this(config, messenger, bypass, metricsPrefix, null);
+  }
+
   @Override
   public boolean validateConnection() {
     return true;

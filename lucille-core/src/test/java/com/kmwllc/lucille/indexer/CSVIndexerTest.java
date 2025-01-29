@@ -55,7 +55,7 @@ public class CSVIndexerTest {
     doc2.setField("f1", "456");
     doc2.setField("f2", "def");
 
-    CSVIndexer indexer = new CSVIndexer(config, messenger, false, "testing", null);
+    CSVIndexer indexer = new CSVIndexer(config, messenger, false, "testing");
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -90,7 +90,7 @@ public class CSVIndexerTest {
     CSVIndexer indexer = null;
     List<String> lines;
     try {
-      indexer = new CSVIndexer(config, messenger, false, "testing", null);
+      indexer = new CSVIndexer(config, messenger, false, "testing");
       // uses sendToIndex() rather than run() to demonstrate the flushing behavior before the indexer is shut down.
       indexer.sendToIndex(List.of(doc, doc2));
       lines = Files.readAllLines(outputFile.toPath());
