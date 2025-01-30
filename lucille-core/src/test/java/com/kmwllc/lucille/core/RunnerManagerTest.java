@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import com.kmwllc.lucille.message.TestMessenger;
+import com.opencsv.CSVReader;
+import java.io.File;
+import java.io.FileReader;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -133,43 +135,116 @@ public class RunnerManagerTest {
 
   @Test
   public void testNonTrivialSimultaneousRuns() throws Exception {
-    RunnerManager runnerManager = RunnerManager.getInstance();
-    List<String> runIds = new ArrayList<>();
-    List<CompletableFuture<Void>> futures = new ArrayList<>();
+    File outputFile1 = new File("output1.csv");
+    File outputFile2 = new File("output2.csv");
+    File outputFile3 = new File("output3.csv");
 
-    for (int i = 1; i <= 3; i++) {
-      Config currentConfig = ConfigFactory.load("RunnerManagerTest/imdb-" + i + ".conf");
-      String configId = runnerManager.createConfig(currentConfig);
-      String runId = "imdb-run-" + i;
+    try {
+      outputFile1.delete();
+      outputFile2.delete();
+      outputFile3.delete();
 
-      CompletableFuture<Void> futureImdb = CompletableFuture.runAsync(() -> {
-        try {
-          runnerManager.runWithConfig(runId, configId);
-        } catch (RunnerManagerException e) {
-          throw new RuntimeException(e);
-        }
-      });
+      RunnerManager runnerManager = RunnerManager.getInstance();
+      List<String> runIds = new ArrayList<>();
+      List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-      futures.add(futureImdb);
-      runIds.add(runId);
-    }
+      for (int i = 1; i <= 3; i++) {
+        Config currentConfig = ConfigFactory.load("RunnerManagerTest/imdb-" + i + ".conf");
+        String configId = runnerManager.createConfig(currentConfig);
+        String runId = "imdb-run-" + i;
 
-    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        CompletableFuture<Void> futureImdb = CompletableFuture.runAsync(() -> {
+          try {
+            runnerManager.runWithConfig(runId, configId);
+          } catch (RunnerManagerException e) {
+            throw new RuntimeException(e);
+          }
+        });
 
-    StopWatch stopWatch = new StopWatch();
-    stopWatch.start();
-    while (runIds.stream().anyMatch(x -> {
-      RunDetails details = runnerManager.getRunDetails(x);
-      return !details.isDone();
-    })) {
-      if (stopWatch.getTime(TimeUnit.SECONDS) > 20) {
-        fail("The non-trivial, concurrent Lucille Runs are taking longer than 20 seconds to complete.");
+        futures.add(futureImdb);
+        runIds.add(runId);
       }
-      Thread.sleep(100);
+
+      CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+      StopWatch stopWatch = new StopWatch();
+      stopWatch.start();
+      while (runIds.stream().anyMatch(x -> {
+        RunDetails details = runnerManager.getRunDetails(x);
+        return !details.isDone();
+      })) {
+        if (stopWatch.getTime(TimeUnit.SECONDS) > 20) {
+          fail("The non-trivial, concurrent Lucille Runs are taking longer than 20 seconds to complete.");
+        }
+        Thread.sleep(100);
+      }
+
+      for (String runId : runIds) {
+        RunDetails runDetails = runnerManager.getRunDetails(runId);
+        assertTrue(runDetails.getRunResult().getStatus());
+      }
+
+      CSVReader reader1 = new CSVReader(new FileReader(outputFile1));
+      CSVReader reader2 = new CSVReader(new FileReader(outputFile2));
+      CSVReader reader3 = new CSVReader(new FileReader(outputFile3));
+
+      // Run some checks on the output of each run to make sure everything was done correctly.
+      validateRun1Reader(reader1);
+      validateRun2Reader(reader2);
+      validateRun3Reader(reader3);
+    } finally {
+      outputFile1.delete();
+      outputFile2.delete();
+      outputFile3.delete();
+    }
+  }
+
+  private void validateRun1Reader(CSVReader run1Reader) {
+    for (String[] line : run1Reader) {
+      assertEquals(4, line.length);
+
+      // don't enforce that "genres" contains because there isn't enough commonality to match
+      // with the pipeline config
+      assertTrue(line[0].contains("REPLACEMENT"));
+      assertTrue(line[2].contains("REPLACEMENT"));
+      assertTrue(line[3].contains("REPLACEMENT"));
     }
 
-    RunDetails run1Details = runnerManager.getRunDetails("imdb-run-1");
-    RunDetails run2Details = runnerManager.getRunDetails("imdb-run-2");
-    RunDetails run3Details = runnerManager.getRunDetails("imdb-run-3");
+    assertEquals(16, run1Reader.getLinesRead());
+  }
+
+  private void validateRun2Reader(CSVReader run2Reader) {
+    for (String[] line : run2Reader) {
+      assertEquals(3, line.length);
+
+      assertFalse(line[0].contains("villain"));
+      assertFalse(line[0].contains("and"));
+
+      assertFalse(line[1].contains("villain"));
+      assertFalse(line[1].contains("and"));
+
+      assertEquals("Released", line[2]);
+    }
+
+    assertEquals(16, run2Reader.getLinesRead());
+  }
+
+  private void validateRun3Reader(CSVReader run3Reader) {
+    for (String[] line : run3Reader) {
+      assertEquals(5, line.length);
+
+      // Entries 0 and 1 are the original field. Shouldn't have "REPLACEMENT".
+      assertFalse(line[0].contains("REPLACEMENT"));
+      assertFalse(line[1].contains("REPLACEMENT"));
+
+      // Entries 2 and 3 are the field w/ the patterns replaced. Shouldn't have the replaced words.
+      assertFalse(line[2].contains("villain"));
+      assertFalse(line[2].contains("and"));
+
+      assertFalse(line[3].contains("villain"));
+      assertFalse(line[3].contains("and"));
+    }
+
+    assertEquals(16, run3Reader.getLinesRead());
   }
 }
