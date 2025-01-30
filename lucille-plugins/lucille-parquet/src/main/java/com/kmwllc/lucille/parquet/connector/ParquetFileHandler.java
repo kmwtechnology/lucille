@@ -79,15 +79,7 @@ public class ParquetFileHandler extends BaseFileHandler {
 
   @Override
   public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException {
-    org.apache.hadoop.fs.Path path = new org.apache.hadoop.fs.Path(pathStr);
-
-    try (FileSystem fs = FileSystem.get(path.toUri(), configuration)) {
-      RemoteIterator<LocatedFileStatus> statusIterator = fs.listFiles(path, true);
-
-      return getDocumentIterator(statusIterator);
-    } catch (Exception e) {
-      throw new FileHandlerException("Problem running processFile", e);
-    }
+    throw new FileHandlerException("Unsuppored Operation");
   }
 
   private boolean canSkipAndUpdateStart(long n) {
@@ -126,35 +118,6 @@ public class ParquetFileHandler extends BaseFileHandler {
     }
   }
 
-  private Iterator<Document> getDocumentIterator(RemoteIterator<LocatedFileStatus> statusIterator) {
-
-    return new Iterator<Document>() {
-      private
-
-      @Override
-      public boolean hasNext() {
-        return limitNotReached();
-      }
-
-      @Override
-      public Document next() {
-
-        try {
-          if (limitNotReached() && statusIterator.hasNext()) {
-
-          }
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
-      }
-
-      private boolean limitNotReached() {
-        return limit < 0 || count < limit;
-      }
-    }
-
-  }
-
   private static void addToField(Document doc, String fieldName, Type type, Group group) {
     switch (type.asPrimitiveType().getPrimitiveTypeName()) {
       case BINARY:
@@ -174,5 +137,59 @@ public class ParquetFileHandler extends BaseFileHandler {
         break;
       // todo consider adding a default case
     }
+  }
+
+  private Iterator<Document> getDocumentIterator(RemoteIterator<LocatedFileStatus> statusIterator) {
+
+    return new Iterator<Document>() {
+      private LocatedFileStatus currentStatus;
+
+      @Override
+      public boolean hasNext() {
+        // First, just check if limit not reached.
+        if (!limitNotReached()) {
+          return false;
+        }
+
+        return nrows-- > 0
+            || pages = reader.readNextRowGroup() != null
+            || statusIterator.hasNext();
+        // Is nRows -- > 0?
+
+        // Is pages = reader.readNextRowGroup() != null?
+
+        // does statusIterator have a next? Continue checking until we get one that endsWith "parquet"
+        // (how to do that without mutation... i don't know... a stream?)
+
+        try {
+          return limitNotReached() && statusIterator.hasNext();
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      }
+
+      @Override
+      public Document next() {
+        try {
+          currentStatus = statusIterator.next();
+
+          try (ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(currentStatus, configuration))) {
+
+          }
+
+          // It should be okay to just return null in the event of a document that we are skipping.
+          // (e.g. a file that doesn't end in parquet.)
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+
+        return null;
+      }
+
+      private boolean limitNotReached() {
+        return limit < 0 || count < limit;
+      }
+    };
+
   }
 }

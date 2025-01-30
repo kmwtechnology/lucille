@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.parquet.connector;
 
 import com.kmwllc.lucille.connector.AbstractConnector;
+import com.kmwllc.lucille.connector.storageclient.S3StorageClient;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -46,6 +47,8 @@ public class ParquetConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     java.nio.file.Path javaPath;
+
+    S3StorageClient client = new S3StorageClient()
 
     try (FileSystem fs = FileSystem.get(new URI(fsURI), conf)) {
 
