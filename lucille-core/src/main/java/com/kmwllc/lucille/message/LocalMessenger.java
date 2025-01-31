@@ -53,24 +53,12 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
 
   @Override
   public Document pollDocToIndex() throws Exception {
-    Document doc = pipelineDest.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-
-    if (doc != null) {
-      MDC.put(ID_FIELD, doc.getId());
-    }
-
-    return doc;
+    return pipelineDest.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public Document pollDocToProcess() throws Exception {
-    Document doc = pipelineSource.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-
-    if (doc != null) {
-      MDC.put(ID_FIELD, doc.getId());
-    }
-
-    return doc;
+    return pipelineSource.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
   @Override

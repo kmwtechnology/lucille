@@ -69,9 +69,6 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     if (consumerRecords.count() > 0) {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
-
-      MDC.put(Document.ID_FIELD, doc.getId());
-
       doc.setKafkaMetadata(record);
       return doc;
     }

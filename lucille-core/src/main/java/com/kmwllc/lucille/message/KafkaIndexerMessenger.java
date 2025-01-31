@@ -47,9 +47,6 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
       destConsumer.commitSync();
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
-
-      MDC.put(ID_FIELD, doc.getId());
-
       doc.setKafkaMetadata(record);
       return doc;
     }

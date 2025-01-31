@@ -52,13 +52,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
 
   @Override
   public Document pollDocToIndex() throws Exception {
-    Document doc = pipelineDest.poll(LocalMessenger.POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-
-    if (doc != null) {
-      MDC.put(ID_FIELD, doc.getId());
-    }
-
-    return doc;
+    return pipelineDest.poll(LocalMessenger.POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
   @Override
