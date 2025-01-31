@@ -15,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
-import org.slf4j.MDC;
 
 public class KafkaWorkerMessenger implements WorkerMessenger {
 

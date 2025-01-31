@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
-import org.slf4j.MDC;
 
 public class HybridWorkerMessenger implements WorkerMessenger {
 

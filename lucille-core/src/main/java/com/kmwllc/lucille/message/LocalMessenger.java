@@ -1,7 +1,5 @@
 package com.kmwllc.lucille.message;
 
-import static com.kmwllc.lucille.core.Document.ID_FIELD;
-
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.typesafe.config.Config;
@@ -12,7 +10,6 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import org.slf4j.MDC;
 
 /**
  * Implementation of the messenger APIs used by Indexers, Publishers, and Workers, suitable for

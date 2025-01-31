@@ -1,7 +1,5 @@
 package com.kmwllc.lucille.message;
 
-import static com.kmwllc.lucille.core.Document.ID_FIELD;
-
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.KafkaDocument;
@@ -18,7 +16,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import org.slf4j.MDC;
 
 
 public class HybridIndexerMessenger implements IndexerMessenger {
