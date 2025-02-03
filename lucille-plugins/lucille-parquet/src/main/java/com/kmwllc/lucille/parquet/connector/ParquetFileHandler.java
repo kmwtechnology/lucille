@@ -8,6 +8,7 @@ import com.typesafe.config.Config;
 import java.util.Iterator;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.avro.AvroReadSupport;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.slf4j.Logger;
@@ -34,8 +35,11 @@ public class ParquetFileHandler extends BaseFileHandler {
   public Iterator<Document> processFile(java.nio.file.Path javaPath) throws FileHandlerException {
     try {
       Path hadoopPath = new Path(javaPath.toString());
-      // TODO: Add AVROREADSUPPORT.READ_INT96... back to the config?
-      HadoopInputFile hadoopFile = HadoopInputFile.fromPath(hadoopPath, new Configuration());
+
+      Configuration hadoopConf = new Configuration();
+      hadoopConf.setBoolean(AvroReadSupport.READ_INT96_AS_FIXED, true);
+
+      HadoopInputFile hadoopFile = HadoopInputFile.fromPath(hadoopPath, hadoopConf);
       ParquetFileReader reader = ParquetFileReader.open(hadoopFile);
 
       return new ParquetFileIterator(reader, idField, start, limit);

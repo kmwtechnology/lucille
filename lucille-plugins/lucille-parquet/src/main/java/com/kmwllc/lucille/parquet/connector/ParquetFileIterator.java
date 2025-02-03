@@ -29,7 +29,6 @@ public class ParquetFileIterator implements Iterator<Document> {
   private long count = 0L;
 
   // File-level vars
-  // Close this reader before reassigning it / when the iterator doesn't have next.
   // TODO: Many of these can be final after making the changes.
   private final ParquetFileReader reader;
   private final MessageType schema;
@@ -97,21 +96,24 @@ public class ParquetFileIterator implements Iterator<Document> {
       throw new NoSuchElementException("Requested document from Parquet, but limit reached.");
     }
 
-    if (nRows-- <= 0 || fetchNewPages()) {
+    // As long as we have rows to work on or can fetch new pages (which makes sure we have rows to work on)
+    while (nRows-- > 0 || fetchNewPages()) {
+      // read record regardless of the start parameter
       SimpleGroup simpleGroup = (SimpleGroup) recordReader.read();
 
-      // TODO: Want to turn this into a loop and try again instead of returning null?
       if (canSkipAndUpdateStart(1)) {
-        return null;
+        continue;
       }
 
       return createDocumentFromSimpleGroup(simpleGroup);
-    } else {
-      // We don't close resources here. Allow hasNext() to handle this.
-      // (Caller doesn't know if this indicates a skipped document or reaching the end of possible
-      // files to parse and return...)
-      return null;
+
+      // TODO: Where to call fetchNewPages()
     }
+
+    // We don't close resources here. Allow hasNext() to handle this.
+    // (Caller doesn't know if this indicates a skipped document or reaching the end of possible
+    // files to parse and return...)
+    return null;
   }
 
   // After running out of rows to work with, tries to read the next row group (if possible),
@@ -124,7 +126,8 @@ public class ParquetFileIterator implements Iterator<Document> {
       while ((pages = reader.readNextRowGroup()) != null) {
         nRows = pages.getRowCount();
 
-        if (canSkipAndUpdateStart(nRows)) {
+        // checking if we can skip this row group or it doesn't have rows for us to work on
+        if (canSkipAndUpdateStart(nRows) || nRows <= 0) {
           continue;
         }
 
