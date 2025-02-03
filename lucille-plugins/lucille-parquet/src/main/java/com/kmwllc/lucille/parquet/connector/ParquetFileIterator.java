@@ -5,15 +5,11 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.simple.SimpleGroup;
 import org.apache.parquet.example.data.simple.convert.GroupRecordConverter;
 import org.apache.parquet.hadoop.ParquetFileReader;
-import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.io.ColumnIOFactory;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.RecordReader;
@@ -26,20 +22,18 @@ public class ParquetFileIterator implements Iterator<Document> {
 
   private static final Logger log = LoggerFactory.getLogger(ParquetFileIterator.class);
 
-  private final Configuration configuration;
   private final String idField;
 
-  private final RemoteIterator<LocatedFileStatus> statusIterator;
-  private LocatedFileStatus currentStatus;
   private long start;
   private final long limit;
   private long count = 0L;
 
   // File-level vars
   // Close this reader before reassigning it / when the iterator doesn't have next.
-  private ParquetFileReader reader;
-  private MessageType schema;
-  private List<Type> fields;
+  // TODO: Many of these can be final after making the changes.
+  private final ParquetFileReader reader;
+  private final MessageType schema;
+  private final List<Type> fields;
 
   // page level vars
   private PageReadStore pages;
@@ -47,12 +41,23 @@ public class ParquetFileIterator implements Iterator<Document> {
   private MessageColumnIO columnIO;
   private RecordReader<Group> recordReader;
 
-  public ParquetFileIterator(RemoteIterator<LocatedFileStatus> statusIterator, Configuration configuration, String idField, long start, long limit) {
-    this.statusIterator = statusIterator;
-    this.configuration = configuration;
+  // Make sure to note that the reader will be closed when hasNext() returns false.
+  public ParquetFileIterator(ParquetFileReader reader, String idField, long start, long limit) {
+    this.reader = reader;
+    this.schema = reader.getFileMetaData().getSchema();
+    this.fields = schema.getFields();
+
     this.idField = idField;
     this.start = start;
     this.limit = limit;
+
+    // TODO: Add a check on canSkipAndUpdateStart(reader.getRecordCount())
+
+    if (!canSkipAndUpdateStart(reader.getRecordCount())) {
+      // As long as we shouldn't skip this document, start with pages / nRows initialized,
+      // preventing hasNext() from returning false.
+      fetchNewPages();
+    }
   }
 
   @Override
@@ -67,28 +72,20 @@ public class ParquetFileIterator implements Iterator<Document> {
       return false;
     }
 
-    try {
-      // 1. If we have more rows to operate on, then yes, hasNext.
-      // 2. If pages isn't null, we have a chance to call fetchNewPages() and get
-      // a new page.
-      // 3. If statusIterator has a next file for us to try on, then yes, hasNext.
+    // Note that this doesn't guarantee whether we will actually be able to EXTRACT a document.
 
-      // Note that these don't guarantee whether we will actually be able to EXTRACT a document.
-      // But these indicate whether we have more mutations we want next() to do, potentially
-      // returning null in the process.
-      return nRows > 0
-          || pages != null
-          || statusIterator.hasNext();
-    } catch (IOException e) {
-
-      // Error calling hasNext on statusIterator --> close resources.
+    // If pages is null, we had attempted to fetchNewPages (ran out of rows) and either
+    // ran out or received an exception.
+    if (pages == null) {
       try {
         reader.close();
-      } catch (IOException ioExc) {
-        log.warn("Error closing ParquetFileReader:", ioExc);
+      } catch (IOException e) {
+        log.warn("Error closing ParquetFileReader:", e);
       }
 
       return false;
+    } else {
+      return true;
     }
   }
 
@@ -100,11 +97,10 @@ public class ParquetFileIterator implements Iterator<Document> {
       throw new NoSuchElementException("Requested document from Parquet, but limit reached.");
     }
 
-    if (nRows-- <= 0
-        || fetchNewPages()
-        || fetchNewFileAndOpenReader()) {
+    if (nRows-- <= 0 || fetchNewPages()) {
       SimpleGroup simpleGroup = (SimpleGroup) recordReader.read();
 
+      // TODO: Want to turn this into a loop and try again instead of returning null?
       if (canSkipAndUpdateStart(1)) {
         return null;
       }
@@ -118,13 +114,11 @@ public class ParquetFileIterator implements Iterator<Document> {
     }
   }
 
-  private boolean limitReached() {
-    return limit >= 0 && count >= limit;
-  }
-
   // After running out of rows to work with, tries to read the next row group (if possible),
   // skips the row if needed, and then updates columnIO, recordReader, simpleGroup, id, and doc.
   // (also checks for whether we should skipAndUpdateStart(nRows))
+  // Returns whether a new page was read successfully. If false, there was either an IOException
+  // reading from the Parquet file or there were no more rowGroups to read from.
   private boolean fetchNewPages() {
     try {
       while ((pages = reader.readNextRowGroup()) != null) {
@@ -142,56 +136,12 @@ public class ParquetFileIterator implements Iterator<Document> {
       }
     } catch (IOException e) {
       log.warn("Error reading row group from Parquet File:", e);
+      // Causes hasNext() to return false.
+      // TODO: Better way to handle this?
+      pages = null;
     }
 
     // return false if out of pages or got an exception from reader.
-    return false;
-  }
-
-  // Tries to get the next file status from the status iterator, and accordingly
-  // open the file and modify schema/fields/initialize pages and nRows (read next row). Continues
-  // iterating thru the file statuses until we have successful pages that don't need to be skipped.
-  // Resources for this iterator should be released if this function returns false.
-  private boolean fetchNewFileAndOpenReader() {
-    try {
-      while (statusIterator.hasNext()) {
-        currentStatus = statusIterator.next();
-
-        if (!currentStatus.getPath().getName().endsWith("parquet")) {
-          continue;
-        }
-
-        if (reader != null) {
-          reader.close();
-        }
-
-        try {
-          reader = ParquetFileReader.open(HadoopInputFile.fromStatus(currentStatus, configuration));
-        } catch (IOException e) {
-          // If there is an error opening the FileReader for a file, skip to next.
-          continue;
-        }
-
-        if (canSkipAndUpdateStart(reader.getRecordCount())) {
-          continue;
-        }
-
-        schema = reader.getFooter().getFileMetaData().getSchema();
-        fields = schema.getFields();
-        pages = null;
-
-        // If we can't fetch new pages from this file, then try another...
-        if (!fetchNewPages()) {
-          continue;
-        }
-
-        return true;
-      }
-    } catch (IOException e) {
-      log.error("Error iterating on files:", e);
-    }
-
-    // False in the event of an exception or ran out of files to iterate over.
     return false;
   }
 
@@ -220,6 +170,10 @@ public class ParquetFileIterator implements Iterator<Document> {
 
     count++;
     return doc;
+  }
+
+  private boolean limitReached() {
+    return limit >= 0 && count >= limit;
   }
 
   private boolean canSkipAndUpdateStart(long n) {
