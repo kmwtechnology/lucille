@@ -24,8 +24,15 @@
             <AppenderRef ref="console" />
             <AppenderRef ref="file" />
         </Root>
+
         <Logger name="com.kmwllc.lucille.core.Heartbeat" level="INFO" additivity="false">
             <AppenderRef ref="heartbeat" />
+        </Logger>
+
+        <!-- Will output lots of log statements about individual documents as they are processed. -->
+        <Logger name="com.kmwllc.lucille.core.DocLogger" level="OFF" additivity="false">
+            <AppenderRef ref="console" />
+            <AppenderRef ref="file" />
         </Logger>
     </Loggers>
 </Configuration>

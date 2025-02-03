@@ -22,6 +22,8 @@ class Worker implements Runnable {
   public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
+  private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
+
   private final WorkerMessenger messenger;
 
   private final Pipeline pipeline;
@@ -76,6 +78,9 @@ class Worker implements Runnable {
       }
 
       try (MDC.MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
+        // TODO: Use the doc logger instead.
+        docLogger.info("Beginning work on {}.", doc.getId());
+
         if (trackRetries && counter.add(doc)) {
           try {
             log.info("Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");

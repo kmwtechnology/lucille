@@ -35,6 +35,7 @@ import org.slf4j.MDC;
 public class PublisherImpl implements Publisher {
 
   private static final Logger log = LoggerFactory.getLogger(PublisherImpl.class);
+  private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
   private final PublisherMessenger messenger;
 
@@ -95,6 +96,7 @@ public class PublisherImpl implements Publisher {
   @Override
   public void publish(Document document) throws Exception {
     MDC.put(Document.ID_FIELD, document.getId());
+    docLogger.info("Publishing document {}.", document.getId());
 
     if (firstDocStopWatch.isStarted()) {
       firstDocStopWatch.stop();
@@ -162,6 +164,7 @@ public class PublisherImpl implements Publisher {
   public void handleEvent(Event event) {
     String docId = event.getDocumentId();
     MDC.put(Document.ID_FIELD, docId);
+    docLogger.info("Handling event for doc {}", docId);
 
     if (event.isCreate()) {
 

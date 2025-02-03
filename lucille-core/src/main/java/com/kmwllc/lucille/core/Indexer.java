@@ -1,10 +1,13 @@
 package com.kmwllc.lucille.core;
 
+import static com.kmwllc.lucille.core.Document.ID_FIELD;
+
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.indexer.IndexerFactory;
+import com.kmwllc.lucille.indexer.SolrIndexer;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.LogUtils;
@@ -18,6 +21,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.MDC;
+import org.slf4j.MDC.MDCCloseable;
 import sun.misc.Signal;
 
 public abstract class Indexer implements Runnable {
@@ -26,6 +31,7 @@ public abstract class Indexer implements Runnable {
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
+  private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
   private final IndexerMessenger messenger;
   private final Batch batch;
@@ -178,7 +184,6 @@ public abstract class Indexer implements Runnable {
       return;
     }
 
-    // TODO: How to handle MDC here? Logs will have the doc-id of the most recently polled document... desired?
     if (doc == null) {
       sendToIndexWithAccounting(batch.flushIfExpired());
       return;
@@ -213,12 +218,13 @@ public abstract class Indexer implements Runnable {
       log.error("Error sending documents to index: " + e.getMessage(), e);
 
       for (Document d : batchedDocs) {
-        try {
+        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
           messenger.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
+          docLogger.error("Sent failure message for doc {}.", d.getId());
         } catch (Exception e2) {
           // TODO: The run won't be able to finish if this event isn't received; can we do something
           // special here?
-          log.error("Couldn't send failure event for doc " + d.getId(), e2);
+          log.error("Couldn't send failure event for doc {}", d.getId(), e2);
         }
       }
       return;
@@ -232,12 +238,13 @@ public abstract class Indexer implements Runnable {
     }
 
     for (Document d : batchedDocs) {
-      try {
+      try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
         messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
+        docLogger.info("Sent success message for doc {}.", d.getId());
       } catch (Exception e) {
         // TODO: The run won't be able to finish if this event isn't received; can we do something
         // special here?
-        log.error("Error sending completion event for doc " + d.getId(), e);
+        log.error("Error sending completion event for doc {}", d.getId(), e);
       }
     }
   }
