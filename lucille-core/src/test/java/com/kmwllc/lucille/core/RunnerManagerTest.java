@@ -169,10 +169,7 @@ public class RunnerManagerTest {
 
       StopWatch stopWatch = new StopWatch();
       stopWatch.start();
-      while (runIds.stream().anyMatch(x -> {
-        RunDetails details = runnerManager.getRunDetails(x);
-        return !details.isDone();
-      })) {
+      while (runIds.stream().anyMatch(x -> !runnerManager.getRunDetails(x).isDone())) {
         if (stopWatch.getTime(TimeUnit.SECONDS) > 20) {
           fail("The non-trivial, concurrent Lucille Runs are taking longer than 20 seconds to complete.");
         }
