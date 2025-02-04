@@ -18,18 +18,19 @@ import org.apache.parquet.schema.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * An iterator for Documents extracted from a ParquetFileReader.
+ */
 public class ParquetFileIterator implements Iterator<Document> {
 
   private static final Logger log = LoggerFactory.getLogger(ParquetFileIterator.class);
 
   private final String idField;
-
-  private long start;
   private final long limit;
+  private long start;
   private long count = 0L;
 
   // File-level vars
-  // TODO: Many of these can be final after making the changes.
   private final ParquetFileReader reader;
   private final MessageType schema;
   private final List<Type> fields;
@@ -37,10 +38,16 @@ public class ParquetFileIterator implements Iterator<Document> {
   // page level vars
   private PageReadStore pages;
   private long nRows = 0;
-  private MessageColumnIO columnIO;
   private RecordReader<Group> recordReader;
 
-  // Make sure to note that the reader will be closed when hasNext() returns false.
+  /**
+   * @param reader A reader for a Parquet file from which Lucille documents will be extracted. The reader will
+   *               be closed by the iterator when hasNext(), or if next() throws an Exception.
+   * @param idField An id field which can be found in the Parquet file. This field must be present in the Parquet schema,
+   *                or an Exception will be thrown while iterating.
+   * @param start The index to start at. When set to n, the first n documents found will be skipped.
+   * @param limit The maximum number of Lucille documents to extract and return from this Parquet reader. Set to -1 for no limit.
+   */
   public ParquetFileIterator(ParquetFileReader reader, String idField, long start, long limit) {
     this.reader = reader;
     this.schema = reader.getFileMetaData().getSchema();
@@ -50,38 +57,21 @@ public class ParquetFileIterator implements Iterator<Document> {
     this.start = start;
     this.limit = limit;
 
-    // TODO: Add a check on canSkipAndUpdateStart(reader.getRecordCount())
-
     if (!canSkipAndUpdateStart(reader.getRecordCount())) {
       // As long as we shouldn't skip this document, start with pages / nRows initialized,
       // preventing hasNext() from returning false.
-      fetchNewPages();
+      readNewPages();
     }
   }
 
   @Override
   public boolean hasNext() {
-    // First, just check if limit has been reached.
-    if (limitReached()) {
+    if (limitReached() || pages == null) {
       try {
         reader.close();
       } catch (IOException e) {
         log.warn("Error closing ParquetFileReader:", e);
       }
-      return false;
-    }
-
-    // Note that this doesn't guarantee whether we will actually be able to EXTRACT a document.
-
-    // If pages is null, we had attempted to fetchNewPages (ran out of rows) and either
-    // ran out or received an exception.
-    if (pages == null) {
-      try {
-        reader.close();
-      } catch (IOException e) {
-        log.warn("Error closing ParquetFileReader:", e);
-      }
-
       return false;
     } else {
       return true;
@@ -90,48 +80,53 @@ public class ParquetFileIterator implements Iterator<Document> {
 
   @Override
   public Document next() {
-    // If the limit is reached, next() should not have been called - no chances
-    // to check for new pages/iterators etc.
-    if (limitReached()) {
+    if (!hasNext()) {
       throw new NoSuchElementException("Requested document from Parquet, but limit reached.");
     }
 
     // As long as we have rows to work on or can fetch new pages (which makes sure we have rows to work on)
-    while (nRows-- > 0 || fetchNewPages()) {
-      // read record regardless of the start parameter
+    while (nRows > 0) {
+      nRows--;
+      // read record regardless of whether we will skip it...
       SimpleGroup simpleGroup = (SimpleGroup) recordReader.read();
+
+      // if this was the last row in the page, try to fetch a new page.
+      // (before checking if we should skip this row)
+      if (nRows <= 0) {
+        readNewPages();
+      }
 
       if (canSkipAndUpdateStart(1)) {
         continue;
       }
 
       return createDocumentFromSimpleGroup(simpleGroup);
-
-      // TODO: Where to call fetchNewPages()
     }
 
-    // We don't close resources here. Allow hasNext() to handle this.
-    // (Caller doesn't know if this indicates a skipped document or reaching the end of possible
-    // files to parse and return...)
+    // This isn't going to occur, but I don't think an exception is needed.
+    // hasNext() will be false after this, so the iterator will be able to close.
+    log.warn("ParquetFileIterator.next() is returning null.");
     return null;
   }
 
-  // After running out of rows to work with, tries to read the next row group (if possible),
-  // skips the row if needed, and then updates columnIO, recordReader, simpleGroup, id, and doc.
-  // (also checks for whether we should skipAndUpdateStart(nRows))
-  // Returns whether a new page was read successfully. If false, there was either an IOException
-  // reading from the Parquet file or there were no more rowGroups to read from.
-  private boolean fetchNewPages() {
+  /**
+   * Attempt to read the next row group from the Parquet reader. Updates nRows and recordReader
+   * when successful. Will read another rowGroup and update start if the group has less rows than
+   * start. If there are no more rowGroups to read from, or an exception occurs, pages will be null.
+   * @return Whether new pages were read successfully.
+   */
+  private boolean readNewPages() {
     try {
       while ((pages = reader.readNextRowGroup()) != null) {
         nRows = pages.getRowCount();
 
-        // checking if we can skip this row group or it doesn't have rows for us to work on
-        if (canSkipAndUpdateStart(nRows) || nRows <= 0) {
+        // checking if we can skip this row group.
+        // rowGroups always will have at least one row - an exception would be thrown by Parquet.
+        if (canSkipAndUpdateStart(nRows)) {
           continue;
         }
 
-        columnIO = new ColumnIOFactory().getColumnIO(schema);
+        MessageColumnIO columnIO = new ColumnIOFactory().getColumnIO(schema);
         recordReader = columnIO.getRecordReader(pages, new GroupRecordConverter(schema));
 
         // Now we can call next() and build/return documents.
@@ -139,8 +134,7 @@ public class ParquetFileIterator implements Iterator<Document> {
       }
     } catch (IOException e) {
       log.warn("Error reading row group from Parquet File:", e);
-      // Causes hasNext() to return false.
-      // TODO: Better way to handle this?
+      // Ensures hasNext() will be false. (don't hold onto the old pages...)
       pages = null;
     }
 
@@ -148,6 +142,7 @@ public class ParquetFileIterator implements Iterator<Document> {
     return false;
   }
 
+  // Creates a document from the given SimpleGroup, and increments count.
   private Document createDocumentFromSimpleGroup(SimpleGroup simpleGroup) {
     String id = simpleGroup.getString(idField, 0);
     Document doc = Document.create(id);
@@ -159,13 +154,13 @@ public class ParquetFileIterator implements Iterator<Document> {
         continue;
       }
       if (field.isPrimitive()) {
-        ParquetFileDocUtils.setDocField(doc, field, simpleGroup, j);
+        ParquetDocUtils.setDocField(doc, field, simpleGroup, j);
       } else {
         for (int k = 0; k < simpleGroup.getGroup(j, 0).getFieldRepetitionCount(0); k++) {
           Group group = simpleGroup.getGroup(j, 0).getGroup(0, k);
           Type type = group.getType().getType(0);
           if (type.isPrimitive()) {
-            ParquetFileDocUtils.addToField(doc, fieldName, type, group);
+            ParquetDocUtils.addToField(doc, fieldName, type, group);
           }
         }
       }
@@ -175,12 +170,17 @@ public class ParquetFileIterator implements Iterator<Document> {
     return doc;
   }
 
+  // Returns whether the limit (if non-negative) has been reached.
   private boolean limitReached() {
     return limit >= 0 && count >= limit;
   }
 
+  /**
+   * Returns whether n document(s) should be skipped, based on the start parameter. If the n document(s) should be skipped,
+   * start is decreased by n.
+   */
   private boolean canSkipAndUpdateStart(long n) {
-    if (start > n) {
+    if (start >= n) {
       start -= n;
       return true;
     }
