@@ -29,7 +29,7 @@ public class HeartbeatTest {
     }
 
     Config config = ConfigFactory.load("WorkerPoolTest/watcher.conf");
-    WorkerPool pool1 = new WorkerPool(config, "pipeline1",
+    WorkerPool pool1 = new WorkerPool(config, "pipeline1", null,
         WorkerMessengerFactory.getConstantFactory(new LocalMessenger()), "");
 
     pool1.start();

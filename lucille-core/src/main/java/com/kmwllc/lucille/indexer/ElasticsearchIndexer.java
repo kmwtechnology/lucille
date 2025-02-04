@@ -42,8 +42,8 @@ public class ElasticsearchIndexer extends Indexer {
   private final VersionType versionType;
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, ElasticsearchClient client,
-      String metricsPrefix) {
-    super(config, messenger, metricsPrefix);
+      String metricsPrefix, String localRunId) {
+    super(config, messenger, metricsPrefix, localRunId);
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
@@ -57,8 +57,17 @@ public class ElasticsearchIndexer extends Indexer {
     this.versionType = config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
+  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
+    this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
+  }
+
+  // Convenience Constructors
+  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, ElasticsearchClient client, String metricsPrefix) {
+    this(config, messenger, client, metricsPrefix, null);
+  }
+
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, getClient(config, bypass), metricsPrefix);
+    this(config, messenger, getClient(config, bypass), metricsPrefix, null);
   }
 
   private static ElasticsearchClient getClient(Config config, boolean bypass) {

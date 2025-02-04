@@ -53,8 +53,8 @@ public class PineconeIndexer extends Indexer {
   private final String mode;
   private final String defaultEmbeddingField;
 
-  public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) throws IndexerException {
-    super(config, messenger, metricsPrefix);
+  public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) throws IndexerException {
+    super(config, messenger, metricsPrefix, localRunId);
     this.client = new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
     this.indexName = config.getString("pinecone.index");
     this.index = client.getIndexConnection(indexName);
@@ -75,8 +75,17 @@ public class PineconeIndexer extends Indexer {
     }
   }
 
+  public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
+    this(config, messenger, metricsPrefix, localRunId);
+  }
+
+  // Convenience Constructors
+  public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) throws IndexerException {
+    this(config, messenger, metricsPrefix, null);
+  }
+
   public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
-    this(config, messenger, metricsPrefix);
+    this(config, messenger, metricsPrefix, null);
   }
 
   @Override

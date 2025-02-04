@@ -24,8 +24,8 @@ public class CSVIndexer extends Indexer {
   private final boolean includeHeader;
 
 
-  public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix) {
-    super(config, messenger, metricsPrefix);
+  public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix, String localRunId) {
+    super(config, messenger, metricsPrefix, localRunId);
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
@@ -36,8 +36,18 @@ public class CSVIndexer extends Indexer {
     this.includeHeader = config.hasPath("csv.includeHeader") ? config.getBoolean("csv.includeHeader") : true;
   }
 
+  public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
+    this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix, localRunId);
+  }
+
+  // Convenience constructor, mostly for testing. (No localRunId)
+  public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix) {
+    this(config, messenger, writer, bypass, metricsPrefix, null);
+  }
+
+  // Convenience constructor, mostly for testing. (No localRunId)
   public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix);
+    this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix, null);
   }
 
   private static ICSVWriter getCsvWriter(Config config, boolean bypass) {
