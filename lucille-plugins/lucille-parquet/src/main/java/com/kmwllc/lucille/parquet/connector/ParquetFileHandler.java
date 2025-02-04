@@ -33,7 +33,7 @@ public class ParquetFileHandler extends BaseFileHandler {
 
     this.idField = config.getString("idField");
     this.start = ConfigUtils.getOrDefault(config, "start", 0L);
-    this.limit = ConfigUtils.getOrDefault(config, "limit", -1);
+    this.limit = ConfigUtils.getOrDefault(config, "limit", -1L);
   }
 
   @Override
