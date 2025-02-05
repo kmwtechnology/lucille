@@ -4,20 +4,17 @@ package com.kmwllc.lucille.util;
 import com.kmwllc.lucille.core.StageException;
 import java.io.*;
 import java.net.URI;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.stream.Stream;
-import org.apache.commons.vfs2.FileContent;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.commons.vfs2.FileSystemException;
 import org.apache.commons.vfs2.FileSystemManager;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FileUtils {
 
-  private static final Logger log = LogManager.getLogger(FileUtils.class);
+  private static final Logger log = LoggerFactory.getLogger(FileUtils.class);
   /**
    * Returns a Reader for the file at the given path. If the path begins with "classpath:" the prefix will be removed
    * and the file will be read from the classpath. If the path appears to be a URI, it will be accessed using VFS.

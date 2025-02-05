@@ -14,8 +14,8 @@ import opennlp.tools.sentdetect.SentenceDetector;
 import opennlp.tools.sentdetect.SentenceDetectorME;
 import opennlp.tools.sentdetect.SentenceModel;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * NOTE: This stage produces documents with ATTACHED children containing the chunks. To have children documents emitted as separate
@@ -99,7 +99,7 @@ public class ChunkText extends Stage {
   private final Integer overlapPercentage;
   private final Integer characterLimit;
   private SentenceDetector sentenceDetector;
-  private static final Logger log = LogManager.getLogger(ChunkText.class);
+  private static final Logger log = LoggerFactory.getLogger(ChunkText.class);
 
   public ChunkText(Config config) throws StageException {
     super(config, new StageSpec()
