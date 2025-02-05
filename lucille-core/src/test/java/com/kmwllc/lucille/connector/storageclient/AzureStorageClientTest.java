@@ -267,7 +267,7 @@ public class AzureStorageClientTest {
       azureStorageClient.traverse(publisher);
       // verify that the processFileAndPublish is only called for the json files
       ArgumentCaptor<String> fileNameCaptor = ArgumentCaptor.forClass(String.class);
-      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), fileNameCaptor.capture());
+      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), (byte[]) any(), fileNameCaptor.capture());
       List<String> fileNames = fileNameCaptor.getAllValues();
       assertEquals("https://storagename.blob.core.windows.net/folder/blob1.json", fileNames.get(0));
       assertEquals("https://storagename.blob.core.windows.net/folder/blob2.json", fileNames.get(1));
