@@ -15,6 +15,8 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.File;
+import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -133,32 +135,37 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of("csv", Map.of()));
     FileHandler csvFileHandler = FileHandler.create("csv", config);
 
-    byte[] fileBytes = Files.readAllBytes(Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"));
-    Iterator<Document> docs = csvFileHandler.processFile(fileBytes, "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
+    File file = new File("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
 
-    // contents of CSVConnectorTest/config.conf
-    // field1, field2, field3
-    //  a, b, c
-    //  d, "e,f", g
-    //  x, y, z
+    Iterator<Document> docs;
 
-    // verify number of documents and exhaust iterator to close resources
-    Document doc1 = docs.next();
-    Document doc2 = docs.next();
-    Document doc3 = docs.next();
-    assertFalse(docs.hasNext());
+    try (FileInputStream fis = new FileInputStream(file)) {
+      docs = csvFileHandler.processFile(fis, "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
 
-    assertEquals("a", doc1.getString("field1"));
-    assertEquals("b", doc1.getString("field2"));
-    assertEquals("c", doc1.getString("field3"));
+      // contents of CSVConnectorTest/config.conf
+      // field1, field2, field3
+      //  a, b, c
+      //  d, "e,f", g
+      //  x, y, z
 
-    assertEquals("d", doc2.getString("field1"));
-    assertEquals("e,f", doc2.getString("field2"));
-    assertEquals("g", doc2.getString("field3"));
+      // verify number of documents and exhaust iterator to close resources
+      Document doc1 = docs.next();
+      Document doc2 = docs.next();
+      Document doc3 = docs.next();
+      assertFalse(docs.hasNext());
 
-    assertEquals("x", doc3.getString("field1"));
-    assertEquals("y", doc3.getString("field2"));
-    assertEquals("z", doc3.getString("field3"));
+      assertEquals("a", doc1.getString("field1"));
+      assertEquals("b", doc1.getString("field2"));
+      assertEquals("c", doc1.getString("field3"));
+
+      assertEquals("d", doc2.getString("field1"));
+      assertEquals("e,f", doc2.getString("field2"));
+      assertEquals("g", doc2.getString("field3"));
+
+      assertEquals("x", doc3.getString("field1"));
+      assertEquals("y", doc3.getString("field2"));
+      assertEquals("z", doc3.getString("field3"));
+    }
   }
 
   @Test

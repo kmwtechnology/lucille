@@ -101,7 +101,6 @@ public abstract class BaseStorageClient implements StorageClient {
       // handle compressed files if needed to the end
       if (handleCompressedFiles && isSupportedCompressedFileType(fullPathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
-        // TODO: What to do w/ this InputStream. Or specifically this getFileRefContentStream method.
         try (BufferedInputStream bis = new BufferedInputStream(getFileReferenceContentStream(fileReference));
             CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
           // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
@@ -139,11 +138,10 @@ public abstract class BaseStorageClient implements StorageClient {
       if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
 
         if (fileReference.isCloudFileReference()) {
-          // get the file content
-          // TODO: I think this is a key line to change to getFileReferenceStream.
-          byte[] content = getFileReferenceContent(fileReference);
+          // Get a stream for the file content, so we don't have to load it all at once.
+          InputStream contentStream = getFileReferenceContentStream(fileReference);
           // get the right FileHandler and publish based on content
-          publishUsingFileHandler(publisher, fileExtension, content, fullPathStr);
+          publishUsingFileHandler(publisher, fileExtension, contentStream, fullPathStr);
         } else {
           // get path instead to be less resource intensive
           Path path = fileReference.getPath();
@@ -185,6 +183,7 @@ public abstract class BaseStorageClient implements StorageClient {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
+
       while ((entry = in.getNextEntry()) != null) {
         String entryFullPathStr = getArchiveEntryFullPath(fullPathStr, entry.getName());
         if (!in.canReadEntryData(entry)) {
@@ -195,6 +194,8 @@ public abstract class BaseStorageClient implements StorageClient {
         if (!entry.isDirectory() && shouldIncludeFile(entry.getName(), includes, excludes)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(entryExtension, fileOptions)) {
+            // TODO: There's an error here. The input stream didn't use to return closed...
+            System.out.println(entryFullPathStr);
             handleStreamExtensionFiles(publisher, in, entryExtension, entryFullPathStr);
           } else {
             // handle entry to be published as a normal document
@@ -232,7 +233,7 @@ public abstract class BaseStorageClient implements StorageClient {
       throws ConnectorException {
     try {
       FileHandler handler = fileHandlers.get(fileExtension);
-      handler.processFileAndPublish(publisher, in.readAllBytes(), fullPathStr);
+      handler.processFileAndPublish(publisher, in, fullPathStr);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while handling file: " + fullPathStr, e);
     }
@@ -251,22 +252,6 @@ public abstract class BaseStorageClient implements StorageClient {
       handler.processFileAndPublish(publisher, path);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while processing or publishing file: " + path, e);
-    }
-  }
-
-  /**
-   * helper method to publish using file handler using file content (byte[])
-   */
-  protected void publishUsingFileHandler(Publisher publisher, String fileExtension, byte[] content, String pathStr) throws Exception {
-    FileHandler handler = fileHandlers.get(fileExtension);
-    if (handler == null) {
-      throw new ConnectorException("No file handler found for file extension: " + fileExtension);
-    }
-
-    try {
-      handler.processFileAndPublish(publisher, content, pathStr);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while processing or publishing file: " + pathStr, e);
     }
   }
 
@@ -361,11 +346,6 @@ public abstract class BaseStorageClient implements StorageClient {
    * will only be called in the scenario where after decompression and file will not be handled by a file handler
    */
   protected abstract Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr);
-
-  /**
-   * get the content of the file reference as a byte array
-   */
-  protected abstract byte[] getFileReferenceContent(FileReference fileReference);
 
   /**
    * get the content of the file reference as an InputStream. Always called within a try-with-resources block

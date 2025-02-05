@@ -14,6 +14,7 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -60,14 +61,14 @@ public class JsonFileHandlerTest {
     FileHandler jsonHandler = FileHandler.create("jsonl", config);
 
     Path path = Paths.get("src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl");
-    byte[] fileBytes = Files.readAllBytes(path);
+    FileInputStream is = new FileInputStream(path.toFile());
 
     // contents of JSONConnectorTest/config.conf
     // {"id": "1", "field1":"val1-1", "field2":["val2-1a", "val2-1b"]}
     // {"id": "2", "field3":"val3", "field2":["val2-2a", "val2-2b"]}
     // {"id": "3", "field4":"val4", "field5":"val5"}
 
-    Iterator<Document> docs = jsonHandler.processFile(fileBytes, path.toString());
+    Iterator<Document> docs = jsonHandler.processFile(is, path.toString());
     Document doc1 = docs.next();
     Document doc2 = docs.next();
     Document doc3 = docs.next();

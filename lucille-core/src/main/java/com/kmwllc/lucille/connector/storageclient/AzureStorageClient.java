@@ -114,12 +114,6 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected byte[] getFileReferenceContent(FileReference fileReference) {
-    BlobItem blobItem = fileReference.getBlobItem();
-    return containerClient.getBlobClient(blobItem.getName()).downloadContent().toBytes();
-  }
-
-  @Override
   protected InputStream getFileReferenceContentStream(FileReference fileReference) {
     BlobItem blobItem = fileReference.getBlobItem();
     return containerClient.getBlobClient(blobItem.getName()).openInputStream();

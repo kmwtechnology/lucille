@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -30,10 +31,12 @@ public class XMLFileHandlerTest {
 
     FileHandler xmlHandler = FileHandler.create("xml", config);
     Path path = Paths.get("src/test/resources/FileHandlerTest/XMLFileHandlerTest/staff.xml");
-    byte[] fileContent = Files.readAllBytes(path);
 
     assertThrows(FileHandlerException.class, () -> xmlHandler.processFile(path));
-    assertThrows(FileHandlerException.class, () -> xmlHandler.processFile(fileContent, path.toString()));
+
+    try (FileInputStream is = new FileInputStream(path.toFile())) {
+      assertThrows(FileHandlerException.class, () -> xmlHandler.processFile(is, path.toString()));
+    }
   }
 
   @Test

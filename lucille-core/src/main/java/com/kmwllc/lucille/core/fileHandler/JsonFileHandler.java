@@ -45,19 +45,6 @@ public class JsonFileHandler extends BaseFileHandler {
   }
 
   @Override
-  public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException {
-    // reader will be closed when the LineIterator is closed in getDocumentIterator
-    Reader reader;
-    try {
-      reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(fileContent), StandardCharsets.UTF_8));
-    } catch (Exception e) {
-      throw new FileHandlerException("Error creating reader from file: " + pathStr, e);
-    }
-
-    return getDocumentIterator(reader);
-  }
-
-  @Override
   public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
     try {
       Reader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));

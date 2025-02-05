@@ -104,12 +104,6 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected byte[] getFileReferenceContent(FileReference fileReference) {
-    Blob blob = fileReference.getBlob();
-    return blob.getContent();
-  }
-
-  @Override
   protected InputStream getFileReferenceContentStream(FileReference fileReference) {
     Blob blob = fileReference.getBlob();
     ReadChannel readChannel = blob.reader();

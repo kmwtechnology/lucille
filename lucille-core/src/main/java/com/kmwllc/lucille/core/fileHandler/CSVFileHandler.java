@@ -78,21 +78,6 @@ public class CSVFileHandler extends BaseFileHandler {
   }
 
   @Override
-  public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException {
-    CSVReader reader = getCsvReader(fileContent);
-    // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
-    String fileName = FilenameUtils.getName(pathStr);
-
-    // handle the case where pathStr is a path of an entry of an archived file
-    if (pathStr.contains(ARCHIVE_FILE_SEPARATOR)) {
-      String entryName = pathStr.substring(pathStr.lastIndexOf(ARCHIVE_FILE_SEPARATOR) + 1);
-      fileName = entryName.substring(entryName.lastIndexOf("/") + 1);
-    }
-
-    return getDocumentIterator(reader, fileName, pathStr);
-  }
-
-  @Override
   public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
     InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
     CSVReader csvReader = new CSVReader(inputStreamReader);

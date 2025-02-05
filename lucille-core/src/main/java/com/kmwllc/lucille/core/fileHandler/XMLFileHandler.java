@@ -52,11 +52,6 @@ public class XMLFileHandler extends BaseFileHandler {
   }
 
   @Override
-  public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException {
-    throw new FileHandlerException("Unsupported Operation");
-  }
-
-  @Override
   public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
     throw new FileHandlerException("Unsupported Operation");
   }
@@ -72,16 +67,6 @@ public class XMLFileHandler extends BaseFileHandler {
     } catch (FileNotFoundException | SecurityException e) {
       throw new FileHandlerException("Error getting file: " + path, e);
     }
-
-    setEncodingAndParse(xmlHandler, ris);
-  }
-
-  @Override
-  public void processFileAndPublish(Publisher publisher, byte[] fileContent, String pathStr) throws FileHandlerException {
-    // set up Factory, parser, reader and handler
-    ChunkingXMLHandler xmlHandler = setUpParserReaderAndHandlerIfNeeded(publisher);
-
-    RecordingInputStream ris = new RecordingInputStream(new ByteArrayInputStream(fileContent));
 
     setEncodingAndParse(xmlHandler, ris);
   }

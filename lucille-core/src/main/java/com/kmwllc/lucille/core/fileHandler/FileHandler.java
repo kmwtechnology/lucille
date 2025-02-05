@@ -35,13 +35,6 @@ public interface FileHandler {
   Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException;
 
   /**
-   * Processes a file given the file contents and representation path string to it and returns an iterator of Documents.
-   * The Iterator should close all resources when completed (hasNext() is false) or when an exception is thrown.
-   * Path string is used for populating file path field of document and for logging/error/debugging purposes.
-   */
-  Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException;
-
-  /**
    * A helper function that processes a file and publishes the documents to a Publisher using a Path to a file
    */
   void processFileAndPublish(Publisher publisher, Path path) throws FileHandlerException;
@@ -52,11 +45,6 @@ public interface FileHandler {
    * TODO: The given stream should be closed after this is done? Or it'll be the caller's responsibility? Hmmm
    */
   void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException;
-
-  /**
-   * A helper function that processes a file and publishes the documents to a Publisher using the file content
-   */
-  void processFileAndPublish(Publisher publisher, byte[] fileContent, String pathStr) throws FileHandlerException;
 
   /**
    * Returns a new FileHandler based on the file extension and file options. Note that if you add support
