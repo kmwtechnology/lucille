@@ -12,6 +12,7 @@ import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -89,6 +90,20 @@ public class CSVFileHandler extends BaseFileHandler {
     }
 
     return getDocumentIterator(reader, fileName, pathStr);
+  }
+
+  @Override
+  public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
+    InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+    CSVReader csvReader = new CSVReader(inputStreamReader);
+    String fileName = FilenameUtils.getName(pathStr);
+
+    if (pathStr.contains(ARCHIVE_FILE_SEPARATOR)) {
+      String entryName = pathStr.substring(pathStr.lastIndexOf(ARCHIVE_FILE_SEPARATOR) + 1);
+      fileName = entryName.substring(entryName.lastIndexOf("/") + 1);
+    }
+
+    return getDocumentIterator(csvReader, fileName, pathStr);
   }
 
 

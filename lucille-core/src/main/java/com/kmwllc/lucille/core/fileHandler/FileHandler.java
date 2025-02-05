@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core.fileHandler;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Set;
@@ -27,6 +28,13 @@ public interface FileHandler {
   Iterator<Document> processFile(Path path) throws FileHandlerException;
 
   /**
+   * Processes a file given an InputStream of its contents and a representation path String to it, and returns an iterator
+   * of Documents. The Iterator should close all resources when completed (hasNext() is false) or when an exception is thrown.
+   * Path string is used for populating file path field of document and for logging/error/debugging purposes.
+   */
+  Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException;
+
+  /**
    * Processes a file given the file contents and representation path string to it and returns an iterator of Documents.
    * The Iterator should close all resources when completed (hasNext() is false) or when an exception is thrown.
    * Path string is used for populating file path field of document and for logging/error/debugging purposes.
@@ -37,6 +45,13 @@ public interface FileHandler {
    * A helper function that processes a file and publishes the documents to a Publisher using a Path to a file
    */
   void processFileAndPublish(Publisher publisher, Path path) throws FileHandlerException;
+
+  /**
+   * A helper function that processes a file and publishes the documents to a Publisher using the content in the given
+   * InputStream.
+   * TODO: The given stream should be closed after this is done? Or it'll be the caller's responsibility? Hmmm
+   */
+  void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException;
 
   /**
    * A helper function that processes a file and publishes the documents to a Publisher using the file content

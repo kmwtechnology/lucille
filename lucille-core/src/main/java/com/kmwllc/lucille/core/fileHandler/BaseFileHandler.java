@@ -3,6 +3,7 @@ import com.kmwllc.lucille.connector.CSVConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Iterator;
 import org.slf4j.Logger;
@@ -46,6 +47,31 @@ public abstract class BaseFileHandler implements FileHandler {
       // going to skip this file if an error occurs
       throw new FileHandlerException("Unable to set up iterator for this file " + pathStr, e);
     }
+    // once docIterator.hasNext() is false, it will close its resources in handler and return
+    while (docIterator.hasNext()) {
+      try {
+        Document doc = docIterator.next();
+        if (doc != null) {
+          publisher.publish(doc);
+        }
+      } catch (Exception e) {
+        // if we fail to publish a document, we log the error and continue to the next document
+        // to "finish" the iterator and close its resources
+        log.error("Error occurred while publishing file {}", pathStr, e);
+      }
+    }
+  }
+
+  public void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException {
+    Iterator<Document> docIterator;
+
+    try {
+      docIterator = processFile(inputStream, pathStr);
+    } catch (Exception e) {
+      // going to skip this file if an error occurs
+      throw new FileHandlerException("Unable to set up iterator for this file " + pathStr, e);
+    }
+
     // once docIterator.hasNext() is false, it will close its resources in handler and return
     while (docIterator.hasNext()) {
       try {

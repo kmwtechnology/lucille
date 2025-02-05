@@ -5,6 +5,7 @@ import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -54,6 +55,18 @@ public class JsonFileHandler extends BaseFileHandler {
     }
 
     return getDocumentIterator(reader);
+  }
+
+  @Override
+  public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
+    try {
+      Reader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+
+      // reader will be closed when the LineIterator is closed in getDocumentIterator
+      return getDocumentIterator(reader);
+    } catch (Exception e) {
+      throw new FileHandlerException("Error creating reader from file: " + pathStr, e);
+    }
   }
 
   private Iterator<Document> getDocumentIterator(Reader reader) {

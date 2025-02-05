@@ -101,6 +101,7 @@ public abstract class BaseStorageClient implements StorageClient {
       // handle compressed files if needed to the end
       if (handleCompressedFiles && isSupportedCompressedFileType(fullPathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
+        // TODO: What to do w/ this InputStream. Or specifically this getFileRefContentStream method.
         try (BufferedInputStream bis = new BufferedInputStream(getFileReferenceContentStream(fileReference));
             CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
           // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
@@ -139,6 +140,7 @@ public abstract class BaseStorageClient implements StorageClient {
 
         if (fileReference.isCloudFileReference()) {
           // get the file content
+          // TODO: I think this is a key line to change to getFileReferenceStream.
           byte[] content = getFileReferenceContent(fileReference);
           // get the right FileHandler and publish based on content
           publishUsingFileHandler(publisher, fileExtension, content, fullPathStr);
@@ -263,6 +265,22 @@ public abstract class BaseStorageClient implements StorageClient {
 
     try {
       handler.processFileAndPublish(publisher, content, pathStr);
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred while processing or publishing file: " + pathStr, e);
+    }
+  }
+
+  /**
+   * helper method to publish using file handler using file content (InputStream)
+   */
+  protected void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String pathStr) throws Exception {
+    FileHandler handler = fileHandlers.get(fileExtension);
+    if (handler == null) {
+      throw new ConnectorException("No file handler found for file extension: " + fileExtension);
+    }
+
+    try {
+      handler.processFileAndPublish(publisher, inputStream, pathStr);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while processing or publishing file: " + pathStr, e);
     }
