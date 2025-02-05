@@ -7,13 +7,13 @@ import java.util.Iterator;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This stage will take a field that contains a file path (like  c:\directory\filename.txt) and parse out information about the
@@ -44,7 +44,7 @@ public class ParseFilePath extends Stage {
   private final boolean uppercaseExtension;
   private final boolean includeHierarchy;
 
-  private static final Logger log = LogManager.getLogger(ParseFilePath.class);
+  private static final Logger log = LoggerFactory.getLogger(ParseFilePath.class);
   
   public ParseFilePath(Config config) {
     super(config, new StageSpec().withOptionalProperties("filePathField", "fileSep", "uppercaseExtension", "includeHierarchy"));

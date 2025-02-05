@@ -8,8 +8,6 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
@@ -18,13 +16,15 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility methods for communicating with Solr.
  */
 public class SolrUtils {
 
-  private static final Logger log = LogManager.getLogger(SolrUtils.class);
+  private static final Logger log = LoggerFactory.getLogger(SolrUtils.class);
 
   /**
    * Generate a SolrClient from the given config file. Supports both Cloud and Http SolrClients.
