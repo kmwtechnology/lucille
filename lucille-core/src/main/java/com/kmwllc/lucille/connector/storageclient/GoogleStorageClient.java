@@ -4,6 +4,7 @@ import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
 
 import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
@@ -18,6 +19,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.channels.Channels;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -109,8 +111,9 @@ public class GoogleStorageClient extends BaseStorageClient {
 
   @Override
   protected InputStream getFileReferenceContentStream(FileReference fileReference) {
-    byte[] content = getFileReferenceContent(fileReference);
-    return new ByteArrayInputStream(content);
+    Blob blob = fileReference.getBlob();
+    ReadChannel readChannel = blob.reader();
+    return Channels.newInputStream(readChannel);
   }
 
   private boolean isValid(Blob blob) {

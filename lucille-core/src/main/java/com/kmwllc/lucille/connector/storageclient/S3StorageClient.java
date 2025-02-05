@@ -110,8 +110,8 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   protected InputStream getFileReferenceContentStream(FileReference fileReference) {
-    byte[] content = getFileReferenceContent(fileReference);
-    return new ByteArrayInputStream(content);
+    S3Object obj = fileReference.getS3Object();
+    return s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketOrContainerName).key(obj.key()).build()).asInputStream();
   }
 
   private Document s3ObjectToDoc(S3Object obj) {
