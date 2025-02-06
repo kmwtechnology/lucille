@@ -5,12 +5,16 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.ExponentialBackoffRetryHandler;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.StatusCodeResponseInterceptor;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.BoundedInputStream;
 import org.apache.http.Header;
@@ -21,6 +25,8 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Fetches byte data of a given URL field and places data into a specified field
@@ -42,6 +48,7 @@ import org.apache.http.impl.client.HttpClientBuilder;
  * socket_timeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.
  */
 public class FetchUri extends Stage {
+  private static final Logger log = LoggerFactory.getLogger(FetchUri.class);
 
   private final String source;
   private final String dest;
@@ -56,13 +63,14 @@ public class FetchUri extends Stage {
   private final int connectionRequestTimeout;
   private final int connectTimeout;
   private final int socketTimeout;
+  private List<String> statusCodeRetryList;
 
   private CloseableHttpClient client;
 
   public FetchUri(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest")
         .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix", "max_retries", "initial_expiry_ms",
-            "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout")
+            "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout", "status_code_retry_list")
         .withOptionalParents("headers"));
     this.source = config.getString("source");
     this.dest = config.getString("dest");
@@ -77,6 +85,8 @@ public class FetchUri extends Stage {
     this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connection_request_timeout", 60000);
     this.connectTimeout = ConfigUtils.getOrDefault(config, "connect_timeout", 60000);
     this.socketTimeout = ConfigUtils.getOrDefault(config, "socket_timeout", 60000);
+    this.statusCodeRetryList = ConfigUtils.getOrDefault(config, "status_code_retry_list", new ArrayList<>());
+    this.statusCodeRetryList.forEach(code -> code = code.toLowerCase());
   }
 
   // Method exists for testing with mockito mocks
@@ -86,6 +96,28 @@ public class FetchUri extends Stage {
 
   @Override
   public void start() throws StageException {
+    // do not allow 200, 20x, or 2xx in the status code retry list.
+    if (this.statusCodeRetryList.contains("200") || this.statusCodeRetryList.contains("20x") || this.statusCodeRetryList.contains("2xx")) {
+      throw new StageException("Do not add 200, 2xx, or 20x to the status_code_retry_list because this is a successful response and "
+          + "you will always reach the maximum number of retries (" + this.maxNumRetries + ").");
+    }
+    // log warning if any status codes in 200-299 are added to the statusCodeRetryList
+    if (this.statusCodeRetryList.stream().anyMatch(code -> code.startsWith("2"))) {
+      log.warn("The status_code_retry_list contains values that are within 200-299. This may not be a good idea because these statuses "
+          + "represent successful responses, but will continue processing.");
+    }
+    // log warning if list contains values that are not codes 100 to 599 nor the 'x' wildcards.
+    List<String> validStatusCodeRetryList = this.statusCodeRetryList.stream().filter(code -> !(code.matches("[^\\dx]*"))).collect(Collectors.toList());
+    if (!validStatusCodeRetryList.equals(this.statusCodeRetryList)) {
+      log.warn("The status_code_retry_list contains values that do not represent status codes. They must be with 100 and 599 and "
+          + "must not contain any other characters besides 'x' for wildcards. Please remove these values.");
+      this.statusCodeRetryList = validStatusCodeRetryList;
+    }
+    if (this.maxNumRetries == 0 && !this.statusCodeRetryList.isEmpty()) {
+      log.warn("You have set a list of status codes to retry on but the number of retries (maxNumRetries) is set to 0. "
+          + "Nothing will be retried.");
+    }
+
     RequestConfig requestConfig = RequestConfig.custom()
         .setConnectionRequestTimeout(this.connectionRequestTimeout)
         .setConnectTimeout(this.connectTimeout)
@@ -96,6 +128,7 @@ public class FetchUri extends Stage {
         .create()
         .setDefaultRequestConfig(requestConfig)
         .setRetryHandler(new ExponentialBackoffRetryHandler(this.maxNumRetries, this.initialExpiry, this.maxExpiry))
+        .addInterceptorFirst(new StatusCodeResponseInterceptor(this.statusCodeRetryList))
         .build();
   }
 
