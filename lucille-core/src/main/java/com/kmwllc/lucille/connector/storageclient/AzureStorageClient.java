@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -116,7 +115,10 @@ public class AzureStorageClient extends BaseStorageClient {
   @Override
   protected InputStream getFileReferenceContentStream(FileReference fileReference) {
     BlobItem blobItem = fileReference.getBlobItem();
-    return containerClient.getBlobClient(blobItem.getName()).openInputStream();
+    // TODO: This is not ideal and doesn't fix the problem. But the default InputStream
+    // doesn't play nicely with ArchiveInputStream right now.
+    byte[] content = containerClient.getBlobClient(blobItem.getName()).downloadContent().toBytes();
+    return new ByteArrayInputStream(content);
   }
 
   private String getFullPath(BlobItem blobItem) {

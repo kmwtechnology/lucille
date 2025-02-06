@@ -194,8 +194,6 @@ public abstract class BaseStorageClient implements StorageClient {
         if (!entry.isDirectory() && shouldIncludeFile(entry.getName(), includes, excludes)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(entryExtension, fileOptions)) {
-            // TODO: There's an error here. The input stream didn't use to return closed...
-            System.out.println(entryFullPathStr);
             handleStreamExtensionFiles(publisher, in, entryExtension, entryFullPathStr);
           } else {
             // handle entry to be published as a normal document
