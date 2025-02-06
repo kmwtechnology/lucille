@@ -232,8 +232,21 @@ public abstract class BaseStorageClient implements StorageClient {
   protected void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fullPathStr)
       throws ConnectorException {
     try {
+      InputStream wrappedNonClosingStream = new InputStream() {
+        @Override
+        public int read() throws IOException {
+          return in.read();
+        }
+
+        // Intentionally a no-op. We don't want to close the archiveInputStream when finished
+        // with this one file.
+        @Override
+        public void close() {}
+      };
+
+
       FileHandler handler = fileHandlers.get(fileExtension);
-      handler.processFileAndPublish(publisher, in, fullPathStr);
+      handler.processFileAndPublish(publisher, wrappedNonClosingStream, fullPathStr);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while handling file: " + fullPathStr, e);
     }

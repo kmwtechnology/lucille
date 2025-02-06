@@ -32,6 +32,7 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.util.LinkedHashMap;
@@ -256,7 +257,7 @@ public class GoogleStorageClientTest {
       gStorageClient.traverse(publisher);
       // verify that the processFileAndPublish is only called twice for the 2 json files out of the 3 files
       ArgumentCaptor<String> fileNameCaptor = ArgumentCaptor.forClass(String.class);
-      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), fileNameCaptor.capture());
+      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(InputStream.class), fileNameCaptor.capture());
       List<String> capturedFileNames = fileNameCaptor.getAllValues();
       assertEquals("gs://bucket/json-1.json", capturedFileNames.get(0));
       assertEquals("gs://bucket/json-2.json", capturedFileNames.get(1));
@@ -313,6 +314,10 @@ public class GoogleStorageClientTest {
 
     googleStorageClient.traverse(publisher);
     List<Document> docs = messenger.getDocsSentForProcessing();
+
+    for (Document doc : docs) {
+      System.out.println(doc);
+    }
 
     assertEquals(19, docs.size());
 
