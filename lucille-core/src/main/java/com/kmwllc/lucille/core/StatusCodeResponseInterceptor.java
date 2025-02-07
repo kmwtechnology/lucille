@@ -37,12 +37,13 @@ public class StatusCodeResponseInterceptor implements HttpResponseInterceptor {
 
   // check if this statusCodeRetryList contains the code itself or a wildcard that contains includes that code.
   // ex. if code=500 and statusCodeRetryList=["429","5xx"], then this would return true.
-  private boolean listContainsValue(int code) {
+  protected boolean listContainsValue(int code) {
     String codeStr = String.valueOf(code);
     if (this.statusCodeRetryList.contains(codeStr)) {
       return true;
     }
     for (String statusCode : this.statusCodeRetryList) {
+      statusCode = statusCode.toLowerCase();
       if (statusCode.contains("x")) {
         if (codeStr.startsWith(statusCode.replaceAll("x", ""))) {
           return true;
