@@ -94,6 +94,11 @@ public class FetchUri extends Stage {
     this.client = client;
   }
 
+  // Method exists for testing statusCodeRetryList logic
+  List<String> getStatusCodeRetryList() {
+    return this.statusCodeRetryList;
+  }
+
   @Override
   public void start() throws StageException {
     // do not allow 200, 20x, or 2xx in the status code retry list.
@@ -107,7 +112,7 @@ public class FetchUri extends Stage {
           + "represent successful responses, but will continue processing.");
     }
     // log warning if list contains values that are not codes 100 to 599 nor the 'x' wildcards.
-    List<String> validStatusCodeRetryList = this.statusCodeRetryList.stream().filter(code -> !(code.matches("[^\\dx]*"))).collect(Collectors.toList());
+    List<String> validStatusCodeRetryList = this.statusCodeRetryList.stream().filter(code -> code.matches("[1-5]([xX]{2}|\\d([\\dx]|[\\dX]))")).collect(Collectors.toList());
     if (!validStatusCodeRetryList.equals(this.statusCodeRetryList)) {
       log.warn("The status_code_retry_list contains values that do not represent status codes. They must be with 100 and 599 and "
           + "must not contain any other characters besides 'x' for wildcards. Please remove these values.");

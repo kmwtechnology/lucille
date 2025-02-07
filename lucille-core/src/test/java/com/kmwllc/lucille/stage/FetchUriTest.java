@@ -3,6 +3,7 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -10,6 +11,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.StageException;
 import java.io.IOException;
 
+import java.util.Arrays;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
@@ -48,6 +50,10 @@ public class FetchUriTest {
   @Test
   public void testFetchUriWithAllOptionalParameters() throws StageException {
     FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/allOptionalParameters.conf");
+
+    // test that the status_code_retry_list bad inputs are removed
+    assertEquals(Arrays.asList("206", "30x", "429", "5XX"), s.getStatusCodeRetryList());
+
     s.setClient(mockClient);
     Document d = Document.create("id");
     d.setField("name", "Jane Doe"); // extra field to test that not all fields are being read
@@ -158,5 +164,10 @@ public class FetchUriTest {
     assertEquals(2, httpGet.getAllHeaders().length);
     assertEquals("header1-value", httpGet.getFirstHeader("header1-name").getValue());
     assertEquals("header2-value", httpGet.getFirstHeader("header2-name").getValue());
+  }
+
+  @Test
+  public void testInvalidStatusCodeRetryList() {
+    assertThrows(StageException.class, () -> StageFactory.of(FetchUri.class).get("FetchUriTest/invalid-retry-input-config.conf"));
   }
 }
