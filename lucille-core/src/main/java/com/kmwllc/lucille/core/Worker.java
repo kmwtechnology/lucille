@@ -184,7 +184,7 @@ class Worker implements Runnable {
     WorkerMessengerFactory workerMessengerFactory =
         WorkerMessengerFactory.getKafkaFactory(config, pipelineName);
 
-    WorkerPool workerPool = new WorkerPool(config, pipelineName, workerMessengerFactory, pipelineName);
+    WorkerPool workerPool = new WorkerPool(config, pipelineName, null, workerMessengerFactory, pipelineName);
     workerPool.start();
 
     Signal.handle(new Signal("INT"), signal -> {
