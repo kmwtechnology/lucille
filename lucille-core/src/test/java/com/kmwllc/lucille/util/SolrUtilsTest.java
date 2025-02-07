@@ -6,7 +6,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import java.util.HashMap;
 import java.util.List;
-import org.apache.log4j.Logger;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.io.Tuple;
 import org.junit.Test;
@@ -14,10 +13,12 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SolrUtilsTest {
 
-  private static final Logger log = Logger.getLogger(SolrUtilsTest.class);
+  private static final Logger log = LoggerFactory.getLogger(SolrUtilsTest.class);
 
   @Test
   public void requireAuthTest() throws Exception {

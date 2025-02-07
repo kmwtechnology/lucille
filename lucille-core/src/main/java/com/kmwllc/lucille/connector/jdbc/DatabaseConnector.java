@@ -9,8 +9,6 @@ import com.kmwllc.lucille.util.JDBCUtils;
 import com.typesafe.config.Config;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -18,6 +16,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Database Connector - This connector can run a select statement and return the rows
@@ -53,7 +53,7 @@ import java.util.stream.Collectors;
  */
 public class DatabaseConnector extends AbstractConnector {
 
-  private static final Logger log = LogManager.getLogger(DatabaseConnector.class);
+  private static final Logger log = LoggerFactory.getLogger(DatabaseConnector.class);
 
   private final String driver;
   private final String connectionString;

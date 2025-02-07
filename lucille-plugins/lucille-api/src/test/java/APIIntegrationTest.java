@@ -7,13 +7,9 @@ import io.dropwizard.testing.junit.DropwizardAppRule;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import org.junit.ClassRule;
 import org.junit.Test;
-import org.junit.jupiter.api.BeforeAll;
-import org.apache.logging.log4j.core.config.Configurator;
 
 
 

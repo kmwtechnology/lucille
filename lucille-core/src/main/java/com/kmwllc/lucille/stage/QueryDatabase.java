@@ -6,14 +6,14 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.JDBCUtils;
 import com.typesafe.config.Config;
 import java.util.concurrent.TimeUnit;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import java.sql.*;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice.
@@ -48,7 +48,7 @@ public class QueryDatabase extends Stage {
   private PreparedStatement preparedStatement;
   private Integer connectionRetries;
   private Integer connectionRetryPause;
-  private static final Logger log = LogManager.getLogger(QueryDatabase.class);
+  private static final Logger log = LoggerFactory.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {
     super(config, new StageSpec()

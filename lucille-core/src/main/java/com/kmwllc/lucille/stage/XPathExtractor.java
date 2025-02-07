@@ -4,8 +4,8 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.NodeList;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -36,7 +36,7 @@ public class XPathExtractor extends Stage {
   private XPath xpath;
   private final String xmlField;
   private Map<XPathExpression, List<String>> expressionMapping;
-  private static final Logger log = LogManager.getLogger(XPathExtractor.class);
+  private static final Logger log = LoggerFactory.getLogger(XPathExtractor.class);
 
   /**
    * Creates an instance of the XPathExtractor Stage with a given configuration.
