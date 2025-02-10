@@ -25,6 +25,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
@@ -105,7 +106,8 @@ public class S3StorageClient extends BaseStorageClient {
   @Override
   protected InputStream getFileReferenceContentStream(FileReference fileReference) {
     S3Object obj = fileReference.getS3Object();
-    return s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketOrContainerName).key(obj.key()).build()).asInputStream();
+    GetObjectRequest objectRequest = GetObjectRequest.builder().bucket(bucketOrContainerName).key(obj.key()).build();
+    return s3.getObject(objectRequest);
   }
 
   private Document s3ObjectToDoc(S3Object obj) {

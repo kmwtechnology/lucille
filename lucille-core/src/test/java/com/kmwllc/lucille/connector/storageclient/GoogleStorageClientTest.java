@@ -32,6 +32,7 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
@@ -314,10 +315,6 @@ public class GoogleStorageClientTest {
 
     googleStorageClient.traverse(publisher);
     List<Document> docs = messenger.getDocsSentForProcessing();
-
-    for (Document doc : docs) {
-      System.out.println(doc);
-    }
 
     assertEquals(19, docs.size());
 
