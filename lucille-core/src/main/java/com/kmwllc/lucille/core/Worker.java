@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 import static com.kmwllc.lucille.core.Document.ID_FIELD;
+import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
 import com.codahale.metrics.*;
 import com.kmwllc.lucille.message.WorkerMessenger;
@@ -25,6 +26,7 @@ class Worker implements Runnable {
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
   private final WorkerMessenger messenger;
+  private final String localRunId;
 
   private final Pipeline pipeline;
 
@@ -41,8 +43,10 @@ class Worker implements Runnable {
     running = false;
   }
 
-  public Worker(Config config, WorkerMessenger messenger, String pipelineName, String metricsPrefix) throws Exception {
+  public Worker(Config config, WorkerMessenger messenger, String localRunId, String pipelineName, String metricsPrefix)
+      throws Exception {
     this.messenger = messenger;
+    this.localRunId = localRunId;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
     if (config.hasPath("worker.maxRetries")) {
       log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
@@ -56,6 +60,9 @@ class Worker implements Runnable {
 
   @Override
   public void run() {
+    // Again, the runID here will be null in a non-local mode.
+    MDC.put(RUNID_FIELD, localRunId);
+
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     Timer timer = metrics.timer(metricsPrefix + METRICS_SUFFIX);
 
@@ -65,7 +72,13 @@ class Worker implements Runnable {
         pollInstant.set(Instant.now());
         // blocking poll with a timeout which we assume to be in the range of
         // several milliseconds to several seconds
+
         doc = messenger.pollDocToProcess();
+
+        // continuously update the MDC if we haven't been given a localRunID (in Kafka modes).
+        if (localRunId == null && doc != null) {
+          MDC.put(RUNID_FIELD, doc.getRunId());
+        }
       } catch (Exception e) {
         log.info("interrupted " + e);
         terminate();
@@ -142,6 +155,11 @@ class Worker implements Runnable {
       }
     }
 
+    // Don't have a run id attached to the logs below if in a non-local mode.
+    if (localRunId == null) {
+      MDC.remove(RUNID_FIELD);
+    }
+
     // commit any remaining offsets before termination
     commitOffsetsAndRemoveCounter(null);
 
@@ -193,7 +211,7 @@ class Worker implements Runnable {
     WorkerMessengerFactory workerMessengerFactory =
         WorkerMessengerFactory.getKafkaFactory(config, pipelineName);
 
-    WorkerPool workerPool = new WorkerPool(config, pipelineName, workerMessengerFactory, pipelineName);
+    WorkerPool workerPool = new WorkerPool(config, pipelineName, null, workerMessengerFactory, pipelineName);
     workerPool.start();
 
     Signal.handle(new Signal("INT"), signal -> {

@@ -86,7 +86,7 @@ public class WorkerIndexer {
     HybridIndexerMessenger indexerMessageManager =
         new HybridIndexerMessenger(config, pipelineDest, offsets, idSet, pipelineName);
 
-    indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, pipelineName);
+    indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, pipelineName, null);
 
     if (!bypassSearchEngine && !indexer.validateConnection()) {
       throw new IndexerException("Indexer could not connect");
@@ -95,7 +95,8 @@ public class WorkerIndexer {
     indexerThread = new Thread(indexer);
     indexerThread.start();
     String name = ThreadNameUtils.createName("WorkerIndexer");
-    Worker worker = new Worker(config, workerMessageManager, pipelineName, pipelineName);
+    // Since Kafka is in use, we do not provide (or even have for that matter) a runId to directly provide to Worker.
+    Worker worker = new Worker(config, workerMessageManager, null, pipelineName, pipelineName);
     workerThread = Worker.startThread(worker, name);
   }
 

@@ -1,13 +1,13 @@
 package com.kmwllc.lucille.core;
 
 import static com.kmwllc.lucille.core.Document.ID_FIELD;
+import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.indexer.IndexerFactory;
-import com.kmwllc.lucille.indexer.SolrIndexer;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.LogUtils;
@@ -56,12 +56,15 @@ public abstract class Indexer implements Runnable {
 
   private Instant lastLog = Instant.now();
 
+  // A runID for a local (local / test) run. Null if not in one of those modes / started independently.
+  private final String localRunId;
+
   public void terminate() {
     running = false;
     log.debug("terminate");
   }
 
-  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix) {
+  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) {
     this.messenger = messenger;
     this.idOverrideField =
         config.hasPath("indexer.idOverrideField")
@@ -120,6 +123,8 @@ public abstract class Indexer implements Runnable {
     this.stopWatch = new StopWatch();
     this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
     this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
+
+    this.localRunId = localRunId;
   }
 
   /**
@@ -151,6 +156,9 @@ public abstract class Indexer implements Runnable {
 
   @Override
   public void run() {
+    // might be null b/c in a non-local mode, and that's okay!
+    MDC.put(RUNID_FIELD, localRunId);
+
     try {
       while (running) {
         checkForDoc();
@@ -178,6 +186,13 @@ public abstract class Indexer implements Runnable {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
       doc = messenger.pollDocToIndex();
+
+      // continuously update the MDC if we haven't been given a localRunID (in Kafka modes).
+      // batch logging IDs won't be perfect because we don't enforce that docs in a batch come from the same
+      // run. We don't clear the MDC so that the final batch flush can have an associated run ID.
+      if (localRunId == null && doc != null) {
+        MDC.put(RUNID_FIELD, doc.getRunId());
+      }
     } catch (Exception e) {
       log.info("Indexer interrupted ", e);
       terminate();
@@ -186,10 +201,9 @@ public abstract class Indexer implements Runnable {
 
     if (doc == null) {
       sendToIndexWithAccounting(batch.flushIfExpired());
-      return;
+    } else {
+      sendToIndexWithAccounting(batch.add(doc));
     }
-
-    sendToIndexWithAccounting(batch.add(doc));
   }
 
   private void sendToIndexWithAccounting(List<Document> batchedDocs) {
@@ -285,7 +299,7 @@ public abstract class Indexer implements Runnable {
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
     log.info("Starting Indexer for pipeline: " + pipelineName);
     IndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, false, pipelineName);
+    Indexer indexer = IndexerFactory.fromConfig(config, messenger, false, pipelineName, null);
 
     if (!indexer.validateConnection()) {
       log.error("Indexer could not connect");

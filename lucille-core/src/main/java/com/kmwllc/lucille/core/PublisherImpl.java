@@ -95,6 +95,7 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public void publish(Document document) throws Exception {
+    // The runId (in MDC) is already set by the ConnectorThread calling publish.
     MDC.put(Document.ID_FIELD, document.getId());
     docLogger.info("Publishing document {}.", document.getId());
 
