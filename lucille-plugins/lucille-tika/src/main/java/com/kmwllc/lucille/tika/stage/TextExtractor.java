@@ -14,8 +14,6 @@ import java.util.List;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.commons.vfs2.FileSystemException;
 import org.apache.commons.vfs2.impl.StandardFileSystemManager;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
@@ -23,6 +21,8 @@ import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.Parser;
 import org.apache.tika.sax.BodyContentHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 
@@ -43,7 +43,7 @@ import org.xml.sax.SAXException;
  */
 public class TextExtractor extends Stage {
 
-  private static final Logger log = LogManager.getLogger(TextExtractor.class);
+  private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
   private String textField;
   private String filePathField;
   private String tikaConfigPath;
