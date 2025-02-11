@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.core;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -46,8 +46,9 @@ public class WorkerTest {
 
       assertEquals(args.get(pool).get(0), config);
       assertEquals(args.get(pool).get(1), "foo");
-      assertEquals(args.get(pool).get(2), mockFactory);
-      assertEquals(args.get(pool).get(3), "foo");
+      assertNull(args.get(pool).get(2));
+      assertEquals(args.get(pool).get(3), mockFactory);
+      assertEquals(args.get(pool).get(4), "foo");
     }
   }
   @Test
@@ -78,10 +79,11 @@ public class WorkerTest {
       assertEquals(1, constructed.size());
       WorkerPool pool = constructed.get(0);
 
-      assertEquals(args.get(pool).get(0), config);
-      assertEquals(args.get(pool).get(1), "foo2");
-      assertEquals(args.get(pool).get(2), mockFactory2);
-      assertEquals(args.get(pool).get(3), "foo2");
+      assertEquals(config, args.get(pool).get(0));
+      assertEquals("foo2", args.get(pool).get(1));
+      assertNull(args.get(pool).get(2));
+      assertEquals(mockFactory2, args.get(pool).get(3));
+      assertEquals("foo2", args.get(pool).get(4));
     }
   }
 }

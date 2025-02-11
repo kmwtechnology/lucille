@@ -326,7 +326,7 @@ public class Runner {
       }
 
       ConnectorResult result =
-          runConnectorWithComponents(config, runId, connector,
+          runConnectorWithComponents(config, runId, type, connector,
               workerMessengerFactory, indexerMessengerFactory, publisherMessengerFactory, startWorkerAndIndexer, bypassSolr);
 
       connectorResults.add(result);
@@ -412,7 +412,7 @@ public class Runner {
       }
     } else {
       try {
-        ConnectorThread connectorThread = new ConnectorThread(connector, publisher, ThreadNameUtils.createName("Connector"));
+        ConnectorThread connectorThread = new ConnectorThread(connector, publisher, ThreadNameUtils.createName("Connector", runId));
         connectorThread.start();
         final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
             config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
@@ -448,6 +448,7 @@ public class Runner {
    */
   private static ConnectorResult runConnectorWithComponents(Config config,
       String runId,
+      RunType runType,
       Connector connector,
       WorkerMessengerFactory workerMessengerFactory,
       IndexerMessengerFactory indexerMessengerFactory,
@@ -461,13 +462,14 @@ public class Runner {
     Publisher publisher = null;
 
     try {
+      String localRunId = (runType.equals(RunType.LOCAL) || runType.equals(RunType.TEST)) ? runId : null;
 
       // create a common metrics naming prefix to be used by all components that will be collecting metrics,
       // to ensure that metrics are collected separately for each connector/pipeline pair
       String metricsPrefix = runId + "." + connector.getName() + "." + connector.getPipelineName();
 
       if (startWorkerAndIndexer && connector.getPipelineName() != null) {
-        workerPool = new WorkerPool(config, pipelineName, workerMessengerFactory, metricsPrefix);
+        workerPool = new WorkerPool(config, pipelineName, localRunId, workerMessengerFactory, metricsPrefix);
 
         try {
           workerPool.start();
@@ -492,7 +494,7 @@ public class Runner {
           return new ConnectorResult(connector, publisher, false, msg);
         }
 
-        indexerThread = new Thread(indexer, ThreadNameUtils.createName("Indexer"));
+        indexerThread = new Thread(indexer, ThreadNameUtils.createName("Indexer", localRunId));
         indexerThread.start();
       }
 

@@ -41,15 +41,18 @@ public class WorkerPool {
 
   private final Config config;
   private final String pipelineName;
+  // The current runId, if in a local mode.
+  private final String localRunId;
   private Integer numWorkers = null;
   private WorkerMessengerFactory workerMessengerFactory;
   private boolean started = false;
   private final int logSeconds;
   private final String metricsPrefix;
 
-  public WorkerPool(Config config, String pipelineName, WorkerMessengerFactory factory, String metricsPrefix) {
+  public WorkerPool(Config config, String pipelineName, String localRunId, WorkerMessengerFactory factory, String metricsPrefix) {
     this.config = config;
     this.pipelineName = pipelineName;
+    this.localRunId = localRunId;
     this.workerMessengerFactory = factory;
     this.metricsPrefix = metricsPrefix;
     try {
@@ -80,7 +83,7 @@ public class WorkerPool {
       for (int i = 0; i < numWorkers; i++) {
         WorkerMessenger messenger = workerMessengerFactory.create();
 
-        String name = ThreadNameUtils.createName("Worker-" + (i + 1));
+        String name = ThreadNameUtils.createName("Worker-" + (i + 1), localRunId);
         // will throw exception if pipeline has errors
         Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix);
         workers.add(worker);
@@ -175,7 +178,7 @@ public class WorkerPool {
 
     // creating a thread factory for executor to use
     BasicThreadFactory factory = new BasicThreadFactory.Builder()
-        .namingPattern(ThreadNameUtils.createName("WorkerWatcherExecutorService"))
+        .namingPattern(ThreadNameUtils.createName("WorkerWatcherExecutorService", localRunId))
         .daemon(true)
         .priority(Thread.NORM_PRIORITY)
         .build();
