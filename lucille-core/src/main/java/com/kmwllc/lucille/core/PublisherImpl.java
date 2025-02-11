@@ -93,6 +93,8 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public void publish(Document document) throws Exception {
+    // The runId (in MDC) is already set by the ConnectorThread calling publish.
+
     if (firstDocStopWatch.isStarted()) {
       firstDocStopWatch.stop();
       log.info("First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
