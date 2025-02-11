@@ -6,20 +6,23 @@ import org.apache.commons.lang3.ThreadUtils;
 public class ThreadNameUtils {
   public static final String THREAD_NAME_PREFIX = "Lucille";
 
+  /**
+   * Create a Thread name with the given name.
+   */
   public static String createName(String name) {
-    return THREAD_NAME_PREFIX + "-" + name;
+    return createName(name, null);
   }
 
   /**
-   * Create a Thread name with the given name and runId associated. If the given runId is null,
-   * it will not be included in the thread name - the default will be returned.
+   * Create a Thread name with the given name and runId associated. If the given runId is null, the thread name
+   * will just be the base prefix and the given name.
    */
   public static String createName(String name, String runId) {
     if (runId == null) {
-      return createName(name);
+      return THREAD_NAME_PREFIX + "-" + name;
+    } else {
+      return THREAD_NAME_PREFIX + "-" + runId + "-" + name;
     }
-
-    return THREAD_NAME_PREFIX + "-" + runId + "-" + name;
   }
 
   public static boolean isLucilleThread(Thread thread) {return thread.getName().startsWith(THREAD_NAME_PREFIX);}
