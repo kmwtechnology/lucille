@@ -115,15 +115,7 @@ public class AzureStorageClient extends BaseStorageClient {
   @Override
   protected InputStream getFileReferenceContentStream(FileReference fileReference) {
     BlobItem blobItem = fileReference.getBlobItem();
-    // TODO: This is not ideal and doesn't fix the problem. But the default InputStream
-    // doesn't play nicely with ArchiveInputStream right now.
-    byte[] content = containerClient.getBlobClient(blobItem.getName()).downloadContent().toBytes();
-
-    if (content != null) {
-      return new ByteArrayInputStream(content);
-    } else {
-      return new ByteArrayInputStream(new byte[0]);
-    }
+    return containerClient.getBlobClient(blobItem.getName()).openInputStream();
   }
 
   private String getFullPath(BlobItem blobItem) {

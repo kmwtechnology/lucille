@@ -11,6 +11,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
@@ -35,17 +36,16 @@ import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.io.ByteArrayInputStream;
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.net.URI;
-import java.nio.file.Files;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -298,35 +298,22 @@ public class AzureStorageClientTest {
             )
     ));
 
-    Map<String, byte[]> fileContents = readAllFilesAsBytesWithMap("src/test/resources/StorageClientTest/testCompressedAndArchived");
-
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getCompressedAndArchivedBlobStream());
     when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
     azureStorageClient.setContainerClientForTesting(mockClient);
-    when(mockClient.getBlobClient(anyString()).downloadContent().toBytes())
-        .thenReturn(fileContents.get("jsonlCsvAndFolderWithFooTxt.tar")) // blob1
-        .thenReturn(fileContents.get("textFiles.tar")) // blob2
-        .thenReturn(fileContents.get("jsonlCsvAndFolderWithFooTxt.tar.gz")) // blob3
-        .thenReturn(fileContents.get("zipped.csv.zip"))
-        .thenReturn(fileContents.get("zippedFolder.zip"))
-        .thenReturn(fileContents.get("hello.zip"));
 
-//    // TODO: Is the compression here not working nicely w/ the archives? The metadata? Hmm
-//    when(pagedIterable.stream()).thenReturn(getCompressedAndArchivedBlobStream());
-//    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
-//    azureStorageClient.setContainerClientForTesting(mockClient);
-//
-//    List<BlobInputStream> mockBlobStreams = buildMockBlobArchiveStreamList(fileContents);
-//
-//    when(mockClient.getBlobClient(anyString()).openInputStream())
-//        .thenReturn(mockBlobStreams.get(0))
-//        .thenReturn(mockBlobStreams.get(1))
-//        .thenReturn(mockBlobStreams.get(2))
-//        .thenReturn(mockBlobStreams.get(3))
-//        .thenReturn(mockBlobStreams.get(4))
-//        .thenReturn(mockBlobStreams.get(5));
+    String folderPath = new File("src/test/resources/StorageClientTest/testCompressedAndArchived").getAbsolutePath();
+    List<BlobInputStream> mockedStreams = buildMockStreamList(folderPath);
+
+    when(mockClient.getBlobClient(anyString()).openInputStream())
+        .thenReturn(mockedStreams.get(0))
+        .thenReturn(mockedStreams.get(1))
+        .thenReturn(mockedStreams.get(2))
+        .thenReturn(mockedStreams.get(3))
+        .thenReturn(mockedStreams.get(4))
+        .thenReturn(mockedStreams.get(5));
 
     azureStorageClient.initializeFileHandlers();
     azureStorageClient.traverse(publisher);
@@ -579,39 +566,17 @@ public class AzureStorageClientTest {
     return Stream.of(blobItem1, blobItem2, blobItem3);
   }
 
-  private static Map<String, byte[]> readAllFilesAsBytesWithMap(String folderPath) throws Exception {
-    Map<String, byte[]> fileBytesMap = new LinkedHashMap<>();
-
-    File folder = new File(folderPath);
-
-    if (folder.exists() && folder.isDirectory()) {
-      File[] files = folder.listFiles();
-      if (files != null) {
-        for (File file : files) {
-          if (file.isFile()) {
-            byte[] fileBytes = Files.readAllBytes(file.toPath());
-            fileBytesMap.put(file.getName(), fileBytes);
-          }
-        }
-      }
-    } else {
-      throw new IllegalArgumentException("Invalid folder path: " + folderPath);
-    }
-
-    return fileBytesMap;
-  }
-
-  private List<BlobInputStream> buildMockBlobArchiveStreamList(Map<String, byte[]> fileContents) throws Exception {
-    List<String> fileNames = List.of("jsonlCsvAndFolderWithFooTxt.tar", "hello.zip", "textFiles.tar",
-        "jsonlCsvAndFolderWithFooTxt.tar.gz", "zippedFolder.zip", "zipped.csv.zip");
-
+  private List<BlobInputStream> buildMockStreamList(String folderPath) throws Exception {
+    List<String> fileNames = List.of("jsonlCsvAndFolderWithFooTxt.tar", "textFiles.tar", "jsonlCsvAndFolderWithFooTxt.tar.gz",
+        "zipped.csv.zip", "zippedFolder.zip", "hello.zip");
     List<BlobInputStream> results = new ArrayList<>();
 
     for (String fileName : fileNames) {
-      BlobInputStream mockStream = mock(BlobInputStream.class);
-      InputStream byteStream = new ByteArrayInputStream(fileContents.get(fileName));
-      when(mockStream.read()).thenReturn(byteStream.read());
-      results.add(mockStream);
+      File currentFile = new File(folderPath + "/" + fileName);
+      BufferedInputStream fileStream = new BufferedInputStream(new FileInputStream(currentFile));
+      BlobInputStream mockedStream = mock(BlobInputStream.class);
+      when(mockedStream.read(any(byte[].class), anyInt(), anyInt())).thenAnswer(invocation -> fileStream.read(invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2)));
+      results.add(mockedStream);
     }
 
     return results;

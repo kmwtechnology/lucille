@@ -105,8 +105,8 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   protected InputStream getFileReferenceContentStream(FileReference fileReference) {
-    S3Object obj = fileReference.getS3Object();
-    GetObjectRequest objectRequest = GetObjectRequest.builder().bucket(bucketOrContainerName).key(obj.key()).build();
+    String objKey = fileReference.getS3Object().key();
+    GetObjectRequest objectRequest = GetObjectRequest.builder().bucket(bucketOrContainerName).key(objKey).build();
     return s3.getObject(objectRequest);
   }
 
