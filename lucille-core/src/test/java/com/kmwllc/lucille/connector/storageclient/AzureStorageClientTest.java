@@ -39,7 +39,6 @@ import com.typesafe.config.ConfigFactory;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.InputStream;
 import java.net.URI;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -271,7 +270,7 @@ public class AzureStorageClientTest {
       azureStorageClient.traverse(publisher);
       // verify that the processFileAndPublish is only called for the json files
       ArgumentCaptor<String> fileNameCaptor = ArgumentCaptor.forClass(String.class);
-      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(InputStream.class), fileNameCaptor.capture());
+      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), fileNameCaptor.capture());
       List<String> fileNames = fileNameCaptor.getAllValues();
       assertEquals("https://storagename.blob.core.windows.net/folder/blob1.json", fileNames.get(0));
       assertEquals("https://storagename.blob.core.windows.net/folder/blob2.json", fileNames.get(1));

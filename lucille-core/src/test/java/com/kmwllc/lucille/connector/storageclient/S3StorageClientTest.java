@@ -35,7 +35,6 @@ import com.typesafe.config.ConfigFactory;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.InputStream;
 import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -264,7 +263,7 @@ public class S3StorageClientTest {
       s3StorageClient.traverse(publisher);
       // verify that the processFileAndPublish is only called for the json files
       ArgumentCaptor<String> fileNameCaptor = ArgumentCaptor.forClass(String.class);
-      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(InputStream.class), fileNameCaptor.capture());
+      verify(jsonFileHandler, times(2)).processFileAndPublish(any(), any(), fileNameCaptor.capture());
       List<String> fileNames = fileNameCaptor.getAllValues();
       assertEquals("s3://bucket/obj1.json", fileNames.get(0));
       assertEquals("s3://bucket/obj2.json", fileNames.get(1));
