@@ -156,8 +156,13 @@ public abstract class Indexer implements Runnable {
 
   @Override
   public void run() {
-    // might be null b/c in a non-local mode, and that's okay!
-    MDC.put(RUNID_FIELD, localRunId);
+    if (localRunId == null) {
+      MDC.pushByKey(RUNID_FIELD, "UNKNOWN");
+    } else {
+      MDC.pushByKey(RUNID_FIELD, localRunId);
+    }
+
+    log.info("Indexer is now running.");
 
     try {
       while (running) {
@@ -165,6 +170,7 @@ public abstract class Indexer implements Runnable {
       }
       sendToIndexWithAccounting(batch.flush()); // handle final batch
     } finally {
+      MDC.popByKey(RUNID_FIELD);
       close();
     }
   }
@@ -186,13 +192,6 @@ public abstract class Indexer implements Runnable {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
       doc = messenger.pollDocToIndex();
-
-      // continuously update the MDC if we haven't been given a localRunID (in Kafka modes).
-      // batch logging IDs won't be perfect because we don't enforce that docs in a batch come from the same
-      // run. We don't clear the MDC so that the final batch flush can have an associated run ID.
-      if (localRunId == null && doc != null) {
-        MDC.put(RUNID_FIELD, doc.getRunId());
-      }
     } catch (Exception e) {
       log.info("Indexer interrupted ", e);
       terminate();
