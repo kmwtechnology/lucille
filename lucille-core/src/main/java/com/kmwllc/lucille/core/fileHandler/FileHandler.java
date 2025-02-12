@@ -41,8 +41,7 @@ public interface FileHandler {
 
   /**
    * A helper function that processes a file and publishes the documents to a Publisher using the content in the given
-   * InputStream.
-   * TODO: The given stream should be closed after this is done? Or it'll be the caller's responsibility? Hmmm
+   * InputStream. The given stream should be closed as part of this function's operations (namely the Iterators created)
    */
   void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException;
 
