@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.util;
 
-
 import com.kmwllc.lucille.core.StageException;
 import java.io.*;
 import java.net.URI;
@@ -17,8 +16,7 @@ public class FileUtils {
   private static final Logger log = LoggerFactory.getLogger(FileUtils.class);
   /**
    * Returns a Reader for the file at the given path. If the path begins with "classpath:" the prefix will be removed
-   * and the file will be read from the classpath. If the path appears to be a URI, it will be accessed using VFS.
-   * Otherwise, it will be read from the filesystem.
+   * and the file will be read from the classpath. Otherwise, it will be read from the local file system.
    */
   public static Reader getReader(String path) throws IOException {
     return getReader(path, "utf-8");
@@ -26,14 +24,14 @@ public class FileUtils {
 
   public static Reader getReader(String path, String encoding) throws IOException {
     InputStream is;
-    if (!path.startsWith("classpath:")) {
-      if (isValidURI(path)) {
-        is = VFSInputStream.open(path);
-      } else {
-        is = new FileInputStream(path);
-      }
-    } else {
+    if (path.startsWith("classpath:")) {
       is = FileUtils.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
+    } else {
+      is = new FileInputStream(path);
+    }
+
+    if (is == null) {
+      throw new IOException("Could not get InputStream from path: " + path);
     }
     // This method of creating the Reader is used because it handles non-UTF-8 characters by replacing them with UTF
     // chars, rather than throwing an Exception.
@@ -102,7 +100,6 @@ public class FileUtils {
    *
    * @param filename file path
    * @return number of lines
-   * @throws StageException if the file does not exist or cannot be read
    */
   public static int countLines(String filename) throws StageException {
     try (BufferedReader reader = new BufferedReader(getFileReader(filename))) {
