@@ -162,8 +162,6 @@ public abstract class Indexer implements Runnable {
       MDC.pushByKey(RUNID_FIELD, localRunId);
     }
 
-    log.info("Indexer is now running.");
-
     try {
       while (running) {
         checkForDoc();
@@ -232,12 +230,20 @@ public abstract class Indexer implements Runnable {
 
       for (Document d : batchedDocs) {
         try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
+          if (d.getRunId() != null) {
+            MDC.pushByKey(RUNID_FIELD, d.getRunId());
+          }
+
           messenger.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
           docLogger.error("Sent failure message for doc {}.", d.getId());
         } catch (Exception e2) {
           // TODO: The run won't be able to finish if this event isn't received; can we do something
           // special here?
           log.error("Couldn't send failure event for doc {}", d.getId(), e2);
+        } finally {
+          if (d.getRunId() != null) {
+            MDC.popByKey(RUNID_FIELD);
+          }
         }
       }
       return;
@@ -252,12 +258,20 @@ public abstract class Indexer implements Runnable {
 
     for (Document d : batchedDocs) {
       try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
+        if (d.getRunId() != null) {
+          MDC.pushByKey(RUNID_FIELD, d.getRunId());
+        }
+
         messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
         docLogger.info("Sent success message for doc {}.", d.getId());
       } catch (Exception e) {
         // TODO: The run won't be able to finish if this event isn't received; can we do something
         // special here?
         log.error("Error sending completion event for doc {}", d.getId(), e);
+      } finally {
+        if (d.getRunId() != null) {
+          MDC.popByKey(RUNID_FIELD);
+        }
       }
     }
   }
