@@ -9,6 +9,7 @@ import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Path;
@@ -51,7 +52,7 @@ public class XMLFileHandler extends BaseFileHandler {
   }
 
   @Override
-  public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException {
+  public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
     throw new FileHandlerException("Unsupported Operation");
   }
 
@@ -71,11 +72,11 @@ public class XMLFileHandler extends BaseFileHandler {
   }
 
   @Override
-  public void processFileAndPublish(Publisher publisher, byte[] fileContent, String pathStr) throws FileHandlerException {
+  public void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException {
     // set up Factory, parser, reader and handler
     ChunkingXMLHandler xmlHandler = setUpParserReaderAndHandlerIfNeeded(publisher);
 
-    RecordingInputStream ris = new RecordingInputStream(new ByteArrayInputStream(fileContent));
+    RecordingInputStream ris = new RecordingInputStream(inputStream);
 
     setEncodingAndParse(xmlHandler, ris);
   }

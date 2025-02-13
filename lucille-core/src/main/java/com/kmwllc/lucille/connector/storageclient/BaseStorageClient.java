@@ -138,10 +138,10 @@ public abstract class BaseStorageClient implements StorageClient {
       if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
 
         if (fileReference.isCloudFileReference()) {
-          // get the file content
-          byte[] content = getFileReferenceContent(fileReference);
+          // Get a stream for the file content, so we don't have to load it all at once.
+          InputStream contentStream = getFileReferenceContentStream(fileReference);
           // get the right FileHandler and publish based on content
-          publishUsingFileHandler(publisher, fileExtension, content, fullPathStr);
+          publishUsingFileHandler(publisher, fileExtension, contentStream, fullPathStr);
         } else {
           // get path instead to be less resource intensive
           Path path = fileReference.getPath();
@@ -183,6 +183,7 @@ public abstract class BaseStorageClient implements StorageClient {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
+
       while ((entry = in.getNextEntry()) != null) {
         String entryFullPathStr = getArchiveEntryFullPath(fullPathStr, entry.getName());
         if (!in.canReadEntryData(entry)) {
@@ -229,8 +230,21 @@ public abstract class BaseStorageClient implements StorageClient {
   protected void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fullPathStr)
       throws ConnectorException {
     try {
+      InputStream wrappedNonClosingStream = new InputStream() {
+        @Override
+        public int read() throws IOException {
+          return in.read();
+        }
+
+        // Intentionally a no-op. We don't want to close the archiveInputStream when finished
+        // with this one file.
+        @Override
+        public void close() {}
+      };
+
+
       FileHandler handler = fileHandlers.get(fileExtension);
-      handler.processFileAndPublish(publisher, in.readAllBytes(), fullPathStr);
+      handler.processFileAndPublish(publisher, wrappedNonClosingStream, fullPathStr);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while handling file: " + fullPathStr, e);
     }
@@ -253,16 +267,16 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * helper method to publish using file handler using file content (byte[])
+   * helper method to publish using file handler using file content (InputStream)
    */
-  protected void publishUsingFileHandler(Publisher publisher, String fileExtension, byte[] content, String pathStr) throws Exception {
+  protected void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String pathStr) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
     }
 
     try {
-      handler.processFileAndPublish(publisher, content, pathStr);
+      handler.processFileAndPublish(publisher, inputStream, pathStr);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while processing or publishing file: " + pathStr, e);
     }
@@ -343,11 +357,6 @@ public abstract class BaseStorageClient implements StorageClient {
    * will only be called in the scenario where after decompression and file will not be handled by a file handler
    */
   protected abstract Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr);
-
-  /**
-   * get the content of the file reference as a byte array
-   */
-  protected abstract byte[] getFileReferenceContent(FileReference fileReference);
 
   /**
    * get the content of the file reference as an InputStream. Always called within a try-with-resources block

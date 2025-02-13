@@ -74,16 +74,6 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected byte[] getFileReferenceContent(FileReference fileReference) {
-    Path path = fileReference.getPath();
-    try {
-      return Files.readAllBytes(path);
-    } catch (IOException e) {
-      throw new IllegalArgumentException("Unable to get content of path '" + path + "'", e);
-    }
-  }
-
-  @Override
   protected InputStream getFileReferenceContentStream(FileReference fileReference) {
     Path path = fileReference.getPath();
     try {
