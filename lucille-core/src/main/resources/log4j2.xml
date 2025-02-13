@@ -2,17 +2,17 @@
 <Configuration>
     <Appenders>
         <Console name="console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n" />
+            <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %X{run_id} %X{id} %p %c{1}: %m%n" />
         </Console>
         <RollingFile name="file" fileName="./log/com.kmwllc.lucille.log" filePattern="./log/com.kmwllc.lucille-%i.log">
-            <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n" />
+            <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %X{run_id} %X{id} %p %c{1}: %m%n" />
             <Policies>
                 <SizeBasedTriggeringPolicy size="10 MB" />
             </Policies>
             <DefaultRolloverStrategy max="20" />
         </RollingFile>
         <RollingFile name="heartbeat" fileName="./log/heartbeat.log" filePattern="./log/heartbeat-%i.log" immediateFlush="true">
-            <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n" />
+            <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %X{run_id} %X{id} %p %c{1}: %m%n" />
             <Policies>
                 <SizeBasedTriggeringPolicy size="5 KB" />
             </Policies>
@@ -24,8 +24,15 @@
             <AppenderRef ref="console" />
             <AppenderRef ref="file" />
         </Root>
+
         <Logger name="com.kmwllc.lucille.core.Heartbeat" level="INFO" additivity="false">
             <AppenderRef ref="heartbeat" />
+        </Logger>
+
+        <!-- Will output lots of log statements about individual documents as they are processed. -->
+        <Logger name="com.kmwllc.lucille.core.DocLogger" level="OFF" additivity="false">
+            <AppenderRef ref="console" />
+            <AppenderRef ref="file" />
         </Logger>
     </Loggers>
 </Configuration>
