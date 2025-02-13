@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TimerTask;
+import org.slf4j.MDC;
 
 public class WorkerPool {
 
@@ -85,7 +86,7 @@ public class WorkerPool {
 
         String name = ThreadNameUtils.createName("Worker-" + (i + 1), localRunId);
         // will throw exception if pipeline has errors
-        Worker worker = new Worker(config, messenger, pipelineName, metricsPrefix);
+        Worker worker = new Worker(config, messenger, localRunId, pipelineName, metricsPrefix);
         workers.add(worker);
         // start workerThread
         threads.add(Worker.startThread(worker, name));
@@ -146,6 +147,7 @@ public class WorkerPool {
 
       @Override
       public void run() {
+        MDC.put(Document.RUNID_FIELD, localRunId);
         // log statistics about pipeline rate and latency
         if (lastLogInstant==null || Duration.between(lastLogInstant, Instant.now()).getSeconds() >= logSeconds) {
           lastLogInstant = Instant.now();
