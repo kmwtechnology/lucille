@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
@@ -54,8 +55,7 @@ public class TextExtractor extends Stage {
   private List<String> metadataBlacklist;
   private Parser parser;
   private ParseContext parseCtx;
-  private Map<String, Object> cloudOptions;
-  private Map<String, StorageClient> availableStorageClients;
+  private final FileContentFetcher fileFetcher;
 
   public TextExtractor(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
@@ -79,22 +79,15 @@ public class TextExtractor extends Stage {
     }
     parseCtx = new ParseContext();
 
-    cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
+    Map<String, Object> cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
+    this.fileFetcher = new FileContentFetcher(cloudOptions);
   }
 
   @Override
   public void start() throws StageException {
     // Only try to initialize storage clients for later use if a file path is specified
     if (filePathField != null) {
-      this.availableStorageClients = StorageClient.clientsFromCloudOptions(cloudOptions);
-
-      for (StorageClient client : availableStorageClients.values()) {
-        try {
-          client.init();
-        } catch (ConnectorException e) {
-          throw new StageException("Error initialize StorageClient for TextExtactor stage.", e);
-        }
-      }
+      fileFetcher.startup();
     }
     if (this.tikaConfigPath == null) {
       parser = new AutoDetectParser();
@@ -113,13 +106,7 @@ public class TextExtractor extends Stage {
   @Override
   public void stop() {
     // Shutdown each storage client
-    for (StorageClient client : availableStorageClients.values()) {
-      try {
-        client.shutdown();
-      } catch (IOException e) {
-        log.warn("Error shutting down StorageClient after TextExtractor.", e);
-      }
-    }
+    fileFetcher.shutdown();
   }
 
   @Override
@@ -140,7 +127,7 @@ public class TextExtractor extends Stage {
       // get fileObject from path
       String filePath = doc.getString(filePathField);
 
-      try (InputStream contentStream = FileUtils.getInputStream(filePath, availableStorageClients)) {
+      try (InputStream contentStream = fileFetcher.getInputStream(filePath)) {
         parseInputStream(doc, contentStream);
       } catch (Exception e) {
         log.warn("Error with InputStream for file path.", e);

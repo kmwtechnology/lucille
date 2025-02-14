@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage.util;
 
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvValidationException;
@@ -99,13 +100,16 @@ public class DictionaryManager {
    */
   private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly) throws StageException {
 
-    // count file lines and create a HashMap with the correct capacity. HashMaps of course support dynamic resizing, but
-    // for files with >= 1K lines we observed a 10% time reduction in time to populate the HashMap when the
-    // initial capacity was set, even accounting for the overhead of the extra pass over the file to count the lines
-    int lineCount = FileUtils.countLines(dictPath);
-    HashMap<String, String[]> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
+    FileContentFetcher fetcher = new FileContentFetcher();
+    fetcher.startup();
 
-    try (CSVReader reader = new CSVReader(FileUtils.getReader(dictPath))) {
+    try (CSVReader reader = new CSVReader(fetcher.getReader(dictPath))) {
+      // count file lines and create a HashMap with the correct capacity. HashMaps of course support dynamic resizing, but
+      // for files with >= 1K lines we observed a 10% time reduction in time to populate the HashMap when the
+      // initial capacity was set, even accounting for the overhead of the extra pass over the file to count the lines
+      int lineCount = fetcher.countLines(dictPath);
+      HashMap<String, String[]> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
+
       // For each line of the dictionary file, add a keyword/payload pair
       String[] line;
       boolean ignore = false;
@@ -145,13 +149,15 @@ public class DictionaryManager {
         // Add the word and its payload(s) to the dictionary
         dict.put(ignoreCase ? word.toLowerCase() : word, value);
       }
+
+      return dict;
     } catch (IOException e) {
       throw new StageException("Failed to read from the given file.", e);
     } catch (CsvValidationException e) {
       throw new StageException("Error validating CSV", e);
+    } finally {
+      fetcher.shutdown();
     }
-
-    return dict;
   }
 
 }

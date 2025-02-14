@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
@@ -123,7 +124,11 @@ public class ExtractEntities extends Stage {
     for (String dictFile : dictionaries) {
       File d = new File(dictFile);
       log.info("loading Dictionary from {}", d.getAbsolutePath());
-      try (CSVReader reader = new CSVReader(FileUtils.getReader(dictFile))) {
+
+      FileContentFetcher fetcher = new FileContentFetcher();
+      fetcher.startup();
+
+      try (CSVReader reader = new CSVReader(fetcher.getReader(dictFile))) {
         // For each line of the dictionary file, add a keyword/payload pair to the Trie
         String[] line;
         boolean ignore = false;
@@ -155,6 +160,8 @@ public class ExtractEntities extends Stage {
         }
       } catch (Exception e) {
         throw new StageException("Failed to read from the given file.", e);
+      } finally {
+        fetcher.shutdown();
       }
     }
 

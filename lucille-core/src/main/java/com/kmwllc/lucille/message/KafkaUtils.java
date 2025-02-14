@@ -2,6 +2,8 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.CommonClientConfigs;
@@ -40,12 +42,22 @@ public class KafkaUtils {
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
 
   private static Properties loadExternalProps(String filename) {
-    try (Reader propertiesReader = FileUtils.getReader(filename, StandardCharsets.UTF_8.name())) {
-      Properties consumerProps = new Properties();
-      consumerProps.load(propertiesReader);
-      return consumerProps;
-    } catch (IOException e) {
-      throw new IllegalStateException(String.format("Cannot load kafka property file %s.", filename));
+    FileContentFetcher fetcher = new FileContentFetcher();
+
+    try {
+      fetcher.startup();
+
+      try (Reader propertiesReader = fetcher.getReader(filename, StandardCharsets.UTF_8.name())) {
+        Properties consumerProps = new Properties();
+        consumerProps.load(propertiesReader);
+        return consumerProps;
+      } catch (IOException e) {
+        throw new IllegalStateException(String.format("Cannot load kafka property file %s.", filename));
+      }
+    } catch (StageException e) {
+      throw new RuntimeException("Error initializing FileContentFetcher for file.", e);
+    } finally {
+      fetcher.shutdown();
     }
   }
 

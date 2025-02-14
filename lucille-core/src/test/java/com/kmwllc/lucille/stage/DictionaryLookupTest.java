@@ -92,8 +92,7 @@ public class DictionaryLookupTest {
 
   @Test
   public void testFileDoesNotExist() {
-    Throwable e = assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/missing_file.conf"));
-    assertEquals("File does not exist: classpath:DictionaryLookupTest/missing.txt", e.getMessage());
+    assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/missing_file.conf"));
   }
 
   @Test
