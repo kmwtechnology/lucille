@@ -4,6 +4,8 @@ import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_KEY;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_NAME;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_CONNECTION_STRING;
 
+import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.BlobClientBuilder;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
@@ -37,6 +39,10 @@ public class AzureStorageClient extends BaseStorageClient {
   public AzureStorageClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
     super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+  }
+
+  public AzureStorageClient(Map<String, Object> cloudOptions) {
+    super(cloudOptions);
   }
 
   @Override
@@ -94,6 +100,12 @@ public class AzureStorageClient extends BaseStorageClient {
             tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob));
           }
         });
+  }
+
+  @Override
+  public InputStream getFileContentStream(URI uri) throws Exception {
+    BlobClient client = new BlobClientBuilder().endpoint(uri.toString()).buildClient();
+    return client.openInputStream();
   }
 
   @Override

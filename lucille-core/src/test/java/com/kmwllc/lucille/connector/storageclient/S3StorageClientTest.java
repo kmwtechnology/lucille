@@ -31,19 +31,24 @@ import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import javassist.bytecode.ByteArray;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
@@ -404,6 +409,40 @@ public class S3StorageClientTest {
     // encounter error when traversing if moveAfterProcessing is set
     assertThrows(UnsupportedOperationException.class, () -> s3StorageClient.traverse(publisher));
     s3StorageClient.shutdown();
+  }
+
+  @Test
+  public void testGetFileContentStream() throws Exception {
+    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey");
+    S3StorageClient storageClient = new S3StorageClient(cloudOptions);
+    URI testURI = new URI("s3://bucket/hello.txt");
+
+    S3Client mockClient = mock(S3Client.class);
+
+    // mocking the GetObjectRequest builder to ensure the URI is parsed correctly.
+    try (MockedStatic<GetObjectRequest> mockedStaticRequest = mockStatic(GetObjectRequest.class)) {
+      GetObjectRequest.Builder mockRequestBuilder = mock(GetObjectRequest.Builder.class);
+      mockedStaticRequest.when(() -> GetObjectRequest.builder()).thenReturn(mockRequestBuilder);
+
+      GetObjectRequest mockRequest = mock(GetObjectRequest.class);
+
+      when(mockRequestBuilder.bucket("bucket")).thenReturn(mockRequestBuilder);
+      when(mockRequestBuilder.key("hello.txt")).thenReturn(mockRequestBuilder);
+      when(mockRequestBuilder.build()).thenReturn(mockRequest);
+
+      InputStream stream = new ByteArrayInputStream("Hello there.".getBytes());
+      ResponseInputStream mockStream = mock(ResponseInputStream.class);
+      when(mockStream.readAllBytes()).thenAnswer(invocation -> stream.readAllBytes());
+
+      when(mockClient.getObject(mockRequest)).thenReturn(mockStream);
+
+      storageClient.setS3ClientForTesting(mockClient);
+
+      InputStream result = storageClient.getFileContentStream(testURI);
+
+      assertEquals("Hello there.", new String(result.readAllBytes()));
+    }
   }
 
   private List<S3Object> getMockedS3Objects() throws Exception {

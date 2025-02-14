@@ -32,6 +32,7 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.util.LinkedHashMap;
@@ -425,6 +426,24 @@ public class GoogleStorageClientTest {
 
     // closes storage too
     googleStorageClient.shutdown();
+  }
+
+  @Test
+  public void testGetFileContentStream() throws Exception {
+    GoogleStorageClient storageClient = new GoogleStorageClient(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
+    URI testURI = new URI("gs://bucket/hello.txt");
+
+    BlobId blobId = BlobId.of("bucket", "hello.txt");
+    BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
+    storage.create(blobInfo, "Hello there.".getBytes());
+
+    storageClient.setStorageForTesting(storage);
+
+    InputStream results = storageClient.getFileContentStream(testURI);
+
+    assertEquals("Hello there.", new String(results.readAllBytes()));
+
+    storageClient.shutdown();
   }
 
   private static Map<String, byte[]> readAllFilesAsBytesWithMap(String folderPath) throws Exception {

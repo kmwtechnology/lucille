@@ -11,6 +11,8 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -20,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -37,6 +40,10 @@ public class LocalStorageClient extends BaseStorageClient {
     super(pathToStorageURI, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
   }
 
+  public LocalStorageClient() {
+    super(new HashMap<>());
+  }
+
   @Override
   public void init() throws ConnectorException {
     initializeFileHandlers();
@@ -51,6 +58,13 @@ public class LocalStorageClient extends BaseStorageClient {
   @Override
   public void traverse(Publisher publisher) throws Exception {
     Files.walkFileTree(Paths.get(startingDirectory), new LocalFileVisitor(publisher));
+  }
+
+  @Override
+  public InputStream getFileContentStream(URI uri) throws Exception {
+    File file = new File(uri);
+
+    return new FileInputStream(file);
   }
 
   @Override

@@ -12,6 +12,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +44,11 @@ public interface StorageClient {
    * Traverses through the storage client and publish files to Lucille pipeline
    */
   void traverse(Publisher publisher) throws Exception;
+
+  /**
+   * Opens and returns an InputStream for a file's contents, located at the given URI.
+   */
+  InputStream getFileContentStream(URI uri) throws Exception;
 
   /**
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from cloudOptions

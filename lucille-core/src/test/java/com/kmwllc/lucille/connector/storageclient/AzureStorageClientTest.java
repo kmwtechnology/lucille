@@ -4,6 +4,9 @@ import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
+import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
+import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
+import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -14,16 +17,20 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.azure.core.http.rest.PagedIterable;
+import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.BlobClientBuilder;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
+import com.azure.storage.blob.specialized.BlobInputStream;
 import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -34,7 +41,9 @@ import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.time.Instant;
@@ -421,6 +430,31 @@ public class AzureStorageClientTest {
     assertThrows(UnsupportedOperationException.class, () -> azureStorageClient.traverse(publisher));
 
     azureStorageClient.shutdown();
+  }
+
+  @Test
+  public void testGetFileContentStream() throws Exception {
+    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey");
+    AzureStorageClient storageClient = new AzureStorageClient(cloudOptions);
+    URI testURI = new URI("https://storagename.blob.core.windows.net/folder/hello.txt");
+
+    try (MockedConstruction<BlobClientBuilder> mockedBuilder = mockConstruction(BlobClientBuilder.class, (mock, context) -> {
+      BlobClient mockClient = mock(BlobClient.class);
+
+      when(mock.endpoint(testURI.toString())).thenReturn(mock);
+      when(mock.buildClient()).thenReturn(mockClient);
+
+      BlobInputStream mockStream = mock(BlobInputStream.class);
+      InputStream fileContentStream = new ByteArrayInputStream("Hello there.".getBytes());
+      when(mockStream.readAllBytes()).thenReturn(fileContentStream.readAllBytes());
+
+      when(mockClient.openInputStream()).thenReturn(mockStream);
+    })) {
+      InputStream response = storageClient.getFileContentStream(testURI);
+
+      assertEquals("Hello there.", new String(response.readAllBytes()));
+    }
   }
 
   private Stream<BlobItem> getCompressedAndArchivedBlobStream() {

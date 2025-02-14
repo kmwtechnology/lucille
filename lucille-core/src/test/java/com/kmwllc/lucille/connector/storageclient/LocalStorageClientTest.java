@@ -17,6 +17,7 @@ import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
@@ -381,5 +382,15 @@ public class LocalStorageClientTest {
       tempDir.delete();
       localStorageClient.shutdown();
     }
+  }
+
+  @Test
+  public void testGetFileContentStream() throws Exception {
+    File testFile = new File("src/test/resources/StorageClientTest/hello.txt");
+
+    LocalStorageClient client = new LocalStorageClient();
+    InputStream stream = client.getFileContentStream(testFile.toURI());
+
+    assertEquals("Hello there.", new String(stream.readAllBytes()));
   }
 }

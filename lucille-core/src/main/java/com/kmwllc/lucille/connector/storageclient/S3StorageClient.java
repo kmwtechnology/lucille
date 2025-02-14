@@ -18,13 +18,16 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
+import org.eclipse.jetty.http.HttpTester.Input;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
@@ -37,6 +40,11 @@ public class S3StorageClient extends BaseStorageClient {
   public S3StorageClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
     super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+  }
+
+  // Constructor for a client used to extract InputStreams from individual URIs.
+  public S3StorageClient(Map<String, Object> cloudOptions) {
+    super(cloudOptions);
   }
 
   @Override
@@ -84,6 +92,15 @@ public class S3StorageClient extends BaseStorageClient {
             }
           });
         });
+  }
+
+  @Override
+  public InputStream getFileContentStream(URI uri) throws Exception {
+    String bucketName = uri.getAuthority();
+    String objectKey = uri.getPath().substring(1);
+
+    GetObjectRequest request = GetObjectRequest.builder().bucket(bucketName).key(objectKey).build();
+    return s3.getObject(request);
   }
 
   @Override

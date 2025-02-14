@@ -81,6 +81,17 @@ public abstract class BaseStorageClient implements StorageClient {
     this.maxNumOfPages = cloudOptions.containsKey(MAX_NUM_OF_PAGES) ? (Integer) cloudOptions.get(MAX_NUM_OF_PAGES) : 100;
   }
 
+  // Constructor for clients used to extract InputStreams from individual URIs.
+  public BaseStorageClient(Map<String, Object> cloudOptions) {
+    this.cloudOptions = cloudOptions;
+  }
+
+  public static List<BaseStorageClient> buildClientsFromConfig(Config config) {
+    // try - azure, s3, and google.
+    // definitely will include local.
+    return null;
+  }
+
   /**
    * This method would try to process and publish the file. It also performs any preprocessing, error handling, and post-processing.
    *
@@ -404,7 +415,9 @@ public abstract class BaseStorageClient implements StorageClient {
    * clear all file handlers if any. Should be called in the shutdown method
    */
   protected void clearFileHandlers() {
-    fileHandlers.clear();
+    if (fileHandlers != null) {
+      fileHandlers.clear();
+    }
   }
 
   /**

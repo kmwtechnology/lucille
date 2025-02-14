@@ -4,7 +4,9 @@ import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
 
 import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageOptions;
@@ -18,6 +20,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.channels.Channels;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -34,6 +37,11 @@ public class GoogleStorageClient extends BaseStorageClient {
   public GoogleStorageClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
       Map<String, Object> cloudOptions, Config fileOptions) {
     super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+  }
+
+  // Constructor for a client used to extract InputStreams from individual URIs.
+  public GoogleStorageClient(Map<String, Object> cloudOptions) {
+    super(cloudOptions);
   }
 
   @Override
@@ -77,6 +85,16 @@ public class GoogleStorageClient extends BaseStorageClient {
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
     } while (page != null);
+  }
+
+  @Override
+  public InputStream getFileContentStream(URI uri) throws Exception {
+    String bucketName = uri.getAuthority();
+    String objectKey = uri.getPath().substring(1);
+
+    Blob blob = storage.get(BlobId.of(bucketName, objectKey));
+    ReadChannel blobReadChannel = blob.reader();
+    return Channels.newInputStream(blobReadChannel);
   }
 
   @Override
