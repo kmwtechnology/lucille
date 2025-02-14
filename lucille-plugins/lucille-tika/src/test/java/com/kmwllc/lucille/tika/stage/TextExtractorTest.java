@@ -17,13 +17,11 @@ import java.io.InputStream;
 import java.nio.file.Files;
 
 import com.kmwllc.lucille.stage.StageFactory;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import org.junit.Assert;
 import org.junit.Test;
-import org.mockito.Mockito.*;
 
 public class TextExtractorTest {
 

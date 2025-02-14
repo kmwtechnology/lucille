@@ -1,20 +1,11 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_KEY;
-import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
-import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
-import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
-import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_CONNECTION_STRING;
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_NAME;
-
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
