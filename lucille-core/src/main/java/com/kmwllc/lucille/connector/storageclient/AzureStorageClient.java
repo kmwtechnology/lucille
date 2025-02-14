@@ -204,6 +204,11 @@ public class AzureStorageClient extends BaseStorageClient {
     }
   }
 
+  public static boolean validOptions(Map<String, Object> cloudOptions) {
+    return cloudOptions.containsKey(AZURE_CONNECTION_STRING)
+        || (cloudOptions.containsKey(AZURE_ACCOUNT_NAME) && cloudOptions.containsKey(AZURE_ACCOUNT_KEY));
+  }
+
   // Only for testing
   void setContainerClientForTesting(BlobContainerClient containerClient) {
     this.containerClient = containerClient;

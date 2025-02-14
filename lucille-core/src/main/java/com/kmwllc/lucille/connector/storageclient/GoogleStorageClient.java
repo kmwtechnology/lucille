@@ -193,6 +193,10 @@ public class GoogleStorageClient extends BaseStorageClient {
     }
   }
 
+  public static boolean validOptions(Map<String, Object> cloudOptions) {
+    return cloudOptions.containsKey(GOOGLE_SERVICE_KEY);
+  }
+
   // Only for testing
   void setStorageForTesting(Storage storage) {
     this.storage = storage;

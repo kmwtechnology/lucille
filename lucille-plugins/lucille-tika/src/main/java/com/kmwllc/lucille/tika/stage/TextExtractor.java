@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.tika.stage;
 
+import com.kmwllc.lucille.connector.storageclient.StorageClient;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -11,9 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
-import org.apache.commons.vfs2.FileObject;
-import org.apache.commons.vfs2.FileSystemException;
-import org.apache.commons.vfs2.impl.StandardFileSystemManager;
+import java.util.Map;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
@@ -54,7 +54,8 @@ public class TextExtractor extends Stage {
   private List<String> metadataBlacklist;
   private Parser parser;
   private ParseContext parseCtx;
-  private StandardFileSystemManager fsManager;
+  private Map<String, Object> cloudOptions;
+  private Map<String, StorageClient> availableStorageClients;
 
   public TextExtractor(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
@@ -77,17 +78,22 @@ public class TextExtractor extends Stage {
       throw new StageException("Provided neither a file_path_field nor byte_array_field to the TextExtractor stage");
     }
     parseCtx = new ParseContext();
+
+    cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
   }
 
   @Override
   public void start() throws StageException {
-    // initialize fsManager only if file_path_field is used
+    // Only try to initialize storage clients for later use if a file path is specified
     if (filePathField != null) {
-      try {
-        fsManager = new StandardFileSystemManager();
-        fsManager.init();
-      } catch (FileSystemException e) {
-        throw new StageException("Could not initialize FileSystem in TextExtractor Stage", e);
+      this.availableStorageClients = StorageClient.clientsFromCloudOptions(cloudOptions);
+
+      for (StorageClient client : availableStorageClients.values()) {
+        try {
+          client.init();
+        } catch (ConnectorException e) {
+          throw new StageException("Error initialize StorageClient for TextExtactor stage.", e);
+        }
       }
     }
     if (this.tikaConfigPath == null) {
@@ -106,8 +112,13 @@ public class TextExtractor extends Stage {
 
   @Override
   public void stop() {
-    if (fsManager != null) {
-      fsManager.close();
+    // Shutdown each storage client
+    for (StorageClient client : availableStorageClients.values()) {
+      try {
+        client.shutdown();
+      } catch (IOException e) {
+        log.warn("Error shutting down StorageClient after TextExtractor.", e);
+      }
     }
   }
 
@@ -129,22 +140,10 @@ public class TextExtractor extends Stage {
       // get fileObject from path
       String filePath = doc.getString(filePathField);
 
-      try (FileObject file = FileUtils.getFileObject(filePath, fsManager)) {
-        // if file is null error occurred while getting FileObject, don't process document
-        if (file == null) {
-          return null;
-        }
-
-        // file.getContent() never returns null, will not throw nullPointerException
-        // https://commons.apache.org/proper/commons-vfs/commons-vfs2/apidocs/org/apache/commons/vfs2/FileObject.html#getContent--
-        try (InputStream inputStream = file.getContent().getInputStream()) {
-          parseInputStream(doc, inputStream);
-        } catch(FileSystemException e) {
-          log.warn("Error getting inputStream or content from file at: {}", filePath, e);
-          return null;
-        }
-      } catch (IOException e) { // catches IOExceptions for using try with resources
-        log.warn("Error closing inputstream or file object at: {}", filePath, e);
+      try (InputStream contentStream = FileUtils.getInputStream(filePath, availableStorageClients)) {
+        parseInputStream(doc, contentStream);
+      } catch (Exception e) {
+        log.warn("Error with InputStream for file path.", e);
       }
     }
     return null;

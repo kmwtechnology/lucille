@@ -14,6 +14,8 @@ import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -79,5 +81,52 @@ public interface StorageClient {
       }
       default -> throw new IllegalArgumentException("Unsupported client type: " + activeClient);
     }
+  }
+
+  /**
+   * Based on the provided map of URI scheme Strings to StorageClients, returns the appropriate StorageClient for
+   * handling the given URI. The return may be null, indicating there is not a StorageClient available to handle the
+   * URI appropriately.
+   */
+  static StorageClient clientForGettingURIStream(URI pathToFile, Map<String, StorageClient> availableClients) {
+    String activeClient = pathToFile.getScheme() != null ? pathToFile.getScheme() : "file";
+    return availableClients.get(activeClient);
+  }
+
+  /**
+   * Builds a list of all StorageClients which can be built from the given cloudOptions. Always returns at least
+   * a LocalStorageClient.
+   *
+   * To build clients for the cloud providers, these arguments must be provided:
+   * <br> If using GoogleStorageClient:
+   * <br> "pathToServiceKey" : "path/To/Service/Key.json"
+   * <br> If using AzureStorageClient:
+   * <br> "connectionString" : azure connection string
+   * <br> <b>or</b>
+   * <br> "accountName" : azure account name
+   * <br> "accountKey" : azure account key
+   * <br> If using S3StorageClient:
+   * <br> "accessKeyId" : s3 key id
+   * <br> "secretAccessKey" : secret access key
+   * <br> "region" : s3 storage region
+   */
+  static Map<String, StorageClient> clientsFromCloudOptions(Map<String, Object> cloudOptions) {
+    Map<String, StorageClient> results = new HashMap<>();
+
+    results.put("file", new LocalStorageClient());
+
+    if (GoogleStorageClient.validOptions(cloudOptions)) {
+      results.put("gs", new GoogleStorageClient(cloudOptions));
+    }
+
+    if (AzureStorageClient.validOptions(cloudOptions)) {
+      results.put("https", new AzureStorageClient(cloudOptions));
+    }
+
+    if (S3StorageClient.validOptions(cloudOptions)) {
+      results.put("s3", new S3StorageClient(cloudOptions));
+    }
+
+    return results;
   }
 }

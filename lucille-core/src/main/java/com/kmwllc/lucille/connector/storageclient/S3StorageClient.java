@@ -184,6 +184,12 @@ public class S3StorageClient extends BaseStorageClient {
     }
   }
 
+  public static boolean validOptions(Map<String, Object> cloudOptions) {
+    return cloudOptions.containsKey(S3_ACCESS_KEY_ID)
+        && cloudOptions.containsKey(S3_SECRET_ACCESS_KEY)
+        && cloudOptions.containsKey(S3_REGION);
+  }
+
   // Only for testing
   void setS3ClientForTesting(S3Client s3) {
     this.s3 = s3;

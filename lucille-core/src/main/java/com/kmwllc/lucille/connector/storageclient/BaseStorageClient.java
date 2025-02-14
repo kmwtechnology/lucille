@@ -18,6 +18,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,12 +86,11 @@ public abstract class BaseStorageClient implements StorageClient {
   // Constructor for clients used to extract InputStreams from individual URIs.
   public BaseStorageClient(Map<String, Object> cloudOptions) {
     this.cloudOptions = cloudOptions;
-  }
 
-  public static List<BaseStorageClient> buildClientsFromConfig(Config config) {
-    // try - azure, s3, and google.
-    // definitely will include local.
-    return null;
+    this.excludes = new ArrayList<>();
+    this.includes = new ArrayList<>();
+    this.fileOptions = ConfigFactory.empty();
+    this.fileHandlers = new HashMap<>();
   }
 
   /**
