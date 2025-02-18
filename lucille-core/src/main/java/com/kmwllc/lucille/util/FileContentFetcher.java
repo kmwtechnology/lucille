@@ -24,12 +24,18 @@ public class FileContentFetcher {
   private final Map<String, StorageClient> availableClients;
 
   /**
-   * Creates a FileContentFetcher that will only fetch files from the classpath or the local file system
+   * Creates a FileContentFetcher that will only fetch files from the classpath or the local file system. Be sure to call startup
+   * and shutdown as appropriate.
    */
   public FileContentFetcher() {
     this.availableClients = StorageClient.clientsFromCloudOptions(Map.of());
   }
 
+  /**
+   * Creates a FileContentFetcher that will fetch files from the classpath, the local file system, and any cloud file systems
+   * (Azure, S3, Google) which have the necessary options provided in the given options map. Be sure to call startup and shutdown
+   * as appropriate.
+   */
   public FileContentFetcher(Map<String, Object> cloudOptions) {
     this.availableClients = StorageClient.clientsFromCloudOptions(cloudOptions);
   }

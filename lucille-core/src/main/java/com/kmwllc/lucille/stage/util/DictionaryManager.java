@@ -70,25 +70,33 @@ public class DictionaryManager {
    * made into a ConcurrentHashMap or being passed through Collections.synchronizedMap()).
    *
    */
-  public static synchronized Map<String, String[]> getDictionary(String path, boolean ignoreCase, boolean setOnly) throws StageException {
+  public static synchronized Map<String, String[]> getDictionary(String path, boolean ignoreCase, boolean setOnly, Map<String, Object> cloudOptions) throws StageException {
     String key = path + "_IGNORECASE=" + ignoreCase + "_SETONLY=" + setOnly;
     if (dictionaries.containsKey(key)) {
       return dictionaries.get(key);
     }
-    HashMap<String, String[]> dictionary = buildHashMap(path, ignoreCase, setOnly);
 
-    // We create an unmodifiable view of the dictionary, which is represented as a HashMap;
-    // This unmodifiable Map may be shared across Stage instances running in different threads;
-    // Therefore we want to be sure that concurrent read operations (i.e. map.get()'s) are thread-safe;
-    // The javadoc for java.util.HashMap states:
-    // "Note that this implementation is not synchronized. If multiple threads access a hash map concurrently,
-    // and at least one of the threads modifies the map structurally, it must be synchronized externally."
-    // Since our map is never be modified, we assume the need for synchronization does not apply.
-    // Instead of returning an unmodifiable Map, we could create a ConcurrentHashMap here, but that seems to be
-    // overkill given that the desired behavior is read-only.
-    Map<String, String[]> unmodifiableDictionary = Collections.unmodifiableMap(dictionary);
-    dictionaries.put(key, unmodifiableDictionary);
-    return unmodifiableDictionary;
+    FileContentFetcher fileFetcher = new FileContentFetcher(cloudOptions);
+    fileFetcher.startup();
+
+    try {
+      HashMap<String, String[]> dictionary = buildHashMap(path, ignoreCase, setOnly);
+
+      // We create an unmodifiable view of the dictionary, which is represented as a HashMap;
+      // This unmodifiable Map may be shared across Stage instances running in different threads;
+      // Therefore we want to be sure that concurrent read operations (i.e. map.get()'s) are thread-safe;
+      // The javadoc for java.util.HashMap states:
+      // "Note that this implementation is not synchronized. If multiple threads access a hash map concurrently,
+      // and at least one of the threads modifies the map structurally, it must be synchronized externally."
+      // Since our map is never be modified, we assume the need for synchronization does not apply.
+      // Instead of returning an unmodifiable Map, we could create a ConcurrentHashMap here, but that seems to be
+      // overkill given that the desired behavior is read-only.
+      Map<String, String[]> unmodifiableDictionary = Collections.unmodifiableMap(dictionary);
+      dictionaries.put(key, unmodifiableDictionary);
+      return unmodifiableDictionary;
+    } finally {
+      fileFetcher.shutdown();
+    }
   }
 
   /**
