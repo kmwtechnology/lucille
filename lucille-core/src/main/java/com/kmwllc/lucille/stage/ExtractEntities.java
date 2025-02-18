@@ -6,6 +6,7 @@ import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
+import java.util.Map;
 import org.ahocorasick.trie.PayloadEmit;
 import org.ahocorasick.trie.PayloadToken;
 import org.ahocorasick.trie.PayloadTrie;
@@ -62,6 +63,7 @@ public class ExtractEntities extends Stage {
   private final boolean ignoreOverlaps;
   private final boolean usePayloads;
   private final String entityField;
+  private final FileContentFetcher fileFetcher;
 
   public ExtractEntities(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "dictionaries")
@@ -81,6 +83,9 @@ public class ExtractEntities extends Stage {
     this.dictionaries = config.getStringList("dictionaries");
     this.updateMode = UpdateMode.fromConfig(config);
     this.entityField = config.hasPath("entity_field") ? config.getString("entity_field") : null;
+
+    Map<String, Object> cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
+    this.fileFetcher = new FileContentFetcher(cloudOptions);
   }
 
   @Override
@@ -89,7 +94,13 @@ public class ExtractEntities extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Extract Entities");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Extract Entities");
 
+    fileFetcher.startup();
     dictTrie = buildTrie();
+  }
+
+  @Override
+  public void stop() throws StageException {
+    fileFetcher.shutdown();
   }
 
   /**
@@ -125,10 +136,7 @@ public class ExtractEntities extends Stage {
       File d = new File(dictFile);
       log.info("loading Dictionary from {}", d.getAbsolutePath());
 
-      FileContentFetcher fetcher = new FileContentFetcher();
-      fetcher.startup();
-
-      try (CSVReader reader = new CSVReader(fetcher.getReader(dictFile))) {
+      try (CSVReader reader = new CSVReader(fileFetcher.getReader(dictFile))) {
         // For each line of the dictionary file, add a keyword/payload pair to the Trie
         String[] line;
         boolean ignore = false;
@@ -160,8 +168,6 @@ public class ExtractEntities extends Stage {
         }
       } catch (Exception e) {
         throw new StageException("Failed to read from the given file.", e);
-      } finally {
-        fetcher.shutdown();
       }
     }
 
