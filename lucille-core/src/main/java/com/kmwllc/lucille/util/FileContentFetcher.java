@@ -78,12 +78,12 @@ public class FileContentFetcher {
       URI pathURI = URI.create(path);
       String activeClient = pathURI.getScheme() != null ? pathURI.getScheme() : "file";
       StorageClient storageClient = availableClients.get(activeClient);
-      try {
-        is = storageClient.getFileContentStream(pathURI);
-      } catch (Exception e) {
-        throw new IOException("Error getting InputStream on StorageClient.", e);
+
+      if (storageClient == null) {
+        throw new IOException("No Storage Client available to get content for path " + path + ".");
       }
 
+      is = storageClient.getFileContentStream(pathURI);
     } else {
       is = new FileInputStream(path);
     }

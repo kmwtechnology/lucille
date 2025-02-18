@@ -61,7 +61,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public InputStream getFileContentStream(URI uri) throws Exception {
+  public InputStream getFileContentStream(URI uri) throws IOException {
     File file = new File(uri);
 
     return new FileInputStream(file);

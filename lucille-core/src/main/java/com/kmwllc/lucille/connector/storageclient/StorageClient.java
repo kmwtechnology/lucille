@@ -41,7 +41,7 @@ public interface StorageClient {
   /**
    * Opens and returns an InputStream for a file's contents, located at the given URI.
    */
-  InputStream getFileContentStream(URI uri) throws Exception;
+  InputStream getFileContentStream(URI uri) throws IOException;
 
   /**
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from cloudOptions

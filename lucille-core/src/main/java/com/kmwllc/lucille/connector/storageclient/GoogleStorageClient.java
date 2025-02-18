@@ -88,7 +88,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public InputStream getFileContentStream(URI uri) throws Exception {
+  public InputStream getFileContentStream(URI uri) throws IOException {
     String bucketName = uri.getAuthority();
     String objectKey = uri.getPath().substring(1);
 

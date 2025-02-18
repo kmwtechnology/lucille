@@ -6,7 +6,9 @@ import org.junit.Test;
 import java.io.Reader;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 public class FileUtilsTest {
 
@@ -24,5 +26,17 @@ public class FileUtilsTest {
 
     String badPath = Paths.get("src/test/resources/FileUtilsTest/test").toUri().toString();
     assertThrows(IOException.class, () -> FileUtils.getLocalFileReader(badPath));
+  }
+
+  @Test
+  public void testIsValidURI() {
+    String validURI = "file:///path/to/file";
+    assertTrue(FileUtils.isValidURI(validURI));
+
+    String nullScheme = "example.org";
+    assertFalse(FileUtils.isValidURI(nullScheme));
+
+    String exceptionURI = ":example.org";
+    assertFalse(FileUtils.isValidURI(exceptionURI));
   }
 }

@@ -90,7 +90,7 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void traverse(Publisher publisher) throws Exception{
+  public void traverse(Publisher publisher) throws Exception {
     containerClient.listBlobs(new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
           if (isValid(blob)) {
@@ -102,7 +102,7 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public InputStream getFileContentStream(URI uri) throws Exception {
+  public InputStream getFileContentStream(URI uri) throws IOException {
     BlobClient client = new BlobClientBuilder().endpoint(uri.toString()).buildClient();
     return client.openInputStream();
   }
