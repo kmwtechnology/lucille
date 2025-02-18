@@ -5,10 +5,15 @@ import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.connector.storageclient.S3StorageClient;
+import com.kmwllc.lucille.core.ConnectorException;
+import com.kmwllc.lucille.core.StageException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -71,6 +76,26 @@ public class FileContentFetcherTest {
       assertEquals("Hello there - S3.", new String(s3MockInputStream.readAllBytes()));
 
       assertThrows(IOException.class, () -> fetcher.getInputStream("gs://bucket/hello.txt"));
+    }
+  }
+
+  @Test
+  public void testClientFailsInit() throws Exception {
+    Map<String, Object> cloudOptions = Map.of(
+        S3_REGION, "us-east-1",
+        S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey");
+
+    try (MockedConstruction<S3StorageClient> mockedConstruction = mockConstruction(S3StorageClient.class, (mock, context) -> {
+      doThrow(new ConnectorException("Mock Init Exception")).when(mock).init();
+      doThrow(new IOException("Mock Shutdown Exception")).when(mock).shutdown();
+    })) {
+      FileContentFetcher fetcher = new FileContentFetcher(cloudOptions);
+      assertThrows(StageException.class, () -> fetcher.startup());
+
+      // an error in fetcher.startup() should call shutdown automatically
+      S3StorageClient mockS3 = mockedConstruction.constructed().get(0);
+      verify(mockS3, times(1)).shutdown();
     }
   }
 }

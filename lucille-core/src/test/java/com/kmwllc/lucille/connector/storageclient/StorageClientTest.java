@@ -7,6 +7,7 @@ import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
 import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -68,5 +69,26 @@ public class StorageClientTest {
         null, null, null, s3CloudOptionsBad, ConfigFactory.empty()));
 
     client.shutdown();
+  }
+
+  @Test
+  public void testClientsFromCloudOptionsFull() {
+    Map<String, StorageClient> results = StorageClient.clientsFromCloudOptions(Map.of(
+        AZURE_CONNECTION_STRING, "connectionString",
+        GOOGLE_SERVICE_KEY, "path/folder",
+        S3_SECRET_ACCESS_KEY, "secretKey",
+        S3_ACCESS_KEY_ID, "keyID",
+        S3_REGION, "us-east-1"
+    ));
+
+    assertEquals(4, results.size());
+  }
+
+  @Test
+  public void testClientsFromCloudOptionsEmpty() {
+    Map<String, StorageClient> results = StorageClient.clientsFromCloudOptions(Map.of());
+
+    // ALWAYS get a LocalStorageClient.
+    assertEquals(1, results.size());
   }
 }
