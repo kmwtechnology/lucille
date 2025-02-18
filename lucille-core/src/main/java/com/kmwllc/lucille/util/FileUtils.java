@@ -37,7 +37,8 @@ public class FileUtils {
   }
 
   /**
-   * Returns a reader to the file at the given path, which should be either local or in the classpath.
+   * Returns a reader to the file at the given path, which should be either a local file path or in the classpath
+   * (starts with "classpath:").
    */
   public static Reader getLocalFileReader(String path) throws IOException {
     InputStream is;

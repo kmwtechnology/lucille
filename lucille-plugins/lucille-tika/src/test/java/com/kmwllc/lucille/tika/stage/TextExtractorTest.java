@@ -88,7 +88,6 @@ public class TextExtractorTest {
     Stage stage = factory.get("TextExtractorTest/filepath.conf");
     Document doc = Document.create("doc1");
 
-    System.out.println(Paths.get("src/test/resources/TextExtractorTest/tika.xlsx").toAbsolutePath().toString());
     // set path as absolute Path
     doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.xlsx").toAbsolutePath().toString());
 
@@ -304,10 +303,8 @@ public class TextExtractorTest {
 
     // set path as absolute Path
     doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toUri().toString());
-
     stage.processDocument(doc);
 
-    // test that field that is added once is single valued while field that is added multiple times is multiValued in a list
     Map<String, Object> fields = doc.asMap();
     assertEquals("Hi There!\n", fields.get("text"));
     assertEquals(List.of("org.apache.tika.parser.CompositeParser",

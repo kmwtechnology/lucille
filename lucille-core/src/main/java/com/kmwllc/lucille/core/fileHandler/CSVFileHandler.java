@@ -3,7 +3,6 @@ package com.kmwllc.lucille.core.fileHandler;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -244,17 +243,13 @@ public class CSVFileHandler extends BaseFileHandler {
   }
 
   private CSVReader getCsvReader(String pathStr) throws FileHandlerException {
-    FileContentFetcher fetcher = new FileContentFetcher();
-
     try {
-      return new CSVReaderBuilder(fetcher.getReader(pathStr)).
+      return new CSVReaderBuilder(FileUtils.getLocalFileReader(pathStr)).
           withCSVParser(
               new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
           .build();
     } catch (IOException e) {
       throw new FileHandlerException("Error creating CSVReader for file " + FilenameUtils.getName(pathStr), e);
-    } finally {
-      fetcher.shutdown();
     }
   }
 

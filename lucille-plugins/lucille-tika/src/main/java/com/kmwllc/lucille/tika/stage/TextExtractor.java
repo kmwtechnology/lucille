@@ -1,12 +1,9 @@
 package com.kmwllc.lucille.tika.stage;
 
-import com.kmwllc.lucille.connector.storageclient.StorageClient;
-import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileContentFetcher;
-import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.File;

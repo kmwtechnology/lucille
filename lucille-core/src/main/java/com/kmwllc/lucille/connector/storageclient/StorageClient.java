@@ -75,31 +75,24 @@ public interface StorageClient {
   }
 
   /**
-   * Based on the provided map of URI scheme Strings to StorageClients, returns the appropriate StorageClient for
-   * handling the given URI. The return may be null, indicating there is not a StorageClient available to handle the
-   * URI appropriately.
-   */
-  static StorageClient clientForGettingURIStream(URI pathToFile, Map<String, StorageClient> availableClients) {
-    String activeClient = pathToFile.getScheme() != null ? pathToFile.getScheme() : "file";
-    return availableClients.get(activeClient);
-  }
-
-  /**
-   * Builds a list of all StorageClients which can be built from the given cloudOptions. Always returns at least
-   * a LocalStorageClient.
+   * Builds a map of all StorageClients which can be built from the given cloudOptions. Always returns at least
+   * a LocalStorageClient (mapped to "file").
    *
    * To build clients for the cloud providers, these arguments must be provided:
    * <br> If using GoogleStorageClient:
    * <br> "pathToServiceKey" : "path/To/Service/Key.json"
+   * <br> Mapped to: <b>gs</b>
    * <br> If using AzureStorageClient:
    * <br> "connectionString" : azure connection string
    * <br> <b>or</b>
    * <br> "accountName" : azure account name
    * <br> "accountKey" : azure account key
+   * <br> Mapped to: <b>https</b>
    * <br> If using S3StorageClient:
    * <br> "accessKeyId" : s3 key id
    * <br> "secretAccessKey" : secret access key
    * <br> "region" : s3 storage region
+   * <br> Mapped to: <b>s3</b>
    */
   static Map<String, StorageClient> clientsFromCloudOptions(Map<String, Object> cloudOptions) {
     Map<String, StorageClient> results = new HashMap<>();

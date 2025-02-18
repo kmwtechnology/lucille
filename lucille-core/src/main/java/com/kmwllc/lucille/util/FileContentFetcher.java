@@ -35,14 +35,16 @@ public class FileContentFetcher {
   }
 
   /**
-   * Initialize the storage clients associated with this FileContentFetcher. Throws a StageException if an error
-   * occurs initializing any of the StorageClients.
+   * Initialize the storage clients associated with this FileContentFetcher. Calls shutdown on all clients and throws an Exception
+   * if an error occurs while initializing any of the StorageClients.
    */
   public void startup() throws StageException {
     for (StorageClient client : availableClients.values()) {
       try {
         client.init();
       } catch (ConnectorException e) {
+        shutdown();
+
         throw new StageException("Unable to initialize StorageClient.", e);
       }
     }
@@ -95,7 +97,8 @@ public class FileContentFetcher {
 
   /**
    * Returns a Reader for the file at the given path. If the path begins with "classpath:" the prefix will be removed
-   * and the file will be read from the classpath. Otherwise, it will be read from the local file system.
+   * and the file will be read from the classpath. Otherwise, it will be read from the local file system. Will use UTF-8
+   * encoding.
    */
   public Reader getReader(String path) throws IOException {
     return getReader(path, "utf-8");
