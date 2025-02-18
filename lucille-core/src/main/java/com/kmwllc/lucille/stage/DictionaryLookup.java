@@ -6,7 +6,6 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.stage.util.DictionaryManager;
-import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 import java.lang.invoke.MethodHandles;

@@ -2,7 +2,6 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.util.FileContentFetcher;
-import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
