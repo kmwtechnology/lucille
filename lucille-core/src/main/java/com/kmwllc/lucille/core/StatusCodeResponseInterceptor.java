@@ -22,16 +22,7 @@ public class StatusCodeResponseInterceptor implements HttpResponseInterceptor {
     this.statusCodeWildcardList = new ArrayList<>();
   }
 
-  public StatusCodeResponseInterceptor(List<String> statusCodeRetryList) {
-    List<String> statusCodeList = new ArrayList<>();
-    List<String> statusCodeWildcardList = new ArrayList<>();
-    for (String statusCode : statusCodeRetryList) {
-      if (statusCode.contains("x")) {
-        statusCodeWildcardList.add(statusCode.replaceAll("x", ""));
-      } else {
-        statusCodeList.add(statusCode);
-      }
-    }
+  public StatusCodeResponseInterceptor(List<String> statusCodeList, List<String> statusCodeWildcardList) {
     this.statusCodeList = statusCodeList;
     this.statusCodeWildcardList = statusCodeWildcardList;
   }
@@ -49,7 +40,7 @@ public class StatusCodeResponseInterceptor implements HttpResponseInterceptor {
 
   // check if the status code retry lists contains the code itself or a wildcard that contains includes that code.
   // ex. if code=500 and statusCodeRetryList=["429","5xx"], then this would return true.
-  protected boolean listContainsValue(int code) {
+  boolean listContainsValue(int code) {
     String codeStr = String.valueOf(code);
     if (this.statusCodeList.contains(codeStr)) {
       return true;

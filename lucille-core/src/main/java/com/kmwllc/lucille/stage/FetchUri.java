@@ -85,8 +85,8 @@ public class FetchUri extends Stage {
     this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connection_request_timeout", 60000);
     this.connectTimeout = ConfigUtils.getOrDefault(config, "connect_timeout", 60000);
     this.socketTimeout = ConfigUtils.getOrDefault(config, "socket_timeout", 60000);
-    this.statusCodeRetryList = ConfigUtils.getOrDefault(config, "status_code_retry_list", new ArrayList<>());
-    this.statusCodeRetryList.forEach(code -> code = code.toLowerCase());
+    this.statusCodeRetryList = ConfigUtils.getOrDefault(config, "status_code_retry_list", new ArrayList<String>())
+        .stream().map(String::toLowerCase).collect(Collectors.toList());
   }
 
   // Method exists for testing with mockito mocks
@@ -123,6 +123,17 @@ public class FetchUri extends Stage {
           + "Nothing will be retried.");
     }
 
+    // separate status code retry list into wildcards and non-wildcards
+    List<String> statusCodeList = new ArrayList<>();
+    List<String> statusCodeWildcardList = new ArrayList<>();
+    for (String statusCode : this.statusCodeRetryList) {
+      if (statusCode.contains("x")) {
+        statusCodeWildcardList.add(statusCode.replaceAll("x", ""));
+      } else {
+        statusCodeList.add(statusCode);
+      }
+    }
+
     RequestConfig requestConfig = RequestConfig.custom()
         .setConnectionRequestTimeout(this.connectionRequestTimeout)
         .setConnectTimeout(this.connectTimeout)
@@ -133,7 +144,7 @@ public class FetchUri extends Stage {
         .create()
         .setDefaultRequestConfig(requestConfig)
         .setRetryHandler(new ExponentialBackoffRetryHandler(this.maxNumRetries, this.initialExpiry, this.maxExpiry))
-        .addInterceptorFirst(new StatusCodeResponseInterceptor(this.statusCodeRetryList))
+        .addInterceptorFirst(new StatusCodeResponseInterceptor(statusCodeList, statusCodeWildcardList))
         .build();
   }
 

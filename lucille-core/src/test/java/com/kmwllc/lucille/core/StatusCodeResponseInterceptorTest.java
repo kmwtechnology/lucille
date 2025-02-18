@@ -10,8 +10,10 @@ public class StatusCodeResponseInterceptorTest {
 
   @Test
   public void testListContains() {
-    List<String> statusCodeRetryList = Arrays.asList("206", "30x", "429", "5xx");
-    StatusCodeResponseInterceptor statusCodeResponseInterceptor = new StatusCodeResponseInterceptor(statusCodeRetryList);
+    List<String> statusCodeList = Arrays.asList("206", "429");
+    List<String> statusCodeWildcardList = Arrays.asList("30", "5");
+    // initial statusCodeRetryList in FetchUri would be: ["206", "30x", "429", "5XX"]
+    StatusCodeResponseInterceptor statusCodeResponseInterceptor = new StatusCodeResponseInterceptor(statusCodeList, statusCodeWildcardList);
 
     int codeForXX = 500;
     assertTrue(statusCodeResponseInterceptor.listContainsValue(codeForXX));
