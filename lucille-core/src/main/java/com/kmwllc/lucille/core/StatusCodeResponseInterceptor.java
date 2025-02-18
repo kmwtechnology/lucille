@@ -14,14 +14,26 @@ import org.slf4j.LoggerFactory;
 public class StatusCodeResponseInterceptor implements HttpResponseInterceptor {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private int numRetry = 0;
-  private final List<String> statusCodeRetryList;
+  private final List<String> statusCodeList;
+  private final List<String> statusCodeWildcardList;
 
   public StatusCodeResponseInterceptor() {
-    this.statusCodeRetryList = new ArrayList<>();
+    this.statusCodeList = new ArrayList<>();
+    this.statusCodeWildcardList = new ArrayList<>();
   }
 
   public StatusCodeResponseInterceptor(List<String> statusCodeRetryList) {
-    this.statusCodeRetryList = statusCodeRetryList;
+    List<String> statusCodeList = new ArrayList<>();
+    List<String> statusCodeWildcardList = new ArrayList<>();
+    for (String statusCode : statusCodeRetryList) {
+      if (statusCode.contains("x")) {
+        statusCodeWildcardList.add(statusCode.replaceAll("x", ""));
+      } else {
+        statusCodeList.add(statusCode);
+      }
+    }
+    this.statusCodeList = statusCodeList;
+    this.statusCodeWildcardList = statusCodeWildcardList;
   }
 
   @Override
@@ -35,22 +47,14 @@ public class StatusCodeResponseInterceptor implements HttpResponseInterceptor {
     }
   }
 
-  // check if this statusCodeRetryList contains the code itself or a wildcard that contains includes that code.
+  // check if the status code retry lists contains the code itself or a wildcard that contains includes that code.
   // ex. if code=500 and statusCodeRetryList=["429","5xx"], then this would return true.
   protected boolean listContainsValue(int code) {
     String codeStr = String.valueOf(code);
-    if (this.statusCodeRetryList.contains(codeStr)) {
+    if (this.statusCodeList.contains(codeStr)) {
       return true;
     }
-    for (String statusCode : this.statusCodeRetryList) {
-      statusCode = statusCode.toLowerCase();
-      if (statusCode.contains("x")) {
-        if (codeStr.startsWith(statusCode.replaceAll("x", ""))) {
-          return true;
-        }
-      }
-    }
-    return false;
+    return this.statusCodeWildcardList.stream().anyMatch(codeStr::startsWith);
   }
 }
 

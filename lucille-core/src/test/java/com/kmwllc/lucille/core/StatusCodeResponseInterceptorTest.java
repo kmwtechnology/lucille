@@ -10,7 +10,7 @@ public class StatusCodeResponseInterceptorTest {
 
   @Test
   public void testListContains() {
-    List<String> statusCodeRetryList = Arrays.asList("206", "30x", "429", "5XX");
+    List<String> statusCodeRetryList = Arrays.asList("206", "30x", "429", "5xx");
     StatusCodeResponseInterceptor statusCodeResponseInterceptor = new StatusCodeResponseInterceptor(statusCodeRetryList);
 
     int codeForXX = 500;
