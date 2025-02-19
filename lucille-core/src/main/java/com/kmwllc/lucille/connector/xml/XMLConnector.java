@@ -3,8 +3,8 @@ package com.kmwllc.lucille.connector.xml;
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
+import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -71,7 +71,8 @@ public class XMLConnector extends AbstractConnector {
       }
 
       try {
-        xmlFileHandler.processFileAndPublish(publisher, path);
+        InputStream stream = FileUtils.getLocalInputStream(fileStr);
+        xmlFileHandler.processFileAndPublish(publisher, stream, path.toString());
       } catch (Exception e) {
         throw new ConnectorException("Error processing file: " + file, e);
       }

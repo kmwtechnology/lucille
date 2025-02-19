@@ -3,9 +3,11 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
+import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
@@ -45,8 +47,9 @@ public class CSVConnector extends AbstractConnector {
     createProcessedAndErrorFoldersIfSet();
 
     try {
-      log.debug("Processing file: {}", path);
-      csvFileHandler.processFileAndPublish(publisher, path);
+      InputStream stream = FileUtils.getLocalInputStream(pathStr);
+      log.debug("Processing file: {}", file);
+      csvFileHandler.processFileAndPublish(publisher, stream, pathStr);
     } catch (Exception e) {
       if (moveToErrorFolder != null) {
         // move to error folder
@@ -83,7 +86,6 @@ public class CSVConnector extends AbstractConnector {
       }
     }
   }
-
 
   public void moveFile(Path absolutePath, String option) {
     if (absolutePath.startsWith("classpath:")) {
