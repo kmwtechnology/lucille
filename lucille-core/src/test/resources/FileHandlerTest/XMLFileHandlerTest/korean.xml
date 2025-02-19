@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="ISO-2022-KR"?>
+<Company>
+    <staff>
+        <id>1001</id>
+        <name>대니엘</name>
+        <role>컴퓨터 과학자</role>
+        <salary currency="USD">3000</salary>
+        <bio>샌디에고</bio>
+    </staff>
+</Company>

@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import com.api.jsonata4java.expressions.EvaluateException;
+import com.api.jsonata4java.expressions.Expressions;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -8,6 +10,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.sql.Timestamp;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,7 +21,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
-
 
 /**
  * Document implementation that functions as a lightweight wrapper around a piece of JSON.
@@ -32,7 +35,7 @@ public class JsonDocument implements Document {
   private static final Logger log = LoggerFactory.getLogger(JsonDocument.class);
 
   @JsonValue
-  protected final ObjectNode data;
+  protected ObjectNode data;
 
   /**
    * A copy constructor for {@link Document} that deep copies the ObjectNode and verifies the
@@ -47,7 +50,7 @@ public class JsonDocument implements Document {
 
   /**
    * Creates a new {@link JsonDocument} from a {@link ObjectNode} of key/value pairs. Note: does
-   * not defensively copy the given ObjectNode, so it must not be modified after creation.
+   * not defensively copy the given ObjectNode, so it must not be modified after creation
    *
    * @param data the data to be stored in the document
    * @throws DocumentException if document is missing a nonempty {@link Document#ID_FIELD}
@@ -172,6 +175,18 @@ public class JsonDocument implements Document {
   public void setField(String name, byte[] value) {
     validateFieldNames(name);
     data.put(name, value);
+  }
+
+  @Override
+  public void setField(String name, Date value) {
+    Instant instant = Instant.ofEpochMilli(value.getTime());
+    setField(name, instant);
+  }
+
+  @Override
+  public void setField(String name, Timestamp value) {
+    Instant instant = Instant.ofEpochMilli(value.getTime());
+    setField(name, instant);
   }
 
   @Override
@@ -477,6 +492,43 @@ public class JsonDocument implements Document {
     return data.get(name);
   }
 
+  @Override
+  public Date getDate(String name) {
+    Instant instant = getInstant(name);
+    return instant == null ? null : Date.from(instant);
+  }
+
+  @Override
+  public List<Date> getDateList(String name) {
+    List<Instant> instants = getInstantList(name);
+    if (instants == null) {
+      return null;
+    } else {
+      return instants.stream()
+          .map(instant -> instant == null ? null : Date.from(instant))
+          .collect(Collectors.toList());
+    }
+  }
+
+
+  @Override
+  public Timestamp getTimestamp(String name) {
+    Instant instant = getInstant(name);
+    return instant == null ? null : Timestamp.from(instant);
+  }
+
+  @Override
+  public List<Timestamp> getTimestampList(String name) {
+    List<Instant> instants = getInstantList(name);
+    if (instants == null) {
+      return null;
+    } else {
+      return instants.stream()
+          .map(instant -> instant == null ? null : Timestamp.from(instant))
+          .collect(Collectors.toList());
+    }
+  }
+
   private JsonNode getSingleNode(String name) {
     return isMultiValued(name) ? data.withArray(name).get(0) : data.get(name);
   }
@@ -621,6 +673,18 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public void addToField(String name, Date value) {
+    Instant instant = Instant.ofEpochMilli(value.getTime());
+    addToField(name, instant);
+  }
+
+  @Override
+  public void addToField(String name, Timestamp value) {
+    Instant instant = Instant.ofEpochMilli(value.getTime());
+    addToField(name, instant);
+  }
+
+  @Override
   public void setOrAdd(String name, String value) {
     if (has(name)) {
       addToField(name, value);
@@ -694,6 +758,24 @@ public class JsonDocument implements Document {
 
   @Override
   public void setOrAdd(String name, JsonNode value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  @Override
+  public void setOrAdd(String name, Date value) {
+    if (has(name)) {
+      addToField(name, value);
+    } else {
+      setField(name, value);
+    }
+  }
+
+  @Override
+  public void setOrAdd(String name, Timestamp value) {
     if (has(name)) {
       addToField(name, value);
     } else {
@@ -848,6 +930,30 @@ public class JsonDocument implements Document {
         arrayNode.add(jsonNode);
       }
     }
+  }
+
+  @Override
+  public void transform(Expressions expr) throws DocumentException {
+    HashMap<String, JsonNode> reserved = new HashMap<>();
+    RESERVED_FIELDS.stream().filter(field -> has(field)).forEach(field -> reserved.put(field, data.get(field)));
+    JsonNode transformed = null;
+    try {
+      transformed = expr.evaluate(data);
+    } catch (EvaluateException e) {
+      throw new DocumentException("Evaluation exception when applying transformation: " + e.getLocalizedMessage());
+    }
+
+    if (!transformed.isObject()) {
+      throw new DocumentException("Transformation must return a JSON object, not array or literal");
+    }
+
+    for (Map.Entry<String, JsonNode> entry : reserved.entrySet()) {
+      if (!entry.getValue().equals(transformed.get(entry.getKey()))) {
+        throw new DocumentException("The given transformation mutates a reserved field");
+      }
+    }
+
+    data = (ObjectNode) transformed;
   }
 
   private static ObjectNode getData(Document other) {

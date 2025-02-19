@@ -11,8 +11,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.apache.commons.vfs2.FileObject;
+import org.apache.commons.vfs2.FileSystemException;
+import org.apache.commons.vfs2.impl.StandardFileSystemManager;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
@@ -20,6 +21,8 @@ import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.Parser;
 import org.apache.tika.sax.BodyContentHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 
@@ -40,7 +43,7 @@ import org.xml.sax.SAXException;
  */
 public class TextExtractor extends Stage {
 
-  private static final Logger log = LogManager.getLogger(TextExtractor.class);
+  private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
   private String textField;
   private String filePathField;
   private String tikaConfigPath;
@@ -51,6 +54,7 @@ public class TextExtractor extends Stage {
   private List<String> metadataBlacklist;
   private Parser parser;
   private ParseContext parseCtx;
+  private StandardFileSystemManager fsManager;
 
   public TextExtractor(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
@@ -77,6 +81,15 @@ public class TextExtractor extends Stage {
 
   @Override
   public void start() throws StageException {
+    // initialize fsManager only if file_path_field is used
+    if (filePathField != null) {
+      try {
+        fsManager = new StandardFileSystemManager();
+        fsManager.init();
+      } catch (FileSystemException e) {
+        throw new StageException("Could not initialize FileSystem in TextExtractor Stage", e);
+      }
+    }
     if (this.tikaConfigPath == null) {
       parser = new AutoDetectParser();
     } else {
@@ -92,24 +105,46 @@ public class TextExtractor extends Stage {
   }
 
   @Override
+  public void stop() {
+    if (fsManager != null) {
+      fsManager.close();
+    }
+  }
+
+  @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // if the document has both a byteArray field and a filePathField, only byteArray will be processed.
     if (doc.has(byteArrayField)) {
 
       byte[] byteArray = doc.getBytes(byteArrayField);
 
-      InputStream inputStream = new ByteArrayInputStream(byteArray);
-      parseInputStream(doc, inputStream);
-
-    } else if (doc.has(filePathField)) {
-
-      String filePath = doc.getString(filePathField);
-
-      try {
-        InputStream inputStream = FileUtils.getInputStream(filePath);
+      try (InputStream inputStream = new ByteArrayInputStream(byteArray)) {
         parseInputStream(doc, inputStream);
       } catch (IOException e) {
-        throw new StageException("InputStream cannot be parsed or created", e);
+        log.warn("Error closing inputStream: ", e);
+        return null;
+      }
+
+    } else if (doc.has(filePathField)) {
+      // get fileObject from path
+      String filePath = doc.getString(filePathField);
+
+      try (FileObject file = FileUtils.getFileObject(filePath, fsManager)) {
+        // if file is null error occurred while getting FileObject, don't process document
+        if (file == null) {
+          return null;
+        }
+
+        // file.getContent() never returns null, will not throw nullPointerException
+        // https://commons.apache.org/proper/commons-vfs/commons-vfs2/apidocs/org/apache/commons/vfs2/FileObject.html#getContent--
+        try (InputStream inputStream = file.getContent().getInputStream()) {
+          parseInputStream(doc, inputStream);
+        } catch(FileSystemException e) {
+          log.warn("Error getting inputStream or content from file at: {}", filePath, e);
+          return null;
+        }
+      } catch (IOException e) { // catches IOExceptions for using try with resources
+        log.warn("Error closing inputstream or file object at: {}", filePath, e);
       }
     }
     return null;
@@ -127,7 +162,7 @@ public class TextExtractor extends Stage {
   }
 
   /**
-   * Parses given input stream and adds the text data and metadata to given document
+   * Parses given input stream, close it, and adds the text data and metadata to given document
    */
   public void parseInputStream(Document doc, InputStream inputStream) {
     Metadata metadata = new Metadata();
@@ -136,9 +171,18 @@ public class TextExtractor extends Stage {
       parser.parse(inputStream, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
       log.warn("Tika Exception: {}", e.getMessage());
+    } finally {
+      // close the inputStream regardless if error is thrown
+      if (inputStream != null) {
+        try {
+          inputStream.close();
+        } catch (IOException e2) {
+          log.warn("Failed to close inputStream: {}", e2.getMessage());
+        }
+      }
     }
 
-    doc.addToField(textField, bch.toString());
+    doc.setOrAdd(textField, bch.toString());
     String newMetadataPrefix = metadataPrefix == "" ? "": metadataPrefix + "_" ;
     for (String name : metadata.names()) {
       // clean the field name first.
@@ -147,7 +191,7 @@ public class TextExtractor extends Stage {
           || (metadataWhitelist != null && metadataWhitelist.contains(cleanName))
           || (metadataWhitelist == null) && (metadataBlacklist == null)) {
         for (String value : metadata.getValues(name)) {
-          doc.addToField(newMetadataPrefix + cleanName, value);
+          doc.setOrAdd(newMetadataPrefix + cleanName, value);
         }
       }
     }

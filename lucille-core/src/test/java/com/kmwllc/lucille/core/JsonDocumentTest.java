@@ -1,10 +1,13 @@
 package com.kmwllc.lucille.core;
 
+import com.api.jsonata4java.expressions.Expressions;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Date;
 import org.junit.Test;
 
 import java.util.Base64;
@@ -14,6 +17,7 @@ import java.util.function.UnaryOperator;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 
@@ -137,6 +141,18 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals("2", doc.getStringList("myStringField").get(0));
     assertEquals(Integer.valueOf(1), doc.getIntList("myIntField").get(0));
     assertEquals(Integer.valueOf(2), doc.getIntList("myStringField").get(0));
+
+    doc.setField("myInstantField", Instant.ofEpochMilli(1L));
+    assertEquals(new Date(1L), doc.getDate("myInstantField"));
+    assertEquals(new Timestamp(1L), doc.getTimestamp("myInstantField"));
+
+    doc.setField("myDateField", new Date(1L));
+    assertEquals(Instant.ofEpochMilli(1L), doc.getInstant("myDateField"));
+    assertEquals(new Timestamp(1L), doc.getTimestamp("myDateField"));
+
+    doc.setField("myTimestampField", new Timestamp(1L));
+    assertEquals(new Date(1L), doc.getDate("myTimestampField"));
+    assertEquals(Instant.ofEpochMilli(1L), doc.getInstant("myTimestampField"));
   }
 
   @Test
@@ -199,5 +215,37 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals(mapper.readTree("[{\"a\":1}, {\"a\":2}, {\"a\":3}]"), d.getJson("myJson"));
     d.update("myJson", UpdateMode.APPEND, mapper.readTree("{\"a\":4}"));
     assertEquals(mapper.readTree("[{\"a\":1}, {\"a\":2}, {\"a\":3}, {\"a\":4}]"), d.getJson("myJson"));
+  }
+
+  @Test
+  public void testTransform() throws Exception {
+    Document doc = createDocumentFromJson("{\"id\":\"id\",\"foo\": \"bar\"}");
+    doc.setField("bytes", new byte[]{1, 2, 3});
+    
+    // test mutating a reserved field
+    Expressions mutateReservedExpr = Expressions.parse("{\"id\":\"diff\",\"foo\": \"bar\"}");
+    assertThrows(DocumentException.class, () -> doc.transform(mutateReservedExpr));
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("bar", doc.getString("foo"));
+    assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
+
+    // test mutatation does not create object 
+    Expressions mutateIntoArray = Expressions.parse("[1, 2, 3]");
+    Expressions mutateIntoNum = Expressions.parse("3");
+    assertThrows(DocumentException.class, () -> doc.transform(mutateIntoArray));
+    assertThrows(DocumentException.class, () -> doc.transform(mutateIntoNum));
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("bar", doc.getString("foo"));
+    assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
+
+    // test valid mutation 
+    Expressions mutateFoo = Expressions.parse("$merge([$, {\"foo\": $substring(foo, 2)}])");
+    doc.transform(mutateFoo);
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("r", doc.getString("foo"));
+    assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
   }
 }

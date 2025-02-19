@@ -5,6 +5,8 @@ import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.File;
+import org.apache.commons.io.FileUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -60,5 +62,9 @@ public class IndexerFactoryTest {
     Config config = ConfigFactory.load("IndexerFactoryTest/config_valid_type_csv.conf");
     Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
     Assert.assertTrue(indexer instanceof CSVIndexer);
+
+    // removing the foo file created from test
+    boolean fooIsDeleted = FileUtils.deleteQuietly(new File(config.getString("csv.path")));
+    Assert.assertTrue(fooIsDeleted);
   }
 }

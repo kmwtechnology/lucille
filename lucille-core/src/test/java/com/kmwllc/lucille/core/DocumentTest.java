@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.sql.Timestamp;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -236,6 +237,34 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testSetFieldObject() throws JsonProcessingException {
+    Document document = createDocument("123");
+    // check that all types supported will not throw error
+    // Int
+    document.setField("integerField", (Object) 1);
+    // Boolean
+    document.setField("booleanField", (Object) true);
+    // Long
+    document.setField("longField", (Object) 2L);
+    // Float
+    document.setField("floatField", (Object) 2F);
+    // Double
+    document.setField("doubleField", (Object) 2D);
+    // Date
+    document.setField("dateField", (Object) new Date(1L));
+    // Timestamp
+    document.setField("timestampField", (Object) new Timestamp(2L));
+    // Instant
+    document.setField("instantField", (Object) Instant.ofEpochSecond(1));
+    // JsonNode
+    ObjectMapper map = new ObjectMapper();
+    document.setField("jsonNodeField", (Object) map.readTree("{\"a\":1, \"b\":2}"));
+    // byteArray
+    byte[] bytes = new byte[] {0x3c, 0x4c, 0x5c};
+    document.setField("byteArrayField", (Object) bytes);
+  }
+
+  @Test
   public void testGetUnsetField() {
     Document document = createDocument("id");
     assertFalse(document.has("test_field"));
@@ -284,11 +313,35 @@ public abstract class DocumentTest {
   public void testAddToFieldObject() throws Exception {
     Document document = createDocument("123");
     assertFalse(document.has("field1"));
+    // String
     document.addToField("field1", (Object) "val1");
     document.addToField("field1", (Object) "val2");
     document.addToField("field1", (Object) "val3");
     List<String> expected = Arrays.asList("val1", "val2", "val3");
     assertEquals(expected, document.getStringList("field1"));
+    // Testing that error will not be thrown for all supported types
+    // Int
+    document.addToField("integerField", (Object) 1);
+    // Boolean
+    document.addToField("booleanField", (Object) true);
+    // Long
+    document.addToField("longField", (Object) 2L);
+    // Float
+    document.addToField("floatField", (Object) 2F);
+    // Double
+    document.addToField("doubleField", (Object) 2D);
+    // Date
+    document.addToField("dateField", (Object) new Date(1L));
+    // Timestamp
+    document.addToField("timestampField", (Object) new Timestamp(2L));
+    // Instant
+    document.addToField("instantField", (Object) Instant.ofEpochSecond(1));
+    // JsonNode
+    ObjectMapper map = new ObjectMapper();
+    document.addToField("jsonNodeField", (Object) map.readTree("{\"a\":1, \"b\":2}"));
+    // byteArray
+    byte[] bytes = new byte[] {0x3c, 0x4c, 0x5c};
+    document.addToField("byteArrayField", (Object) bytes);
   }
 
   @Test
@@ -606,6 +659,90 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testGetDateMissing() {
+    Document document = createDocument("doc");
+    assertNull(document.getDate("field1"));
+  }
+
+  @Test
+  public void testGetDateSingleValued() {
+    Document document = createDocument("doc");
+    document.setField("date", new Date(1L));
+    assertFalse(document.isMultiValued("date"));
+    assertEquals(new Date(1L), document.getDate("date"));
+    assertEquals(Collections.singletonList(new Date(1L)), document.getDateList("date"));
+    // date is stored as an ISO INSTANT formatted string in JsonDocument, but stored as a date object in HashmapDocument
+    // output of getString is thus dependent on type of document
+  }
+
+  @Test
+  public void testGetDateListMissing() {
+    Document document = createDocument("doc");
+    assertNull(document.getDateList("field1"));
+  }
+
+  @Test
+  public void testGetDatesMultiValued() {
+    Document document = createDocument("doc");
+    document.setField("dates", new Date(1L));
+    assertFalse(document.isMultiValued("dates"));
+    document.addToField("dates", new Date(2L));
+    assertTrue(document.isMultiValued("dates"));
+    document.addToField("dates", new Date(3L));
+    assertEquals(Arrays.asList(new Date(1L), new Date(2L), new Date(3L)), document.getDateList("dates"));
+  }
+
+  @Test
+  public void testGetDateMultivalued() {
+    Document document = createDocument("doc");
+    document.addToField("field1", new Date(1));
+    document.addToField("field1", new Date(2));
+    assertEquals(new Date(1), document.getDate("field1"));
+  }
+
+  @Test
+  public void testGetTimestampMissing() {
+    Document document = createDocument("doc");
+    assertNull(document.getTimestamp("field1"));
+  }
+
+  @Test
+  public void testGetTimestampSingleValued() {
+    Document document = createDocument("doc");
+    document.setField("timestamp", new Timestamp(1L));
+    assertFalse(document.isMultiValued("timestamp"));
+    assertEquals(new Timestamp(1L), document.getTimestamp("timestamp"));
+    assertEquals(Collections.singletonList(new Timestamp(1L)), document.getTimestampList("timestamp"));
+    // timestamp is stored as an ISO INSTANT formatted string in JsonDocument, but stored as a timestamp object in HashmapDocument
+    // output of getString is thus dependent on type of document
+  }
+
+  @Test
+  public void testGetTimestampListMissing() {
+    Document document = createDocument("doc");
+    assertNull(document.getTimestampList("field1"));
+  }
+
+  @Test
+  public void testGetTimestampMultiValued() {
+    Document document = createDocument("doc");
+    document.setField("timestamp", new Timestamp(1L));
+    assertFalse(document.isMultiValued("timestamp"));
+    document.addToField("timestamp", new Timestamp(2L));
+    assertTrue(document.isMultiValued("timestamp"));
+    document.addToField("timestamp", new Timestamp(3L));
+    assertEquals(Arrays.asList(new Timestamp(1L), new Timestamp(2L), new Timestamp(3L)), document.getTimestampList("timestamp"));
+  }
+
+  @Test
+  public void testGetTimestampMultivalued() {
+    Document document = createDocument("doc");
+    document.addToField("field1", new Timestamp(1L));
+    document.addToField("field1", new Timestamp(2L));
+    assertEquals(new Timestamp(1L), document.getTimestamp("field1"));
+  }
+
+  @Test
   public void testChildren() throws Exception {
     Document parent = createDocument("parent");
     assertFalse(parent.hasChildren());
@@ -895,6 +1032,50 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testUpdateDate() throws Exception {
+    Document document = createDocument("id1");
+    document.update("myDateField", UpdateMode.OVERWRITE, new Date(1));
+    document.update("myDateField", UpdateMode.OVERWRITE, new Date(2));
+    document.update("myDateField", UpdateMode.APPEND, new Date(3));
+    document.update("myDateField", UpdateMode.SKIP, new Date(4));
+
+    assertEquals(List.of(new Date(2), new Date(3)), document.getDateList("myDateField"));
+  }
+
+  @Test
+  public void testUpdateDateObject() throws Exception {
+    Document document = createDocument("id1");
+    document.update("myDateField", UpdateMode.OVERWRITE, (Object) new Date(1));
+    document.update("myDateField", UpdateMode.OVERWRITE, (Object) new Date(2));
+    document.update("myDateField", UpdateMode.APPEND, (Object) new Date(3));
+    document.update("myDateField", UpdateMode.SKIP, (Object) new Date(4));
+
+    assertEquals(List.of(new Date(2), new Date(3)), document.getDateList("myDateField"));
+  }
+
+  @Test
+  public void testUpdateTimestamp() throws Exception {
+    Document document = createDocument("id1");
+    document.update("myTimestampField", UpdateMode.OVERWRITE, new Timestamp(1));
+    document.update("myTimestampField", UpdateMode.OVERWRITE, new Timestamp(2));
+    document.update("myTimestampField", UpdateMode.APPEND, new Timestamp(3));
+    document.update("myTimestampField", UpdateMode.SKIP, new Timestamp(4));
+
+    assertEquals(List.of(new Timestamp(2), new Timestamp(3)), document.getTimestampList("myTimestampField"));
+  }
+
+  @Test
+  public void testUpdateTimestampObject() throws Exception {
+    Document document = createDocument("id1");
+    document.update("myTimestampField", UpdateMode.OVERWRITE, (Object) new Timestamp(1));
+    document.update("myTimestampField", UpdateMode.OVERWRITE, (Object) new Timestamp(2));
+    document.update("myTimestampField", UpdateMode.APPEND, (Object) new Timestamp(3));
+    document.update("myTimestampField", UpdateMode.SKIP, (Object) new Timestamp(4));
+
+    assertEquals(List.of(new Timestamp(2), new Timestamp(3)), document.getTimestampList("myTimestampField"));
+  }
+
+  @Test
   public void testUpdateSingleVersusMultiValued() {
     Document document = createDocument("id1");
     document.update("myStringField1", UpdateMode.OVERWRITE, "val1");
@@ -1046,6 +1227,30 @@ public abstract class DocumentTest {
     assertEquals("value1", document3.getStringList("field1").get(0));
     assertEquals("value2", document3.getStringList("field1").get(1));
     assertEquals(2, document3.getStringList("field1").size());
+
+    // test setOrAdd supporting all types as Objects
+    // Int
+    document.setOrAdd("integerField", (Object) 1);
+    // Boolean
+    document.setOrAdd("booleanField", (Object) true);
+    // Long
+    document.setOrAdd("longField", (Object) 2L);
+    // Float
+    document.setOrAdd("floatField", (Object) 2F);
+    // Double
+    document.setOrAdd("doubleField", (Object) 2D);
+    // Date
+    document.setOrAdd("dateField", (Object) new Date(1L));
+    // Timestamp
+    document.setOrAdd("timestampField", (Object) new Timestamp(2L));
+    // Instant
+    document.setOrAdd("instantField", (Object) Instant.ofEpochSecond(1));
+    // JsonNode
+    ObjectMapper map = new ObjectMapper();
+    document.setOrAdd("jsonNodeField", (Object) map.readTree("{\"a\":1, \"b\":2}"));
+    // byteArray
+    byte[] bytes = new byte[] {0x3c, 0x4c, 0x5c};
+    document.setOrAdd("byteArrayField", (Object) bytes);
   }
 
   @Test

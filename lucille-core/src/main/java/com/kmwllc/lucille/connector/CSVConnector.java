@@ -1,30 +1,17 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.util.FileUtils;
-import com.opencsv.CSVParser;
-import com.opencsv.CSVParserBuilder;
-import com.opencsv.CSVReader;
-import com.opencsv.CSVReaderBuilder;
-import com.opencsv.exceptions.CsvException;
-import com.opencsv.exceptions.CsvMalformedLineException;
-import com.opencsv.exceptions.CsvValidationException;
+import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
 import com.typesafe.config.Config;
-import org.apache.commons.lang3.CharUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.nio.file.Path;
 
 /**
  * Connector implementation that produces documents from the rows in a given CSV file.
@@ -32,54 +19,53 @@ import java.util.List;
 public class CSVConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(CSVConnector.class);
-
-  private final String path;
-  private final String lineNumField;
-  private final String filenameField;
-  private final String filePathField;
-  // CSV Connector might need a compound key for uniqueness based on many columns.
-  private final List<String> idFields;
-  private final String docIdFormat;
-  private final char separatorChar;
-  private final char quoteChar;
-  private final char escapeChar;
-  private final boolean lowercaseFields;
-  private final String moveToErrorFolder;
-  private final List<String> ignoredTerms;
+  private final CSVFileHandler csvFileHandler;
+  private final String pathStr;
   private final String moveToAfterProcessing;
-  private static final String UTF8_BOM = "\uFEFF";
+  private final String moveToErrorFolder;
 
   public CSVConnector(Config config) {
     super(config);
-    this.path = config.getString("path");
-    this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
-    this.filenameField = config.hasPath("filenameField") ? config.getString("filenameField") : "filename";
-    this.filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : "source";
-    String idField = config.hasPath("idField") ? config.getString("idField") : null;
-    // Either specify the idField, or idFields 
-    if (idField != null) {
-      this.idFields = new ArrayList<String>();
-      this.idFields.add(idField);
-    } else {
-      this.idFields = config.hasPath("idFields") ? config.getStringList("idFields") : new ArrayList<String>();
-    }
-    this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
-    // if both a separator char and useTabs is specified, useTabs takes precedence
-    char separator = config.hasPath("separatorChar") ? CharUtils.toChar(config.getString("separatorChar")) : ',';
-    this.separatorChar = (config.hasPath("useTabs") && config.getBoolean("useTabs")) ? '\t' : separator;
-    this.quoteChar = (config.hasPath("interpretQuotes") && !config.getBoolean("interpretQuotes")) ?
-        CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;
-    this.escapeChar = (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar")) ?
-        CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_ESCAPE_CHARACTER;
-    this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
-    this.moveToErrorFolder = config.hasPath("moveToErrorFolder") ? config.getString("moveToErrorFolder") : null;
-    this.ignoredTerms = config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : new ArrayList<>();
-    // A directory to move the files to after they are doing being processed.
+    this.pathStr = config.getString("path");
+    this.csvFileHandler = new CSVFileHandler(config);
     this.moveToAfterProcessing = config.hasPath("moveToAfterProcessing") ? config.getString("moveToAfterProcessing") : null;
+    this.moveToErrorFolder = config.hasPath("moveToErrorFolder") ? config.getString("moveToErrorFolder") : null;
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
+    File file = new File(pathStr);
+    Path path;
+    try {
+      path = file.toPath();
+    } catch (InvalidPathException e) {
+      throw new ConnectorException("Error converting " + pathStr + "to Path", e);
+    }
+
+    createProcessedAndErrorFoldersIfSet();
+
+    try {
+      log.debug("Processing file: {}", path);
+      csvFileHandler.processFileAndPublish(publisher, path);
+    } catch (Exception e) {
+      if (moveToErrorFolder != null) {
+        // move to error folder
+        moveFile(path.toAbsolutePath().normalize(), moveToErrorFolder);
+      }
+      throw new ConnectorException("Error processing or publishing file: " + path, e);
+    }
+
+    if (moveToAfterProcessing != null) {
+      // move to processed folder
+      moveFile(path.toAbsolutePath().normalize(), moveToAfterProcessing);
+    }
+  }
+
+  public String toString() {
+    return "CSVConnector: " + pathStr;
+  }
+
+  public void createProcessedAndErrorFoldersIfSet() {
     if (moveToAfterProcessing != null) {
       // Create the destination directory if it doesn't exist.
       File destDir = new File(moveToAfterProcessing);
@@ -96,173 +82,20 @@ public class CSVConnector extends AbstractConnector {
         errorDir.mkdirs();
       }
     }
-
-    File pathFile = new File(path);
-    if (!path.startsWith("classpath:") && !pathFile.exists()) {
-      throw new ConnectorException("Path " + path + " does not exist");
-    }
-
-    if (pathFile.isDirectory()) {
-      // no recursion supported
-      for (File f : pathFile.listFiles()) {
-        try {
-          processFile(f.getAbsolutePath(), publisher);
-        } catch (ConnectorException e) {
-          log.warn("Error Processing CSV File. {}", f.getAbsolutePath(), e);
-        }
-      }
-    } else {
-      processFile(path, publisher);
-    }
   }
 
-  private void processFile(String filePath, Publisher publisher) throws ConnectorException {
-    int lineNum = 0;
-    log.info("Beginning to process file {}", filePath);
-    String filename = new File(filePath).getName();
-    try (CSVReader csvReader = new CSVReaderBuilder(FileUtils.getReader(filePath)).
-        withCSVParser(
-            new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
-        .build()) {
-      // log.info("Processing linenumber: {}", lineNum);
-      // Assume first line is header
-      String[] header = csvReader.readNext();
-      if (header == null || header.length == 0) {
-        return;
-      }
-      // lowercase column names
-      if (lowercaseFields) {
-        for (int i = 0; i < header.length; i++) {
-          header[i] = header[i].toLowerCase();
-        }
-      }
-      // Index the column names
-      HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();
-      for (int i = 0; i < header.length; i++) {
-        // check for BOM
-        if (i == 0) {
-          header[i] = removeBOM(header[i]);
-        }
 
-        if (columnIndexMap.containsKey(header[i])) {
-          log.warn("Multiple columns with the name {} were discovered in the source csv file.", header[i]);
-          continue;
-        }
-        columnIndexMap.put(header[i], i);
-      }
-      // create a lookup list for column indexes
-      List<Integer> idColumns = new ArrayList<Integer>();
-      for (String field : idFields) {
-        if (lowercaseFields) {
-          idColumns.add(columnIndexMap.get(field.toLowerCase()));
-        } else {
-          idColumns.add(columnIndexMap.get(field));
-        }
-      }
-      // verify that we found all the columns.
-      if (idColumns.size() != idFields.size()) {
-        log.warn("Mismatch in idFields to column map.");
-      }
-      // At this point we should have the list of column ids that map to the idFields 
-      String[] line;
-
-      while ((line = csvReader.readNext()) != null) {
-        lineNum++;
-        // log.info("Processing linenumber: {}", lineNum);
-        // skip blank lines, lines with no value in the first column
-        if (line.length == 0 || (line.length == 1 && StringUtils.isBlank(line[0]))) {
-          continue;
-        }
-        if (line.length != header.length) {
-          // the line/row number reported here may differ from the physical line number in the file, if the CSV contains
-          // a quoted value that spans multiple lines
-          log.warn("Logical row {} of the csv has a different number of columns than the header.", lineNum);
-          continue;
-        }
-        String docId = "";
-        if (idColumns.size() > 0) {
-          // let's get the columns with the values for the id.
-          ArrayList<String> idColumnData = new ArrayList<String>();
-          for (Integer idx : idColumns) {
-            idColumnData.add(line[idx]);
-          }
-          docId = createDocId(idColumnData);
-        } else {
-          // a default unique id for a csv file is filename + line num
-          docId = getDocIdPrefix() + filename + "-" + lineNum;
-        }
-
-        Document doc = Document.create(docId);
-        doc.setField(filePathField, path);
-        doc.setField(filenameField, filename);
-        // log.info("DOC ID: {}", docId);
-        int maxIndex = Math.min(header.length, line.length);
-        for (int i = 0; i < maxIndex; i++) {
-          if (line[i] != null && !ignoredTerms.contains(line[i]) && !Document.RESERVED_FIELDS.contains(header[i])) {
-            doc.setField(header[i], line[i]);
-          }
-        }
-        doc.setField(lineNumField, lineNum);
-
-        publisher.publish(doc);
-      }
-      // assuming we got here, we were successful processing the csv file
-      if (moveToAfterProcessing != null) {
-        moveFile(filePath, moveToAfterProcessing);
-      }
-    } catch (CsvException e) { // base class for most opencsv exceptions
-      log.error("Error during CSV processing at line {}", e.getLineNumber(), e);
-      if (moveToErrorFolder != null) {
-        moveFile(filePath, moveToErrorFolder);
-      }
-    } catch (CsvMalformedLineException e) { // an IOException, not a CsvException
-      log.error("Error during CSV processing at line {}", e.getLineNumber(), e);
-      if (moveToErrorFolder != null) {
-        moveFile(filePath, moveToErrorFolder);
-      }
-    } catch (Exception e) {
-      log.error("Error during CSV processing", e);
-      if (moveToErrorFolder != null) {
-        moveFile(filePath, moveToErrorFolder);
-      }
-    }
-  }
-
-  private String createDocId(ArrayList<String> idColumnData) {
-    // format the string with the data and pre-pend the doc id prefix
-    if (docIdFormat != null) {
-      return this.getDocIdPrefix() + String.format(docIdFormat, idColumnData.toArray());
-    } else {
-      // no doc id.. just choose the first value in the idColumnData
-      // Join the column data with an underscore if no docIdFormat provided.
-      String idData = StringUtils.join(idColumnData, "_");
-      return createDocId(idData);
-    }
-  }
-
-  public String toString() {
-    return "CSVConnector: " + path;
-  }
-
-  public String removeBOM(String s) {
-    if (s.startsWith(UTF8_BOM)) {
-      s = s.substring(1);
-    }
-    return s;
-  }
-
-  public void moveFile(String filePath, String option) {
-    if (filePath.startsWith("classpath:")) {
-      log.warn("Skipping moving classpath file: {} to {}", filePath, moveToAfterProcessing);
+  public void moveFile(Path absolutePath, String option) {
+    if (absolutePath.startsWith("classpath:")) {
+      log.warn("Skipping moving classpath file: {} to {}", absolutePath, moveToAfterProcessing);
       return;
     }
 
-    Path source = Paths.get(filePath);
-    String fileName = source.getFileName().toString();
+    String fileName = absolutePath.getFileName().toString();
     Path dest = Paths.get(option + File.separatorChar + fileName);
     try {
-      Files.move(source, dest);
-      log.info("File {} was successfully moved from source {} to destination {}", fileName, source, dest);
+      Files.move(absolutePath, dest);
+      log.debug("File {} was successfully moved from source {} to destination {}", fileName, absolutePath, dest);
     } catch (IOException e) {
       log.warn("Error moving file to destination directory", e);
     }

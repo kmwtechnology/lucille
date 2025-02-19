@@ -12,6 +12,7 @@ public class SingleBatch implements Batch {
   private final LinkedBlockingQueue<Document> queue;
   private final int timeout;
   private Instant lastAddOrFlushInstant;
+  private final int capacity;
 
   /**
    * Creates a new batch.
@@ -21,6 +22,7 @@ public class SingleBatch implements Batch {
    *                will be considered as expired
    */
   public SingleBatch(int capacity, int timeout) {
+    this.capacity = capacity;
     this.queue = new LinkedBlockingQueue<>(capacity);
     this.timeout = timeout;
     this.lastAddOrFlushInstant = Instant.now();
@@ -57,6 +59,11 @@ public class SingleBatch implements Batch {
     queue.drainTo(docs);
     lastAddOrFlushInstant = Instant.now();
     return docs;
+  }
+
+  @Override
+  public int getCapacity() {
+    return capacity;
   }
 
   /**

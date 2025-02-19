@@ -8,8 +8,6 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
@@ -18,13 +16,15 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility methods for communicating with Solr.
  */
 public class SolrUtils {
 
-  private static final Logger log = LogManager.getLogger(SolrUtils.class);
+  private static final Logger log = LoggerFactory.getLogger(SolrUtils.class);
 
   /**
    * Generate a SolrClient from the given config file. Supports both Cloud and Http SolrClients.
@@ -37,6 +37,7 @@ public class SolrUtils {
    */
   public static SolrClient getSolrClient(Config config) {
     SSLUtils.setSSLSystemProperties(config);
+    
     if (config.hasPath("solr.useCloudClient") && config.getBoolean("solr.useCloudClient")) {
       CloudHttp2SolrClient cloudSolrClient = getCloudClient(config);
       return cloudSolrClient;
@@ -80,6 +81,11 @@ public class SolrUtils {
   public static Http2SolrClient getHttpClient(Config config) {
     Http2SolrClient.Builder clientBuilder = new Http2SolrClient.Builder();
 
+    if (getAllowInvalidCert(config)) {
+    	// disable the solr ssl host checking if configured to do so.
+    	System.setProperty("solr.ssl.checkPeerName", "false");
+    }
+    
     if (requiresAuth(config)) {
       CredentialsProvider provider = new BasicCredentialsProvider();
       String userName = config.getString("solr.userName");
@@ -89,6 +95,7 @@ public class SolrUtils {
       clientBuilder.withBasicAuthCredentials(userName, password);
     }
 
+    
     return clientBuilder.build();
   }
 
@@ -159,4 +166,12 @@ public class SolrUtils {
 
     return d;
   }
+  
+  public static boolean getAllowInvalidCert(Config config) {
+    if (config.hasPath("solr.acceptInvalidCert")) {
+      return config.getString("solr.acceptInvalidCert").equalsIgnoreCase("true");
+    }
+    return false;
+  }
+  
 }

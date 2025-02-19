@@ -14,9 +14,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Base64;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import nl.altindag.ssl.util.internal.StringUtils;
 
 /**
  * Parses a JSON string and sets fields on the processed document according to the configured mapping using
@@ -33,7 +33,6 @@ import java.util.Map.Entry;
  * </p>
  */
 public class ParseJson extends Stage {
-
   private static final Base64.Decoder DECODER = Base64.getDecoder();
 
   private final String src;
@@ -58,8 +57,14 @@ public class ParseJson extends Stage {
   }
 
   @Override
-  public void start() {
+  public void start() throws StageException {
     this.jsonParseCtx = JsonPath.using(this.jsonPathConf);
+
+    for (Entry<String, Object> entry : this.jsonFieldPaths.entrySet()) {
+      if (!isValidEntry(entry)) {
+        throw new StageException("jsonFieldPaths mapping contains a blank or null key/value.");
+      }
+    }
   }
 
   @Override
@@ -77,9 +82,20 @@ public class ParseJson extends Stage {
     }
     for (Entry<String, Object> entry : this.jsonFieldPaths.entrySet()) {
       JsonNode val = ctx.read((String) entry.getValue(), JsonNode.class);
-      doc.setField(entry.getKey(), val);
+      if (isValidNode(val)) { // makes sure that val and JsonNode Type is not null
+        // note that if val is an empty String, will still be set in the document
+        doc.setField(entry.getKey(), val);
+      }
     }
 
     return null;
+  }
+
+  private boolean isValidNode(JsonNode val) {
+    return val != null && !val.isNull();
+  }
+
+  private boolean isValidEntry(Entry<String, Object> entry) {
+    return StringUtils.isNotBlank(entry.getKey()) && StringUtils.isNotBlank((String) entry.getValue());
   }
 }

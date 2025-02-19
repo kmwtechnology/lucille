@@ -29,7 +29,7 @@ public class HeartbeatTest {
     }
 
     Config config = ConfigFactory.load("WorkerPoolTest/watcher.conf");
-    WorkerPool pool1 = new WorkerPool(config, "pipeline1",
+    WorkerPool pool1 = new WorkerPool(config, "pipeline1", null,
         WorkerMessengerFactory.getConstantFactory(new LocalMessenger()), "");
 
     pool1.start();
@@ -38,6 +38,7 @@ public class HeartbeatTest {
     Thread.sleep(3000);
 
     pool1.stop();
+    pool1.join();
 
     assertTrue(heartbeatLog.exists());
 

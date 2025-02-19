@@ -1,11 +1,13 @@
 package com.kmwllc.lucille.core;
 
+import static com.kmwllc.lucille.core.Document.ID_FIELD;
+import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
+
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.indexer.IndexerFactory;
-import com.kmwllc.lucille.indexer.SolrIndexer;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.LogUtils;
@@ -19,6 +21,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.MDC;
+import org.slf4j.MDC.MDCCloseable;
 import sun.misc.Signal;
 
 public abstract class Indexer implements Runnable {
@@ -27,6 +31,7 @@ public abstract class Indexer implements Runnable {
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
+  private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
   private final IndexerMessenger messenger;
   private final Batch batch;
@@ -51,12 +56,15 @@ public abstract class Indexer implements Runnable {
 
   private Instant lastLog = Instant.now();
 
+  // A runID for a local (local / test) run. Null if not in one of those modes / started independently.
+  private final String localRunId;
+
   public void terminate() {
     running = false;
     log.debug("terminate");
   }
 
-  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix) {
+  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) {
     this.messenger = messenger;
     this.idOverrideField =
         config.hasPath("indexer.idOverrideField")
@@ -115,6 +123,8 @@ public abstract class Indexer implements Runnable {
     this.stopWatch = new StopWatch();
     this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
     this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
+
+    this.localRunId = localRunId;
   }
 
   /**
@@ -146,12 +156,19 @@ public abstract class Indexer implements Runnable {
 
   @Override
   public void run() {
+    if (localRunId == null) {
+      MDC.pushByKey(RUNID_FIELD, "UNKNOWN");
+    } else {
+      MDC.pushByKey(RUNID_FIELD, localRunId);
+    }
+
     try {
       while (running) {
         checkForDoc();
       }
       sendToIndexWithAccounting(batch.flush()); // handle final batch
     } finally {
+      MDC.popByKey(RUNID_FIELD);
       close();
     }
   }
@@ -181,10 +198,9 @@ public abstract class Indexer implements Runnable {
 
     if (doc == null) {
       sendToIndexWithAccounting(batch.flushIfExpired());
-      return;
+    } else {
+      sendToIndexWithAccounting(batch.add(doc));
     }
-    log.debug("Indexing Doc {}", doc.getId());
-    sendToIndexWithAccounting(batch.add(doc));
   }
 
   private void sendToIndexWithAccounting(List<Document> batchedDocs) {
@@ -213,12 +229,21 @@ public abstract class Indexer implements Runnable {
       log.error("Error sending documents to index: " + e.getMessage(), e);
 
       for (Document d : batchedDocs) {
-        try {
+        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
+          if (d.getRunId() != null) {
+            MDC.pushByKey(RUNID_FIELD, d.getRunId());
+          }
+
           messenger.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
+          docLogger.error("Sent failure message for doc {}.", d.getId());
         } catch (Exception e2) {
           // TODO: The run won't be able to finish if this event isn't received; can we do something
           // special here?
-          log.error("Couldn't send failure event for doc " + d.getId(), e2);
+          log.error("Couldn't send failure event for doc {}", d.getId(), e2);
+        } finally {
+          if (d.getRunId() != null) {
+            MDC.popByKey(RUNID_FIELD);
+          }
         }
       }
       return;
@@ -232,12 +257,21 @@ public abstract class Indexer implements Runnable {
     }
 
     for (Document d : batchedDocs) {
-      try {
+      try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
+        if (d.getRunId() != null) {
+          MDC.pushByKey(RUNID_FIELD, d.getRunId());
+        }
+
         messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
+        docLogger.info("Sent success message for doc {}.", d.getId());
       } catch (Exception e) {
         // TODO: The run won't be able to finish if this event isn't received; can we do something
         // special here?
-        log.error("Error sending completion event for doc " + d.getId(), e);
+        log.error("Error sending completion event for doc {}", d.getId(), e);
+      } finally {
+        if (d.getRunId() != null) {
+          MDC.popByKey(RUNID_FIELD);
+        }
       }
     }
   }
@@ -278,7 +312,7 @@ public abstract class Indexer implements Runnable {
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
     log.info("Starting Indexer for pipeline: " + pipelineName);
     IndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, false, pipelineName);
+    Indexer indexer = IndexerFactory.fromConfig(config, messenger, false, pipelineName, null);
 
     if (!indexer.validateConnection()) {
       log.error("Indexer could not connect");
@@ -300,5 +334,9 @@ public abstract class Indexer implements Runnable {
           }
           System.exit(0);
         });
+  }
+
+  public int getBatchCapacity() {
+    return batch.getCapacity();
   }
 }

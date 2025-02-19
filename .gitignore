@@ -29,6 +29,11 @@ dist/
 !.idea/codeStyleSettings.xml
 !.idea/codeStyles/
 
+# Eclipse
+.project
+.settings
+.classpath
+
 # Unit test reports
 TEST*.xml
 
@@ -53,3 +58,6 @@ Thumbs.db
 
 LUCILLE_HOME
 DetectLanguage/profiles
+
+# VSCode
+.vscode

@@ -29,10 +29,10 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+      indexer:
+        condition: service_healthy
     networks: 
       - lucille-net
-    volumes:
-      - output:/output
   worker:
     build:
       context: .
@@ -65,13 +65,5 @@ services:
       - lucille-net
     healthcheck:
       test: ["CMD", "/solr-9.5.0/bin/solr", "status"]
-  
 networks:
   lucille-net:
-volumes:
-  output:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: runner/output

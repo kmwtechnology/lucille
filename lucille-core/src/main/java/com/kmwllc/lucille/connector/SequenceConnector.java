@@ -13,12 +13,12 @@ import org.slf4j.LoggerFactory;
 public class SequenceConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(SequenceConnector.class);
-  private final int numDocs;
+  private final long numDocs;
   private final int startWith;
 
   public SequenceConnector(Config config) {
     super(config);
-    this.numDocs = config.getInt("numDocs");
+    this.numDocs = config.getLong("numDocs");
     this.startWith = config.hasPath("startWith") ? config.getInt("startWith") : 0;
   }
 

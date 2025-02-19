@@ -134,6 +134,6 @@ public class XPathExtractorTest {
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("XPathExtractorTest/config.conf");
-    assertEquals(Set.of("xmlField", "name", "conditions", "class"), stage.getLegalProperties());
+    assertEquals(Set.of("xmlField", "name", "conditions", "class", "conditionPolicy"), stage.getLegalProperties());
   }
 }

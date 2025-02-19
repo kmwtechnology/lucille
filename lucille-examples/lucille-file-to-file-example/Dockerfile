@@ -1,4 +1,4 @@
-# This Dockerfile defines an image that runs Lucille in local mode using the latest OpenJDK 11
+# This Dockerfile defines an image that runs Lucille in local mode using the latest OpenJDK 17
 # with a Lucille configuration file that can be specified via an environment variable.
 #
 # To build an image using this Dockerfile you must first:
@@ -62,4 +62,4 @@ COPY conf/ /conf/
 # in this case, we are running lucille in local mode
 # the path to the config file is specified via a CONF environment variable that must be provided when launching the container
 ENV CONF=""
-ENTRYPOINT java -Dconfig.file=${CONF} -cp 'target/lib/*' com.kmwllc.lucille.core.Runner -local
+ENTRYPOINT java -Dconfig.file=${CONF} -cp 'target/lib/*' com.kmwllc.lucille.core.Runner

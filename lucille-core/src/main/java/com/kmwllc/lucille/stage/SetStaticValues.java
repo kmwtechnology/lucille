@@ -34,7 +34,7 @@ public class SetStaticValues extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    staticValues.forEach((fieldName, staticValue) -> doc.update(fieldName, updateMode, (String) staticValue));
+    staticValues.forEach((fieldName, staticValue) -> doc.update(fieldName, updateMode, staticValue));
     return null;
   }
 }

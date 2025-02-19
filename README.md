@@ -13,7 +13,7 @@ Lucille handles all of these things so you don't have to. Lucille helps you get 
 
 ## Installation
 
-To use Lucille you will need a Java development environment with Java 11 or later and a recent version of Maven. Start by cloning the repository:
+To use Lucille you will need a Java development environment with Java 17 or later and a recent version of Maven. Start by cloning the repository:
 
 `git clone https://github.com/kmwtechnology/lucille.git`
 

@@ -4,6 +4,7 @@ import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.HybridIndexerMessenger;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
 import com.kmwllc.lucille.message.LocalMessenger;
+import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -85,7 +86,7 @@ public class WorkerIndexer {
     HybridIndexerMessenger indexerMessageManager =
         new HybridIndexerMessenger(config, pipelineDest, offsets, idSet, pipelineName);
 
-    indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, pipelineName);
+    indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, pipelineName, null);
 
     if (!bypassSearchEngine && !indexer.validateConnection()) {
       throw new IndexerException("Indexer could not connect");
@@ -93,13 +94,13 @@ public class WorkerIndexer {
 
     indexerThread = new Thread(indexer);
     indexerThread.start();
-
-    workerThread =
-        Worker.startThread(config, workerMessageManager, pipelineName, pipelineName);
+    String name = ThreadNameUtils.createName("WorkerIndexer");
+    // Since Kafka is in use, we do not provide (or even have for that matter) a runId to directly provide to Worker.
+    Worker worker = new Worker(config, workerMessageManager, null, pipelineName, pipelineName);
+    workerThread = Worker.startThread(worker, name);
   }
 
   public void stop() throws Exception {
-
     // it is important to terminate the indexer wait for its thread to stop
     // before we terminate the worker. This allows the worker to process
     // any offsets that the indexer added to the offset queue upon termination

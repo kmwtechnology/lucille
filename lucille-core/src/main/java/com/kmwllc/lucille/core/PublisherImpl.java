@@ -35,6 +35,7 @@ import org.slf4j.MDC;
 public class PublisherImpl implements Publisher {
 
   private static final Logger log = LoggerFactory.getLogger(PublisherImpl.class);
+  private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
   private final PublisherMessenger messenger;
 
@@ -94,7 +95,10 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public void publish(Document document) throws Exception {
-    MDC.put("docId", document.getId());
+    // The runId (in MDC) is already set by the ConnectorThread calling publish.
+    MDC.put(Document.ID_FIELD, document.getId());
+    docLogger.info("Publishing document {}.", document.getId());
+
     if (firstDocStopWatch.isStarted()) {
       firstDocStopWatch.stop();
       log.info("First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
@@ -109,11 +113,11 @@ public class PublisherImpl implements Publisher {
       publishInternal(document);
     } finally {
       timerContext = timer.time();
+      MDC.remove(Document.ID_FIELD);
     }
   }
 
   private void publishInternal(Document document) throws Exception {
-    log.debug("Publishing document with id {}", document.getId());
     if (!isCollapsing) {
       sendForProcessing(document);
       return;
@@ -125,7 +129,6 @@ public class PublisherImpl implements Publisher {
     }
 
     if (previousDoc.getId().equals(document.getId())) {
-      log.debug("Sending document.");
       previousDoc.setOrAddAll(document);
     } else {
       sendForProcessing(previousDoc);
@@ -161,6 +164,8 @@ public class PublisherImpl implements Publisher {
   @Override
   public void handleEvent(Event event) {
     String docId = event.getDocumentId();
+    MDC.put(Document.ID_FIELD, docId);
+    docLogger.info("Handling event for doc {}", docId);
 
     if (event.isCreate()) {
 
@@ -191,6 +196,8 @@ public class PublisherImpl implements Publisher {
         docIdsIndexedBeforeTracking.add(docId);
       }
     }
+
+    MDC.remove(Document.ID_FIELD);
   }
 
   @Override
@@ -217,8 +224,8 @@ public class PublisherImpl implements Publisher {
       }
 
       if (ChronoUnit.MILLIS.between(start, Instant.now()) > timeout) {
-        log.error("Exiting run with " + numPending() + " pending documents; publisher timed out (" + timeout + "ms)");
-        return new PublisherResult(false, "Publisher timeout.");
+        log.error("Exiting run with " + numPending() + " pending documents; connector timed out (" + timeout + "ms)");
+        return new PublisherResult(false, "Connector timeout.");
       }
 
       // stop waiting if the connector threw an exception

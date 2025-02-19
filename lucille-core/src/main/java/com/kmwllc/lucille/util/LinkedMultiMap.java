@@ -7,10 +7,12 @@ import com.fasterxml.jackson.databind.node.TextNode;
 import com.kmwllc.lucille.core.HashMapDocument;
 
 import java.io.Serializable;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -39,6 +41,8 @@ public class LinkedMultiMap implements MultiMap, Serializable {
               HashMapDocument.class,
               TextNode.class,
               ArrayNode.class,
+              Date.class,
+              Timestamp.class,
               byte[].class)));
 
 

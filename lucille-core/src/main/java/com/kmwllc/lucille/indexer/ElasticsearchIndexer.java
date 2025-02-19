@@ -42,8 +42,8 @@ public class ElasticsearchIndexer extends Indexer {
   private final VersionType versionType;
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, ElasticsearchClient client,
-      String metricsPrefix) {
-    super(config, messenger, metricsPrefix);
+      String metricsPrefix, String localRunId) {
+    super(config, messenger, metricsPrefix, localRunId);
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
@@ -57,8 +57,17 @@ public class ElasticsearchIndexer extends Indexer {
     this.versionType = config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
+  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
+    this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
+  }
+
+  // Convenience Constructors
+  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, ElasticsearchClient client, String metricsPrefix) {
+    this(config, messenger, client, metricsPrefix, null);
+  }
+
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, getClient(config, bypass), metricsPrefix);
+    this(config, messenger, getClient(config, bypass), metricsPrefix, null);
   }
 
   private static ElasticsearchClient getClient(Config config, boolean bypass) {
@@ -98,14 +107,24 @@ public class ElasticsearchIndexer extends Indexer {
       // populate join data to document
       joinData.populateJoinData(doc);
 
-      Map<String, Object> indexerDoc = doc.asMap();
+      // removing the fields mentioned in the ignoreFields setting in configurations
+      Map<String, Object> indexerDoc = getIndexerDoc(doc);
 
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
       indexerDoc.remove(Document.CHILDREN_FIELD);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
       String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
-      indexerDoc.put(Document.ID_FIELD, docId);
+
+      // This condition below avoids adding id if ignoreFields contains it and edge cases:
+      // - Case 1: id and idOverride in ignoreFields -> idOverride used by Indexer, both removed from Document (tested in testIgnoreFieldsWithOverride)
+      // - Case 2: id in ignoreFields, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testIgnoreFieldsWithOverride2)
+      // - Case 3: id in ignoreFields, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
+      // - Case 4: ignoreFields null, idOverride exists -> idOverride used by Indexer, id and idOverride field exist in Document (tested in testOverride)
+      // - Case 5: ignoreFields null, idOverride null -> document id remains and used by Indexer (Default case & tested)
+      if (ignoreFields == null || !ignoreFields.contains(Document.ID_FIELD)) {
+        indexerDoc.put(Document.ID_FIELD, docId);
+      }
 
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);

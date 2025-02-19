@@ -1,12 +1,16 @@
 package com.kmwllc.lucille.core;
 
+import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
+
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.*;
 import com.kmwllc.lucille.util.LogUtils;
+import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
@@ -78,6 +82,8 @@ public class Runner {
    * <p>
    * -local: modifies -usekafka so that workers and indexers are started as separate threads within the same JVM;
    * kafka is still used for communication between them.
+   * <p>
+   * -render: prints out the effective/actual config in the exact form it will be seen by Lucille during the run
    */
   public static void main(String[] args) throws Exception {
     Options cliOptions = new Options()
@@ -86,7 +92,9 @@ public class Runner {
         .addOption(Option.builder("local").hasArg(false)
             .desc("Modifies usekafka mode to execute pipelines locally").build())
         .addOption(Option.builder("validate").hasArg(false)
-            .desc("Validate the configuration and exit").build());
+            .desc("Validate the configuration and exit").build())
+        .addOption(Option.builder("render").hasArg(false)
+            .desc("Print out the configuration file with substitutions applied and exit").build());
 
     CommandLine cli = null;
     try {
@@ -103,48 +111,34 @@ public class Runner {
       System.exit(1);
     }
 
-    if (cli.hasOption("validate")) {
-      logValidation(validatePipelines(ConfigFactory.load()));
+    Config config = ConfigFactory.load();
+
+    // allow handling of both validate and render flags
+    if (cli.hasOption("validate") || cli.hasOption("render")) {
+      if (cli.hasOption("render")) {
+        renderConfig(config);
+      }
+      if (cli.hasOption("validate")) {
+        logValidation(validatePipelines(config));
+      }
       return;
     }
 
-    StopWatch stopWatch = new StopWatch();
-    stopWatch.start();
-    RunResult result;
+    RunType runType = getRunType(cli.hasOption("useKafka"), cli.hasOption("local"));
 
-    try {
-
-      RunType runType;
-      if (cli.hasOption("usekafka")) {
-        if (cli.hasOption("local")) {
-          runType = RunType.KAFKA_LOCAL;
-        } else {
-          runType = RunType.KAFKA_DISTRIBUTED;
-        }
-      } else {
-        runType = RunType.LOCAL;
-      }
-
-      Config config = ConfigFactory.load();
-
-      result = run(config, runType);
-
-      // log detailed metrics
-      Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
-          .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
-
-      // log run summary
-      log.info(result.toString());
-    } finally {
-      stopWatch.stop();
-      log.info(String.format("Run took %.2f secs.", (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
-    }
+    // Kick off the run with a log of the result
+    RunResult result = runWithResultLog(config, runType);
 
     if (result.getStatus()) {
       System.exit(0);
     } else {
       System.exit(1);
     }
+  }
+
+  /** Utility method to generate a Run ID. */
+  public static String generateRunId() {
+    return UUID.randomUUID().toString();
   }
 
   /**
@@ -196,7 +190,11 @@ public class Runner {
   }
 
   public static Map<String, List<Exception>> runInValidationMode(String configName) throws Exception {
-    Map<String, List<Exception>> exceptions = validatePipelines(ConfigFactory.load(configName));
+    return runInValidationMode(ConfigFactory.load(configName));
+  }
+
+  public static Map<String, List<Exception>> runInValidationMode(Config config) throws Exception {
+    Map<String, List<Exception>> exceptions = validatePipelines(config);
     logValidation(exceptions);
     return exceptions;
   }
@@ -219,12 +217,85 @@ public class Runner {
     return exceptionMap;
   }
 
+  public static void renderConfig(Config config) {
+    ConfigRenderOptions renderOptions = ConfigRenderOptions.defaults()
+        .setJson(true)
+        .setComments(false)
+        .setOriginComments(false);
+    log.info(config.root().render(renderOptions));
+  }
+
   /**
-   * Generates a run ID and performs an end-to-end run of the designated type.
+   * Derives the RunType for the new run from the 'useKafka' and 'local' parameters.
+   */
+  static RunType getRunType(boolean useKafka, boolean local) {
+    if (useKafka) {
+      if (local) {
+        return RunType.KAFKA_LOCAL;
+      } else {
+        return RunType.KAFKA_DISTRIBUTED;
+      }
+    } else {
+      return RunType.LOCAL;
+    }
+  }
+
+  public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
+    return runWithResultLog(config, runType, null);
+  }
+  
+  /**
+   * Kicks off a new Lucille run and logs information about the run to the console after completion.
+   */
+  public static RunResult runWithResultLog(Config config, RunType runType, String runId)
+      throws Exception {
+    StopWatch stopWatch = new StopWatch();
+    stopWatch.start();
+    RunResult result;
+
+    try {
+      result = run(config, runType, runId);
+
+      // log detailed metrics
+      Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
+          .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
+      // log run summary
+      log.info(result.toString());
+      return result;
+    } finally {
+      stopWatch.stop();
+      log.info(String.format("Run took %.2f secs.",
+          (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
+    }
+  }
+  
+  /**
+   * Non managed Run with internal generated runId
+   *
+   * @param config
+   * @param type
+   * @return
+   * @throws Exception
    */
   public static RunResult run(Config config, RunType type) throws Exception {
-    String runId = UUID.randomUUID().toString();
-    MDC.put("runId", runId);
+    return run(config, type, null);
+  }
+
+  /**
+   * Generates a run ID if not supplied and performs an end-to-end run of the designated type.
+   *
+   * @param config
+   * @param type
+   * @param runId
+   * @return
+   * @throws Exception
+   */
+  public static RunResult run(Config config, RunType type, String runId) throws Exception {
+    if (runId == null) {
+      runId = Runner.generateRunId();
+    }
+
+    MDC.put(RUNID_FIELD, runId);
     log.info("Starting run with id " + runId);
 
     List<Connector> connectors = Connector.fromConfig(config);
@@ -259,7 +330,7 @@ public class Runner {
       }
 
       ConnectorResult result =
-          runConnectorWithComponents(config, runId, connector,
+          runConnectorWithComponents(config, runId, type, connector,
               workerMessengerFactory, indexerMessengerFactory, publisherMessengerFactory, startWorkerAndIndexer, bypassSolr);
 
       connectorResults.add(result);
@@ -345,7 +416,7 @@ public class Runner {
       }
     } else {
       try {
-        ConnectorThread connectorThread = new ConnectorThread(connector, publisher);
+        ConnectorThread connectorThread = new ConnectorThread(connector, publisher, runId, ThreadNameUtils.createName("Connector", runId));
         connectorThread.start();
         final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
             config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
@@ -381,6 +452,7 @@ public class Runner {
    */
   private static ConnectorResult runConnectorWithComponents(Config config,
       String runId,
+      RunType runType,
       Connector connector,
       WorkerMessengerFactory workerMessengerFactory,
       IndexerMessengerFactory indexerMessengerFactory,
@@ -394,13 +466,16 @@ public class Runner {
     Publisher publisher = null;
 
     try {
+      // If local/test we want to give WorkerPool/Indexer the run_id directly.
+      // (Otherwise let Kafka messengers pass it thru in the documents.)
+      String localRunId = (runType.equals(RunType.LOCAL) || runType.equals(RunType.TEST)) ? runId : null;
 
       // create a common metrics naming prefix to be used by all components that will be collecting metrics,
       // to ensure that metrics are collected separately for each connector/pipeline pair
-      String metricsPrefix = connector.getName() + "." + connector.getPipelineName();
+      String metricsPrefix = runId + "." + connector.getName() + "." + connector.getPipelineName();
 
       if (startWorkerAndIndexer && connector.getPipelineName() != null) {
-        workerPool = new WorkerPool(config, pipelineName, workerMessengerFactory, metricsPrefix);
+        workerPool = new WorkerPool(config, pipelineName, localRunId, workerMessengerFactory, metricsPrefix);
 
         try {
           workerPool.start();
@@ -411,7 +486,7 @@ public class Runner {
 
         try {
           IndexerMessenger indexerMessenger = indexerMessengerFactory.create();
-          indexer = IndexerFactory.fromConfig(config, indexerMessenger, bypassIndexer, metricsPrefix);
+          indexer = IndexerFactory.fromConfig(config, indexerMessenger, bypassIndexer, metricsPrefix, localRunId);
         } catch (Exception e) {
           log.error("Error creating indexer from config.", e);
           return new ConnectorResult(connector, publisher, false, "Error creating indexer from config.");
@@ -425,7 +500,7 @@ public class Runner {
           return new ConnectorResult(connector, publisher, false, msg);
         }
 
-        indexerThread = new Thread(indexer);
+        indexerThread = new Thread(indexer, ThreadNameUtils.createName("Indexer", localRunId));
         indexerThread.start();
       }
 

@@ -1,0 +1,27 @@
+name: Nightly Smoketest for Lucille Distributed Mode
+
+on:
+  schedule:
+    # runs at 00:00 UTC every day, 20:00 EST
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # allows manual triggering of the workflow via actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build with Maven
+        run: mvn -B verify -DskipTests --file pom.xml
+      - name: Run Docker Compose for Lucille Distributed Mode
+        uses: adambirds/docker-compose-action@v1.5.0
+        with:
+          compose-file: "./lucille-examples/lucille-distributed-example/docker-compose.yml"
+          test-container: "runner"
+          test-command: "mvn test -Dtest=VerifyIngestResult"

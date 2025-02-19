@@ -10,6 +10,7 @@ import org.junit.runners.JUnit4;
 import java.util.Set;
 
 import static junit.framework.TestCase.*;
+import static org.junit.Assert.assertThrows;
 
 
 @RunWith(JUnit4.class)
@@ -64,7 +65,19 @@ public class MatchQueryTest {
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("MatchQueryTest/config.conf");
     assertEquals(
-        Set.of("matchedQueriesField", "name", "fields", "conditions", "queries", "class"),
+        Set.of("matchedQueriesField", "name", "fields", "conditions", "queries", "class", "conditionPolicy"),
         stage.getLegalProperties());
+  }
+
+  @Test
+  public void testInvalidQueries() {
+    assertThrows(StageException.class,
+        () -> factory.get("MatchQueryTest/empty_fields_list.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("MatchQueryTest/empty_query_list.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("MatchQueryTest/blank_matched_queries.conf"));
   }
 }
