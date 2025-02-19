@@ -2,7 +2,6 @@ package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.StageException;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -44,14 +43,14 @@ public class FileContentFetcher {
    * Initialize the storage clients associated with this FileContentFetcher. Calls shutdown on all clients and throws an Exception
    * if an error occurs while initializing any of the StorageClients.
    */
-  public void startup() throws StageException {
+  public void startup() throws IOException {
     for (StorageClient client : availableClients.values()) {
       try {
         client.init();
       } catch (ConnectorException e) {
         shutdown();
 
-        throw new StageException("Unable to initialize StorageClient.", e);
+        throw new IOException("Unable to initialize StorageClient.", e);
       }
     }
   }

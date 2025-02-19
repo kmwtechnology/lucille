@@ -77,9 +77,10 @@ public class DictionaryManager {
     }
 
     FileContentFetcher fileFetcher = new FileContentFetcher(cloudOptions);
-    fileFetcher.startup();
 
     try {
+      fileFetcher.startup();
+
       HashMap<String, String[]> dictionary = buildHashMap(path, ignoreCase, setOnly);
 
       // We create an unmodifiable view of the dictionary, which is represented as a HashMap;
@@ -94,6 +95,8 @@ public class DictionaryManager {
       Map<String, String[]> unmodifiableDictionary = Collections.unmodifiableMap(dictionary);
       dictionaries.put(key, unmodifiableDictionary);
       return unmodifiableDictionary;
+    } catch (IOException e) {
+      throw new StageException("Error occurred while starting up FileContentFetcher.", e);
     } finally {
       fileFetcher.shutdown();
     }
@@ -105,7 +108,7 @@ public class DictionaryManager {
    * @param dictPath  the path of the dictionary file
    * @return the populated HashMap
    */
-  private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly) throws StageException {
+  private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly) throws IOException {
 
     FileContentFetcher fetcher = new FileContentFetcher();
     fetcher.startup();
@@ -147,7 +150,7 @@ public class DictionaryManager {
         if (line.length == 1) {
           value = setOnly ? PRESENT : new String[]{word};
         } else if (setOnly) {
-          throw new StageException(String.format("Comma separated values are not allowed when set_only=true: \"%s\" on line %d",
+          throw new IOException(String.format("Comma separated values are not allowed when set_only=true: \"%s\" on line %d",
               Arrays.toString(line), reader.getLinesRead()));
         } else {
           // Handle multiple payload values here.
@@ -158,10 +161,8 @@ public class DictionaryManager {
       }
 
       return dict;
-    } catch (IOException e) {
-      throw new StageException("Failed to read from the given file.", e);
     } catch (CsvValidationException e) {
-      throw new StageException("Error validating CSV", e);
+      throw new IOException("Error validating CSV", e);
     } finally {
       fetcher.shutdown();
     }

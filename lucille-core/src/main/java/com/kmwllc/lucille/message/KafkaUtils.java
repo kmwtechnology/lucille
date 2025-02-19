@@ -2,9 +2,9 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
-import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
+import java.io.InputStream;
 import java.util.Map;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
@@ -54,7 +54,7 @@ public class KafkaUtils {
       } catch (IOException e) {
         throw new IllegalStateException(String.format("Cannot load kafka property file %s.", filename));
       }
-    } catch (StageException e) {
+    } catch (IOException e) {
       throw new RuntimeException("Error initializing FileContentFetcher for file.", e);
     } finally {
       fetcher.shutdown();

@@ -5,6 +5,7 @@ import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
+import java.io.IOException;
 import java.util.Map;
 import org.ahocorasick.trie.PayloadEmit;
 import org.ahocorasick.trie.PayloadToken;
@@ -93,7 +94,11 @@ public class ExtractEntities extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Extract Entities");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Extract Entities");
 
-    fileFetcher.startup();
+    try {
+      fileFetcher.startup();
+    } catch (IOException e) {
+      throw new StageException("Error occurred initializing FileContentFetcher.", e);
+    }
     dictTrie = buildTrie();
   }
 

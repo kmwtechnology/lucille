@@ -13,7 +13,6 @@ import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.connector.storageclient.S3StorageClient;
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.StageException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -91,7 +90,7 @@ public class FileContentFetcherTest {
       doThrow(new IOException("Mock Shutdown Exception")).when(mock).shutdown();
     })) {
       FileContentFetcher fetcher = new FileContentFetcher(cloudOptions);
-      assertThrows(StageException.class, () -> fetcher.startup());
+      assertThrows(IOException.class, () -> fetcher.startup());
 
       // an error in fetcher.startup() should call shutdown automatically
       S3StorageClient mockS3 = mockedConstruction.constructed().get(0);

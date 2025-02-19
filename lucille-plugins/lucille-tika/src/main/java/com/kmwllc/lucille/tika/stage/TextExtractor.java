@@ -84,7 +84,11 @@ public class TextExtractor extends Stage {
   public void start() throws StageException {
     // Only try to initialize storage clients for later use if a file path is specified
     if (filePathField != null) {
-      fileFetcher.startup();
+      try {
+        fileFetcher.startup();
+      } catch (IOException e) {
+        throw new StageException("Error occurred initializing FileContentFetcher.", e);
+      }
     }
     if (this.tikaConfigPath == null) {
       parser = new AutoDetectParser();
