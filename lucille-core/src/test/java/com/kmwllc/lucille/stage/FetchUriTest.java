@@ -52,7 +52,7 @@ public class FetchUriTest {
     FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/allOptionalParameters.conf");
 
     // test that the status_code_retry_list bad inputs are removed
-    assertEquals(Arrays.asList("206", "30x", "429", "5XX"), s.getStatusCodeRetryList());
+    assertEquals(Arrays.asList("206", "30x", "429", "5xx"), s.getStatusCodeRetryList());
 
     s.setClient(mockClient);
     Document d = Document.create("id");
