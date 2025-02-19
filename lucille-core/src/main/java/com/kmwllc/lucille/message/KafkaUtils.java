@@ -42,22 +42,12 @@ public class KafkaUtils {
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
 
   private static Properties loadExternalProps(String filename, Map<String, Object> cloudOptions) {
-    FileContentFetcher fetcher = new FileContentFetcher(cloudOptions);
-
-    try {
-      fetcher.startup();
-
-      try (Reader propertiesReader = fetcher.getReader(filename, StandardCharsets.UTF_8.name())) {
-        Properties consumerProps = new Properties();
-        consumerProps.load(propertiesReader);
-        return consumerProps;
-      } catch (IOException e) {
-        throw new IllegalStateException(String.format("Cannot load kafka property file %s.", filename));
-      }
+    try (Reader propertiesReader = FileContentFetcher.getSingleReader(filename, StandardCharsets.UTF_8.name(), cloudOptions)) {
+      Properties consumerProps = new Properties();
+      consumerProps.load(propertiesReader);
+      return consumerProps;
     } catch (IOException e) {
-      throw new RuntimeException("Error initializing FileContentFetcher for file.", e);
-    } finally {
-      fetcher.shutdown();
+      throw new IllegalStateException(String.format("Cannot load kafka property file %s.", filename));
     }
   }
 

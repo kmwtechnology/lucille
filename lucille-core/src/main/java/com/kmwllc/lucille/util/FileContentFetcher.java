@@ -137,4 +137,59 @@ public class FileContentFetcher {
       return lines;
     }
   }
+
+  // -- Convenience / Static Methods --
+  /**
+   * Returns an InputStream for the file at the given path, which could be in the classpath, a local file path, or a URI
+   * to a supported Storage service. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
+   * If an InputStream is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
+   * creates. Be sure to close the returned stream!
+   */
+  public static InputStream getSingleInputStream(String path, Map<String, Object> cloudOptions) throws IOException {
+    FileContentFetcher tempFetcher = new FileContentFetcher(cloudOptions);
+    // if an error occurs here, shutdown will be called.
+    tempFetcher.startup();
+
+    try {
+      InputStream result = tempFetcher.getInputStream(path);
+
+      return new InputStream() {
+        @Override
+        public int read() throws IOException {
+          return result.read();
+        }
+
+        @Override
+        public void close() throws IOException {
+          result.close();
+          tempFetcher.shutdown();
+        }
+      };
+    } catch (IOException e) {
+      tempFetcher.shutdown();
+      throw e;
+    }
+  }
+
+  /**
+   * Returns a reader for the file at the given path using UTF-8 encoding. The file could be in the classpath, a local file path, or a URI
+   * to a supported Storage service. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
+   * If an Reader is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
+   * creates. Be sure to close the returned Reader!
+   */
+  public static Reader getSingleReader(String path, Map<String, Object> cloudOptions) throws IOException {
+    return getSingleReader(path, "utf-8", cloudOptions);
+  }
+
+  /**
+   * Returns a reader for the file at the given path using the given encoding. The file could be in the classpath, a local file path, or a URI
+   * to a supported Storage service. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
+   * If an Reader is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
+   * creates. Be sure to close the returned Reader!
+   */
+  public static Reader getSingleReader(String path, String encoding, Map<String, Object> cloudOptions) throws IOException {
+    InputStream result = getSingleInputStream(path, cloudOptions);
+
+    return new BufferedReader(new InputStreamReader(result, encoding));
+  }
 }

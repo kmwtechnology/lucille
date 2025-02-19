@@ -5,6 +5,7 @@ import com.kmwllc.lucille.util.FileContentFetcher;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvValidationException;
 import java.io.IOException;
+import java.io.Reader;
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.Collections;
@@ -76,12 +77,8 @@ public class DictionaryManager {
       return dictionaries.get(key);
     }
 
-    FileContentFetcher fileFetcher = new FileContentFetcher(cloudOptions);
-
     try {
-      fileFetcher.startup();
-
-      HashMap<String, String[]> dictionary = buildHashMap(path, ignoreCase, setOnly);
+      HashMap<String, String[]> dictionary = buildHashMap(path, ignoreCase, setOnly, cloudOptions);
 
       // We create an unmodifiable view of the dictionary, which is represented as a HashMap;
       // This unmodifiable Map may be shared across Stage instances running in different threads;
@@ -97,8 +94,6 @@ public class DictionaryManager {
       return unmodifiableDictionary;
     } catch (IOException e) {
       throw new StageException("Error occurred while starting up FileContentFetcher.", e);
-    } finally {
-      fileFetcher.shutdown();
     }
   }
 
@@ -108,9 +103,8 @@ public class DictionaryManager {
    * @param dictPath  the path of the dictionary file
    * @return the populated HashMap
    */
-  private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly) throws IOException {
-
-    FileContentFetcher fetcher = new FileContentFetcher();
+  private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly, Map<String, Object> cloudOptions) throws IOException {
+    FileContentFetcher fetcher = new FileContentFetcher(cloudOptions);
     fetcher.startup();
 
     try (CSVReader reader = new CSVReader(fetcher.getReader(dictPath))) {

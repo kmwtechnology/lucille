@@ -97,4 +97,36 @@ public class FileContentFetcherTest {
       verify(mockS3, times(1)).shutdown();
     }
   }
+
+  @Test
+  public void testStaticFetches() throws Exception {
+    Map<String, Object> cloudOptions = Map.of(
+        S3_REGION, "us-east-1",
+        S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey");
+
+    URI s3URI = URI.create("s3://bucket/hello.txt");
+
+    // Mocking construction - just want to make sure that the fetcher is appropriately deferring to each storage client
+    // as appropriate based on the strings it is supplied.
+    try (MockedConstruction<S3StorageClient> mockedConstruction = mockConstruction(S3StorageClient.class, (mock, context) -> {
+      when(mock.getFileContentStream(s3URI)).thenReturn(new ByteArrayInputStream("Hello there - S3.".getBytes()));
+    })) {
+      InputStream s3MockInputStream = FileContentFetcher.getSingleInputStream(s3URI.toString(), cloudOptions);
+
+      S3StorageClient mockedClient = mockedConstruction.constructed().get(0);
+      verify(mockedClient, times(0)).shutdown();
+
+      assertEquals("Hello there - S3.", new String(s3MockInputStream.readAllBytes()));
+      s3MockInputStream.close();
+      verify(mockedClient, times(1)).shutdown();
+
+      URI localPathURI = Paths.get("src/test/resources/FileContentFetcherTest/hello.txt").toUri();
+      InputStream localInputStream = FileContentFetcher.getSingleInputStream(localPathURI.toString(), cloudOptions);
+      assertEquals("Hello there.", new String(localInputStream.readAllBytes()));
+
+      // Google should still be unavailable
+      assertThrows(IOException.class, () -> FileContentFetcher.getSingleInputStream("gs://bucket/hello.txt", cloudOptions));
+    }
+  }
 }
