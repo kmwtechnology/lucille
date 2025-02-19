@@ -6,7 +6,6 @@ import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.InputStream;
 import java.nio.file.Path;
 
