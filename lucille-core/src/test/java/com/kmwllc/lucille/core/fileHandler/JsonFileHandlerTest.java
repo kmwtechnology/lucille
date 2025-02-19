@@ -2,7 +2,6 @@ package com.kmwllc.lucille.core.fileHandler;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -14,9 +13,8 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.File;
 import java.io.FileInputStream;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -30,14 +28,15 @@ public class JsonFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of("json", Map.of("docIdPrefix", "PREFIX")));
     FileHandler jsonHandler = FileHandler.create("jsonl", config);
 
-    Path path = Paths.get("src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl");
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
+    File file = new File(filePath);
 
     // contents of JSONConnectorTest/config.conf
     // {"id": "1", "field1":"val1-1", "field2":["val2-1a", "val2-1b"]}
     // {"id": "2", "field3":"val3", "field2":["val2-2a", "val2-2b"]}
     // {"id": "3", "field4":"val4", "field5":"val5"}
 
-    Iterator<Document> docs = jsonHandler.processFile(path);
+    Iterator<Document> docs = jsonHandler.processFile(new FileInputStream(file), filePath);
     Document doc1 = docs.next();
     Document doc2 = docs.next();
     Document doc3 = docs.next();
@@ -59,15 +58,15 @@ public class JsonFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of("json", Map.of("docIdPrefix", "PREFIX")));
     FileHandler jsonHandler = FileHandler.create("jsonl", config);
 
-    Path path = Paths.get("src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl");
-    FileInputStream is = new FileInputStream(path.toFile());
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
+    File file = new File(filePath);
 
     // contents of JSONConnectorTest/config.conf
     // {"id": "1", "field1":"val1-1", "field2":["val2-1a", "val2-1b"]}
     // {"id": "2", "field3":"val3", "field2":["val2-2a", "val2-2b"]}
     // {"id": "3", "field4":"val4", "field5":"val5"}
 
-    Iterator<Document> docs = jsonHandler.processFile(is, path.toString());
+    Iterator<Document> docs = jsonHandler.processFile(new FileInputStream(file), filePath);
     Document doc1 = docs.next();
     Document doc2 = docs.next();
     Document doc3 = docs.next();
@@ -92,9 +91,10 @@ public class JsonFileHandlerTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
-    Path path = Paths.get("src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl");
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
+    File file = new File(filePath);
 
-    jsonHandler.processFileAndPublish(publisher, path);
+    jsonHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(3, docs.size());
@@ -118,16 +118,18 @@ public class JsonFileHandlerTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     FileHandler spyJsonHandler = spy(FileHandler.create("jsonl", config));
-    Path path = Paths.get("src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl");
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
+    File file = new File(filePath);
+    FileInputStream stream = new FileInputStream(file);
 
     // note for this test we are arbitrarily creating fake documents with ids 1, 2, 3. We just want to test that document id 3
     // is published even though we encountered an error while iterating through the iterator
     Iterator<Document> docs = mock(Iterator.class);
     when(docs.hasNext()).thenReturn(true, true, true, true, false);
     when(docs.next()).thenReturn(Document.create("1"), Document.create("2")).thenThrow(new RuntimeException("Iterator failed")).thenReturn(Document.create("3"));
-    when(spyJsonHandler.processFile(path)).thenReturn(docs);
-    doReturn(docs).when(spyJsonHandler).processFile(any());
-    spyJsonHandler.processFileAndPublish(publisher, path);
+    when(spyJsonHandler.processFile(stream, filePath)).thenReturn(docs);
+    doReturn(docs).when(spyJsonHandler).processFile(stream, filePath);
+    spyJsonHandler.processFileAndPublish(publisher, stream, filePath);
 
     List<Document> docsPublished = messenger.getDocsSentForProcessing();
 

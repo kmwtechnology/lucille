@@ -15,6 +15,19 @@ import org.slf4j.LoggerFactory;
 public class FileUtils {
 
   private static final Logger log = LoggerFactory.getLogger(FileUtils.class);
+
+  // TODO: Beware of merge conflicts / changes affected by LC-534
+  public static InputStream getLocalInputStream(String path) throws IOException {
+    InputStream is;
+
+    if (path.startsWith("classpath:")) {
+      is = FileUtils.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
+    } else {
+      is = new FileInputStream(path);
+    }
+
+    return is;
+  }
   /**
    * Returns a Reader for the file at the given path. If the path begins with "classpath:" the prefix will be removed
    * and the file will be read from the classpath. If the path appears to be a URI, it will be accessed using VFS.

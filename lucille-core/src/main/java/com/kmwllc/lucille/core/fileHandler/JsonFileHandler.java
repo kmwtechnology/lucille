@@ -1,15 +1,12 @@
 package com.kmwllc.lucille.core.fileHandler;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.UnaryOperator;
@@ -27,21 +24,6 @@ public class JsonFileHandler extends BaseFileHandler {
   public JsonFileHandler(Config config) {
     super(config);
     this.idUpdater = (id) -> docIdPrefix + id;
-  }
-
-
-  @Override
-  public Iterator<Document> processFile(Path path) throws FileHandlerException {
-    // reader will be closed when the LineIterator is closed in getDocumentIterator
-    // only works for path from local file system
-    Reader reader;
-    try {
-      reader = FileUtils.getReader(path.toString());
-    } catch (Exception e) {
-      throw new FileHandlerException("Error creating reader from path: " + path, e);
-    }
-
-    return getDocumentIterator(reader);
   }
 
   @Override

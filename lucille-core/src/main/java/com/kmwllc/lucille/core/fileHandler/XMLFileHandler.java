@@ -5,14 +5,10 @@ import com.kmwllc.lucille.connector.xml.RecordingInputStream;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
-import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
-import java.nio.file.Path;
 import java.util.Iterator;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.ParserConfigurationException;
@@ -47,28 +43,8 @@ public class XMLFileHandler extends BaseFileHandler {
   }
 
   @Override
-  public Iterator<Document> processFile(Path path) throws FileHandlerException {
-    throw new FileHandlerException("Unsupported Operation");
-  }
-
-  @Override
   public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
     throw new FileHandlerException("Unsupported Operation");
-  }
-
-  @Override
-  public void processFileAndPublish(Publisher publisher, Path path) throws FileHandlerException {
-    // set up Factory, parser, reader and handler
-    ChunkingXMLHandler xmlHandler = setUpParserReaderAndHandlerIfNeeded(publisher);
-
-    RecordingInputStream ris;
-    try {
-      ris = new RecordingInputStream(new FileInputStream(path.toFile()));
-    } catch (FileNotFoundException | SecurityException e) {
-      throw new FileHandlerException("Error getting file: " + path, e);
-    }
-
-    setEncodingAndParse(xmlHandler, ris);
   }
 
   @Override

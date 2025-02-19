@@ -86,6 +86,7 @@ public class CSVConnectorTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
+    System.out.println(config.getString("path"));
     connector.execute(publisher);
 
     // contents of bom.csv (first character is the BOM character \uFEFF)

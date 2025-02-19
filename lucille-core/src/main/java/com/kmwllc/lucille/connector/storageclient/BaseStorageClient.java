@@ -136,18 +136,11 @@ public abstract class BaseStorageClient implements StorageClient {
 
       // handle file types using fileHandler if needed to the end
       if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
+        // Get a stream for the file content, so we don't have to load it all at once.
+        InputStream contentStream = getFileReferenceContentStream(fileReference);
+        // get the right FileHandler and publish based on content
+        publishUsingFileHandler(publisher, fileExtension, contentStream, fullPathStr);
 
-        if (fileReference.isCloudFileReference()) {
-          // Get a stream for the file content, so we don't have to load it all at once.
-          InputStream contentStream = getFileReferenceContentStream(fileReference);
-          // get the right FileHandler and publish based on content
-          publishUsingFileHandler(publisher, fileExtension, contentStream, fullPathStr);
-        } else {
-          // get path instead to be less resource intensive
-          Path path = fileReference.getPath();
-          // get the right FileHandler and publish based on content
-          publishUsingFileHandler(publisher, fileExtension, path);
-        }
         afterProcessingFile(fullPathStr);
         return;
       }
@@ -247,22 +240,6 @@ public abstract class BaseStorageClient implements StorageClient {
       handler.processFileAndPublish(publisher, wrappedNonClosingStream, fullPathStr);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while handling file: " + fullPathStr, e);
-    }
-  }
-
-  /**
-   * helper method to publish using file handler using Path (local file)
-   */
-  protected void publishUsingFileHandler(Publisher publisher, String fileExtension, Path path) throws Exception {
-    FileHandler handler = fileHandlers.get(fileExtension);
-    if (handler == null) {
-      throw new ConnectorException("No file handler found for file extension: " + fileExtension);
-    }
-
-    try {
-      handler.processFileAndPublish(publisher, path);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while processing or publishing file: " + path, e);
     }
   }
 

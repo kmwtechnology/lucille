@@ -4,7 +4,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.InputStream;
-import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -22,22 +21,11 @@ public interface FileHandler {
   Set<String> SUPPORTED_FILE_TYPES = Set.of("json", "jsonl", "csv", "xml");
 
   /**
-   * Processes a file given the Path to it and returns an iterator of Documents. The Iterator should close all resources
-   * when completed (hasNext() is false) or when an exception is thrown.
-   */
-  Iterator<Document> processFile(Path path) throws FileHandlerException;
-
-  /**
    * Processes a file given an InputStream of its contents and a representation path String to it, and returns an iterator
    * of Documents. The Iterator should close all resources when completed (hasNext() is false) or when an exception is thrown.
    * Path string is used for populating file path field of document and for logging/error/debugging purposes.
    */
   Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException;
-
-  /**
-   * A helper function that processes a file and publishes the documents to a Publisher using a Path to a file
-   */
-  void processFileAndPublish(Publisher publisher, Path path) throws FileHandlerException;
 
   /**
    * A helper function that processes a file and publishes the documents to a Publisher using the content in the given

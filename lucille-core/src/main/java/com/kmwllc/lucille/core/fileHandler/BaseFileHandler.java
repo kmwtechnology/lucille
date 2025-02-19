@@ -3,7 +3,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.InputStream;
-import java.nio.file.Path;
 import java.util.Iterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,28 +13,6 @@ public abstract class BaseFileHandler implements FileHandler {
 
   public BaseFileHandler(Config config) {
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
-  }
-
-  public void processFileAndPublish(Publisher publisher, Path path) throws FileHandlerException {
-    Iterator<Document> docIterator;
-    try {
-      docIterator = processFile(path);
-    } catch (Exception e) {
-      throw new FileHandlerException("Unable to set up iterator for this file " + path, e);
-    }
-    // once docIterator.hasNext() is false, it will close its resources in handler and return
-    while (docIterator.hasNext()) {
-      try {
-        Document doc = docIterator.next();
-        if (doc != null) {
-          publisher.publish(doc);
-        }
-      } catch (Exception e) {
-        // if we fail to publish a document, we log the error and continue to the next document
-        // to "finish" the iterator and close its resources
-        log.error("Error occurred while publishing file {}", path, e);
-      }
-    }
   }
 
   public void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException {
