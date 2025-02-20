@@ -168,7 +168,7 @@ public class S3StorageClientTest {
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        List.of(Pattern.compile("obj3"), Pattern.compile("obj4")), List.of(), ConfigFactory.empty(), false);
+        List.of(), List.of(Pattern.compile("obj3"), Pattern.compile("obj4")), ConfigFactory.empty(), false);
 
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);

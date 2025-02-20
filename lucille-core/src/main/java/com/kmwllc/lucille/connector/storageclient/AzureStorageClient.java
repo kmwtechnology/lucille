@@ -66,7 +66,7 @@ public class AzureStorageClient extends BaseStorageClient {
     try {
       initializeFileHandlers(params);
 
-      serviceClient.createBlobContainer(params.bucketOrContainerName).listBlobs(new ListBlobsOptions().setPrefix(params.startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
+      serviceClient.getBlobContainerClient(params.bucketOrContainerName).listBlobs(new ListBlobsOptions().setPrefix(params.startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
           .forEachOrdered(blob -> {
             if (isValid(blob, params)) {
               String fullPathStr = getFullPath(blob, params);
