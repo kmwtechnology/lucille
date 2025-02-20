@@ -2,8 +2,10 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
+import java.io.InputStream;
+import java.util.Map;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -39,8 +41,8 @@ public class KafkaUtils {
   public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
 
-  private static Properties loadExternalProps(String filename) {
-    try (Reader propertiesReader = FileUtils.getReader(filename, StandardCharsets.UTF_8.name())) {
+  private static Properties loadExternalProps(String filename, Map<String, Object> cloudOptions) {
+    try (Reader propertiesReader = FileContentFetcher.getSingleReader(filename, StandardCharsets.UTF_8.name(), cloudOptions)) {
       Properties consumerProps = new Properties();
       consumerProps.load(propertiesReader);
       return consumerProps;
@@ -52,7 +54,8 @@ public class KafkaUtils {
   //access set to package so unit tests can validate created properties without initializing a Consumer
   static Properties createConsumerProps(Config config, String clientId) {
     if (config.hasPath("kafka.consumerPropertyFile")) {
-      Properties loadedProps = loadExternalProps(config.getString("kafka.consumerPropertyFile"));
+      Map<String, Object> cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
+      Properties loadedProps = loadExternalProps(config.getString("kafka.consumerPropertyFile"), cloudOptions);
       loadedProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
       return loadedProps;
     }
@@ -91,7 +94,8 @@ public class KafkaUtils {
   //access set to package so unit tests can validate created properties without initializing a Producer
   static Properties createProducerProps(Config config) {
     if (config.hasPath("kafka.producerPropertyFile")) {
-      return loadExternalProps(config.getString("kafka.producerPropertyFile"));
+      Map<String, Object> cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
+      return loadExternalProps(config.getString("kafka.producerPropertyFile"), cloudOptions);
     }
     Properties producerProps = new Properties();
     producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
@@ -168,7 +172,8 @@ public class KafkaUtils {
 
     Properties props;
     if (config.hasPath("kafka.adminPropertyFile")) {
-      props = loadExternalProps(config.getString("kafka.adminPropertyFile"));
+      Map<String, Object> cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
+      props = loadExternalProps(config.getString("kafka.adminPropertyFile"), cloudOptions);
     } else {
       props = new Properties();
       props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));

@@ -111,7 +111,7 @@ public class XPathExtractorTest {
   @Test
   public void withXMLConnectorTest() throws Exception {
     // pass XML document through XMLConnector first
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/staff.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:XMLConnectorTest/staff.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);

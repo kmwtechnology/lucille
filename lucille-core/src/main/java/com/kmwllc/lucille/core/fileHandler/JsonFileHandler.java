@@ -32,10 +32,10 @@ public class JsonFileHandler extends BaseFileHandler {
   @Override
   public Iterator<Document> processFile(Path path) throws FileHandlerException {
     // reader will be closed when the LineIterator is closed in getDocumentIterator
-    // only works for path from local file system
     Reader reader;
+
     try {
-      reader = FileUtils.getReader(path.toString());
+      reader = FileUtils.getLocalFileReader(path.toString());
     } catch (Exception e) {
       throw new FileHandlerException("Error creating reader from path: " + path, e);
     }

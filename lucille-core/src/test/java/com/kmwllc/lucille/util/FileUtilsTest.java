@@ -1,26 +1,42 @@
 package com.kmwllc.lucille.util;
+import java.io.IOException;
+import java.nio.file.Paths;
 import org.apache.commons.io.IOUtils;
 import org.junit.Test;
-import java.io.File;
 import java.io.Reader;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 public class FileUtilsTest {
 
   @Test
-  public void getReaderTest() throws Exception {
-    String[] paths = {
-        "classpath:FileUtilsTest/test",
-        "gz:" + new File("src/test/resources/FileUtilsTest/test.gz").toURI().toString(),
-        "src/test/resources/FileUtilsTest/test"
-    };
-    for (String path : paths) {
-      try (Reader r = FileUtils.getReader(path)) {
-        assertEquals("aaaaa", IOUtils.toString(r));
-      }
+  public void getLocalReaderTest() throws Exception {
+    String path = "classpath:FileUtilsTest/test";
+    try (Reader r = FileUtils.getLocalFileReader(path)) {
+      assertEquals("aaaaa", IOUtils.toString(r));
     }
+
+    path = "src/test/resources/FileUtilsTest/test";
+    try (Reader r = FileUtils.getLocalFileReader(path)) {
+      assertEquals("aaaaa", IOUtils.toString(r));
+    }
+
+    String badPath = Paths.get("src/test/resources/FileUtilsTest/test").toUri().toString();
+    assertThrows(IOException.class, () -> FileUtils.getLocalFileReader(badPath));
   }
 
+  @Test
+  public void testIsValidURI() {
+    String validURI = "file:///path/to/file";
+    assertTrue(FileUtils.isValidURI(validURI));
 
+    String nullScheme = "example.org";
+    assertFalse(FileUtils.isValidURI(nullScheme));
+
+    String exceptionURI = ":example.org";
+    assertFalse(FileUtils.isValidURI(exceptionURI));
+  }
 }

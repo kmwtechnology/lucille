@@ -31,7 +31,7 @@ public class CSVConnectorTest {
     // we're loading the config this way to prevent the "path" system property from overriding the path
     // property in the connector config; ConfigFactory.parseReader() does not consider system
     // properties like ConfigFactory.load() does
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/defaults.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:CSVConnectorTest/defaults.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
@@ -52,7 +52,7 @@ public class CSVConnectorTest {
 
   @Test
   public void testTabsAndNoninterpretedQuotes() throws Exception {
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/tabs.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:CSVConnectorTest/tabs.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
@@ -73,7 +73,7 @@ public class CSVConnectorTest {
 
   @Test(expected = ConnectorException.class)
   public void testPathNotFound() throws Exception {
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/pathNotFound.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:CSVConnectorTest/pathNotFound.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
@@ -82,7 +82,7 @@ public class CSVConnectorTest {
 
   @Test
   public void testBOMHandling() throws Exception {
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/bom.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:CSVConnectorTest/bom.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
@@ -112,7 +112,7 @@ public class CSVConnectorTest {
     File copy = new File("src/test/resources/CSVConnectorTest/faulty.csv");
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/faulty.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:CSVConnectorTest/faulty.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
@@ -143,7 +143,7 @@ public class CSVConnectorTest {
     File copy = new File("src/test/resources/CSVConnectorTest/defaults.csv");
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/success.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:CSVConnectorTest/success.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);
@@ -168,7 +168,7 @@ public class CSVConnectorTest {
 
   @Test
   public void testSemicolonSeparator() throws Exception {
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:CSVConnectorTest/semicolons.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:CSVConnectorTest/semicolons.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new CSVConnector(config);

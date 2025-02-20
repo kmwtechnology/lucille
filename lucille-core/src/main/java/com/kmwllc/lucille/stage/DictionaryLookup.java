@@ -51,6 +51,7 @@ public class DictionaryLookup extends Stage {
   private final boolean ignoreCase;
   private final boolean setOnly;
   private final boolean ignoreMissingSource;
+  private final Map<String, Object> cloudOptions;
 
   private Map<String, String[]> dict;
 
@@ -69,8 +70,11 @@ public class DictionaryLookup extends Stage {
     this.setOnly = ConfigUtils.getOrDefault(config, "set_only", false);
     this.ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignore_missing_source", false);
     this.dictPath = config.getString("dict_path");
+
+    this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
   }
 
+  @Override
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Dictionary Lookup");
     StageUtils.validateFieldNumNotZero(destFields, "Dictionary Lookup");
@@ -83,7 +87,7 @@ public class DictionaryLookup extends Stage {
       throw new StageException("when set_only is true, update_mode must be set to overwrite");
     }
 
-    this.dict = DictionaryManager.getDictionary(dictPath, ignoreCase, setOnly);
+    this.dict = DictionaryManager.getDictionary(dictPath, ignoreCase, setOnly, cloudOptions);
   }
 
   @Override

@@ -21,7 +21,7 @@ public class XMLConnectorTest {
 
   @Test
   public void testStaff() throws Exception {
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/staff.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:XMLConnectorTest/staff.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
@@ -43,7 +43,7 @@ public class XMLConnectorTest {
 
   @Test
   public void testNestedStaff() throws Exception {
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/nestedstaff.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:XMLConnectorTest/nestedstaff.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
@@ -59,7 +59,7 @@ public class XMLConnectorTest {
 
   @Test
   public void testKoreanEncoding() throws Exception {
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/korean.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:XMLConnectorTest/korean.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
@@ -81,7 +81,7 @@ public class XMLConnectorTest {
 
   @Test
   public void testJapaneseEncoding() throws Exception {
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/japanese.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:XMLConnectorTest/japanese.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
@@ -102,7 +102,7 @@ public class XMLConnectorTest {
 
   @Test
   public void testChineseEncoding() throws Exception {
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/chinese.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:XMLConnectorTest/chinese.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
@@ -124,7 +124,7 @@ public class XMLConnectorTest {
 
   @Test
   public void testURL() throws Exception {
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/url.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:XMLConnectorTest/url.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
@@ -146,7 +146,7 @@ public class XMLConnectorTest {
 
   @Test(expected = ConnectorException.class)
   public void testEncodingError() throws Exception {
-    Config config = ConfigFactory.parseReader(FileUtils.getReader("classpath:XMLConnectorTest/encodingError.conf"));
+    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:XMLConnectorTest/encodingError.conf"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);

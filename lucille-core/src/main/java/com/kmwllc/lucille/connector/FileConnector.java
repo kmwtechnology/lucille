@@ -1,6 +1,8 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.connector.storageclient.AzureStorageClient;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
+import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
@@ -115,15 +117,16 @@ public class FileConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try {
-      storageClient = StorageClient.create(storageURI, getDocIdPrefix(), excludes, includes,
-          cloudOptions, fileOptions);
+      storageClient = StorageClient.create(storageURI, cloudOptions);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while creating storage client.", e);
     }
 
     try {
       storageClient.init();
-      storageClient.traverse(publisher);
+      boolean usingAzure = storageClient instanceof AzureStorageClient;
+      TraversalParams params = new TraversalParams(storageURI, getDocIdPrefix(), includes, excludes, fileOptions, usingAzure);
+      storageClient.traverse(publisher, params);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while initializing client or publishing files.", e);
     } finally {
