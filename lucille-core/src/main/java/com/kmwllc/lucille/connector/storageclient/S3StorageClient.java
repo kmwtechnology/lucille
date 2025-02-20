@@ -31,7 +31,6 @@ public class S3StorageClient extends BaseStorageClient {
   private S3Client s3;
   private static final Logger log = LoggerFactory.getLogger(S3StorageClient.class);
 
-  // Constructor for a client used to extract InputStreams from individual URIs.
   public S3StorageClient(Map<String, Object> cloudOptions) {
     super(cloudOptions);
   }

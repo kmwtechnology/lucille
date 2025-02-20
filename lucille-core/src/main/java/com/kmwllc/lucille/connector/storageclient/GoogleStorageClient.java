@@ -31,7 +31,6 @@ public class GoogleStorageClient extends BaseStorageClient {
   private static final Logger log = LoggerFactory.getLogger(GoogleStorageClient.class);
   private Storage storage;
 
-  // Constructor for a client used to extract InputStreams from individual URIs.
   public GoogleStorageClient(Map<String, Object> cloudOptions) {
     super(cloudOptions);
   }
