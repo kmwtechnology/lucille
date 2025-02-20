@@ -52,45 +52,17 @@ public class GoogleStorageClientTest {
     assertThrows(ConnectorException.class, googleStorageClient::init);
   }
 
-//  @Test
-//  public void testInitFileHandlers() throws Exception {
-//    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
-//    GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null,
-//        null, null, cloudOptions, ConfigFactory.parseMap(
-//            Map.of("json", Map.of(),
-//                "csv", Map.of())));
-//
-//    // cannot call init directly because it tries to get stream of the valid key
-//    googleStorageClient.initializeFileHandlers();
-//    assertEquals(3, googleStorageClient.fileHandlers.size());
-//    assertInstanceOf(JsonFileHandler.class, googleStorageClient.fileHandlers.get("json"));
-//    assertInstanceOf(JsonFileHandler.class, googleStorageClient.fileHandlers.get("jsonl"));
-//    assertEquals(googleStorageClient.fileHandlers.get("json"), googleStorageClient.fileHandlers.get("json"));
-//    assertInstanceOf(CSVFileHandler.class, googleStorageClient.fileHandlers.get("csv"));
-//  }
-//
-//  @Test
-//  public void testShutdown() throws Exception {
-//    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
-//    GoogleStorageClient googleStorageClient = new GoogleStorageClient(new URI("gs://bucket/"), null,
-//        null, null, cloudOptions, ConfigFactory.parseMap(
-//        Map.of("json", Map.of(),
-//            "csv", Map.of())));
-//
-//    Storage mockStorage = mock(Storage.class);
-//    googleStorageClient.setStorageForTesting(mockStorage);
-//    // simulate init fileHandlers
-//    googleStorageClient.initializeFileHandlers();
-//    assertEquals(3, googleStorageClient.fileHandlers.size());
-//    googleStorageClient.shutdown();
-//    // verify that storage.close() is called
-//    verify(mockStorage, times(1)).close();
-//    GoogleStorageClient spy = spy(googleStorageClient);
-//    spy.shutdown();
-//    // test that all FileHandlers are cleared
-//    verify(spy, times(1)).clearFileHandlers();
-//    assertEquals(0, spy.fileHandlers.size());
-//  }
+  @Test
+  public void testShutdown() throws Exception {
+    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
+
+    Storage mockStorage = mock(Storage.class);
+    googleStorageClient.setStorageForTesting(mockStorage);
+    googleStorageClient.shutdown();
+    // verify that storage.close() is called
+    verify(mockStorage, times(1)).close();
+  }
 
   @Test
   public void testPublishValidFiles() throws Exception {

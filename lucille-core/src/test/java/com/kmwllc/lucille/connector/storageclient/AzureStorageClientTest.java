@@ -11,13 +11,11 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -25,10 +23,9 @@ import static org.mockito.Mockito.when;
 
 import com.azure.core.http.rest.PagedIterable;
 import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobClientBuilder;
 import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.specialized.BlobInputStream;
@@ -36,7 +33,6 @@ import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
-import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
@@ -64,68 +60,37 @@ import org.mockito.Mockito;
 
 public class AzureStorageClientTest {
 
-//  @Test
-//  public void testInit() throws Exception{
-//    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
-//
-//    AzureStorageClient azureStorageClient = new AzureStorageClient(
-//        new URI("https://storagename.blob.core.windows.net/testblob"), null, null, null,
-//        cloudOptions, ConfigFactory.parseMap(Map.of("csv", Map.of(), "json", Map.of())));
-//
-//    try(MockedConstruction<BlobContainerClientBuilder> builder = Mockito.mockConstruction(BlobContainerClientBuilder.class,(mock,context)-> {
-//      when(mock.connectionString(anyString())).thenReturn(mock);
-//      when(mock.containerName(anyString())).thenReturn(mock);
-//      when(mock.buildClient()).thenReturn(mock(BlobContainerClient.class));
-//    })) {
-//      azureStorageClient.init();
-//      // verify that the file handlers are initialized, 3 in this case due to adding json handler to both json and jsonl keys
-//      assertEquals(3, azureStorageClient.fileHandlers.size());
-//      assertInstanceOf(JsonFileHandler.class, azureStorageClient.fileHandlers.get("json"));
-//      assertInstanceOf(JsonFileHandler.class, azureStorageClient.fileHandlers.get("jsonl"));
-//      assertEquals(azureStorageClient.fileHandlers.get("json"), azureStorageClient.fileHandlers.get("json"));
-//      assertInstanceOf(CSVFileHandler.class, azureStorageClient.fileHandlers.get("csv"));
-//
-//      verify(builder.constructed().get(0), times(1)).connectionString("connectionString");
-//    }
-//
-//    cloudOptions = new HashMap<>();
-//    cloudOptions.put("accountName", "accountName");
-//    cloudOptions.put("accountKey", "accountKey");
-//
-//    azureStorageClient = new AzureStorageClient(new URI("https://storagename.blob.core.windows.net/testblob"),
-//        null, null, null, cloudOptions, ConfigFactory.empty());
-//
-//    try(MockedConstruction<BlobContainerClientBuilder> builder = Mockito.mockConstruction(BlobContainerClientBuilder.class,(mock,context)-> {
-//
-//      when(mock.credential((StorageSharedKeyCredential) any())).thenReturn(mock);
-//      when(mock.containerName(anyString())).thenReturn(mock);
-//      when(mock.buildClient()).thenReturn(mock(BlobContainerClient.class));
-//    })) {
-//      azureStorageClient.init();
-//      verify(builder.constructed().get(0), times(1)).credential(any(StorageSharedKeyCredential.class));
-//    }
-//
-//    azureStorageClient.shutdown();
-//  }
-//
-//  @Test
-//  public void testShutdown() throws Exception{
-//    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
-//    AzureStorageClient azureStorageClient = new AzureStorageClient(
-//        new URI("https://storagename.blob.core.windows.net/testblob"), null, null, null,
-//        cloudOptions, ConfigFactory.parseMap(Map.of("csv", Map.of(), "json", Map.of())));
-//    try(MockedConstruction<BlobContainerClientBuilder> builder = Mockito.mockConstruction(BlobContainerClientBuilder.class,(mock,context)-> {
-//      when(mock.connectionString(anyString())).thenReturn(mock);
-//      when(mock.containerName(anyString())).thenReturn(mock);
-//      when(mock.buildClient()).thenReturn(mock(BlobContainerClient.class));
-//    })) {
-//      azureStorageClient.init();
-//      assertEquals(3, azureStorageClient.fileHandlers.size());
-//      // test that showdown clears all file handlers
-//      azureStorageClient.shutdown();
-//      assertEquals(0, azureStorageClient.fileHandlers.size());
-//    }
-//  }
+  @Test
+  public void testInit() throws Exception{
+    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
+
+    AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
+
+    try (MockedConstruction<BlobServiceClientBuilder> builder = Mockito.mockConstruction(BlobServiceClientBuilder.class, (mock,context) -> {
+      when(mock.connectionString(anyString())).thenReturn(mock);
+      when(mock.buildClient()).thenReturn(mock(BlobServiceClient.class));
+    })) {
+      azureStorageClient.init();
+      verify(builder.constructed().get(0), times(1)).connectionString("connectionString");
+    }
+
+    cloudOptions = new HashMap<>();
+    cloudOptions.put("accountName", "accountName");
+    cloudOptions.put("accountKey", "accountKey");
+
+    azureStorageClient = new AzureStorageClient(cloudOptions);
+
+    try (MockedConstruction<BlobServiceClientBuilder> builder = Mockito.mockConstruction(BlobServiceClientBuilder.class, (mock,context) -> {
+      when(mock.credential((StorageSharedKeyCredential) any())).thenReturn(mock);
+      when(mock.buildClient()).thenReturn(mock(BlobServiceClient.class));
+    })) {
+      azureStorageClient.init();
+      verify(builder.constructed().get(0), times(1)).credential(any(StorageSharedKeyCredential.class));
+    }
+
+    azureStorageClient.shutdown();
+  }
+
 
   @Test
   public void testPublishValidFiles() throws Exception {

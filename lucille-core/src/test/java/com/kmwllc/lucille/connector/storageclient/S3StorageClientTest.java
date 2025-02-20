@@ -60,45 +60,21 @@ public class S3StorageClientTest {
   S3Object obj3;
   S3Object obj4;
 
-//  @Test
-//  public void testInitFileHandlers() throws Exception{
-//    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
-//        S3_SECRET_ACCESS_KEY, "secretKey");
-//    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), null,
-//        null, null, cloudOptions, ConfigFactory.parseMap(Map.of("json", Map.of(), "csv", Map.of())));
-//
-//    s3StorageClient.init();
-//
-//    // check that the file handlers are initialized, note that it is 3 because json fileHandler will be added to jsonl and json
-//    assertEquals(3, s3StorageClient.fileHandlers.size());
-//    assertInstanceOf(JsonFileHandler.class, s3StorageClient.fileHandlers.get("jsonl"));
-//    assertInstanceOf(JsonFileHandler.class, s3StorageClient.fileHandlers.get("json"));
-//    assertEquals(s3StorageClient.fileHandlers.get("json"), s3StorageClient.fileHandlers.get("jsonl"));
-//
-//    assertInstanceOf(CSVFileHandler.class, s3StorageClient.fileHandlers.get("csv"));
-//
-//    s3StorageClient.shutdown();
-//  }
-//
-//  @Test
-//  public void testShutdown() throws Exception {
-//    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
-//        S3_SECRET_ACCESS_KEY, "secretKey");
-//    S3StorageClient s3StorageClient = new S3StorageClient(new URI("s3://bucket/"), null,
-//        null, null, cloudOptions, ConfigFactory.parseMap(Map.of("csv", Map.of())));
-//
-//    s3StorageClient.init();
-//    assertEquals(1, s3StorageClient.fileHandlers.size());
-//    S3Client mockClient = mock(S3Client.class);
-//    s3StorageClient.setS3ClientForTesting(mockClient);
-//    s3StorageClient.shutdown();
-//
-//    // verify that the s3 client is closed
-//    verify(mockClient, times(1)).close();
-//    // check that the file handlers are cleared
-//    assertEquals(0, s3StorageClient.fileHandlers.size());
-//  }
-//
+  @Test
+  public void testShutdown() throws Exception {
+    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey");
+    S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
+
+    s3StorageClient.init();
+    S3Client mockClient = mock(S3Client.class);
+    s3StorageClient.setS3ClientForTesting(mockClient);
+    s3StorageClient.shutdown();
+
+    // verify that the s3 client is closed
+    verify(mockClient, times(1)).close();
+  }
+
   @Test
   public void testPublishValidFiles() throws Exception {
     Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
