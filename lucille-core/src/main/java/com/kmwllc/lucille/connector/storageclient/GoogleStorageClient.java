@@ -14,16 +14,13 @@ import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.channels.Channels;
-import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -33,11 +30,6 @@ public class GoogleStorageClient extends BaseStorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(GoogleStorageClient.class);
   private Storage storage;
-
-  public GoogleStorageClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions, Config fileOptions) {
-    super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
-  }
 
   // Constructor for a client used to extract InputStreams from individual URIs.
   public GoogleStorageClient(Map<String, Object> cloudOptions) {
@@ -54,8 +46,6 @@ public class GoogleStorageClient extends BaseStorageClient {
     } catch (IOException e) {
       throw new ConnectorException("Error occurred building storage client", e);
     }
-
-    initializeFileHandlers();
   }
 
   @Override
@@ -67,24 +57,27 @@ public class GoogleStorageClient extends BaseStorageClient {
         throw new IOException("Error occurred closing storage", e);
       }
     }
-    // clear all FileHandlers if any
-    clearFileHandlers();
   }
 
   @Override
-  public void traverse(Publisher publisher) throws Exception {
-    Page<Blob> page = storage.list(bucketOrContainerName, BlobListOption.prefix(startingDirectory), BlobListOption.pageSize(maxNumOfPages));
+  public void traverse(Publisher publisher, TraversalParams params) throws Exception {
+    initializeFileHandlers(params);
+
+    Page<Blob> page = storage.list(params.bucketOrContainerName, BlobListOption.prefix(params.startingDirectory), BlobListOption.pageSize(maxNumOfPages));
     do {
       page.streamAll()
           .forEachOrdered(blob -> {
-            if (isValid(blob)) {
-              String fullPathStr = getFullPath(blob);
+            if (isValid(blob, params)) {
+              String fullPathStr = getFullPath(blob, params);
               String fileExtension = FilenameUtils.getExtension(fullPathStr);
-              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob));
+              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
             }
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
     } while (page != null);
+
+    // TODO: In a finally block
+    clearFileHandlers();
   }
 
   @Override
@@ -98,22 +91,22 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, TraversalParams params) {
     Blob blob = fileReference.getBlob();
 
     try {
-      return blobToDoc(blob);
+      return blobToDoc(blob, params);
     } catch (IOException e) {
       throw new IllegalArgumentException("Unable to convert blob '" + blob.getName() + "' to Document", e);
     }
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr, TraversalParams params) {
     Blob blob = fileReference.getBlob();
 
     try {
-      return blobToDoc(blob, in, decompressedFullPathStr);
+      return blobToDoc(blob, in, decompressedFullPathStr, params);
     } catch (IOException e) {
       throw new IllegalArgumentException("Unable to convert blob '" + blob.getName() + "' to Document", e);
     }
@@ -131,20 +124,20 @@ public class GoogleStorageClient extends BaseStorageClient {
     return new ByteArrayInputStream(content);
   }
 
-  private boolean isValid(Blob blob) {
+  private boolean isValid(Blob blob, TraversalParams params) {
     if (blob.isDirectory()) return false;
 
-    return shouldIncludeFile(blob.getName(), includes, excludes);
+    return params.shouldIncludeFile(blob.getName());
   }
 
-  private String getFullPath(Blob blob) {
-    return pathToStorageURI.getScheme() + "://" + bucketOrContainerName + "/" + blob.getName();
+  private String getFullPath(Blob blob, TraversalParams params) {
+    return params.pathToStorageURI.getScheme() + "://" + params.bucketOrContainerName + "/" + blob.getName();
   }
 
-  private Document blobToDoc(Blob blob) throws IOException {
-    String fullPath = getFullPath(blob);
+  private Document blobToDoc(Blob blob, TraversalParams params) throws IOException {
+    String fullPath = getFullPath(blob, params);
     String docId = DigestUtils.md5Hex(fullPath);
-    Document doc = Document.create(docIdPrefix + docId);
+    Document doc = Document.create(params.docIdPrefix + docId);
 
     doc.setField(FileConnector.FILE_PATH, fullPath);
 
@@ -158,16 +151,16 @@ public class GoogleStorageClient extends BaseStorageClient {
 
     doc.setField(FileConnector.SIZE, blob.getSize());
 
-    if (getFileContent) {
+    if (params.getFileContent) {
       doc.setField(FileConnector.CONTENT, blob.getContent());
     }
 
     return doc;
   }
 
-  private Document blobToDoc(Blob blob, InputStream content, String decompressedFullPathStr) throws IOException {
+  private Document blobToDoc(Blob blob, InputStream content, String decompressedFullPathStr, TraversalParams params) throws IOException {
     final String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-    final Document doc = Document.create(docIdPrefix + docId);
+    final Document doc = Document.create(params.docIdPrefix + docId);
 
     doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
 
@@ -180,7 +173,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     }
 
     // unable to get decompressed file size
-    if (getFileContent) {
+    if (params.getFileContent) {
       doc.setField(FileConnector.CONTENT, content.readAllBytes());
     }
 
@@ -188,7 +181,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   public static void validateOptions(Map<String, Object> cloudOptions) {
-    if (!cloudOptions.containsKey(GOOGLE_SERVICE_KEY)) {
+    if (!validOptions(cloudOptions)) {
       throw new IllegalArgumentException("Missing " + GOOGLE_SERVICE_KEY + " in cloudOptions for GoogleStorageClient.");
     }
   }

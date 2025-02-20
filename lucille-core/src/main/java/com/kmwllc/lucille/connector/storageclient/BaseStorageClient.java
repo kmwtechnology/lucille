@@ -2,13 +2,8 @@ package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
-import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
-import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.MAX_NUM_OF_PAGES;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
-import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_AFTER_PROCESSING;
-import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_ERROR_FOLDER;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 import static com.kmwllc.lucille.core.fileHandler.FileHandler.SUPPORTED_FILE_TYPES;
@@ -17,22 +12,15 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.regex.Pattern;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
@@ -48,49 +36,16 @@ public abstract class BaseStorageClient implements StorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(BaseStorageClient.class);
 
-  protected String docIdPrefix;
-  protected URI pathToStorageURI;
-  protected String bucketOrContainerName;
-  protected String startingDirectory;
-  protected List<Pattern> excludes;
-  protected List<Pattern> includes;
   protected Map<String, Object> cloudOptions;
-  protected Config fileOptions;
   protected Map<String, FileHandler> fileHandlers;
   protected Integer maxNumOfPages;
-  protected boolean getFileContent;
-  protected boolean handleArchivedFiles;
-  protected boolean handleCompressedFiles;
-  protected String moveToAfterProcessing;
-  protected String moveToErrorFolder;
 
-  public BaseStorageClient(URI pathToStorageURI, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions, Config fileOptions) {
-    this.docIdPrefix = docIdPrefix;
-    this.pathToStorageURI = pathToStorageURI;
-    this.bucketOrContainerName = getContainerOrBucketName();
-    this.startingDirectory = getStartingDirectory();
-    this.excludes = excludes;
-    this.includes = includes;
-    this.cloudOptions = cloudOptions;
-    this.fileOptions = fileOptions;
-    this.fileHandlers = new HashMap<>();
-    this.getFileContent = !fileOptions.hasPath(GET_FILE_CONTENT) || fileOptions.getBoolean(GET_FILE_CONTENT);
-    this.handleArchivedFiles = fileOptions.hasPath(HANDLE_ARCHIVED_FILES) && fileOptions.getBoolean(HANDLE_ARCHIVED_FILES);
-    this.handleCompressedFiles = fileOptions.hasPath(HANDLE_COMPRESSED_FILES) && fileOptions.getBoolean(HANDLE_COMPRESSED_FILES);
-    this.moveToAfterProcessing = fileOptions.hasPath(MOVE_TO_AFTER_PROCESSING) ? fileOptions.getString(MOVE_TO_AFTER_PROCESSING) : null;
-    this.moveToErrorFolder = fileOptions.hasPath(MOVE_TO_ERROR_FOLDER) ? fileOptions.getString(MOVE_TO_ERROR_FOLDER) : null;
-    this.maxNumOfPages = cloudOptions.containsKey(MAX_NUM_OF_PAGES) ? (Integer) cloudOptions.get(MAX_NUM_OF_PAGES) : 100;
-  }
-
-  // Constructor for clients used to extract InputStreams from individual URIs.
   public BaseStorageClient(Map<String, Object> cloudOptions) {
     this.cloudOptions = cloudOptions;
-
-    this.excludes = new ArrayList<>();
-    this.includes = new ArrayList<>();
-    this.fileOptions = ConfigFactory.empty();
     this.fileHandlers = new HashMap<>();
+
+    // only matters for traversals
+    this.maxNumOfPages = cloudOptions.containsKey(MAX_NUM_OF_PAGES) ? (Integer) cloudOptions.get(MAX_NUM_OF_PAGES) : 100;
   }
 
   /**
@@ -102,7 +57,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param fileExtension fileExtension of the file. Used to determine if the file should be processed by file handler
    * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
    */
-  protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference) {
+  protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference, TraversalParams params) {
     try {
       // preprocessing, currently a NO-OP unless a subclass overrides it
       if (!beforeProcessingFile(fullPathStr)) {
@@ -111,7 +66,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
       
       // handle compressed files if needed to the end
-      if (handleCompressedFiles && isSupportedCompressedFileType(fullPathStr)) {
+      if (params.handleCompressedFiles && isSupportedCompressedFileType(fullPathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
         try (BufferedInputStream bis = new BufferedInputStream(getFileReferenceContentStream(fileReference));
             CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
@@ -120,35 +75,34 @@ public abstract class BaseStorageClient implements StorageClient {
           String resolvedExtension = FilenameUtils.getExtension(decompressedPath);
 
           // if detected to be an archive type after decompression
-          if (handleArchivedFiles && isSupportedArchiveFileType(decompressedPath)) {
-            handleArchiveFiles(publisher, compressorStream, fullPathStr);
+          if (params.handleArchivedFiles && isSupportedArchiveFileType(decompressedPath)) {
+            handleArchiveFiles(publisher, compressorStream, fullPathStr, params);
           } else {
             String filePathFormat = fullPathStr + ARCHIVE_FILE_SEPARATOR + FilenameUtils.getName(decompressedPath);
             // if file is a supported file type that should be handled by a file handler
-            if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(resolvedExtension, fileOptions)) {
+            if (params.supportedFileType(resolvedExtension)) {
               handleStreamExtensionFiles(publisher, compressorStream, resolvedExtension, filePathFormat);
             } else {
-              Document doc = convertFileReferenceToDoc(fileReference, compressorStream, filePathFormat);
+              Document doc = convertFileReferenceToDoc(fileReference, compressorStream, filePathFormat, params);
               publisher.publish(doc);
             }
           }
         }
-        afterProcessingFile(fullPathStr);
+        afterProcessingFile(fullPathStr, params);
         return;
       }
 
       // handle archived files if needed to the end
-      if (handleArchivedFiles && isSupportedArchiveFileType(fullPathStr)) {
+      if (params.handleArchivedFiles && isSupportedArchiveFileType(fullPathStr)) {
         try (InputStream is = getFileReferenceContentStream(fileReference)) {
-          handleArchiveFiles(publisher, is, fullPathStr);
+          handleArchiveFiles(publisher, is, fullPathStr, params);
         }
-        afterProcessingFile(fullPathStr);
+        afterProcessingFile(fullPathStr, params);
         return;
       }
 
       // handle file types using fileHandler if needed to the end
-      if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions)) {
-
+      if (params.supportedFileType(fileExtension)) {
         if (fileReference.isCloudFileReference()) {
           // get the file content
           byte[] content = getFileReferenceContent(fileReference);
@@ -160,19 +114,19 @@ public abstract class BaseStorageClient implements StorageClient {
           // get the right FileHandler and publish based on content
           publishUsingFileHandler(publisher, fileExtension, path);
         }
-        afterProcessingFile(fullPathStr);
+        afterProcessingFile(fullPathStr, params);
         return;
       }
 
       // handle normal files
-      Document doc = convertFileReferenceToDoc(fileReference);
+      Document doc = convertFileReferenceToDoc(fileReference, params);
       publisher.publish(doc);
-      afterProcessingFile(fullPathStr);
+      afterProcessingFile(fullPathStr, params);
     } catch (UnsupportedOperationException e) {
       throw new UnsupportedOperationException("Encountered unsupported operation", e);
     } catch (Exception e) {
       try {
-        errorProcessingFile(fullPathStr);
+        errorProcessingFile(fullPathStr, params);
       } catch (IOException ex) {
         log.error("Error occurred while performing error operations on file '{}'", fullPathStr, ex);
       }
@@ -191,7 +145,7 @@ public abstract class BaseStorageClient implements StorageClient {
    *                    Cloud path would include schema and bucket/container name
    *                    e.g gs://bucket-name/folder/file.zip or s3://bucket-name/file.tar
    */
-  protected void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fullPathStr) throws ArchiveException, IOException, ConnectorException {
+  protected void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fullPathStr, TraversalParams params) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
@@ -202,20 +156,20 @@ public abstract class BaseStorageClient implements StorageClient {
           continue;
         }
         // checking validity only for the entries
-        if (!entry.isDirectory() && shouldIncludeFile(entry.getName(), includes, excludes)) {
+        if (!entry.isDirectory() && params.shouldIncludeFile(entry.getName())) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
-          if (!fileOptions.isEmpty() && FileHandler.supportAndContainFileType(entryExtension, fileOptions)) {
+          if (params.supportedFileType(entryExtension)) {
             handleStreamExtensionFiles(publisher, in, entryExtension, entryFullPathStr);
           } else {
             // handle entry to be published as a normal document
             // note that if there exists a file within the same parent directory with the same name as the entries, it will have the same id
-            Document doc = Document.create(createDocId(DigestUtils.md5Hex(entryFullPathStr)));
+            Document doc = Document.create(createDocId(DigestUtils.md5Hex(entryFullPathStr), params));
             doc.setField(FILE_PATH, entryFullPathStr);
             doc.setField(MODIFIED, entry.getLastModifiedDate().toInstant());
             // entry does not have creation date
             // note that some ArchiveEntry implementations may not have a size so will return -1
             doc.setField(SIZE, entry.getSize());
-            if (getFileContent) {
+            if (params.getFileContent) {
               doc.setField(CONTENT, in.readAllBytes());
             }
             try {
@@ -301,10 +255,10 @@ public abstract class BaseStorageClient implements StorageClient {
    * method for performing operations after processing files. Additional operations can be added
    * in the implementation of this method. Will be called after processing each file in traversal.
    */
-  protected void afterProcessingFile(String pathStr) throws IOException {
-    if (moveToAfterProcessing != null) {
+  protected void afterProcessingFile(String pathStr, TraversalParams params) throws IOException {
+    if (params.moveToAfterProcessing != null) {
       // move to processed folder
-      moveFile(pathStr, moveToAfterProcessing);
+      moveFile(pathStr, params.moveToAfterProcessing);
     }
   }
 
@@ -313,10 +267,10 @@ public abstract class BaseStorageClient implements StorageClient {
    * in the implementation of this method. Will be called in the catch block for each file in traversal
    * in the tryProcessAndPublishFile method.
    */
-  protected void errorProcessingFile(String pathStr) throws IOException {
-    if (moveToErrorFolder != null) {
+  protected void errorProcessingFile(String pathStr, TraversalParams params) throws IOException {
+    if (params.moveToErrorFolder != null) {
       // move to error folder
-      moveFile(pathStr, moveToErrorFolder);
+      moveFile(pathStr, params.moveToErrorFolder);
     }
   }
 
@@ -349,12 +303,12 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * converts a file reference (Path or cloud Storage object implementation) to a document.
    */
-  protected abstract Document convertFileReferenceToDoc(FileReference fileReference);
+  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, TraversalParams params);
 
   /**
    * will only be called in the scenario where after decompression and file will not be handled by a file handler
    */
-  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr);
+  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr, TraversalParams params);
 
   /**
    * get the content of the file reference as a byte array
@@ -367,38 +321,14 @@ public abstract class BaseStorageClient implements StorageClient {
   protected abstract InputStream getFileReferenceContentStream(FileReference fileReference);
 
   /**
-   * default implementation to obtain the container or bucket name from the path. Only used for cloud based storage clients.
-   */
-  protected String getContainerOrBucketName() {
-    return pathToStorageURI.getAuthority();
-  }
-
-  /**
-   * default implementation to obtain starting directory
-   */
-  protected String getStartingDirectory() {
-    String startingDirectory = Objects.equals(pathToStorageURI.getPath(), "/") ? "" : pathToStorageURI.getPath();
-    if (startingDirectory.startsWith("/")) return startingDirectory.substring(1);
-    return startingDirectory;
-  }
-
-  /**
-   * helper method to decide if a file should be processed based on the includes and excludes patterns
-   */
-  protected static boolean shouldIncludeFile(String pathStr, List<Pattern> includes, List<Pattern> excludes) {
-    return excludes.stream().noneMatch(pattern -> pattern.matcher(pathStr).matches())
-        && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(pathStr).matches()));
-  }
-
-  /**
    * helper method to initialize all file handlers based on the fileOptions
    */
-  protected void initializeFileHandlers() throws ConnectorException {
+  protected void initializeFileHandlers(TraversalParams params) throws ConnectorException {
     // go through fileOptions, and initialize all file handlers
     for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
-      if (fileOptions.hasPath(fileExtensionSupported)) {
+      if (params.optionsIncludeFileExtension(fileExtensionSupported)) {
         try {
-          FileHandler handler = FileHandler.create(fileExtensionSupported, fileOptions);
+          FileHandler handler = FileHandler.create(fileExtensionSupported, params.fileOptions);
           fileHandlers.put(fileExtensionSupported, handler);
           // handle cases like json/jsonl
           if (fileExtensionSupported.equals("json") || fileExtensionSupported.equals("jsonl")) {
@@ -452,7 +382,7 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   //should sync with abstract connector class?
-  protected String createDocId(String docId) {
-    return docIdPrefix + docId;
+  protected String createDocId(String docId, TraversalParams params) {
+    return params.docIdPrefix + docId;
   }
 }
