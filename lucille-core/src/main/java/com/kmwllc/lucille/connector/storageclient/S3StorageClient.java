@@ -64,29 +64,27 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   public void traverse(Publisher publisher, TraversalParams params) throws Exception {
-    // TODO: This could, potentially, cause a bug or break tests.
-    initializeFileHandlers(params);
+    try {
+      initializeFileHandlers(params);
 
-    ListObjectsV2Request request = ListObjectsV2Request.builder()
-        .bucket(params.bucketOrContainerName)
-        .prefix(params.startingDirectory)
-        .maxKeys(maxNumOfPages).build();
-    ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
-    response.stream()
-        .forEachOrdered(resp -> {
-          resp.contents().forEach(obj -> {
-            if (isValid(obj, params)) {
-              String fullPathStr = getFullPath(obj, params);
-              String fileExtension = FilenameUtils.getExtension(fullPathStr);
-              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(obj), params);
-            }
+      ListObjectsV2Request request = ListObjectsV2Request.builder()
+          .bucket(params.bucketOrContainerName)
+          .prefix(params.startingDirectory)
+          .maxKeys(maxNumOfPages).build();
+      ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
+      response.stream()
+          .forEachOrdered(resp -> {
+            resp.contents().forEach(obj -> {
+              if (isValid(obj, params)) {
+                String fullPathStr = getFullPath(obj, params);
+                String fileExtension = FilenameUtils.getExtension(fullPathStr);
+                tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(obj), params);
+              }
+            });
           });
-        });
-
-    // TODO: Same as above, this could cause issues / bugs / break tests.
-    // clear all FileHandlers if any
-    // TODO: IN a finally block
-    clearFileHandlers();
+    } finally {
+      clearFileHandlers();
+    }
   }
 
   @Override
@@ -115,16 +113,14 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected byte[] getFileReferenceContent(FileReference fileReference) {
+  protected byte[] getFileReferenceContent(FileReference fileReference, TraversalParams params) {
     S3Object obj = fileReference.getS3Object();
-    // TODO: This method is to be removed, anyways, but is there a way to do this with just the object?
-    return null;
-//    return s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketOrContainerName).key(obj.key()).build()).asByteArray();
+    return s3.getObjectAsBytes(GetObjectRequest.builder().bucket(params.bucketOrContainerName).key(obj.key()).build()).asByteArray();
   }
 
   @Override
-  protected InputStream getFileReferenceContentStream(FileReference fileReference) {
-    byte[] content = getFileReferenceContent(fileReference);
+  protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
+    byte[] content = getFileReferenceContent(fileReference, params);
     return new ByteArrayInputStream(content);
   }
 

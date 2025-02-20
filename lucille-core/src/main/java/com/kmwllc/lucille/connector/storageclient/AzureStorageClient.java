@@ -4,10 +4,9 @@ import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_KEY;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_NAME;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_CONNECTION_STRING;
 
-import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobClientBuilder;
 import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobContainerClientBuilder;
+import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.ListBlobsOptions;
@@ -29,7 +28,7 @@ import org.slf4j.LoggerFactory;
 
 public class AzureStorageClient extends BaseStorageClient {
 
-  private BlobContainerClient containerClient;
+  private BlobServiceClient serviceClient;
   private static final Logger log = LoggerFactory.getLogger(AzureStorageClient.class);
 
   public AzureStorageClient(Map<String, Object> cloudOptions) {
@@ -38,23 +37,17 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   public void init() throws ConnectorException {
-
-    // TODO: Some refactoring is needed here. The bucketOrContainerName shouldn't be required.
-    // Ideally, here, you'd build up a connection to Azure using the given credentials... without
-    // a specific bucket / container name required. Is that possible?
     try {
       if (cloudOptions.containsKey(AZURE_CONNECTION_STRING)) {
-        containerClient = new BlobContainerClientBuilder()
+        serviceClient = new BlobServiceClientBuilder()
             .connectionString((String) cloudOptions.get(AZURE_CONNECTION_STRING))
-//            .containerName(bucketOrContainerName)
             .buildClient();
       } else {
         String accountName = (String) cloudOptions.get(AZURE_ACCOUNT_NAME);
         String accountKey = (String) cloudOptions.get(AZURE_ACCOUNT_KEY);
 
-        containerClient = new BlobContainerClientBuilder()
+        serviceClient = new BlobServiceClientBuilder()
             .credential(new StorageSharedKeyCredential(accountName, accountKey))
-//            .containerName(bucketOrContainerName)
             .buildClient();
       }
     } catch (Exception e) {
@@ -64,36 +57,35 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   public void shutdown() throws IOException {
-    // azure container client is not closable
-    containerClient = null;
+    // azure service client is not closable
+    serviceClient = null;
   }
 
   @Override
   public void traverse(Publisher publisher, TraversalParams params) throws Exception {
-    // clear all FileHandlers if any
-    initializeFileHandlers(params);
+    try {
+      initializeFileHandlers(params);
 
-    // TODO: This is a bad call to getStartingDirectory
-    containerClient.listBlobs(new ListBlobsOptions().setPrefix(params.startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
-        .forEachOrdered(blob -> {
-          if (isValid(blob, params)) {
-            String fullPathStr = getFullPath(blob, params);
-            String fileExtension = FilenameUtils.getExtension(fullPathStr);
-            tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
-          }
-        });
-
-    // TODO: In a finally block
-    // clear all FileHandlers if any
-    clearFileHandlers();
+      serviceClient.createBlobContainer(params.bucketOrContainerName).listBlobs(new ListBlobsOptions().setPrefix(params.startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
+          .forEachOrdered(blob -> {
+            if (isValid(blob, params)) {
+              String fullPathStr = getFullPath(blob, params);
+              String fileExtension = FilenameUtils.getExtension(fullPathStr);
+              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
+            }
+          });
+    } finally {
+      clearFileHandlers();
+    }
   }
 
   @Override
   public InputStream getFileContentStream(URI uri) throws IOException {
-    // TODO: This probably isn't working as it won't have credentials?
-    // (It doesn't use the configured container client from above)
-    BlobClient client = new BlobClientBuilder().endpoint(uri.toString()).buildClient();
-    return client.openInputStream();
+    String containerName = uri.getPath().split("/")[1];
+    String blobName = uri.getPath().split("/")[2];
+
+    BlobContainerClient containerClient = serviceClient.getBlobContainerClient(containerName);
+    return containerClient.getBlobClient(blobName).openInputStream();
   }
 
   @Override
@@ -114,14 +106,16 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected byte[] getFileReferenceContent(FileReference fileReference) {
+  protected byte[] getFileReferenceContent(FileReference fileReference, TraversalParams params) {
     BlobItem blobItem = fileReference.getBlobItem();
-    return containerClient.getBlobClient(blobItem.getName()).downloadContent().toBytes();
+    return serviceClient
+        .getBlobContainerClient(params.bucketOrContainerName)
+        .getBlobClient(blobItem.getName()).downloadContent().toBytes();
   }
 
   @Override
-  protected InputStream getFileReferenceContentStream(FileReference fileReference) {
-    byte[] content = getFileReferenceContent(fileReference);
+  protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
+    byte[] content = getFileReferenceContent(fileReference, params);
     return new ByteArrayInputStream(content);
   }
 
@@ -151,7 +145,7 @@ public class AzureStorageClient extends BaseStorageClient {
     doc.setField(FileConnector.SIZE, properties.getContentLength());
 
     if (params.getFileContent) {
-      doc.setField(FileConnector.CONTENT, containerClient.getBlobClient(blob.getName()).downloadContent().toBytes());
+      doc.setField(FileConnector.CONTENT, serviceClient.getBlobContainerClient(params.bucketOrContainerName).getBlobClient(blob.getName()).downloadContent().toBytes());
     }
 
     return doc;
@@ -199,7 +193,7 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   // Only for testing
-  void setContainerClientForTesting(BlobContainerClient containerClient) {
-    this.containerClient = containerClient;
+  void setServiceClientForTesting(BlobServiceClient serviceClient) {
+    this.serviceClient = serviceClient;
   }
 }

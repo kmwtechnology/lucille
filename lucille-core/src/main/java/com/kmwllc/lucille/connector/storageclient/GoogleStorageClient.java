@@ -61,23 +61,24 @@ public class GoogleStorageClient extends BaseStorageClient {
 
   @Override
   public void traverse(Publisher publisher, TraversalParams params) throws Exception {
-    initializeFileHandlers(params);
+    try {
+      initializeFileHandlers(params);
 
-    Page<Blob> page = storage.list(params.bucketOrContainerName, BlobListOption.prefix(params.startingDirectory), BlobListOption.pageSize(maxNumOfPages));
-    do {
-      page.streamAll()
-          .forEachOrdered(blob -> {
-            if (isValid(blob, params)) {
-              String fullPathStr = getFullPath(blob, params);
-              String fileExtension = FilenameUtils.getExtension(fullPathStr);
-              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
-            }
-          });
-      page = page.hasNextPage() ? page.getNextPage() : null;
-    } while (page != null);
-
-    // TODO: In a finally block
-    clearFileHandlers();
+      Page<Blob> page = storage.list(params.bucketOrContainerName, BlobListOption.prefix(params.startingDirectory), BlobListOption.pageSize(maxNumOfPages));
+      do {
+        page.streamAll()
+            .forEachOrdered(blob -> {
+              if (isValid(blob, params)) {
+                String fullPathStr = getFullPath(blob, params);
+                String fileExtension = FilenameUtils.getExtension(fullPathStr);
+                tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
+              }
+            });
+        page = page.hasNextPage() ? page.getNextPage() : null;
+      } while (page != null);
+    } finally {
+      clearFileHandlers();
+    }
   }
 
   @Override
@@ -113,14 +114,14 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected byte[] getFileReferenceContent(FileReference fileReference) {
+  protected byte[] getFileReferenceContent(FileReference fileReference, TraversalParams params) {
     Blob blob = fileReference.getBlob();
     return blob.getContent();
   }
 
   @Override
-  protected InputStream getFileReferenceContentStream(FileReference fileReference) {
-    byte[] content = getFileReferenceContent(fileReference);
+  protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
+    byte[] content = getFileReferenceContent(fileReference, params);
     return new ByteArrayInputStream(content);
   }
 

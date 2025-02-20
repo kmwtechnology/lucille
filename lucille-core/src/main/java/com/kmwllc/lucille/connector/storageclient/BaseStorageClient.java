@@ -68,7 +68,7 @@ public abstract class BaseStorageClient implements StorageClient {
       // handle compressed files if needed to the end
       if (params.handleCompressedFiles && isSupportedCompressedFileType(fullPathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
-        try (BufferedInputStream bis = new BufferedInputStream(getFileReferenceContentStream(fileReference));
+        try (BufferedInputStream bis = new BufferedInputStream(getFileReferenceContentStream(fileReference, params));
             CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
           // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
           String decompressedPath = FilenameUtils.removeExtension(fullPathStr);
@@ -94,7 +94,7 @@ public abstract class BaseStorageClient implements StorageClient {
 
       // handle archived files if needed to the end
       if (params.handleArchivedFiles && isSupportedArchiveFileType(fullPathStr)) {
-        try (InputStream is = getFileReferenceContentStream(fileReference)) {
+        try (InputStream is = getFileReferenceContentStream(fileReference, params)) {
           handleArchiveFiles(publisher, is, fullPathStr, params);
         }
         afterProcessingFile(fullPathStr, params);
@@ -105,7 +105,7 @@ public abstract class BaseStorageClient implements StorageClient {
       if (params.supportedFileType(fileExtension)) {
         if (fileReference.isCloudFileReference()) {
           // get the file content
-          byte[] content = getFileReferenceContent(fileReference);
+          byte[] content = getFileReferenceContent(fileReference, params);
           // get the right FileHandler and publish based on content
           publishUsingFileHandler(publisher, fileExtension, content, fullPathStr);
         } else {
@@ -313,12 +313,12 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * get the content of the file reference as a byte array
    */
-  protected abstract byte[] getFileReferenceContent(FileReference fileReference);
+  protected abstract byte[] getFileReferenceContent(FileReference fileReference, TraversalParams params);
 
   /**
    * get the content of the file reference as an InputStream. Always called within a try-with-resources block
    */
-  protected abstract InputStream getFileReferenceContentStream(FileReference fileReference);
+  protected abstract InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params);
 
   /**
    * helper method to initialize all file handlers based on the fileOptions

@@ -9,7 +9,6 @@ import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.typesafe.config.Config;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -44,12 +43,12 @@ public class LocalStorageClient extends BaseStorageClient {
 
   @Override
   public void traverse(Publisher publisher, TraversalParams params) throws Exception {
-    initializeFileHandlers(params);
-
-    Files.walkFileTree(Paths.get(params.startingDirectory), new LocalFileVisitor(publisher, params));
-
-    // TODO: Put in a finally block?
-    clearFileHandlers();
+    try {
+      initializeFileHandlers(params);
+      Files.walkFileTree(Paths.get(params.startingDirectory), new LocalFileVisitor(publisher, params));
+    } finally {
+      clearFileHandlers();
+    }
   }
 
   @Override
@@ -80,7 +79,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected byte[] getFileReferenceContent(FileReference fileReference) {
+  protected byte[] getFileReferenceContent(FileReference fileReference, TraversalParams params) {
     Path path = fileReference.getPath();
     try {
       return Files.readAllBytes(path);
@@ -90,7 +89,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected InputStream getFileReferenceContentStream(FileReference fileReference) {
+  protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
     Path path = fileReference.getPath();
     try {
       return Files.newInputStream(path);
