@@ -216,7 +216,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * the resolved file has a supported extension and user has configured the appropriate file handler.
    *
    * @param publisher publisher used to publish documents
-   * @param in InputStream of the archive file. Used to create an ArchiveInputStream
+   * @param in An InputStream for an archive / compressed file. This InputStream will <b>NOT</b> be closed by this method.
    * @param fullPathStr can be entry full path or decompressed full path. Can be a cloud path or local path.
    *                    e.g. gs://bucket-name/folder/file.zip:entry.json OR path/to/example.csv
    */
@@ -239,7 +239,7 @@ public abstract class BaseStorageClient implements StorageClient {
       FileHandler handler = fileHandlers.get(fileExtension);
       handler.processFileAndPublish(publisher, wrappedNonClosingStream, fullPathStr);
     } catch (Exception e) {
-      throw new ConnectorException("Error occurred while handling file: " + fullPathStr, e);
+      throw new ConnectorException("Error occurred while handling / processing file: " + fullPathStr, e);
     }
   }
 
