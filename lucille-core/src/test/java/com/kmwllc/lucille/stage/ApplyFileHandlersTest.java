@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 
 import com.kmwllc.lucille.core.Document;
@@ -57,12 +58,22 @@ public class ApplyFileHandlersTest {
 
   @Test
   public void testNoHandlers() throws StageException {
+    Stage stage = factory.get("ApplyFileHandlersTest/csvOnly.conf");
+    Document jsonDoc = Document.create("json_doc");
+    jsonDoc.setField("source", Paths.get("src/test/resources/ApplyFileHandlersTest/test.jsonl").toString());
+    assertNull(stage.processDocument(jsonDoc));
 
+    stage = factory.get("ApplyFileHandlersTest/jsonOnly.conf");
+    Document csvDoc = Document.create("csv_doc");
+    csvDoc.setField("source", Paths.get("src/test/resources/ApplyFileHandlersTest/test.csv").toString());
+    assertNull(stage.processDocument(csvDoc));
   }
 
   @Test
   public void testInvalidConfs() throws StageException {
     assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/empty.conf"));
     assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/noHandlers.conf"));
+    // Start is called in the factory
+    assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/onlyInvalidHandlers.conf"));
   }
 }
