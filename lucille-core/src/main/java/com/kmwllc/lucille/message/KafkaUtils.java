@@ -35,6 +35,9 @@ import org.slf4j.LoggerFactory;
  *  add separate config option to leave failure topic around
  *  consider adding all failed documents to the failure topic
  *  add ability to override names of any kafka topic in the config
+ *
+ *  Provide CloudOptions, in your Config, if your consumer or producer property files, or your admin property file,
+ *  are in cloud storage (S3, Google, or Azure). See FileConnector for the appropriate arguments to provide.
  */
 public class KafkaUtils {
 

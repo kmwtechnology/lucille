@@ -3,9 +3,10 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.connector.xml.XMLConnector;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.message.TestMessenger;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.Map;
 import org.junit.Test;
 
 import java.util.List;
@@ -111,7 +112,7 @@ public class XPathExtractorTest {
   @Test
   public void withXMLConnectorTest() throws Exception {
     // pass XML document through XMLConnector first
-    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:XMLConnectorTest/staff.conf"));
+    Config config = ConfigFactory.parseReader(FileContentFetcher.getSingleReader("classpath:XMLConnectorTest/staff.conf", Map.of()));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);

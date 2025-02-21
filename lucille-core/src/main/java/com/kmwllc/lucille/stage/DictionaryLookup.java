@@ -40,6 +40,8 @@ import org.slf4j.LoggerFactory;
  *      are present in the dictionary.
  *   - ignore_missing_source (Boolean, Optional) : Intended to be used in combination with set_only. If true, the destination field
  *      will be set to true if the source field is missing. Defaults to false.
+ *   - cloudOptions (Map, Optional) : If your dictionary files are held in Cloud Storage (S3, Azure, Google). See FileConnector
+ *      for the appropriate arguments to provide.
  */
 public class DictionaryLookup extends Stage {
 

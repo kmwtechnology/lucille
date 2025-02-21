@@ -23,14 +23,6 @@ public class FileContentFetcher {
   private final Map<String, StorageClient> availableClients;
 
   /**
-   * Creates a FileContentFetcher that will only fetch files from the classpath or the local file system. Be sure to call startup
-   * and shutdown as appropriate.
-   */
-  public FileContentFetcher() {
-    this.availableClients = StorageClient.clientsFromCloudOptions(Map.of());
-  }
-
-  /**
    * Creates a FileContentFetcher that will fetch files from the classpath, the local file system, and any cloud file systems
    * (Azure, S3, Google) which have the necessary options provided in the given options map. Be sure to call startup and shutdown
    * as appropriate.
@@ -119,7 +111,6 @@ public class FileContentFetcher {
     // This method of creating the Reader is used because it handles non-UTF-8 characters by replacing them with UTF
     // chars, rather than throwing an Exception.
     // https://stackoverflow.com/questions/26268132/all-inclusive-charset-to-avoid-java-nio-charset-malformedinputexception-input
-    // return Files.newBufferedReader(Paths.get(path), StandardCharsets.UTF_8);
     return new BufferedReader(new InputStreamReader(stream, encoding));
   }
 

@@ -6,6 +6,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.io.Tuple;
 import org.junit.Test;
@@ -22,13 +23,13 @@ public class SolrUtilsTest {
 
   @Test
   public void requireAuthTest() throws Exception {
-    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:SolrUtilsTest/auth.conf"));
+    Config config = ConfigFactory.parseReader(FileContentFetcher.getSingleReader("classpath:SolrUtilsTest/auth.conf", Map.of()));
     assertTrue(SolrUtils.requiresAuth(config));
   }
 
   @Test
   public void getHttpClientTest() throws Exception {
-    Config config = ConfigFactory.parseReader(FileUtils.getLocalFileReader("classpath:SolrUtilsTest/auth.conf"));
+    Config config = ConfigFactory.parseReader(FileContentFetcher.getSingleReader("classpath:SolrUtilsTest/auth.conf", Map.of()));
     Http2SolrClient client = SolrUtils.getHttpClient(config);
     // would like to inspect the solr client to confirm credentials are configured, but can’t do that so just checking it’s non-null
     assertNotNull(client);

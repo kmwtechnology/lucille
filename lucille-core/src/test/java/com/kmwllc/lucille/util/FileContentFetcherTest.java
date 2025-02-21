@@ -26,7 +26,7 @@ public class FileContentFetcherTest {
 
   @Test
   public void testGetInputStream() throws Exception {
-    FileContentFetcher fetcher = new FileContentFetcher();
+    FileContentFetcher fetcher = new FileContentFetcher(Map.of());
     fetcher.startup();
 
     // 1. Classpath file

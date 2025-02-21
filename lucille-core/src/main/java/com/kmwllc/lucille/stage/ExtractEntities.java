@@ -13,7 +13,6 @@ import org.ahocorasick.trie.PayloadTrie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -45,6 +44,8 @@ import java.util.stream.Collectors;
  *       other text. ie "OMAN" in "rOMAN".  Defaults to false.
  *   - ignore_overlaps (Boolean, Optional) : Decides whether overlapping matches should both be extracted or if only the
  *       longer, left most match should be kept.  Defaults to true.
+ *   - cloudOptions (Map, Optional) : If your dictionary files are held in Cloud Storage (S3, Azure, Google). See FileConnector
+ *  *      for the appropriate arguments to provide.
  */
 public class ExtractEntities extends Stage {
 
@@ -137,8 +138,7 @@ public class ExtractEntities extends Stage {
     }
 
     for (String dictFile : dictionaries) {
-      File d = new File(dictFile);
-      log.info("loading Dictionary from {}", d.getAbsolutePath());
+      log.info("loading Dictionary from {}", dictFile);
 
       try (CSVReader reader = new CSVReader(fileFetcher.getReader(dictFile))) {
         // For each line of the dictionary file, add a keyword/payload pair to the Trie

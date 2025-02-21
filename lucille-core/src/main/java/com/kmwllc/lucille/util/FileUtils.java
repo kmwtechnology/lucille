@@ -9,6 +9,7 @@ import java.io.Reader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,14 +42,7 @@ public class FileUtils {
    * (starts with "classpath:").
    */
   public static Reader getLocalFileReader(String path) throws IOException {
-    InputStream is;
-
-    if (path.startsWith("classpath:")) {
-      is = FileUtils.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
-    } else {
-      is = new FileInputStream(path);
-    }
-
-    return new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+    InputStream stream = FileContentFetcher.getSingleInputStream(path, Map.of());
+    return null;
   }
 }

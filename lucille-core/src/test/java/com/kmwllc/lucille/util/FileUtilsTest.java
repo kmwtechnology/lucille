@@ -1,6 +1,8 @@
 package com.kmwllc.lucille.util;
+
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.Map;
 import org.apache.commons.io.IOUtils;
 import org.junit.Test;
 import java.io.Reader;
@@ -15,17 +17,17 @@ public class FileUtilsTest {
   @Test
   public void getLocalReaderTest() throws Exception {
     String path = "classpath:FileUtilsTest/test";
-    try (Reader r = FileUtils.getLocalFileReader(path)) {
+    try (Reader r = FileContentFetcher.getSingleReader(path, Map.of())) {
       assertEquals("aaaaa", IOUtils.toString(r));
     }
 
     path = "src/test/resources/FileUtilsTest/test";
-    try (Reader r = FileUtils.getLocalFileReader(path)) {
+    try (Reader r = FileContentFetcher.getSingleReader(path, Map.of())) {
       assertEquals("aaaaa", IOUtils.toString(r));
     }
 
     String badPath = Paths.get("src/test/resources/FileUtilsTest/test").toUri().toString();
-    assertThrows(IOException.class, () -> FileUtils.getLocalFileReader(badPath));
+    assertThrows(IOException.class, () -> FileContentFetcher.getSingleReader(badPath, Map.of()));
   }
 
   @Test

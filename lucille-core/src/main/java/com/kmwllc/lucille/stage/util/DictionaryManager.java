@@ -93,7 +93,7 @@ public class DictionaryManager {
       dictionaries.put(key, unmodifiableDictionary);
       return unmodifiableDictionary;
     } catch (IOException e) {
-      throw new StageException("Error occurred while starting up FileContentFetcher.", e);
+      throw new StageException("Error occurred while building dictionary HashMap.", e);
     }
   }
 

@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.core.fileHandler;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -10,6 +10,7 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.UnaryOperator;
 import org.apache.commons.io.IOUtils;
@@ -35,7 +36,7 @@ public class JsonFileHandler extends BaseFileHandler {
     Reader reader;
 
     try {
-      reader = FileUtils.getLocalFileReader(path.toString());
+      reader = FileContentFetcher.getSingleReader(path.toString(), Map.of());
     } catch (Exception e) {
       throw new FileHandlerException("Error creating reader from path: " + path, e);
     }
