@@ -47,10 +47,10 @@ public class Condition implements Predicate<Document> {
     ConfigList list = config.getList("values");
     HashSet<String> mySet = new HashSet<>();
     for (ConfigValue val : list) {
-      if (val.valueType() == ConfigValueType.STRING) {
-        mySet.add(val.unwrapped().toString());
-      } else if (val.valueType() == ConfigValueType.NULL) {
+      if (val.valueType() == ConfigValueType.NULL) {
         mySet.add(null);
+      } else {
+        mySet.add(val.unwrapped().toString());
       }
     }
     return mySet;
