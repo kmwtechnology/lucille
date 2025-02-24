@@ -29,6 +29,7 @@ import java.util.List;
  * <li>outputField (String): The field to place the XML into: defaults to "xml".</li>
  * </ul>
  */
+@Deprecated
 public class XMLConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(XMLConnector.class);
