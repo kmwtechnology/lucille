@@ -53,7 +53,7 @@ public class EmitNestedChildren extends Stage {
       for (Document child : children) {
         for (String sourceField : fieldsToCopy.keySet()) {
           if (!doc.has(sourceField)) {
-            log.warn("Field '{}' not found in parent document", sourceField);
+            log.debug("Field '{}' not found in parent document", sourceField);
             continue;
           }
           // handle multivalued fields if needed; treat values as Json to preserve types
