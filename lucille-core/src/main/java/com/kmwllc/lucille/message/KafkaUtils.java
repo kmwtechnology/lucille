@@ -44,7 +44,7 @@ public class KafkaUtils {
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
 
   private static Properties loadExternalProps(String filename, Config cloudOptions) {
-    try (Reader propertiesReader = FileContentFetcher.getSingleReader(filename, StandardCharsets.UTF_8.name(), cloudOptions)) {
+    try (Reader propertiesReader = FileContentFetcher.getOneTimeReader(filename, StandardCharsets.UTF_8.name(), cloudOptions)) {
       Properties consumerProps = new Properties();
       consumerProps.load(propertiesReader);
       return consumerProps;

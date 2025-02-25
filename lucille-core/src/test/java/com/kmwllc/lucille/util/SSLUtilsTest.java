@@ -59,7 +59,7 @@ public class SSLUtilsTest {
     //      javax.net.ssl.keyStore: "/path/to/keyStore",
     //      javax.net.ssl.keyStorePassword: "secret"
     //      javax.net.ssl.trustStore: "/path/to/trustStore"
-    Config config = ConfigFactory.parseReader(FileContentFetcher.getSingleReader("classpath:SSLUtilsTest/ssl.conf", ConfigFactory.empty()));
+    Config config = ConfigFactory.parseReader(FileContentFetcher.getOneTimeReader("classpath:SSLUtilsTest/ssl.conf", ConfigFactory.empty()));
 
     System.setProperty("javax.net.ssl.keyStore", "/different/path/to/keyStore");
     System.clearProperty("javax.net.ssl.keyStorePassword");

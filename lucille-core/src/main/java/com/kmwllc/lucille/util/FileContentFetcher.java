@@ -1,14 +1,12 @@
 package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
-import com.kmwllc.lucille.core.ConnectorException;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.net.URI;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -98,7 +96,7 @@ public class FileContentFetcher {
    * and the file will be read from the classpath. Otherwise, it will be read from the local file system. Will use UTF-8
    * encoding.
    */
-  public Reader getReader(String path) throws IOException {
+  public BufferedReader getReader(String path) throws IOException {
     return getReader(path, "utf-8");
   }
 
@@ -106,7 +104,7 @@ public class FileContentFetcher {
    * Returns a Reader for the file at the given path using the given encoding. If the path begins with "classpath:"
    * the prefix will be removed and the file will be read from the classpath. Otherwise, it will be read from the local file system.
    */
-  public Reader getReader(String path, String encoding) throws IOException {
+  public BufferedReader getReader(String path, String encoding) throws IOException {
     InputStream stream = getInputStream(path);
 
     // This method of creating the Reader is used because it handles non-UTF-8 characters by replacing them with UTF
@@ -119,7 +117,7 @@ public class FileContentFetcher {
    * Counts the number of lines in the file at the given path.
    */
   public int countLines(String path) throws IOException {
-    try (BufferedReader reader = new BufferedReader(getReader(path))) {
+    try (BufferedReader reader = getReader(path)) {
       int lines = 0;
 
       while (reader.readLine() != null) {
@@ -136,8 +134,10 @@ public class FileContentFetcher {
    * to a supported Storage service. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
    * If an InputStream is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
    * creates. Be sure to close the returned stream!
+   *
+   * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
    */
-  public static InputStream getSingleInputStream(String path, Config cloudOptions) throws IOException {
+  public static InputStream getOneTimeInputStream(String path, Config cloudOptions) throws IOException {
     FileContentFetcher tempFetcher = new FileContentFetcher(cloudOptions);
     // if an error occurs here, shutdown will be called.
     tempFetcher.startup();
@@ -172,9 +172,11 @@ public class FileContentFetcher {
    * to a supported Storage service. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
    * If an Reader is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
    * creates. Be sure to close the returned Reader!
+   *
+   * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
    */
-  public static Reader getSingleReader(String path, Config cloudOptions) throws IOException {
-    return getSingleReader(path, "utf-8", cloudOptions);
+  public static BufferedReader getOneTimeReader(String path, Config cloudOptions) throws IOException {
+    return getOneTimeReader(path, "utf-8", cloudOptions);
   }
 
   /**
@@ -182,9 +184,11 @@ public class FileContentFetcher {
    * to a supported Storage service. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
    * If an Reader is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
    * creates. Be sure to close the returned Reader!
+   *
+   * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
    */
-  public static Reader getSingleReader(String path, String encoding, Config cloudOptions) throws IOException {
-    InputStream result = getSingleInputStream(path, cloudOptions);
+  public static BufferedReader getOneTimeReader(String path, String encoding, Config cloudOptions) throws IOException {
+    InputStream result = getOneTimeInputStream(path, cloudOptions);
 
     return new BufferedReader(new InputStreamReader(result, encoding));
   }
