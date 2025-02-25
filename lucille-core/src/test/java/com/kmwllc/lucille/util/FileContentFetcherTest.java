@@ -126,6 +126,8 @@ public class FileContentFetcherTest {
       when(mock.getFileContentStream(s3URI)).thenReturn(new ByteArrayInputStream("Hello there - S3.".getBytes()));
     })) {
       InputStream s3MockInputStream = FileContentFetcher.getOneTimeInputStream(s3URI.toString(), cloudOptions);
+      // S3 should've been created once here
+      assertEquals(1, mockedConstruction.constructed().size());
 
       S3StorageClient mockedClient = mockedConstruction.constructed().get(0);
       verify(mockedClient, times(0)).shutdown();
@@ -136,6 +138,8 @@ public class FileContentFetcherTest {
 
       URI localPathURI = Paths.get("src/test/resources/FileContentFetcherTest/hello.txt").toUri();
       InputStream localInputStream = FileContentFetcher.getOneTimeInputStream(localPathURI.toString(), cloudOptions);
+      // another S3 client should not have been created.
+      assertEquals(1, mockedConstruction.constructed().size());
       assertEquals("Hello there.", new String(localInputStream.readAllBytes()));
 
       // Google should still be unavailable

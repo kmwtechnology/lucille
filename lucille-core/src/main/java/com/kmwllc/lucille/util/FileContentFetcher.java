@@ -138,12 +138,24 @@ public class FileContentFetcher {
    * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
    */
   public static InputStream getOneTimeInputStream(String path, Config cloudOptions) throws IOException {
-    FileContentFetcher tempFetcher = new FileContentFetcher(cloudOptions);
-    // if an error occurs here, shutdown will be called.
-    tempFetcher.startup();
+    // Before attempting to use a storage client, handle classpath files as a special case.
+    if (path.startsWith("classpath:")) {
+      return FileContentFetcher.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
+    }
+
+    URI pathURI;
+    StorageClient clientForFile;
 
     try {
-      InputStream result = tempFetcher.getInputStream(path);
+      pathURI = URI.create(path);
+      clientForFile = StorageClient.create(pathURI, cloudOptions);
+    } catch (IllegalArgumentException e) {
+      throw new IOException("Error setting up to fetch file content.", e);
+    }
+
+    try {
+      clientForFile.init();
+      InputStream result = clientForFile.getFileContentStream(pathURI);
 
       return new InputStream() {
         @Override
@@ -157,12 +169,12 @@ public class FileContentFetcher {
             result.close();
           } finally {
             // shutdown if an IOException is thrown
-            tempFetcher.shutdown();
+            clientForFile.shutdown();
           }
         }
       };
     } catch (IOException e) {
-      tempFetcher.shutdown();
+      clientForFile.shutdown();
       throw e;
     }
   }
