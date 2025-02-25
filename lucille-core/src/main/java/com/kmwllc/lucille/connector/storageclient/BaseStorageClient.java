@@ -41,6 +41,8 @@ public abstract class BaseStorageClient implements StorageClient {
   protected final Map<String, FileHandler> fileHandlers;
   protected final int maxNumOfPages;
 
+  private boolean initialized = false;
+
   public BaseStorageClient(Config cloudOptions) {
     this.cloudOptions = cloudOptions;
     this.fileHandlers = new HashMap<>();
@@ -48,6 +50,27 @@ public abstract class BaseStorageClient implements StorageClient {
     // only matters for traversals
     this.maxNumOfPages = cloudOptions.hasPath(MAX_NUM_OF_PAGES) ? cloudOptions.getInt(MAX_NUM_OF_PAGES) : 100;
   }
+
+  @Override
+  public final void init() throws IOException {
+    initializeStorageClient();
+    this.initialized = true;
+  }
+
+  @Override
+  public final void shutdown() throws IOException {
+    this.initialized = false;
+    shutdownStorageClient();
+  }
+
+  @Override
+  public boolean isInitialized() {
+    return this.initialized;
+  }
+
+  protected abstract void initializeStorageClient() throws IOException;
+
+  protected abstract void shutdownStorageClient() throws IOException;
 
   /**
    * This method would try to process and publish the file. It also performs any preprocessing, error handling, and post-processing.

@@ -70,12 +70,15 @@ public class FileContentFetcherTest {
     try (
         MockedConstruction<S3StorageClient> mockedConstruction = mockConstruction(S3StorageClient.class, (mock, context) -> {
           when(mock.getFileContentStream(s3URI)).thenReturn(new ByteArrayInputStream("Hello there - S3.".getBytes()));
+          when(mock.isInitialized()).thenReturn(true);
         });
         MockedConstruction<GoogleStorageClient> mockedGoogle = mockConstruction(GoogleStorageClient.class, (mock, context) -> {
           when(mock.getFileContentStream(googleURI)).thenReturn(new ByteArrayInputStream("Hello there - Google.".getBytes()));
+          when(mock.isInitialized()).thenReturn(true);
         });
     ) {
       FileContentFetcher fetcher = new FileContentFetcher(cloudOptions);
+      fetcher.startup();
 
       URI localPathURI = Paths.get("src/test/resources/FileContentFetcherTest/hello.txt").toUri();
       InputStream localInputStream = fetcher.getInputStream(localPathURI.toString());
@@ -105,7 +108,7 @@ public class FileContentFetcherTest {
       FileContentFetcher fetcher = new FileContentFetcher(cloudOptions);
       assertThrows(IOException.class, () -> fetcher.startup());
 
-      // an error in fetcher.startup() should call shutdown automatically
+      // an error in fetcher.startup() should call shutdown automatically, which will shutdown each storage client.
       S3StorageClient mockS3 = mockedConstruction.constructed().get(0);
       verify(mockS3, times(1)).shutdown();
     }

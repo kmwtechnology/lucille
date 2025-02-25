@@ -36,7 +36,7 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void init() throws IOException {
+  public void initializeStorageClient() throws IOException {
     try {
       if (cloudOptions.hasPath(AZURE_CONNECTION_STRING)) {
         serviceClient = new BlobServiceClientBuilder()
@@ -56,7 +56,7 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void shutdown() throws IOException {
+  public void shutdownStorageClient() throws IOException {
     // azure service client is not closable
     serviceClient = null;
   }

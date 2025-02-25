@@ -20,6 +20,7 @@ public class FileContentFetcher {
   private static final Logger log = LoggerFactory.getLogger(FileContentFetcher.class);
 
   private final Map<String, StorageClient> availableClients;
+  private boolean started = false;
 
   /**
    * Creates a FileContentFetcher that will fetch files from the classpath, the local file system, and any cloud file systems
@@ -44,6 +45,8 @@ public class FileContentFetcher {
         throw new IOException("Unable to initialize StorageClient.", e);
       }
     }
+
+    started = true;
   }
 
   /**
@@ -51,6 +54,8 @@ public class FileContentFetcher {
    * warning is logged.
    */
   public void shutdown() {
+    started = false;
+
     for (StorageClient client : availableClients.values()) {
       try {
         client.shutdown();
@@ -66,6 +71,10 @@ public class FileContentFetcher {
    * if not, the local file system will be used. Will not return a null InputStream - instead, an exception will be thrown.
    */
   public InputStream getInputStream(String path) throws IOException {
+    if (!started) {
+      throw new IOException("FileContentFetcher has not had startup called or has been shutdown.");
+    }
+
     InputStream is;
 
     if (path.startsWith("classpath:")) {
@@ -75,8 +84,8 @@ public class FileContentFetcher {
       String activeClient = pathURI.getScheme() != null ? pathURI.getScheme() : "file";
       StorageClient storageClient = availableClients.get(activeClient);
 
-      if (storageClient == null) {
-        throw new IOException("No Storage Client available to get content for path " + path + ".");
+      if (storageClient == null || !storageClient.isInitialized()) {
+        throw new IOException("No Storage Client available + initialized for path " + path + ".");
       }
 
       is = storageClient.getFileContentStream(pathURI);

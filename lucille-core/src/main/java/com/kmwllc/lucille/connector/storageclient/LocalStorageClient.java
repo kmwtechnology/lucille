@@ -36,10 +36,10 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void init() throws IOException { }
+  public void initializeStorageClient() throws IOException { }
 
   @Override
-  public void shutdown() throws IOException { }
+  public void shutdownStorageClient() throws IOException { }
 
   @Override
   public void traverse(Publisher publisher, TraversalParams params) throws Exception {

@@ -36,7 +36,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void init() throws IOException {
+  public void initializeStorageClient() throws IOException {
     try {
       AwsBasicCredentials awsCred = AwsBasicCredentials.create(cloudOptions.getString(S3_ACCESS_KEY_ID), cloudOptions.getString(S3_SECRET_ACCESS_KEY));
       s3 = S3Client
@@ -50,7 +50,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void shutdown() throws IOException {
+  public void shutdownStorageClient() throws IOException {
     if (s3 != null) {
       try {
         s3.close();

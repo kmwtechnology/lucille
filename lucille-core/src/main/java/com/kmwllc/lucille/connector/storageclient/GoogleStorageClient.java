@@ -36,7 +36,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void init() throws IOException {
+  public void initializeStorageClient() throws IOException {
     try (FileInputStream serviceAccountStream = new FileInputStream(cloudOptions.getString(GOOGLE_SERVICE_KEY))) {
       storage = StorageOptions.newBuilder()
           .setCredentials(ServiceAccountCredentials.fromStream(serviceAccountStream))
@@ -46,7 +46,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void shutdown() throws IOException {
+  public void shutdownStorageClient() throws IOException {
     if (storage != null) {
       try {
         storage.close();

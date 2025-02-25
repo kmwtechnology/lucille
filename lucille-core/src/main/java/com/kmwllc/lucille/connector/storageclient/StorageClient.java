@@ -33,6 +33,11 @@ public interface StorageClient {
   void shutdown() throws IOException;
 
   /**
+   * Returns whether this StorageClient has been successfully initialized and not shutdown.
+   */
+  boolean isInitialized();
+
+  /**
    * Traverses through the storage client and publish files to Lucille pipeline
    */
   void traverse(Publisher publisher, TraversalParams params) throws Exception;
