@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -114,15 +113,9 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected byte[] getFileReferenceContent(FileReference fileReference) {
-    BlobItem blobItem = fileReference.getBlobItem();
-    return containerClient.getBlobClient(blobItem.getName()).downloadContent().toBytes();
-  }
-
-  @Override
   protected InputStream getFileReferenceContentStream(FileReference fileReference) {
-    byte[] content = getFileReferenceContent(fileReference);
-    return new ByteArrayInputStream(content);
+    BlobItem blobItem = fileReference.getBlobItem();
+    return containerClient.getBlobClient(blobItem.getName()).openInputStream();
   }
 
   private String getFullPath(BlobItem blobItem) {

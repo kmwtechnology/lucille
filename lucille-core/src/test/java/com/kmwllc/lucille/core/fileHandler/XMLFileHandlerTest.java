@@ -10,9 +10,8 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.File;
+import java.io.FileInputStream;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -29,11 +28,10 @@ public class XMLFileHandlerTest {
     )));
 
     FileHandler xmlHandler = FileHandler.create("xml", config);
-    Path path = Paths.get("src/test/resources/FileHandlerTest/XMLFileHandlerTest/staff.xml");
-    byte[] fileContent = Files.readAllBytes(path);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/staff.xml";
+    File file = new File(filePath);
 
-    assertThrows(FileHandlerException.class, () -> xmlHandler.processFile(path));
-    assertThrows(FileHandlerException.class, () -> xmlHandler.processFile(fileContent, path.toString()));
+    assertThrows(FileHandlerException.class, () -> xmlHandler.processFile(new FileInputStream(file), filePath));
   }
 
   @Test
@@ -49,8 +47,9 @@ public class XMLFileHandlerTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     FileHandler xmlHandler = FileHandler.create("xml", config);
-    Path path = Paths.get("src/test/resources/FileHandlerTest/XMLFileHandlerTest/staff.xml");
-    xmlHandler.processFileAndPublish(publisher, path);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/staff.xml";
+    File file = new File(filePath);
+    xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
 
@@ -79,8 +78,9 @@ public class XMLFileHandlerTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     FileHandler xmlHandler = FileHandler.create("xml", config);
-    Path path = Paths.get("src/test/resources/FileHandlerTest/XMLFileHandlerTest/nestedstaff.xml");
-    xmlHandler.processFileAndPublish(publisher, path);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/nestedstaff.xml";
+    File file = new File(filePath);
+    xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
 
@@ -103,8 +103,9 @@ public class XMLFileHandlerTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     FileHandler xmlHandler = FileHandler.create("xml", config);
-    Path path = Paths.get("src/test/resources/FileHandlerTest/XMLFileHandlerTest/korean.xml");
-    xmlHandler.processFileAndPublish(publisher, path);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/korean.xml";
+    File file = new File(filePath);
+    xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(1, docs.size());
@@ -132,8 +133,9 @@ public class XMLFileHandlerTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     FileHandler xmlHandler = FileHandler.create("xml", config);
-    Path path = Paths.get("src/test/resources/FileHandlerTest/XMLFileHandlerTest/japanese.xml");
-    xmlHandler.processFileAndPublish(publisher, path);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/japanese.xml";
+    File file = new File(filePath);
+    xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
 
@@ -161,8 +163,9 @@ public class XMLFileHandlerTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     FileHandler xmlHandler = FileHandler.create("xml", config);
-    Path path = Paths.get("src/test/resources/FileHandlerTest/XMLFileHandlerTest/chinese.xml");
-    xmlHandler.processFileAndPublish(publisher, path);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/chinese.xml";
+    File file = new File(filePath);
+    xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
 
@@ -191,7 +194,8 @@ public class XMLFileHandlerTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     FileHandler xmlHandler = FileHandler.create("xml", config);
-    Path path = Paths.get("src/test/resources/FileHandlerTest/XMLFileHandlerTest/chinese.xml");
-    assertThrows(FileHandlerException.class, () -> xmlHandler.processFileAndPublish(publisher, path));
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/chinese.xml";
+    File file = new File(filePath);
+    assertThrows(FileHandlerException.class, () -> xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath));
   }
 }

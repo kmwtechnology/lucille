@@ -15,6 +15,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -31,11 +32,12 @@ import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.net.URI;
-import java.nio.file.Files;
 import java.time.Instant;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -44,6 +46,7 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
@@ -292,19 +295,18 @@ public class S3StorageClientTest {
     when(responseWithinStream.contents()).thenReturn(getMockedS3ObjectsWithCompressionAndArchive());
     when(response.stream()).thenReturn(Stream.of(responseWithinStream));
 
-    when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
+    when(mockClient.listObjectsV2Paginator(any(ListObjectsV2Request.class))).thenReturn(response);
 
     String folderPath = new File("src/test/resources/StorageClientTest/testCompressedAndArchived").getAbsolutePath();
-    Map<String, byte[]> filesAsBytes = readAllFilesAsBytesWithMap(folderPath);
-    when(mockClient.getObjectAsBytes((GetObjectRequest) any()))
-      .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), filesAsBytes.get("jsonlCsvAndFolderWithFooTxt.tar"))
-      ).thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), filesAsBytes.get("hello.zip"))
-      ).thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), filesAsBytes.get("textFiles.tar"))
-      ).thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), filesAsBytes.get("jsonlCsvAndFolderWithFooTxt.tar.gz"))
-      ).thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), filesAsBytes.get("zippedFolder.zip"))
-      ).thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), filesAsBytes.get("zipped.csv.zip")));
+    List<ResponseInputStream<GetObjectResponse>> mockedStreams = buildMockStreamList(folderPath);
 
-    when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
+    when(mockClient.getObject(any(GetObjectRequest.class)))
+        .thenReturn(mockedStreams.get(0))
+        .thenReturn(mockedStreams.get(1))
+        .thenReturn(mockedStreams.get(2))
+        .thenReturn(mockedStreams.get(3))
+        .thenReturn(mockedStreams.get(4))
+        .thenReturn(mockedStreams.get(5));
 
     s3StorageClient.initializeFileHandlers();
     s3StorageClient.traverse(publisher);
@@ -440,26 +442,18 @@ public class S3StorageClientTest {
     return List.of(obj1, obj2, obj3, obj4, obj5, obj6);
   }
 
-  private static Map<String, byte[]> readAllFilesAsBytesWithMap(String folderPath) throws Exception {
-    Map<String, byte[]> fileBytesMap = new LinkedHashMap<>();
+  private static List<ResponseInputStream<GetObjectResponse>> buildMockStreamList(String folderPath) throws Exception {
+    List<String> fileNames = List.of("jsonlCsvAndFolderWithFooTxt.tar", "hello.zip", "textFiles.tar", "jsonlCsvAndFolderWithFooTxt.tar.gz", "zippedFolder.zip", "zipped.csv.zip");
+    List<ResponseInputStream<GetObjectResponse>> mockedStreams = new ArrayList<>();
 
-    File folder = new File(folderPath);
-
-    if (folder.exists() && folder.isDirectory()) {
-      File[] files = folder.listFiles();
-      if (files != null) {
-        for (File file : files) {
-          if (file.isFile()) {
-            byte[] fileBytes = Files.readAllBytes(file.toPath());
-            fileBytesMap.put(file.getName(), fileBytes);
-          }
-        }
-      }
-    } else {
-      throw new IllegalArgumentException("Invalid folder path: " + folderPath);
+    for (String fileName : fileNames) {
+      File currentFile = new File(folderPath + "/" + fileName);
+      BufferedInputStream fileStream = new BufferedInputStream(new FileInputStream(currentFile));
+      ResponseInputStream<GetObjectResponse> mockedStream = mock(ResponseInputStream.class);
+      when(mockedStream.read(any(byte[].class), anyInt(), anyInt())).thenAnswer(invocation -> fileStream.read(invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2)));
+      mockedStreams.add(mockedStream);
     }
 
-    return fileBytesMap;
+    return mockedStreams;
   }
-
 }
