@@ -48,7 +48,7 @@ public class CSVConnector extends AbstractConnector {
 
     try {
       InputStream stream = FileUtils.getLocalInputStream(pathStr);
-      log.debug("Processing file: {}", file);
+      log.debug("Processing file: {}", pathStr);
       csvFileHandler.processFileAndPublish(publisher, stream, pathStr);
     } catch (Exception e) {
       if (moveToErrorFolder != null) {

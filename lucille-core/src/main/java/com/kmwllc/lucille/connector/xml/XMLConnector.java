@@ -6,8 +6,6 @@ import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,19 +60,11 @@ public class XMLConnector extends AbstractConnector {
         fileStr = fileStr.replaceFirst("file://", "");
       }
 
-      File file = new File(fileStr);
-      Path path;
-      try {
-        path = file.toPath();
-      } catch (InvalidPathException e) {
-        throw new ConnectorException("Error converting " + fileStr + "to Path", e);
-      }
-
       try {
         InputStream stream = FileUtils.getLocalInputStream(fileStr);
-        xmlFileHandler.processFileAndPublish(publisher, stream, path.toString());
+        xmlFileHandler.processFileAndPublish(publisher, stream, fileStr);
       } catch (Exception e) {
-        throw new ConnectorException("Error processing file: " + file, e);
+        throw new ConnectorException("Error processing file: " + fileStr, e);
       }
     }
   }
