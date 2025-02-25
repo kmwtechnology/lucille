@@ -19,7 +19,6 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.contrib.nio.testing.LocalStorageHelper;
-import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
@@ -29,6 +28,7 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
@@ -49,7 +49,7 @@ public class GoogleStorageClientTest {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "invalidPath"));
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
 
-    assertThrows(ConnectorException.class, googleStorageClient::init);
+    assertThrows(IOException.class, googleStorageClient::init);
   }
 
   @Test

@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -26,7 +25,7 @@ public interface StorageClient {
   /**
    * Initialize the client and creates necessary connections and/or resources
    */
-  void init() throws ConnectorException;
+  void init() throws IOException;
 
   /**
    * Shutdown the client, closes any open connections and/or resources

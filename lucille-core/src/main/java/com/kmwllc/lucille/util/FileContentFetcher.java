@@ -40,7 +40,7 @@ public class FileContentFetcher {
     for (StorageClient client : availableClients.values()) {
       try {
         client.init();
-      } catch (ConnectorException e) {
+      } catch (IOException e) {
         shutdown();
 
         throw new IOException("Unable to initialize StorageClient.", e);
@@ -153,8 +153,12 @@ public class FileContentFetcher {
 
         @Override
         public void close() throws IOException {
-          result.close();
-          tempFetcher.shutdown();
+          try {
+            result.close();
+          } finally {
+            // shutdown if an IOException is thrown
+            tempFetcher.shutdown();
+          }
         }
       };
     } catch (IOException e) {

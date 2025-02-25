@@ -36,7 +36,7 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void init() throws ConnectorException {
+  public void init() throws IOException {
     try {
       if (cloudOptions.hasPath(AZURE_CONNECTION_STRING)) {
         serviceClient = new BlobServiceClientBuilder()
@@ -51,7 +51,7 @@ public class AzureStorageClient extends BaseStorageClient {
             .buildClient();
       }
     } catch (Exception e) {
-      throw new ConnectorException("Error occurred building AzureStorageClient", e);
+      throw new IOException("Error occurred building AzureStorageClient", e);
     }
   }
 

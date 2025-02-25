@@ -36,7 +36,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void init() throws ConnectorException { }
+  public void init() throws IOException { }
 
   @Override
   public void shutdown() throws IOException { }

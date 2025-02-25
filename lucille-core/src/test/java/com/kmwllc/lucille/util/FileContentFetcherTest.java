@@ -14,7 +14,6 @@ import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.connector.storageclient.GoogleStorageClient;
 import com.kmwllc.lucille.connector.storageclient.S3StorageClient;
-import com.kmwllc.lucille.core.ConnectorException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayInputStream;
@@ -100,7 +99,7 @@ public class FileContentFetcherTest {
         S3_SECRET_ACCESS_KEY, "secretKey"));
 
     try (MockedConstruction<S3StorageClient> mockedConstruction = mockConstruction(S3StorageClient.class, (mock, context) -> {
-      doThrow(new ConnectorException("Mock Init Exception")).when(mock).init();
+      doThrow(new IOException("Mock Init Exception")).when(mock).init();
       doThrow(new IOException("Mock Shutdown Exception")).when(mock).shutdown();
     })) {
       FileContentFetcher fetcher = new FileContentFetcher(cloudOptions);

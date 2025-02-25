@@ -36,7 +36,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void init() throws ConnectorException {
+  public void init() throws IOException {
     try {
       AwsBasicCredentials awsCred = AwsBasicCredentials.create(cloudOptions.getString(S3_ACCESS_KEY_ID), cloudOptions.getString(S3_SECRET_ACCESS_KEY));
       s3 = S3Client
@@ -45,7 +45,7 @@ public class S3StorageClient extends BaseStorageClient {
           .credentialsProvider(StaticCredentialsProvider.create(awsCred))
           .build();
     } catch (Exception e) {
-      throw new ConnectorException("Error occurred building S3Client", e);
+      throw new IOException("Error occurred building S3Client", e);
     }
   }
 

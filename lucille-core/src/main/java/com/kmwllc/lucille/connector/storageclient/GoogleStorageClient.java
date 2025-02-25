@@ -36,14 +36,12 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void init() throws ConnectorException{
+  public void init() throws IOException {
     try (FileInputStream serviceAccountStream = new FileInputStream(cloudOptions.getString(GOOGLE_SERVICE_KEY))) {
       storage = StorageOptions.newBuilder()
           .setCredentials(ServiceAccountCredentials.fromStream(serviceAccountStream))
           .build()
           .getService();
-    } catch (IOException e) {
-      throw new ConnectorException("Error occurred building storage client", e);
     }
   }
 
