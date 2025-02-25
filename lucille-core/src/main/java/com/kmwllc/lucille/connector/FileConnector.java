@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.connector.storageclient.AzureStorageClient;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -12,7 +11,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -87,7 +85,7 @@ public class FileConnector extends AbstractConnector {
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   private final String pathToStorage;
-  private final Map<String, Object> cloudOptions;
+  private final Config cloudOptions;
   private final Config fileOptions;
   private final List<Pattern> includes;
   private final List<Pattern> excludes;
@@ -104,7 +102,7 @@ public class FileConnector extends AbstractConnector {
     List<String> excludeRegex = config.hasPath("excludes") ?
         config.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
-    this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
+    this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions") : ConfigFactory.empty();
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
     try {
       this.storageURI = new URI(pathToStorage);

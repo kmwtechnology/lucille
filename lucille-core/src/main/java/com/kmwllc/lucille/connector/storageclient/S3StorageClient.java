@@ -8,11 +8,11 @@ import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.util.Map;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -31,18 +31,17 @@ public class S3StorageClient extends BaseStorageClient {
   private S3Client s3;
   private static final Logger log = LoggerFactory.getLogger(S3StorageClient.class);
 
-  public S3StorageClient(Map<String, Object> cloudOptions) {
-    super(cloudOptions);
+  public S3StorageClient(Config s3CloudOptions) {
+    super(s3CloudOptions);
   }
 
   @Override
   public void init() throws ConnectorException {
     try {
-      AwsBasicCredentials awsCred = AwsBasicCredentials.create((String) cloudOptions.get(S3_ACCESS_KEY_ID),
-          (String) cloudOptions.get(S3_SECRET_ACCESS_KEY));
+      AwsBasicCredentials awsCred = AwsBasicCredentials.create(cloudOptions.getString(S3_ACCESS_KEY_ID), cloudOptions.getString(S3_SECRET_ACCESS_KEY));
       s3 = S3Client
           .builder()
-          .region(Region.of((String) cloudOptions.get(S3_REGION)))
+          .region(Region.of(cloudOptions.getString(S3_REGION)))
           .credentialsProvider(StaticCredentialsProvider.create(awsCred))
           .build();
     } catch (Exception e) {
@@ -168,16 +167,16 @@ public class S3StorageClient extends BaseStorageClient {
     return params.getPathToStorageURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + obj.key();
   }
 
-  public static void validateOptions(Map<String, Object> cloudOptions) {
+  public static void validateOptions(Config cloudOptions) {
     if (!validOptions(cloudOptions)) {
       throw new IllegalArgumentException("Missing '" + S3_ACCESS_KEY_ID + "' or '" + S3_SECRET_ACCESS_KEY + "' or '" + S3_REGION + "' in cloudOptions for S3StorageClient.");
     }
   }
 
-  public static boolean validOptions(Map<String, Object> cloudOptions) {
-    return cloudOptions.containsKey(S3_ACCESS_KEY_ID)
-        && cloudOptions.containsKey(S3_SECRET_ACCESS_KEY)
-        && cloudOptions.containsKey(S3_REGION);
+  public static boolean validOptions(Config cloudOptions) {
+    return cloudOptions.hasPath(S3_ACCESS_KEY_ID)
+        && cloudOptions.hasPath(S3_SECRET_ACCESS_KEY)
+        && cloudOptions.hasPath(S3_REGION);
   }
 
   // Only for testing

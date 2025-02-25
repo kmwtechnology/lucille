@@ -5,13 +5,13 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
@@ -76,7 +76,7 @@ public class TextExtractor extends Stage {
     }
     parseCtx = new ParseContext();
 
-    Map<String, Object> cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
+    Config cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions") : ConfigFactory.empty();
     this.fileFetcher = new FileContentFetcher(cloudOptions);
   }
 

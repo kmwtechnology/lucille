@@ -62,8 +62,8 @@ public class S3StorageClientTest {
 
   @Test
   public void testShutdown() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey"));
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
 
     s3StorageClient.init();
@@ -77,8 +77,8 @@ public class S3StorageClientTest {
 
   @Test
   public void testPublishValidFiles() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -136,8 +136,8 @@ public class S3StorageClientTest {
 
   @Test
   public void testExcludes() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -176,8 +176,8 @@ public class S3StorageClientTest {
 
   @Test
   public void testSkipFileContent() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -211,8 +211,8 @@ public class S3StorageClientTest {
 
   @Test
   public void testPublishUsingFileHandler() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -252,8 +252,8 @@ public class S3StorageClientTest {
 
   @Test
   public void testPublishOnCompressedAndArchived() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -358,8 +358,8 @@ public class S3StorageClientTest {
 
   @Test
   public void testErrorMovingFiles() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -391,8 +391,8 @@ public class S3StorageClientTest {
 
   @Test
   public void testGetFileContentStream() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey"));
     S3StorageClient storageClient = new S3StorageClient(cloudOptions);
     URI testURI = new URI("s3://bucket/hello.txt");
 

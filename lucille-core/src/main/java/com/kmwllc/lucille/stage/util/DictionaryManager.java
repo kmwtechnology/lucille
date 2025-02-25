@@ -4,8 +4,8 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvValidationException;
+import com.typesafe.config.Config;
 import java.io.IOException;
-import java.io.Reader;
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.Collections;
@@ -71,7 +71,7 @@ public class DictionaryManager {
    * made into a ConcurrentHashMap or being passed through Collections.synchronizedMap()).
    *
    */
-  public static synchronized Map<String, String[]> getDictionary(String path, boolean ignoreCase, boolean setOnly, Map<String, Object> cloudOptions) throws StageException {
+  public static synchronized Map<String, String[]> getDictionary(String path, boolean ignoreCase, boolean setOnly, Config cloudOptions) throws StageException {
     String key = path + "_IGNORECASE=" + ignoreCase + "_SETONLY=" + setOnly;
     if (dictionaries.containsKey(key)) {
       return dictionaries.get(key);
@@ -103,7 +103,7 @@ public class DictionaryManager {
    * @param dictPath  the path of the dictionary file
    * @return the populated HashMap
    */
-  private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly, Map<String, Object> cloudOptions) throws IOException {
+  private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly, Config cloudOptions) throws IOException {
     FileContentFetcher fetcher = new FileContentFetcher(cloudOptions);
     fetcher.startup();
 

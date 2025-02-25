@@ -15,12 +15,12 @@ import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
-import java.util.Map;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -31,20 +31,20 @@ public class AzureStorageClient extends BaseStorageClient {
   private BlobServiceClient serviceClient;
   private static final Logger log = LoggerFactory.getLogger(AzureStorageClient.class);
 
-  public AzureStorageClient(Map<String, Object> cloudOptions) {
-    super(cloudOptions);
+  public AzureStorageClient(Config azureCloudOptions) {
+    super(azureCloudOptions);
   }
 
   @Override
   public void init() throws ConnectorException {
     try {
-      if (cloudOptions.containsKey(AZURE_CONNECTION_STRING)) {
+      if (cloudOptions.hasPath(AZURE_CONNECTION_STRING)) {
         serviceClient = new BlobServiceClientBuilder()
-            .connectionString((String) cloudOptions.get(AZURE_CONNECTION_STRING))
+            .connectionString(cloudOptions.getString(AZURE_CONNECTION_STRING))
             .buildClient();
       } else {
-        String accountName = (String) cloudOptions.get(AZURE_ACCOUNT_NAME);
-        String accountKey = (String) cloudOptions.get(AZURE_ACCOUNT_KEY);
+        String accountName = cloudOptions.getString(AZURE_ACCOUNT_NAME);
+        String accountKey = cloudOptions.getString(AZURE_ACCOUNT_KEY);
 
         serviceClient = new BlobServiceClientBuilder()
             .credential(new StorageSharedKeyCredential(accountName, accountKey))
@@ -194,15 +194,15 @@ public class AzureStorageClient extends BaseStorageClient {
     return params.shouldIncludeFile(blob.getName());
   }
 
-  public static void validateOptions(Map<String, Object> cloudOptions) {
+  public static void validateOptions(Config cloudOptions) {
     if (!validOptions(cloudOptions)) {
       throw new IllegalArgumentException("Either '" + AZURE_CONNECTION_STRING + "' or '" + AZURE_ACCOUNT_NAME + "' & '" + AZURE_ACCOUNT_KEY + "' has to be in cloudOptions for AzureStorageClient.");
     }
   }
 
-  public static boolean validOptions(Map<String, Object> cloudOptions) {
-    return cloudOptions.containsKey(AZURE_CONNECTION_STRING)
-        || (cloudOptions.containsKey(AZURE_ACCOUNT_NAME) && cloudOptions.containsKey(AZURE_ACCOUNT_KEY));
+  public static boolean validOptions(Config cloudOptions) {
+    return cloudOptions.hasPath(AZURE_CONNECTION_STRING)
+        || (cloudOptions.hasPath(AZURE_ACCOUNT_NAME) && cloudOptions.hasPath(AZURE_ACCOUNT_KEY));
   }
 
   // Only for testing

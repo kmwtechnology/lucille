@@ -8,6 +8,7 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.stage.util.DictionaryManager;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,7 +54,7 @@ public class DictionaryLookup extends Stage {
   private final boolean ignoreCase;
   private final boolean setOnly;
   private final boolean ignoreMissingSource;
-  private final Map<String, Object> cloudOptions;
+  private final Config cloudOptions;
 
   private Map<String, String[]> dict;
 
@@ -73,7 +74,7 @@ public class DictionaryLookup extends Stage {
     this.ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignore_missing_source", false);
     this.dictPath = config.getString("dict_path");
 
-    this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
+    this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions") : ConfigFactory.empty();
   }
 
   @Override

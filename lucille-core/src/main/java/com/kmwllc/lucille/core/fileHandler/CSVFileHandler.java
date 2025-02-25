@@ -10,6 +10,7 @@ import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -19,7 +20,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -245,7 +245,7 @@ public class CSVFileHandler extends BaseFileHandler {
 
   private CSVReader getCsvReader(String pathStr) throws FileHandlerException {
     try {
-      return new CSVReaderBuilder(FileContentFetcher.getSingleReader(pathStr, Map.of())).
+      return new CSVReaderBuilder(FileContentFetcher.getSingleReader(pathStr, ConfigFactory.empty())).
           withCSVParser(
               new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
           .build();

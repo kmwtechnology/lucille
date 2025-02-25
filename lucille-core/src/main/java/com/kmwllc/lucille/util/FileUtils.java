@@ -1,15 +1,7 @@
 package com.kmwllc.lucille.util;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,14 +27,5 @@ public class FileUtils {
     } catch (Exception e) {
       return false;
     }
-  }
-
-  /**
-   * Returns a reader to the file at the given path, which should be either a local file path or in the classpath
-   * (starts with "classpath:").
-   */
-  public static Reader getLocalFileReader(String path) throws IOException {
-    InputStream stream = FileContentFetcher.getSingleInputStream(path, Map.of());
-    return null;
   }
 }

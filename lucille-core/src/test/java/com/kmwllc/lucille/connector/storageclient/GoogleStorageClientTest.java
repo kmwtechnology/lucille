@@ -46,7 +46,7 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testInvalidPathToServiceKey() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "invalidPath");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "invalidPath"));
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
 
     assertThrows(ConnectorException.class, googleStorageClient::init);
@@ -54,7 +54,7 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testShutdown() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
 
     Storage mockStorage = mock(Storage.class);
@@ -66,7 +66,7 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testPublishValidFiles() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -128,7 +128,7 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testSkipFileContent() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -154,7 +154,7 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testTraverseWithExcludes() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -193,7 +193,7 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testPublishUsingFileHandler() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "path/to/service/key");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "path/to/service/key"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -240,7 +240,7 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testPublishOnCompressedAndArchived() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -365,7 +365,7 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testErrorMovingFiles() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(GOOGLE_SERVICE_KEY, "validPath");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -404,7 +404,8 @@ public class GoogleStorageClientTest {
 
   @Test
   public void testGetFileContentStream() throws Exception {
-    GoogleStorageClient storageClient = new GoogleStorageClient(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
+    GoogleStorageClient storageClient = new GoogleStorageClient(
+        ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
     URI testURI = new URI("gs://bucket/hello.txt");
 
     BlobId blobId = BlobId.of("bucket", "hello.txt");

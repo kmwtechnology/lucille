@@ -2,6 +2,7 @@ package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.core.ConnectorException;
+import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -27,7 +28,7 @@ public class FileContentFetcher {
    * (Azure, S3, Google) which have the necessary options provided in the given options map. Be sure to call startup and shutdown
    * as appropriate.
    */
-  public FileContentFetcher(Map<String, Object> cloudOptions) {
+  public FileContentFetcher(Config cloudOptions) {
     this.availableClients = StorageClient.createClients(cloudOptions);
   }
 
@@ -136,7 +137,7 @@ public class FileContentFetcher {
    * If an InputStream is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
    * creates. Be sure to close the returned stream!
    */
-  public static InputStream getSingleInputStream(String path, Map<String, Object> cloudOptions) throws IOException {
+  public static InputStream getSingleInputStream(String path, Config cloudOptions) throws IOException {
     FileContentFetcher tempFetcher = new FileContentFetcher(cloudOptions);
     // if an error occurs here, shutdown will be called.
     tempFetcher.startup();
@@ -168,7 +169,7 @@ public class FileContentFetcher {
    * If an Reader is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
    * creates. Be sure to close the returned Reader!
    */
-  public static Reader getSingleReader(String path, Map<String, Object> cloudOptions) throws IOException {
+  public static Reader getSingleReader(String path, Config cloudOptions) throws IOException {
     return getSingleReader(path, "utf-8", cloudOptions);
   }
 
@@ -178,7 +179,7 @@ public class FileContentFetcher {
    * If an Reader is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
    * creates. Be sure to close the returned Reader!
    */
-  public static Reader getSingleReader(String path, String encoding, Map<String, Object> cloudOptions) throws IOException {
+  public static Reader getSingleReader(String path, String encoding, Config cloudOptions) throws IOException {
     InputStream result = getSingleInputStream(path, cloudOptions);
 
     return new BufferedReader(new InputStreamReader(result, encoding));

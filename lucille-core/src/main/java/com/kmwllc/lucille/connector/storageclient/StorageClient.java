@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector.storageclient;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
+import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -45,7 +46,7 @@ public interface StorageClient {
   /**
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from cloudOptions
    */
-  static StorageClient create(URI pathToStorage, Map<String, Object> cloudOptions) {
+  static StorageClient create(URI pathToStorage, Config cloudOptions) {
     String activeClient = pathToStorage.getScheme() != null ? pathToStorage.getScheme() : "file";
     switch (activeClient) {
       case "gs" -> {
@@ -92,7 +93,7 @@ public interface StorageClient {
    * <br> "region" : s3 storage region
    * <br> Mapped to: <b>s3</b>
    */
-  static Map<String, StorageClient> createClients(Map<String, Object> cloudOptions) {
+  static Map<String, StorageClient> createClients(Config cloudOptions) {
     Map<String, StorageClient> results = new HashMap<>();
 
     results.put("file", new LocalStorageClient());

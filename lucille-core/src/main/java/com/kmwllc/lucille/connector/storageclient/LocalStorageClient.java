@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 
+import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -21,7 +22,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.HashMap;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -32,7 +32,7 @@ public class LocalStorageClient extends BaseStorageClient {
   private static final Logger log = LoggerFactory.getLogger(LocalStorageClient.class);
 
   public LocalStorageClient() {
-    super(new HashMap<>());
+    super(ConfigFactory.empty());
   }
 
   @Override

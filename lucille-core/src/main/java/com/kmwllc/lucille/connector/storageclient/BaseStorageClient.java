@@ -12,6 +12,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
+import com.typesafe.config.Config;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,16 +37,16 @@ public abstract class BaseStorageClient implements StorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(BaseStorageClient.class);
 
-  protected Map<String, Object> cloudOptions;
-  protected Map<String, FileHandler> fileHandlers;
-  protected Integer maxNumOfPages;
+  protected final Config cloudOptions;
+  protected final Map<String, FileHandler> fileHandlers;
+  protected final int maxNumOfPages;
 
-  public BaseStorageClient(Map<String, Object> cloudOptions) {
+  public BaseStorageClient(Config cloudOptions) {
     this.cloudOptions = cloudOptions;
     this.fileHandlers = new HashMap<>();
 
     // only matters for traversals
-    this.maxNumOfPages = cloudOptions.containsKey(MAX_NUM_OF_PAGES) ? (Integer) cloudOptions.get(MAX_NUM_OF_PAGES) : 100;
+    this.maxNumOfPages = cloudOptions.hasPath(MAX_NUM_OF_PAGES) ? cloudOptions.getInt(MAX_NUM_OF_PAGES) : 100;
   }
 
   /**

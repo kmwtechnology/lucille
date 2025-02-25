@@ -13,6 +13,8 @@ import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.connector.storageclient.S3StorageClient;
 import com.kmwllc.lucille.core.ConnectorException;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,7 +28,7 @@ public class FileContentFetcherTest {
 
   @Test
   public void testGetInputStream() throws Exception {
-    FileContentFetcher fetcher = new FileContentFetcher(Map.of());
+    FileContentFetcher fetcher = new FileContentFetcher(ConfigFactory.empty());
     fetcher.startup();
 
     // 1. Classpath file
@@ -53,10 +55,11 @@ public class FileContentFetcherTest {
 
   @Test
   public void testMultipleStorageClients() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(
+    // TODO: Add another cloud storage client that'll get ubilt here
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(
         S3_REGION, "us-east-1",
         S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey");
+        S3_SECRET_ACCESS_KEY, "secretKey"));
 
     URI s3URI = URI.create("s3://bucket/hello.txt");
 
@@ -80,10 +83,10 @@ public class FileContentFetcherTest {
 
   @Test
   public void testClientFailsInit() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(
         S3_REGION, "us-east-1",
         S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey");
+        S3_SECRET_ACCESS_KEY, "secretKey"));
 
     try (MockedConstruction<S3StorageClient> mockedConstruction = mockConstruction(S3StorageClient.class, (mock, context) -> {
       doThrow(new ConnectorException("Mock Init Exception")).when(mock).init();
@@ -100,10 +103,10 @@ public class FileContentFetcherTest {
 
   @Test
   public void testStaticFetches() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(
         S3_REGION, "us-east-1",
         S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey");
+        S3_SECRET_ACCESS_KEY, "secretKey"));
 
     URI s3URI = URI.create("s3://bucket/hello.txt");
 

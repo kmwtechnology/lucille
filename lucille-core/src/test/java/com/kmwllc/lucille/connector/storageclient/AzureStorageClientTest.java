@@ -62,7 +62,7 @@ public class AzureStorageClientTest {
 
   @Test
   public void testInit() throws Exception{
-    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
 
@@ -74,10 +74,8 @@ public class AzureStorageClientTest {
       verify(builder.constructed().get(0), times(1)).connectionString("connectionString");
     }
 
-    cloudOptions = new HashMap<>();
-    cloudOptions.put("accountName", "accountName");
-    cloudOptions.put("accountKey", "accountKey");
-
+    cloudOptions = ConfigFactory.parseMap(Map.of("accountName", "accountName",
+        "accountKey", "accountKey"));
     azureStorageClient = new AzureStorageClient(cloudOptions);
 
     try (MockedConstruction<BlobServiceClientBuilder> builder = Mockito.mockConstruction(BlobServiceClientBuilder.class, (mock,context) -> {
@@ -94,7 +92,7 @@ public class AzureStorageClientTest {
 
   @Test
   public void testPublishValidFiles() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -150,7 +148,7 @@ public class AzureStorageClientTest {
 
   @Test
   public void testSkipFileContent() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -191,7 +189,7 @@ public class AzureStorageClientTest {
 
   @Test
   public void testPublishInvalidFiles() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -230,7 +228,7 @@ public class AzureStorageClientTest {
 
   @Test
   public void testPublishUsingFileHandler() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -272,7 +270,7 @@ public class AzureStorageClientTest {
 
   @Test
   public void testPublishCompressedAndArchived() throws Exception {
-    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -391,7 +389,7 @@ public class AzureStorageClientTest {
 
   @Test
   public void testErrorMovingFiles() throws Exception{
-    Map<String, Object> cloudOptions = Map.of("connectionString", "connectionString");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
@@ -427,8 +425,8 @@ public class AzureStorageClientTest {
 
   @Test
   public void testGetFileContentStream() throws Exception {
-    Map<String, Object> cloudOptions = Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey");
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey"));
     AzureStorageClient storageClient = new AzureStorageClient(cloudOptions);
     URI testURI = new URI("https://storagename.blob.core.windows.net/folder/hello.txt");
 

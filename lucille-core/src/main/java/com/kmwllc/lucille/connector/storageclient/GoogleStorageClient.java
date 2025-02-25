@@ -14,13 +14,13 @@ import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.channels.Channels;
-import java.util.Map;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -31,13 +31,13 @@ public class GoogleStorageClient extends BaseStorageClient {
   private static final Logger log = LoggerFactory.getLogger(GoogleStorageClient.class);
   private Storage storage;
 
-  public GoogleStorageClient(Map<String, Object> cloudOptions) {
-    super(cloudOptions);
+  public GoogleStorageClient(Config googleCloudOptions) {
+    super(googleCloudOptions);
   }
 
   @Override
   public void init() throws ConnectorException{
-    try (FileInputStream serviceAccountStream = new FileInputStream((String) cloudOptions.get(GOOGLE_SERVICE_KEY))) {
+    try (FileInputStream serviceAccountStream = new FileInputStream(cloudOptions.getString(GOOGLE_SERVICE_KEY))) {
       storage = StorageOptions.newBuilder()
           .setCredentials(ServiceAccountCredentials.fromStream(serviceAccountStream))
           .build()
@@ -180,14 +180,14 @@ public class GoogleStorageClient extends BaseStorageClient {
     return doc;
   }
 
-  public static void validateOptions(Map<String, Object> cloudOptions) {
+  public static void validateOptions(Config cloudOptions) {
     if (!validOptions(cloudOptions)) {
       throw new IllegalArgumentException("Missing " + GOOGLE_SERVICE_KEY + " in cloudOptions for GoogleStorageClient.");
     }
   }
 
-  public static boolean validOptions(Map<String, Object> cloudOptions) {
-    return cloudOptions.containsKey(GOOGLE_SERVICE_KEY);
+  public static boolean validOptions(Config cloudOptions) {
+    return cloudOptions.hasPath(GOOGLE_SERVICE_KEY);
   }
 
   // Only for testing
