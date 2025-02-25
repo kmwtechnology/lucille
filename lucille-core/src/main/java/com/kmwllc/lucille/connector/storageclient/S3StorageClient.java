@@ -126,13 +126,13 @@ public class S3StorageClient extends BaseStorageClient {
   private Document s3ObjectToDoc(S3Object obj, TraversalParams params) {
     String fullPath = getFullPath(obj, params);
     String docId = DigestUtils.md5Hex(fullPath);
-    Document doc = Document.create(params.docIdPrefix + docId);
+    Document doc = Document.create(params.getDocIdPrefix() + docId);
     doc.setField(FileConnector.FILE_PATH, fullPath);
     doc.setField(FileConnector.MODIFIED, obj.lastModified());
     // s3 doesn't have object creation date
     doc.setField(FileConnector.SIZE, obj.size());
 
-    if (params.getFileContent) {
+    if (params.shouldGetFileContent()) {
       byte[] content = s3.getObjectAsBytes(
           GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(obj.key()).build()
       ).asByteArray();
@@ -145,12 +145,12 @@ public class S3StorageClient extends BaseStorageClient {
   private Document s3ObjectToDoc(S3Object obj, InputStream is, String decompressedFullPathStr, TraversalParams params)
       throws IOException {
     String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-    Document doc = Document.create(params.docIdPrefix + docId);
+    Document doc = Document.create(params.getDocIdPrefix() + docId);
     doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
     doc.setField(FileConnector.MODIFIED, obj.lastModified());
     // s3 doesn't have object creation date
     // compression stream doesn't have size, so we can't set it here
-    if (params.getFileContent) {
+    if (params.shouldGetFileContent()) {
       doc.setField(FileConnector.CONTENT, is.readAllBytes());
     }
 
@@ -165,7 +165,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   private String getFullPath(S3Object obj, TraversalParams params) {
-    return params.pathToStorageURI.getScheme() + "://" + getBucketOrContainerName(params) + "/" + obj.key();
+    return params.getPathToStorageURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + obj.key();
   }
 
   public static void validateOptions(Map<String, Object> cloudOptions) {

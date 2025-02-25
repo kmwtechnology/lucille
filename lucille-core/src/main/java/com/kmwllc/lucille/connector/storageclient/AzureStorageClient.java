@@ -121,7 +121,7 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   protected String getStartingDirectory(TraversalParams params) {
-    String path = params.pathToStorageURI.getPath();
+    String path = params.getPathToStorageURI().getPath();
     // path is in the format /containerName/folder1/folder2/... so need to return folder1/folder2/...
     String[] subPaths = path.split("/", 3);
     return subPaths.length > 2 ? subPaths[2] : "";
@@ -129,11 +129,11 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   protected String getBucketOrContainerName(TraversalParams params) {
-    return params.pathToStorageURI.getPath().split("/")[1];
+    return params.getPathToStorageURI().getPath().split("/")[1];
   }
 
   private String getFullPath(BlobItem blobItem, TraversalParams params) {
-    URI pathURI = params.pathToStorageURI;
+    URI pathURI = params.getPathToStorageURI();
 
     return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
         getBucketOrContainerName(params), blobItem.getName());
@@ -142,7 +142,7 @@ public class AzureStorageClient extends BaseStorageClient {
   private Document blobItemToDoc(BlobItem blob, TraversalParams params) {
     String fullPath = getFullPath(blob, params);
     String docId = DigestUtils.md5Hex(fullPath);
-    Document doc = Document.create(params.docIdPrefix + docId);
+    Document doc = Document.create(params.getDocIdPrefix() + docId);
 
     BlobItemProperties properties = blob.getProperties();
     doc.setField(FileConnector.FILE_PATH, fullPath);
@@ -157,7 +157,7 @@ public class AzureStorageClient extends BaseStorageClient {
 
     doc.setField(FileConnector.SIZE, properties.getContentLength());
 
-    if (params.getFileContent) {
+    if (params.shouldGetFileContent()) {
       doc.setField(FileConnector.CONTENT, serviceClient.getBlobContainerClient(getBucketOrContainerName(params)).getBlobClient(blob.getName()).downloadContent().toBytes());
     }
 
@@ -167,7 +167,7 @@ public class AzureStorageClient extends BaseStorageClient {
   private Document blobItemToDoc(BlobItem blob, InputStream is, String decompressedFullPathStr, TraversalParams params)
       throws IOException {
     String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-    Document doc = Document.create(params.docIdPrefix + docId);
+    Document doc = Document.create(params.getDocIdPrefix() + docId);
 
     BlobItemProperties properties = blob.getProperties();
     doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
@@ -181,7 +181,7 @@ public class AzureStorageClient extends BaseStorageClient {
     }
 
     // unable to get the decompressed size via inputStream
-    if (params.getFileContent) {
+    if (params.shouldGetFileContent()) {
       doc.setField(FileConnector.CONTENT, is.readAllBytes());
     }
 

@@ -131,13 +131,13 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   private String getFullPath(Blob blob, TraversalParams params) {
-    return params.pathToStorageURI.getScheme() + "://" + getBucketOrContainerName(params) + "/" + blob.getName();
+    return params.getPathToStorageURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + blob.getName();
   }
 
   private Document blobToDoc(Blob blob, TraversalParams params) throws IOException {
     String fullPath = getFullPath(blob, params);
     String docId = DigestUtils.md5Hex(fullPath);
-    Document doc = Document.create(params.docIdPrefix + docId);
+    Document doc = Document.create(params.getDocIdPrefix() + docId);
 
     doc.setField(FileConnector.FILE_PATH, fullPath);
 
@@ -151,7 +151,7 @@ public class GoogleStorageClient extends BaseStorageClient {
 
     doc.setField(FileConnector.SIZE, blob.getSize());
 
-    if (params.getFileContent) {
+    if (params.shouldGetFileContent()) {
       doc.setField(FileConnector.CONTENT, blob.getContent());
     }
 
@@ -160,7 +160,7 @@ public class GoogleStorageClient extends BaseStorageClient {
 
   private Document blobToDoc(Blob blob, InputStream content, String decompressedFullPathStr, TraversalParams params) throws IOException {
     final String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-    final Document doc = Document.create(params.docIdPrefix + docId);
+    final Document doc = Document.create(params.getDocIdPrefix() + docId);
 
     doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
 
@@ -173,7 +173,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     }
 
     // unable to get decompressed file size
-    if (params.getFileContent) {
+    if (params.shouldGetFileContent()) {
       doc.setField(FileConnector.CONTENT, content.readAllBytes());
     }
 

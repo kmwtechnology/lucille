@@ -117,7 +117,7 @@ public class LocalStorageClient extends BaseStorageClient {
         doc.setField(CREATED, attrs.creationTime().toInstant());
       }
 
-      if (params.getFileContent) {
+      if (params.shouldGetFileContent()) {
         doc.setField(CONTENT, Files.readAllBytes(path));
       }
     } catch (Exception e) {
@@ -140,7 +140,7 @@ public class LocalStorageClient extends BaseStorageClient {
       doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
       doc.setField(CREATED, attrs.creationTime().toInstant());
       // unable to get decompressed file size
-      if (params.getFileContent) {
+      if (params.shouldGetFileContent()) {
         doc.setField(CONTENT, in.readAllBytes());
       }
     } catch (Exception e) {

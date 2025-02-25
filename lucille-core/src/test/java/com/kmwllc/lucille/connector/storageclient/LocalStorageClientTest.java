@@ -31,7 +31,7 @@ public class LocalStorageClientTest {
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_", List.of(), List.of(), ConfigFactory.empty(), false);
+    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_", List.of(), List.of(), ConfigFactory.empty());
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
 
@@ -65,7 +65,7 @@ public class LocalStorageClientTest {
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_", List.of(Pattern.compile(".*[a-c]\\.json$")), List.of(Pattern.compile(".*subdir1.*$")), ConfigFactory.empty(), false);
+    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_", List.of(Pattern.compile(".*[a-c]\\.json$")), List.of(Pattern.compile(".*subdir1.*$")), ConfigFactory.empty());
     localStorageClient.init();
 
     localStorageClient.traverse(publisher, params);
@@ -106,7 +106,7 @@ public class LocalStorageClientTest {
         "file_",
         List.of(), List.of(), ConfigFactory.parseMap(
         Map.of(GET_FILE_CONTENT, false)
-    ), false);
+    ));
 
     localStorageClient.init();
 
@@ -127,7 +127,7 @@ public class LocalStorageClientTest {
         List.of(), List.of(Pattern.compile(".*\\.DS_Store$")), ConfigFactory.parseMap(
         Map.of(
             "json", Map.of()
-        )), false);
+        )));
 
     localStorageClient.traverse(publisher, params);
     List<Document> docs = messenger.getDocsSentForProcessing();
@@ -188,7 +188,7 @@ public class LocalStorageClientTest {
             "csv", Map.of(),
             "handleArchivedFiles", true,
             "handleCompressedFiles", true
-        )), false);
+        )));
 
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
@@ -284,7 +284,7 @@ public class LocalStorageClientTest {
         List.of(), List.of(), ConfigFactory.parseMap(
         Map.of(
             "moveToAfterProcessing", "success"
-        )), false);
+        )));
 
     localStorageClient.init();
 
@@ -325,7 +325,7 @@ public class LocalStorageClientTest {
         Map.of(
             "csv", Map.of(),
             "moveToErrorFolder", "error"
-        )), false);
+        )));
 
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);

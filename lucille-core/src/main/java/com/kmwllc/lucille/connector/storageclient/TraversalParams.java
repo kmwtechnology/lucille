@@ -19,20 +19,20 @@ import java.util.regex.Pattern;
 public class TraversalParams {
 
   // provided arguments
-  public final URI pathToStorageURI;
-  public final String docIdPrefix;
+  private final URI pathToStorageURI;
+  private final String docIdPrefix;
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
-  public final Config fileOptions;
+  private final Config fileOptions;
 
   // derived arguments
-  public final boolean getFileContent;
-  public final String bucketOrContainerName;
-  public final boolean handleArchivedFiles;
-  public final boolean handleCompressedFiles;
-  public final String moveToAfterProcessing;
-  public final String moveToErrorFolder;
-  public final String startingDirectory;
+  private final boolean getFileContent;
+  private final String bucketOrContainerName;
+  private final boolean handleArchivedFiles;
+  private final boolean handleCompressedFiles;
+  private final String moveToAfterProcessing;
+  private final String moveToErrorFolder;
+  private final String startingDirectory;
 
   public TraversalParams(URI pathToStorageURI, String docIdPrefix, List<Pattern> includes, List<Pattern> excludes, Config fileOptions) {
     this.pathToStorageURI = pathToStorageURI;
@@ -49,11 +49,11 @@ public class TraversalParams {
     // NOTE: StorageClients should use their getStartingDirectory and getBucketOrContainerName methods to
     // return these properties, as AzureStorageClient has different values it will return.
     this.bucketOrContainerName = pathToStorageURI.getAuthority();
-    this.startingDirectory = getStartingDirectory();
+    this.startingDirectory = createStartingDirectory();
   }
 
-  private String getStartingDirectory() {
-    String startingDirectory = Objects.equals(pathToStorageURI.getPath(), "/") ? "" : pathToStorageURI.getPath();
+  private String createStartingDirectory() {
+    String startingDirectory = Objects.equals(getPathToStorageURI().getPath(), "/") ? "" : getPathToStorageURI().getPath();
     if (startingDirectory.startsWith("/")) return startingDirectory.substring(1);
     return startingDirectory;
   }
@@ -72,7 +72,7 @@ public class TraversalParams {
    * should be made to build a FileHandler for the given extension.
    */
   public boolean optionsIncludeFileExtension(String fileExtension) {
-    return fileOptions.hasPath(fileExtension);
+    return getFileOptions().hasPath(fileExtension);
   }
 
   /**
@@ -80,6 +80,54 @@ public class TraversalParams {
    * of json supporting jsonl and vice versa.
    */
   public boolean supportedFileType(String fileExtension) {
-    return !fileOptions.isEmpty() && FileHandler.supportAndContainFileType(fileExtension, fileOptions);
+    return !getFileOptions().isEmpty() && FileHandler.supportAndContainFileType(fileExtension, getFileOptions());
+  }
+
+  public URI getPathToStorageURI() {
+    return pathToStorageURI;
+  }
+
+  public String getDocIdPrefix() {
+    return docIdPrefix;
+  }
+
+  public Config getFileOptions() {
+    return fileOptions;
+  }
+
+  public boolean shouldGetFileContent() {
+    return getFileContent;
+  }
+
+  /**
+   * StorageClients should defer to their own getBucketOrContainerName method, so Azure's unique logic can be
+   * handled gracefully.
+   */
+  public String getStartingDirectory() {
+    return startingDirectory;
+  }
+
+  /**
+   * StorageClients should defer to their own getBucketOrContainerName method, so Azure's unique logic can be
+   * handled gracefully.
+   */
+  public String getBucketOrContainerName() {
+    return bucketOrContainerName;
+  }
+
+  public boolean getHandleArchivedFiles() {
+    return handleArchivedFiles;
+  }
+
+  public boolean getHandleCompressedFiles() {
+    return handleCompressedFiles;
+  }
+
+  public String getMoveToAfterProcessing() {
+    return moveToAfterProcessing;
+  }
+
+  public String getMoveToErrorFolder() {
+    return moveToErrorFolder;
   }
 }

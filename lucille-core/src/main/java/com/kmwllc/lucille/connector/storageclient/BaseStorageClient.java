@@ -66,7 +66,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
       
       // handle compressed files if needed to the end
-      if (params.handleCompressedFiles && isSupportedCompressedFileType(fullPathStr)) {
+      if (params.getHandleCompressedFiles() && isSupportedCompressedFileType(fullPathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
         try (BufferedInputStream bis = new BufferedInputStream(getFileReferenceContentStream(fileReference, params));
             CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
@@ -75,7 +75,7 @@ public abstract class BaseStorageClient implements StorageClient {
           String resolvedExtension = FilenameUtils.getExtension(decompressedPath);
 
           // if detected to be an archive type after decompression
-          if (params.handleArchivedFiles && isSupportedArchiveFileType(decompressedPath)) {
+          if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(decompressedPath)) {
             handleArchiveFiles(publisher, compressorStream, fullPathStr, params);
           } else {
             String filePathFormat = fullPathStr + ARCHIVE_FILE_SEPARATOR + FilenameUtils.getName(decompressedPath);
@@ -93,7 +93,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       // handle archived files if needed to the end
-      if (params.handleArchivedFiles && isSupportedArchiveFileType(fullPathStr)) {
+      if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(fullPathStr)) {
         try (InputStream is = getFileReferenceContentStream(fileReference, params)) {
           handleArchiveFiles(publisher, is, fullPathStr, params);
         }
@@ -169,7 +169,7 @@ public abstract class BaseStorageClient implements StorageClient {
             // entry does not have creation date
             // note that some ArchiveEntry implementations may not have a size so will return -1
             doc.setField(SIZE, entry.getSize());
-            if (params.getFileContent) {
+            if (params.shouldGetFileContent()) {
               doc.setField(CONTENT, in.readAllBytes());
             }
             try {
@@ -256,9 +256,9 @@ public abstract class BaseStorageClient implements StorageClient {
    * in the implementation of this method. Will be called after processing each file in traversal.
    */
   protected void afterProcessingFile(String pathStr, TraversalParams params) throws IOException {
-    if (params.moveToAfterProcessing != null) {
+    if (params.getMoveToAfterProcessing() != null) {
       // move to processed folder
-      moveFile(pathStr, params.moveToAfterProcessing);
+      moveFile(pathStr, params.getMoveToAfterProcessing());
     }
   }
 
@@ -268,9 +268,9 @@ public abstract class BaseStorageClient implements StorageClient {
    * in the tryProcessAndPublishFile method.
    */
   protected void errorProcessingFile(String pathStr, TraversalParams params) throws IOException {
-    if (params.moveToErrorFolder != null) {
+    if (params.getMoveToErrorFolder() != null) {
       // move to error folder
-      moveFile(pathStr, params.moveToErrorFolder);
+      moveFile(pathStr, params.getMoveToErrorFolder());
     }
   }
 
@@ -327,7 +327,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * defer to the given params, Azure does its own calculations.)
    */
   protected String getStartingDirectory(TraversalParams params) {
-    return params.startingDirectory;
+    return params.getStartingDirectory();
   }
 
   /**
@@ -336,7 +336,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * defer to the given params, Azure does its own calculations.)
    */
   protected String getBucketOrContainerName(TraversalParams params) {
-    return params.bucketOrContainerName;
+    return params.getBucketOrContainerName();
   }
 
 
@@ -348,7 +348,7 @@ public abstract class BaseStorageClient implements StorageClient {
     for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
       if (params.optionsIncludeFileExtension(fileExtensionSupported)) {
         try {
-          FileHandler handler = FileHandler.create(fileExtensionSupported, params.fileOptions);
+          FileHandler handler = FileHandler.create(fileExtensionSupported, params.getFileOptions());
           fileHandlers.put(fileExtensionSupported, handler);
           // handle cases like json/jsonl
           if (fileExtensionSupported.equals("json") || fileExtensionSupported.equals("jsonl")) {
@@ -403,6 +403,6 @@ public abstract class BaseStorageClient implements StorageClient {
 
   //should sync with abstract connector class?
   protected String createDocId(String docId, TraversalParams params) {
-    return params.docIdPrefix + docId;
+    return params.getDocIdPrefix() + docId;
   }
 }
