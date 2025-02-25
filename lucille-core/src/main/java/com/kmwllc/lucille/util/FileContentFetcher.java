@@ -28,7 +28,7 @@ public class FileContentFetcher {
    * as appropriate.
    */
   public FileContentFetcher(Map<String, Object> cloudOptions) {
-    this.availableClients = StorageClient.clientsFromCloudOptions(cloudOptions);
+    this.availableClients = StorageClient.createClients(cloudOptions);
   }
 
   /**

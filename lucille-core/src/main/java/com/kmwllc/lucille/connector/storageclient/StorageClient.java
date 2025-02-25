@@ -2,14 +2,11 @@ package com.kmwllc.lucille.connector.storageclient;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 /**
  * Interface for storage clients. Implementations of this interface should be able to traverse a storage system
@@ -19,6 +16,8 @@ import java.util.regex.Pattern;
  *  - init : Initialize the client
  *  - shutdown : Shutdown the client
  *  - traverse : traverse through the storage client and publish files to Lucille pipeline
+ *  - getFileContentStream : Given a URI to a file in the storage client's system, return an InputStream for the file's contents
+ *  - createClients : Given a CloudOptions Config, build a map of StorageClients that can be created from the supplied options, using the URI schemes as keys.
  */
 
 public interface StorageClient {
@@ -93,7 +92,7 @@ public interface StorageClient {
    * <br> "region" : s3 storage region
    * <br> Mapped to: <b>s3</b>
    */
-  static Map<String, StorageClient> clientsFromCloudOptions(Map<String, Object> cloudOptions) {
+  static Map<String, StorageClient> createClients(Map<String, Object> cloudOptions) {
     Map<String, StorageClient> results = new HashMap<>();
 
     results.put("file", new LocalStorageClient());

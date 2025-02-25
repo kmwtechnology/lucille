@@ -34,7 +34,7 @@ public class TraversalParams {
   public final String moveToErrorFolder;
   public final String startingDirectory;
 
-  public TraversalParams(URI pathToStorageURI, String docIdPrefix, List<Pattern> includes, List<Pattern> excludes, Config fileOptions, boolean forAzure) {
+  public TraversalParams(URI pathToStorageURI, String docIdPrefix, List<Pattern> includes, List<Pattern> excludes, Config fileOptions) {
     this.pathToStorageURI = pathToStorageURI;
     this.docIdPrefix = docIdPrefix;
     this.includes = includes;
@@ -46,26 +46,16 @@ public class TraversalParams {
     this.moveToAfterProcessing = fileOptions.hasPath(MOVE_TO_AFTER_PROCESSING) ? fileOptions.getString(MOVE_TO_AFTER_PROCESSING) : null;
     this.moveToErrorFolder = fileOptions.hasPath(MOVE_TO_ERROR_FOLDER) ? fileOptions.getString(MOVE_TO_ERROR_FOLDER) : null;
 
-    if (forAzure) {
-      this.bucketOrContainerName = pathToStorageURI.getPath().split("/")[1];
-      this.startingDirectory = getAzureStartingDirectory();
-    } else {
-      this.bucketOrContainerName = pathToStorageURI.getAuthority();
-      this.startingDirectory = getStartingDirectory();
-    }
+    // NOTE: StorageClients should use their getStartingDirectory and getBucketOrContainerName methods to
+    // return these properties, as AzureStorageClient has different values it will return.
+    this.bucketOrContainerName = pathToStorageURI.getAuthority();
+    this.startingDirectory = getStartingDirectory();
   }
 
   private String getStartingDirectory() {
     String startingDirectory = Objects.equals(pathToStorageURI.getPath(), "/") ? "" : pathToStorageURI.getPath();
     if (startingDirectory.startsWith("/")) return startingDirectory.substring(1);
     return startingDirectory;
-  }
-
-  private String getAzureStartingDirectory() {
-    String path = pathToStorageURI.getPath();
-    // path is in the format /containerName/folder1/folder2/... so need to return folder1/folder2/...
-    String[] subPaths = path.split("/", 3);
-    return subPaths.length > 2 ? subPaths[2] : "";
   }
 
   /**

@@ -63,7 +63,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     try {
       initializeFileHandlers(params);
 
-      Page<Blob> page = storage.list(params.bucketOrContainerName, BlobListOption.prefix(params.startingDirectory), BlobListOption.pageSize(maxNumOfPages));
+      Page<Blob> page = storage.list(getBucketOrContainerName(params), BlobListOption.prefix(getStartingDirectory(params)), BlobListOption.pageSize(maxNumOfPages));
       do {
         page.streamAll()
             .forEachOrdered(blob -> {
@@ -131,7 +131,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   private String getFullPath(Blob blob, TraversalParams params) {
-    return params.pathToStorageURI.getScheme() + "://" + params.bucketOrContainerName + "/" + blob.getName();
+    return params.pathToStorageURI.getScheme() + "://" + getBucketOrContainerName(params) + "/" + blob.getName();
   }
 
   private Document blobToDoc(Blob blob, TraversalParams params) throws IOException {

@@ -124,8 +124,7 @@ public class FileConnector extends AbstractConnector {
 
     try {
       storageClient.init();
-      boolean usingAzure = storageClient instanceof AzureStorageClient;
-      TraversalParams params = new TraversalParams(storageURI, getDocIdPrefix(), includes, excludes, fileOptions, usingAzure);
+      TraversalParams params = new TraversalParams(storageURI, getDocIdPrefix(), includes, excludes, fileOptions);
       storageClient.traverse(publisher, params);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while initializing client or publishing files.", e);

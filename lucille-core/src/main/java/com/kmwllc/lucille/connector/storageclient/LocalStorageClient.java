@@ -45,7 +45,7 @@ public class LocalStorageClient extends BaseStorageClient {
   public void traverse(Publisher publisher, TraversalParams params) throws Exception {
     try {
       initializeFileHandlers(params);
-      Files.walkFileTree(Paths.get(params.startingDirectory), new LocalFileVisitor(publisher, params));
+      Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params));
     } finally {
       clearFileHandlers();
     }

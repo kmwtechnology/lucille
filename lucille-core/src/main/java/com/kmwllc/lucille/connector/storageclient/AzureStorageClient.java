@@ -66,7 +66,7 @@ public class AzureStorageClient extends BaseStorageClient {
     try {
       initializeFileHandlers(params);
 
-      serviceClient.getBlobContainerClient(params.bucketOrContainerName).listBlobs(new ListBlobsOptions().setPrefix(params.startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
+      serviceClient.getBlobContainerClient(getBucketOrContainerName(params)).listBlobs(new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
           .forEachOrdered(blob -> {
             if (isValid(blob, params)) {
               String fullPathStr = getFullPath(blob, params);
@@ -109,7 +109,7 @@ public class AzureStorageClient extends BaseStorageClient {
   protected byte[] getFileReferenceContent(FileReference fileReference, TraversalParams params) {
     BlobItem blobItem = fileReference.getBlobItem();
     return serviceClient
-        .getBlobContainerClient(params.bucketOrContainerName)
+        .getBlobContainerClient(getBucketOrContainerName(params))
         .getBlobClient(blobItem.getName()).downloadContent().toBytes();
   }
 
@@ -119,11 +119,24 @@ public class AzureStorageClient extends BaseStorageClient {
     return new ByteArrayInputStream(content);
   }
 
+  @Override
+  protected String getStartingDirectory(TraversalParams params) {
+    String path = params.pathToStorageURI.getPath();
+    // path is in the format /containerName/folder1/folder2/... so need to return folder1/folder2/...
+    String[] subPaths = path.split("/", 3);
+    return subPaths.length > 2 ? subPaths[2] : "";
+  }
+
+  @Override
+  protected String getBucketOrContainerName(TraversalParams params) {
+    return params.pathToStorageURI.getPath().split("/")[1];
+  }
+
   private String getFullPath(BlobItem blobItem, TraversalParams params) {
     URI pathURI = params.pathToStorageURI;
 
     return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
-        params.bucketOrContainerName, blobItem.getName());
+        getBucketOrContainerName(params), blobItem.getName());
   }
 
   private Document blobItemToDoc(BlobItem blob, TraversalParams params) {
@@ -145,7 +158,7 @@ public class AzureStorageClient extends BaseStorageClient {
     doc.setField(FileConnector.SIZE, properties.getContentLength());
 
     if (params.getFileContent) {
-      doc.setField(FileConnector.CONTENT, serviceClient.getBlobContainerClient(params.bucketOrContainerName).getBlobClient(blob.getName()).downloadContent().toBytes());
+      doc.setField(FileConnector.CONTENT, serviceClient.getBlobContainerClient(getBucketOrContainerName(params)).getBlobClient(blob.getName()).downloadContent().toBytes());
     }
 
     return doc;

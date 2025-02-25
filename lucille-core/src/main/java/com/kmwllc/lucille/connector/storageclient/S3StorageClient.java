@@ -67,8 +67,8 @@ public class S3StorageClient extends BaseStorageClient {
       initializeFileHandlers(params);
 
       ListObjectsV2Request request = ListObjectsV2Request.builder()
-          .bucket(params.bucketOrContainerName)
-          .prefix(params.startingDirectory)
+          .bucket(getBucketOrContainerName(params))
+          .prefix(getStartingDirectory(params))
           .maxKeys(maxNumOfPages).build();
       ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
       response.stream()
@@ -114,7 +114,7 @@ public class S3StorageClient extends BaseStorageClient {
   @Override
   protected byte[] getFileReferenceContent(FileReference fileReference, TraversalParams params) {
     S3Object obj = fileReference.getS3Object();
-    return s3.getObjectAsBytes(GetObjectRequest.builder().bucket(params.bucketOrContainerName).key(obj.key()).build()).asByteArray();
+    return s3.getObjectAsBytes(GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(obj.key()).build()).asByteArray();
   }
 
   @Override
@@ -134,7 +134,7 @@ public class S3StorageClient extends BaseStorageClient {
 
     if (params.getFileContent) {
       byte[] content = s3.getObjectAsBytes(
-          GetObjectRequest.builder().bucket(params.bucketOrContainerName).key(obj.key()).build()
+          GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(obj.key()).build()
       ).asByteArray();
       doc.setField(FileConnector.CONTENT, content);
     }
@@ -165,7 +165,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   private String getFullPath(S3Object obj, TraversalParams params) {
-    return params.pathToStorageURI.getScheme() + "://" + params.bucketOrContainerName + "/" + obj.key();
+    return params.pathToStorageURI.getScheme() + "://" + getBucketOrContainerName(params) + "/" + obj.key();
   }
 
   public static void validateOptions(Map<String, Object> cloudOptions) {

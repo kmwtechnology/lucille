@@ -11,7 +11,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-import com.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.util.Map;
 import org.junit.Test;
@@ -65,8 +64,8 @@ public class StorageClientTest {
   }
 
   @Test
-  public void testClientsFromCloudOptionsFull() {
-    Map<String, StorageClient> results = StorageClient.clientsFromCloudOptions(Map.of(
+  public void testCreateClientsFull() {
+    Map<String, StorageClient> results = StorageClient.createClients(Map.of(
         AZURE_CONNECTION_STRING, "connectionString",
         GOOGLE_SERVICE_KEY, "path/folder",
         S3_SECRET_ACCESS_KEY, "secretKey",
@@ -78,8 +77,8 @@ public class StorageClientTest {
   }
 
   @Test
-  public void testClientsFromCloudOptionsEmpty() {
-    Map<String, StorageClient> results = StorageClient.clientsFromCloudOptions(Map.of());
+  public void testCreateClientsEmpty() {
+    Map<String, StorageClient> results = StorageClient.createClients(Map.of());
 
     // ALWAYS get a LocalStorageClient.
     assertEquals(1, results.size());
