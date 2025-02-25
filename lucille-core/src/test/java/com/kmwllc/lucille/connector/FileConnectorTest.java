@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
+import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -49,12 +50,12 @@ public class FileConnectorTest {
 
     try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
       StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any(), any(), any(), any(), any()))
+      mockCloudStorageClient.when(() -> StorageClient.create(any(), any()))
           .thenReturn(storageClient);
 
       connector.execute(publisher);
       verify(storageClient, times(1)).init();
-      verify(storageClient, times(1)).traverse(publisher);
+      verify(storageClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class));
       verify(storageClient, times(1)).shutdown();
     }
   }
@@ -68,7 +69,7 @@ public class FileConnectorTest {
 
     try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
       StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any(), any(), any(), any(), any()))
+      mockCloudStorageClient.when(() -> StorageClient.create(any(), any()))
           .thenReturn(storageClient);
 
       // init method did not declare to throw any Exception, so using RuntimeException
@@ -89,11 +90,11 @@ public class FileConnectorTest {
 
     try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
       StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any(), any(), any(), any(), any()))
+      mockCloudStorageClient.when(() -> StorageClient.create(any(), any()))
           .thenReturn(storageClient);
 
       // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
-      doThrow(new Exception("Failed to publish files")).when(storageClient).traverse(publisher);
+      doThrow(new Exception("Failed to publish files")).when(storageClient).traverse(any(Publisher.class), any(TraversalParams.class));
       assertThrows(ConnectorException.class, () -> connector.execute(publisher));
       // verify that shutdown is called even gettingClient fails
       verify(storageClient, times(1)).shutdown();

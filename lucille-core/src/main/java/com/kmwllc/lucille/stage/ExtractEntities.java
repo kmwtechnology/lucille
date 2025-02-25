@@ -1,17 +1,18 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
+import java.io.IOException;
+import java.util.Map;
 import org.ahocorasick.trie.PayloadEmit;
 import org.ahocorasick.trie.PayloadToken;
 import org.ahocorasick.trie.PayloadTrie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,6 +44,8 @@ import java.util.stream.Collectors;
  *       other text. ie "OMAN" in "rOMAN".  Defaults to false.
  *   - ignore_overlaps (Boolean, Optional) : Decides whether overlapping matches should both be extracted or if only the
  *       longer, left most match should be kept.  Defaults to true.
+ *   - cloudOptions (Map, Optional) : If your dictionary files are held in Cloud Storage (S3, Azure, Google). See FileConnector
+ *  *      for the appropriate arguments to provide.
  */
 public class ExtractEntities extends Stage {
 
@@ -61,6 +64,7 @@ public class ExtractEntities extends Stage {
   private final boolean ignoreOverlaps;
   private final boolean usePayloads;
   private final String entityField;
+  private final FileContentFetcher fileFetcher;
 
   public ExtractEntities(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "dictionaries")
@@ -80,6 +84,9 @@ public class ExtractEntities extends Stage {
     this.dictionaries = config.getStringList("dictionaries");
     this.updateMode = UpdateMode.fromConfig(config);
     this.entityField = config.hasPath("entity_field") ? config.getString("entity_field") : null;
+
+    Map<String, Object> cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
+    this.fileFetcher = new FileContentFetcher(cloudOptions);
   }
 
   @Override
@@ -88,7 +95,17 @@ public class ExtractEntities extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Extract Entities");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Extract Entities");
 
+    try {
+      fileFetcher.startup();
+    } catch (IOException e) {
+      throw new StageException("Error occurred initializing FileContentFetcher.", e);
+    }
     dictTrie = buildTrie();
+  }
+
+  @Override
+  public void stop() throws StageException {
+    fileFetcher.shutdown();
   }
 
   /**
@@ -121,9 +138,9 @@ public class ExtractEntities extends Stage {
     }
 
     for (String dictFile : dictionaries) {
-      File d = new File(dictFile);
-      log.info("loading Dictionary from {}", d.getAbsolutePath());
-      try (CSVReader reader = new CSVReader(FileUtils.getReader(dictFile))) {
+      log.info("loading Dictionary from {}", dictFile);
+
+      try (CSVReader reader = new CSVReader(fileFetcher.getReader(dictFile))) {
         // For each line of the dictionary file, add a keyword/payload pair to the Trie
         String[] line;
         boolean ignore = false;

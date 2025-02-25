@@ -9,8 +9,9 @@ import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.typesafe.config.Config;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -20,9 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Pattern;
+import java.util.HashMap;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -32,49 +31,55 @@ public class LocalStorageClient extends BaseStorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(LocalStorageClient.class);
 
-  public LocalStorageClient(URI pathToStorageURI, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions, Config fileOptions) {
-    super(pathToStorageURI, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+  public LocalStorageClient() {
+    super(new HashMap<>());
   }
 
   @Override
-  public void init() throws ConnectorException {
-    initializeFileHandlers();
+  public void init() throws ConnectorException { }
+
+  @Override
+  public void shutdown() throws IOException { }
+
+  @Override
+  public void traverse(Publisher publisher, TraversalParams params) throws Exception {
+    try {
+      initializeFileHandlers(params);
+      Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params));
+    } finally {
+      clearFileHandlers();
+    }
   }
 
   @Override
-  public void shutdown() throws IOException {
-    // clear all FileHandlers if any
-    clearFileHandlers();
+  public InputStream getFileContentStream(URI uri) throws IOException {
+    File file = new File(uri);
+
+    return new FileInputStream(file);
   }
 
   @Override
-  public void traverse(Publisher publisher) throws Exception {
-    Files.walkFileTree(Paths.get(startingDirectory), new LocalFileVisitor(publisher));
-  }
-
-  @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, TraversalParams params) {
     Path path = fileReference.getPath();
     try {
-      return pathToDoc(path);
+      return pathToDoc(path, params);
     } catch (ConnectorException e) {
       throw new IllegalArgumentException("Unable to convert path '" + path + "' to Document", e);
     }
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr, TraversalParams params) {
     Path path = fileReference.getPath();
     try {
-      return pathToDoc(path, in, decompressedFullPathStr);
+      return pathToDoc(path, in, decompressedFullPathStr, params);
     } catch (ConnectorException e) {
       throw new IllegalArgumentException("Unable to convert path '" + path + "' to Document", e);
     }
   }
 
   @Override
-  protected byte[] getFileReferenceContent(FileReference fileReference) {
+  protected byte[] getFileReferenceContent(FileReference fileReference, TraversalParams params) {
     Path path = fileReference.getPath();
     try {
       return Files.readAllBytes(path);
@@ -84,7 +89,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected InputStream getFileReferenceContentStream(FileReference fileReference) {
+  protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
     Path path = fileReference.getPath();
     try {
       return Files.newInputStream(path);
@@ -93,10 +98,10 @@ public class LocalStorageClient extends BaseStorageClient {
     }
   }
 
-  private Document pathToDoc(Path path) throws ConnectorException {
+  private Document pathToDoc(Path path, TraversalParams params) throws ConnectorException {
     String fullPath = path.toAbsolutePath().normalize().toString();
     String docId = DigestUtils.md5Hex(fullPath);
-    Document doc = Document.create(createDocId(docId));
+    Document doc = Document.create(createDocId(docId, params));
 
     try {
       BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
@@ -112,7 +117,7 @@ public class LocalStorageClient extends BaseStorageClient {
         doc.setField(CREATED, attrs.creationTime().toInstant());
       }
 
-      if (getFileContent) {
+      if (params.shouldGetFileContent()) {
         doc.setField(CONTENT, Files.readAllBytes(path));
       }
     } catch (Exception e) {
@@ -121,9 +126,9 @@ public class LocalStorageClient extends BaseStorageClient {
     return doc;
   }
 
-  private Document pathToDoc(Path path, InputStream in, String decompressedFullPathStr) throws ConnectorException {
+  private Document pathToDoc(Path path, InputStream in, String decompressedFullPathStr, TraversalParams params) throws ConnectorException {
     String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-    Document doc = Document.create(createDocId(docId));
+    Document doc = Document.create(createDocId(docId, params));
 
     try {
       // get file attributes
@@ -135,7 +140,7 @@ public class LocalStorageClient extends BaseStorageClient {
       doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
       doc.setField(CREATED, attrs.creationTime().toInstant());
       // unable to get decompressed file size
-      if (getFileContent) {
+      if (params.shouldGetFileContent()) {
         doc.setField(CONTENT, in.readAllBytes());
       }
     } catch (Exception e) {
@@ -145,11 +150,12 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   public class LocalFileVisitor implements FileVisitor<Path> {
-
     private Publisher publisher;
+    private TraversalParams params;
 
-    public LocalFileVisitor(Publisher publisher) {
+    public LocalFileVisitor(Publisher publisher, TraversalParams params) {
       this.publisher = publisher;
+      this.params = params;
     }
 
     @Override
@@ -161,14 +167,14 @@ public class LocalStorageClient extends BaseStorageClient {
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
       // Visit the file and actually process it!
-      if (!shouldIncludeFile(file.toString(), includes, excludes)) {
+      if (!params.shouldIncludeFile(file.toString())) {
         // this file is skipped by the configuration.
         return FileVisitResult.CONTINUE;
       }
       Path fullPath = file.toAbsolutePath().normalize();
       String fullPathStr = fullPath.toString();
       String fileExtension = FilenameUtils.getExtension(fullPathStr);
-      tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(fullPath));
+      tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(fullPath), params);
       return FileVisitResult.CONTINUE;
     }
 

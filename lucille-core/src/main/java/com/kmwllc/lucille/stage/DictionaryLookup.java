@@ -40,6 +40,8 @@ import org.slf4j.LoggerFactory;
  *      are present in the dictionary.
  *   - ignore_missing_source (Boolean, Optional) : Intended to be used in combination with set_only. If true, the destination field
  *      will be set to true if the source field is missing. Defaults to false.
+ *   - cloudOptions (Map, Optional) : If your dictionary files are held in Cloud Storage (S3, Azure, Google). See FileConnector
+ *      for the appropriate arguments to provide.
  */
 public class DictionaryLookup extends Stage {
 
@@ -51,6 +53,7 @@ public class DictionaryLookup extends Stage {
   private final boolean ignoreCase;
   private final boolean setOnly;
   private final boolean ignoreMissingSource;
+  private final Map<String, Object> cloudOptions;
 
   private Map<String, String[]> dict;
 
@@ -69,8 +72,11 @@ public class DictionaryLookup extends Stage {
     this.setOnly = ConfigUtils.getOrDefault(config, "set_only", false);
     this.ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignore_missing_source", false);
     this.dictPath = config.getString("dict_path");
+
+    this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
   }
 
+  @Override
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Dictionary Lookup");
     StageUtils.validateFieldNumNotZero(destFields, "Dictionary Lookup");
@@ -83,7 +89,7 @@ public class DictionaryLookup extends Stage {
       throw new StageException("when set_only is true, update_mode must be set to overwrite");
     }
 
-    this.dict = DictionaryManager.getDictionary(dictPath, ignoreCase, setOnly);
+    this.dict = DictionaryManager.getDictionary(dictPath, ignoreCase, setOnly, cloudOptions);
   }
 
   @Override

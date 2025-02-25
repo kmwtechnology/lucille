@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.core.fileHandler;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -10,6 +10,7 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.UnaryOperator;
 import org.apache.commons.io.IOUtils;
@@ -32,10 +33,10 @@ public class JsonFileHandler extends BaseFileHandler {
   @Override
   public Iterator<Document> processFile(Path path) throws FileHandlerException {
     // reader will be closed when the LineIterator is closed in getDocumentIterator
-    // only works for path from local file system
     Reader reader;
+
     try {
-      reader = FileUtils.getReader(path.toString());
+      reader = FileContentFetcher.getSingleReader(path.toString(), Map.of());
     } catch (Exception e) {
       throw new FileHandlerException("Error creating reader from path: " + path, e);
     }
