@@ -9,6 +9,7 @@ import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -230,7 +231,7 @@ public class CSVFileHandler extends BaseFileHandler {
 
   private CSVReader getCsvReader(InputStream inputStream) throws FileHandlerException {
     try {
-      return new CSVReaderBuilder(new InputStreamReader(inputStream, StandardCharsets.UTF_8))
+      return new CSVReaderBuilder(new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)))
           .withCSVParser(
               new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
           .build();
