@@ -138,9 +138,11 @@ public class FileContentFetcher {
    * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
    */
   public static InputStream getOneTimeInputStream(String path, Config cloudOptions) throws IOException {
-    // Before attempting to use a storage client, handle classpath files as a special case.
+    // Before attempting to use a storage client, handle classpath / non URI files as a special case.
     if (path.startsWith("classpath:")) {
       return FileContentFetcher.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
+    } else if (!FileUtils.isValidURI(path)) {
+      return new FileInputStream(path);
     }
 
     URI pathURI;

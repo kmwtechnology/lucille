@@ -54,7 +54,9 @@ public class DictionaryManager {
    * the keyword.
    *
    * If a Map has already been populated for a given path (and given setting of ignoreCase and setOnly),
-   * the first instance will be returned and a second instance will not be created.
+   * the first instance will be returned and a second instance will not be created. Note that cloudOptions do not
+   * affect the key / path used - they only affect whether the file (particularly, if it is held on cloud storage)
+   * CAN be retrieved successfully in the first place!
    *
    * Each Stage instance that needs to acquire a dictionary should call this method once inside start().
    * Because Stage instances will not be calling this method more than once at startup time, we use a coarse-grained
