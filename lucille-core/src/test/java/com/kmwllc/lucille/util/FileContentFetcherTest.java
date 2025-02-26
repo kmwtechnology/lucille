@@ -56,11 +56,7 @@ public class FileContentFetcherTest {
 
   @Test
   public void testMultipleStorageClients() throws Exception {
-    Config cloudOptions = ConfigFactory.parseMap(Map.of(
-        S3_REGION, "us-east-1",
-        S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey",
-        GOOGLE_SERVICE_KEY, "serviceKey"));
+    Config cloudOptions = ConfigFactory.load("FileContentFetcherTest/s3AndGoogle.conf");
 
     URI s3URI = URI.create("s3://bucket/hello.txt");
     URI googleURI = URI.create("gs://bucket/hello.txt");
@@ -96,10 +92,7 @@ public class FileContentFetcherTest {
 
   @Test
   public void testClientFailsInit() throws Exception {
-    Config cloudOptions = ConfigFactory.parseMap(Map.of(
-        S3_REGION, "us-east-1",
-        S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey"));
+    Config cloudOptions = ConfigFactory.load("FileContentFetcherTest/s3Only.conf");
 
     try (MockedConstruction<S3StorageClient> mockedConstruction = mockConstruction(S3StorageClient.class, (mock, context) -> {
       doThrow(new IOException("Mock Init Exception")).when(mock).init();
@@ -116,10 +109,7 @@ public class FileContentFetcherTest {
 
   @Test
   public void testStaticFetches() throws Exception {
-    Config cloudOptions = ConfigFactory.parseMap(Map.of(
-        S3_REGION, "us-east-1",
-        S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey"));
+    Config cloudOptions = ConfigFactory.load("FileContentFetcherTest/s3Only.conf");
 
     URI s3URI = URI.create("s3://bucket/hello.txt");
 

@@ -26,24 +26,11 @@ import org.slf4j.LoggerFactory;
  *    s3://bucket-name/folder/
  *    https://accountName.blob.core.windows.net/containerName/prefix/
  *  includes (list of strings, Optional): list of regex patterns to include files
- *  excludes (list of strings, Optional): list of regex patterns to exclude files
- *  cloudOptions (Map, Optional): cloud storage options, required if using cloud storage. Example of cloudOptions below
+ *  excludes (list of strings, Optional): list of regex patterns to exclude files.
  *  fileOptions (Map, Optional): file options for handling of files and file types. Example of fileOptions below
- *
- * CloudOptions:
- *  If using GoogleStorageClient:
- *    "pathToServiceKey" : "path/To/Service/Key.json"
- *  If using AzureStorageClient:
- *    "connectionString" : azure connection string
- *      Or
- *    "accountName" : azure account name
- *    "accountKey" : azure account key
- *  If using S3StorageClient:
- *    "accessKeyId" : s3 key id
- *    "secretAccessKey" : secret access key
- *    "region" : s3 storage region
- *  Optional:
- *    "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request, defaults to 100
+ *  gcp (Map, Optional): options for handling GoogleCloud files. See example below.
+ *  s3(Map, Optional): options for handling S3 files. See example below.
+ *  azure(Map, Optional): options for handling Azure files. See example below.
  *
  * FileOptions:
  *  getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.
@@ -54,6 +41,24 @@ import org.slf4j.LoggerFactory;
  *  csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
  *  json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
  *  xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler
+ *
+ * <br> gcp:
+ * "pathToServiceKey" : "path/To/Service/Key.json"
+ * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+ *
+ * <br> s3:
+ * "accessKeyId" : s3 key id
+ * "secretAccessKey" : secret access key
+ * "region" : s3 storage region
+ * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+ *
+ * <br> azure:
+ * "connectionString" : azure connection string
+ * <b>Or</b>
+ * "accountName" : azure account name
+ * "accountKey" : azure account key
+ * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+ *
  */
 
 public class FileConnector extends AbstractConnector {
@@ -85,7 +90,6 @@ public class FileConnector extends AbstractConnector {
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   private final String pathToStorage;
-  private final Config cloudOptions;
   private final Config fileOptions;
   private final List<Pattern> includes;
   private final List<Pattern> excludes;
@@ -102,7 +106,6 @@ public class FileConnector extends AbstractConnector {
     List<String> excludeRegex = config.hasPath("excludes") ?
         config.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
-    this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions") : ConfigFactory.empty();
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
     try {
       this.storageURI = new URI(pathToStorage);
@@ -115,7 +118,7 @@ public class FileConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try {
-      storageClient = StorageClient.create(storageURI, cloudOptions);
+      storageClient = StorageClient.create(storageURI, config);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while creating storage client.", e);
     }

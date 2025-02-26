@@ -1,12 +1,5 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_KEY;
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_NAME;
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_CONNECTION_STRING;
-import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
-import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
-import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
-import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -21,19 +14,19 @@ public class StorageClientTest {
 
   @Test
   public void testCreate() throws Exception {
-    Config gCloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "key"));
+    Config gCloudOptions = ConfigFactory.load("StorageClientTest/google.conf");
     StorageClient client = StorageClient.create(new URI("gs://bucket/"), gCloudOptions);
     assertTrue(client instanceof GoogleStorageClient);
 
-    Config s3CloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "region", S3_ACCESS_KEY_ID, "id", S3_SECRET_ACCESS_KEY, "key"));
+    Config s3CloudOptions = ConfigFactory.load("StorageClientTest/s3.conf");
     client = StorageClient.create(new URI("s3://bucket/"), s3CloudOptions);
     assertTrue(client instanceof S3StorageClient);
 
-    Config azCloudOptions = ConfigFactory.parseMap(Map.of(AZURE_CONNECTION_STRING, "connectionString"));
+    Config azCloudOptions = ConfigFactory.load("StorageClientTest/azureConnection.conf");
     client = StorageClient.create(new URI("https://storagename.blob.core.windows.net/testblob"), azCloudOptions);
     assertTrue(client instanceof AzureStorageClient);
 
-    azCloudOptions =  ConfigFactory.parseMap(Map.of(AZURE_ACCOUNT_KEY, "key", AZURE_ACCOUNT_NAME, "name"));
+    azCloudOptions = ConfigFactory.load("StorageClientTest/azureKeyAndName.conf");
     client = StorageClient.create(new URI("https://storagename.blob.core.windows.net/testblob"), azCloudOptions);
     assertTrue(client instanceof AzureStorageClient);
 
@@ -48,18 +41,18 @@ public class StorageClientTest {
     assertThrows(RuntimeException.class, () -> StorageClient.create(new URI("unknown://bucket"), gCloudOptions));
 
     // test bad azure cloud options
-    Config azCloudOptionsBad = ConfigFactory.parseMap(Map.of(AZURE_ACCOUNT_KEY, "key"));
+    Config azCloudOptionsBad = ConfigFactory.load("StorageClientTest/azureBad.conf");
     assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("https://storagename.blob.core.windows.net/testblob"),
         azCloudOptionsBad));
 
     // test bad g cloud options
-    Config gCloudOptionsBad = ConfigFactory.empty();
-    assertThrows(IllegalArgumentException.class, () ->StorageClient.create(new URI("gs://bucket/"),
+    Config gCloudOptionsBad = ConfigFactory.load("StorageClientTest/googleBad.conf");
+    assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("gs://bucket/"),
         gCloudOptionsBad));
 
     // test bad s3 cloud options, only 2 of 3
-    Config s3CloudOptionsBad = ConfigFactory.parseMap(Map.of(S3_REGION, "region", S3_ACCESS_KEY_ID, "id"));
-    assertThrows(IllegalArgumentException.class, () ->StorageClient.create(new URI("s3://bucket/"),
+    Config s3CloudOptionsBad = ConfigFactory.load("StorageClientTest/s3Bad.conf");
+    assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("s3://bucket/"),
         s3CloudOptionsBad));
 
     client.shutdown();
@@ -67,15 +60,8 @@ public class StorageClientTest {
 
   @Test
   public void testCreateClientsFull() {
-    Map<String, StorageClient> results = StorageClient.createClients(
-        ConfigFactory.parseMap(
-            Map.of(
-                AZURE_CONNECTION_STRING, "connectionString",
-                GOOGLE_SERVICE_KEY, "path/folder",
-                S3_SECRET_ACCESS_KEY, "secretKey",
-                S3_ACCESS_KEY_ID, "keyID",
-                S3_REGION, "us-east-1"
-            )));
+    Config fullConfig = ConfigFactory.load("StorageClientTest/fullClients.conf");
+    Map<String, StorageClient> results = StorageClient.createClients(fullConfig);
 
     assertEquals(4, results.size());
   }

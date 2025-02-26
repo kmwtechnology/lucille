@@ -44,8 +44,10 @@ import java.util.stream.Collectors;
  *       other text. ie "OMAN" in "rOMAN".  Defaults to false.
  *   - ignore_overlaps (Boolean, Optional) : Decides whether overlapping matches should both be extracted or if only the
  *       longer, left most match should be kept.  Defaults to true.
- *   - cloudOptions (Map, Optional) : If your dictionary files are held in Cloud Storage (S3, Azure, Google). See FileConnector
- *  *      for the appropriate arguments to provide.
+ *
+ *   - s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
+ *   - azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
+ *   - gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  */
 public class ExtractEntities extends Stage {
 

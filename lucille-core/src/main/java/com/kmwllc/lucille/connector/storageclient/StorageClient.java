@@ -1,7 +1,9 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -15,6 +17,7 @@ import java.util.Map;
  *  - create : create appropriate client based on the URI scheme with authentication/settings from cloudOptions. Authentication only checks that required information is present
  *  - init : Initialize the client
  *  - shutdown : Shutdown the client
+ *  - validateOptions: Whether the storage client's cloud options are sufficient for it to connect to the file system. See below for necessary keys / arguments.
  *  - traverse : traverse through the storage client and publish files to Lucille pipeline
  *  - getFileContentStream : Given a URI to a file in the storage client's system, return an InputStream for the file's contents
  *  - createClients : Given a CloudOptions Config, build a map of StorageClients that can be created from the supplied options, using the URI schemes as keys.
@@ -54,21 +57,33 @@ public interface StorageClient {
   InputStream getFileContentStream(URI uri) throws IOException;
 
   /**
-   * Gets the appropriate client based on the URI scheme and validate with authentication/settings from cloudOptions
+   * Gets the appropriate client based on the URI scheme and validate with authentication/settings from cloudOptions.
    */
-  static StorageClient create(URI pathToStorage, Config cloudOptions) {
+  static StorageClient create(URI pathToStorage, Config connectorConfig) {
     String activeClient = pathToStorage.getScheme() != null ? pathToStorage.getScheme() : "file";
     switch (activeClient) {
       case "gs" -> {
-        return new GoogleStorageClient(cloudOptions);
+        if (!connectorConfig.hasPath("gcp")) {
+          throw new IllegalArgumentException("Path is to Google Cloud but no options provided.");
+        }
+        Config gcpOptions = connectorConfig.getConfig("gcp");
+        return new GoogleStorageClient(gcpOptions);
       }
       case "s3" -> {
-        return new S3StorageClient(cloudOptions);
+        if (!connectorConfig.hasPath("s3")) {
+          throw new IllegalArgumentException("Path is to S3 but no options provided.");
+        }
+        Config s3Options = connectorConfig.getConfig("s3");
+        return new S3StorageClient(s3Options);
       }
       case "https" -> {
         String authority = pathToStorage.getAuthority();
         if (authority != null && authority.contains("blob.core.windows.net")) {
-          return new AzureStorageClient(cloudOptions);
+          if (!connectorConfig.hasPath("azure")) {
+            throw new IllegalArgumentException("Path is to Azure but no options provided.");
+          }
+          Config azureOptions = connectorConfig.getConfig("azure");
+          return new AzureStorageClient(azureOptions);
         } else {
           throw new IllegalArgumentException("Unsupported client type: " + activeClient + " with authority: " + authority);
         }
@@ -82,39 +97,45 @@ public interface StorageClient {
 
   /**
    * Builds a map of all StorageClients which can be built from the given cloudOptions. Always returns at least
-   * a LocalStorageClient (mapped to "file").
+   * a LocalStorageClient (mapped to "file"). The map uses the cloud provider's URI schemes as keys (gs, https,
+   * s3, and file).
    *
    * To build clients for the cloud providers, these arguments must be provided:
-   * <br> If using GoogleStorageClient:
-   * <br> "pathToServiceKey" : "path/To/Service/Key.json"
-   * <br> Mapped to: <b>gs</b>
-   * <br> If using AzureStorageClient:
-   * <br> "connectionString" : azure connection string
-   * <br> <b>or</b>
-   * <br> "accountName" : azure account name
-   * <br> "accountKey" : azure account key
-   * <br> Mapped to: <b>https</b>
-   * <br> If using S3StorageClient:
-   * <br> "accessKeyId" : s3 key id
-   * <br> "secretAccessKey" : secret access key
-   * <br> "region" : s3 storage region
-   * <br> Mapped to: <b>s3</b>
+   * <br> gcp:
+   *   "pathToServiceKey" : "path/To/Service/Key.json"
+   *   "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+   *
+   * <br> s3:
+   *   "accessKeyId" : s3 key id
+   *   "secretAccessKey" : secret access key
+   *   "region" : s3 storage region
+   *   "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+   *
+   * <br> azure:
+   *   "connectionString" : azure connection string
+   * <b>Or</b>
+   *   "accountName" : azure account name
+   *   "accountKey" : azure account key
+   *   "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
    */
-  static Map<String, StorageClient> createClients(Config cloudOptions) {
+  static Map<String, StorageClient> createClients(Config config) {
     Map<String, StorageClient> results = new HashMap<>();
 
     results.put("file", new LocalStorageClient());
 
-    if (GoogleStorageClient.validOptions(cloudOptions)) {
-      results.put("gs", new GoogleStorageClient(cloudOptions));
+    if (config.hasPath("gcp")) {
+      Config gCloudOptions = config.getConfig("gcp");
+      results.put("gs", new GoogleStorageClient(gCloudOptions));
     }
 
-    if (AzureStorageClient.validOptions(cloudOptions)) {
-      results.put("https", new AzureStorageClient(cloudOptions));
+    if (config.hasPath("azure")) {
+      Config azureOptions = config.getConfig("azure");
+      results.put("https", new AzureStorageClient(azureOptions));
     }
 
-    if (S3StorageClient.validOptions(cloudOptions)) {
-      results.put("s3", new S3StorageClient(cloudOptions));
+    if (config.hasPath("s3")) {
+      Config s3Options = config.getConfig("s3");
+      results.put("s3", new S3StorageClient(s3Options));
     }
 
     return results;

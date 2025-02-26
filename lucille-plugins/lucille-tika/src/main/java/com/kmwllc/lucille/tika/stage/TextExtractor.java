@@ -38,6 +38,10 @@ import org.xml.sax.SAXException;
  * text_content_limit (Integer, Optional) : limits how large the content of the returned text can be
  * metadata_whitelist (StringList, Optional) : list of metadata names that are to be included in document
  * metadata_blacklist (StringList, Optional) : list of metadata names that are not to be included in document
+ *
+ * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
+ * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
+ * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  */
 public class TextExtractor extends Stage {
 

@@ -16,8 +16,10 @@ public abstract class AbstractConnector implements Connector {
   private String docIdPrefix;
   private boolean collapse;
   private String message = null;
+  protected final Config config;
 
   public AbstractConnector(Config config) {
+    this.config = config;
     this.name = config.getString("name");
     this.pipelineName = config.hasPath("pipeline") ? config.getString("pipeline") : null;
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
