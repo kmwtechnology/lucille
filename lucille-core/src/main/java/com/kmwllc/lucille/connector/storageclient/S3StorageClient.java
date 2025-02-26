@@ -36,6 +36,13 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
+  public void validateOptions() {
+    if (!validOptions(cloudOptions)) {
+      throw new IllegalArgumentException("Missing '" + S3_ACCESS_KEY_ID + "' or '" + S3_SECRET_ACCESS_KEY + "' or '" + S3_REGION + "' in cloudOptions for S3StorageClient.");
+    }
+  }
+
+  @Override
   public void initializeStorageClient() throws IOException {
     try {
       AwsBasicCredentials awsCred = AwsBasicCredentials.create(cloudOptions.getString(S3_ACCESS_KEY_ID), cloudOptions.getString(S3_SECRET_ACCESS_KEY));
@@ -165,12 +172,6 @@ public class S3StorageClient extends BaseStorageClient {
 
   private String getFullPath(S3Object obj, TraversalParams params) {
     return params.getPathToStorageURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + obj.key();
-  }
-
-  public static void validateOptions(Config cloudOptions) {
-    if (!validOptions(cloudOptions)) {
-      throw new IllegalArgumentException("Missing '" + S3_ACCESS_KEY_ID + "' or '" + S3_SECRET_ACCESS_KEY + "' or '" + S3_REGION + "' in cloudOptions for S3StorageClient.");
-    }
   }
 
   public static boolean validOptions(Config cloudOptions) {

@@ -4,9 +4,6 @@ import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
-import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
-import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -46,7 +43,6 @@ import java.nio.file.Files;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -425,8 +421,7 @@ public class AzureStorageClientTest {
 
   @Test
   public void testGetFileContentStream() throws Exception {
-    Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey"));
+    Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     AzureStorageClient storageClient = new AzureStorageClient(cloudOptions);
     URI testURI = new URI("https://storagename.blob.core.windows.net/folder/hello.txt");
 

@@ -36,6 +36,13 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
+  public void validateOptions() {
+    if (!validOptions(cloudOptions)) {
+      throw new IllegalArgumentException("Either '" + AZURE_CONNECTION_STRING + "' or '" + AZURE_ACCOUNT_NAME + "' & '" + AZURE_ACCOUNT_KEY + "' has to be in cloudOptions for AzureStorageClient.");
+    }
+  }
+
+  @Override
   public void initializeStorageClient() throws IOException {
     try {
       if (cloudOptions.hasPath(AZURE_CONNECTION_STRING)) {
@@ -192,12 +199,6 @@ public class AzureStorageClient extends BaseStorageClient {
     if (blob.isPrefix()) return false;
 
     return params.shouldIncludeFile(blob.getName());
-  }
-
-  public static void validateOptions(Config cloudOptions) {
-    if (!validOptions(cloudOptions)) {
-      throw new IllegalArgumentException("Either '" + AZURE_CONNECTION_STRING + "' or '" + AZURE_ACCOUNT_NAME + "' & '" + AZURE_ACCOUNT_KEY + "' has to be in cloudOptions for AzureStorageClient.");
-    }
   }
 
   public static boolean validOptions(Config cloudOptions) {

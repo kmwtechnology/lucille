@@ -36,6 +36,13 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
+  public void validateOptions() {
+    if (!validOptions(cloudOptions)) {
+      throw new IllegalArgumentException("Missing " + GOOGLE_SERVICE_KEY + " in cloudOptions for GoogleStorageClient.");
+    }
+  }
+
+  @Override
   public void initializeStorageClient() throws IOException {
     try (FileInputStream serviceAccountStream = new FileInputStream(cloudOptions.getString(GOOGLE_SERVICE_KEY))) {
       storage = StorageOptions.newBuilder()
@@ -176,12 +183,6 @@ public class GoogleStorageClient extends BaseStorageClient {
     }
 
     return doc;
-  }
-
-  public static void validateOptions(Config cloudOptions) {
-    if (!validOptions(cloudOptions)) {
-      throw new IllegalArgumentException("Missing " + GOOGLE_SERVICE_KEY + " in cloudOptions for GoogleStorageClient.");
-    }
   }
 
   public static boolean validOptions(Config cloudOptions) {

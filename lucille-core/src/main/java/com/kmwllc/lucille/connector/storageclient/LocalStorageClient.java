@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 
+import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.io.FileInputStream;
@@ -34,6 +35,10 @@ public class LocalStorageClient extends BaseStorageClient {
   public LocalStorageClient() {
     super(ConfigFactory.empty());
   }
+
+  // Cloud options do not matter for LocalStorageClient
+  @Override
+  public void validateOptions() { }
 
   @Override
   public void initializeStorageClient() throws IOException { }

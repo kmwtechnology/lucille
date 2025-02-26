@@ -33,6 +33,12 @@ public interface StorageClient {
   void shutdown() throws IOException;
 
   /**
+   * Validate that the given cloudOptions are sufficient to construct an instance of this StorageClient. Throws an
+   * IllegalArgumentException if the cloudOptions do not contain the necessary information.
+   */
+  void validateOptions();
+
+  /**
    * Returns whether this StorageClient has been successfully initialized and not shutdown.
    */
   boolean isInitialized();
@@ -54,17 +60,14 @@ public interface StorageClient {
     String activeClient = pathToStorage.getScheme() != null ? pathToStorage.getScheme() : "file";
     switch (activeClient) {
       case "gs" -> {
-        GoogleStorageClient.validateOptions(cloudOptions);
         return new GoogleStorageClient(cloudOptions);
       }
       case "s3" -> {
-        S3StorageClient.validateOptions(cloudOptions);
         return new S3StorageClient(cloudOptions);
       }
       case "https" -> {
         String authority = pathToStorage.getAuthority();
         if (authority != null && authority.contains("blob.core.windows.net")) {
-          AzureStorageClient.validateOptions(cloudOptions);
           return new AzureStorageClient(cloudOptions);
         } else {
           throw new IllegalArgumentException("Unsupported client type: " + activeClient + " with authority: " + authority);

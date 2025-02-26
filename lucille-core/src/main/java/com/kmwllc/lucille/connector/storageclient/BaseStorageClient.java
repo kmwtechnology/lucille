@@ -45,6 +45,8 @@ public abstract class BaseStorageClient implements StorageClient {
 
   public BaseStorageClient(Config cloudOptions) {
     this.cloudOptions = cloudOptions;
+    validateOptions();
+
     this.fileHandlers = new HashMap<>();
 
     // only matters for traversals
