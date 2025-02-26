@@ -129,6 +129,7 @@ public class LocalStorageClientTest {
             "json", Map.of()
         )));
 
+    localStorageClient.init();
     localStorageClient.traverse(publisher, params);
     List<Document> docs = messenger.getDocsSentForProcessing();
 
@@ -353,6 +354,7 @@ public class LocalStorageClientTest {
     File testFile = new File("src/test/resources/StorageClientTest/hello.txt");
 
     LocalStorageClient client = new LocalStorageClient();
+    client.init();
     InputStream stream = client.getFileContentStream(testFile.toURI());
 
     assertEquals("Hello there.", new String(stream.readAllBytes()));

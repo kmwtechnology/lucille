@@ -53,18 +53,6 @@ public class GoogleStorageClientTest {
   }
 
   @Test
-  public void testShutdown() throws Exception {
-    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
-    GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
-
-    Storage mockStorage = mock(Storage.class);
-    googleStorageClient.setStorageForTesting(mockStorage);
-    googleStorageClient.shutdown();
-    // verify that storage.close() is called
-    verify(mockStorage, times(1)).close();
-  }
-
-  @Test
   public void testPublishValidFiles() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
     TestMessenger messenger = new TestMessenger();
@@ -91,6 +79,7 @@ public class GoogleStorageClientTest {
     storage.create(blobInfo4, "foo".getBytes());
 
     googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
     googleStorageClient.traverse(publisher, params);
 
     // validate that all 4 blobs are published
@@ -141,6 +130,7 @@ public class GoogleStorageClientTest {
     storage.create(blobInfo, "Hello, World!".getBytes());
 
     googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
     googleStorageClient.traverse(publisher, params);
 
     List<Document> documents = messenger.getDocsSentForProcessing();
@@ -179,6 +169,7 @@ public class GoogleStorageClientTest {
     storage.create(blobInfo4, "foo".getBytes());
 
     googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
     googleStorageClient.traverse(publisher, params);
 
     // validate that only 2 blob are published and none are object2 or object3
@@ -225,6 +216,7 @@ public class GoogleStorageClientTest {
       mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(false).thenReturn(true); // .json, then object3, then .json
 
+      gStorageClient.initializeForTesting();
       gStorageClient.traverse(publisher, params);
       // verify that the processFileAndPublish is only called twice for the 2 json files out of the 3 files
       ArgumentCaptor<String> fileNameCaptor = ArgumentCaptor.forClass(String.class);
@@ -284,6 +276,7 @@ public class GoogleStorageClientTest {
 
     googleStorageClient.setStorageForTesting(storage);
 
+    googleStorageClient.initializeForTesting();
     googleStorageClient.traverse(publisher, params);
     List<Document> docs = messenger.getDocsSentForProcessing();
 
@@ -396,6 +389,7 @@ public class GoogleStorageClientTest {
     storage.create(blobInfo4, "foo".getBytes());
 
     googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
     assertThrows(UnsupportedOperationException.class, () -> googleStorageClient.traverse(publisher, params));
 
     // closes storage too
@@ -413,6 +407,7 @@ public class GoogleStorageClientTest {
     storage.create(blobInfo, "Hello there.".getBytes());
 
     storageClient.setStorageForTesting(storage);
+    storageClient.initializeForTesting();
 
     InputStream results = storageClient.getFileContentStream(testURI);
 

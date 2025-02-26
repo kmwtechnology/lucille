@@ -84,8 +84,8 @@ public class FileContentFetcher {
       String activeClient = pathURI.getScheme() != null ? pathURI.getScheme() : "file";
       StorageClient storageClient = availableClients.get(activeClient);
 
-      if (storageClient == null || !storageClient.isInitialized()) {
-        throw new IOException("No Storage Client available + initialized for path " + path + ".");
+      if (storageClient == null) {
+        throw new IOException("No Storage Client available for path " + path + ".");
       }
 
       is = storageClient.getFileContentStream(pathURI);

@@ -11,7 +11,6 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageOptions;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
@@ -36,14 +35,14 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void validateOptions() {
+  protected void validateOptions(Config cloudOptions) {
     if (!validOptions(cloudOptions)) {
       throw new IllegalArgumentException("Missing " + GOOGLE_SERVICE_KEY + " in cloudOptions for GoogleStorageClient.");
     }
   }
 
   @Override
-  public void initializeStorageClient() throws IOException {
+  protected void initializeStorageClient() throws IOException {
     try (FileInputStream serviceAccountStream = new FileInputStream(cloudOptions.getString(GOOGLE_SERVICE_KEY))) {
       storage = StorageOptions.newBuilder()
           .setCredentials(ServiceAccountCredentials.fromStream(serviceAccountStream))
@@ -53,7 +52,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void shutdownStorageClient() throws IOException {
+  protected void shutdownStorageClient() throws IOException {
     if (storage != null) {
       try {
         storage.close();
@@ -64,29 +63,24 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void traverse(Publisher publisher, TraversalParams params) throws Exception {
-    try {
-      initializeFileHandlers(params);
-
-      Page<Blob> page = storage.list(getBucketOrContainerName(params), BlobListOption.prefix(getStartingDirectory(params)), BlobListOption.pageSize(maxNumOfPages));
-      do {
-        page.streamAll()
-            .forEachOrdered(blob -> {
-              if (isValid(blob, params)) {
-                String fullPathStr = getFullPath(blob, params);
-                String fileExtension = FilenameUtils.getExtension(fullPathStr);
-                tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
-              }
-            });
-        page = page.hasNextPage() ? page.getNextPage() : null;
-      } while (page != null);
-    } finally {
-      clearFileHandlers();
-    }
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
+    Page<Blob> page = storage.list(getBucketOrContainerName(params), BlobListOption.prefix(getStartingDirectory(params)),
+        BlobListOption.pageSize(maxNumOfPages));
+    do {
+      page.streamAll()
+          .forEachOrdered(blob -> {
+            if (isValid(blob, params)) {
+              String fullPathStr = getFullPath(blob, params);
+              String fileExtension = FilenameUtils.getExtension(fullPathStr);
+              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
+            }
+          });
+      page = page.hasNextPage() ? page.getNextPage() : null;
+    } while (page != null);
   }
 
   @Override
-  public InputStream getFileContentStream(URI uri) throws IOException {
+  protected InputStream getFileContentStreamFromStorage(URI uri) throws IOException {
     String bucketName = uri.getAuthority();
     String objectKey = uri.getPath().substring(1);
 

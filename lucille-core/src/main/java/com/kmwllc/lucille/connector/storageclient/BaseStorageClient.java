@@ -16,6 +16,7 @@ import com.typesafe.config.Config;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -44,35 +45,75 @@ public abstract class BaseStorageClient implements StorageClient {
   private boolean initialized = false;
 
   public BaseStorageClient(Config cloudOptions) {
+    validateOptions(cloudOptions);
     this.cloudOptions = cloudOptions;
-    validateOptions();
-
     this.fileHandlers = new HashMap<>();
 
     // only matters for traversals
     this.maxNumOfPages = cloudOptions.hasPath(MAX_NUM_OF_PAGES) ? cloudOptions.getInt(MAX_NUM_OF_PAGES) : 100;
   }
 
+  /**
+   * Validate that the given cloudOptions are sufficient to construct an instance of this StorageClient. Throws an
+   * IllegalArgumentException if the cloudOptions do not contain the necessary information.
+   */
+  protected abstract void validateOptions(Config cloudOptions);
+
   @Override
   public final void init() throws IOException {
-    initializeStorageClient();
-    this.initialized = true;
+    if (!initialized) {
+      initializeStorageClient();
+      initialized = true;
+    }
   }
+
+  // Actually do the storage client specific initialization.
+  protected abstract void initializeStorageClient() throws IOException;
 
   @Override
   public final void shutdown() throws IOException {
-    this.initialized = false;
-    shutdownStorageClient();
+    if (initialized) {
+      initialized = false;
+      shutdownStorageClient();
+    }
   }
 
-  @Override
+  // Actually do the storage client specific shutdown.
+  protected abstract void shutdownStorageClient() throws IOException;
+
+  /**
+   * Returns whether this StorageClient is currently initialized successfully and not shutdown.
+   */
   public boolean isInitialized() {
     return this.initialized;
   }
 
-  protected abstract void initializeStorageClient() throws IOException;
+  @Override
+  public final void traverse(Publisher publisher, TraversalParams params) throws Exception {
+    if (!isInitialized()) {
+      throw new IOException("This StorageClient has not been initialized.");
+    }
 
-  protected abstract void shutdownStorageClient() throws IOException;
+    try {
+      initializeFileHandlers(params);
+      traverseStorageClient(publisher, params);
+    } finally {
+      clearFileHandlers();
+    }
+  }
+
+  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception;
+
+  @Override
+  public final InputStream getFileContentStream(URI uri) throws IOException {
+    if (!isInitialized()) {
+      throw new IOException("This StorageClient has not been initialized.");
+    }
+
+    return getFileContentStreamFromStorage(uri);
+  }
+
+  protected abstract InputStream getFileContentStreamFromStorage(URI uri) throws IOException;
 
   /**
    * This method would try to process and publish the file. It also performs any preprocessing, error handling, and post-processing.
@@ -430,5 +471,10 @@ public abstract class BaseStorageClient implements StorageClient {
   //should sync with abstract connector class?
   protected String createDocId(String docId, TraversalParams params) {
     return params.getDocIdPrefix() + docId;
+  }
+
+  // Only for testing
+  void initializeForTesting() {
+    this.initialized = true;
   }
 }

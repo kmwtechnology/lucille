@@ -38,26 +38,24 @@ public class LocalStorageClient extends BaseStorageClient {
 
   // Cloud options do not matter for LocalStorageClient
   @Override
-  public void validateOptions() { }
-
-  @Override
-  public void initializeStorageClient() throws IOException { }
-
-  @Override
-  public void shutdownStorageClient() throws IOException { }
-
-  @Override
-  public void traverse(Publisher publisher, TraversalParams params) throws Exception {
-    try {
-      initializeFileHandlers(params);
-      Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params));
-    } finally {
-      clearFileHandlers();
-    }
+  protected void validateOptions(Config cloudOptions) {
   }
 
   @Override
-  public InputStream getFileContentStream(URI uri) throws IOException {
+  protected void initializeStorageClient() throws IOException {
+  }
+
+  @Override
+  protected void shutdownStorageClient() throws IOException {
+  }
+
+  @Override
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
+    Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params));
+  }
+
+  @Override
+  protected InputStream getFileContentStreamFromStorage(URI uri) throws IOException {
     File file = new File(uri);
 
     return new FileInputStream(file);
@@ -74,7 +72,8 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr, TraversalParams params) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr,
+      TraversalParams params) {
     Path path = fileReference.getPath();
     try {
       return pathToDoc(path, in, decompressedFullPathStr, params);
@@ -131,7 +130,8 @@ public class LocalStorageClient extends BaseStorageClient {
     return doc;
   }
 
-  private Document pathToDoc(Path path, InputStream in, String decompressedFullPathStr, TraversalParams params) throws ConnectorException {
+  private Document pathToDoc(Path path, InputStream in, String decompressedFullPathStr, TraversalParams params)
+      throws ConnectorException {
     String docId = DigestUtils.md5Hex(decompressedFullPathStr);
     Document doc = Document.create(createDocId(docId, params));
 
@@ -155,6 +155,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   public class LocalFileVisitor implements FileVisitor<Path> {
+
     private Publisher publisher;
     private TraversalParams params;
 

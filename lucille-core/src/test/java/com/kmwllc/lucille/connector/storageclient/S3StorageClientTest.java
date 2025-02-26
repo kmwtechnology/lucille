@@ -102,6 +102,7 @@ public class S3StorageClientTest {
         .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{9, 10, 11, 12}))
         .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{13, 14, 15, 16}));
 
+    s3StorageClient.initializeForTesting();
     s3StorageClient.traverse(publisher, params);
 
     List<Document> documents = messenger.getDocsSentForProcessing();
@@ -162,6 +163,7 @@ public class S3StorageClientTest {
         .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{9, 10, 11, 12}))
         .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{13, 14, 15, 16}));
 
+    s3StorageClient.initializeForTesting();
     s3StorageClient.traverse(publisher, params);
 
     List<Document> documents = messenger.getDocsSentForProcessing();
@@ -200,6 +202,7 @@ public class S3StorageClientTest {
     when(mockClient.getObjectAsBytes((GetObjectRequest) any()))
         .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{1, 2, 3, 4}));
 
+    s3StorageClient.initializeForTesting();
     s3StorageClient.traverse(publisher, params);
 
     List<Document> documents = messenger.getDocsSentForProcessing();
@@ -238,6 +241,7 @@ public class S3StorageClientTest {
       mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(true).thenReturn(false);
 
+      s3StorageClient.initializeForTesting();
       s3StorageClient.traverse(publisher, params);
       // verify that the processFileAndPublish is only called for the json files
       ArgumentCaptor<String> fileNameCaptor = ArgumentCaptor.forClass(String.class);
@@ -288,6 +292,7 @@ public class S3StorageClientTest {
 
     when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
 
+    s3StorageClient.initializeForTesting();
     s3StorageClient.traverse(publisher, params);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
@@ -384,6 +389,7 @@ public class S3StorageClientTest {
         .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{9, 10, 11, 12}))
         .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{13, 14, 15, 16}));
 
+    s3StorageClient.initializeForTesting();
     // encounter error when traversing if moveAfterProcessing is set
     assertThrows(UnsupportedOperationException.class, () -> s3StorageClient.traverse(publisher, params));
     s3StorageClient.shutdown();
@@ -415,6 +421,7 @@ public class S3StorageClientTest {
 
       when(mockClient.getObject(mockRequest)).thenReturn(mockStream);
 
+      storageClient.initializeForTesting();
       storageClient.setS3ClientForTesting(mockClient);
 
       InputStream result = storageClient.getFileContentStream(testURI);

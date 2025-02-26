@@ -12,7 +12,6 @@ import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
@@ -36,14 +35,14 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void validateOptions() {
+  protected void validateOptions(Config cloudOptions) {
     if (!validOptions(cloudOptions)) {
       throw new IllegalArgumentException("Either '" + AZURE_CONNECTION_STRING + "' or '" + AZURE_ACCOUNT_NAME + "' & '" + AZURE_ACCOUNT_KEY + "' has to be in cloudOptions for AzureStorageClient.");
     }
   }
 
   @Override
-  public void initializeStorageClient() throws IOException {
+  protected void initializeStorageClient() throws IOException {
     try {
       if (cloudOptions.hasPath(AZURE_CONNECTION_STRING)) {
         serviceClient = new BlobServiceClientBuilder()
@@ -63,31 +62,27 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void shutdownStorageClient() throws IOException {
+  protected void shutdownStorageClient() throws IOException {
     // azure service client is not closable
     serviceClient = null;
   }
 
   @Override
-  public void traverse(Publisher publisher, TraversalParams params) throws Exception {
-    try {
-      initializeFileHandlers(params);
-
-      serviceClient.getBlobContainerClient(getBucketOrContainerName(params)).listBlobs(new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
-          .forEachOrdered(blob -> {
-            if (isValid(blob, params)) {
-              String fullPathStr = getFullPath(blob, params);
-              String fileExtension = FilenameUtils.getExtension(fullPathStr);
-              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
-            }
-          });
-    } finally {
-      clearFileHandlers();
-    }
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
+    serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
+        .listBlobs(new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages),
+            Duration.ofSeconds(10)).stream()
+        .forEachOrdered(blob -> {
+          if (isValid(blob, params)) {
+            String fullPathStr = getFullPath(blob, params);
+            String fileExtension = FilenameUtils.getExtension(fullPathStr);
+            tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
+          }
+        });
   }
 
   @Override
-  public InputStream getFileContentStream(URI uri) throws IOException {
+  protected InputStream getFileContentStreamFromStorage(URI uri) throws IOException {
     String containerName = uri.getPath().split("/")[1];
     String blobName = uri.getPath().split("/")[2];
 

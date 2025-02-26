@@ -36,14 +36,14 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void validateOptions() {
+  protected void validateOptions(Config cloudOptions) {
     if (!validOptions(cloudOptions)) {
       throw new IllegalArgumentException("Missing '" + S3_ACCESS_KEY_ID + "' or '" + S3_SECRET_ACCESS_KEY + "' or '" + S3_REGION + "' in cloudOptions for S3StorageClient.");
     }
   }
 
   @Override
-  public void initializeStorageClient() throws IOException {
+  protected void initializeStorageClient() throws IOException {
     try {
       AwsBasicCredentials awsCred = AwsBasicCredentials.create(cloudOptions.getString(S3_ACCESS_KEY_ID), cloudOptions.getString(S3_SECRET_ACCESS_KEY));
       s3 = S3Client
@@ -57,7 +57,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void shutdownStorageClient() throws IOException {
+  protected void shutdownStorageClient() throws IOException {
     if (s3 != null) {
       try {
         s3.close();
@@ -68,32 +68,26 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  public void traverse(Publisher publisher, TraversalParams params) throws Exception {
-    try {
-      initializeFileHandlers(params);
-
-      ListObjectsV2Request request = ListObjectsV2Request.builder()
-          .bucket(getBucketOrContainerName(params))
-          .prefix(getStartingDirectory(params))
-          .maxKeys(maxNumOfPages).build();
-      ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
-      response.stream()
-          .forEachOrdered(resp -> {
-            resp.contents().forEach(obj -> {
-              if (isValid(obj, params)) {
-                String fullPathStr = getFullPath(obj, params);
-                String fileExtension = FilenameUtils.getExtension(fullPathStr);
-                tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(obj), params);
-              }
-            });
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
+    ListObjectsV2Request request = ListObjectsV2Request.builder()
+        .bucket(getBucketOrContainerName(params))
+        .prefix(getStartingDirectory(params))
+        .maxKeys(maxNumOfPages).build();
+    ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
+    response.stream()
+        .forEachOrdered(resp -> {
+          resp.contents().forEach(obj -> {
+            if (isValid(obj, params)) {
+              String fullPathStr = getFullPath(obj, params);
+              String fileExtension = FilenameUtils.getExtension(fullPathStr);
+              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(obj), params);
+            }
           });
-    } finally {
-      clearFileHandlers();
-    }
+        });
   }
 
   @Override
-  public InputStream getFileContentStream(URI uri) throws IOException {
+  protected InputStream getFileContentStreamFromStorage(URI uri) throws IOException {
     String bucketName = uri.getAuthority();
     String objectKey = uri.getPath().substring(1);
 

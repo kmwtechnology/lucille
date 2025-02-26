@@ -111,6 +111,7 @@ public class AzureStorageClientTest {
         .thenReturn(new byte[]{9, 10, 11, 12}) // blob3
         .thenReturn(new byte[]{13, 14, 15, 16}); // blob4
 
+    azureStorageClient.initializeForTesting();
     azureStorageClient.traverse(publisher, params);
 
     List<Document> documents = messenger.getDocsSentForProcessing();
@@ -173,6 +174,7 @@ public class AzureStorageClientTest {
     when(mockClient.getBlobClient(anyString()).downloadContent().toBytes())
         .thenReturn(new byte[]{1, 2, 3, 4});
 
+    azureStorageClient.initializeForTesting();
     azureStorageClient.traverse(publisher, params);
 
     List<Document> documents = messenger.getDocsSentForProcessing();
@@ -209,6 +211,7 @@ public class AzureStorageClientTest {
         .thenReturn(new byte[]{9, 10, 11, 12}) // blob3
         .thenReturn(new byte[]{13, 14, 15, 16}); // blob4
 
+    azureStorageClient.initializeForTesting();
     azureStorageClient.traverse(publisher, params);
 
     List<Document> documents = messenger.getDocsSentForProcessing();
@@ -251,6 +254,7 @@ public class AzureStorageClientTest {
       mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(true).thenReturn(false);
 
+      azureStorageClient.initializeForTesting();
       azureStorageClient.traverse(publisher, params);
       // verify that the processFileAndPublish is only called for the json files
       ArgumentCaptor<String> fileNameCaptor = ArgumentCaptor.forClass(String.class);
@@ -301,6 +305,7 @@ public class AzureStorageClientTest {
         .thenReturn(fileContents.get("zippedFolder.zip"))
         .thenReturn(fileContents.get("hello.zip"));
 
+    azureStorageClient.initializeForTesting();
     azureStorageClient.traverse(publisher, params);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
@@ -414,6 +419,7 @@ public class AzureStorageClientTest {
         .thenReturn(new byte[]{9, 10, 11, 12}) // blob3
         .thenReturn(new byte[]{13, 14, 15, 16}); // blob4
 
+    azureStorageClient.initializeForTesting();
     assertThrows(UnsupportedOperationException.class, () -> azureStorageClient.traverse(publisher, params));
 
     azureStorageClient.shutdown();
@@ -438,6 +444,7 @@ public class AzureStorageClientTest {
     when(mockServiceClient.getBlobContainerClient("folder")).thenReturn(mockContainerClient);
 
     storageClient.setServiceClientForTesting(mockServiceClient);
+    storageClient.initializeForTesting();
     InputStream result = storageClient.getFileContentStream(testURI);
 
     assertEquals("Hello there.", new String(result.readAllBytes()));

@@ -1,9 +1,7 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -34,17 +32,6 @@ public interface StorageClient {
    * Shutdown the client, closes any open connections and/or resources
    */
   void shutdown() throws IOException;
-
-  /**
-   * Validate that the given cloudOptions are sufficient to construct an instance of this StorageClient. Throws an
-   * IllegalArgumentException if the cloudOptions do not contain the necessary information.
-   */
-  void validateOptions();
-
-  /**
-   * Returns whether this StorageClient has been successfully initialized and not shutdown.
-   */
-  boolean isInitialized();
 
   /**
    * Traverses through the storage client and publish files to Lucille pipeline
