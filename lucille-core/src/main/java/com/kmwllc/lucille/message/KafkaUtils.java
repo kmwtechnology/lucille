@@ -44,8 +44,8 @@ public class KafkaUtils {
   public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
 
-  private static Properties loadExternalProps(String filename, Config cloudOptions) {
-    try (Reader propertiesReader = FileContentFetcher.getOneTimeReader(filename, StandardCharsets.UTF_8.name(), cloudOptions)) {
+  private static Properties loadExternalProps(String filename, Config config) {
+    try (Reader propertiesReader = FileContentFetcher.getOneTimeReader(filename, StandardCharsets.UTF_8.name(), config)) {
       Properties consumerProps = new Properties();
       consumerProps.load(propertiesReader);
       return consumerProps;
@@ -97,8 +97,7 @@ public class KafkaUtils {
   //access set to package so unit tests can validate created properties without initializing a Producer
   static Properties createProducerProps(Config config) {
     if (config.hasPath("kafka.producerPropertyFile")) {
-      Config cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions") : ConfigFactory.empty();
-      return loadExternalProps(config.getString("kafka.producerPropertyFile"), cloudOptions);
+      return loadExternalProps(config.getString("kafka.producerPropertyFile"), config);
     }
     Properties producerProps = new Properties();
     producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));

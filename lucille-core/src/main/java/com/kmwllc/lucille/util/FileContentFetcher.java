@@ -2,6 +2,7 @@ package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -24,11 +25,11 @@ public class FileContentFetcher {
 
   /**
    * Creates a FileContentFetcher that will fetch files from the classpath, the local file system, and any cloud file systems
-   * (Azure, S3, Google) which have the necessary options provided in the given options map. Be sure to call startup and shutdown
+   * (Azure, S3, Google) which have the necessary options provided in the given Config. Be sure to call startup and shutdown
    * as appropriate.
    */
-  public FileContentFetcher(Config cloudOptions) {
-    this.availableClients = StorageClient.createClients(cloudOptions);
+  public FileContentFetcher(Config config) {
+    this.availableClients = StorageClient.createClients(config);
   }
 
   /**
@@ -137,7 +138,7 @@ public class FileContentFetcher {
     }
   }
 
-  // -- Convenience / Static Methods --
+  // -- Convenience / Static Methods - For One-Time Use to Avoid Managing an Instance --
   /**
    * Returns an InputStream for the file at the given path, which could be in the classpath, a local file path, or a URI
    * to a supported Storage service. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
@@ -146,7 +147,7 @@ public class FileContentFetcher {
    *
    * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
    */
-  public static InputStream getOneTimeInputStream(String path, Config cloudOptions) throws IOException {
+  public static InputStream getOneTimeInputStream(String path, Config config) throws IOException {
     // Before attempting to use a storage client, handle classpath / non URI files as a special case.
     if (path.startsWith("classpath:")) {
       return FileContentFetcher.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
@@ -159,7 +160,7 @@ public class FileContentFetcher {
 
     try {
       pathURI = URI.create(path);
-      clientForFile = StorageClient.create(pathURI, cloudOptions);
+      clientForFile = StorageClient.create(pathURI, config);
     } catch (IllegalArgumentException e) {
       throw new IOException("Error setting up to fetch file content.", e);
     }
@@ -198,8 +199,8 @@ public class FileContentFetcher {
    *
    * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
    */
-  public static BufferedReader getOneTimeReader(String path, Config cloudOptions) throws IOException {
-    return getOneTimeReader(path, "utf-8", cloudOptions);
+  public static BufferedReader getOneTimeReader(String path, Config config) throws IOException {
+    return getOneTimeReader(path, "utf-8", config);
   }
 
   /**
@@ -210,9 +211,46 @@ public class FileContentFetcher {
    *
    * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
    */
-  public static BufferedReader getOneTimeReader(String path, String encoding, Config cloudOptions) throws IOException {
-    InputStream result = getOneTimeInputStream(path, cloudOptions);
+  public static BufferedReader getOneTimeReader(String path, String encoding, Config config) throws IOException {
+    InputStream result = getOneTimeInputStream(path, config);
 
     return new BufferedReader(new InputStreamReader(result, encoding));
+  }
+
+  // -- Extra Convenience - No CloudOptions --> Only classpath / local file paths / local file URIs --
+  /**
+   * Returns an InputStream for the file at the given path, which could be in the classpath, a local file path, or a URI
+   * to a local file. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
+   * If an InputStream is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
+   * creates. Be sure to close the returned stream!
+   *
+   * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
+   */
+  public static InputStream getOneTimeInputStream(String path) throws IOException {
+    return getOneTimeInputStream(path, ConfigFactory.empty());
+  }
+
+  /**
+   * Returns a reader for the file at the given path using UTF-8 encoding. The file could be in the classpath, a local file path, or a URI
+   * to a local file. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
+   * If an Reader is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
+   * creates. Be sure to close the returned Reader!
+   *
+   * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
+   */
+  public static BufferedReader getOneTimeReader(String path) throws IOException {
+    return getOneTimeReader(path, ConfigFactory.empty());
+  }
+
+  /**
+   * Returns a reader for the file at the given path using the given encoding. The file could be in the classpath, a local file path, or a URI
+   * to a local file. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
+   * If an Reader is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
+   * creates. Be sure to close the returned Reader!
+   *
+   * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
+   */
+  public static BufferedReader getOneTimeReader(String path, String encoding) throws IOException {
+    return getOneTimeReader(path, encoding, ConfigFactory.empty());
   }
 }

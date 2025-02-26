@@ -86,9 +86,7 @@ public class ExtractEntities extends Stage {
     this.dictionaries = config.getStringList("dictionaries");
     this.updateMode = UpdateMode.fromConfig(config);
     this.entityField = config.hasPath("entity_field") ? config.getString("entity_field") : null;
-
-    Config cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions") : ConfigFactory.empty();
-    this.fileFetcher = new FileContentFetcher(cloudOptions);
+    this.fileFetcher = new FileContentFetcher(config);
   }
 
   @Override

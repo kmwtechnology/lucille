@@ -80,8 +80,7 @@ public class TextExtractor extends Stage {
     }
     parseCtx = new ParseContext();
 
-    Config cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions") : ConfigFactory.empty();
-    this.fileFetcher = new FileContentFetcher(cloudOptions);
+    this.fileFetcher = new FileContentFetcher(config);
   }
 
   @Override

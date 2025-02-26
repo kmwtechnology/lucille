@@ -245,7 +245,7 @@ public class CSVFileHandler extends BaseFileHandler {
 
   private CSVReader getCsvReader(String pathStr) throws FileHandlerException {
     try {
-      return new CSVReaderBuilder(FileContentFetcher.getOneTimeReader(pathStr, ConfigFactory.empty())).
+      return new CSVReaderBuilder(FileContentFetcher.getOneTimeReader(pathStr)).
           withCSVParser(
               new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
           .build();

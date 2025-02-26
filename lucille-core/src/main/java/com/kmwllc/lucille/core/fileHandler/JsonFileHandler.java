@@ -36,7 +36,7 @@ public class JsonFileHandler extends BaseFileHandler {
     Reader reader;
 
     try {
-      reader = FileContentFetcher.getOneTimeReader(path.toString(), ConfigFactory.empty());
+      reader = FileContentFetcher.getOneTimeReader(path.toString());
     } catch (Exception e) {
       throw new FileHandlerException("Error creating reader from path: " + path, e);
     }
