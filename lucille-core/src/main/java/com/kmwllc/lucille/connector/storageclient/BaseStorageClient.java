@@ -91,7 +91,7 @@ public abstract class BaseStorageClient implements StorageClient {
   @Override
   public final void traverse(Publisher publisher, TraversalParams params) throws Exception {
     if (!isInitialized()) {
-      throw new IOException("This StorageClient has not been initialized.");
+      throw new IllegalStateException("This StorageClient has not been initialized.");
     }
 
     try {
@@ -107,7 +107,7 @@ public abstract class BaseStorageClient implements StorageClient {
   @Override
   public final InputStream getFileContentStream(URI uri) throws IOException {
     if (!isInitialized()) {
-      throw new IOException("This StorageClient has not been initialized.");
+      throw new IllegalStateException("This StorageClient has not been initialized.");
     }
 
     return getFileContentStreamFromStorage(uri);
