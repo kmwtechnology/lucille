@@ -12,13 +12,13 @@ import java.util.Map;
  * Interface for storage clients. Implementations of this interface should be able to traverse a storage system
  * and publish files to the Lucille pipeline.
  *
- *  - create : create appropriate client based on the URI scheme with authentication/settings from cloudOptions. Authentication only checks that required information is present
+ *  - create : create appropriate client based on the URI scheme with authentication/settings from Config. Authentication only checks that required information is present
  *  - init : Initialize the client
  *  - shutdown : Shutdown the client
- *  - validateOptions: Whether the storage client's cloud options are sufficient for it to connect to the file system. See below for necessary keys / arguments.
+ *  - validateOptions: Whether the storage client's Config is sufficient for it to connect to its file system. See below for necessary keys / arguments.
  *  - traverse : traverse through the storage client and publish files to Lucille pipeline
  *  - getFileContentStream : Given a URI to a file in the storage client's system, return an InputStream for the file's contents
- *  - createClients : Given a CloudOptions Config, build a map of StorageClients that can be created from the supplied options, using the URI schemes as keys.
+ *  - createClients : Given a Config, build a map of StorageClients that can be created from the supplied options, using the URI schemes as keys for the map.
  */
 
 public interface StorageClient {
@@ -44,7 +44,7 @@ public interface StorageClient {
   InputStream getFileContentStream(URI uri) throws IOException;
 
   /**
-   * Gets the appropriate client based on the URI scheme and validate with authentication/settings from cloudOptions.
+   * Gets the appropriate client based on the URI scheme and validate with authentication/settings from the Config.
    */
   static StorageClient create(URI pathToStorage, Config connectorConfig) {
     String activeClient = pathToStorage.getScheme() != null ? pathToStorage.getScheme() : "file";
@@ -83,11 +83,11 @@ public interface StorageClient {
   }
 
   /**
-   * Builds a map of all StorageClients which can be built from the given cloudOptions. Always returns at least
+   * Builds a map of all StorageClients which can be built from the given Config. Always returns at least
    * a LocalStorageClient (mapped to "file"). The map uses the cloud provider's URI schemes as keys (gs, https,
    * s3, and file).
    *
-   * To build clients for the cloud providers, these arguments must be provided:
+   * To build clients for the cloud providers, these arguments must be provided in separate maps:
    * <br> gcp:
    *   "pathToServiceKey" : "path/To/Service/Key.json"
    *   "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100

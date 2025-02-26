@@ -54,8 +54,8 @@ public class DictionaryManager {
    * the keyword.
    *
    * If a Map has already been populated for a given path (and given setting of ignoreCase and setOnly),
-   * the first instance will be returned and a second instance will not be created. Note that cloudOptions do not
-   * affect the key / path used - they only affect whether the file (particularly, if it is held on cloud storage)
+   * the first instance will be returned and a second instance will not be created. Note that the config does not
+   * affect the key / path used - it can only affect whether the file (particularly, if it is held on cloud storage)
    * CAN be retrieved successfully in the first place!
    *
    * Each Stage instance that needs to acquire a dictionary should call this method once inside start().
@@ -73,14 +73,14 @@ public class DictionaryManager {
    * made into a ConcurrentHashMap or being passed through Collections.synchronizedMap()).
    *
    */
-  public static synchronized Map<String, String[]> getDictionary(String path, boolean ignoreCase, boolean setOnly, Config cloudOptions) throws StageException {
+  public static synchronized Map<String, String[]> getDictionary(String path, boolean ignoreCase, boolean setOnly, Config config) throws StageException {
     String key = path + "_IGNORECASE=" + ignoreCase + "_SETONLY=" + setOnly;
     if (dictionaries.containsKey(key)) {
       return dictionaries.get(key);
     }
 
     try {
-      HashMap<String, String[]> dictionary = buildHashMap(path, ignoreCase, setOnly, cloudOptions);
+      HashMap<String, String[]> dictionary = buildHashMap(path, ignoreCase, setOnly, config);
 
       // We create an unmodifiable view of the dictionary, which is represented as a HashMap;
       // This unmodifiable Map may be shared across Stage instances running in different threads;
@@ -105,8 +105,8 @@ public class DictionaryManager {
    * @param dictPath  the path of the dictionary file
    * @return the populated HashMap
    */
-  private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly, Config cloudOptions) throws IOException {
-    FileContentFetcher fetcher = new FileContentFetcher(cloudOptions);
+  private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly, Config config) throws IOException {
+    FileContentFetcher fetcher = new FileContentFetcher(config);
     fetcher.startup();
 
     try (CSVReader reader = new CSVReader(fetcher.getReader(dictPath))) {

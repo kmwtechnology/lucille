@@ -36,9 +36,9 @@ public class LocalStorageClient extends BaseStorageClient {
     super(ConfigFactory.empty());
   }
 
-  // Cloud options do not matter for LocalStorageClient
+  // Config options do not matter for LocalStorageClient
   @Override
-  protected void validateOptions(Config cloudOptions) {
+  protected void validateOptions(Config config) {
   }
 
   @Override

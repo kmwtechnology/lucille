@@ -36,19 +36,21 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void validateOptions(Config cloudOptions) {
-    if (!validOptions(cloudOptions)) {
-      throw new IllegalArgumentException("Missing '" + S3_ACCESS_KEY_ID + "' or '" + S3_SECRET_ACCESS_KEY + "' or '" + S3_REGION + "' in cloudOptions for S3StorageClient.");
+  protected void validateOptions(Config config) {
+    if (!config.hasPath(S3_ACCESS_KEY_ID)
+        || !config.hasPath(S3_SECRET_ACCESS_KEY)
+        || !config.hasPath(S3_REGION)) {
+      throw new IllegalArgumentException("Missing '" + S3_ACCESS_KEY_ID + "' or '" + S3_SECRET_ACCESS_KEY + "' or '" + S3_REGION + "' in Config for S3StorageClient.");
     }
   }
 
   @Override
   protected void initializeStorageClient() throws IOException {
     try {
-      AwsBasicCredentials awsCred = AwsBasicCredentials.create(cloudOptions.getString(S3_ACCESS_KEY_ID), cloudOptions.getString(S3_SECRET_ACCESS_KEY));
+      AwsBasicCredentials awsCred = AwsBasicCredentials.create(config.getString(S3_ACCESS_KEY_ID), config.getString(S3_SECRET_ACCESS_KEY));
       s3 = S3Client
           .builder()
-          .region(Region.of(cloudOptions.getString(S3_REGION)))
+          .region(Region.of(config.getString(S3_REGION)))
           .credentialsProvider(StaticCredentialsProvider.create(awsCred))
           .build();
     } catch (Exception e) {
@@ -166,12 +168,6 @@ public class S3StorageClient extends BaseStorageClient {
 
   private String getFullPath(S3Object obj, TraversalParams params) {
     return params.getPathToStorageURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + obj.key();
-  }
-
-  public static boolean validOptions(Config cloudOptions) {
-    return cloudOptions.hasPath(S3_ACCESS_KEY_ID)
-        && cloudOptions.hasPath(S3_SECRET_ACCESS_KEY)
-        && cloudOptions.hasPath(S3_REGION);
   }
 
   // Only for testing

@@ -35,22 +35,23 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void validateOptions(Config cloudOptions) {
-    if (!validOptions(cloudOptions)) {
-      throw new IllegalArgumentException("Either '" + AZURE_CONNECTION_STRING + "' or '" + AZURE_ACCOUNT_NAME + "' & '" + AZURE_ACCOUNT_KEY + "' has to be in cloudOptions for AzureStorageClient.");
+  protected void validateOptions(Config config) {
+    if (!config.hasPath(AZURE_CONNECTION_STRING)
+        && (!config.hasPath(AZURE_ACCOUNT_NAME) || !config.hasPath(AZURE_ACCOUNT_KEY))) {
+      throw new IllegalArgumentException("Either '" + AZURE_CONNECTION_STRING + "' or '" + AZURE_ACCOUNT_NAME + "' & '" + AZURE_ACCOUNT_KEY + "' has to be in Config for AzureStorageClient.");
     }
   }
 
   @Override
   protected void initializeStorageClient() throws IOException {
     try {
-      if (cloudOptions.hasPath(AZURE_CONNECTION_STRING)) {
+      if (config.hasPath(AZURE_CONNECTION_STRING)) {
         serviceClient = new BlobServiceClientBuilder()
-            .connectionString(cloudOptions.getString(AZURE_CONNECTION_STRING))
+            .connectionString(config.getString(AZURE_CONNECTION_STRING))
             .buildClient();
       } else {
-        String accountName = cloudOptions.getString(AZURE_ACCOUNT_NAME);
-        String accountKey = cloudOptions.getString(AZURE_ACCOUNT_KEY);
+        String accountName = config.getString(AZURE_ACCOUNT_NAME);
+        String accountKey = config.getString(AZURE_ACCOUNT_KEY);
 
         serviceClient = new BlobServiceClientBuilder()
             .credential(new StorageSharedKeyCredential(accountName, accountKey))
@@ -194,11 +195,6 @@ public class AzureStorageClient extends BaseStorageClient {
     if (blob.isPrefix()) return false;
 
     return params.shouldIncludeFile(blob.getName());
-  }
-
-  public static boolean validOptions(Config cloudOptions) {
-    return cloudOptions.hasPath(AZURE_CONNECTION_STRING)
-        || (cloudOptions.hasPath(AZURE_ACCOUNT_NAME) && cloudOptions.hasPath(AZURE_ACCOUNT_KEY));
   }
 
   // Only for testing

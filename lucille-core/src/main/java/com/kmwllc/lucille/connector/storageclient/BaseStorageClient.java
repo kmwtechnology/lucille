@@ -38,26 +38,26 @@ public abstract class BaseStorageClient implements StorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(BaseStorageClient.class);
 
-  protected final Config cloudOptions;
+  protected final Config config;
   protected final Map<String, FileHandler> fileHandlers;
   protected final int maxNumOfPages;
 
   private boolean initialized = false;
 
-  public BaseStorageClient(Config cloudOptions) {
-    validateOptions(cloudOptions);
-    this.cloudOptions = cloudOptions;
+  public BaseStorageClient(Config config) {
+    validateOptions(config);
+    this.config = config;
     this.fileHandlers = new HashMap<>();
 
     // only matters for traversals
-    this.maxNumOfPages = cloudOptions.hasPath(MAX_NUM_OF_PAGES) ? cloudOptions.getInt(MAX_NUM_OF_PAGES) : 100;
+    this.maxNumOfPages = config.hasPath(MAX_NUM_OF_PAGES) ? config.getInt(MAX_NUM_OF_PAGES) : 100;
   }
 
   /**
-   * Validate that the given cloudOptions are sufficient to construct an instance of this StorageClient. Throws an
-   * IllegalArgumentException if the cloudOptions do not contain the necessary information.
+   * Validate that the given config is sufficient to construct an instance of this StorageClient. Throws an
+   * IllegalArgumentException if the config does not contain the necessary information.
    */
-  protected abstract void validateOptions(Config cloudOptions);
+  protected abstract void validateOptions(Config config);
 
   @Override
   public final void init() throws IOException {

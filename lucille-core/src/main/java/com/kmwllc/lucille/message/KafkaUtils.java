@@ -57,8 +57,7 @@ public class KafkaUtils {
   //access set to package so unit tests can validate created properties without initializing a Consumer
   static Properties createConsumerProps(Config config, String clientId) {
     if (config.hasPath("kafka.consumerPropertyFile")) {
-      Config cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions") : ConfigFactory.empty();
-      Properties loadedProps = loadExternalProps(config.getString("kafka.consumerPropertyFile"), cloudOptions);
+      Properties loadedProps = loadExternalProps(config.getString("kafka.consumerPropertyFile"), config);
       loadedProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
       return loadedProps;
     }
@@ -174,8 +173,7 @@ public class KafkaUtils {
 
     Properties props;
     if (config.hasPath("kafka.adminPropertyFile")) {
-      Config cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions") : ConfigFactory.empty();
-      props = loadExternalProps(config.getString("kafka.adminPropertyFile"), cloudOptions);
+      props = loadExternalProps(config.getString("kafka.adminPropertyFile"), config);
     } else {
       props = new Properties();
       props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
