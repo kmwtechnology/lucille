@@ -2,8 +2,9 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -33,14 +34,18 @@ import org.slf4j.LoggerFactory;
  *  add separate config option to leave failure topic around
  *  consider adding all failed documents to the failure topic
  *  add ability to override names of any kafka topic in the config
+ *
+ *  s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
+ *  azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
+ *  gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  */
 public class KafkaUtils {
 
   public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
 
-  private static Properties loadExternalProps(String filename) {
-    try (Reader propertiesReader = FileUtils.getReader(filename, StandardCharsets.UTF_8.name())) {
+  private static Properties loadExternalProps(String filename, Config config) {
+    try (Reader propertiesReader = FileContentFetcher.getOneTimeReader(filename, StandardCharsets.UTF_8.name(), config)) {
       Properties consumerProps = new Properties();
       consumerProps.load(propertiesReader);
       return consumerProps;
@@ -52,7 +57,7 @@ public class KafkaUtils {
   //access set to package so unit tests can validate created properties without initializing a Consumer
   static Properties createConsumerProps(Config config, String clientId) {
     if (config.hasPath("kafka.consumerPropertyFile")) {
-      Properties loadedProps = loadExternalProps(config.getString("kafka.consumerPropertyFile"));
+      Properties loadedProps = loadExternalProps(config.getString("kafka.consumerPropertyFile"), config);
       loadedProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
       return loadedProps;
     }
@@ -91,7 +96,7 @@ public class KafkaUtils {
   //access set to package so unit tests can validate created properties without initializing a Producer
   static Properties createProducerProps(Config config) {
     if (config.hasPath("kafka.producerPropertyFile")) {
-      return loadExternalProps(config.getString("kafka.producerPropertyFile"));
+      return loadExternalProps(config.getString("kafka.producerPropertyFile"), config);
     }
     Properties producerProps = new Properties();
     producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
@@ -168,7 +173,7 @@ public class KafkaUtils {
 
     Properties props;
     if (config.hasPath("kafka.adminPropertyFile")) {
-      props = loadExternalProps(config.getString("kafka.adminPropertyFile"));
+      props = loadExternalProps(config.getString("kafka.adminPropertyFile"), config);
     } else {
       props = new Properties();
       props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));

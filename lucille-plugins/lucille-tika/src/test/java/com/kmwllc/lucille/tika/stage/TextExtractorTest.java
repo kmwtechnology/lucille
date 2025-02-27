@@ -17,13 +17,11 @@ import java.io.InputStream;
 import java.nio.file.Files;
 
 import com.kmwllc.lucille.stage.StageFactory;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import org.junit.Assert;
 import org.junit.Test;
-import org.mockito.Mockito.*;
 
 public class TextExtractorTest {
 
@@ -290,6 +288,24 @@ public class TextExtractorTest {
     // test that field that is added once is single valued while field that is added multiple times is multiValued in a list
     Map<String, Object> fields = doc.asMap();
 
+    assertEquals("Hi There!\n", fields.get("text"));
+    assertEquals(List.of("org.apache.tika.parser.CompositeParser",
+        "org.apache.tika.parser.DefaultParser",
+        "org.apache.tika.parser.csv.TextAndCSVParser"), fields.get("tika_x_tika_parsed_by"));
+    assertEquals("ISO-8859-1", fields.get("tika_content_encoding"));
+    assertEquals("text/plain; charset=ISO-8859-1", fields.get("tika_content_type"));
+  }
+
+  @Test
+  public void testExtractionWithURI() throws Exception {
+    Stage stage = factory.get("TextExtractorTest/tika-config.conf");
+    Document doc = Document.create("doc1");
+
+    // set path as absolute Path
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toUri().toString());
+    stage.processDocument(doc);
+
+    Map<String, Object> fields = doc.asMap();
     assertEquals("Hi There!\n", fields.get("text"));
     assertEquals(List.of("org.apache.tika.parser.CompositeParser",
         "org.apache.tika.parser.DefaultParser",
