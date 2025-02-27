@@ -12,8 +12,6 @@ import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -22,9 +20,15 @@ import org.apache.commons.io.FilenameUtils;
 /**
  * Using a document's file path, applies file handlers to create children documents, as appropriate, using the file's content.
  *
- * HandlerOptions (Map): Specifies which file types should be handled / processed by this stage. Valid options include:
+ * handlerOptions (Map): Specifies which file types should be handled / processed by this stage. Valid options include:
  *  <br> csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
  *  <br> json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
+ *
+ *  <br> <b>Note:</b> handlerOptions should contain at least one of the above entries, otherwise, an Exception is thrown.
+ *  <br> <b>Note:</b> XML is not supported.
+ *
+ * filePathField (String, Optional): Specify the field in your documents which will has the file path you want to apply handlers to.
+ * Defaults to "file_path".
  *
  * gcp (Map, Optional): options for handling GoogleCloud files. Include if you are going to process documents with the filePathField set to a Google Cloud URI.
  * See FileConnector for necessary arguments.
@@ -35,8 +39,6 @@ import org.apache.commons.io.FilenameUtils;
  * azure (Map, Optional): options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.
  * See FileConnector for necessary arguments.
  *
- * <br> <b>Note:</b> handler options should contain at least one of the above entries, otherwise, an Exception is thrown.
- * <br> <b>Note:</b> XML is not supported.
  */
 public class ApplyFileHandlers extends Stage {
 
@@ -57,7 +59,7 @@ public class ApplyFileHandlers extends Stage {
       throw new IllegalArgumentException("Must specify at least one file handler.");
     }
 
-    this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "source");
+    this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
 
     this.fileFetcher = new FileContentFetcher(config);
     this.fileHandlers = new HashMap<>();

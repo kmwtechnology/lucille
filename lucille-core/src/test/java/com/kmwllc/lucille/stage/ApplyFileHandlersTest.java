@@ -3,7 +3,6 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.connector.storageclient.GoogleStorageClient;
@@ -34,7 +33,7 @@ public class ApplyFileHandlersTest {
     Stage stage = factory.get("ApplyFileHandlersTest/allTypes.conf");
 
     Document csvDoc = Document.create("csv_doc");
-    csvDoc.setField("source", testCsvPath.toString());
+    csvDoc.setField("file_path", testCsvPath.toString());
 
     Iterator<Document> docs = stage.processDocument(csvDoc);
 
@@ -55,7 +54,7 @@ public class ApplyFileHandlersTest {
     Stage stage = factory.get("ApplyFileHandlersTest/allTypes.conf");
 
     Document csvDoc = Document.create("json_doc");
-    csvDoc.setField("source", testJsonlPath.toString());
+    csvDoc.setField("file_path", testJsonlPath.toString());
 
     Iterator<Document> docs = stage.processDocument(csvDoc);
 
@@ -74,11 +73,11 @@ public class ApplyFileHandlersTest {
   public void testAlternateFilePathField() throws StageException {
     Stage stage = factory.get("ApplyFileHandlersTest/specialPath.conf");
 
-    // Going to make sure that the stage uses only the specified field ("file_path") and not the default, "source".
-    // If it were to process source, it would get an error from processing the faulty csv.
+    // Going to make sure that the stage uses only the specified field ("source") and not the default, "file_path".
+    // If it were to process "file_path", it would get an error from processing the faulty csv.
     Document csvDoc = Document.create("csv_doc");
-    csvDoc.setField("source", testFaultyCsvPath.toString());
-    csvDoc.setField("file_path", testCsvPath.toString());
+    csvDoc.setField("file_path", testFaultyCsvPath.toString());
+    csvDoc.setField("source", testCsvPath.toString());
 
     Iterator<Document> docs = stage.processDocument(csvDoc);
 
@@ -100,7 +99,7 @@ public class ApplyFileHandlersTest {
     // Similar to above, pointing this to the faulty doc, which SHOULDN'T get processed, because we have a different
     // file path field specified.
     Document csvDoc = Document.create("csv_doc");
-    csvDoc.setField("source", testFaultyCsvPath.toString());
+    csvDoc.setField("file_path", testFaultyCsvPath.toString());
 
     assertNull(stage.processDocument(csvDoc));
   }
@@ -109,12 +108,12 @@ public class ApplyFileHandlersTest {
   public void testNoHandlers() throws StageException {
     Stage stage = factory.get("ApplyFileHandlersTest/csvOnly.conf");
     Document jsonDoc = Document.create("json_doc");
-    jsonDoc.setField("source", testJsonlPath.toString());
+    jsonDoc.setField("file_path", testJsonlPath.toString());
     assertNull(stage.processDocument(jsonDoc));
 
     stage = factory.get("ApplyFileHandlersTest/jsonOnly.conf");
     Document csvDoc = Document.create("csv_doc");
-    csvDoc.setField("source", testCsvPath.toString());
+    csvDoc.setField("file_path", testCsvPath.toString());
     assertNull(stage.processDocument(csvDoc));
   }
 
@@ -123,7 +122,7 @@ public class ApplyFileHandlersTest {
     Stage stage = factory.get("ApplyFileHandlersTest/allTypes.conf");
 
     Document csvDoc = Document.create("csv_doc");
-    csvDoc.setField("source", testFaultyCsvPath.toString());
+    csvDoc.setField("file_path", testFaultyCsvPath.toString());
 
     assertThrows(StageException.class, () -> stage.processDocument(csvDoc));
   }
@@ -150,16 +149,16 @@ public class ApplyFileHandlersTest {
     InputStream jsonlInputStream = new FileInputStream(testJsonlPath.toString());
 
     Document googleCsvDoc = Document.create("googleCsvDoc");
-    googleCsvDoc.setField("source", googleCsvURI.toString());
+    googleCsvDoc.setField("file_path", googleCsvURI.toString());
 
     Document googleJsonlDoc = Document.create("googleJsonlDoc");
-    googleJsonlDoc.setField("source", googleJsonlURI.toString());
+    googleJsonlDoc.setField("file_path", googleJsonlURI.toString());
 
     Document localCsvDoc = Document.create("localCsvDoc");
-    localCsvDoc.setField("source", localCsvURI.toString());
+    localCsvDoc.setField("file_path", localCsvURI.toString());
 
     Document localJsonlDoc = Document.create("localJsonlDoc");
-    localJsonlDoc.setField("source", localJsonlURI.toString());
+    localJsonlDoc.setField("file_path", localJsonlURI.toString());
 
     try (MockedConstruction<GoogleStorageClient> mockedConstruction = Mockito.mockConstruction(GoogleStorageClient.class, (mock, context) -> {
       when(mock.getFileContentStream(googleCsvURI)).thenReturn(csvInputStream);
@@ -217,7 +216,7 @@ public class ApplyFileHandlersTest {
 
     // Stage Exception should be thrown when trying to process a cloud document we don't have configuration for.
     Document faultyS3Doc = Document.create("s3Doc");
-    faultyS3Doc.setField("source", URI.create("s3://bucket/test.csv").toString());
+    faultyS3Doc.setField("file_path", URI.create("s3://bucket/test.csv").toString());
     assertThrows(StageException.class, () -> stage.processDocument(faultyS3Doc));
   }
 
