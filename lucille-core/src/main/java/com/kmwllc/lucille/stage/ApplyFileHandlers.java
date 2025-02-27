@@ -8,7 +8,10 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -22,18 +25,32 @@ import org.apache.commons.io.FilenameUtils;
  * HandlerOptions (Map): Specifies which file types should be handled / processed by this stage. Valid options include:
  *  <br> csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
  *  <br> json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
- *  TODO: Probably have to add "cloudOptions" to this stage. Pass it onto the FileHandlers.
+ *
+ * gcp (Map, Optional): options for handling GoogleCloud files. Include if you are going to process documents with the filePathField set to a Google Cloud URI.
+ * See FileConnector for necessary arguments.
+ *
+ * s3 (Map, Optional): options for handling S3 files. Include if you are going to process documents with the filePathField set to an S3 URI.
+ * See FileConnector for necessary arguments.
+ *
+ * azure (Map, Optional): options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.
+ * See FileConnector for necessary arguments.
  *
  * <br> <b>Note:</b> handler options should contain at least one of the above entries, otherwise, an Exception is thrown.
  * <br> <b>Note:</b> XML is not supported.
  */
 public class ApplyFileHandlers extends Stage {
+
   private final Config handlerOptions;
+
   private final String filePathField;
+  private final FileContentFetcher fileFetcher;
   private final Map<String, FileHandler> fileHandlers;
 
   public ApplyFileHandlers(Config config) {
-    super(config, new StageSpec().withOptionalParents("handlerOptions"));
+    super(config, new StageSpec()
+        .withOptionalParents("handlerOptions", "gcp", "azure", "s3")
+        .withOptionalProperties("filePathField"));
+
     this.handlerOptions = config.getConfig("handlerOptions");
 
     if (handlerOptions.isEmpty()) {
@@ -41,6 +58,8 @@ public class ApplyFileHandlers extends Stage {
     }
 
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "source");
+
+    this.fileFetcher = new FileContentFetcher(config);
     this.fileHandlers = new HashMap<>();
   }
 
@@ -56,10 +75,17 @@ public class ApplyFileHandlers extends Stage {
     if (fileHandlers.isEmpty()) {
       throw new StageException("No file handlers could be created from the given handlerOptions.");
     }
+
+    try {
+      fileFetcher.startup();
+    } catch (IOException e) {
+      throw new StageException("Error starting FileContentFetcher.", e);
+    }
   }
 
   @Override
   public void stop() {
+    fileFetcher.shutdown();
     fileHandlers.clear();
   }
 
@@ -72,18 +98,19 @@ public class ApplyFileHandlers extends Stage {
     String filePath = doc.getString(filePathField);
     String fileExtension = FilenameUtils.getExtension(filePath);
 
-    if (FileHandler.supportAndContainFileType(fileExtension, handlerOptions)) {
+    if (!FileHandler.supportAndContainFileType(fileExtension, handlerOptions)) {
+      return null;
+    }
+
+    try {
+      InputStream fileContentStream = fileFetcher.getInputStream(filePath);
       FileHandler handler = FileHandler.create(fileExtension, handlerOptions);
 
-      Path path = Paths.get(filePath);
-
-      try {
-        return handler.processFile(path);
-      } catch (FileHandlerException e) {
-        throw new StageException("Could not process file: " + filePath + ".", e);
-      }
-    } else {
-      return null;
+      return handler.processFile(fileContentStream, filePath);
+    } catch (IOException e) {
+      throw new StageException("Could not get InputStream for file " + filePath, e);
+    } catch (FileHandlerException e) {
+      throw new StageException("Could not process file " + filePath, e);
     }
   }
 }
