@@ -8,6 +8,10 @@ import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
 import com.kmwllc.lucille.parquet.connector.ParquetFileHandler;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Iterator;
@@ -57,6 +61,23 @@ public class ParquetFileHandlerTest {
     ParquetFileHandler handler = new ParquetFileHandler(defaultConfig);
 
     Iterator<Document> docIterator = handler.processFile(new byte[0], exampleFilePath.toString());
+
+    for (int i = 1; i <= 6; i++) {
+      assertTrue(docIterator.hasNext());
+      Document doc = docIterator.next();
+      assertEquals("" + i, doc.getId());
+    }
+
+    assertFalse(docIterator.hasNext());
+  }
+
+  @Test
+  public void testProcessInputStream() throws FileHandlerException, FileNotFoundException {
+    ParquetFileHandler handler = new ParquetFileHandler(defaultConfig);
+
+    InputStream streamForFile = new FileInputStream(exampleFilePath.toFile());
+
+    Iterator<Document> docIterator = handler.processFile(streamForFile, exampleFilePath.toString());
 
     for (int i = 1; i <= 6; i++) {
       assertTrue(docIterator.hasNext());
