@@ -1,17 +1,18 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import java.io.IOException;
 import org.ahocorasick.trie.PayloadEmit;
 import org.ahocorasick.trie.PayloadToken;
 import org.ahocorasick.trie.PayloadTrie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,6 +44,10 @@ import java.util.stream.Collectors;
  *       other text. ie "OMAN" in "rOMAN".  Defaults to false.
  *   - ignore_overlaps (Boolean, Optional) : Decides whether overlapping matches should both be extracted or if only the
  *       longer, left most match should be kept.  Defaults to true.
+ *
+ *   - s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
+ *   - azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
+ *   - gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  */
 public class ExtractEntities extends Stage {
 
@@ -61,11 +66,13 @@ public class ExtractEntities extends Stage {
   private final boolean ignoreOverlaps;
   private final boolean usePayloads;
   private final String entityField;
+  private final FileContentFetcher fileFetcher;
 
   public ExtractEntities(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "dictionaries")
         .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
-            "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field"));
+            "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field")
+        .withOptionalParents("s3", "gcp", "azure"));
 
     // For the optional settings, we check if the config has this setting and then what the value is.
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
@@ -80,6 +87,7 @@ public class ExtractEntities extends Stage {
     this.dictionaries = config.getStringList("dictionaries");
     this.updateMode = UpdateMode.fromConfig(config);
     this.entityField = config.hasPath("entity_field") ? config.getString("entity_field") : null;
+    this.fileFetcher = new FileContentFetcher(config);
   }
 
   @Override
@@ -88,7 +96,17 @@ public class ExtractEntities extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Extract Entities");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Extract Entities");
 
+    try {
+      fileFetcher.startup();
+    } catch (IOException e) {
+      throw new StageException("Error occurred initializing FileContentFetcher.", e);
+    }
     dictTrie = buildTrie();
+  }
+
+  @Override
+  public void stop() throws StageException {
+    fileFetcher.shutdown();
   }
 
   /**
@@ -121,9 +139,9 @@ public class ExtractEntities extends Stage {
     }
 
     for (String dictFile : dictionaries) {
-      File d = new File(dictFile);
-      log.info("loading Dictionary from {}", d.getAbsolutePath());
-      try (CSVReader reader = new CSVReader(FileUtils.getReader(dictFile))) {
+      log.info("loading Dictionary from {}", dictFile);
+
+      try (CSVReader reader = new CSVReader(fileFetcher.getReader(dictFile))) {
         // For each line of the dictionary file, add a keyword/payload pair to the Trie
         String[] line;
         boolean ignore = false;

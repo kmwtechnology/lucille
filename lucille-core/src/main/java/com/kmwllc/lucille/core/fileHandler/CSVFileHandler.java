@@ -3,18 +3,17 @@ package com.kmwllc.lucille.core.fileHandler;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.util.FileUtils;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
-import java.io.ByteArrayInputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -68,29 +67,17 @@ public class CSVFileHandler extends BaseFileHandler {
   }
 
   @Override
-  public Iterator<Document> processFile(Path path) throws FileHandlerException {
-    String pathStr = path.toString();
-    CSVReader reader = getCsvReader(pathStr);
-
-    // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
-    return getDocumentIterator(reader, path.getFileName().toString(), path.toAbsolutePath().normalize().toString());
-  }
-
-  @Override
-  public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException {
-    CSVReader reader = getCsvReader(fileContent);
-    // reader will be closed when iterator hasNext() returns false or if any error occurs during iteration
+  public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
+    CSVReader csvReader = getCsvReader(inputStream);
     String fileName = FilenameUtils.getName(pathStr);
 
-    // handle the case where pathStr is a path of an entry of an archived file
     if (pathStr.contains(ARCHIVE_FILE_SEPARATOR)) {
       String entryName = pathStr.substring(pathStr.lastIndexOf(ARCHIVE_FILE_SEPARATOR) + 1);
       fileName = entryName.substring(entryName.lastIndexOf("/") + 1);
     }
 
-    return getDocumentIterator(reader, fileName, pathStr);
+    return getDocumentIterator(csvReader, fileName, pathStr);
   }
-
 
   private Iterator<Document> getDocumentIterator(CSVReader reader, String filename, String path) throws FileHandlerException {
     return new Iterator<Document>() {;
@@ -242,25 +229,14 @@ public class CSVFileHandler extends BaseFileHandler {
     }
   }
 
-  private CSVReader getCsvReader(String pathStr) throws FileHandlerException {
+  private CSVReader getCsvReader(InputStream inputStream) throws FileHandlerException {
     try {
-      return new CSVReaderBuilder(FileUtils.getReader(pathStr)).
-          withCSVParser(
-              new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
-          .build();
-    } catch (IOException e) {
-      throw new FileHandlerException("Error creating CSVReader for file " + FilenameUtils.getName(pathStr), e);
-    }
-  }
-
-  private CSVReader getCsvReader(byte[] fileContent) throws FileHandlerException {
-    try {
-      return new CSVReaderBuilder(new InputStreamReader(new ByteArrayInputStream(fileContent), StandardCharsets.UTF_8))
+      return new CSVReaderBuilder(new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)))
           .withCSVParser(
               new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
           .build();
     } catch (Exception e) {
-      throw new FileHandlerException("Error creating CSVReader from byte array", e);
+      throw new FileHandlerException("Error creating CSVReader from InputStream", e);
     }
   }
 

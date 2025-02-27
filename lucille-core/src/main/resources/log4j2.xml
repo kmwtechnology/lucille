@@ -18,13 +18,21 @@
             </Policies>
             <DefaultRolloverStrategy max="4" />
         </RollingFile>
+        <RollingFile name="file-json" fileName="./log/com.kmwllc.lucille-json.log" filePattern="./log/com.kmwllc.lucille-json-%i.log">
+            <JsonTemplateLayout eventTemplateUri="classpath:EcsLayout.json"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 KB" />
+            </Policies>
+            <DefaultRolloverStrategy max="20" />
+        </RollingFile>
     </Appenders>
     <Loggers>
+<!--    NOTE: Replace the "file" AppenderRef with "file-json" if you would like to enable json logging.  -->
+<!--    You can also add an appender like '<AppenderRef ref="file-json" />' to the loggers to get both non-json AND json logging. -->
         <Root level="INFO">
             <AppenderRef ref="console" />
             <AppenderRef ref="file" />
         </Root>
-
         <Logger name="com.kmwllc.lucille.core.Heartbeat" level="INFO" additivity="false">
             <AppenderRef ref="heartbeat" />
         </Logger>

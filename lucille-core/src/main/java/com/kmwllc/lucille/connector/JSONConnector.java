@@ -3,13 +3,14 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
-import java.io.File;
-import java.nio.file.Path;
+import java.io.InputStream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@Deprecated
 public class JSONConnector extends AbstractConnector {
   private static final Logger log = LoggerFactory.getLogger(JSONConnector.class);
   private final String pathStr;
@@ -23,19 +24,12 @@ public class JSONConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    File file = new File(pathStr);
-    Path path;
     try {
-      path = file.toPath();
+      InputStream stream = FileContentFetcher.getOneTimeInputStream(pathStr);
+      log.debug("Processing file: {}", pathStr);
+      jsonFileHandler.processFileAndPublish(publisher, stream, pathStr);
     } catch (Exception e) {
-      throw new ConnectorException("Error converting " + pathStr + "to Path", e);
-    }
-
-    try {
-      log.debug("Processing file: {}", path);
-      jsonFileHandler.processFileAndPublish(publisher, path);
-    } catch (Exception e) {
-      throw new ConnectorException("Error processing or publishing file: " + path, e);
+      throw new ConnectorException("Error processing or publishing file: " + pathStr, e);
     }
   }
 }
