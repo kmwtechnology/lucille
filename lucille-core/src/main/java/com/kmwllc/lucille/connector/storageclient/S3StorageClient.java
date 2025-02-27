@@ -5,11 +5,9 @@ import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -114,15 +112,10 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected byte[] getFileReferenceContent(FileReference fileReference, TraversalParams params) {
-    S3Object obj = fileReference.getS3Object();
-    return s3.getObjectAsBytes(GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(obj.key()).build()).asByteArray();
-  }
-
-  @Override
   protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
-    byte[] content = getFileReferenceContent(fileReference, params);
-    return new ByteArrayInputStream(content);
+    String objKey = fileReference.getS3Object().key();
+    GetObjectRequest objectRequest = GetObjectRequest.builder().bucket(params.getBucketOrContainerName()).key(objKey).build();
+    return s3.getObject(objectRequest);
   }
 
   private Document s3ObjectToDoc(S3Object obj, TraversalParams params) {

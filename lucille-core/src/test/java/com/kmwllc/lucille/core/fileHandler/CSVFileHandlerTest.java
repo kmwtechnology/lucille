@@ -15,9 +15,8 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.File;
+import java.io.FileInputStream;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +35,9 @@ public class CSVFileHandlerTest {
     //  x	y	z
 
     // verify number of documents and exhaust iterator to close resources
-    Iterator<Document> docs = handler.processFile(Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/semicolons.csv"));
+    String filePath = "src/test/resources/FileHandlerTest/CSVFileHandlerTest/semicolons.csv";
+    File file = new File(filePath);
+    Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
     Document doc1 = docs.next();
     Document doc2 = docs.next();
     Document doc3 = docs.next();
@@ -56,7 +57,9 @@ public class CSVFileHandlerTest {
     // Tofu Soup, 12, Korea
 
     // verify number of documents and exhaust iterator to close resources
-    Iterator<Document> docs = handler.processFile(Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/bom.csv"));
+    String filePath = "src/test/resources/FileHandlerTest/CSVFileHandlerTest/bom.csv";
+    File file = new File(filePath);
+    Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
     Document doc1 = docs.next();
     Document doc2 = docs.next();
     Document doc3 = docs.next();
@@ -84,7 +87,9 @@ public class CSVFileHandlerTest {
     //  x	y	z
 
     // verify number of documents and exhaust iterator to close resources
-    Iterator<Document> docs = handler.processFile(Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/tabs.csv"));
+    String filePath = "src/test/resources/FileHandlerTest/CSVFileHandlerTest/tabs.csv";
+    File file = new File(filePath);
+    Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
     // verify number of documents and exhaust iterator to close resources
     Document doc1 = docs.next();
     Document doc2 = docs.next();
@@ -100,8 +105,9 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of("csv", Map.of()));
     FileHandler csvFileHandler = FileHandler.create("csv", config);
 
-    Path path = Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
-    Iterator<Document> docs = csvFileHandler.processFile(path);
+    String filePath = "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv";
+    File file = new File(filePath);
+    Iterator<Document> docs = csvFileHandler.processFile(new FileInputStream(file), filePath);
 
     // contents of CSVConnectorTest/config.conf
     // field1, field2, field3
@@ -133,32 +139,37 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of("csv", Map.of()));
     FileHandler csvFileHandler = FileHandler.create("csv", config);
 
-    byte[] fileBytes = Files.readAllBytes(Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"));
-    Iterator<Document> docs = csvFileHandler.processFile(fileBytes, "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
+    File file = new File("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
 
-    // contents of CSVConnectorTest/config.conf
-    // field1, field2, field3
-    //  a, b, c
-    //  d, "e,f", g
-    //  x, y, z
+    Iterator<Document> docs;
 
-    // verify number of documents and exhaust iterator to close resources
-    Document doc1 = docs.next();
-    Document doc2 = docs.next();
-    Document doc3 = docs.next();
-    assertFalse(docs.hasNext());
+    try (FileInputStream fis = new FileInputStream(file)) {
+      docs = csvFileHandler.processFile(fis, "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
 
-    assertEquals("a", doc1.getString("field1"));
-    assertEquals("b", doc1.getString("field2"));
-    assertEquals("c", doc1.getString("field3"));
+      // contents of CSVConnectorTest/config.conf
+      // field1, field2, field3
+      //  a, b, c
+      //  d, "e,f", g
+      //  x, y, z
 
-    assertEquals("d", doc2.getString("field1"));
-    assertEquals("e,f", doc2.getString("field2"));
-    assertEquals("g", doc2.getString("field3"));
+      // verify number of documents and exhaust iterator to close resources
+      Document doc1 = docs.next();
+      Document doc2 = docs.next();
+      Document doc3 = docs.next();
+      assertFalse(docs.hasNext());
 
-    assertEquals("x", doc3.getString("field1"));
-    assertEquals("y", doc3.getString("field2"));
-    assertEquals("z", doc3.getString("field3"));
+      assertEquals("a", doc1.getString("field1"));
+      assertEquals("b", doc1.getString("field2"));
+      assertEquals("c", doc1.getString("field3"));
+
+      assertEquals("d", doc2.getString("field1"));
+      assertEquals("e,f", doc2.getString("field2"));
+      assertEquals("g", doc2.getString("field3"));
+
+      assertEquals("x", doc3.getString("field1"));
+      assertEquals("y", doc3.getString("field2"));
+      assertEquals("z", doc3.getString("field3"));
+    }
   }
 
   @Test
@@ -166,9 +177,9 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("docIdPrefix", "csv_")));
     FileHandler csvFileHandler = FileHandler.create("csv", config);
 
-    Path path = Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
-    Iterator<Document> docs = csvFileHandler.processFile(path);
-
+    String filePath = "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv";
+    File file = new File(filePath);
+    Iterator<Document> docs = csvFileHandler.processFile(new FileInputStream(file), filePath);
 
     Document doc1 = docs.next();
     Document doc2 = docs.next();
@@ -187,15 +198,17 @@ public class CSVFileHandlerTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     CSVFileHandler spyCsvHandler = (CSVFileHandler) spy(FileHandler.create("csv", config));
-    Path path = Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
+    String filePath = "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv";
+    File file = new File(filePath);
+    FileInputStream stream = new FileInputStream(file);
 
     // adding a null Document to the iterator to check that we do not publish it
     Iterator<Document> docs = mock(Iterator.class);
     when(docs.hasNext()).thenReturn(true, true, true, true, false);
     when(docs.next()).thenReturn(Document.create("1"), Document.create("2"), null, Document.create("3"));
-    when(spyCsvHandler.processFile(path)).thenReturn(docs);
-    doReturn(docs).when(spyCsvHandler).processFile(any());
-    spyCsvHandler.processFileAndPublish(publisher, path);
+    when(spyCsvHandler.processFile(stream, filePath)).thenReturn(docs);
+    doReturn(docs).when(spyCsvHandler).processFile(any(), any());
+    spyCsvHandler.processFileAndPublish(publisher, stream, filePath);
 
     List<Document> docsPublished = messenger.getDocsSentForProcessing();
 
@@ -215,7 +228,9 @@ public class CSVFileHandlerTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     CSVFileHandler spyCsvHandler = (CSVFileHandler) spy(FileHandler.create("csv", config));
-    Path path = Paths.get("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
+    String filePath = "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv";
+    File file = new File(filePath);
+    FileInputStream stream = new FileInputStream(file);
 
     // adding an exception when calling next()
     // note for this test we are arbitrarily creating fake documents with ids 1, 2, 3. We just want to test that document id 3
@@ -223,9 +238,9 @@ public class CSVFileHandlerTest {
     Iterator<Document> docs = mock(Iterator.class);
     when(docs.hasNext()).thenReturn(true, true, true, true, false);
     when(docs.next()).thenReturn(Document.create("1"), Document.create("2")).thenThrow(new RuntimeException("Iterator failed")).thenReturn(Document.create("3"));
-    when(spyCsvHandler.processFile(path)).thenReturn(docs);
-    doReturn(docs).when(spyCsvHandler).processFile(any());
-    spyCsvHandler.processFileAndPublish(publisher, path);
+    when(spyCsvHandler.processFile(stream, filePath)).thenReturn(docs);
+    doReturn(docs).when(spyCsvHandler).processFile(any(), any());
+    spyCsvHandler.processFileAndPublish(publisher, stream, filePath);
 
     List<Document> docsPublished = messenger.getDocsSentForProcessing();
 

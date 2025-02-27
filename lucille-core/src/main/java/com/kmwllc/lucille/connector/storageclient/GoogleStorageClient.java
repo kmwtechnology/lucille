@@ -14,7 +14,6 @@ import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
-import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -112,15 +111,10 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected byte[] getFileReferenceContent(FileReference fileReference, TraversalParams params) {
-    Blob blob = fileReference.getBlob();
-    return blob.getContent();
-  }
-
-  @Override
   protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
-    byte[] content = getFileReferenceContent(fileReference, params);
-    return new ByteArrayInputStream(content);
+    Blob blob = fileReference.getBlob();
+    ReadChannel readChannel = blob.reader();
+    return Channels.newInputStream(readChannel);
   }
 
   private boolean isValid(Blob blob, TraversalParams params) {

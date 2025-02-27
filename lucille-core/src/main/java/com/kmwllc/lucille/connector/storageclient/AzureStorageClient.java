@@ -15,7 +15,6 @@ import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -109,17 +108,11 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected byte[] getFileReferenceContent(FileReference fileReference, TraversalParams params) {
+  protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
     BlobItem blobItem = fileReference.getBlobItem();
     return serviceClient
         .getBlobContainerClient(getBucketOrContainerName(params))
-        .getBlobClient(blobItem.getName()).downloadContent().toBytes();
-  }
-
-  @Override
-  protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
-    byte[] content = getFileReferenceContent(fileReference, params);
-    return new ByteArrayInputStream(content);
+        .getBlobClient(blobItem.getName()).openInputStream();
   }
 
   @Override
