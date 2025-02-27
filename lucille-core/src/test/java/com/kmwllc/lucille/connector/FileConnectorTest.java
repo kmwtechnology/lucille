@@ -61,6 +61,25 @@ public class FileConnectorTest {
   }
 
   @Test
+  public void testExecuteSuccessfulExtraCloudConfig() throws Exception {
+    Config config = ConfigFactory.load("FileConnectorTest/multipleCloud.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
+      StorageClient storageClient = mock(StorageClient.class);
+      mockCloudStorageClient.when(() -> StorageClient.create(any(), any()))
+          .thenReturn(storageClient);
+
+      connector.execute(publisher);
+      verify(storageClient, times(1)).init();
+      verify(storageClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class));
+      verify(storageClient, times(1)).shutdown();
+    }
+  }
+
+  @Test
   public void testInitFailed() throws Exception {
     Config config = ConfigFactory.load("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();

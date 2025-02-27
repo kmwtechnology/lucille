@@ -10,7 +10,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -63,6 +65,8 @@ import org.slf4j.LoggerFactory;
 
 public class FileConnector extends AbstractConnector {
 
+  private static final Set<String> CLOUD_STORAGE_CLIENT_KEYS = Set.of("s3", "azure", "gcp");
+
   public static final String FILE_PATH = "file_path";
   public static final String MODIFIED = "file_modification_date";
   public static final String CREATED = "file_creation_date";
@@ -112,6 +116,10 @@ public class FileConnector extends AbstractConnector {
       log.debug("using path {} with scheme {}", pathToStorage, storageURI.getScheme());
     } catch (URISyntaxException e) {
       throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
+    }
+
+    if (CLOUD_STORAGE_CLIENT_KEYS.stream().filter(config::hasPath).count() > 1) {
+      log.warn("Config for FileConnector contains options for more than one cloud provider.");
     }
   }
 
