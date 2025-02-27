@@ -4,7 +4,7 @@ import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,7 +62,7 @@ public class XMLConnector extends AbstractConnector {
       }
 
       try {
-        InputStream stream = FileUtils.getLocalInputStream(fileStr);
+        InputStream stream = FileContentFetcher.getOneTimeInputStream(fileStr);
         xmlFileHandler.processFileAndPublish(publisher, stream, fileStr);
       } catch (Exception e) {
         throw new ConnectorException("Error processing file: " + fileStr, e);

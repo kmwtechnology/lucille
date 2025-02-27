@@ -3,7 +3,7 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.File;
 import java.io.IOException;
@@ -48,7 +48,7 @@ public class CSVConnector extends AbstractConnector {
     createProcessedAndErrorFoldersIfSet();
 
     try {
-      InputStream stream = FileUtils.getLocalInputStream(pathStr);
+      InputStream stream = FileContentFetcher.getOneTimeInputStream(pathStr);
       log.debug("Processing file: {}", pathStr);
       csvFileHandler.processFileAndPublish(publisher, stream, pathStr);
     } catch (Exception e) {

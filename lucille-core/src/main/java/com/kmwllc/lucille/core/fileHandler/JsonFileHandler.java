@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.core.fileHandler;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.InputStream;

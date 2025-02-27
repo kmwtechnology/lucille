@@ -171,11 +171,11 @@ public abstract class BaseStorageClient implements StorageClient {
       // handle file types using fileHandler if needed to the end
       if (params.supportedFileType(fileExtension)) {
         // Get a stream for the file content, so we don't have to load it all at once.
-        InputStream contentStream = getFileReferenceContentStream(fileReference);
+        InputStream contentStream = getFileReferenceContentStream(fileReference, params);
         // get the right FileHandler and publish based on content
         publishUsingFileHandler(publisher, fileExtension, contentStream, fullPathStr);
 
-        afterProcessingFile(fullPathStr);
+        afterProcessingFile(fullPathStr, params);
         return;
       }
 

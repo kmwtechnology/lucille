@@ -3,7 +3,7 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.InputStream;
 
@@ -25,7 +25,7 @@ public class JSONConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try {
-      InputStream stream = FileUtils.getLocalInputStream(pathStr);
+      InputStream stream = FileContentFetcher.getOneTimeInputStream(pathStr);
       log.debug("Processing file: {}", pathStr);
       jsonFileHandler.processFileAndPublish(publisher, stream, pathStr);
     } catch (Exception e) {
