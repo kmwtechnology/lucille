@@ -8,6 +8,7 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.stage.util.DictionaryManager;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,6 +41,10 @@ import org.slf4j.LoggerFactory;
  *      are present in the dictionary.
  *   - ignore_missing_source (Boolean, Optional) : Intended to be used in combination with set_only. If true, the destination field
  *      will be set to true if the source field is missing. Defaults to false.
+ *
+ *   - s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
+ *   - azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
+ *   - gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  */
 public class DictionaryLookup extends Stage {
 
@@ -59,7 +64,8 @@ public class DictionaryLookup extends Stage {
 
   public DictionaryLookup(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "dict_path")
-        .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "ignore_missing_source"));
+        .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "ignore_missing_source")
+        .withOptionalParents("s3", "gcp", "azure"));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
@@ -71,6 +77,7 @@ public class DictionaryLookup extends Stage {
     this.dictPath = config.getString("dict_path");
   }
 
+  @Override
   public void start() throws StageException {
     StageUtils.validateFieldNumNotZero(sourceFields, "Dictionary Lookup");
     StageUtils.validateFieldNumNotZero(destFields, "Dictionary Lookup");
@@ -83,7 +90,7 @@ public class DictionaryLookup extends Stage {
       throw new StageException("when set_only is true, update_mode must be set to overwrite");
     }
 
-    this.dict = DictionaryManager.getDictionary(dictPath, ignoreCase, setOnly);
+    this.dict = DictionaryManager.getDictionary(dictPath, ignoreCase, setOnly, config);
   }
 
   @Override

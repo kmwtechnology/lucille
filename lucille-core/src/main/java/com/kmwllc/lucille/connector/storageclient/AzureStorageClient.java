@@ -5,13 +5,13 @@ import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_NAME;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_CONNECTION_STRING;
 
 import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobContainerClientBuilder;
+import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
@@ -20,9 +20,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Pattern;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -30,103 +27,119 @@ import org.slf4j.LoggerFactory;
 
 public class AzureStorageClient extends BaseStorageClient {
 
-  private BlobContainerClient containerClient;
+  private BlobServiceClient serviceClient;
   private static final Logger log = LoggerFactory.getLogger(AzureStorageClient.class);
 
-  public AzureStorageClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions, Config fileOptions) {
-    super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+  public AzureStorageClient(Config azureCloudOptions) {
+    super(azureCloudOptions);
   }
 
   @Override
-  protected String getContainerOrBucketName() {
-    return pathToStorageURI.getPath().split("/")[1];
+  protected void validateOptions(Config config) {
+    if (!config.hasPath(AZURE_CONNECTION_STRING)
+        && (!config.hasPath(AZURE_ACCOUNT_NAME) || !config.hasPath(AZURE_ACCOUNT_KEY))) {
+      throw new IllegalArgumentException("Either '" + AZURE_CONNECTION_STRING + "' or '" + AZURE_ACCOUNT_NAME + "' & '" + AZURE_ACCOUNT_KEY + "' has to be in Config for AzureStorageClient.");
+    }
   }
 
   @Override
-  protected String getStartingDirectory() {
-    String path = pathToStorageURI.getPath();
-    // path is in the format /containerName/folder1/folder2/... so need to return folder1/folder2/...
-    String[] subPaths = path.split("/", 3);
-    return subPaths.length > 2 ? subPaths[2] : "";
-  }
-
-  @Override
-  public void init() throws ConnectorException {
+  protected void initializeStorageClient() throws IOException {
     try {
-      if (cloudOptions.containsKey(AZURE_CONNECTION_STRING)) {
-        containerClient = new BlobContainerClientBuilder()
-            .connectionString((String) cloudOptions.get(AZURE_CONNECTION_STRING))
-            .containerName(bucketOrContainerName)
+      if (config.hasPath(AZURE_CONNECTION_STRING)) {
+        serviceClient = new BlobServiceClientBuilder()
+            .connectionString(config.getString(AZURE_CONNECTION_STRING))
             .buildClient();
       } else {
-        String accountName = (String) cloudOptions.get(AZURE_ACCOUNT_NAME);
-        String accountKey = (String) cloudOptions.get(AZURE_ACCOUNT_KEY);
+        String accountName = config.getString(AZURE_ACCOUNT_NAME);
+        String accountKey = config.getString(AZURE_ACCOUNT_KEY);
 
-        containerClient = new BlobContainerClientBuilder()
+        serviceClient = new BlobServiceClientBuilder()
             .credential(new StorageSharedKeyCredential(accountName, accountKey))
-            .containerName(bucketOrContainerName)
             .buildClient();
       }
     } catch (Exception e) {
-      throw new ConnectorException("Error occurred building AzureStorageClient", e);
+      throw new IOException("Error occurred building AzureStorageClient", e);
     }
-
-    initializeFileHandlers();
   }
 
   @Override
-  public void shutdown() throws IOException {
-    // azure container client is not closable
-    containerClient = null;
-    // clear all file handlers if any
-    clearFileHandlers();
+  protected void shutdownStorageClient() throws IOException {
+    // azure service client is not closable
+    serviceClient = null;
   }
 
   @Override
-  public void traverse(Publisher publisher) throws Exception{
-    containerClient.listBlobs(new ListBlobsOptions().setPrefix(startingDirectory).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10)).stream()
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
+    serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
+        .listBlobs(new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages),
+            Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
-          if (isValid(blob)) {
-            String fullPathStr = getFullPath(blob);
+          if (isValid(blob, params)) {
+            String fullPathStr = getFullPath(blob, params);
             String fileExtension = FilenameUtils.getExtension(fullPathStr);
-            tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob));
+            tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
           }
         });
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference) {
-    BlobItem blobItem = fileReference.getBlobItem();
-    return blobItemToDoc(blobItem);
+  protected InputStream getFileContentStreamFromStorage(URI uri) throws IOException {
+    String containerName = uri.getPath().split("/")[1];
+    String blobName = uri.getPath().split("/")[2];
+
+    BlobContainerClient containerClient = serviceClient.getBlobContainerClient(containerName);
+    return containerClient.getBlobClient(blobName).openInputStream();
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, TraversalParams params) {
+    BlobItem blobItem = fileReference.getBlobItem();
+    return blobItemToDoc(blobItem, params);
+  }
+
+  @Override
+  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr, TraversalParams params) {
     BlobItem blobItem = fileReference.getBlobItem();
 
     try {
-      return blobItemToDoc(blobItem, in, decompressedFullPathStr);
+      return blobItemToDoc(blobItem, in, decompressedFullPathStr, params);
     } catch (IOException e) {
       throw new IllegalArgumentException("Unable to convert BlobItem '" + blobItem.getName() + "' to Document", e);
     }
   }
 
   @Override
-  protected InputStream getFileReferenceContentStream(FileReference fileReference) {
+  protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
     BlobItem blobItem = fileReference.getBlobItem();
-    return containerClient.getBlobClient(blobItem.getName()).openInputStream();
+    return serviceClient
+        .getBlobContainerClient(getBucketOrContainerName(params))
+        .getBlobClient(blobItem.getName()).openInputStream();
   }
 
-  private String getFullPath(BlobItem blobItem) {
-    return String.format("%s://%s/%s/%s", pathToStorageURI.getScheme(), pathToStorageURI.getAuthority(),
-        bucketOrContainerName, blobItem.getName());
+  @Override
+  protected String getStartingDirectory(TraversalParams params) {
+    String path = params.getPathToStorageURI().getPath();
+    // path is in the format /containerName/folder1/folder2/... so need to return folder1/folder2/...
+    String[] subPaths = path.split("/", 3);
+    return subPaths.length > 2 ? subPaths[2] : "";
   }
 
-  private Document blobItemToDoc(BlobItem blob) {
-    String fullPath = getFullPath(blob);
+  @Override
+  protected String getBucketOrContainerName(TraversalParams params) {
+    return params.getPathToStorageURI().getPath().split("/")[1];
+  }
+
+  private String getFullPath(BlobItem blobItem, TraversalParams params) {
+    URI pathURI = params.getPathToStorageURI();
+
+    return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
+        getBucketOrContainerName(params), blobItem.getName());
+  }
+
+  private Document blobItemToDoc(BlobItem blob, TraversalParams params) {
+    String fullPath = getFullPath(blob, params);
     String docId = DigestUtils.md5Hex(fullPath);
-    Document doc = Document.create(docIdPrefix + docId);
+    Document doc = Document.create(params.getDocIdPrefix() + docId);
 
     BlobItemProperties properties = blob.getProperties();
     doc.setField(FileConnector.FILE_PATH, fullPath);
@@ -141,17 +154,17 @@ public class AzureStorageClient extends BaseStorageClient {
 
     doc.setField(FileConnector.SIZE, properties.getContentLength());
 
-    if (getFileContent) {
-      doc.setField(FileConnector.CONTENT, containerClient.getBlobClient(blob.getName()).downloadContent().toBytes());
+    if (params.shouldGetFileContent()) {
+      doc.setField(FileConnector.CONTENT, serviceClient.getBlobContainerClient(getBucketOrContainerName(params)).getBlobClient(blob.getName()).downloadContent().toBytes());
     }
 
     return doc;
   }
 
-  private Document blobItemToDoc(BlobItem blob, InputStream is, String decompressedFullPathStr)
+  private Document blobItemToDoc(BlobItem blob, InputStream is, String decompressedFullPathStr, TraversalParams params)
       throws IOException {
     String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-    Document doc = Document.create(docIdPrefix + docId);
+    Document doc = Document.create(params.getDocIdPrefix() + docId);
 
     BlobItemProperties properties = blob.getProperties();
     doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
@@ -165,28 +178,21 @@ public class AzureStorageClient extends BaseStorageClient {
     }
 
     // unable to get the decompressed size via inputStream
-    if (getFileContent) {
+    if (params.shouldGetFileContent()) {
       doc.setField(FileConnector.CONTENT, is.readAllBytes());
     }
 
     return doc;
   }
 
-  private boolean isValid(BlobItem blob) {
+  private boolean isValid(BlobItem blob, TraversalParams params) {
     if (blob.isPrefix()) return false;
 
-    return shouldIncludeFile(blob.getName(), includes, excludes);
-  }
-
-  public static void validateOptions(Map<String, Object> cloudOptions) {
-    if (!cloudOptions.containsKey(AZURE_CONNECTION_STRING) &&
-        !(cloudOptions.containsKey(AZURE_ACCOUNT_NAME) && cloudOptions.containsKey(AZURE_ACCOUNT_KEY))) {
-      throw new IllegalArgumentException("Either '" + AZURE_CONNECTION_STRING + "' or '" + AZURE_ACCOUNT_NAME + "' & '" + AZURE_ACCOUNT_KEY + "' has to be in cloudOptions for AzureStorageClient.");
-    }
+    return params.shouldIncludeFile(blob.getName());
   }
 
   // Only for testing
-  void setContainerClientForTesting(BlobContainerClient containerClient) {
-    this.containerClient = containerClient;
+  void setServiceClientForTesting(BlobServiceClient serviceClient) {
+    this.serviceClient = serviceClient;
   }
 }

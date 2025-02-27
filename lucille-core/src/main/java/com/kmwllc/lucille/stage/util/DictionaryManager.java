@@ -1,9 +1,10 @@
 package com.kmwllc.lucille.stage.util;
 
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvValidationException;
+import com.typesafe.config.Config;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
@@ -53,7 +54,9 @@ public class DictionaryManager {
    * the keyword.
    *
    * If a Map has already been populated for a given path (and given setting of ignoreCase and setOnly),
-   * the first instance will be returned and a second instance will not be created.
+   * the first instance will be returned and a second instance will not be created. Note that the config does not
+   * affect the key / path used - it can only affect whether the file (particularly, if it is held on cloud storage)
+   * CAN be retrieved successfully in the first place!
    *
    * Each Stage instance that needs to acquire a dictionary should call this method once inside start().
    * Because Stage instances will not be calling this method more than once at startup time, we use a coarse-grained
@@ -70,25 +73,30 @@ public class DictionaryManager {
    * made into a ConcurrentHashMap or being passed through Collections.synchronizedMap()).
    *
    */
-  public static synchronized Map<String, String[]> getDictionary(String path, boolean ignoreCase, boolean setOnly) throws StageException {
+  public static synchronized Map<String, String[]> getDictionary(String path, boolean ignoreCase, boolean setOnly, Config config) throws StageException {
     String key = path + "_IGNORECASE=" + ignoreCase + "_SETONLY=" + setOnly;
     if (dictionaries.containsKey(key)) {
       return dictionaries.get(key);
     }
-    HashMap<String, String[]> dictionary = buildHashMap(path, ignoreCase, setOnly);
 
-    // We create an unmodifiable view of the dictionary, which is represented as a HashMap;
-    // This unmodifiable Map may be shared across Stage instances running in different threads;
-    // Therefore we want to be sure that concurrent read operations (i.e. map.get()'s) are thread-safe;
-    // The javadoc for java.util.HashMap states:
-    // "Note that this implementation is not synchronized. If multiple threads access a hash map concurrently,
-    // and at least one of the threads modifies the map structurally, it must be synchronized externally."
-    // Since our map is never be modified, we assume the need for synchronization does not apply.
-    // Instead of returning an unmodifiable Map, we could create a ConcurrentHashMap here, but that seems to be
-    // overkill given that the desired behavior is read-only.
-    Map<String, String[]> unmodifiableDictionary = Collections.unmodifiableMap(dictionary);
-    dictionaries.put(key, unmodifiableDictionary);
-    return unmodifiableDictionary;
+    try {
+      HashMap<String, String[]> dictionary = buildHashMap(path, ignoreCase, setOnly, config);
+
+      // We create an unmodifiable view of the dictionary, which is represented as a HashMap;
+      // This unmodifiable Map may be shared across Stage instances running in different threads;
+      // Therefore we want to be sure that concurrent read operations (i.e. map.get()'s) are thread-safe;
+      // The javadoc for java.util.HashMap states:
+      // "Note that this implementation is not synchronized. If multiple threads access a hash map concurrently,
+      // and at least one of the threads modifies the map structurally, it must be synchronized externally."
+      // Since our map is never be modified, we assume the need for synchronization does not apply.
+      // Instead of returning an unmodifiable Map, we could create a ConcurrentHashMap here, but that seems to be
+      // overkill given that the desired behavior is read-only.
+      Map<String, String[]> unmodifiableDictionary = Collections.unmodifiableMap(dictionary);
+      dictionaries.put(key, unmodifiableDictionary);
+      return unmodifiableDictionary;
+    } catch (IOException e) {
+      throw new StageException("Error occurred while building dictionary HashMap.", e);
+    }
   }
 
   /**
@@ -97,15 +105,17 @@ public class DictionaryManager {
    * @param dictPath  the path of the dictionary file
    * @return the populated HashMap
    */
-  private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly) throws StageException {
+  private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly, Config config) throws IOException {
+    FileContentFetcher fetcher = new FileContentFetcher(config);
+    fetcher.startup();
 
-    // count file lines and create a HashMap with the correct capacity. HashMaps of course support dynamic resizing, but
-    // for files with >= 1K lines we observed a 10% time reduction in time to populate the HashMap when the
-    // initial capacity was set, even accounting for the overhead of the extra pass over the file to count the lines
-    int lineCount = FileUtils.countLines(dictPath);
-    HashMap<String, String[]> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
+    try (CSVReader reader = new CSVReader(fetcher.getReader(dictPath))) {
+      // count file lines and create a HashMap with the correct capacity. HashMaps of course support dynamic resizing, but
+      // for files with >= 1K lines we observed a 10% time reduction in time to populate the HashMap when the
+      // initial capacity was set, even accounting for the overhead of the extra pass over the file to count the lines
+      int lineCount = fetcher.countLines(dictPath);
+      HashMap<String, String[]> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
 
-    try (CSVReader reader = new CSVReader(FileUtils.getReader(dictPath))) {
       // For each line of the dictionary file, add a keyword/payload pair
       String[] line;
       boolean ignore = false;
@@ -136,7 +146,7 @@ public class DictionaryManager {
         if (line.length == 1) {
           value = setOnly ? PRESENT : new String[]{word};
         } else if (setOnly) {
-          throw new StageException(String.format("Comma separated values are not allowed when set_only=true: \"%s\" on line %d",
+          throw new IOException(String.format("Comma separated values are not allowed when set_only=true: \"%s\" on line %d",
               Arrays.toString(line), reader.getLinesRead()));
         } else {
           // Handle multiple payload values here.
@@ -145,13 +155,13 @@ public class DictionaryManager {
         // Add the word and its payload(s) to the dictionary
         dict.put(ignoreCase ? word.toLowerCase() : word, value);
       }
-    } catch (IOException e) {
-      throw new StageException("Failed to read from the given file.", e);
-    } catch (CsvValidationException e) {
-      throw new StageException("Error validating CSV", e);
-    }
 
-    return dict;
+      return dict;
+    } catch (CsvValidationException e) {
+      throw new IOException("Error validating CSV", e);
+    } finally {
+      fetcher.shutdown();
+    }
   }
 
 }

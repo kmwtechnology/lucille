@@ -10,6 +10,7 @@ import java.io.InputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@Deprecated
 public class JSONConnector extends AbstractConnector {
   private static final Logger log = LoggerFactory.getLogger(JSONConnector.class);
   private final String pathStr;

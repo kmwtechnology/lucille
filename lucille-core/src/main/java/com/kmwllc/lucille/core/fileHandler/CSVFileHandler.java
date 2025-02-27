@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core.fileHandler;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
@@ -231,12 +232,12 @@ public class CSVFileHandler extends BaseFileHandler {
 
   private CSVReader getCsvReader(InputStream inputStream) throws FileHandlerException {
     try {
-      return new CSVReaderBuilder(new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)))
-          .withCSVParser(
+      return new CSVReaderBuilder(FileContentFetcher.getOneTimeReader(pathStr)).
+          withCSVParser(
               new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
           .build();
-    } catch (Exception e) {
-      throw new FileHandlerException("Error creating CSVReader from byte array", e);
+    } catch (IOException e) {
+      throw new FileHandlerException("Error creating CSVReader for file " + FilenameUtils.getName(pathStr), e);
     }
   }
 

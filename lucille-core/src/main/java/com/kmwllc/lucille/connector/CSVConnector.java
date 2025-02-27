@@ -18,6 +18,7 @@ import java.nio.file.Path;
 /**
  * Connector implementation that produces documents from the rows in a given CSV file.
  */
+@Deprecated
 public class CSVConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(CSVConnector.class);
