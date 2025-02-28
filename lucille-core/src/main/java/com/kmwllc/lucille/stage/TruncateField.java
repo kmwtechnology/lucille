@@ -1,14 +1,14 @@
 package com.kmwllc.lucille.stage;
 
 import java.util.Iterator;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Truncates a string field to a given number of characters. Can be inplace or return the result to a 
@@ -36,7 +36,7 @@ public class TruncateField extends Stage {
   private final int maxSize;
   private final String destination;
 
-  private static final Logger log = LogManager.getLogger(TruncateField.class);
+  private static final Logger log = LoggerFactory.getLogger(TruncateField.class);
 
   public TruncateField(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "max_size").withOptionalProperties("destination"));

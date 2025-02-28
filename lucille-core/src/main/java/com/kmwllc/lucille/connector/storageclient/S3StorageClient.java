@@ -5,17 +5,12 @@ import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Pattern;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -34,30 +29,35 @@ public class S3StorageClient extends BaseStorageClient {
   private S3Client s3;
   private static final Logger log = LoggerFactory.getLogger(S3StorageClient.class);
 
-  public S3StorageClient(URI pathToStorage, String docIdPrefix, List<Pattern> excludes, List<Pattern> includes,
-      Map<String, Object> cloudOptions, Config fileOptions) {
-    super(pathToStorage, docIdPrefix, excludes, includes, cloudOptions, fileOptions);
+  public S3StorageClient(Config s3CloudOptions) {
+    super(s3CloudOptions);
   }
 
   @Override
-  public void init() throws ConnectorException {
+  protected void validateOptions(Config config) {
+    if (!config.hasPath(S3_ACCESS_KEY_ID)
+        || !config.hasPath(S3_SECRET_ACCESS_KEY)
+        || !config.hasPath(S3_REGION)) {
+      throw new IllegalArgumentException("Missing '" + S3_ACCESS_KEY_ID + "' or '" + S3_SECRET_ACCESS_KEY + "' or '" + S3_REGION + "' in Config for S3StorageClient.");
+    }
+  }
+
+  @Override
+  protected void initializeStorageClient() throws IOException {
     try {
-      AwsBasicCredentials awsCred = AwsBasicCredentials.create((String) cloudOptions.get(S3_ACCESS_KEY_ID),
-          (String) cloudOptions.get(S3_SECRET_ACCESS_KEY));
+      AwsBasicCredentials awsCred = AwsBasicCredentials.create(config.getString(S3_ACCESS_KEY_ID), config.getString(S3_SECRET_ACCESS_KEY));
       s3 = S3Client
           .builder()
-          .region(Region.of((String) cloudOptions.get(S3_REGION)))
+          .region(Region.of(config.getString(S3_REGION)))
           .credentialsProvider(StaticCredentialsProvider.create(awsCred))
           .build();
     } catch (Exception e) {
-      throw new ConnectorException("Error occurred building S3Client", e);
+      throw new IOException("Error occurred building S3Client", e);
     }
-
-    initializeFileHandlers();
   }
 
   @Override
-  public void shutdown() throws IOException {
+  protected void shutdownStorageClient() throws IOException {
     if (s3 != null) {
       try {
         s3.close();
@@ -65,67 +65,71 @@ public class S3StorageClient extends BaseStorageClient {
         throw new IOException("Error occurred closing S3Client", e);
       }
     }
-
-    // clear all FileHandlers if any
-    clearFileHandlers();
   }
 
   @Override
-  public void traverse(Publisher publisher) throws Exception {
-    ListObjectsV2Request request = ListObjectsV2Request.builder().bucket(bucketOrContainerName).prefix(startingDirectory).maxKeys(maxNumOfPages).build();
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
+    ListObjectsV2Request request = ListObjectsV2Request.builder()
+        .bucket(getBucketOrContainerName(params))
+        .prefix(getStartingDirectory(params))
+        .maxKeys(maxNumOfPages).build();
     ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
     response.stream()
         .forEachOrdered(resp -> {
           resp.contents().forEach(obj -> {
-            if (isValid(obj)) {
-              String fullPathStr = getFullPath(obj);
+            if (isValid(obj, params)) {
+              String fullPathStr = getFullPath(obj, params);
               String fileExtension = FilenameUtils.getExtension(fullPathStr);
-              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(obj));
+              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(obj), params);
             }
           });
         });
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference) {
-    S3Object obj = fileReference.getS3Object();
-    return s3ObjectToDoc(obj);
+  protected InputStream getFileContentStreamFromStorage(URI uri) throws IOException {
+    String bucketName = uri.getAuthority();
+    String objectKey = uri.getPath().substring(1);
+
+    GetObjectRequest request = GetObjectRequest.builder().bucket(bucketName).key(objectKey).build();
+    return s3.getObject(request);
   }
 
   @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr) {
+  protected Document convertFileReferenceToDoc(FileReference fileReference, TraversalParams params) {
+    S3Object obj = fileReference.getS3Object();
+    return s3ObjectToDoc(obj, params);
+  }
+
+  @Override
+  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr, TraversalParams params) {
     S3Object obj = fileReference.getS3Object();
     try {
-      return s3ObjectToDoc(obj, in, decompressedFullPathStr);
+      return s3ObjectToDoc(obj, in, decompressedFullPathStr, params);
     } catch (IOException e) {
       throw new IllegalArgumentException("Unable to convert S3Object '" + obj.key() + "' to Document", e);
     }
   }
 
   @Override
-  protected byte[] getFileReferenceContent(FileReference fileReference) {
-    S3Object obj = fileReference.getS3Object();
-    return s3.getObjectAsBytes(GetObjectRequest.builder().bucket(bucketOrContainerName).key(obj.key()).build()).asByteArray();
+  protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
+    String objKey = fileReference.getS3Object().key();
+    GetObjectRequest objectRequest = GetObjectRequest.builder().bucket(params.getBucketOrContainerName()).key(objKey).build();
+    return s3.getObject(objectRequest);
   }
 
-  @Override
-  protected InputStream getFileReferenceContentStream(FileReference fileReference) {
-    byte[] content = getFileReferenceContent(fileReference);
-    return new ByteArrayInputStream(content);
-  }
-
-  private Document s3ObjectToDoc(S3Object obj) {
-    String fullPath = getFullPath(obj);
+  private Document s3ObjectToDoc(S3Object obj, TraversalParams params) {
+    String fullPath = getFullPath(obj, params);
     String docId = DigestUtils.md5Hex(fullPath);
-    Document doc = Document.create(docIdPrefix + docId);
+    Document doc = Document.create(params.getDocIdPrefix() + docId);
     doc.setField(FileConnector.FILE_PATH, fullPath);
     doc.setField(FileConnector.MODIFIED, obj.lastModified());
     // s3 doesn't have object creation date
     doc.setField(FileConnector.SIZE, obj.size());
 
-    if (getFileContent) {
+    if (params.shouldGetFileContent()) {
       byte[] content = s3.getObjectAsBytes(
-          GetObjectRequest.builder().bucket(bucketOrContainerName).key(obj.key()).build()
+          GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(obj.key()).build()
       ).asByteArray();
       doc.setField(FileConnector.CONTENT, content);
     }
@@ -133,38 +137,30 @@ public class S3StorageClient extends BaseStorageClient {
     return doc;
   }
 
-  private Document s3ObjectToDoc(S3Object obj, InputStream is, String decompressedFullPathStr)
+  private Document s3ObjectToDoc(S3Object obj, InputStream is, String decompressedFullPathStr, TraversalParams params)
       throws IOException {
     String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-    Document doc = Document.create(docIdPrefix + docId);
+    Document doc = Document.create(params.getDocIdPrefix() + docId);
     doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
     doc.setField(FileConnector.MODIFIED, obj.lastModified());
     // s3 doesn't have object creation date
     // compression stream doesn't have size, so we can't set it here
-    if (getFileContent) {
+    if (params.shouldGetFileContent()) {
       doc.setField(FileConnector.CONTENT, is.readAllBytes());
     }
 
     return doc;
   }
 
-  private boolean isValid(S3Object obj) {
+  private boolean isValid(S3Object obj, TraversalParams params) {
     String key = obj.key();
     if (key.endsWith("/")) return false;
 
-    return shouldIncludeFile(key, includes, excludes);
+    return params.shouldIncludeFile(key);
   }
 
-  private String getFullPath(S3Object obj) {
-    return pathToStorageURI.getScheme() + "://" + bucketOrContainerName + "/" + obj.key();
-  }
-
-  public static void validateOptions(Map<String, Object> cloudOptions) {
-    if (!cloudOptions.containsKey(S3_ACCESS_KEY_ID) ||
-        !cloudOptions.containsKey(S3_SECRET_ACCESS_KEY) ||
-        !cloudOptions.containsKey(S3_REGION)) {
-      throw new IllegalArgumentException("Missing '" + S3_ACCESS_KEY_ID + "' or '" + S3_SECRET_ACCESS_KEY + "' or '" + S3_REGION + "' in cloudOptions for S3StorageClient.");
-    }
+  private String getFullPath(S3Object obj, TraversalParams params) {
+    return params.getPathToStorageURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + obj.key();
   }
 
   // Only for testing

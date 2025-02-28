@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
+import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
@@ -9,8 +10,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -26,24 +28,11 @@ import org.slf4j.LoggerFactory;
  *    s3://bucket-name/folder/
  *    https://accountName.blob.core.windows.net/containerName/prefix/
  *  includes (list of strings, Optional): list of regex patterns to include files
- *  excludes (list of strings, Optional): list of regex patterns to exclude files
- *  cloudOptions (Map, Optional): cloud storage options, required if using cloud storage. Example of cloudOptions below
+ *  excludes (list of strings, Optional): list of regex patterns to exclude files.
  *  fileOptions (Map, Optional): file options for handling of files and file types. Example of fileOptions below
- *
- * CloudOptions:
- *  If using GoogleStorageClient:
- *    "pathToServiceKey" : "path/To/Service/Key.json"
- *  If using AzureStorageClient:
- *    "connectionString" : azure connection string
- *      Or
- *    "accountName" : azure account name
- *    "accountKey" : azure account key
- *  If using S3StorageClient:
- *    "accessKeyId" : s3 key id
- *    "secretAccessKey" : secret access key
- *    "region" : s3 storage region
- *  Optional:
- *    "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request, defaults to 100
+ *  gcp (Map, Optional): options for handling GoogleCloud files. See example below.
+ *  s3(Map, Optional): options for handling S3 files. See example below.
+ *  azure(Map, Optional): options for handling Azure files. See example below.
  *
  * FileOptions:
  *  getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.
@@ -54,9 +43,29 @@ import org.slf4j.LoggerFactory;
  *  csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
  *  json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
  *  xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler
+ *
+ * <br> gcp:
+ * "pathToServiceKey" : "path/To/Service/Key.json"
+ * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+ *
+ * <br> s3:
+ * "accessKeyId" : s3 key id
+ * "secretAccessKey" : secret access key
+ * "region" : s3 storage region
+ * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+ *
+ * <br> azure:
+ * "connectionString" : azure connection string
+ * <b>Or</b>
+ * "accountName" : azure account name
+ * "accountKey" : azure account key
+ * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+ *
  */
 
 public class FileConnector extends AbstractConnector {
+
+  private static final Set<String> CLOUD_STORAGE_CLIENT_KEYS = Set.of("s3", "azure", "gcp");
 
   public static final String FILE_PATH = "file_path";
   public static final String MODIFIED = "file_modification_date";
@@ -85,7 +94,6 @@ public class FileConnector extends AbstractConnector {
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   private final String pathToStorage;
-  private final Map<String, Object> cloudOptions;
   private final Config fileOptions;
   private final List<Pattern> includes;
   private final List<Pattern> excludes;
@@ -102,7 +110,6 @@ public class FileConnector extends AbstractConnector {
     List<String> excludeRegex = config.hasPath("excludes") ?
         config.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
-    this.cloudOptions = config.hasPath("cloudOptions") ? config.getConfig("cloudOptions").root().unwrapped() : Map.of();
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
     try {
       this.storageURI = new URI(pathToStorage);
@@ -110,20 +117,24 @@ public class FileConnector extends AbstractConnector {
     } catch (URISyntaxException e) {
       throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
     }
+
+    if (CLOUD_STORAGE_CLIENT_KEYS.stream().filter(config::hasPath).count() > 1) {
+      log.warn("Config for FileConnector contains options for more than one cloud provider.");
+    }
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try {
-      storageClient = StorageClient.create(storageURI, getDocIdPrefix(), excludes, includes,
-          cloudOptions, fileOptions);
+      storageClient = StorageClient.create(storageURI, config);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while creating storage client.", e);
     }
 
     try {
       storageClient.init();
-      storageClient.traverse(publisher);
+      TraversalParams params = new TraversalParams(storageURI, getDocIdPrefix(), includes, excludes, fileOptions);
+      storageClient.traverse(publisher, params);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while initializing client or publishing files.", e);
     } finally {

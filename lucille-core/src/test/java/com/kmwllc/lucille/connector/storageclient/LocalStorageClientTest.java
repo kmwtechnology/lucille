@@ -5,18 +5,16 @@ import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.connector.VFSConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
-import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
-import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
@@ -28,47 +26,14 @@ import org.junit.Test;
 public class LocalStorageClientTest {
 
   @Test
-  public void testInitFileHandlers() throws Exception{
-    LocalStorageClient localStorageClient = new LocalStorageClient(new URI("src/test/resources/StorageClientTest"), "",
-        List.of(), List.of(), Map.of(), ConfigFactory.parseMap(
-            Map.of("json", Map.of(), "csv", Map.of())
-    ));
-
-    localStorageClient.init();
-    // check that the file handlers are initialized, 3 in this case as json and jsonl keys are populated with same fileHandler
-    assertEquals(3, localStorageClient.fileHandlers.size());
-    assertInstanceOf(JsonFileHandler.class, localStorageClient.fileHandlers.get("json"));
-    assertInstanceOf(JsonFileHandler.class, localStorageClient.fileHandlers.get("jsonl"));
-    assertEquals(localStorageClient.fileHandlers.get("json"), localStorageClient.fileHandlers.get("jsonl"));
-    assertInstanceOf(CSVFileHandler.class, localStorageClient.fileHandlers.get("csv"));
-    localStorageClient.shutdown();
-  }
-
-  @Test
-  public void testShutdown() throws Exception{
-    LocalStorageClient localStorageClient = new LocalStorageClient(new URI("src/test/resources/StorageClientTest"), "",
-        List.of(), List.of(), Map.of(), ConfigFactory.parseMap(
-        Map.of("json", Map.of(), "csv", Map.of())
-    ));
-
-    localStorageClient.init();
-    // check that the file handlers are initialized, 3 in this case as json and jsonl keys are populated with same fileHandler
-    assertEquals(3, localStorageClient.fileHandlers.size());
-    localStorageClient.shutdown();
-
-    // check that the file handlers are cleared
-    assertEquals(0, localStorageClient.fileHandlers.size());
-  }
-
-  @Test
   public void testPublishValidFiles() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    LocalStorageClient localStorageClient = new LocalStorageClient(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_",
-        List.of(), List.of(), Map.of(), ConfigFactory.empty());
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_", List.of(), List.of(), ConfigFactory.empty());
     localStorageClient.init();
-    localStorageClient.traverse(publisher);
+    localStorageClient.traverse(publisher, params);
 
     String[] fileNames = {"a.json", "b.json", "c.json", "d.json",
         "subdir1"+File.separatorChar+"e.json", "subdir1"+File.separatorChar+"e.json.gz", "subdir1"+File.separatorChar+"e.yaml", "subdir1"+File.separatorChar+"f.jsonl"};
@@ -99,11 +64,16 @@ public class LocalStorageClientTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    LocalStorageClient localStorageClient = new LocalStorageClient(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_",
-        List.of(Pattern.compile(".*subdir1.*$")), List.of(Pattern.compile(".*[a-c]\\.json$")), Map.of(), ConfigFactory.empty());
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_", List.of(Pattern.compile(".*[a-c]\\.json$")), List.of(Pattern.compile(".*subdir1.*$")), ConfigFactory.empty());
     localStorageClient.init();
 
-    localStorageClient.traverse(publisher);
+    localStorageClient.traverse(publisher, params);
+
+    for (Document d : messenger.getDocsSentForProcessing()) {
+      System.out.println(d);
+    }
+
     Assert.assertEquals(3, messenger.getDocsSentForProcessing().size());
     String[] fileNames = {"a.json", "b.json", "c.json"};
     for (Document doc : messenger.getDocsSentForProcessing()) {
@@ -130,16 +100,17 @@ public class LocalStorageClientTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    LocalStorageClient localStorageClient = new LocalStorageClient(
-        new URI("src/test/resources/StorageClientTest/testPublishFilesDefault/a.json"), "file_",
-        List.of(), List.of(),
-        Map.of(), ConfigFactory.parseMap(
-            Map.of(GET_FILE_CONTENT, false)
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+
+    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault/a.json"),
+        "file_",
+        List.of(), List.of(), ConfigFactory.parseMap(
+        Map.of(GET_FILE_CONTENT, false)
     ));
 
     localStorageClient.init();
 
-    localStorageClient.traverse(publisher);
+    localStorageClient.traverse(publisher, params);
 
     Assert.assertEquals(1, messenger.getDocsSentForProcessing().size());
     Document doc = messenger.getDocsSentForProcessing().get(0);
@@ -151,17 +122,15 @@ public class LocalStorageClientTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    LocalStorageClient localStorageClient = new LocalStorageClient(
-        new URI("src/test/resources/StorageClientTest/testPublishFilesDefault/"), "file_",
-        List.of(Pattern.compile(".*\\.DS_Store$")), List.of(),
-        Map.of(), ConfigFactory.parseMap(
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault/"), "file_",
+        List.of(), List.of(Pattern.compile(".*\\.DS_Store$")), ConfigFactory.parseMap(
         Map.of(
             "json", Map.of()
-        )
-    ));
+        )));
 
     localStorageClient.init();
-    localStorageClient.traverse(publisher);
+    localStorageClient.traverse(publisher, params);
     List<Document> docs = messenger.getDocsSentForProcessing();
 
     assertEquals(12, docs.size());
@@ -212,10 +181,9 @@ public class LocalStorageClientTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    LocalStorageClient localStorageClient = new LocalStorageClient(
-        new URI("src/test/resources/StorageClientTest/testCompressedAndArchived"), "",
-        List.of(Pattern.compile(".*\\.DS_Store$")), List.of(),
-        Map.of(), ConfigFactory.parseMap(
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testCompressedAndArchived"), "",
+        List.of(), List.of(Pattern.compile(".*\\.DS_Store$")), ConfigFactory.parseMap(
         Map.of(
             "json", Map.of(),
             "csv", Map.of(),
@@ -224,7 +192,7 @@ public class LocalStorageClientTest {
         )));
 
     localStorageClient.init();
-    localStorageClient.traverse(publisher);
+    localStorageClient.traverse(publisher, params);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
 
@@ -312,17 +280,16 @@ public class LocalStorageClientTest {
 
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
-    LocalStorageClient localStorageClient = new LocalStorageClient(
-        new URI("temp/defaults.csv"), "",
-        List.of(), List.of(),
-        Map.of(), ConfigFactory.parseMap(
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    TraversalParams params = new TraversalParams(new URI("temp/defaults.csv"), "",
+        List.of(), List.of(), ConfigFactory.parseMap(
         Map.of(
             "moveToAfterProcessing", "success"
         )));
 
     localStorageClient.init();
 
-    localStorageClient.traverse(publisher);
+    localStorageClient.traverse(publisher, params);
 
     // verify error directory is made
     File successDir = new File("success");
@@ -353,17 +320,16 @@ public class LocalStorageClientTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     // localStorageClient that handles csv files
-    LocalStorageClient localStorageClient = new LocalStorageClient(
-        new URI("temp/faulty.csv"), "",
-        List.of(), List.of(),
-        Map.of(), ConfigFactory.parseMap(
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    TraversalParams params = new TraversalParams(new URI("temp/faulty.csv"), "",
+        List.of(), List.of(), ConfigFactory.parseMap(
         Map.of(
             "csv", Map.of(),
             "moveToErrorFolder", "error"
         )));
 
     localStorageClient.init();
-    localStorageClient.traverse(publisher);
+    localStorageClient.traverse(publisher, params);
 
     // verify error directory is made
     File errorDir = new File("error");
@@ -381,5 +347,16 @@ public class LocalStorageClientTest {
       tempDir.delete();
       localStorageClient.shutdown();
     }
+  }
+
+  @Test
+  public void testGetFileContentStream() throws Exception {
+    File testFile = new File("src/test/resources/StorageClientTest/hello.txt");
+
+    LocalStorageClient client = new LocalStorageClient();
+    client.init();
+    InputStream stream = client.getFileContentStream(testFile.toURI());
+
+    assertEquals("Hello there.", new String(stream.readAllBytes()));
   }
 }

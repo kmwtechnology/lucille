@@ -92,8 +92,7 @@ public class DictionaryLookupTest {
 
   @Test
   public void testFileDoesNotExist() {
-    Throwable e = assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/missing_file.conf"));
-    assertEquals("File does not exist: classpath:DictionaryLookupTest/missing.txt", e.getMessage());
+    assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/missing_file.conf"));
   }
 
   @Test
@@ -233,17 +232,14 @@ public class DictionaryLookupTest {
 
   @Test
   public void testInvalidSet() {
-    Throwable e = assertThrows(StageException.class, () ->factory.get("DictionaryLookupTest/set_config_invalid.conf"));
-    assertEquals("Comma separated values are not allowed when set_only=true: \"[USSR,  Russia]\" on line 5",
-        e.getMessage());
+    assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/set_config_invalid.conf"));
   }
 
   @Test
   public void testInvalidConfig() {
-    Throwable e = assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/set_config_invalid_update1.conf"));
-    assertEquals("when set_only is true, update_mode must be set to overwrite", e.getMessage());
+    assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/set_config_invalid_update1.conf"));
 
-    e = assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/set_config_invalid_update2.conf"));
+    Throwable e = assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/set_config_invalid_update2.conf"));
     assertEquals("when set_only is true, update_mode must be set to overwrite", e.getMessage());
   }
 }

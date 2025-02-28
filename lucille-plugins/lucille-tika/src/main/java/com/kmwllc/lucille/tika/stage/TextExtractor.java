@@ -3,19 +3,15 @@ package com.kmwllc.lucille.tika.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
-import org.apache.commons.vfs2.FileObject;
-import org.apache.commons.vfs2.FileSystemException;
-import org.apache.commons.vfs2.impl.StandardFileSystemManager;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
@@ -23,6 +19,8 @@ import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.Parser;
 import org.apache.tika.sax.BodyContentHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 
@@ -40,10 +38,14 @@ import org.xml.sax.SAXException;
  * text_content_limit (Integer, Optional) : limits how large the content of the returned text can be
  * metadata_whitelist (StringList, Optional) : list of metadata names that are to be included in document
  * metadata_blacklist (StringList, Optional) : list of metadata names that are not to be included in document
+ *
+ * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
+ * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
+ * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  */
 public class TextExtractor extends Stage {
 
-  private static final Logger log = LogManager.getLogger(TextExtractor.class);
+  private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
   private String textField;
   private String filePathField;
   private String tikaConfigPath;
@@ -54,11 +56,11 @@ public class TextExtractor extends Stage {
   private List<String> metadataBlacklist;
   private Parser parser;
   private ParseContext parseCtx;
-  private StandardFileSystemManager fsManager;
+  private final FileContentFetcher fileFetcher;
 
   public TextExtractor(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
-        "metadata_prefix", "metadata_whitelist", "metadata_blacklist", "text_content_limit"));
+        "metadata_prefix", "metadata_whitelist", "metadata_blacklist", "text_content_limit").withOptionalParents("s3", "gcp", "azure"));
     textField = config.hasPath("text_field") ? config.getString("text_field") : "text";
     filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : null;
     byteArrayField = config.hasPath("byte_array_field") ? config.getString("byte_array_field") : null;
@@ -77,17 +79,18 @@ public class TextExtractor extends Stage {
       throw new StageException("Provided neither a file_path_field nor byte_array_field to the TextExtractor stage");
     }
     parseCtx = new ParseContext();
+
+    this.fileFetcher = new FileContentFetcher(config);
   }
 
   @Override
   public void start() throws StageException {
-    // initialize fsManager only if file_path_field is used
+    // Only try to initialize storage clients for later use if a file path is specified
     if (filePathField != null) {
       try {
-        fsManager = new StandardFileSystemManager();
-        fsManager.init();
-      } catch (FileSystemException e) {
-        throw new StageException("Could not initialize FileSystem in TextExtractor Stage", e);
+        fileFetcher.startup();
+      } catch (IOException e) {
+        throw new StageException("Error occurred initializing FileContentFetcher.", e);
       }
     }
     if (this.tikaConfigPath == null) {
@@ -106,9 +109,8 @@ public class TextExtractor extends Stage {
 
   @Override
   public void stop() {
-    if (fsManager != null) {
-      fsManager.close();
-    }
+    // Shutdown each storage client
+    fileFetcher.shutdown();
   }
 
   @Override
@@ -129,22 +131,10 @@ public class TextExtractor extends Stage {
       // get fileObject from path
       String filePath = doc.getString(filePathField);
 
-      try (FileObject file = FileUtils.getFileObject(filePath, fsManager)) {
-        // if file is null error occurred while getting FileObject, don't process document
-        if (file == null) {
-          return null;
-        }
-
-        // file.getContent() never returns null, will not throw nullPointerException
-        // https://commons.apache.org/proper/commons-vfs/commons-vfs2/apidocs/org/apache/commons/vfs2/FileObject.html#getContent--
-        try (InputStream inputStream = file.getContent().getInputStream()) {
-          parseInputStream(doc, inputStream);
-        } catch(FileSystemException e) {
-          log.warn("Error getting inputStream or content from file at: {}", filePath, e);
-          return null;
-        }
-      } catch (IOException e) { // catches IOExceptions for using try with resources
-        log.warn("Error closing inputstream or file object at: {}", filePath, e);
+      try (InputStream contentStream = fileFetcher.getInputStream(filePath)) {
+        parseInputStream(doc, contentStream);
+      } catch (Exception e) {
+        log.warn("Error with InputStream for file path.", e);
       }
     }
     return null;
