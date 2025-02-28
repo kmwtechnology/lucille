@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.parquet.connector;
 
-import java.io.IOException;
 import org.apache.parquet.io.InputFile;
 import org.apache.parquet.io.SeekableInputStream;
 
@@ -13,12 +12,12 @@ public class ByteArrayInputFile implements InputFile {
   }
 
   @Override
-  public long getLength() throws IOException {
+  public long getLength() {
     return source.length;
   }
 
   @Override
-  public SeekableInputStream newStream() throws IOException {
+  public SeekableInputStream newStream() {
     return new SeekableByteArrayInputStream(source);
   }
 }

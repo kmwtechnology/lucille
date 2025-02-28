@@ -3,11 +3,8 @@ import static org.junit.Assert.assertThrows;
 
 import com.kmwllc.lucille.parquet.connector.SeekableByteArrayInputStream;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -18,7 +15,7 @@ public class SeekableByteArrayInputStreamTest {
   int helloWorldLength = "Hello, world!".getBytes().length;
 
   @Before
-  public void setup() throws FileNotFoundException {
+  public void setup() {
     testStream = new SeekableByteArrayInputStream("Hello, world!".getBytes());
   }
 
@@ -30,15 +27,16 @@ public class SeekableByteArrayInputStreamTest {
 
   @Test
   public void testRead() throws IOException {
-    List<Integer> bytes = new ArrayList<>();
+    byte[] result = new byte[13];
 
     int byteRead;
+    int i = 0;
     while ((byteRead = testStream.read()) != -1) {
-      bytes.add(byteRead);
+      result[i] = (byte) byteRead;
+      i++;
     }
 
-    byte[] byteArray = listToArray(bytes);
-    assertEquals("Hello, world!", new String(byteArray));
+    assertEquals("Hello, world!", new String(result));
   }
 
   @Test
@@ -152,15 +150,5 @@ public class SeekableByteArrayInputStreamTest {
     testStream.seek(7);
     assertEquals(6, testStream.read(partialBuffer));
     assertEquals("world!", new String(partialBuffer.array()));
-  }
-
-  private byte[] listToArray(List<Integer> byteList) {
-    byte[] result = new byte[byteList.size()];
-
-    for (int i = 0; i < byteList.size(); i++) {
-      result[i] = byteList.get(i).byteValue();
-    }
-
-    return result;
   }
 }

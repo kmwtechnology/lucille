@@ -5,24 +5,11 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.BaseFileHandler;
 import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
 import com.typesafe.config.Config;
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Iterator;
-import org.apache.avro.file.SeekableByteArrayInput;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.parquet.avro.AvroReadSupport;
 import org.apache.parquet.hadoop.ParquetFileReader;
-import org.apache.parquet.hadoop.ParquetReader;
-import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.io.InputFile;
-import org.apache.parquet.io.SeekableInputStream;
 
 public class ParquetFileHandler extends BaseFileHandler {
 
@@ -55,8 +42,8 @@ public class ParquetFileHandler extends BaseFileHandler {
       InputFile byteInputFile = new ByteArrayInputFile(inputStream.readAllBytes());
       ParquetFileReader reader = ParquetFileReader.open(byteInputFile);
       return new ParquetFileIterator(reader, idField, start, limit);
-    } catch (Exception e) {
-      throw new FileHandlerException("Problem running processFile.", e);
+    } catch (IOException e) {
+      throw new FileHandlerException("Error occurred trying to process Parquet file.", e);
     }
   }
 }

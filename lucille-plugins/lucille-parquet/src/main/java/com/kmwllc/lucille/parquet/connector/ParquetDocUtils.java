@@ -7,7 +7,6 @@ import org.apache.parquet.schema.Type;
 
 public class ParquetDocUtils {
 
-  // No reason to create one of these...
   private ParquetDocUtils() { }
 
   public static void setDocField(Document doc, Type field, SimpleGroup simpleGroup, int j) {
