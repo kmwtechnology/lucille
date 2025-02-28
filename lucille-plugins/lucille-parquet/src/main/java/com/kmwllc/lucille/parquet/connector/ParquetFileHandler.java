@@ -27,6 +27,9 @@ public class ParquetFileHandler extends BaseFileHandler {
    * <br> - <b>start</b> (Int, Optional): The number of rows to initially skip in each Parquet file. Defaults to zero.
    * <br> - <b>limit</b> (Int, Optional): The maximum number of Documents to extract from each Parquet file. Set to -1
    *        for no limit. Defaults to -1.
+   *
+   * <br> <b>NOTE:</b> The processFile method temporarily loads the provided inputStream's contents into memory for processing.
+   * Ensure you have ample resources to process the files you are providing to this handler.
    */
   public ParquetFileHandler(Config config) {
     super(config);

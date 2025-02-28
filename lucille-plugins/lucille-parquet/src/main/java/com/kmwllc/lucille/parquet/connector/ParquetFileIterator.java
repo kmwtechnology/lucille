@@ -19,7 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * An iterator for Documents extracted from a ParquetFileReader.
+ * An iterator of Lucille Documents extracted from a ParquetFileReader. Resources are closed when hasNext returns false.
  */
 public class ParquetFileIterator implements Iterator<Document> {
 
@@ -46,7 +46,7 @@ public class ParquetFileIterator implements Iterator<Document> {
    * @param idField An id field which can be found in the Parquet file. This field must be present in the Parquet schema,
    *                or an Exception will be thrown while iterating.
    * @param start The index to start at. When set to n, the first n documents found will be skipped.
-   * @param limit The maximum number of Lucille documents to extract and return from this Parquet reader. Set to -1 for no limit.
+   * @param limit The maximum number of Lucille documents to extract and return from the given ParquetReader. Set to -1 for no limit.
    */
   public ParquetFileIterator(ParquetFileReader reader, String idField, long start, long limit) {
     this.reader = reader;
@@ -59,7 +59,8 @@ public class ParquetFileIterator implements Iterator<Document> {
 
     if (!canSkipAndUpdateStart(reader.getRecordCount())) {
       // As long as we shouldn't skip this ENTIRE document, start with pages / nRows initialized,
-      // preventing hasNext() from returning false.
+      // and hasNext() will return true.
+      // If we are supposed to skip this entire document, then this won't execute, and hasNext() will return false.
       readNewPages();
     }
   }
@@ -110,12 +111,11 @@ public class ParquetFileIterator implements Iterator<Document> {
   }
 
   /**
-   * Attempt to read the next row group from the Parquet reader. Updates nRows and recordReader
-   * when successful. Will read another rowGroup and update start if the group has less rows than
-   * start. If there are no more rowGroups to read from, or an exception occurs, pages will be null.
-   * @return Whether new pages were read successfully.
+   * Attempt to read the next row group from the Parquet reader. Updates nRows and recordReader when successful. Will read another
+   * rowGroup and update start if the group has less rows than start. If there are no more rowGroups to read from, or an exception
+   * occurs, pages will be null.
    */
-  private boolean readNewPages() {
+  private void readNewPages() {
     try {
       while ((pages = reader.readNextRowGroup()) != null) {
         nRows = pages.getRowCount();
@@ -130,16 +130,13 @@ public class ParquetFileIterator implements Iterator<Document> {
         recordReader = columnIO.getRecordReader(pages, new GroupRecordConverter(schema));
 
         // Now we can call next() and build/return documents.
-        return true;
+        return;
       }
     } catch (IOException e) {
       log.warn("Error reading row group from Parquet File:", e);
       // Ensures hasNext() will be false. (don't hold onto the old pages...)
       pages = null;
     }
-
-    // return false if out of pages or got an exception from reader.
-    return false;
   }
 
   // Creates a document from the given SimpleGroup, and increments count.
@@ -170,7 +167,7 @@ public class ParquetFileIterator implements Iterator<Document> {
     return doc;
   }
 
-  // Returns whether the limit (if non-negative) has been reached.
+  // Returns whether the current count is greater than the limit. Always returns true if limit is a negative number.
   private boolean limitReached() {
     return limit >= 0 && count >= limit;
   }

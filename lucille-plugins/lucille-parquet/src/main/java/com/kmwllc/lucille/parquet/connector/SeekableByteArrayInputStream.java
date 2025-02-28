@@ -112,4 +112,9 @@ public class SeekableByteArrayInputStream extends SeekableInputStream {
     byteBuffer.put(temp);
     position += numReadTotal;
   }
+
+  @Override
+  public void close() throws IOException {
+    stream.close();
+  }
 }

@@ -26,8 +26,9 @@ public class ParquetFileIteratorTest {
   byte[] exampleNonPrimitiveContents = Files.readAllBytes(exampleNonPrimitivePath);
   byte[] exampleNonPrimitiveWithRowsContents = Files.readAllBytes(exampleNonPrimitiveWithRowsPath);
 
-
+  // need to declare the IOException here so we can call readAllBytes above
   public ParquetFileIteratorTest() throws IOException {}
+
   /*
   The Parquet file is this:
 
@@ -162,6 +163,32 @@ public class ParquetFileIteratorTest {
     assertTrue(testIterator.hasNext());
     doc = testIterator.next();
     assertEquals("2", doc.getId());
+
+    assertFalse(testIterator.hasNext());
+
+    // We throw an actual exception when the limit has been reached.
+    assertThrows(NoSuchElementException.class,
+        () -> testIterator.next());
+  }
+
+  @Test
+  public void testPagedAndLimitedOnBound() throws IOException {
+    InputFile byteInputFile = new ByteArrayInputFile(exampleWithRowsContents);
+    ParquetFileReader reader = ParquetFileReader.open(byteInputFile);
+
+    ParquetFileIterator testIterator = new ParquetFileIterator(reader, "id", 0, 3);
+
+    assertTrue(testIterator.hasNext());
+    Document doc = testIterator.next();
+    assertEquals("1", doc.getId());
+
+    assertTrue(testIterator.hasNext());
+    doc = testIterator.next();
+    assertEquals("2", doc.getId());
+
+    assertTrue(testIterator.hasNext());
+    doc = testIterator.next();
+    assertEquals("3", doc.getId());
 
     assertFalse(testIterator.hasNext());
 
