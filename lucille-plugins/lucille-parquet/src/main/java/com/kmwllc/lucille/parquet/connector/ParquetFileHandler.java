@@ -84,49 +84,12 @@ public class ParquetFileHandler extends BaseFileHandler {
   }
 
   public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
-    File tempFile = null;
-
     try {
-      tempFile = File.createTempFile("tempParquetFile_", ".txt");
-
-      try (FileOutputStream outputStream = new FileOutputStream(tempFile);
-          BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream)) {
-
-        // Buffer to read the InputStream in chunks
-        byte[] buffer = new byte[1024];
-        int bytesRead;
-
-        // Read from the InputStream and write to the FileOutputStream
-        while ((bytesRead = bufferedInputStream.read(buffer)) != -1) {
-          outputStream.write(buffer, 0, bytesRead);
-        }
-      } catch (IOException e) {
-        e.printStackTrace();
-      } finally {
-        try {
-          if (inputStream != null) {
-            inputStream.close();
-          }
-        } catch (IOException ex) {
-          ex.printStackTrace();
-        }
-      }
-
-      org.apache.hadoop.fs.Path hadoopPath = new org.apache.hadoop.fs.Path(tempFile.getPath());
-
-      Configuration hadoopConf = new Configuration();
-      hadoopConf.setBoolean(AvroReadSupport.READ_INT96_AS_FIXED, true);
-
-      HadoopInputFile hadoopFile = HadoopInputFile.fromPath(hadoopPath, hadoopConf);
-      ParquetFileReader reader = ParquetFileReader.open(hadoopFile);
-
+      InputFile byteInputFile = new ByteArrayInputFile(inputStream.readAllBytes());
+      ParquetFileReader reader = ParquetFileReader.open(byteInputFile);
       return new ParquetFileIterator(reader, idField, start, limit);
     } catch (Exception e) {
       throw new FileHandlerException("Problem running processFile.", e);
-    } finally {
-      if (tempFile != null) {
-        tempFile.delete();
-      }
     }
   }
 }
