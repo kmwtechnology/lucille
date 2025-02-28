@@ -58,7 +58,7 @@ public class ParquetFileIterator implements Iterator<Document> {
     this.limit = limit;
 
     if (!canSkipAndUpdateStart(reader.getRecordCount())) {
-      // As long as we shouldn't skip this document, start with pages / nRows initialized,
+      // As long as we shouldn't skip this ENTIRE document, start with pages / nRows initialized,
       // preventing hasNext() from returning false.
       readNewPages();
     }

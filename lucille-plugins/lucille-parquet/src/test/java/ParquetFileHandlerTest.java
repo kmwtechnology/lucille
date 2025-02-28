@@ -1,6 +1,9 @@
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
@@ -10,6 +13,7 @@ import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Iterator;
 import java.util.Map;
 import org.junit.Test;
@@ -19,12 +23,6 @@ public class ParquetFileHandlerTest {
   File exampleFile = new File("src/test/resources/ParquetFileHandlerTest/example.parquet");
 
   Config defaultConfig = ConfigFactory.parseMap(Map.of("idField", "id"));
-  Config limitConfig = ConfigFactory.parseMap(Map.of(
-      "idField", "id",
-      "limit", 3L));
-  Config startConfig = ConfigFactory.parseMap(Map.of(
-      "idField", "id",
-      "start", 3L));
 
   @Test
   public void testProcessFile() throws FileHandlerException, IOException {
@@ -54,7 +52,9 @@ public class ParquetFileHandlerTest {
 
   @Test
   public void testLimit() throws FileHandlerException, IOException {
-    ParquetFileHandler handler = new ParquetFileHandler(limitConfig);
+    ParquetFileHandler handler = new ParquetFileHandler(ConfigFactory.parseMap(Map.of(
+        "idField", "id",
+        "limit", 3L)));
     Iterator<Document> docIterator = handler.processFile(new FileInputStream(exampleFile), "");
 
     for (int i = 1; i <= 3; i++) {
@@ -68,7 +68,9 @@ public class ParquetFileHandlerTest {
 
   @Test
   public void testStart() throws FileHandlerException, IOException {
-    ParquetFileHandler handler = new ParquetFileHandler(startConfig);
+    ParquetFileHandler handler = new ParquetFileHandler(ConfigFactory.parseMap(Map.of(
+        "idField", "id",
+        "start", 3L)));
     Iterator<Document> docIterator = handler.processFile(new FileInputStream(exampleFile), "");
 
     for (int i = 4; i <= 6; i++) {
@@ -78,5 +80,15 @@ public class ParquetFileHandlerTest {
     }
 
     assertFalse(docIterator.hasNext());
+  }
+
+  @Test
+  public void testBadProcessing() throws IOException {
+    ParquetFileHandler handler = new ParquetFileHandler(defaultConfig);
+
+    InputStream ioExceptionStream = mock(InputStream.class);
+    when(ioExceptionStream.readAllBytes()).thenThrow(new IOException("Mock Exception"));
+
+    assertThrows(FileHandlerException.class, () -> handler.processFile(ioExceptionStream, "testFile"));
   }
 }

@@ -112,6 +112,10 @@ public class SeekableByteArrayInputStreamTest {
     testStream.readFully(remainingList);
     assertEquals(", world!", new String(remainingList));
     assertEquals(13, testStream.getPos());
+
+    // invalid seek arguments
+    assertThrows(IOException.class, () -> testStream.seek(-10));
+    assertThrows(IOException.class, () -> testStream.seek(99999));
   }
 
   @Test
@@ -131,6 +135,14 @@ public class SeekableByteArrayInputStreamTest {
     testStream.seek(7);
     assertEquals(6, testStream.read(partialBuffer));
     assertEquals("world!", new String(partialBuffer.array()));
+
+    // should be safely done since buffer has no remaining capacity
+    assertEquals(0, testStream.read(partialBuffer));
+
+    // also will be safely done.
+    testStream.seek(0);
+    ByteBuffer largeBuffer = ByteBuffer.allocate(100);
+    testStream.read(largeBuffer);
   }
 
   @Test
@@ -150,5 +162,13 @@ public class SeekableByteArrayInputStreamTest {
     testStream.seek(7);
     assertEquals(6, testStream.read(partialBuffer));
     assertEquals("world!", new String(partialBuffer.array()));
+
+    // should be safely done since buffer has no remaining capacity
+    testStream.readFully(partialBuffer);
+
+    // however, this will attempt to read 100 bytes from the 13 byte stream, and can't be done safely.
+    testStream.seek(0);
+    ByteBuffer largeBuffer = ByteBuffer.allocate(100);
+    assertThrows(IOException.class, () -> testStream.readFully(largeBuffer));
   }
 }
