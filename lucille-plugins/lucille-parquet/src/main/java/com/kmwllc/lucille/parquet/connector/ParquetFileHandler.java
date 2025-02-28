@@ -50,39 +50,6 @@ public class ParquetFileHandler extends BaseFileHandler {
   }
 
   @Override
-  public Iterator<Document> processFile(Path javaPath) throws FileHandlerException {
-    try {
-      org.apache.hadoop.fs.Path hadoopPath = new org.apache.hadoop.fs.Path(javaPath.toString());
-
-      Configuration hadoopConf = new Configuration();
-      hadoopConf.setBoolean(AvroReadSupport.READ_INT96_AS_FIXED, true);
-
-      HadoopInputFile hadoopFile = HadoopInputFile.fromPath(hadoopPath, hadoopConf);
-      ParquetFileReader reader = ParquetFileReader.open(hadoopFile);
-
-      return new ParquetFileIterator(reader, idField, start, limit);
-    } catch (Exception e) {
-      throw new FileHandlerException("Problem running processFile: ", e);
-    }
-  }
-
-  @Override
-  public Iterator<Document> processFile(byte[] fileContent, String pathStr) throws FileHandlerException {
-    try {
-      org.apache.hadoop.fs.Path hadoopPath = new org.apache.hadoop.fs.Path(pathStr);
-
-      Configuration hadoopConf = new Configuration();
-      hadoopConf.setBoolean(AvroReadSupport.READ_INT96_AS_FIXED, true);
-
-      HadoopInputFile hadoopFile = HadoopInputFile.fromPath(hadoopPath, hadoopConf);
-      ParquetFileReader reader = ParquetFileReader.open(hadoopFile);
-
-      return new ParquetFileIterator(reader, idField, start, limit);
-    } catch (Exception e) {
-      throw new FileHandlerException("Problem running processFile: ", e);
-    }
-  }
-
   public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
     try {
       InputFile byteInputFile = new ByteArrayInputFile(inputStream.readAllBytes());
