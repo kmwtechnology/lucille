@@ -13,6 +13,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Iterator;
@@ -27,6 +28,11 @@ public class ApplyFileHandlersTest {
   Path testCsvPath = Paths.get("src/test/resources/ApplyFileHandlersTest/test.csv");
   Path testJsonlPath = Paths.get("src/test/resources/ApplyFileHandlersTest/test.jsonl");
   Path testFaultyCsvPath = Paths.get("src/test/resources/ApplyFileHandlersTest/faulty.csv");
+
+  byte[] testCsvContents = Files.readAllBytes(testCsvPath);
+
+  // IOException so we can read all bytes above.
+  public ApplyFileHandlersTest() throws IOException { }
 
   @Test
   public void testApplyFileHandlersCSV() throws StageException {
@@ -55,6 +61,95 @@ public class ApplyFileHandlersTest {
 
     Document csvDoc = Document.create("json_doc");
     csvDoc.setField("file_path", testJsonlPath.toString());
+
+    Iterator<Document> docs = stage.processDocument(csvDoc);
+
+    int docsCount = 0;
+
+    while (docs.hasNext()) {
+      Document d = docs.next();
+      docsCount++;
+      assertEquals(docsCount + "", d.getId());
+    }
+
+    assertEquals(4, docsCount);
+  }
+
+  @Test
+  public void testUseFileContentField() throws StageException {
+    Stage stage = factory.get("ApplyFileHandlersTest/allTypes.conf");
+
+    Document csvDoc = Document.create("csv_contents_doc");
+    // makes sure we aren't actually running onto the file system here, and instead just looking at the extension
+    // and using the handler.
+    csvDoc.setField("file_path", "blahblahblah.csv");
+    csvDoc.setField("file_content", testCsvContents);
+
+    Iterator<Document> docs = stage.processDocument(csvDoc);
+
+    int docsCount = 0;
+
+    while (docs.hasNext()) {
+      Document d = docs.next();
+      docsCount++;
+      assertEquals(docsCount + "", d.getId());
+    }
+
+    assertEquals(4, docsCount);
+  }
+
+  @Test
+  public void testFileContentsNoPath() throws StageException {
+    Stage stage = factory.get("ApplyFileHandlersTest/allTypes.conf");
+
+    Document csvDoc = Document.create("csv_contents_doc");
+    csvDoc.setField("file_content", testCsvContents);
+
+    assertNull(stage.processDocument(csvDoc));
+  }
+
+  @Test
+  public void testAlternateFileContentPath() throws StageException {
+    Stage stage = factory.get("ApplyFileHandlersTest/alternateFileContentPath.conf");
+
+    Document csvDoc = Document.create("csv_contents_doc");
+    csvDoc.setField("file_path", "blahblahblah.csv");
+    csvDoc.setField("alternate_content", testCsvContents);
+
+    Iterator<Document> docs = stage.processDocument(csvDoc);
+
+    int docsCount = 0;
+
+    while (docs.hasNext()) {
+      Document d = docs.next();
+      docsCount++;
+      assertEquals(docsCount + "", d.getId());
+    }
+
+    assertEquals(4, docsCount);
+  }
+
+  // Want to make sure that the presence of bytes doesn't somehow cause types w/o a handler to somehow be processed...
+  @Test
+  public void testFileContentAndUnsupportedType() throws StageException {
+    Stage stage = factory.get("ApplyFileHandlersTest/jsonOnly.conf");
+
+    Document csvDoc = Document.create("csv_contents_doc");
+    csvDoc.setField("file_path", testCsvPath.toString());
+    csvDoc.setField("alternate_content", testCsvContents);
+
+    assertNull(stage.processDocument(csvDoc));
+  }
+
+  @Test
+  public void testFileContentWithoutCloudConfig() throws StageException {
+    // has no cloud config. so we can't create a file fetcher that works with s3 - and we won't need to, because
+    // we have the file contents on the document already...
+    Stage stage = factory.get("ApplyFileHandlersTest/allTypes.conf");
+
+    Document csvDoc = Document.create("csv_contents_doc");
+    csvDoc.setField("file_path", "s3://bucket/test.csv");
+    csvDoc.setField("file_content", testCsvContents);
 
     Iterator<Document> docs = stage.processDocument(csvDoc);
 
