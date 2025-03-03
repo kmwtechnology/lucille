@@ -36,6 +36,10 @@ public class RunResult {
     return status;
   }
 
+  public String getMessage() {
+    return message; 
+  }
+
   public String toString() {
     return message;
   }
