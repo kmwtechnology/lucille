@@ -23,7 +23,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Objects;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -53,11 +52,6 @@ public class LocalStorageClient extends BaseStorageClient {
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
     Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params));
-  }
-
-  @Override
-  protected String getStartingDirectory(TraversalParams params) {
-    return Objects.equals(params.getPathToStorageURI().getPath(), "/") ? "" : params.getPathToStorageURI().getPath();
   }
 
   @Override
@@ -96,6 +90,16 @@ public class LocalStorageClient extends BaseStorageClient {
     } catch (IOException e) {
       throw new IllegalArgumentException("Unable to get content stream of path '" + path + "'", e);
     }
+  }
+
+  @Override
+  protected String getStartingDirectory(TraversalParams params) {
+    return params.getPathToStorageURI().getPath();
+  }
+
+  @Override
+  protected String getBucketOrContainerName(TraversalParams params) {
+    return params.getPathToStorageURI().getAuthority();
   }
 
   private Document pathToDoc(Path path, TraversalParams params) throws ConnectorException {

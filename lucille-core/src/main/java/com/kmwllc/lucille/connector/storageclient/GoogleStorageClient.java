@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.channels.Channels;
+import java.util.Objects;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -115,6 +116,19 @@ public class GoogleStorageClient extends BaseStorageClient {
     Blob blob = fileReference.getBlob();
     ReadChannel readChannel = blob.reader();
     return Channels.newInputStream(readChannel);
+  }
+
+  @Override
+  protected String getStartingDirectory(TraversalParams params) {
+    URI pathURI = params.getPathToStorageURI();
+    String startingDirectory = Objects.equals(pathURI.getPath(), "/") ? "" : pathURI.getPath();
+    if (startingDirectory.startsWith("/")) return startingDirectory.substring(1);
+    return startingDirectory;
+  }
+
+  @Override
+  protected String getBucketOrContainerName(TraversalParams params) {
+    return params.getPathToStorageURI().getAuthority();
   }
 
   private boolean isValid(Blob blob, TraversalParams params) {

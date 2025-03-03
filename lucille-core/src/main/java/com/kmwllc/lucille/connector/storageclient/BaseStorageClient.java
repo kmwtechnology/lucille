@@ -376,23 +376,14 @@ public abstract class BaseStorageClient implements StorageClient {
 
 
   /**
-   * Return the starting directory from the params. For S3 and Google, it is the URI's path or an empty string,
-   * with the first "/" removed if present. Local is the same, but without removing the first "/" if present.
-   * For Azure, it is everything after the third "/" in the URI. (S3 and Google
-   * defer to the given params, Azure + Local use a client-specific implementation.)
+   * Return the starting directory for this StorageClient, based on the given params and its pathToStorageURI.
    */
-  protected String getStartingDirectory(TraversalParams params) {
-    return params.getStartingDirectory();
-  }
+  protected abstract String getStartingDirectory(TraversalParams params);
 
   /**
-   * Return the bucket/container name from the params. For Local, S3, and Google, this is the URI's authority.
-   * For Azure, this is the content between the second and third "/". (Local, S3, and Google
-   * defer to the given params, Azure does its own calculations.)
+   * Return the bucket/container name for this StorageClient, based on the params and its pathToStorageURI.
    */
-  protected String getBucketOrContainerName(TraversalParams params) {
-    return params.getBucketOrContainerName();
-  }
+  protected abstract String getBucketOrContainerName(TraversalParams params);
 
 
   /**
