@@ -68,7 +68,7 @@ public class WorkerPool {
     this.enableHeartbeat = config.hasPath("worker.enableHeartbeat") ? config.getBoolean("worker.enableHeartbeat") : false;
     // maxProcessingSecs default should be at least 10 minutes
     this.maxProcessingSecs =
-        config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 10 * 60 * 1000;
+        config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 10 * 60;
     this.exitOnTimeout = config.hasPath("worker.exitOnTimeout") ? config.getBoolean("worker.exitOnTimeout") : false;
   }
 

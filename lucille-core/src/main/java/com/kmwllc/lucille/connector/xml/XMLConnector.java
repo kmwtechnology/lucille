@@ -3,11 +3,9 @@ package com.kmwllc.lucille.connector.xml;
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +27,7 @@ import java.util.List;
  * <li>outputField (String): The field to place the XML into: defaults to "xml".</li>
  * </ul>
  */
+@Deprecated
 public class XMLConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(XMLConnector.class);
@@ -62,18 +61,11 @@ public class XMLConnector extends AbstractConnector {
         fileStr = fileStr.replaceFirst("file://", "");
       }
 
-      File file = new File(fileStr);
-      Path path;
       try {
-        path = file.toPath();
-      } catch (InvalidPathException e) {
-        throw new ConnectorException("Error converting " + fileStr + "to Path", e);
-      }
-
-      try {
-        xmlFileHandler.processFileAndPublish(publisher, path);
+        InputStream stream = FileContentFetcher.getOneTimeInputStream(fileStr);
+        xmlFileHandler.processFileAndPublish(publisher, stream, fileStr);
       } catch (Exception e) {
-        throw new ConnectorException("Error processing file: " + file, e);
+        throw new ConnectorException("Error processing file: " + fileStr, e);
       }
     }
   }
