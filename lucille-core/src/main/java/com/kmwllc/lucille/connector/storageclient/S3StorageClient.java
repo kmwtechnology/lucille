@@ -121,15 +121,17 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   protected String getStartingDirectory(TraversalParams params) {
-    URI pathURI = params.getPathToStorageURI();
+    URI pathURI = params.getURI();
     String startingDirectory = Objects.equals(pathURI.getPath(), "/") ? "" : pathURI.getPath();
-    if (startingDirectory.startsWith("/")) return startingDirectory.substring(1);
+    if (startingDirectory.startsWith("/")) {
+      return startingDirectory.substring(1);
+    }
     return startingDirectory;
   }
 
   @Override
   protected String getBucketOrContainerName(TraversalParams params) {
-    return params.getPathToStorageURI().getAuthority();
+    return params.getURI().getAuthority();
   }
 
   private Document s3ObjectToDoc(S3Object obj, TraversalParams params) {
@@ -174,7 +176,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   private String getFullPath(S3Object obj, TraversalParams params) {
-    return params.getPathToStorageURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + obj.key();
+    return params.getURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + obj.key();
   }
 
   // Only for testing

@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 public class TraversalParams {
 
   // provided arguments
-  private final URI pathToStorageURI;
+  private final URI uri;
   private final String docIdPrefix;
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
@@ -31,8 +31,8 @@ public class TraversalParams {
   private final String moveToAfterProcessing;
   private final String moveToErrorFolder;
 
-  public TraversalParams(URI pathToStorageURI, String docIdPrefix, List<Pattern> includes, List<Pattern> excludes, Config fileOptions) {
-    this.pathToStorageURI = pathToStorageURI;
+  public TraversalParams(URI uri, String docIdPrefix, List<Pattern> includes, List<Pattern> excludes, Config fileOptions) {
+    this.uri = uri;
     this.docIdPrefix = docIdPrefix;
     this.includes = includes;
     this.excludes = excludes;
@@ -69,8 +69,8 @@ public class TraversalParams {
     return !getFileOptions().isEmpty() && FileHandler.supportAndContainFileType(fileExtension, getFileOptions());
   }
 
-  public URI getPathToStorageURI() {
-    return pathToStorageURI;
+  public URI getURI() {
+    return uri;
   }
 
   public String getDocIdPrefix() {

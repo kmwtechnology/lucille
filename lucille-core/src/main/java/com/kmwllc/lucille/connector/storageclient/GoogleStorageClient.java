@@ -120,15 +120,17 @@ public class GoogleStorageClient extends BaseStorageClient {
 
   @Override
   protected String getStartingDirectory(TraversalParams params) {
-    URI pathURI = params.getPathToStorageURI();
+    URI pathURI = params.getURI();
     String startingDirectory = Objects.equals(pathURI.getPath(), "/") ? "" : pathURI.getPath();
-    if (startingDirectory.startsWith("/")) return startingDirectory.substring(1);
+    if (startingDirectory.startsWith("/")) {
+      return startingDirectory.substring(1);
+    }
     return startingDirectory;
   }
 
   @Override
   protected String getBucketOrContainerName(TraversalParams params) {
-    return params.getPathToStorageURI().getAuthority();
+    return params.getURI().getAuthority();
   }
 
   private boolean isValid(Blob blob, TraversalParams params) {
@@ -138,7 +140,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   private String getFullPath(Blob blob, TraversalParams params) {
-    return params.getPathToStorageURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + blob.getName();
+    return params.getURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + blob.getName();
   }
 
   private Document blobToDoc(Blob blob, TraversalParams params) throws IOException {
