@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Objects;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -52,6 +53,11 @@ public class LocalStorageClient extends BaseStorageClient {
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
     Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params));
+  }
+
+  @Override
+  protected String getStartingDirectory(TraversalParams params) {
+    return Objects.equals(params.getPathToStorageURI().getPath(), "/") ? "" : params.getPathToStorageURI().getPath();
   }
 
   @Override
