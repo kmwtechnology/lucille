@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
-import com.kmwllc.lucille.parquet.connector.ParquetFileHandler;
+import com.kmwllc.lucille.parquet.ParquetFileHandler;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;

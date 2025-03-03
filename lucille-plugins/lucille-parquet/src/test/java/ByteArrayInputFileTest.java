@@ -1,6 +1,6 @@
 import static org.junit.Assert.assertEquals;
 
-import com.kmwllc.lucille.parquet.connector.ByteArrayInputFile;
+import com.kmwllc.lucille.parquet.ByteArrayInputFile;
 import java.io.IOException;
 import org.apache.parquet.io.SeekableInputStream;
 import org.junit.Test;

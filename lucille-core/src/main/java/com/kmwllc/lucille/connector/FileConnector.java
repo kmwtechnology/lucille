@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -43,6 +42,8 @@ import org.slf4j.LoggerFactory;
  *  csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
  *  json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
  *  xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler
+ *  parquet (Map, Optional): parquet config options for handling parquet type files. Config will be passed to ParquetFileHandler.
+ *  Make sure lucille-parquet is part of your build, and you have ample resources to process your Parquet files.
  *
  * <br> gcp:
  * "pathToServiceKey" : "path/To/Service/Key.json"

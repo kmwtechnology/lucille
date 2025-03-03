@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.InputStream;
+import java.lang.reflect.Constructor;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -18,7 +19,7 @@ public interface FileHandler {
    * Collection of file types that are supported by the FileHandler interface.
    * Note that if you add a new file type to the collection, you must also add the corresponding handler in create() method
    */
-  Set<String> SUPPORTED_FILE_TYPES = Set.of("json", "jsonl", "csv", "xml");
+  Set<String> SUPPORTED_FILE_TYPES = Set.of("json", "jsonl", "csv", "xml", "parquet");
 
   /**
    * Processes a file given an InputStream of its contents and a representation path String to it, and returns an iterator
@@ -51,6 +52,17 @@ public interface FileHandler {
       case "xml" -> {
         Config xmlConfig = fileOptions.getConfig("xml");
         return new XMLFileHandler(xmlConfig);
+      }
+      case "parquet" -> {
+        Config parquetConfig = fileOptions.getConfig("parquet");
+
+        try {
+          Class<?> parquetFileHandlerClass = Class.forName("com.kmwllc.lucille.parquet.ParquetFileHandler");
+          Constructor<?> constructor = parquetFileHandlerClass.getConstructor(Config.class);
+          return (FileHandler) constructor.newInstance(parquetConfig);
+        } catch (ReflectiveOperationException e) {
+          throw new UnsupportedOperationException("Reflection error while constructing ParquetFileHandler - is it included in your build?", e);
+        }
       }
       default -> throw new UnsupportedOperationException("Unsupported file type: " + fileExtension);
     }

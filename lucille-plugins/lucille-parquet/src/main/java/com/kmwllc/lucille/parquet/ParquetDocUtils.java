@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.parquet.connector;
+package com.kmwllc.lucille.parquet;
 
 import com.kmwllc.lucille.core.Document;
 import org.apache.parquet.example.data.Group;
