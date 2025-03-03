@@ -61,7 +61,7 @@ public interface FileHandler {
           Constructor<?> constructor = parquetFileHandlerClass.getConstructor(Config.class);
           return (FileHandler) constructor.newInstance(parquetConfig);
         } catch (ReflectiveOperationException e) {
-          throw new UnsupportedOperationException("Reflection error while constructing ParquetFileHandler - is it included in your build?", e);
+          throw new UnsupportedOperationException("Reflection error while constructing ParquetFileHandler, is the Parquet plugin included correctly?", e);
         }
       }
       default -> throw new UnsupportedOperationException("Unsupported file type: " + fileExtension);

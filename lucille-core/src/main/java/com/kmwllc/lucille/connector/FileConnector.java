@@ -61,7 +61,6 @@ import org.slf4j.LoggerFactory;
  * "accountName" : azure account name
  * "accountKey" : azure account key
  * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
- *
  */
 
 public class FileConnector extends AbstractConnector {
