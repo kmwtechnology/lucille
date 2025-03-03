@@ -16,6 +16,8 @@ import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -358,5 +360,22 @@ public class LocalStorageClientTest {
     InputStream stream = client.getFileContentStream(testFile.toURI());
 
     assertEquals("Hello there.", new String(stream.readAllBytes()));
+  }
+
+  // Ensuring that providing an absolute path to the LocalStorageClient works as appropriate - doesn't remove the first
+  // "/" as TraversalParams does, instead, falls back on its specific implementation of getStartingDirectory()
+  @Test
+  public void testAbsolutePath() throws Exception {
+    Path defaultAbsolutePath = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault").toAbsolutePath();
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    TraversalParams params = new TraversalParams(URI.create(defaultAbsolutePath.toString()), "file_", List.of(), List.of(), ConfigFactory.empty());
+    localStorageClient.init();
+    localStorageClient.traverse(publisher, params);
+
+    assertEquals(8, publisher.numPublished());
   }
 }

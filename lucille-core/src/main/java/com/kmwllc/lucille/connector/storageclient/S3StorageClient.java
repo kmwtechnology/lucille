@@ -11,6 +11,7 @@ import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.util.Objects;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -114,8 +115,23 @@ public class S3StorageClient extends BaseStorageClient {
   @Override
   protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
     String objKey = fileReference.getS3Object().key();
-    GetObjectRequest objectRequest = GetObjectRequest.builder().bucket(params.getBucketOrContainerName()).key(objKey).build();
+    GetObjectRequest objectRequest = GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(objKey).build();
     return s3.getObject(objectRequest);
+  }
+
+  @Override
+  protected String getStartingDirectory(TraversalParams params) {
+    URI pathURI = params.getURI();
+    String startingDirectory = Objects.equals(pathURI.getPath(), "/") ? "" : pathURI.getPath();
+    if (startingDirectory.startsWith("/")) {
+      return startingDirectory.substring(1);
+    }
+    return startingDirectory;
+  }
+
+  @Override
+  protected String getBucketOrContainerName(TraversalParams params) {
+    return params.getURI().getAuthority();
   }
 
   private Document s3ObjectToDoc(S3Object obj, TraversalParams params) {
@@ -160,7 +176,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   private String getFullPath(S3Object obj, TraversalParams params) {
-    return params.getPathToStorageURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + obj.key();
+    return params.getURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + obj.key();
   }
 
   // Only for testing

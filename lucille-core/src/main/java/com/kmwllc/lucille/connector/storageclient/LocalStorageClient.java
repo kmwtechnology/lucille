@@ -92,6 +92,16 @@ public class LocalStorageClient extends BaseStorageClient {
     }
   }
 
+  @Override
+  protected String getStartingDirectory(TraversalParams params) {
+    return params.getURI().getPath();
+  }
+
+  @Override
+  protected String getBucketOrContainerName(TraversalParams params) {
+    return params.getURI().getAuthority();
+  }
+
   private Document pathToDoc(Path path, TraversalParams params) throws ConnectorException {
     String fullPath = path.toAbsolutePath().normalize().toString();
     String docId = DigestUtils.md5Hex(fullPath);
