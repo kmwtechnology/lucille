@@ -16,15 +16,15 @@ public class ParquetFileHandler extends BaseFileHandler {
   private final String idField;
 
   private final long limit;
-  private final long start;
+  private final long numToSkip;
 
   /**
    * Handles processing of Parquet Files.
    *
    * <br> Params:
-   * <br> - <b>idField</b> (String): The name of an id field which will be found in the Parquet documents that are processed
-   *        by this handler. An exception is thrown if a Parquet document does not have this field in its schema.
-   * <br> - <b>start</b> (Int, Optional): The number of rows to initially skip in each Parquet file. Defaults to zero.
+   * <br> - <b>idField</b> (String): An id field which must be found in the Parquet records that are processed
+   *        by this handler. An exception is thrown while iterating if this field is not in the file's schema.
+   * <br> - <b>numToSkip</b> (Int, Optional): The number of rows in the beginning of each Parquet file to not publish Documents for. Defaults to zero.
    * <br> - <b>limit</b> (Int, Optional): The maximum number of Documents to extract from each Parquet file. Set to -1
    *        for no limit. Defaults to -1.
    *
@@ -35,7 +35,7 @@ public class ParquetFileHandler extends BaseFileHandler {
     super(config);
 
     this.idField = config.getString("idField");
-    this.start = ConfigUtils.getOrDefault(config, "start", 0L);
+    this.numToSkip = ConfigUtils.getOrDefault(config, "numToSkip", 0L);
     this.limit = ConfigUtils.getOrDefault(config, "limit", -1L);
   }
 
@@ -44,7 +44,7 @@ public class ParquetFileHandler extends BaseFileHandler {
     try {
       InputFile byteInputFile = new ByteArrayInputFile(inputStream.readAllBytes());
       ParquetFileReader reader = ParquetFileReader.open(byteInputFile);
-      return new ParquetFileIterator(reader, idField, start, limit);
+      return new ParquetFileIterator(reader, idField, numToSkip, limit);
     } catch (IOException e) {
       throw new FileHandlerException("Error occurred trying to process Parquet file.", e);
     }

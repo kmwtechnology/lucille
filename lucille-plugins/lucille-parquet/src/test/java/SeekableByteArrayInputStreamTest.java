@@ -26,7 +26,7 @@ public class SeekableByteArrayInputStreamTest {
   }
 
   @Test
-  public void testRead() throws IOException {
+  public void testRead() {
     byte[] result = new byte[13];
 
     int byteRead;

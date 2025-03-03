@@ -267,4 +267,12 @@ public class ParquetFileIteratorTest {
       assertEquals(2, d.getStringList("hobbies").size());
     }
   }
+
+  @Test
+  public void testMissingIDField() throws IOException {
+    InputFile byteInputFile = new ByteArrayInputFile(exampleContents);
+    ParquetFileReader reader = ParquetFileReader.open(byteInputFile);
+
+    assertThrows(IllegalArgumentException.class, () -> new ParquetFileIterator(reader, "ABCDEFGHI", 0, -1));
+  }
 }

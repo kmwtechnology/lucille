@@ -50,7 +50,7 @@ public class SeekableByteArrayInputStream extends SeekableInputStream {
   }
 
   @Override
-  public void readFully(byte[] bytes, int offset, int length) throws IOException {
+  public void readFully(byte[] bytes, int offset, int length) {
     int numRead = stream.read(bytes, offset, length);
 
     if (numRead != -1) {
@@ -59,7 +59,7 @@ public class SeekableByteArrayInputStream extends SeekableInputStream {
   }
 
   @Override
-  public int read() throws IOException {
+  public int read() {
     int byteRead = stream.read();
 
     if (byteRead != -1) {
@@ -70,7 +70,7 @@ public class SeekableByteArrayInputStream extends SeekableInputStream {
   }
 
   @Override
-  public int read(ByteBuffer byteBuffer) throws IOException {
+  public int read(ByteBuffer byteBuffer) {
     int maxToRead = byteBuffer.remaining();
 
     if (maxToRead == 0) {

@@ -70,7 +70,7 @@ public class ParquetFileHandlerTest {
   public void testStart() throws FileHandlerException, IOException {
     ParquetFileHandler handler = new ParquetFileHandler(ConfigFactory.parseMap(Map.of(
         "idField", "id",
-        "start", 3L)));
+        "numToSkip", 3L)));
     Iterator<Document> docIterator = handler.processFile(new FileInputStream(exampleFile), "");
 
     for (int i = 4; i <= 6; i++) {
@@ -90,5 +90,11 @@ public class ParquetFileHandlerTest {
     when(ioExceptionStream.readAllBytes()).thenThrow(new IOException("Mock Exception"));
 
     assertThrows(FileHandlerException.class, () -> handler.processFile(ioExceptionStream, "testFile"));
+  }
+
+  @Test
+  public void testNoIDFieldInSchema() {
+    ParquetFileHandler badIDHandler = new ParquetFileHandler(ConfigFactory.parseMap(Map.of("idField", "abcDEFghi")));
+    assertThrows(IllegalArgumentException.class, () -> badIDHandler.processFile(new FileInputStream(exampleFile), ""));
   }
 }
