@@ -50,6 +50,10 @@ public class Condition implements Predicate<Document> {
       if (val.valueType() == ConfigValueType.NULL) {
         mySet.add(null);
       } else {
+        // Right now condition matching is non-restrictive, ie.
+        //    a field with a boolean value, ex. true, will match both values "true" and true.
+        //    a field with an int value, ex. 10, will match both values "10" and 10.
+        // This is because all value types other than null is unwrapped and stringified.
         mySet.add(val.unwrapped().toString());
       }
     }
