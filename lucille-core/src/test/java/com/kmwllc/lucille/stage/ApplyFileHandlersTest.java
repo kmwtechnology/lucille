@@ -174,7 +174,6 @@ public class ApplyFileHandlersTest {
       int docsCount = 0;
       while (googleCsvResults.hasNext()) {
         Document d = googleCsvResults.next();
-        System.out.println(d);
         docsCount++;
 
         assertEquals("test.csv", d.getString("filename"));

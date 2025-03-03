@@ -78,6 +78,10 @@ public class ApplyFileHandlers extends Stage {
       throw new StageException("No file handlers could be created from the given handlerOptions.");
     }
 
+    if (fileHandlers.containsKey("json")) {
+      fileHandlers.put("jsonl", fileHandlers.get("json"));
+    }
+
     try {
       fileFetcher.startup();
     } catch (IOException e) {
@@ -100,13 +104,13 @@ public class ApplyFileHandlers extends Stage {
     String filePath = doc.getString(filePathField);
     String fileExtension = FilenameUtils.getExtension(filePath);
 
-    if (!FileHandler.supportAndContainFileType(fileExtension, handlerOptions)) {
+    if (!fileHandlers.containsKey(fileExtension)) {
       return null;
     }
 
     try {
       InputStream fileContentStream = fileFetcher.getInputStream(filePath);
-      FileHandler handler = FileHandler.create(fileExtension, handlerOptions);
+      FileHandler handler = fileHandlers.get(fileExtension);
 
       return handler.processFile(fileContentStream, filePath);
     } catch (IOException e) {
