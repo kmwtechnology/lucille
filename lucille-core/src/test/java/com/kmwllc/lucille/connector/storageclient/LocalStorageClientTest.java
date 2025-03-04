@@ -72,10 +72,6 @@ public class LocalStorageClientTest {
 
     localStorageClient.traverse(publisher, params);
 
-    for (Document d : messenger.getDocsSentForProcessing()) {
-      System.out.println(d);
-    }
-
     Assert.assertEquals(3, messenger.getDocsSentForProcessing().size());
     String[] fileNames = {"a.json", "b.json", "c.json"};
     for (Document doc : messenger.getDocsSentForProcessing()) {
