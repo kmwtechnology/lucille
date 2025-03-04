@@ -33,6 +33,7 @@ See the documentation for each File Handler to see what arguments are needed / a
 There are many different parameters you can specify to customize your traversal of the given path. A few notable ones:
 
 * `includes`/`excludes`: A list of regex patterns for files you want to include in / exclude from your traversal.
-* `fileOptions.getFileContent`: Whether, during traversal, the FileConnector should add an array of bytes representing the file's contents to the Lucille document published. **This will slow down traversal significantly. This is resource intensive. On the cloud, this will download the file contents.**
+* `fileOptions.getFileContent`: Whether, during traversal, the FileConnector should add an array of bytes representing the file's contents to the Lucille document it publishes.
+**This will slow down traversal significantly and is resource intensive. On the cloud, this _will_ download the file contents.**
 * `fileOptions.moveToAfterProcessing`: A path to move files to after processing. **Only works for the local file system.**
 * `fileOptions.moveToErrorFolder`: A path to move files to if an error occurs. **Only works for the local file system.**

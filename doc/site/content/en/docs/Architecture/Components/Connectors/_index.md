@@ -8,14 +8,14 @@ description: A component that retrieves data from a source system, packages the 
 
 Lucille Connectors are components that retrieve data from a source system, packages the data into "documents," and publishes them to a pipeline.
 
-The core Lucille project contains a number of commonly used connectors. Additional connectors that rely on a large number of dependencies are provided as optional plugin modules.
+The core Lucille project contains a number of commonly used connectors. Additional connectors that have a large number of dependencies are provided as optional plugin modules.
 
 ### Lucille Connectors (Core)
 
 * [Abstract Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/AbstractConnector.java)
-* [Database Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/jdbc/DatabaseConnector.java)
+* [Database Connector](database_connector.md)
 * [File Connector](file_connector.md)
-* [Sequence Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SequenceConnector.java)
+* [Sequence Connector](sequence_connector.md)
 * [Solr Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SolrConnector.java)
 
 **The following connectors are deprecated.** Use FileConnector instead, along with a corresponding FileHandler.
@@ -27,5 +27,4 @@ The core Lucille project contains a number of commonly used connectors. Addition
 
 ### Lucille Connectors (Plugins)
 
-* [OCR Connector](https://github.com/kmwtechnology/lucille/tree/main/lucille-plugins/lucille-ocr)
 * [Parquet Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-plugins/lucille-parquet/src/main/java/com/kmwllc/lucille/parquet/connector/ParquetConnector.java)
