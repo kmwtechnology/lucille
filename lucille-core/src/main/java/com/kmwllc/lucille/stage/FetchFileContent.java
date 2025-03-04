@@ -16,10 +16,11 @@ import java.util.Iterator;
  * filePathField (String, Optional): The document field that contains the file path. Defaults to "file_path". No processing will
  * take place on documents that do not have this field.
  * fileContentField (String, Optional): The document field to write the contents to. Defaults to "file_content".
+ * This stage will overwrite any contents associated with this field.
  *
- * s3 (Map, Optional) : Add if you will be fetching files . See FileConnector for the appropriate arguments to provide.
- * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
- * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
+ * s3 (Map, Optional): Add if you will be fetching contents from S3 files. See FileConnector for the appropriate arguments to provide.
+ * azure (Map, Optional): Add if you will be fetching contents from Azure files. See FileConnector for the appropriate arguments to provide.
+ * gcp (Map, Optional): Add if you will be fetching contents from Google cloud. See FileConnector for the appropriate arguments to provide.
  */
 public class FetchFileContent extends Stage {
 
@@ -29,8 +30,8 @@ public class FetchFileContent extends Stage {
   private final FileContentFetcher fileFetcher;
 
   public FetchFileContent(Config config) {
-    // TODO: Add StageSpec
-    super(config);
+    super(config, new StageSpec().withOptionalProperties("filePathField", "fileContentField")
+        .withOptionalParents("s3", "azure", "gcp"));
 
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
     this.fileContentField = ConfigUtils.getOrDefault(config, "fileContentField", "file_content");
@@ -65,7 +66,7 @@ public class FetchFileContent extends Stage {
       byte[] fileContents = fileContentStream.readAllBytes();
       doc.setField(fileContentField, fileContents);
     } catch (IOException e) {
-      throw new StageException("IOException occurred while processing document.", e);
+      throw new StageException("Error occurred while getting document's contents.", e);
     }
 
     return null;
