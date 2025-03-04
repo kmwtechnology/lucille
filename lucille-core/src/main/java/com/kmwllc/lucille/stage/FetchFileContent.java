@@ -29,6 +29,7 @@ public class FetchFileContent extends Stage {
   private final FileContentFetcher fileFetcher;
 
   public FetchFileContent(Config config) {
+    // TODO: Add StageSpec
     super(config);
 
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
