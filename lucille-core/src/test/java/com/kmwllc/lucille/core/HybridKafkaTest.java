@@ -143,6 +143,7 @@ public class HybridKafkaTest {
 
     String eventTopicName = KafkaUtils.getEventTopicName(config, "pipeline1", RUN_ID);
 
+    // TODO: Get all 15
     ConsumerRecord<String, String> record15 = template.receive(eventTopicName, 0, 14);
 
     // the last event should be the indexing event for doc3 (which should be indexed after its children);
