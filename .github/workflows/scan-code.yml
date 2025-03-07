@@ -3,7 +3,7 @@ name: Scan code with CodeQL
 on:
   push:
     branches:
-      - main
+      - LC-458-enable-code-scanning #just for testing
   workflow_dispatch:
     inputs:
       language:
