@@ -5,6 +5,10 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      language:
+        description: 'Code language to scan'
+        required: false
 
 jobs:
   analyze:
