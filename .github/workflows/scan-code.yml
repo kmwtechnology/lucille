@@ -1,0 +1,33 @@
+name: Scan code with CodeQL
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: $cron-weekly
+
+jobs:
+  analyze:
+    name: Analyze java
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      # required to fetch internal or private CodeQL packs
+      packages: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: java
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:java"
