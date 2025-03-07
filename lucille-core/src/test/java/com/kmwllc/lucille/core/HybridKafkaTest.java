@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -29,7 +30,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Before;
-import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -43,10 +44,11 @@ public class HybridKafkaTest {
 
   private static final String RUN_ID = "run1";
 
-  @ClassRule
-  public static EmbeddedKafkaRule embeddedKafka = new EmbeddedKafkaRule(1, false, 1).kafkaPorts(9090).zkPort(9091);
+  // An embedded instance of Kafka created for each test that is run.
+  @Rule
+  public EmbeddedKafkaRule embeddedKafka = new EmbeddedKafkaRule(1, false, 1).kafkaPorts(9090).zkPort(9091);
 
-  KafkaTemplate<String, String> template;
+  private KafkaTemplate<String, String> template;
 
   @Before
   public void setUp() {
@@ -143,15 +145,15 @@ public class HybridKafkaTest {
 
     String eventTopicName = KafkaUtils.getEventTopicName(config, "pipeline1", RUN_ID);
 
-    // TODO: Get all 15
     ConsumerRecord<String, String> record15 = template.receive(eventTopicName, 0, 14);
+    // checking that there are only 15 documents. docs 0 - 14 exist, 15 doesn't.
+    assertNull(template.receive(eventTopicName, 0, 15));
 
     // the last event should be the indexing event for doc3 (which should be indexed after its children);
     // in hybrid mode, indexing events should have kafka metadata from the source topic as there
     // is no destination topic;
     // within the source topic, doc3 would have offset 2 (as offsets are 0-based) and this
     // same offset should be recorded on the indexing event for doc3
-
     Event event15 = Event.fromJsonString(record15.value());
     assertEquals(topicName, event15.getTopic());
     assertEquals(Integer.valueOf(0), event15.getPartition());
@@ -397,11 +399,11 @@ public class HybridKafkaTest {
     // sourceTopic: "test_topic.*"
     Config config = ConfigFactory.load("HybridKafkaTest/sourceTopicWildcard.conf");
 
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_topic_wildcard1", 1, (short) 1));
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_topic_wildcard2", 1, (short) 1));
+    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_topic1", 1, (short) 1));
+    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_topic2", 1, (short) 1));
 
-    sendDoc("doc1", "test_topic_wildcard1");
-    sendDoc("doc2", "test_topic_wildcard2");
+    sendDoc("doc1", "test_topic1");
+    sendDoc("doc2", "test_topic2");
 
     WorkerIndexer workerIndexer = new WorkerIndexer();
 
@@ -416,13 +418,13 @@ public class HybridKafkaTest {
 
     CounterUtils.waitUnique(idSet, 2, 20000, CounterUtils.DEFAULT_END_LAG_MS);
 
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_topic_wildcard3", 1, (short) 1));
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_topic_wildcard4", 1, (short) 1));
-    sendDoc("doc3", "test_topic_wildcard3");
-    sendDoc("doc4", "test_topic_wildcard4");
+    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_topic3", 1, (short) 1));
+    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_topic4", 1, (short) 1));
+    sendDoc("doc3", "test_topic3");
+    sendDoc("doc4", "test_topic4");
 
     // send a second doc to test_topic_wildcard3
-    sendDoc("doc5", "test_topic_wildcard3");
+    sendDoc("doc5", "test_topic3");
 
     CounterUtils.waitUnique(idSet, 5, 3 * 60 * 1000, CounterUtils.DEFAULT_END_LAG_MS);
 
@@ -435,16 +437,16 @@ public class HybridKafkaTest {
     Map<TopicPartition, OffsetAndMetadata> retrievedOffsets =
         kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
             .partitionsToOffsetAndMetadata().get();
-    TopicPartition sourceTopicPartition1 = new TopicPartition("test_topic_wildcard1", 0);
+    TopicPartition sourceTopicPartition1 = new TopicPartition("test_topic1", 0);
     assertNotNull(retrievedOffsets.get(sourceTopicPartition1));
     assertEquals(1, retrievedOffsets.get(sourceTopicPartition1).offset());
-    TopicPartition sourceTopicPartition2 = new TopicPartition("test_topic_wildcard2", 0);
+    TopicPartition sourceTopicPartition2 = new TopicPartition("test_topic2", 0);
     assertNotNull(retrievedOffsets.get(sourceTopicPartition2));
     assertEquals(1, retrievedOffsets.get(sourceTopicPartition2).offset());
-    TopicPartition sourceTopicPartition3 = new TopicPartition("test_topic_wildcard3", 0);
+    TopicPartition sourceTopicPartition3 = new TopicPartition("test_topic3", 0);
     assertNotNull(retrievedOffsets.get(sourceTopicPartition3));
     assertEquals(2, retrievedOffsets.get(sourceTopicPartition3).offset());
-    TopicPartition sourceTopicPartition4 = new TopicPartition("test_topic_wildcard4", 0);
+    TopicPartition sourceTopicPartition4 = new TopicPartition("test_topic4", 0);
     assertNotNull(retrievedOffsets.get(sourceTopicPartition4));
     assertEquals(1, retrievedOffsets.get(sourceTopicPartition4).offset());
 
