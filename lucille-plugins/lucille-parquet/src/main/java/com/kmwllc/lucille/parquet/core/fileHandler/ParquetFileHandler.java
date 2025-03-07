@@ -23,7 +23,7 @@ public class ParquetFileHandler extends BaseFileHandler {
    *
    * <br> Params:
    * <br> - <b>idField</b> (String): An id field which must be found in the Parquet records that are processed
-   *        by this handler. An exception is thrown while iterating if this field is not in the file's schema.
+   *        by this handler. An exception is thrown when processing a file that does not contain this field in its schema.
    * <br> - <b>numToSkip</b> (Int, Optional): The number of rows in the beginning of each Parquet file to not publish Documents for. Defaults to zero.
    * <br> - <b>limit</b> (Int, Optional): The maximum number of Documents to extract from each Parquet file. Set to -1
    *        for no limit. Defaults to -1.
