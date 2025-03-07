@@ -1,6 +1,7 @@
-package com.kmwllc.lucille.parquet;
+package com.kmwllc.lucille.parquet.core.fileHandler;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.parquet.ParquetDocUtils;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;

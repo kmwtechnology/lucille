@@ -4,8 +4,8 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.parquet.ByteArrayInputFile;
-import com.kmwllc.lucille.parquet.ParquetFileIterator;
+import com.kmwllc.lucille.parquet.core.fileHandler.ByteArrayInputFile;
+import com.kmwllc.lucille.parquet.core.fileHandler.ParquetFileIterator;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

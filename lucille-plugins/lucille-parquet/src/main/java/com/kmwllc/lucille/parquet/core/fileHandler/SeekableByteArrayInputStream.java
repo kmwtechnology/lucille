@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.parquet;
+package com.kmwllc.lucille.parquet.core.fileHandler;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

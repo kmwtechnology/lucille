@@ -1,7 +1,7 @@
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
-import com.kmwllc.lucille.parquet.SeekableByteArrayInputStream;
+import com.kmwllc.lucille.parquet.core.fileHandler.SeekableByteArrayInputStream;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

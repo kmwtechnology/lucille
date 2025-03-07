@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.parquet;
+package com.kmwllc.lucille.parquet.core.fileHandler;
 
 import org.apache.parquet.io.InputFile;
 import org.apache.parquet.io.SeekableInputStream;

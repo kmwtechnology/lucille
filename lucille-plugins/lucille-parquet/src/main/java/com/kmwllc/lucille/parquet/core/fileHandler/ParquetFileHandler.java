@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.parquet;
+package com.kmwllc.lucille.parquet.core.fileHandler;
 
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
