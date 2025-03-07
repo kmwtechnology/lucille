@@ -57,7 +57,7 @@ public interface FileHandler {
         Config parquetConfig = fileOptions.getConfig("parquet");
 
         try {
-          Class<?> parquetFileHandlerClass = Class.forName("com.kmwllc.lucille.parquet.ParquetFileHandler");
+          Class<?> parquetFileHandlerClass = Class.forName("com.kmwllc.lucille.parquet.core.fileHandler.ParquetFileHandler");
           Constructor<?> constructor = parquetFileHandlerClass.getConstructor(Config.class);
           return (FileHandler) constructor.newInstance(parquetConfig);
         } catch (ReflectiveOperationException e) {
