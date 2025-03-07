@@ -29,6 +29,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -67,6 +68,13 @@ public class HybridKafkaTest {
 
     DefaultKafkaConsumerFactory<String, String> cf = new DefaultKafkaConsumerFactory<>(consumerProps);
     template.setConsumerFactory(cf);
+  }
+
+  @After
+  public void tearDown() {
+    // Even though the @Rule should be recreating embeddedKafka each time, I was occasionally getting concurrent errors
+    // that topics already existed. Hoping this prevents it.
+    embeddedKafka.getEmbeddedKafka().destroy();
   }
 
   @Test
