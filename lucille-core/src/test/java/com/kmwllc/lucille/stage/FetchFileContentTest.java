@@ -20,11 +20,11 @@ public class FetchFileContentTest {
 
   private final StageFactory factory = StageFactory.of(FetchFileContent.class);
 
-  Path helloPath = Paths.get("src/test/resources/FetchFileContentTest/hello.txt");
-  Path goodbyePath = Paths.get("src/test/resources/FetchFileContentTest/goodbye.txt");
+  private final Path helloPath = Paths.get("src/test/resources/FetchFileContentTest/hello.txt");
+  private final Path goodbyePath = Paths.get("src/test/resources/FetchFileContentTest/goodbye.txt");
 
-  byte[] helloContents = Files.readAllBytes(helloPath);
-  byte[] goodbyeContents = Files.readAllBytes(goodbyePath);
+  private final byte[] helloContents = Files.readAllBytes(helloPath);
+  private final byte[] goodbyeContents = Files.readAllBytes(goodbyePath);
 
   public FetchFileContentTest() throws IOException { }
 
