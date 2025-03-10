@@ -29,9 +29,8 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
+import org.junit.ClassRule;
 import org.junit.Test;
 
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -46,8 +45,8 @@ public class HybridKafkaTest {
   private static final String RUN_ID = "run1";
 
   // An embedded instance of Kafka created for each test that is run.
-  @Rule
-  public EmbeddedKafkaRule embeddedKafka = new EmbeddedKafkaRule(1, false, 1).kafkaPorts(9090).zkPort(9091);
+  @ClassRule
+  public static final EmbeddedKafkaRule embeddedKafka = new EmbeddedKafkaRule(1, false, 1).kafkaPorts(9090).zkPort(9091);
 
   private KafkaTemplate<String, String> template;
 
@@ -68,13 +67,6 @@ public class HybridKafkaTest {
 
     DefaultKafkaConsumerFactory<String, String> cf = new DefaultKafkaConsumerFactory<>(consumerProps);
     template.setConsumerFactory(cf);
-  }
-
-  @After
-  public void tearDown() {
-    // Even though the @Rule should be recreating embeddedKafka each time, I was occasionally getting concurrent errors
-    // that topics already existed. Hoping this prevents it.
-    embeddedKafka.getEmbeddedKafka().destroy();
   }
 
   @Test
@@ -407,11 +399,11 @@ public class HybridKafkaTest {
     // sourceTopic: "test_topic.*"
     Config config = ConfigFactory.load("HybridKafkaTest/sourceTopicWildcard.conf");
 
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_topic1", 1, (short) 1));
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_topic2", 1, (short) 1));
+    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_wildcard_topic1", 1, (short) 1));
+    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_wildcard_topic2", 1, (short) 1));
 
-    sendDoc("doc1", "test_topic1");
-    sendDoc("doc2", "test_topic2");
+    sendDoc("doc1", "test_wildcard_topic1");
+    sendDoc("doc2", "test_wildcard_topic2");
 
     WorkerIndexer workerIndexer = new WorkerIndexer();
 
@@ -426,13 +418,13 @@ public class HybridKafkaTest {
 
     CounterUtils.waitUnique(idSet, 2, 20000, CounterUtils.DEFAULT_END_LAG_MS);
 
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_topic3", 1, (short) 1));
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_topic4", 1, (short) 1));
-    sendDoc("doc3", "test_topic3");
-    sendDoc("doc4", "test_topic4");
+    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_wildcard_topic3", 1, (short) 1));
+    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_wildcard_topic4", 1, (short) 1));
+    sendDoc("doc3", "test_wildcard_topic3");
+    sendDoc("doc4", "test_wildcard_topic4");
 
     // send a second doc to test_topic_wildcard3
-    sendDoc("doc5", "test_topic3");
+    sendDoc("doc5", "test_wildcard_topic3");
 
     CounterUtils.waitUnique(idSet, 5, 3 * 60 * 1000, CounterUtils.DEFAULT_END_LAG_MS);
 
@@ -445,16 +437,16 @@ public class HybridKafkaTest {
     Map<TopicPartition, OffsetAndMetadata> retrievedOffsets =
         kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
             .partitionsToOffsetAndMetadata().get();
-    TopicPartition sourceTopicPartition1 = new TopicPartition("test_topic1", 0);
+    TopicPartition sourceTopicPartition1 = new TopicPartition("test_wildcard_topic1", 0);
     assertNotNull(retrievedOffsets.get(sourceTopicPartition1));
     assertEquals(1, retrievedOffsets.get(sourceTopicPartition1).offset());
-    TopicPartition sourceTopicPartition2 = new TopicPartition("test_topic2", 0);
+    TopicPartition sourceTopicPartition2 = new TopicPartition("test_wildcard_topic2", 0);
     assertNotNull(retrievedOffsets.get(sourceTopicPartition2));
     assertEquals(1, retrievedOffsets.get(sourceTopicPartition2).offset());
-    TopicPartition sourceTopicPartition3 = new TopicPartition("test_topic3", 0);
+    TopicPartition sourceTopicPartition3 = new TopicPartition("test_wildcard_topic3", 0);
     assertNotNull(retrievedOffsets.get(sourceTopicPartition3));
     assertEquals(2, retrievedOffsets.get(sourceTopicPartition3).offset());
-    TopicPartition sourceTopicPartition4 = new TopicPartition("test_topic4", 0);
+    TopicPartition sourceTopicPartition4 = new TopicPartition("test_wildcard_topic4", 0);
     assertNotNull(retrievedOffsets.get(sourceTopicPartition4));
     assertEquals(1, retrievedOffsets.get(sourceTopicPartition4).offset());
 
@@ -483,7 +475,7 @@ public class HybridKafkaTest {
     Config config = ConfigFactory.load("HybridKafkaTest/eventTopic.conf");
     String eventTopic = KafkaUtils.getEventTopicName(config, "pipeline1", RUN_ID);
 
-    assertEquals("test_event_topic", eventTopic);
+    assertEquals("test_setting_event_topic", eventTopic);
   }
 
   private Document sendDoc(String id, String topic) {
