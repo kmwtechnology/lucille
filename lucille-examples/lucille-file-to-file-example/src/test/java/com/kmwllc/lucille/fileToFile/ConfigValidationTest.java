@@ -8,7 +8,7 @@ public class ConfigValidationTest {
 
   @Test
   public void testConf() throws Exception {
-    List<String> configsToIgnore = List.of("connector-for-csv.conf", "connector-for-json.conf", "simple-pipeline.conf");
+    List<String> configsToIgnore = List.of("csv-connector.conf", "json-connector.conf", "simple-pipeline.conf");
     ConfigValidationUtils.validateConfigs(configsToIgnore);
   }
 }
