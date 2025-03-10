@@ -31,16 +31,16 @@
 <!--    You can also add an appender like '<AppenderRef ref="file-json" />' to the loggers to get both non-json AND json logging. -->
         <Root level="INFO">
             <AppenderRef ref="console" />
-            <AppenderRef ref="file" />
+            <AppenderRef ref="file-json" />
         </Root>
         <Logger name="com.kmwllc.lucille.core.Heartbeat" level="INFO" additivity="false">
             <AppenderRef ref="heartbeat" />
         </Logger>
 
         <!-- Will output lots of log statements about individual documents as they are processed. -->
-        <Logger name="com.kmwllc.lucille.core.DocLogger" level="OFF" additivity="false">
+        <Logger name="com.kmwllc.lucille.core.DocLogger" level="INFO" additivity="false">
             <AppenderRef ref="console" />
-            <AppenderRef ref="file" />
+            <AppenderRef ref="file-json" />
         </Logger>
     </Loggers>
 </Configuration>

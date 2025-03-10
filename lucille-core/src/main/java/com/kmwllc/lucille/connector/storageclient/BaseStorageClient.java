@@ -33,10 +33,13 @@ import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.slf4j.MDC.MDCCloseable;
 
 public abstract class BaseStorageClient implements StorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(BaseStorageClient.class);
+  private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
   protected final Config config;
   protected final Map<String, FileHandler> fileHandlers;
@@ -151,6 +154,9 @@ public abstract class BaseStorageClient implements StorageClient {
               handleStreamExtensionFiles(publisher, compressorStream, resolvedExtension, filePathFormat);
             } else {
               Document doc = convertFileReferenceToDoc(fileReference, compressorStream, filePathFormat, params);
+              try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
+                docLogger.info("StorageClient to publish Document {}.", doc.getId());
+              }
               publisher.publish(doc);
             }
           }
@@ -181,6 +187,9 @@ public abstract class BaseStorageClient implements StorageClient {
 
       // handle normal files
       Document doc = convertFileReferenceToDoc(fileReference, params);
+      try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
+        docLogger.info("StorageClient to publish Document {}.", doc.getId());
+      }
       publisher.publish(doc);
       afterProcessingFile(fullPathStr, params);
     } catch (UnsupportedOperationException e) {
@@ -235,6 +244,9 @@ public abstract class BaseStorageClient implements StorageClient {
               doc.setField(CONTENT, in.readAllBytes());
             }
             try {
+              try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
+                docLogger.info("StorageClient to publish Document {}.", doc.getId());
+              }
               publisher.publish(doc);
             } catch (Exception e) {
               throw new ConnectorException("Error occurred while publishing archive entry: " + entry.getName() + " in " + fullPathStr, e);
