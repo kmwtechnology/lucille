@@ -23,10 +23,13 @@ public class FetchFileContentTest {
   private final Path helloPath = Paths.get("src/test/resources/FetchFileContentTest/hello.txt");
   private final Path goodbyePath = Paths.get("src/test/resources/FetchFileContentTest/goodbye.txt");
 
-  private final byte[] helloContents = Files.readAllBytes(helloPath);
-  private final byte[] goodbyeContents = Files.readAllBytes(goodbyePath);
+  private final byte[] helloContents;
+  private final byte[] goodbyeContents;
 
-  public FetchFileContentTest() throws IOException { }
+  public FetchFileContentTest() throws IOException {
+    helloContents = Files.readAllBytes(helloPath);
+    goodbyeContents = Files.readAllBytes(goodbyePath);
+  }
 
   @Test
   public void testFetchFileContent() throws StageException {
