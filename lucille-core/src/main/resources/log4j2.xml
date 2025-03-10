@@ -23,7 +23,7 @@
             <Policies>
                 <SizeBasedTriggeringPolicy size="10 KB" />
             </Policies>
-            <DefaultRolloverStrategy max="20" />
+            <DefaultRolloverStrategy max="100" />
         </RollingFile>
     </Appenders>
     <Loggers>
@@ -31,7 +31,7 @@
 <!--    You can also add an appender like '<AppenderRef ref="file-json" />' to the loggers to get both non-json AND json logging. -->
         <Root level="INFO">
             <AppenderRef ref="console" />
-            <AppenderRef ref="file-json" />
+            <AppenderRef ref="file" />
         </Root>
         <Logger name="com.kmwllc.lucille.core.Heartbeat" level="INFO" additivity="false">
             <AppenderRef ref="heartbeat" />
