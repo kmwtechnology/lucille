@@ -68,7 +68,7 @@
     <dependency>
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka-clients</artifactId>
-      <version>3.7.2</version>
+      <version>3.8.1</version>
     </dependency>
     <dependency>
       <groupId>org.apache.curator</groupId>
@@ -347,17 +347,17 @@
     </dependency>
 
     <dependency>
-        <groupId>org.springframework.kafka</groupId>
-        <artifactId>spring-kafka</artifactId>
-        <version>3.2.7</version>
-        <scope>test</scope>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka</artifactId>
+      <version>3.3.3</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
-        <groupId>org.springframework.kafka</groupId>
-        <artifactId>spring-kafka-test</artifactId>
-        <version>3.2.7</version>
-        <scope>test</scope>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka-test</artifactId>
+      <version>3.3.3</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
