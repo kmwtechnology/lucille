@@ -20,15 +20,19 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - name: Run Snyk to check for vulnerabilities
-        uses: snyk/actions/maven-3-jdk-21@master
+      - uses: actions/checkout@v4
+      - name: Set up Snyk CLI to check for security issues
+        # Upload the SAST issues to GitHub Code Scanning
+        uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
+
+      - name: Snyk version
+        run: echo "${{ steps.snyk.outputs.version }}"
+
+        # Runs Snyk Code (SAST) analysis and uploads result into GitHub.
+      - name: Snyk Code test
+        run: snyk code test --sarif > snyk-code.sarif || true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-#        with:
-#          args: --severity-threshold=high
-        with:
-          args: --sarif-file-output=snyk-code.sarif
 
         # Push the Snyk Code results into GitHub Code Scanning tab
       - name: Upload result to GitHub Code Scanning
