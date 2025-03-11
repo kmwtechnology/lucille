@@ -45,6 +45,8 @@ public class HybridKafkaTest {
   private static final String RUN_ID = "run1";
 
   // An embedded instance of Kafka created for each test that is run.
+  // NOTE: Creating an instance of Kafka once allows this test to be a bit faster. It means that you need
+  // to make sure each test has its OWN, UNIQUE topic name.
   @ClassRule
   public static final EmbeddedKafkaRule embeddedKafka = new EmbeddedKafkaRule(1, false, 1).kafkaPorts(9090).zkPort(9091);
 
@@ -396,7 +398,7 @@ public class HybridKafkaTest {
 
   @Test
   public void testSourceTopicWildcard() throws Exception {
-    // sourceTopic: "test_topic.*"
+    // sourceTopic: "test_wildcard_topic.*"
     Config config = ConfigFactory.load("HybridKafkaTest/sourceTopicWildcard.conf");
 
     embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_wildcard_topic1", 1, (short) 1));
@@ -423,7 +425,7 @@ public class HybridKafkaTest {
     sendDoc("doc3", "test_wildcard_topic3");
     sendDoc("doc4", "test_wildcard_topic4");
 
-    // send a second doc to test_topic_wildcard3
+    // send a second doc to test_wildcard_topic3
     sendDoc("doc5", "test_wildcard_topic3");
 
     CounterUtils.waitUnique(idSet, 5, 3 * 60 * 1000, CounterUtils.DEFAULT_END_LAG_MS);

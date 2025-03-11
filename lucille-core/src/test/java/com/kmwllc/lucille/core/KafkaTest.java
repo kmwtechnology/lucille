@@ -12,7 +12,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Before;
-import org.junit.Rule;
+import org.junit.ClassRule;
 import org.junit.Test;
 
 import java.util.List;
@@ -29,8 +29,10 @@ import static org.junit.Assert.assertTrue;
 
 public class KafkaTest {
 
-  @Rule
-  public EmbeddedKafkaRule embeddedKafka = new EmbeddedKafkaRule(1, false, 1).kafkaPorts(9090).zkPort(9091);
+  // This is a class-level Embedded instance of Kafka. If, in the future, additional tests are added here,
+  // it is important that they use unique topic names to avoid conflicts.
+  @ClassRule
+  public static EmbeddedKafkaRule embeddedKafka = new EmbeddedKafkaRule(1, false, 1).kafkaPorts(9090).zkPort(9091);
 
   KafkaTemplate<String, String> template;
 
@@ -69,15 +71,14 @@ public class KafkaTest {
     String pipeline1DestTopicName = KafkaUtils.getDestTopicName("pipeline1");
     String pipeline1EventTopicName = KafkaUtils.getEventTopicName(ConfigFactory.empty(), "pipeline1", result.getRunId());
 
-    // check there are three entries in source + dest
-
+    // check there are three entries in source + dest...
     // Trying to get a record that doesn't exist won't return any results. (we always request one extra record
     // that we won't get / don't expect to be there to ensure the exact amount we want are actually in Kafka.)
     ConsumerRecords<String, String> sourceRecords = template.receive(List.of(
         new TopicPartitionOffset(pipeline1SourceTopicName, 0, 0L),
         new TopicPartitionOffset(pipeline1SourceTopicName, 0, 1L),
         new TopicPartitionOffset(pipeline1SourceTopicName, 0, 2L),
-        new TopicPartitionOffset(pipeline1EventTopicName, 0, 3L)
+        new TopicPartitionOffset(pipeline1SourceTopicName, 0, 3L)
     ));
 
     assertEquals(3, sourceRecords.count());
@@ -86,12 +87,12 @@ public class KafkaTest {
         new TopicPartitionOffset(pipeline1DestTopicName, 0, 0L),
         new TopicPartitionOffset(pipeline1DestTopicName, 0, 1L),
         new TopicPartitionOffset(pipeline1DestTopicName, 0, 2L),
-        new TopicPartitionOffset(pipeline1EventTopicName, 0, 3L)
+        new TopicPartitionOffset(pipeline1DestTopicName, 0, 3L)
     ));
 
     assertEquals(3, destRecords.count());
 
-    // check three entries in event and also run the JSON on it...
+    // check three entries in event topic, and also run the JSON on it...
     ConsumerRecords<String, String> eventRecords = template.receive(List.of(
         new TopicPartitionOffset(pipeline1EventTopicName, 0, 0L),
         new TopicPartitionOffset(pipeline1EventTopicName, 0, 1L),
@@ -101,6 +102,7 @@ public class KafkaTest {
 
     assertEquals(3, eventRecords.count());
 
+    // Getting an actual list of the records from the ConsumerRecords (Collection) object returned by the template.
     List<ConsumerRecord<String, String>> eventRecordsList = eventRecords.records(new TopicPartition(pipeline1EventTopicName, 0));
 
     Event event0 = Event.fromJsonString(eventRecordsList.get(0).value());
@@ -135,8 +137,6 @@ public class KafkaTest {
     List<ConsumerRecord<String, String>> destRecordsList = destRecords.records(new TopicPartition(pipeline2DestTopicName, 0));
 
     // verify that the document was properly written to the destination topic
-    System.out.println(destRecordsList.get(0));
-    System.out.println(destRecordsList.get(0).value());
     Document doc = Document.createFromJson(destRecordsList.get(0).value());
     assertEquals("2", doc.getId());
     assertEquals("apple", doc.getString("field1"));
