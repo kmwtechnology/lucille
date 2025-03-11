@@ -24,15 +24,18 @@ jobs:
       - name: Set up Snyk CLI to check for security issues
         # Upload the SAST issues to GitHub Code Scanning
         uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Snyk version
         run: snyk version
 
+#      - name: Authorize Snyk
+#        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+
         # Runs Snyk Code (SAST) analysis and uploads result into GitHub.
       - name: Snyk Code test
-        run: snyk test --sarif |& tee snyk-code.sarif || true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: SNYK_TOKEN=${{ secrets.SNYK_TOKEN }} snyk test --sarif |& tee snyk-code.sarif || true
 
         # Push the Snyk Code results into GitHub Code Scanning tab
       - name: Upload result to GitHub Code Scanning
