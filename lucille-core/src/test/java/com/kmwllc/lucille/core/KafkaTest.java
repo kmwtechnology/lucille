@@ -34,7 +34,7 @@ public class KafkaTest {
   @ClassRule
   public static EmbeddedKafkaRule embeddedKafka = new EmbeddedKafkaRule(1, false, 1).kafkaPorts(9090).zkPort(9091);
 
-  KafkaTemplate<String, String> template;
+  private KafkaTemplate<String, String> template;
 
   @Before
   public void setUp() {
