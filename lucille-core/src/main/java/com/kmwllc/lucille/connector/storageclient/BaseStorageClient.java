@@ -38,7 +38,7 @@ public abstract class BaseStorageClient implements StorageClient {
   private static final Logger log = LoggerFactory.getLogger(BaseStorageClient.class);
 
   protected final Config config;
-  protected final Map<String, FileHandler> fileHandlers;
+  protected Map<String, FileHandler> fileHandlers;
   protected final int maxNumOfPages;
 
   private boolean initialized = false;
@@ -94,10 +94,10 @@ public abstract class BaseStorageClient implements StorageClient {
     }
 
     try {
-      FileHandler.populateFromConfig(fileHandlers, params.getFileOptions());
+      this.fileHandlers = FileHandler.createFromConfig(params.getFileOptions());
       traverseStorageClient(publisher, params);
     } finally {
-      clearFileHandlers();
+      fileHandlers = null;
     }
   }
 
@@ -390,15 +390,6 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   protected String getBucketOrContainerName(TraversalParams params) {
     return params.getBucketOrContainerName();
-  }
-
-  /**
-   * clear all file handlers if any. Should be called in the shutdown method
-   */
-  protected void clearFileHandlers() {
-    if (fileHandlers != null) {
-      fileHandlers.clear();
-    }
   }
 
   /**

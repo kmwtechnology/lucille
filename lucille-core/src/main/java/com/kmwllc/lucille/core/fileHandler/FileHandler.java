@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -59,16 +60,21 @@ public interface FileHandler {
   }
 
   /**
-   * Populates the given map, mapping file extension Strings to FileHandlers. File Handlers are created based on the given
-   * config.
+   * Returns a Map from the given Config, creating FileHandlers that can be constructed from the given config, mapped
+   * to their corresponding file extensions. If json is included, jsonl will be as well (and vice versa).
+   * The returned map is not modifiable.
    */
-  static void populateFromConfig(Map<String, FileHandler> map, Config optionsWithHandlers) {
+  static Map<String, FileHandler> createFromConfig(Config optionsWithHandlers) {
+    Map<String, FileHandler> handlerMap = new HashMap<>();
+
     for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
       if (supportAndContainFileType(fileExtensionSupported, optionsWithHandlers)) {
         FileHandler handler = FileHandler.create(fileExtensionSupported, optionsWithHandlers);
-        map.put(fileExtensionSupported, handler);
+        handlerMap.put(fileExtensionSupported, handler);
       }
     }
+
+    return Collections.unmodifiableMap(handlerMap);
   }
 
   /**

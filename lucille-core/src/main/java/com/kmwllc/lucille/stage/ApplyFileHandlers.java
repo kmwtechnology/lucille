@@ -11,7 +11,6 @@ import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import org.apache.commons.io.FilenameUtils;
@@ -49,7 +48,8 @@ public class ApplyFileHandlers extends Stage {
   private final String filePathField;
   private final String fileContentField;
   private final FileContentFetcher fileFetcher;
-  private final Map<String, FileHandler> fileHandlers;
+
+  private Map<String, FileHandler> fileHandlers;
 
   public ApplyFileHandlers(Config config) {
     super(config, new StageSpec()
@@ -65,20 +65,13 @@ public class ApplyFileHandlers extends Stage {
     this.fileContentField = ConfigUtils.getOrDefault(config, "fileContentField", "file_content");
 
     this.fileFetcher = new FileContentFetcher(config);
-    this.fileHandlers = new HashMap<>();
   }
 
   @Override
   public void start() throws StageException {
-    FileHandler.populateFromConfig(fileHandlers, handlerOptions);
-
+    this.fileHandlers = FileHandler.createFromConfig(handlerOptions);
     if (fileHandlers.isEmpty()) {
       throw new StageException("No file handlers could be created from the given handlerOptions.");
-    }
-
-    // point json and jsonl to the same file handler (JSONFileHandler). Only json - not jsonl - is specified in handlerOptions.
-    if (fileHandlers.containsKey("json")) {
-      fileHandlers.put("jsonl", fileHandlers.get("json"));
     }
 
     try {
