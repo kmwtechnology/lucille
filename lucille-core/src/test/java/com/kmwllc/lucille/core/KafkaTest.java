@@ -4,6 +4,7 @@ import com.kmwllc.lucille.message.KafkaUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.Map;
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -35,6 +36,7 @@ public class KafkaTest {
   public static EmbeddedKafkaRule embeddedKafka = new EmbeddedKafkaRule(1, false, 1).kafkaPorts(9090).zkPort(9091);
 
   private KafkaTemplate<String, String> template;
+  private Consumer<String, String> consumer;
 
   @Before
   public void setUp() {
@@ -47,12 +49,13 @@ public class KafkaTest {
         new DefaultKafkaProducerFactory<>(producerProps);
     template = new KafkaTemplate<>(pf);
 
-    Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("lucille_workers", "false", embeddedKafka.getEmbeddedKafka());
+    Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("lucille_workersss", "false", embeddedKafka.getEmbeddedKafka());
     consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
 
     DefaultKafkaConsumerFactory<String, String> cf = new DefaultKafkaConsumerFactory<>(consumerProps);
     template.setConsumerFactory(cf);
+    consumer = cf.createConsumer();
   }
 
   @Test
@@ -71,43 +74,26 @@ public class KafkaTest {
     String pipeline1DestTopicName = KafkaUtils.getDestTopicName("pipeline1");
     String pipeline1EventTopicName = KafkaUtils.getEventTopicName(ConfigFactory.empty(), "pipeline1", result.getRunId());
 
+    consumer.subscribe(List.of(pipeline1SourceTopicName, pipeline1DestTopicName, pipeline1EventTopicName));
+    ConsumerRecords<String, String> pipeline1Records = KafkaTestUtils.getRecords(consumer);
+
+    List<ConsumerRecord<String, String>> pipeline1SourceRecords = pipeline1Records.records(new TopicPartition(pipeline1SourceTopicName, 0));
+    assertEquals(3, pipeline1SourceRecords.size());
+
+    List<ConsumerRecord<String, String>> pipeline1DestRecords = pipeline1Records.records(new TopicPartition(pipeline1DestTopicName, 0));
+    assertEquals(3, pipeline1DestRecords.size());
+
+    List<ConsumerRecord<String, String>> pipeline1EventRecords = pipeline1Records.records(new TopicPartition(pipeline1EventTopicName, 0));
+    assertEquals(3, pipeline1EventRecords.size());
+
     // check there are three entries in source + dest...
     // Trying to get a record that doesn't exist won't return any results. (we always request one extra record
     // that we won't get / don't expect to be there to ensure the exact amount we want are actually in Kafka.)
-    ConsumerRecords<String, String> sourceRecords = template.receive(List.of(
-        new TopicPartitionOffset(pipeline1SourceTopicName, 0, 0L),
-        new TopicPartitionOffset(pipeline1SourceTopicName, 0, 1L),
-        new TopicPartitionOffset(pipeline1SourceTopicName, 0, 2L),
-        new TopicPartitionOffset(pipeline1SourceTopicName, 0, 3L)
-    ));
-
-    assertEquals(3, sourceRecords.count());
-
-    ConsumerRecords<String, String> destRecords = template.receive(List.of(
-        new TopicPartitionOffset(pipeline1DestTopicName, 0, 0L),
-        new TopicPartitionOffset(pipeline1DestTopicName, 0, 1L),
-        new TopicPartitionOffset(pipeline1DestTopicName, 0, 2L),
-        new TopicPartitionOffset(pipeline1DestTopicName, 0, 3L)
-    ));
-
-    assertEquals(3, destRecords.count());
-
-    // check three entries in event topic, and also run the JSON on it...
-    ConsumerRecords<String, String> eventRecords = template.receive(List.of(
-        new TopicPartitionOffset(pipeline1EventTopicName, 0, 0L),
-        new TopicPartitionOffset(pipeline1EventTopicName, 0, 1L),
-        new TopicPartitionOffset(pipeline1EventTopicName, 0, 2L),
-        new TopicPartitionOffset(pipeline1EventTopicName, 0, 3L)
-    ));
-
-    assertEquals(3, eventRecords.count());
-
     // Getting an actual list of the records from the ConsumerRecords (Collection) object returned by the template.
-    List<ConsumerRecord<String, String>> eventRecordsList = eventRecords.records(new TopicPartition(pipeline1EventTopicName, 0));
 
-    Event event0 = Event.fromJsonString(eventRecordsList.get(0).value());
-    Event event1 = Event.fromJsonString(eventRecordsList.get(1).value());
-    Event event2 = Event.fromJsonString(eventRecordsList.get(2).value());
+    Event event0 = Event.fromJsonString(pipeline1EventRecords.get(0).value());
+    Event event1 = Event.fromJsonString(pipeline1EventRecords.get(1).value());
+    Event event2 = Event.fromJsonString(pipeline1EventRecords.get(2).value());
     // in local kafka mode (or fully distributed kafka mode) as opposed to hybrid mode,
     // completion events will contain kafka metadata taken from messages found on the destination topic,
     // not the source topic, because that's where the indexer consumes from
@@ -121,32 +107,25 @@ public class KafkaTest {
     // connector2 will feed 1 documents to pipeline1, so there should be 1 messages in each of
     // the source, dest, and event topics after the run is complete
     String pipeline2SourceTopicName = KafkaUtils.getSourceTopicName("pipeline2", ConfigFactory.empty());
-    sourceRecords = template.receive(List.of(
-        new TopicPartitionOffset(pipeline2SourceTopicName, 0, 0L),
-        new TopicPartitionOffset(pipeline2SourceTopicName, 0, 1L)
-    ));
-    assertEquals(1, sourceRecords.count());
-
     String pipeline2DestTopicName = KafkaUtils.getDestTopicName("pipeline2");
-    destRecords = template.receive(List.of(
-        new TopicPartitionOffset(pipeline2DestTopicName, 0, 0L),
-        new TopicPartitionOffset(pipeline2DestTopicName, 0, 1L)
-    ));
-    assertEquals(1, destRecords.count());
+    String pipeline2EventTopicName = KafkaUtils.getEventTopicName(ConfigFactory.empty(), "pipeline2", result.getRunId());
 
-    List<ConsumerRecord<String, String>> destRecordsList = destRecords.records(new TopicPartition(pipeline2DestTopicName, 0));
+    consumer.subscribe(List.of(pipeline2SourceTopicName, pipeline2DestTopicName, pipeline2EventTopicName));
+    ConsumerRecords<String, String> pipeline2Records = KafkaTestUtils.getRecords(consumer);
+
+    List<ConsumerRecord<String, String>> pipeline2SourceRecords = pipeline2Records.records(new TopicPartition(pipeline2SourceTopicName, 0));
+    assertEquals(1, pipeline2SourceRecords.size());
+
+    List<ConsumerRecord<String, String>> pipeline2DestRecords = pipeline2Records.records(new TopicPartition(pipeline2DestTopicName, 0));
+    assertEquals(1, pipeline2DestRecords.size());
+
+    List<ConsumerRecord<String, String>> pipeline2EventRecords = pipeline2Records.records(new TopicPartition(pipeline2EventTopicName, 0));
+    assertEquals(1, pipeline2EventRecords.size());
 
     // verify that the document was properly written to the destination topic
-    Document doc = Document.createFromJson(destRecordsList.get(0).value());
+    Document doc = Document.createFromJson(pipeline2DestRecords.get(0).value());
     assertEquals("2", doc.getId());
     assertEquals("apple", doc.getString("field1"));
-
-    String pipeline2EventTopicName = KafkaUtils.getEventTopicName(ConfigFactory.empty(), "pipeline2", result.getRunId());
-    eventRecords = template.receive(List.of(
-        new TopicPartitionOffset(pipeline2EventTopicName, 0, 0L),
-        new TopicPartitionOffset(pipeline2EventTopicName, 0, 1L)
-    ));
-    assertEquals(1, eventRecords.count());
   }
 
 }
