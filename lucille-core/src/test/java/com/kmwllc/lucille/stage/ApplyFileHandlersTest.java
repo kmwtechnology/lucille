@@ -25,14 +25,16 @@ public class ApplyFileHandlersTest {
 
   private final StageFactory factory = StageFactory.of(ApplyFileHandlers.class);
 
-  Path testCsvPath = Paths.get("src/test/resources/ApplyFileHandlersTest/test.csv");
-  Path testJsonlPath = Paths.get("src/test/resources/ApplyFileHandlersTest/test.jsonl");
-  Path testFaultyCsvPath = Paths.get("src/test/resources/ApplyFileHandlersTest/faulty.csv");
+  private final Path testCsvPath = Paths.get("src/test/resources/ApplyFileHandlersTest/test.csv");
+  private final Path testJsonlPath = Paths.get("src/test/resources/ApplyFileHandlersTest/test.jsonl");
+  private final Path testFaultyCsvPath = Paths.get("src/test/resources/ApplyFileHandlersTest/faulty.csv");
 
-  byte[] testCsvContents = Files.readAllBytes(testCsvPath);
+  private final byte[] testCsvContents;
 
   // IOException so we can read all bytes above.
-  public ApplyFileHandlersTest() throws IOException { }
+  public ApplyFileHandlersTest() throws IOException {
+    testCsvContents = Files.readAllBytes(testCsvPath);
+  }
 
   @Test
   public void testApplyFileHandlersCSV() throws StageException {
