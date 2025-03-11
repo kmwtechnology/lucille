@@ -126,8 +126,11 @@ public class HybridKafkaTest {
 
   @Test
   public void testRunInKafkaHybridModeWithEvents() throws Exception {
+    // this config has "kafka.events: true"
     Config config = ConfigFactory.load("HybridKafkaTest/childrenConfigWithEvents.conf");
     String topicName = config.getString("kafka.sourceTopic");
+
+    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic(topicName, 1, (short) 1));
 
     sendDoc("doc1", RUN_ID, topicName);
 
