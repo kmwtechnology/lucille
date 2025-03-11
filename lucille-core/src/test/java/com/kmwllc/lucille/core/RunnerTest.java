@@ -430,6 +430,10 @@ public class RunnerTest {
     result =
         Runner.run(ConfigFactory.load("RunnerTest/threeConnectorsWithFailure.conf"), Runner.RunType.TEST);
     assertFalse(result.getStatus());
+    
+    // should have a message
+    assertNotNull(result.getMessage());
+    
   }
 
   /**
