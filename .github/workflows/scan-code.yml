@@ -30,12 +30,12 @@ jobs:
       - name: Snyk version
         run: snyk version
 
-#      - name: Authorize Snyk
-#        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+      - name: Authorize Snyk
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
 
         # Runs Snyk Code (SAST) analysis and uploads result into GitHub.
       - name: Snyk Code test
-        run: SNYK_TOKEN=${{ secrets.SNYK_TOKEN }} snyk test --sarif |& tee snyk-code.sarif || true
+        run: snyk test --sarif |& tee snyk-code.sarif || true
 
         # Push the Snyk Code results into GitHub Code Scanning tab
       - name: Upload result to GitHub Code Scanning
