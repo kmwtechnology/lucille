@@ -1,7 +1,5 @@
 package com.kmwllc.lucille.stage;
 
-import static com.kmwllc.lucille.core.fileHandler.FileHandler.SUPPORTED_FILE_TYPES;
-
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -46,7 +44,6 @@ import org.apache.commons.io.FilenameUtils;
  *
  */
 public class ApplyFileHandlers extends Stage {
-
   private final Config handlerOptions;
 
   private final String filePathField;
@@ -60,7 +57,6 @@ public class ApplyFileHandlers extends Stage {
         .withOptionalProperties("filePathField", "fileContentField"));
 
     this.handlerOptions = config.getConfig("handlerOptions");
-
     if (handlerOptions.isEmpty()) {
       throw new IllegalArgumentException("Must specify at least one file handler.");
     }
@@ -74,12 +70,7 @@ public class ApplyFileHandlers extends Stage {
 
   @Override
   public void start() throws StageException {
-    for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
-      if (handlerOptions.hasPath(fileExtensionSupported)) {
-        FileHandler handler = FileHandler.create(fileExtensionSupported, handlerOptions);
-        fileHandlers.put(fileExtensionSupported, handler);
-      }
-    }
+    FileHandler.populateFromConfig(fileHandlers, handlerOptions);
 
     if (fileHandlers.isEmpty()) {
       throw new StageException("No file handlers could be created from the given handlerOptions.");

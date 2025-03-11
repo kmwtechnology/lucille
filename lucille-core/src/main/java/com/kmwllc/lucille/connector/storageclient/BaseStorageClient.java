@@ -6,7 +6,6 @@ import static com.kmwllc.lucille.connector.FileConnector.MAX_NUM_OF_PAGES;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
-import static com.kmwllc.lucille.core.fileHandler.FileHandler.SUPPORTED_FILE_TYPES;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -95,7 +94,7 @@ public abstract class BaseStorageClient implements StorageClient {
     }
 
     try {
-      initializeFileHandlers(params);
+      FileHandler.populateFromConfig(fileHandlers, params.getFileOptions());
       traverseStorageClient(publisher, params);
     } finally {
       clearFileHandlers();
@@ -391,29 +390,6 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   protected String getBucketOrContainerName(TraversalParams params) {
     return params.getBucketOrContainerName();
-  }
-
-
-  /**
-   * helper method to initialize all file handlers based on the fileOptions
-   */
-  protected void initializeFileHandlers(TraversalParams params) throws ConnectorException {
-    // go through fileOptions, and initialize all file handlers
-    for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
-      if (params.optionsIncludeFileExtension(fileExtensionSupported)) {
-        try {
-          FileHandler handler = FileHandler.create(fileExtensionSupported, params.getFileOptions());
-          fileHandlers.put(fileExtensionSupported, handler);
-          // handle cases like json/jsonl
-          if (fileExtensionSupported.equals("json") || fileExtensionSupported.equals("jsonl")) {
-            fileHandlers.put("json", handler);
-            fileHandlers.put("jsonl", handler);
-          }
-        } catch (Exception e) {
-          throw new ConnectorException("Error occurred while putting in file handler for file extension: " + fileExtensionSupported, e);
-        }
-      }
-    }
   }
 
   /**

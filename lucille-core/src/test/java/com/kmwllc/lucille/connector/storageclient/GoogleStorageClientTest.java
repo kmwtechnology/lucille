@@ -211,8 +211,11 @@ public class GoogleStorageClientTest {
 
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
       FileHandler jsonFileHandler = mock(JsonFileHandler.class);
-      mockFileHandler.when(() -> FileHandler.create(any(), any()))
-          .thenReturn(jsonFileHandler);
+      mockFileHandler.when(() -> FileHandler.populateFromConfig(any(), any())).thenAnswer(invocationOnMock -> {
+        Map<String, FileHandler> providedMap = invocationOnMock.getArgument(0);
+        providedMap.put("json", jsonFileHandler);
+        return null;
+      });
       mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(false).thenReturn(true); // .json, then object3, then .json
 

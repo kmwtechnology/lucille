@@ -4,7 +4,9 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -53,6 +55,19 @@ public interface FileHandler {
         return new XMLFileHandler(xmlConfig);
       }
       default -> throw new UnsupportedOperationException("Unsupported file type: " + fileExtension);
+    }
+  }
+
+  /**
+   * Populates the given map, mapping file extension Strings to FileHandlers. File Handlers are created based on the given
+   * config.
+   */
+  static void populateFromConfig(Map<String, FileHandler> map, Config optionsWithHandlers) {
+    for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
+      if (supportAndContainFileType(fileExtensionSupported, optionsWithHandlers)) {
+        FileHandler handler = FileHandler.create(fileExtensionSupported, optionsWithHandlers);
+        map.put(fileExtensionSupported, handler);
+      }
     }
   }
 
