@@ -180,7 +180,7 @@ public class LocalStorageClient extends BaseStorageClient {
       Path fullPath = file.toAbsolutePath().normalize();
       String fullPathStr = fullPath.toString();
       String fileExtension = FilenameUtils.getExtension(fullPathStr);
-      tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(fullPath), params);
+      tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(fullPath, attrs.lastModifiedTime().toInstant()), params);
       return FileVisitResult.CONTINUE;
     }
 
