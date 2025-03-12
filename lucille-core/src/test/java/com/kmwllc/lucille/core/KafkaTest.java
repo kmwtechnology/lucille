@@ -33,7 +33,7 @@ public class KafkaTest {
 
   @Before
   public void setUp() {
-    Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("lucille_workersss", "false", embeddedKafka.getEmbeddedKafka());
+    Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("alternate_group", "false", embeddedKafka.getEmbeddedKafka());
     consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
 
