@@ -563,14 +563,25 @@ public class RunnerTest {
   }
 
   /**
-   * If a connector sets a custom message, the message should be included in the run summary.
+   * If a connector sets a custom message, the message should be included in the run summary, toString version.
+   */
+  @Test
+  public void testCustomRunSummaryToString() throws Exception {
+    RunResult result =
+        Runner.run(ConfigFactory.load("RunnerTest/runSummaryMessage.conf"), Runner.RunType.TEST);
+    assertTrue(result.toString().contains(RunSummaryMessageConnector.MESSAGE));
+  }
+
+  /**
+   * If a connector sets a custom message, the message should be included in the run summary getMessage version.
    */
   @Test
   public void testCustomRunSummaryMessage() throws Exception {
     RunResult result =
         Runner.run(ConfigFactory.load("RunnerTest/runSummaryMessage.conf"), Runner.RunType.TEST);
-    assertTrue(result.toString().contains(RunSummaryMessageConnector.MESSAGE));
+    assertTrue(result.getMessage().contains(RunSummaryMessageConnector.MESSAGE));
   }
+
 
   @Test
   public void testPublisherException() throws Exception {
