@@ -99,10 +99,14 @@ public class HybridKafkaTest {
     sendDoc("doc2", topicName);
     sendDoc("doc3", topicName);
 
+    // 9 docs should be indexed: three parents with two children each
     CounterUtils.waitUnique(idSet, 9);
 
     workerIndexer.stop();
 
+    // confirm that the consumer group is looking at offset 3 in the source topic,
+    // indicating it has consumed 3 documents (at offsets 0, 1, 2) and that offsets
+    // have been properly committed
     Properties props = new Properties();
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     Admin kafkaAdminClient = Admin.create(props);
