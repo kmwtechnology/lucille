@@ -2,7 +2,6 @@ package com.kmwllc.lucille.core;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -13,6 +12,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -20,10 +20,13 @@ import java.util.concurrent.LinkedBlockingQueue;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
@@ -35,7 +38,6 @@ import org.junit.Test;
 
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.test.rule.EmbeddedKafkaRule;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
@@ -44,13 +46,14 @@ public class HybridKafkaTest {
 
   private static final String RUN_ID = "run1";
 
-  // An embedded instance of Kafka created for each test that is run.
-  // NOTE: Creating an instance of Kafka once allows this test to be a bit faster. It means that you need
-  // to make sure each test has its OWN, UNIQUE topic name.
+  // An embedded instance of Kafka is created for this test class -- not for each test. This allowed the test to run
+  // ~10 seconds faster. As such, you need to make sure each test has its OWN, UNIQUE topic name, to prevent interference.
+  // A fresh producer / consumer is exposed for each test, however.
   @ClassRule
   public static final EmbeddedKafkaRule embeddedKafka = new EmbeddedKafkaRule(1, false, 1).kafkaPorts(9090).zkPort(9091);
 
-  private KafkaTemplate<String, String> template;
+  private Producer<String, String> producer;
+  private Consumer<String, String> consumer;
 
   @Before
   public void setUp() {
@@ -61,14 +64,14 @@ public class HybridKafkaTest {
 
     ProducerFactory<String, String> pf =
         new DefaultKafkaProducerFactory<>(producerProps);
-    template = new KafkaTemplate<>(pf);
+    producer = pf.createProducer();
 
-    Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("lucille_workers", "false", embeddedKafka.getEmbeddedKafka());
+    Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("alternate_group", "false", embeddedKafka.getEmbeddedKafka());
     consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
 
     DefaultKafkaConsumerFactory<String, String> cf = new DefaultKafkaConsumerFactory<>(consumerProps);
-    template.setConsumerFactory(cf);
+    consumer = cf.createConsumer();
   }
 
   @Test
@@ -149,10 +152,11 @@ public class HybridKafkaTest {
     workerIndexer.stop();
 
     String eventTopicName = KafkaUtils.getEventTopicName(config, "pipeline1", RUN_ID);
+    consumer.subscribe(List.of(eventTopicName));
+    ConsumerRecords<String, String> eventRecords = KafkaTestUtils.getRecords(consumer);
 
-    ConsumerRecord<String, String> record15 = template.receive(eventTopicName, 0, 14);
-    // checking that there are only 15 documents. docs 0 - 14 exist, 15 doesn't.
-    assertNull(template.receive(eventTopicName, 0, 15));
+    assertEquals(15, eventRecords.count());
+    ConsumerRecord<String, String> record15 = eventRecords.records(new TopicPartition(eventTopicName, 0)).get(14);
 
     // the last event should be the indexing event for doc3 (which should be indexed after its children);
     // in hybrid mode, indexing events should have kafka metadata from the source topic as there
@@ -329,7 +333,7 @@ public class HybridKafkaTest {
     // we expect the custom deserializer to copy myId to id
     String outputJson = "{\"myId\":\"doc1\",\"field1\":\"value1\",\"id\":\"doc1\"}";
 
-    template.send(new ProducerRecord<>(topicName, "doc1", inputJson));
+    producer.send(new ProducerRecord<>(topicName, "doc1", inputJson));
 
     WorkerIndexer workerIndexer = new WorkerIndexer();
 
@@ -490,7 +494,7 @@ public class HybridKafkaTest {
   private Document sendDoc(String id, String runId, String topic) {
     Document doc = (runId == null) ? Document.create(id) : Document.create(id, runId);
     ProducerRecord<String, String> record = new ProducerRecord<>(topic, id, doc.toString());
-    template.send(record);
+    producer.send(record);
     return doc;
   }
 }

@@ -8,20 +8,14 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 
 import java.util.List;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.core.DefaultKafkaProducerFactory;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.core.ProducerFactory;
-import org.springframework.kafka.support.TopicPartitionOffset;
 import org.springframework.kafka.test.rule.EmbeddedKafkaRule;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 
@@ -35,26 +29,15 @@ public class KafkaTest {
   @ClassRule
   public static EmbeddedKafkaRule embeddedKafka = new EmbeddedKafkaRule(1, false, 1).kafkaPorts(9090).zkPort(9091);
 
-  private KafkaTemplate<String, String> template;
   private Consumer<String, String> consumer;
 
   @Before
   public void setUp() {
-    Map<String, Object> producerProps =
-        KafkaTestUtils.producerProps(embeddedKafka.getEmbeddedKafka());
-    producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-    producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-
-    ProducerFactory<String, String> pf =
-        new DefaultKafkaProducerFactory<>(producerProps);
-    template = new KafkaTemplate<>(pf);
-
     Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("lucille_workersss", "false", embeddedKafka.getEmbeddedKafka());
     consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
 
     DefaultKafkaConsumerFactory<String, String> cf = new DefaultKafkaConsumerFactory<>(consumerProps);
-    template.setConsumerFactory(cf);
     consumer = cf.createConsumer();
   }
 
@@ -74,6 +57,7 @@ public class KafkaTest {
     String pipeline1DestTopicName = KafkaUtils.getDestTopicName("pipeline1");
     String pipeline1EventTopicName = KafkaUtils.getEventTopicName(ConfigFactory.empty(), "pipeline1", result.getRunId());
 
+    // Using our own consumer to subscribe to the topics and get the records.
     consumer.subscribe(List.of(pipeline1SourceTopicName, pipeline1DestTopicName, pipeline1EventTopicName));
     ConsumerRecords<String, String> pipeline1Records = KafkaTestUtils.getRecords(consumer);
 
@@ -85,11 +69,6 @@ public class KafkaTest {
 
     List<ConsumerRecord<String, String>> pipeline1EventRecords = pipeline1Records.records(new TopicPartition(pipeline1EventTopicName, 0));
     assertEquals(3, pipeline1EventRecords.size());
-
-    // check there are three entries in source + dest...
-    // Trying to get a record that doesn't exist won't return any results. (we always request one extra record
-    // that we won't get / don't expect to be there to ensure the exact amount we want are actually in Kafka.)
-    // Getting an actual list of the records from the ConsumerRecords (Collection) object returned by the template.
 
     Event event0 = Event.fromJsonString(pipeline1EventRecords.get(0).value());
     Event event1 = Event.fromJsonString(pipeline1EventRecords.get(1).value());
