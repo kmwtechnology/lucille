@@ -54,14 +54,6 @@ public class TraversalParams {
   }
 
   /**
-   * Returns whether the fileOptions associated with these params include the given file extension, meaning an attempt
-   * should be made to build a FileHandler for the given extension.
-   */
-  public boolean optionsIncludeFileExtension(String fileExtension) {
-    return getFileOptions().hasPath(fileExtension);
-  }
-
-  /**
    * Returns whether a file with the given extension is supported, as per these TraversalParams. Handles the nuance
    * of json supporting jsonl and vice versa.
    */
