@@ -234,12 +234,6 @@
         <groupId>org.apache.solr</groupId>
         <artifactId>solr-solrj-zookeeper</artifactId>
         <version>${solr.version}</version>
-        <exclusions>
-          <exclusion>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-handler</artifactId>
-          </exclusion>
-        </exclusions>
     </dependency>
 
     <dependency>
@@ -290,7 +284,7 @@
     <dependency>
         <groupId>com.azure</groupId>
         <artifactId>azure-storage-blob</artifactId>
-        <version>12.28.1</version>
+        <version>12.29.1</version>
     </dependency>
 
     <dependency>
@@ -378,12 +372,6 @@
       <version>2.4.0</version>
     </dependency>
 
-    <!-- Upgrade transitive dependency netty-hander for CVE from solr-solrj-zookeeper -->
-    <dependency>
-        <groupId>io.netty</groupId>
-        <artifactId>netty-handler</artifactId>
-        <version>4.1.119.Final</version>
-    </dependency>
   </dependencies>
 
 
