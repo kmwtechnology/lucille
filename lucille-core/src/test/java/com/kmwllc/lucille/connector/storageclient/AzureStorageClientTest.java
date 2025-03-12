@@ -48,7 +48,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -97,7 +96,7 @@ public class AzureStorageClientTest {
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.empty());
+        ConfigFactory.empty(), ConfigFactory.empty());
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
@@ -154,7 +153,7 @@ public class AzureStorageClientTest {
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)));
+        ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)), ConfigFactory.empty());
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -195,8 +194,9 @@ public class AzureStorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
+    Map<String, Object> filterOptionsMap = Map.of("excludes", List.of("blob3", "blob4"));
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(Pattern.compile("blob3"), Pattern.compile("blob4")), ConfigFactory.empty());
+        ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -237,7 +237,7 @@ public class AzureStorageClientTest {
     // azure storage client that handles json files
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of("json", Map.of(), GET_FILE_CONTENT, false)));
+        ConfigFactory.parseMap(Map.of("json", Map.of(), GET_FILE_CONTENT, false)), ConfigFactory.empty());
 
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
@@ -279,14 +279,14 @@ public class AzureStorageClientTest {
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(
-        Map.of(
-            "csv", Map.of(),
-            "json", Map.of(),
-            "handleArchivedFiles", true,
-            "handleCompressedFiles", true
-        )
-    ));
+        ConfigFactory.parseMap(
+            Map.of(
+                "csv", Map.of(),
+                "json", Map.of(),
+                "handleArchivedFiles", true,
+                "handleCompressedFiles", true
+            )),
+        ConfigFactory.empty());
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -400,12 +400,12 @@ public class AzureStorageClientTest {
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(
-        Map.of(
-            "moveToAfterProcessing", "https://storagename.blob.core.windows.net/folder/processed",
-            "moveToErrorFolder", "https://storagename.blob.core.windows.net/folder/error"
-        )
-    ));
+        ConfigFactory.parseMap(
+            Map.of(
+                "moveToAfterProcessing", "https://storagename.blob.core.windows.net/folder/processed",
+                "moveToErrorFolder", "https://storagename.blob.core.windows.net/folder/error"
+            )),
+        ConfigFactory.empty());
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);

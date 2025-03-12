@@ -59,8 +59,7 @@ public class GoogleStorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-", ConfigFactory.empty(), ConfigFactory.empty());
 
     BlobId blobId = BlobId.of("bucket", "my-object");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
@@ -122,8 +121,7 @@ public class GoogleStorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)));
+    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-", ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)), ConfigFactory.empty());
 
     BlobId blobId = BlobId.of("bucket", "my-object");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
@@ -149,8 +147,8 @@ public class GoogleStorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of());
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-",
-        List.of(), List.of(Pattern.compile("my-object2"), Pattern.compile("my-object3")), ConfigFactory.empty());
+    Map<String, Object> filterOptionsMap = Map.of("excludes", List.of("my-object2", "my-object3"));
+    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-", ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
 
     BlobId blobId = BlobId.of("bucket", "my-object");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
@@ -205,8 +203,7 @@ public class GoogleStorageClientTest {
 
     // google storage client
     GoogleStorageClient gStorageClient = new GoogleStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of("json", Map.of())));
+    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-", ConfigFactory.parseMap(Map.of("json", Map.of())), ConfigFactory.empty());
     gStorageClient.setStorageForTesting(storage);
 
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
@@ -239,14 +236,14 @@ public class GoogleStorageClientTest {
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
 
     TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(
-        Map.of(
-            "json", Map.of(),
-            "csv", Map.of(),
-            "handleArchivedFiles", true,
-            "handleCompressedFiles", true
-        )
-    ));
+        ConfigFactory.parseMap(
+            Map.of(
+                "json", Map.of(),
+                "csv", Map.of(),
+                "handleArchivedFiles", true,
+                "handleCompressedFiles", true
+            )
+        ), ConfigFactory.empty());
 
     Map<String, byte[]> fileContents = readAllFilesAsBytesWithMap("src/test/resources/StorageClientTest/testCompressedAndArchived");
 
@@ -364,12 +361,12 @@ public class GoogleStorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(
-        Map.of(
-            "moveToAfterProcessing", "gs://bucket/processed",
-            "moveToErrorFolder", "gs://bucket/error"
-        )
-    ));
+        ConfigFactory.parseMap(
+            Map.of(
+                "moveToAfterProcessing", "gs://bucket/processed",
+                "moveToErrorFolder", "gs://bucket/error"
+            )
+        ), ConfigFactory.empty());
 
 
     BlobId blobId = BlobId.of("bucket", "my-object");

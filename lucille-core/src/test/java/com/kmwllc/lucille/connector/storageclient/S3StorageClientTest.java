@@ -40,7 +40,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -87,7 +86,7 @@ public class S3StorageClientTest {
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.empty());
+        ConfigFactory.empty(), ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -146,9 +145,9 @@ public class S3StorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
+    Map<String, Object> filterOptionsMap = Map.of("excludes", List.of("obj3", "obj4"));
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        List.of(), List.of(Pattern.compile("obj3"), Pattern.compile("obj4")), ConfigFactory.empty());
-
+        ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -188,7 +187,7 @@ public class S3StorageClientTest {
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)));
+        ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)), ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -225,7 +224,7 @@ public class S3StorageClientTest {
     // storage client with json file handler
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of("json", Map.of())));
+        ConfigFactory.parseMap(Map.of("json", Map.of())), ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -267,11 +266,12 @@ public class S3StorageClientTest {
     // storage client with json file handler
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of(
-        "json", Map.of(),
-        "csv", Map.of(),
-        "handleArchivedFiles", true,
-        "handleCompressedFiles", true)));
+        ConfigFactory.parseMap(Map.of(
+            "json", Map.of(),
+            "csv", Map.of(),
+            "handleArchivedFiles", true,
+            "handleCompressedFiles", true)),
+        ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -373,9 +373,10 @@ public class S3StorageClientTest {
     // simulate a proper s3StorageClient with valid files
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of(
-        "moveToAfterProcessing", "s3://bucket/Processed",
-        "moveToErrorFolder", "s3://bucket/Error")));
+        ConfigFactory.parseMap(Map.of(
+            "moveToAfterProcessing", "s3://bucket/Processed",
+            "moveToErrorFolder", "s3://bucket/Error")),
+        ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);

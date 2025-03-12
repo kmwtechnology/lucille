@@ -21,7 +21,6 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -33,7 +32,7 @@ public class LocalStorageClientTest {
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_", List.of(), List.of(), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_", ConfigFactory.empty(), ConfigFactory.empty());
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
 
@@ -67,7 +66,11 @@ public class LocalStorageClientTest {
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_", List.of(Pattern.compile(".*[a-c]\\.json$")), List.of(Pattern.compile(".*subdir1.*$")), ConfigFactory.empty());
+    Map<String, Object> filterOptionsMap = Map.of(
+        "includes", List.of(".*[a-c]\\.json$"),
+        "excludes", List.of(".*subdir1.*$")
+    );
+    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_", ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
     localStorageClient.init();
 
     localStorageClient.traverse(publisher, params);
@@ -105,10 +108,7 @@ public class LocalStorageClientTest {
     LocalStorageClient localStorageClient = new LocalStorageClient();
 
     TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault/a.json"),
-        "file_",
-        List.of(), List.of(), ConfigFactory.parseMap(
-        Map.of(GET_FILE_CONTENT, false)
-    ));
+        "file_", ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)), ConfigFactory.empty());
 
     localStorageClient.init();
 
@@ -125,11 +125,10 @@ public class LocalStorageClientTest {
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
+    Map<String, Object> filterOptionsMap = Map.of("excludes", List.of(".*\\.DS_Store$"));
     TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault/"), "file_",
-        List.of(), List.of(Pattern.compile(".*\\.DS_Store$")), ConfigFactory.parseMap(
-        Map.of(
-            "json", Map.of()
-        )));
+        ConfigFactory.parseMap(Map.of("json", Map.of())),
+        ConfigFactory.parseMap(filterOptionsMap));
 
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
@@ -184,14 +183,16 @@ public class LocalStorageClientTest {
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
+    Map<String, Object> filterOptionsMap = Map.of("excludes", List.of(".*\\.DS_Store$"));
     TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testCompressedAndArchived"), "",
-        List.of(), List.of(Pattern.compile(".*\\.DS_Store$")), ConfigFactory.parseMap(
-        Map.of(
-            "json", Map.of(),
-            "csv", Map.of(),
-            "handleArchivedFiles", true,
-            "handleCompressedFiles", true
-        )));
+        ConfigFactory.parseMap(
+            Map.of(
+                "json", Map.of(),
+                "csv", Map.of(),
+                "handleArchivedFiles", true,
+                "handleCompressedFiles", true
+            )),
+        ConfigFactory.parseMap(filterOptionsMap));
 
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
@@ -284,10 +285,11 @@ public class LocalStorageClientTest {
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(new URI("temp/defaults.csv"), "",
-        List.of(), List.of(), ConfigFactory.parseMap(
-        Map.of(
-            "moveToAfterProcessing", "success"
-        )));
+        ConfigFactory.parseMap(
+            Map.of(
+                "moveToAfterProcessing", "success"
+            )),
+        ConfigFactory.empty());
 
     localStorageClient.init();
 
@@ -324,11 +326,12 @@ public class LocalStorageClientTest {
     // localStorageClient that handles csv files
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(new URI("temp/faulty.csv"), "",
-        List.of(), List.of(), ConfigFactory.parseMap(
-        Map.of(
-            "csv", Map.of(),
-            "moveToErrorFolder", "error"
-        )));
+        ConfigFactory.parseMap(
+            Map.of(
+                "csv", Map.of(),
+                "moveToErrorFolder", "error"
+            )),
+        ConfigFactory.empty());
 
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
@@ -372,7 +375,7 @@ public class LocalStorageClientTest {
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(URI.create(defaultAbsolutePath.toString()), "file_", List.of(), List.of(), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(URI.create(defaultAbsolutePath.toString()), "file_", ConfigFactory.empty(), ConfigFactory.empty());
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
 
