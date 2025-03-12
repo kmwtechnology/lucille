@@ -157,13 +157,12 @@ public abstract class Stage {
    * @throws StageException
    */
   public Iterator<Document> processConditional(Document doc) throws StageException {
-    docLogger.info("Stage {} may process {}.", name, doc.getId());
-
     if (shouldProcess(doc)) {
       if (timer != null) {
         context = timer.time();
       }
       try {
+        docLogger.info("Stage {} to process {}.", name, doc.getId());
         return processDocument(doc);
       } finally {
         if (context != null) {

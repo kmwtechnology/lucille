@@ -21,9 +21,9 @@
         <RollingFile name="file-json" fileName="./log/com.kmwllc.lucille-json.log" filePattern="./log/com.kmwllc.lucille-json-%i.log">
             <JsonTemplateLayout eventTemplateUri="classpath:EcsLayout.json"/>
             <Policies>
-                <SizeBasedTriggeringPolicy size="10 KB" />
+                <SizeBasedTriggeringPolicy size="1 MB" />
             </Policies>
-            <DefaultRolloverStrategy max="100" />
+            <DefaultRolloverStrategy max="1000" />
         </RollingFile>
     </Appenders>
     <Loggers>
@@ -39,7 +39,6 @@
 
         <!-- Will output lots of log statements about individual documents as they are processed. -->
         <Logger name="com.kmwllc.lucille.core.DocLogger" level="INFO" additivity="false">
-            <AppenderRef ref="console" />
             <AppenderRef ref="file-json" />
         </Logger>
     </Loggers>
