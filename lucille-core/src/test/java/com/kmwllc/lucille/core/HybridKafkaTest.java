@@ -113,9 +113,9 @@ public class HybridKafkaTest {
     Map<TopicPartition, OffsetAndMetadata> retrievedOffsets =
         kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
             .partitionsToOffsetAndMetadata().get();
-    TopicPartition sourceTopicPartition = new TopicPartition(topicName, 0);
-    assertNotNull(retrievedOffsets.get(sourceTopicPartition));
-    assertEquals(3, retrievedOffsets.get(sourceTopicPartition).offset());
+    TopicPartition topicPartition = new TopicPartition(topicName, 0);
+    assertNotNull(retrievedOffsets.get(topicPartition));
+    assertEquals(3, retrievedOffsets.get(topicPartition).offset());
 
     // pipelineDest and offset queues should have been drained
     assertEquals(0, pipelineDest.size());
@@ -128,7 +128,7 @@ public class HybridKafkaTest {
     // one offset map should have been added to offset queue, containing offset 3 for partition 0
     assertEquals(1, offsets.getHistory().size());
     assertEquals(1, offsets.getHistory().get(0).entrySet().size());
-    assertEquals(3, offsets.getHistory().get(0).get(sourceTopicPartition).offset());
+    assertEquals(3, offsets.getHistory().get(0).get(topicPartition).offset());
   }
 
   @Test
@@ -360,9 +360,9 @@ public class HybridKafkaTest {
   @Test
   public void testWorkerIndexerPool() throws Exception {
     Config config = ConfigFactory.load("HybridKafkaTest/poolConfig.conf");
-    String sourceTopic = config.getString("kafka.sourceTopic");
+    String topicName = config.getString("kafka.sourceTopic");
 
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic(sourceTopic, 5, (short) 1));
+    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic(topicName, 5, (short) 1));
 
     Set<String> idSet = CounterUtils.getThreadSafeSet();
     WorkerIndexerPool pool =
@@ -371,13 +371,13 @@ public class HybridKafkaTest {
     assertEquals(5, pool.getNumWorkers());
 
     for (int i = 0; i < 500; i++) {
-      sendDoc("doc" + i, sourceTopic);
+      sendDoc("doc" + i, topicName);
     }
 
     pool.start();
 
     for (int i = 500; i < 1000; i++) {
-      sendDoc("doc" + i, sourceTopic);
+      sendDoc("doc" + i, topicName);
     }
 
     CounterUtils.waitUnique(idSet, 1000);
@@ -390,11 +390,11 @@ public class HybridKafkaTest {
     Map<TopicPartition, OffsetAndMetadata> retrievedOffsets =
         kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
             .partitionsToOffsetAndMetadata().get();
-    TopicPartition partition0 = new TopicPartition(sourceTopic, 0);
-    TopicPartition partition1 = new TopicPartition(sourceTopic, 1);
-    TopicPartition partition2 = new TopicPartition(sourceTopic, 2);
-    TopicPartition partition3 = new TopicPartition(sourceTopic, 3);
-    TopicPartition partition4 = new TopicPartition(sourceTopic, 4);
+    TopicPartition partition0 = new TopicPartition(topicName, 0);
+    TopicPartition partition1 = new TopicPartition(topicName, 1);
+    TopicPartition partition2 = new TopicPartition(topicName, 2);
+    TopicPartition partition3 = new TopicPartition(topicName, 3);
+    TopicPartition partition4 = new TopicPartition(topicName, 4);
 
     long sumOffsets = retrievedOffsets.get(partition0).offset() +
         retrievedOffsets.get(partition1).offset() +
@@ -409,7 +409,7 @@ public class HybridKafkaTest {
 
   @Test
   public void testSourceTopicWildcard() throws Exception {
-    // sourceTopic: "test_wildcard_topic.*"
+    // topicName: "test_wildcard_topic.*"
     Config config = ConfigFactory.load("HybridKafkaTest/sourceTopicWildcard.conf");
 
     embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_wildcard_topic1", 1, (short) 1));
@@ -450,18 +450,18 @@ public class HybridKafkaTest {
     Map<TopicPartition, OffsetAndMetadata> retrievedOffsets =
         kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
             .partitionsToOffsetAndMetadata().get();
-    TopicPartition sourceTopicPartition1 = new TopicPartition("test_wildcard_topic1", 0);
-    assertNotNull(retrievedOffsets.get(sourceTopicPartition1));
-    assertEquals(1, retrievedOffsets.get(sourceTopicPartition1).offset());
-    TopicPartition sourceTopicPartition2 = new TopicPartition("test_wildcard_topic2", 0);
-    assertNotNull(retrievedOffsets.get(sourceTopicPartition2));
-    assertEquals(1, retrievedOffsets.get(sourceTopicPartition2).offset());
-    TopicPartition sourceTopicPartition3 = new TopicPartition("test_wildcard_topic3", 0);
-    assertNotNull(retrievedOffsets.get(sourceTopicPartition3));
-    assertEquals(2, retrievedOffsets.get(sourceTopicPartition3).offset());
-    TopicPartition sourceTopicPartition4 = new TopicPartition("test_wildcard_topic4", 0);
-    assertNotNull(retrievedOffsets.get(sourceTopicPartition4));
-    assertEquals(1, retrievedOffsets.get(sourceTopicPartition4).offset());
+    TopicPartition topicPartition1 = new TopicPartition("test_wildcard_topic1", 0);
+    assertNotNull(retrievedOffsets.get(topicPartition1));
+    assertEquals(1, retrievedOffsets.get(topicPartition1).offset());
+    TopicPartition topicPartition2 = new TopicPartition("test_wildcard_topic2", 0);
+    assertNotNull(retrievedOffsets.get(topicPartition2));
+    assertEquals(1, retrievedOffsets.get(topicPartition2).offset());
+    TopicPartition topicPartition3 = new TopicPartition("test_wildcard_topic3", 0);
+    assertNotNull(retrievedOffsets.get(topicPartition3));
+    assertEquals(2, retrievedOffsets.get(topicPartition3).offset());
+    TopicPartition topicPartition4 = new TopicPartition("test_wildcard_topic4", 0);
+    assertNotNull(retrievedOffsets.get(topicPartition4));
+    assertEquals(1, retrievedOffsets.get(topicPartition4).offset());
 
     // pipelineDest and offset queues should have been drained
     assertEquals(0, pipelineDest.size());
@@ -476,10 +476,10 @@ public class HybridKafkaTest {
     assertEquals(2, offsets.getHistory().get(0).entrySet().size());
     assertEquals(2, offsets.getHistory().get(1).entrySet().size());
 
-    assertEquals(1, offsets.getHistory().get(0).get(sourceTopicPartition1).offset());
-    assertEquals(1, offsets.getHistory().get(0).get(sourceTopicPartition2).offset());
-    assertEquals(2, offsets.getHistory().get(1).get(sourceTopicPartition3).offset());
-    assertEquals(1, offsets.getHistory().get(1).get(sourceTopicPartition4).offset());
+    assertEquals(1, offsets.getHistory().get(0).get(topicPartition1).offset());
+    assertEquals(1, offsets.getHistory().get(0).get(topicPartition2).offset());
+    assertEquals(2, offsets.getHistory().get(1).get(topicPartition3).offset());
+    assertEquals(1, offsets.getHistory().get(1).get(topicPartition4).offset());
 
   }
 
