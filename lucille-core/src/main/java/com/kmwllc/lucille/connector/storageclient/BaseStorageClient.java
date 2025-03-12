@@ -127,8 +127,8 @@ public abstract class BaseStorageClient implements StorageClient {
   protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference, TraversalParams params) {
     try {
       // preprocessing, currently a NO-OP unless a subclass overrides it
-      if (!beforeProcessingFile(fullPathStr)) {
-        // The preprocessing check failed, let's skip the file.
+      if (!params.fileWithinCutoff(fileReference) || !beforeProcessingFile(fullPathStr)) {
+        // Skip the file if it's not within the cutoff or preprocessing failed.
         return;
       }
       

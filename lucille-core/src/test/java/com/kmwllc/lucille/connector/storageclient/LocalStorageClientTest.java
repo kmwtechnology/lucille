@@ -18,6 +18,8 @@ import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
+import java.time.temporal.TemporalAmount;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -381,4 +383,26 @@ public class LocalStorageClientTest {
 
     assertEquals(8, publisher.numPublished());
   }
+
+//  @Test
+//  public void testCutoff() throws Exception {
+//    Path defaultPath = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault");
+//    File aJsonFile = new File("src/test/resources/StorageClientTest/testPublishFilesDefault/a.json");
+//    File eJsonFile = new File("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1/e.json");
+//
+//    aJsonFile.setLastModified(1);
+//    eJsonFile.setLastModified(1);
+//
+//    TestMessenger messenger = new TestMessenger();
+//    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+//
+//    LocalStorageClient localStorageClient = new LocalStorageClient();
+//    Map<String, Object> filterOptionsMap = Map.of("modificationCutoff", "2 days");
+//    TraversalParams params = new TraversalParams(URI.create(defaultPath.toString()), "", ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
+//
+//    localStorageClient.init();
+//    localStorageClient.traverse(publisher, params);
+//
+//    assertEquals(2, publisher.numPublished());
+//  }
 }

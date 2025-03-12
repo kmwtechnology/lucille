@@ -10,8 +10,8 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.typesafe.config.Config;
 import java.net.URI;
-import java.time.LocalDate;
-import java.time.temporal.TemporalAmount;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -37,7 +37,7 @@ public class TraversalParams {
   // FilterOptions / its params
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
-  private final TemporalAmount modificationCutoff;
+  private final Duration modificationCutoff;
 
   public TraversalParams(URI uri, String docIdPrefix, Config fileOptions, Config filterOptions) {
     this.uri = uri;
@@ -88,6 +88,20 @@ public class TraversalParams {
     return !getFileOptions().isEmpty() && FileHandler.supportAndContainFileType(fileExtension, getFileOptions());
   }
 
+  /**
+   * Returns whether the given FileReference was last modified before the modificationCutoff and, as such, should
+   * be processed / published. Always returns true if there is no modificationCutoff specified (the parameter is null).
+   */
+  public boolean fileWithinCutoff(FileReference fileReference) {
+    if (modificationCutoff == null) {
+      return true;
+    }
+
+    Instant fileModifiedPlusCutoff = fileReference.lastModified.plus(modificationCutoff);
+    System.out.println("returning" + fileModifiedPlusCutoff.isAfter(Instant.now()));
+    return fileModifiedPlusCutoff.isBefore(Instant.now());
+  }
+
   public URI getURI() {
     return uri;
   }
@@ -119,6 +133,4 @@ public class TraversalParams {
   public String getMoveToErrorFolder() {
     return moveToErrorFolder;
   }
-
-  // The "within bounds" method should handle null.
 }
