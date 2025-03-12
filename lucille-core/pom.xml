@@ -243,25 +243,6 @@
       <version>${sslcontext-kickstart.version}</version>
     </dependency>
 
-    <!-- Needed by VFS S3 Plugin to support AWS Security Token Service for EKS -->
-    <dependency>
-      <groupId>com.amazonaws</groupId>
-      <artifactId>aws-java-sdk-sts</artifactId>
-    </dependency>
-
-    <!-- S3 Virtual File System Support -->
-    <dependency>
-      <groupId>com.github.abashev</groupId>
-      <artifactId>vfs-s3</artifactId>
-      <version>${vfs-s3.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.apache.hadoop</groupId>
-          <artifactId>hadoop-hdfs</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
     <!-- FileConnector -->
     <dependency>
       <groupId>software.amazon.awssdk</groupId>

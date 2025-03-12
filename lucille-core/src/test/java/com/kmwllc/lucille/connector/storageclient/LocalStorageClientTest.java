@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.connector.VFSConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
@@ -72,16 +71,12 @@ public class LocalStorageClientTest {
 
     localStorageClient.traverse(publisher, params);
 
-    for (Document d : messenger.getDocsSentForProcessing()) {
-      System.out.println(d);
-    }
-
     Assert.assertEquals(3, messenger.getDocsSentForProcessing().size());
     String[] fileNames = {"a.json", "b.json", "c.json"};
     for (Document doc : messenger.getDocsSentForProcessing()) {
       String docId = doc.getId();
-      String filePath = doc.getString(VFSConnector.FILE_PATH);
-      String content = new String(doc.getBytes(VFSConnector.CONTENT));
+      String filePath = doc.getString(FileConnector.FILE_PATH);
+      String content = new String(doc.getBytes(FileConnector.CONTENT));
       Assert.assertTrue(Arrays.stream(fileNames).anyMatch(filePath::endsWith));
       if (filePath.endsWith("a.json")) {
         Assert.assertTrue(content.contains("\"filename\":\"400_106547e2f83b.jpg\""));
