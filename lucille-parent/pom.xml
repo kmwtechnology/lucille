@@ -44,8 +44,8 @@
     <maven-gpg-plugin.version>3.0.1</maven-gpg-plugin.version>
     <jackson.version>2.17.0</jackson.version>
     <!-- todo if updated to version 9 will need to add solr-solrj-zookeeper dependency -->
-    <lucene.version>9.9.2</lucene.version>
-    <solr.version>9.5.0</solr.version>
+    <lucene.version>9.11.1</lucene.version>
+    <solr.version>9.8.0</solr.version>
     <opensearch-rest-client.version>1.2.0</opensearch-rest-client.version>
     <opensearch.version>0.1.0</opensearch.version>
     <opensearch-java.version>2.11.1</opensearch-java.version>
@@ -55,15 +55,14 @@
     <elasticsearch.version>7.17.3</elasticsearch.version>
     <sslcontext-kickstart.version>8.1.6</sslcontext-kickstart.version>
     <aws-java-sdk.version>1.12.769</aws-java-sdk.version>
-    <vfs-s3.version>4.4.0</vfs-s3.version>
     <log4j.version>2.20.0</log4j.version>
     <slf4j.version>2.0.7</slf4j.version>
     <apache-commons-lang3.version>3.12.0</apache-commons-lang3.version>
     <apache-commons-text.version>1.10.0</apache-commons-text.version>
     <protobuf.version>3.25.5</protobuf.version>
-    <netty.version>4.1.117.Final</netty.version>
+    <netty.version>4.1.119.Final</netty.version>
     <grpc.version>1.66.0</grpc.version>
-    <dropwizard-core.version>4.0.7</dropwizard-core.version>
+    <dropwizard-core.version>4.0.12</dropwizard-core.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit4.version>4.13.2</junit4.version>
 
@@ -170,14 +169,6 @@
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>${junit4.version}</version>
-      <scope>test</scope>
-    </dependency>
-
-    <!-- enabling Junit 5 because of bug with inherited version 5.6.2 in lucille-core with 'net.mguenther.kafka', overriding here -->
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-engine</artifactId>
-      <version>5.11.0</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

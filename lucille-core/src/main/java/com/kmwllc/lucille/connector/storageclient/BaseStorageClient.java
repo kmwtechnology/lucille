@@ -6,7 +6,6 @@ import static com.kmwllc.lucille.connector.FileConnector.MAX_NUM_OF_PAGES;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
-import static com.kmwllc.lucille.core.fileHandler.FileHandler.SUPPORTED_FILE_TYPES;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -39,7 +38,7 @@ public abstract class BaseStorageClient implements StorageClient {
   private static final Logger log = LoggerFactory.getLogger(BaseStorageClient.class);
 
   protected final Config config;
-  protected final Map<String, FileHandler> fileHandlers;
+  protected Map<String, FileHandler> fileHandlers;
   protected final int maxNumOfPages;
 
   private boolean initialized = false;
@@ -95,10 +94,10 @@ public abstract class BaseStorageClient implements StorageClient {
     }
 
     try {
-      initializeFileHandlers(params);
+      this.fileHandlers = FileHandler.createFromConfig(params.getFileOptions());
       traverseStorageClient(publisher, params);
     } finally {
-      clearFileHandlers();
+      fileHandlers = null;
     }
   }
 
@@ -384,38 +383,6 @@ public abstract class BaseStorageClient implements StorageClient {
    * Return the bucket/container name for this StorageClient, based on the params and its pathToStorageURI.
    */
   protected abstract String getBucketOrContainerName(TraversalParams params);
-
-
-  /**
-   * helper method to initialize all file handlers based on the fileOptions
-   */
-  protected void initializeFileHandlers(TraversalParams params) throws ConnectorException {
-    // go through fileOptions, and initialize all file handlers
-    for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
-      if (params.optionsIncludeFileExtension(fileExtensionSupported)) {
-        try {
-          FileHandler handler = FileHandler.create(fileExtensionSupported, params.getFileOptions());
-          fileHandlers.put(fileExtensionSupported, handler);
-          // handle cases like json/jsonl
-          if (fileExtensionSupported.equals("json") || fileExtensionSupported.equals("jsonl")) {
-            fileHandlers.put("json", handler);
-            fileHandlers.put("jsonl", handler);
-          }
-        } catch (Exception e) {
-          throw new ConnectorException("Error occurred while putting in file handler for file extension: " + fileExtensionSupported, e);
-        }
-      }
-    }
-  }
-
-  /**
-   * clear all file handlers if any. Should be called in the shutdown method
-   */
-  protected void clearFileHandlers() {
-    if (fileHandlers != null) {
-      fileHandlers.clear();
-    }
-  }
 
   /**
    * helper method to check if the file is a supported compressed file type.
