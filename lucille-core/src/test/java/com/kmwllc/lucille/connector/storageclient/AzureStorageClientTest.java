@@ -452,6 +452,36 @@ public class AzureStorageClientTest {
     assertEquals("Hello there.", new String(result.readAllBytes()));
   }
 
+  @Test
+  public void testModificationCutoff() throws Exception {
+    Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
+    Map<String, String> filterOptionsMap = Map.of(
+        "modificationCutoff", "2h",
+        "cutoffType", "after"
+    );
+    TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "",
+        ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
+
+    BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
+    PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
+    when(pagedIterable.stream()).thenReturn(getBlobItemStreamWithCutoff());
+    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
+
+    BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
+    when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
+    azureStorageClient.setServiceClientForTesting(mockServiceClient);
+
+    azureStorageClient.initializeForTesting();
+    azureStorageClient.traverse(publisher, params);
+    // only blob1 processed, since it was last modified on Jan 1 1970
+    assertEquals(1, publisher.numPublished());
+  }
+
   private Stream<BlobItem> getCompressedAndArchivedBlobStream() {
     BlobItem blobItem1 = new BlobItem();
     blobItem1.setName("jsonlCsvAndFolderWithFooTxt.tar");
@@ -559,6 +589,38 @@ public class AzureStorageClientTest {
     blobItem4.setProperties(new BlobItemProperties()
         .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(4), ZoneId.of("UTC")))
         .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(4), ZoneId.of("UTC")))
+        .setContentLength(4L));
+
+    return Stream.of(blobItem1, blobItem2, blobItem3, blobItem4);
+  }
+
+  private Stream<BlobItem> getBlobItemStreamWithCutoff() {
+    BlobItem blobItem1 = new BlobItem();
+    blobItem1.setName("blob1");
+    blobItem1.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1L), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1L), ZoneId.of("UTC")))
+        .setContentLength(1L));
+
+    BlobItem blobItem2 = new BlobItem();
+    blobItem2.setName("blob2");
+    blobItem2.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.now(), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.now(), ZoneId.of("UTC")))
+        .setContentLength(2L));
+
+    BlobItem blobItem3 = new BlobItem();
+    blobItem3.setName("blob3");
+    blobItem3.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.now(), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.now(), ZoneId.of("UTC")))
+        .setContentLength(3L));
+
+    BlobItem blobItem4 = new BlobItem();
+    blobItem4.setName("blob4");
+    blobItem4.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.now(), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.now(), ZoneId.of("UTC")))
         .setContentLength(4L));
 
     return Stream.of(blobItem1, blobItem2, blobItem3, blobItem4);
