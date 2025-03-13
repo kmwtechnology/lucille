@@ -187,7 +187,7 @@ public class AzureStorageClient extends BaseStorageClient {
   private boolean isValid(BlobItem blob, TraversalParams params) {
     if (blob.isPrefix()) return false;
 
-    return params.shouldIncludeFile(blob.getName());
+    return params.patternsAllowFile(blob.getName());
   }
 
   // Only for testing

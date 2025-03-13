@@ -173,7 +173,7 @@ public class LocalStorageClient extends BaseStorageClient {
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
       // Visit the file and actually process it!
-      if (!params.shouldIncludeFile(file.toString())) {
+      if (!params.patternsAllowFile(file.toString())) {
         // this file is skipped by the configuration.
         return FileVisitResult.CONTINUE;
       }

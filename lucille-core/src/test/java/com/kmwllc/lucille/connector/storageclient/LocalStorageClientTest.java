@@ -11,14 +11,14 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
+import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Duration;
-import java.time.temporal.TemporalAmount;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -379,25 +379,45 @@ public class LocalStorageClientTest {
     assertEquals(8, publisher.numPublished());
   }
 
-//  @Test
-//  public void testCutoff() throws Exception {
-//    Path defaultPath = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault");
-//    File aJsonFile = new File("src/test/resources/StorageClientTest/testPublishFilesDefault/a.json");
-//    File eJsonFile = new File("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1/e.json");
-//
-//    aJsonFile.setLastModified(1);
-//    eJsonFile.setLastModified(1);
-//
-//    TestMessenger messenger = new TestMessenger();
-//    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
-//
-//    LocalStorageClient localStorageClient = new LocalStorageClient();
-//    Map<String, Object> filterOptionsMap = Map.of("modificationCutoff", "2 days");
-//    TraversalParams params = new TraversalParams(URI.create(defaultPath.toString()), "", ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
-//
-//    localStorageClient.init();
-//    localStorageClient.traverse(publisher, params);
-//
-//    assertEquals(2, publisher.numPublished());
-//  }
+  @Test
+  public void testCutoff() throws Exception {
+    URI defaultURI = URI.create("src/test/resources/StorageClientTest/modifiedDateFiles");
+
+    File oldFile = new File("src/test/resources/StorageClientTest/modifiedDateFiles/old.txt");
+    File alsoOldFile = new File("src/test/resources/StorageClientTest/modifiedDateFiles/subDir/alsoOld.txt");
+    File newFile = new File("src/test/resources/StorageClientTest/modifiedDateFiles/new.txt");
+
+    // Want to make sure the test will work - set the three files to be modified VERY recently or VERY long ago.
+    assertTrue(oldFile.setLastModified(Instant.ofEpochMilli(1).toEpochMilli()));
+    assertTrue(alsoOldFile.setLastModified(Instant.ofEpochMilli(1).toEpochMilli()));
+    assertTrue(newFile.setLastModified(Instant.now().toEpochMilli()));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    localStorageClient.init();
+
+    // Only including files modified in the last 15 seconds
+    Config filterOptions = ConfigFactory.parseMap(Map.of(
+        "modificationCutoff", "10h",
+        "cutoffType", "before"
+    ));
+    TraversalParams params = new TraversalParams(defaultURI, "", ConfigFactory.empty(), filterOptions);
+    localStorageClient.traverse(publisher, params);
+    // only "new file" should be published - others are BEFORE the cutoff.
+    assertEquals(1, publisher.numPublished());
+
+    // Only including files modified 30 seconds or later ago
+    messenger = new TestMessenger();
+    publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    filterOptions = ConfigFactory.parseMap(Map.of(
+        "modificationCutoff", "10h",
+        "cutoffType", "after"
+    ));
+    params = new TraversalParams(defaultURI, "", ConfigFactory.empty(), filterOptions);
+    localStorageClient.traverse(publisher, params);
+    // "old file" and "also old file" should be published - the "new file" is AFTER the cutoff.
+    assertEquals(2, publisher.numPublished());
+  }
 }

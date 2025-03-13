@@ -172,7 +172,7 @@ public class S3StorageClient extends BaseStorageClient {
     String key = obj.key();
     if (key.endsWith("/")) return false;
 
-    return params.shouldIncludeFile(key);
+    return params.patternsAllowFile(key);
   }
 
   private String getFullPath(S3Object obj, TraversalParams params) {

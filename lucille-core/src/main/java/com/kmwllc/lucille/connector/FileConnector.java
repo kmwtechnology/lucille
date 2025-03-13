@@ -9,12 +9,7 @@ import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,8 +31,11 @@ import org.slf4j.LoggerFactory;
  * FilterOptions:
  *  includes (list of strings, Optional): list of regex patterns to include files.
  *  excludes (list of strings, Optional): list of regex patterns to exclude files.
- *  modificationCutoff (Temporal, Optional): only include files that were modified within the given Duration. See the HOCON
- *  documentation for examples of a Temporal value.
+ *  modificationCutoff (Duration, Optional): Filter files that haven't been modified in a certain amount of time. Set <b>cutoffType</b>
+ *  to exclude files modified before this amount of time or exclude files modified after this amount of time. See the HOCON documentation
+ *  for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
+ *  cutoffType (String, Optional): Specifies whether you want to filter out files that come <b>before</b> your specified modificationCutoff
+ *  or <b>after</b> it. Must be either "before" or "after", or an exception is thrown. Defaults to before.
  *
  * FileOptions:
  *  getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.

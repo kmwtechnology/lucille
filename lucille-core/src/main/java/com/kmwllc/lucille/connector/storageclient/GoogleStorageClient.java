@@ -136,7 +136,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   private boolean isValid(Blob blob, TraversalParams params) {
     if (blob.isDirectory()) return false;
 
-    return params.shouldIncludeFile(blob.getName());
+    return params.patternsAllowFile(blob.getName());
   }
 
   private String getFullPath(Blob blob, TraversalParams params) {

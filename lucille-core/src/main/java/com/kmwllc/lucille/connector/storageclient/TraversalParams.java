@@ -38,6 +38,7 @@ public class TraversalParams {
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
   private final Duration modificationCutoff;
+  private final boolean excludeFilesBefore;
 
   public TraversalParams(URI uri, String docIdPrefix, Config fileOptions, Config filterOptions) {
     this.uri = uri;
@@ -59,15 +60,22 @@ public class TraversalParams {
         filterOptions.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
 
-    // TODO: make sure to handle the null value appropriately.
-    this.modificationCutoff = ConfigUtils.getOrDefault(filterOptions, "modificationCutoff", null);
+    this.modificationCutoff = filterOptions.hasPath("modificationCutoff") ? filterOptions.getDuration("modificationCutoff") : null;
+
+    String cutoffType = ConfigUtils.getOrDefault(filterOptions, "cutoffType", "before");
+
+    if (!cutoffType.equalsIgnoreCase("before") && !cutoffType.equalsIgnoreCase("after")) {
+      throw new IllegalArgumentException("filterOptions.cutoffType was specified, but was not \"Before\" or \"After\".");
+    }
+
+    this.excludeFilesBefore = cutoffType.equalsIgnoreCase("before");
   }
 
   /**
    * Returns whether the given file associated with the given path String should be processed, based on this object's
    * includes/excludes patterns.
    */
-  public boolean shouldIncludeFile(String pathStr) {
+  public boolean patternsAllowFile(String pathStr) {
     return excludes.stream().noneMatch(pattern -> pattern.matcher(pathStr).matches())
         && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(pathStr).matches()));
   }
@@ -89,9 +97,14 @@ public class TraversalParams {
       return true;
     }
 
-    Instant fileModifiedPlusCutoff = fileReference.lastModified.plus(modificationCutoff);
-    System.out.println("returning" + fileModifiedPlusCutoff.isAfter(Instant.now()));
-    return fileModifiedPlusCutoff.isBefore(Instant.now());
+    Instant cutoffPoint = Instant.now().minus(modificationCutoff);
+
+    if (excludeFilesBefore) {
+      // Return true for files after the cutoff, false for before.
+      return fileReference.lastModified.isAfter(cutoffPoint);
+    } else {
+      return fileReference.lastModified.isBefore(cutoffPoint);
+    }
   }
 
   public URI getURI() {

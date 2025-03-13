@@ -125,7 +125,7 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference, TraversalParams params) {
     try {
-      // preprocessing, currently a NO-OP unless a subclass overrides it
+      // preprocessing is currently a NO-OP unless a subclass overrides it
       if (!params.fileWithinCutoff(fileReference) || !beforeProcessingFile(fullPathStr)) {
         // Skip the file if it's not within the cutoff or preprocessing failed.
         return;
@@ -217,7 +217,7 @@ public abstract class BaseStorageClient implements StorageClient {
           continue;
         }
         // checking validity only for the entries
-        if (!entry.isDirectory() && params.shouldIncludeFile(entry.getName())) {
+        if (!entry.isDirectory() && params.patternsAllowFile(entry.getName())) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (params.supportedFileType(entryExtension)) {
             handleStreamExtensionFiles(publisher, in, entryExtension, entryFullPathStr);
