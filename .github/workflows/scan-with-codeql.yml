@@ -52,7 +52,7 @@ jobs:
         category: "/language:${{matrix.language}}"
 
     - name: Upload result to GitHub Code Scanning
-      uses: github/codeql-action/upload-artifact@v3
+      uses: actions/upload-artifact@v3
       with:
         name: CodeQLSarif
         path: ${{ steps.analyze.outputs.sarif-output }}
