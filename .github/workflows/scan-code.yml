@@ -23,22 +23,25 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up Snyk CLI to check for security issues
         # Upload the SAST issues to GitHub Code Scanning
-        uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
+        uses: snyk/actions/maven-3-jdk-21@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          ORGANIZATION: 88b31041-9487-4fb4-a9b3-9c643940d52e
+        with:
+          args: --sarif-file-output=snyk.sarif
 
       - name: Snyk version
         run: snyk version
 
-      - name: Authorize Snyk
-        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+#      - name: Authorize Snyk
+#        run: snyk auth ${{ secrets.SNYK_TOKEN }} -d
 
         # Runs Snyk Code (SAST) analysis and uploads result into GitHub.
-      - name: Snyk Code test
-        run: snyk test --sarif |& tee snyk-code.sarif || true
+#      - name: Snyk Code test
+#        run: snyk code test --sarif |& tee snyk-code.sarif || true
 
         # Push the Snyk Code results into GitHub Code Scanning tab
       - name: Upload result to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: snyk-code.sarif
+          sarif_file: snyk.sarif
