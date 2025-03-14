@@ -1,8 +1,6 @@
 name: Scan code with Snyk
 
 on:
-  push:
-#    branches: ["LC-458-enable-code-scanning" ]  #just for testing
   workflow_dispatch:
         inputs:
           language:

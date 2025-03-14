@@ -48,11 +48,13 @@ jobs:
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       id: analyze
+      env:
+        ACTIONS_STEP_DEBUG: true
       with:
         category: "/language:${{matrix.language}}"
 
     - name: Upload result to GitHub Code Scanning
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: CodeQLSarif
         path: ${{ steps.analyze.outputs.sarif-output }}
