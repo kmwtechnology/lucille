@@ -72,7 +72,7 @@ public class QueryOpensearch extends Stage {
 
   @Override
   public void start() throws StageException {
-    // Run the opensearchQuery, if it exists, and store the result.
+    // Run the opensearchQuery, if it exists, and store the result, so we only have to run it once.
     if (opensearchQuery == null) {
       return;
     }
@@ -85,7 +85,6 @@ public class QueryOpensearch extends Stage {
 
     try {
       HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
       opensearchQueryResponse = getFieldFromBody(response.body());
     } catch (Exception e) {
       throw new StageException("Error occurred executing the Opensearch Query.", e);
@@ -113,7 +112,6 @@ public class QueryOpensearch extends Stage {
 
     try {
       HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-      // TODO: Get the field from the body
       doc.setField(destinationField, getFieldFromBody(response.body()));
     } catch (Exception e) {
       throw new StageException("Error occurred executing the Opensearch Query.", e);
