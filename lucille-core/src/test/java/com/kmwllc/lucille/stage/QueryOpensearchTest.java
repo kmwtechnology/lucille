@@ -161,6 +161,29 @@ public class QueryOpensearchTest {
   }
 
   @Test
+  public void testArrayExtraction() throws Exception {
+    try (MockedStatic<HttpClient> client = Mockito.mockStatic(HttpClient.class)) {
+      HttpClient mockClient = mock(HttpClient.class);
+      HttpResponse mockResponse = mock(HttpResponse.class);
+      when(mockResponse.body()).thenReturn(neckCreekResponse);
+      when(mockClient.send(any(), any())).thenReturn(mockResponse);
+
+      client.when(() -> HttpClient.newHttpClient()).thenReturn(mockClient);
+
+      // Gets the first "hit" from the response (there is only one)
+      Stage stage = factory.get("QueryOpensearchTest/arrayExtraction.conf");
+
+      Document testDoc = Document.create("test_doc");
+      stage.processDocument(testDoc);
+
+      String firstHit = """
+{"_index":"parks","_id":"park_dataset.csv-50","_score":6.7708125,"_source":{"id":"park_dataset.csv-50","source":"/Users/Downloads/park_dataset.csv","filename":"park_dataset.csv","park_name":"Neck Creek Preserve","sanctuary_name":"","borough":"Staten Island","acres":"20","directions":"Public Transit: From the Staten Island Ferry, take the 46 or 96 buses, which eventually run along South Ave to West Shore Plaza (last stop).  From the plaza, walk along South Ave to Meredith Ave.  Make a left on Meredith and the preserve is half way down the block on the right.By Car: From the Staten Island Expressway (278) exit onto 440 south toward the outer bridge crossing.  Take the first exit at South Ave.  Make a left onto Chelsea Road and then the first right onto South Ave.  Make a left on Meredith Ave.  The preserve is half way down the block on the right.","description":"Site Description Coming Soon","habitat_type":"Salt Marsh","last_modified":"2020-03-15","csvLineNumber":50,"run_id":"9b367227-e9b9-4ae2-bccd-3f13664f7db4"}}""";
+
+      assertEquals(firstHit, testDoc.getString("response"));
+    }
+  }
+
+  @Test
   public void testBadConfs() {
     assertThrows(StageException.class, () -> factory.get("QueryOpensearchTest/badConfs/noOpensearch.conf"));
     assertThrows(StageException.class, () -> factory.get("QueryOpensearchTest/badConfs/noQueries.conf"));
