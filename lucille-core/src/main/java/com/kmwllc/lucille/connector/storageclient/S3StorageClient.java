@@ -78,10 +78,12 @@ public class S3StorageClient extends BaseStorageClient {
     response.stream()
         .forEachOrdered(resp -> {
           resp.contents().forEach(obj -> {
-            if (isValid(obj, params)) {
+            FileReference fileRef = new FileReference(obj);
+
+            if (validFile(fileRef)) {
               String fullPathStr = getFullPath(obj, params);
               String fileExtension = FilenameUtils.getExtension(fullPathStr);
-              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(obj), params);
+              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, fileRef, params);
             }
           });
         });
@@ -168,15 +170,19 @@ public class S3StorageClient extends BaseStorageClient {
     return doc;
   }
 
-  private boolean isValid(S3Object obj, TraversalParams params) {
-    String key = obj.key();
-    if (key.endsWith("/")) return false;
-
-    return params.patternsAllowFile(key);
+  @Override
+  protected String getFullPath(FileReference fileRef, TraversalParams params) {
+    return getFullPath(fileRef.getS3Object(), params);
   }
 
   private String getFullPath(S3Object obj, TraversalParams params) {
     return params.getURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + obj.key();
+  }
+
+  @Override
+  protected boolean validFile(FileReference ref) {
+    S3Object s3Obj = ref.getS3Object();
+    return !s3Obj.key().endsWith("/");
   }
 
   // Only for testing

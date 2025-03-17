@@ -73,7 +73,9 @@ public class AzureStorageClient extends BaseStorageClient {
         .listBlobs(new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages),
             Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
-          if (isValid(blob, params)) {
+          FileReference fileRef = new FileReference(blob);
+
+          if (validFile(fileRef)) {
             String fullPathStr = getFullPath(blob, params);
             String fileExtension = FilenameUtils.getExtension(fullPathStr);
             tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
@@ -126,6 +128,11 @@ public class AzureStorageClient extends BaseStorageClient {
   @Override
   protected String getBucketOrContainerName(TraversalParams params) {
     return params.getURI().getPath().split("/")[1];
+  }
+
+  @Override
+  protected String getFullPath(FileReference fileRef, TraversalParams params) {
+    return getFullPath(fileRef.getBlobItem(), params);
   }
 
   private String getFullPath(BlobItem blobItem, TraversalParams params) {
@@ -184,10 +191,10 @@ public class AzureStorageClient extends BaseStorageClient {
     return doc;
   }
 
-  private boolean isValid(BlobItem blob, TraversalParams params) {
-    if (blob.isPrefix()) return false;
-
-    return params.patternsAllowFile(blob.getName());
+  @Override
+  protected boolean validFile(FileReference fileRef) {
+    BlobItem blob = fileRef.getBlobItem();
+    return !blob.isPrefix();
   }
 
   // Only for testing

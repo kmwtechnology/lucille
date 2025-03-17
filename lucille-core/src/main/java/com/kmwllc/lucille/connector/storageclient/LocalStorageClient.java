@@ -130,6 +130,17 @@ public class LocalStorageClient extends BaseStorageClient {
     return doc;
   }
 
+  @Override
+  protected boolean validFile(FileReference fileRef) {
+    // Currently a no-op. Files.walk won't return any directories
+    return true;
+  }
+
+  @Override
+  protected String getFullPath(FileReference fileRef, TraversalParams params) {
+    return fileRef.getPath().toString();
+  }
+
   private Document pathToDoc(Path path, InputStream in, String decompressedFullPathStr, TraversalParams params)
       throws ConnectorException {
     String docId = DigestUtils.md5Hex(decompressedFullPathStr);

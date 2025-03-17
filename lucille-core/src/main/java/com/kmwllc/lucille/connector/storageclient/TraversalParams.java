@@ -72,6 +72,14 @@ public class TraversalParams {
   }
 
   /**
+   * Returns whether the filterOptions allow for the publishing / processing of the file, described by the given {URI / FILE PATH / ??}
+   * and an Instant representing the last time it was modified.
+   */
+  public boolean filterOptionsIncludeFile(String pathString, Instant fileLastModified) {
+    return patternsAllowFile(pathString) && timeWithinCutoff(fileLastModified);
+  }
+
+  /**
    * Returns whether the given file associated with the given path String should be processed, based on this object's
    * includes/excludes patterns.
    */
@@ -89,10 +97,11 @@ public class TraversalParams {
   }
 
   /**
-   * Returns whether the given FileReference was last modified before the modificationCutoff and, as such, should
-   * be processed / published. Always returns true if there is no modificationCutoff specified (the parameter is null).
+   * Returns whether the given Instant indicates that the file should be included in a traversal, based on the
+   * duration of the modificationCutoff and whether the traversal is supposed to exclude files before or after this cutoff time.
+   * Always returns true if there is no modificationCutoff specified (the parameter is null).
    */
-  public boolean fileWithinCutoff(FileReference fileReference) {
+  public boolean timeWithinCutoff(Instant fileLastModified) {
     if (modificationCutoff == null) {
       return true;
     }
@@ -101,9 +110,9 @@ public class TraversalParams {
 
     if (excludeFilesBefore) {
       // Return true for files after the cutoff, false for before.
-      return fileReference.lastModified.isAfter(cutoffPoint);
+      return fileLastModified.isAfter(cutoffPoint);
     } else {
-      return fileReference.lastModified.isBefore(cutoffPoint);
+      return fileLastModified.isBefore(cutoffPoint);
     }
   }
 

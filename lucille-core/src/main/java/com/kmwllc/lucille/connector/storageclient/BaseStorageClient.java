@@ -123,10 +123,13 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param fileExtension fileExtension of the file. Used to determine if the file should be processed by file handler
    * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
    */
+  // TODO: Rename "processAndPublishFileIfValid" or smth like that.
+  // TODO: check shouldProcessFile.
   protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference, TraversalParams params) {
     try {
       // preprocessing is currently a NO-OP unless a subclass overrides it
-      if (!params.fileWithinCutoff(fileReference) || !beforeProcessingFile(fullPathStr)) {
+      // TODO: Remove time check
+      if (!params.timeWithinCutoff(fileReference.lastModified) || !beforeProcessingFile(fullPathStr)) {
         // Skip the file if it's not within the cutoff or preprocessing failed.
         return;
       }
@@ -298,6 +301,27 @@ public abstract class BaseStorageClient implements StorageClient {
   protected String getArchiveEntryFullPath(String fullPathStr, String entryName) {
     return fullPathStr + ARCHIVE_FILE_SEPARATOR + entryName;
   }
+
+  /**
+   * Returns whether the given file should be published / processed. Involves checking that the file is valid
+   * (based on the specific Storage Client implementation) and checking whether the filterOptions of the given
+   * TraversalParams include the file's path.
+   */
+  private boolean shouldProcessFile(FileReference fileRef, TraversalParams params) {
+    return validFile(fileRef) && params.filterOptionsIncludeFile(getFullPath(fileRef, params), fileRef.lastModified);
+  }
+
+  /**
+   * Returns whether the given FileReference is a valid path to a file in this Storage Client's file system.
+   * (Primarily a check that the given reference is not a directory.)
+   */
+  protected abstract boolean validFile(FileReference fileRef);
+
+  /**
+   * Returns a String representation of the full path to this file reference. For cloud providers, this includes the scheme
+   * (s3, https, gs); for local files, this is just the normalized, absolute path to the file.
+   */
+  protected abstract String getFullPath(FileReference fileReference, TraversalParams params);
 
   /**
    * method for performing operations before processing files. This method is ill be called before processing 

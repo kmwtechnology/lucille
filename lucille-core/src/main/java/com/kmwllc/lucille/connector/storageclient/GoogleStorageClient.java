@@ -69,10 +69,12 @@ public class GoogleStorageClient extends BaseStorageClient {
     do {
       page.streamAll()
           .forEachOrdered(blob -> {
-            if (isValid(blob, params)) {
+            FileReference fileRef = new FileReference(blob);
+
+            if (validFile(fileRef)) {
               String fullPathStr = getFullPath(blob, params);
               String fileExtension = FilenameUtils.getExtension(fullPathStr);
-              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
+              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, fileRef, params);
             }
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
@@ -133,10 +135,15 @@ public class GoogleStorageClient extends BaseStorageClient {
     return params.getURI().getAuthority();
   }
 
-  private boolean isValid(Blob blob, TraversalParams params) {
-    if (blob.isDirectory()) return false;
+  @Override
+  protected boolean validFile(FileReference fileRef) {
+    Blob blob = fileRef.getBlob();
+    return !blob.isDirectory();
+  }
 
-    return params.patternsAllowFile(blob.getName());
+  @Override
+  protected String getFullPath(FileReference fileRef, TraversalParams params) {
+    return getFullPath(fileRef.getBlob(), params);
   }
 
   private String getFullPath(Blob blob, TraversalParams params) {

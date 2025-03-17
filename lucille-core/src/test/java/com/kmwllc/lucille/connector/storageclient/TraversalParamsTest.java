@@ -24,15 +24,15 @@ public class TraversalParamsTest {
     // 1. No modificationCutoff - all files should be included, including files from Jan 1 1970 and right now.
     TraversalParams params = new TraversalParams(testFolderURI, "", ConfigFactory.empty(), ConfigFactory.empty());
 
-    assertTrue(params.fileWithinCutoff(new FileReference(newFile, Instant.now())));
-    assertTrue(params.fileWithinCutoff(new FileReference(oldFile, Instant.ofEpochMilli(1))));
+    assertTrue(params.timeWithinCutoff(Instant.now()));
+    assertTrue(params.timeWithinCutoff(Instant.ofEpochMilli(1)));
 
     // 2. A specified modificationCutoff, but no cutoffType - should automatically exclude files from BEFORE the cutoff.
     Map<String, String> filterOptionsMap = Map.of("modificationCutoff", "2 days");
     params = new TraversalParams(URI.create("src/test/resources/TraversalParamsTest"), "", ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
 
-    assertTrue(params.fileWithinCutoff(new FileReference(newFile, Instant.now())));
-    assertFalse(params.fileWithinCutoff(new FileReference(oldFile, Instant.ofEpochMilli(1))));
+    assertTrue(params.timeWithinCutoff(Instant.now()));
+    assertFalse(params.timeWithinCutoff(Instant.ofEpochMilli(1)));
   }
 
   @Test
@@ -43,8 +43,8 @@ public class TraversalParamsTest {
     );
     TraversalParams params = new TraversalParams(testFolderURI, "", ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
 
-    assertTrue(params.fileWithinCutoff(new FileReference(newFile, Instant.now())));
-    assertFalse(params.fileWithinCutoff(new FileReference(oldFile, Instant.ofEpochMilli(1))));
+    assertTrue(params.timeWithinCutoff(Instant.now()));
+    assertFalse(params.timeWithinCutoff(Instant.ofEpochMilli(1)));
 
     filterOptionsMap = Map.of(
         "modificationCutoff", "6h",
@@ -52,8 +52,8 @@ public class TraversalParamsTest {
     );
     params = new TraversalParams(testFolderURI, "", ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
 
-    assertFalse(params.fileWithinCutoff(new FileReference(newFile, Instant.now())));
-    assertTrue(params.fileWithinCutoff(new FileReference(oldFile, Instant.ofEpochMilli(1))));
+    assertFalse(params.timeWithinCutoff(Instant.now()));
+    assertTrue(params.timeWithinCutoff(Instant.ofEpochMilli(1)));
   }
 
   @Test
