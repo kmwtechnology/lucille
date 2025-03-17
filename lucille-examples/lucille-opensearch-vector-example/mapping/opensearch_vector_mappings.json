@@ -1,0 +1,92 @@
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_english": {
+          "tokenizer": "uax_url_email",
+          "filter": [
+            "english_stop",
+            "lowercase",
+            "english_possessive_stemmer",
+            "english_stemmer"
+          ]
+        },
+        "phrase": {
+          "tokenizer": "uax_url_email",
+          "filter": [
+            "lowercase",
+            "english_possessive_stemmer",
+            "english_stemmer",
+            "my_shingle_filter"
+          ]
+        }
+      },
+      "filter": {
+        "my_shingle_filter": {
+          "type": "shingle",
+          "min_shingle_size": 2,
+          "max_shingle_size": 3,
+          "output_unigrams": false
+        },
+        "english_stop": {
+          "type": "stop",
+          "stopwords": "_english_"
+        },
+        "english_stemmer": {
+          "type": "stemmer",
+          "language": "english"
+        },
+        "english_possessive_stemmer": {
+          "type": "stemmer",
+          "language": "possessive_english"
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "full_path": {
+        "type": "keyword"
+      },
+      "filename": {
+        "type": "keyword"
+      },
+      "file_extension": {
+        "type": "keyword"
+      },
+      "content": {
+        "type": "text",
+        "analyzer": "my_english",
+        "fields": {
+          "phrase": {
+            "type": "text",
+            "analyzer": "phrase"
+          }
+        }
+      },
+      "chunk_id": {
+        "type": "keyword"
+      },
+      "chunk_text": {
+        "type": "text",
+        "analyzer": "my_english"
+      },
+      "chunk_vector": {
+        "type": "knn_vector",
+        "dimension": 768
+      },
+      "id": {
+        "type": "keyword"
+      },
+      "errors": {
+        "type": "boolean"
+      },
+      "file_last_modified": {
+        "type": "date"
+      },
+      "file_size_bytes": {
+        "type": "long"
+      }
+    }
+  }
+}

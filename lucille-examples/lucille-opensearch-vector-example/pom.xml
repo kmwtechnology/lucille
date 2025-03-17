@@ -12,9 +12,13 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>lucille-s3-ingest-example</artifactId>
+  <artifactId>lucille-opensearch-vector-example</artifactId>
   <packaging>jar</packaging>
-  <name>Lucille Examples: Ingesting Into S3</name>
+  <name>Lucille Examples: Indexing Project Files With Vectors Into OpenSearch</name>
+
+  <properties>
+    <jackson.version>2.15.2</jackson.version>
+  </properties>
 
   <dependencyManagement>
     <dependencies>
@@ -37,6 +41,17 @@
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-tika</artifactId>
     </dependency>
+    <!-- Jackson dependencies for JSON processing -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
@@ -46,11 +61,19 @@
   </dependencies>
 
   <build>
+    <extensions>
+      <!-- Extension to detect OS -->
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.7.0</version>
+      </extension>
+    </extensions>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.6.1</version>
+        <version>3.1.1</version>
         <executions>
           <execution>
             <id>copy-dependencies</id>
@@ -76,7 +99,7 @@
               <goal>single</goal>
             </goals>
             <configuration>
-              <finalName>lucille-s3-ingest-example</finalName>
+              <finalName>lucille-opensearch-vector-example</finalName>
               <descriptors>
                 <descriptor>assembly/assembly.xml</descriptor>
               </descriptors>
@@ -86,4 +109,5 @@
       </plugin>
     </plugins>
   </build>
+
 </project>

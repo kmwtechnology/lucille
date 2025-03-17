@@ -1,0 +1,26 @@
+{
+  "settings": {
+    "index": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "knn": true,
+      "knn.space_type": "cosinesimil"
+    }
+  },
+  "mappings": {
+    "properties": {
+      "id": { "type": "keyword" },
+      "run_id": { "type": "keyword" },
+      "filename": { "type": "text" },
+      "full_path": { "type": "keyword" },
+      "content": { "type": "text" },
+      "chunk_text": { "type": "text" },
+      "chunk_id": { "type": "keyword" },
+      "file_extension": { "type": "keyword" },
+      "chunk_vector": {
+        "type": "knn_vector",
+        "dimension": 768
+      }
+    }
+  }
+}
