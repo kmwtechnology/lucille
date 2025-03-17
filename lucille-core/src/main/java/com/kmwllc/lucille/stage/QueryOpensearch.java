@@ -102,10 +102,7 @@ public class QueryOpensearch extends Stage {
     }
   }
 
-  @Override
-  public void stop() {
-    httpClient.close();
-  }
+  // TODO: If we require Java 21 we could add a call to httpClient.close().
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
