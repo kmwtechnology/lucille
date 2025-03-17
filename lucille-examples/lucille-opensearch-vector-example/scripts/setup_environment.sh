@@ -8,7 +8,7 @@ export OPENSEARCH_URL=${OPENSEARCH_URL:-"http://localhost:9200/"}
 export OPENSEARCH_INDEX=${OPENSEARCH_INDEX:-"lucille_code_vectors"}
 
 # Get the absolute path to the project root directory
-export PROJECT_PATH=$(cd "$(dirname "$0")/.." && cd .. && pwd)
+export PROJECT_PATH=$(cd "$(dirname "$0")/.." && cd .. && cd .. && pwd)
 
 # Set Gemini API key directly
 export GEMINI_API_KEY=AIzaSyCzvZfgulZOjw8CXDjZejvJwaqjAp3rDpA

@@ -9,7 +9,7 @@ source "$(dirname "$0")/setup_environment.sh"
 # Get the directory where the script is located
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 # Navigate to the parent directory
-PROJECT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+PROJECT_DIR=$(cd "$SCRIPT_DIR/../" && pwd)
 
 cd "$PROJECT_DIR" || exit
 
