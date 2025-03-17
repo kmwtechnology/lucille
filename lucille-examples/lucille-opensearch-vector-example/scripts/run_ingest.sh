@@ -31,9 +31,12 @@ java -cp "$CLASSPATH" \
   com.kmwllc.lucille.core.Runner \
   -render
 
-# Run the ingestion process
-echo "Starting ingestion..."
-java -cp "$CLASSPATH" \
+# Run the ingestion process with increased memory allocation
+echo "Starting ingestion with increased memory allocation..."
+java -Xms1G -Xmx4G \
+  -XX:+UseG1GC \
+  -XX:MaxGCPauseMillis=200 \
+  -cp "$CLASSPATH" \
   -Dconfig.file="$CONFIG_FILE" \
   com.kmwllc.lucille.core.Runner \
   -local

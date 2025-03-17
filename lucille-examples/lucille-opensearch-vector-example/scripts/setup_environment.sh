@@ -10,14 +10,8 @@ export OPENSEARCH_INDEX=${OPENSEARCH_INDEX:-"lucille_code_vectors"}
 # Get the absolute path to the project root directory
 export PROJECT_PATH=$(cd "$(dirname "$0")/.." && cd .. && pwd)
 
-# Set Gemini API key if not already set
-if [ -z "$GEMINI_API_KEY" ]; then
-  echo "WARNING: GEMINI_API_KEY environment variable is not set."
-  echo "Please set it with: export GEMINI_API_KEY='your-api-key-here'"
-  echo "Or enter your Gemini API key now (input will be hidden):"
-  read -s GEMINI_API_KEY
-  export GEMINI_API_KEY
-fi
+# Set Gemini API key directly
+export GEMINI_API_KEY=AIzaSyCzvZfgulZOjw8CXDjZejvJwaqjAp3rDpA
 
 echo "Environment variables set:"
 echo "OPENSEARCH_URL: $OPENSEARCH_URL"
