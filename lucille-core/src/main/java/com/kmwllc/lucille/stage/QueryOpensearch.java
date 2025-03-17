@@ -103,6 +103,11 @@ public class QueryOpensearch extends Stage {
   }
 
   @Override
+  public void stop() {
+    httpClient.close();
+  }
+
+  @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // falling back on the opensearchQuery, if it exists.
     if (documentQueryField == null || !doc.has(documentQueryField)) {
