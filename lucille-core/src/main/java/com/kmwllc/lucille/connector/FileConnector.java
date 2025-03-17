@@ -106,7 +106,7 @@ public class FileConnector extends AbstractConnector {
     super(config);
     this.pathToStorage = config.getString("pathToStorage");
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
-    this.filterOptions = config.getConfig("filterOptions");
+    this.filterOptions = config.hasPath("filterOptions") ? config.getConfig("filterOptions") : ConfigFactory.empty();
 
     try {
       this.storageURI = new URI(pathToStorage);
