@@ -9,6 +9,8 @@ This example demonstrates how to use Lucille to index project files with vector 
 - Splits text content into manageable chunks for better semantic retrieval
 - Generates vector embeddings for each chunk using Google's Gemini API
 - Stores content and vectors in OpenSearch for hybrid search (keyword + semantic)
+- Optimized configuration for Gemini API rate limits
+- Local execution mode without Kafka/ZooKeeper dependencies
 
 ## Requirements
 
@@ -100,45 +102,58 @@ The indexing pipeline is defined in `conf/opensearch-vector.conf` and includes t
 6. **EmitNestedChildren**: Creates separate documents for each text chunk
 7. **GeminiEmbed**: Generates vector embeddings using Google's Gemini API
 
-Key configuration elements:
+## Rate Limiting and Optimization
+
+This example includes optimizations for respecting Gemini API rate limits:
 
 ```hocon
-# Extract text and metadata using Tika
+# File connector with throttling
 {
-  name: "TextExtractor"
-  class: "com.kmwllc.lucille.tika.stage.TextExtractor"
-  byte_array_field: "file_content"
-  metadata_prefix: "tika_"
-  tika_config_path: "conf/tika-config.xml"
+  name: "fileConnector",
+  # ...
+  # Add throttling to control processing rate and respect API limits
+  throttleDelayMs: 100
+  batchSize: 5
 }
 
-# Map Tika metadata fields to standardized names
-{
-  name: "renameFields",
-  class: "com.kmwllc.lucille.stage.RenameFields"
-  fieldMapping: {
-    "text": "content",
-    "path": "full_path",
-    "name": "filename",
-    "tika__content_type": "content_type"
-  }
-  update_mode: "overwrite"
+# Worker configuration optimized for API rate limits
+worker {
+  pipeline: "pipeline1"
+  # Reduced threads to respect Gemini API rate limits
+  threads: 2
+  # Add sleep between documents to control rate
+  sleepBetweenDocs: 50
+  # Add delay on processor errors
+  sleepOnProcessorError: 500
 }
 
-# Create separate documents for text chunks while preserving metadata
-{
-  class: "com.kmwllc.lucille.stage.EmitNestedChildren"
-  drop_parent: true
-  fields_to_copy: {
-    "content_type": "content_type",
-    "file_creation_date": "file_creation_date",
-    "file_modification_date": "file_modification_date",
-    "file_path": "file_path",
-    "file_size_bytes": "file_size_bytes"
-  }
-  name: "emitChunks"
+# Publisher optimization
+publisher {
+  queueCapacity: 100
+  batchSize: 10
+  batchTimeout: 10000
 }
 ```
+
+These settings help prevent API rate limit errors by:
+
+- Reducing the number of concurrent requests with fewer worker threads
+- Adding delays between document processing
+- Implementing backoff delays when errors occur
+- Controlling batch sizes for optimal throughput
+
+## Local Execution Mode
+
+This example runs in local mode (`-local` flag) without requiring Kafka or ZooKeeper:
+
+```bash
+java -cp "$CLASSPATH" \
+  -Dconfig.file="$CONFIG_FILE" \
+  com.kmwllc.lucille.core.Runner \
+  -local
+```
+
+This simplifies setup and is suitable for smaller indexing jobs. For larger production workloads, you may want to configure a distributed setup with Kafka.
 
 ## Searching the Data
 
@@ -198,9 +213,7 @@ GET lucille_code_vectors/_search
           "match": {
             "content_type": "application/java"
           }
-        }
-      ],
-      "should": [
+        },
         {
           "knn": {
             "chunk_vector": {
@@ -209,52 +222,30 @@ GET lucille_code_vectors/_search
             }
           }
         }
+      ],
+      "should": [
+        {
+          "match": {
+            "chunk_text": "opensearch connector"
+          }
+        }
       ]
     }
   }
 }
 ```
 
-## Technical Details
-
-- **Embedding Model**: This example uses Google's "text-embedding-004" model which produces 768-dimensional vectors.
-- **API Integration**: The Google Gemini API is used to generate high-quality embeddings for text chunks.
-- **Chunking Strategy**: Text is split into chunks of approximately 2000 characters with 10% overlap to provide focused, relevant search results.
-- **Metadata Extraction**: Apache Tika is used to extract metadata, including content type, which is preserved during chunking.
-
-## Control Commands
-
-The following control commands are available:
-
-```bash
-# Check the status of the containers
-./scripts/opensearch_control.sh status
-
-# View logs from the containers
-./scripts/opensearch_control.sh logs
-
-# Stop the containers
-./scripts/opensearch_control.sh stop
-
-# Restart the containers
-./scripts/opensearch_control.sh restart
-
-# Remove all data and reset (WARNING: destroys all indexed data)
-./scripts/opensearch_control.sh reset
-```
-
-## Customization
-
-- Adjust the chunk size in the configuration file to optimize for your content
-- Modify included/excluded file patterns based on your needs
-- Adjust the embedding dimensions (if supported by the model)
-- Customize the metadata fields extracted from Tika and preserved during chunking
-
 ## Troubleshooting
 
-If your documents are missing expected metadata:
+If you encounter API rate limit errors, you can further adjust the throttling parameters in `conf/opensearch-vector.conf`:
 
-1. Check the Tika extraction stage in the configuration file
-2. Verify the field mapping in the RenameFields stage
-3. Ensure that fields are properly copied in the EmitNestedChildren stage
-4. Check the OpenSearch mapping to ensure it supports all required fields
+- Reduce `worker.threads` to decrease concurrent requests
+- Increase `sleepBetweenDocs` for longer pauses between documents
+- Increase `throttleDelayMs` in the connector configuration
+- Decrease `batchSize` values to process fewer documents at once
+
+## Additional Resources
+
+- [Lucille Documentation](https://github.com/kmwtechnology/lucille)
+- [OpenSearch Vector Search Documentation](https://opensearch.org/docs/latest/search-plugins/knn/index/)
+- [Google Gemini API Documentation](https://ai.google.dev/docs/gemini_api_overview)
