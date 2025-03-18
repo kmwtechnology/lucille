@@ -123,14 +123,17 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param fileExtension fileExtension of the file. Used to determine if the file should be processed by file handler
    * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
    */
-  protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference, TraversalParams params) {
+  protected void processAndPublishFileIfValid(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference, TraversalParams params) {
     try {
-      // preprocessing, currently a NO-OP unless a subclass overrides it
-      if (!beforeProcessingFile(fullPathStr)) {
-        // The preprocessing check failed, let's skip the file.
+      // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
+      // (preprocessing is currently a NO-OP unless a subclass overrides it)
+      String fileName = getFileName(fileReference);
+      if (!isValidFile(fileReference)
+          || !params.includeFile(fileName, fileReference.getLastModified())
+          || !beforeProcessingFile(fullPathStr)) {
         return;
       }
-      
+
       // handle compressed files if needed to the end
       if (params.getHandleCompressedFiles() && isSupportedCompressedFileType(fullPathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
@@ -217,7 +220,7 @@ public abstract class BaseStorageClient implements StorageClient {
           continue;
         }
         // checking validity only for the entries
-        if (!entry.isDirectory() && params.shouldIncludeFile(entry.getName())) {
+        if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant())) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (params.supportedFileType(entryExtension)) {
             handleStreamExtensionFiles(publisher, in, entryExtension, entryFullPathStr);
@@ -298,6 +301,17 @@ public abstract class BaseStorageClient implements StorageClient {
   protected String getArchiveEntryFullPath(String fullPathStr, String entryName) {
     return fullPathStr + ARCHIVE_FILE_SEPARATOR + entryName;
   }
+
+  /**
+   * Returns whether the given FileReference is a valid path to a file in this Storage Client's file system.
+   * (Primarily a check that the given reference is not a directory.)
+   */
+  protected abstract boolean isValidFile(FileReference fileRef);
+
+  /**
+   * Returns the name of the file associated with the given FileReference.
+   */
+  protected abstract String getFileName(FileReference fileReference);
 
   /**
    * method for performing operations before processing files. This method is ill be called before processing 

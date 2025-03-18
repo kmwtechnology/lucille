@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector.storageclient;
 import com.azure.storage.blob.models.BlobItem;
 import com.google.cloud.storage.Blob;
 import java.nio.file.Path;
+import java.time.Instant;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 /**
@@ -14,21 +15,26 @@ public class FileReference {
   S3Object s3Object;
   BlobItem blobItem;
   Blob blob;
+  final Instant lastModified;
 
-  public FileReference(Path path) {
+  public FileReference(Path path, Instant lastModified) {
     this.path = path;
+    this.lastModified = lastModified;
   }
 
   public FileReference(S3Object s3Object) {
     this.s3Object = s3Object;
+    this.lastModified = s3Object.lastModified();
   }
 
   public FileReference(BlobItem blobItem) {
     this.blobItem = blobItem;
+    this.lastModified = blobItem.getProperties().getLastModified().toInstant();
   }
 
   public FileReference(Blob blob) {
     this.blob = blob;
+    this.lastModified = blob.getUpdateTimeOffsetDateTime().toInstant();
   }
 
   public Path getPath() {
@@ -46,6 +52,8 @@ public class FileReference {
   public Blob getBlob() {
     return blob;
   }
+
+  public Instant getLastModified() { return lastModified; }
 
   public boolean isCloudFileReference() {
     return s3Object != null || blobItem != null || blob != null;

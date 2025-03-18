@@ -40,7 +40,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -87,7 +86,7 @@ public class S3StorageClientTest {
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.empty());
+        ConfigFactory.empty(), ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -146,9 +145,9 @@ public class S3StorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
+    Map<String, Object> filterOptionsMap = Map.of("excludes", List.of("obj3", "obj4"));
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        List.of(), List.of(Pattern.compile("obj3"), Pattern.compile("obj4")), ConfigFactory.empty());
-
+        ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -188,7 +187,7 @@ public class S3StorageClientTest {
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)));
+        ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)), ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -225,7 +224,7 @@ public class S3StorageClientTest {
     // storage client with json file handler
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of("json", Map.of())));
+        ConfigFactory.parseMap(Map.of("json", Map.of())), ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -266,11 +265,12 @@ public class S3StorageClientTest {
     // storage client with json file handler
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of(
-        "json", Map.of(),
-        "csv", Map.of(),
-        "handleArchivedFiles", true,
-        "handleCompressedFiles", true)));
+        ConfigFactory.parseMap(Map.of(
+            "json", Map.of(),
+            "csv", Map.of(),
+            "handleArchivedFiles", true,
+            "handleCompressedFiles", true)),
+        ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -372,9 +372,10 @@ public class S3StorageClientTest {
     // simulate a proper s3StorageClient with valid files
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of(
-        "moveToAfterProcessing", "s3://bucket/Processed",
-        "moveToErrorFolder", "s3://bucket/Error")));
+        ConfigFactory.parseMap(Map.of(
+            "moveToAfterProcessing", "s3://bucket/Processed",
+            "moveToErrorFolder", "s3://bucket/Error")),
+        ConfigFactory.empty());
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -430,6 +431,35 @@ public class S3StorageClientTest {
     }
   }
 
+  @Test
+  public void testModificationCutoff() throws Exception {
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey"));
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
+    // only files modified in the last 2 hours
+    Map<String, String> filterOptionsMap = Map.of("modificationCutoff", "2h");
+    TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
+        ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
+
+    S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
+    s3StorageClient.setS3ClientForTesting(mockClient);
+    ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
+    ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
+    when(responseWithinStream.contents()).thenReturn(getMockedS3ObjectsWithCutoff());
+    when(response.stream()).thenReturn(Stream.of(responseWithinStream));
+
+    when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
+
+    s3StorageClient.initializeForTesting();
+    s3StorageClient.traverse(publisher, params);
+    // 3 documents, each set with "Instant.now()" as modified time, are the ones returned
+    assertEquals(3, publisher.numPublished());
+  }
+
   private List<S3Object> getMockedS3Objects() throws Exception {
     obj1 = S3Object.builder().key("obj1").lastModified(Instant.ofEpochMilli(1L)).size(1L).build();
     obj2 = S3Object.builder().key("obj2").lastModified(Instant.ofEpochMilli(2L)).size(2L).build();
@@ -444,6 +474,14 @@ public class S3StorageClientTest {
     obj2 = S3Object.builder().key("obj2/").lastModified(Instant.ofEpochMilli(2L)).size(2L).build();
     obj3 = S3Object.builder().key("obj3").lastModified(Instant.ofEpochMilli(3L)).size(3L).build();
     obj4 = S3Object.builder().key("obj4").lastModified(Instant.ofEpochMilli(4L)).size(4L).build();
+    return List.of(obj1, obj2, obj3, obj4);
+  }
+
+  private List<S3Object> getMockedS3ObjectsWithCutoff() {
+    obj1 = S3Object.builder().key("obj1").lastModified(Instant.ofEpochMilli(1L)).size(1L).build();
+    obj2 = S3Object.builder().key("obj2").lastModified(Instant.now()).size(2L).build();
+    obj3 = S3Object.builder().key("obj3").lastModified(Instant.now()).size(3L).build();
+    obj4 = S3Object.builder().key("obj4").lastModified(Instant.now()).size(4L).build();
     return List.of(obj1, obj2, obj3, obj4);
   }
 

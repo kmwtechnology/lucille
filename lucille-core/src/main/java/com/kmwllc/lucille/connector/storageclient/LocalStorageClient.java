@@ -130,6 +130,17 @@ public class LocalStorageClient extends BaseStorageClient {
     return doc;
   }
 
+  @Override
+  protected boolean isValidFile(FileReference fileRef) {
+    // Currently a no-op. Files.walk won't return any directories
+    return true;
+  }
+
+  @Override
+  protected String getFileName(FileReference fileRef) {
+    return fileRef.getPath().getFileName().toString();
+  }
+
   private Document pathToDoc(Path path, InputStream in, String decompressedFullPathStr, TraversalParams params)
       throws ConnectorException {
     String docId = DigestUtils.md5Hex(decompressedFullPathStr);
@@ -173,14 +184,10 @@ public class LocalStorageClient extends BaseStorageClient {
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
       // Visit the file and actually process it!
-      if (!params.shouldIncludeFile(file.toString())) {
-        // this file is skipped by the configuration.
-        return FileVisitResult.CONTINUE;
-      }
       Path fullPath = file.toAbsolutePath().normalize();
       String fullPathStr = fullPath.toString();
       String fileExtension = FilenameUtils.getExtension(fullPathStr);
-      tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(fullPath), params);
+      processAndPublishFileIfValid(publisher, fullPathStr, fileExtension, new FileReference(fullPath, attrs.lastModifiedTime().toInstant()), params);
       return FileVisitResult.CONTINUE;
     }
 
