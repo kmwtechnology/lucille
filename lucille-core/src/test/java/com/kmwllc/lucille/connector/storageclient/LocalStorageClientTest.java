@@ -398,26 +398,11 @@ public class LocalStorageClientTest {
     LocalStorageClient localStorageClient = new LocalStorageClient();
     localStorageClient.init();
 
-    // Only including files modified in the last 15 seconds
-    Config filterOptions = ConfigFactory.parseMap(Map.of(
-        "modificationCutoff", "10h",
-        "cutoffType", "before"
-    ));
+    // Only including files modified in the last 10 hours
+    Config filterOptions = ConfigFactory.parseMap(Map.of("modificationCutoff", "10h"));
     TraversalParams params = new TraversalParams(defaultURI, "", ConfigFactory.empty(), filterOptions);
     localStorageClient.traverse(publisher, params);
     // only "new file" should be published - others are BEFORE the cutoff.
     assertEquals(1, publisher.numPublished());
-
-    // Only including files modified 30 seconds or later ago
-    messenger = new TestMessenger();
-    publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
-    filterOptions = ConfigFactory.parseMap(Map.of(
-        "modificationCutoff", "10h",
-        "cutoffType", "after"
-    ));
-    params = new TraversalParams(defaultURI, "", ConfigFactory.empty(), filterOptions);
-    localStorageClient.traverse(publisher, params);
-    // "old file" and "also old file" should be published - the "new file" is AFTER the cutoff.
-    assertEquals(2, publisher.numPublished());
   }
 }

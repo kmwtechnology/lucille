@@ -31,11 +31,9 @@ import org.slf4j.LoggerFactory;
  * FilterOptions:
  *  includes (list of strings, Optional): list of regex patterns to include files.
  *  excludes (list of strings, Optional): list of regex patterns to exclude files.
- *  modificationCutoff (Duration, Optional): Filter files that haven't been modified in a certain amount of time. Set <b>cutoffType</b>
- *  to exclude files modified before this amount of time or exclude files modified after this amount of time. See the HOCON documentation
- *  for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
- *  cutoffType (String, Optional): Specifies whether you want to filter out files that come <b>before</b> your specified modificationCutoff
- *  or <b>after</b> it. Must be either "before" or "after", or an exception is thrown. Defaults to before.
+ *  modificationCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time. Set <b>cutoffType</b>
+ *  to exclude files modified before this amount of time ago. See the HOCON documentation for examples of a Duration -
+ *  strings like "1h", "2d" and "3s" are accepted, for example.
  *
  * FileOptions:
  *  getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.
