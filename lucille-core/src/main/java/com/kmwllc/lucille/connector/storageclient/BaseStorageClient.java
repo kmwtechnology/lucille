@@ -7,6 +7,7 @@ import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
+import com.kmwllc.lucille.connector.storageclient.filereference.FileReference;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
@@ -129,7 +130,7 @@ public abstract class BaseStorageClient implements StorageClient {
     try {
       // preprocessing is currently a NO-OP unless a subclass overrides it
       // TODO: Remove time check
-      if (!params.timeWithinCutoff(fileReference.lastModified) || !beforeProcessingFile(fullPathStr)) {
+      if (!params.timeWithinCutoff(fileReference.getLastModified()) || !beforeProcessingFile(fullPathStr)) {
         // Skip the file if it's not within the cutoff or preprocessing failed.
         return;
       }
@@ -308,7 +309,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * TraversalParams include the file's path.
    */
   private boolean shouldProcessFile(FileReference fileRef, TraversalParams params) {
-    return validFile(fileRef) && params.filterOptionsIncludeFile(getFullPath(fileRef, params), fileRef.lastModified);
+    return validFile(fileRef) && params.filterOptionsIncludeFile(fileRef.getFilePath(params), fileRef.getLastModified());
   }
 
   /**

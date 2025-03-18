@@ -12,6 +12,8 @@ import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.connector.storageclient.filereference.AzureFileReference;
+import com.kmwllc.lucille.connector.storageclient.filereference.FileReference;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
@@ -73,12 +75,12 @@ public class AzureStorageClient extends BaseStorageClient {
         .listBlobs(new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages),
             Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
-          FileReference fileRef = new FileReference(blob);
+          AzureFileReference fileRef = new AzureFileReference(blob);
 
           if (validFile(fileRef)) {
             String fullPathStr = getFullPath(blob, params);
             String fileExtension = FilenameUtils.getExtension(fullPathStr);
-            tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
+            tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, fileRef, params);
           }
         });
   }
@@ -94,19 +96,8 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   protected Document convertFileReferenceToDoc(FileReference fileReference, TraversalParams params) {
-    BlobItem blobItem = fileReference.getBlobItem();
-    return blobItemToDoc(blobItem, params);
-  }
+    Document fileReferenceDoc = fileReference.toDoc(params);
 
-  @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr, TraversalParams params) {
-    BlobItem blobItem = fileReference.getBlobItem();
-
-    try {
-      return blobItemToDoc(blobItem, in, decompressedFullPathStr, params);
-    } catch (IOException e) {
-      throw new IllegalArgumentException("Unable to convert BlobItem '" + blobItem.getName() + "' to Document", e);
-    }
   }
 
   @Override
@@ -130,71 +121,11 @@ public class AzureStorageClient extends BaseStorageClient {
     return params.getURI().getPath().split("/")[1];
   }
 
-  @Override
-  protected String getFullPath(FileReference fileRef, TraversalParams params) {
-    return getFullPath(fileRef.getBlobItem(), params);
-  }
-
   private String getFullPath(BlobItem blobItem, TraversalParams params) {
     URI pathURI = params.getURI();
 
     return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
         getBucketOrContainerName(params), blobItem.getName());
-  }
-
-  private Document blobItemToDoc(BlobItem blob, TraversalParams params) {
-    String fullPath = getFullPath(blob, params);
-    String docId = DigestUtils.md5Hex(fullPath);
-    Document doc = Document.create(params.getDocIdPrefix() + docId);
-
-    BlobItemProperties properties = blob.getProperties();
-    doc.setField(FileConnector.FILE_PATH, fullPath);
-
-    if (properties.getLastModified() != null) {
-      doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
-    }
-
-    if (properties.getCreationTime() != null) {
-      doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
-    }
-
-    doc.setField(FileConnector.SIZE, properties.getContentLength());
-
-    if (params.shouldGetFileContent()) {
-      doc.setField(FileConnector.CONTENT, serviceClient.getBlobContainerClient(getBucketOrContainerName(params)).getBlobClient(blob.getName()).downloadContent().toBytes());
-    }
-
-    return doc;
-  }
-
-  private Document blobItemToDoc(BlobItem blob, InputStream is, String decompressedFullPathStr, TraversalParams params)
-      throws IOException {
-    String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-    Document doc = Document.create(params.getDocIdPrefix() + docId);
-
-    BlobItemProperties properties = blob.getProperties();
-    doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
-
-    if (properties.getLastModified() != null) {
-      doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
-    }
-
-    if (properties.getCreationTime() != null) {
-      doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
-    }
-
-    // unable to get the decompressed size via inputStream
-    if (params.shouldGetFileContent()) {
-      doc.setField(FileConnector.CONTENT, is.readAllBytes());
-    }
-
-    return doc;
-  }
-
-  @Override
-  protected boolean validFile(FileReference fileRef) {
-    BlobItem blob = fileRef.getBlobItem();
-    return !blob.isPrefix();
   }
 
   // Only for testing
