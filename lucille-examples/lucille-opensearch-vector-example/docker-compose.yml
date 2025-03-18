@@ -9,6 +9,7 @@ services:
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
       - "DISABLE_SECURITY_PLUGIN=true"
       - "DISABLE_INSTALL_DEMO_CONFIG=true"
+      - "path.repo=/usr/share/opensearch/snapshots"
     ulimits:
       memlock:
         soft: -1
@@ -18,6 +19,7 @@ services:
         hard: 65536
     volumes:
       - opensearch-data:/usr/share/opensearch/data
+      - ./opensearch_snapshots:/usr/share/opensearch/snapshots
     ports:
       - 9200:9200
       - 9300:9300

@@ -61,3 +61,6 @@ DetectLanguage/profiles
 
 # VSCode
 .vscode
+
+# OpenSearch snapshots
+opensearch_snapshots

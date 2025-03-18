@@ -235,6 +235,105 @@ GET lucille_code_vectors/_search
 }
 ```
 
+## Creating OpenSearch Backups
+
+This example includes configuration for creating snapshots of your OpenSearch indices, which is useful for backups and data migration.
+
+### Prerequisites
+
+Ensure your `docker-compose.yml` has the following configuration (already included):
+
+```yaml
+opensearch:
+  # ... other configurations ...
+  environment:
+    # ... other environment variables ...
+    - "path.repo=/usr/share/opensearch/snapshots"
+  volumes:
+    # ... other volumes ...
+    - ./opensearch_snapshots:/usr/share/opensearch/snapshots
+```
+
+### Step 1: Set up the Snapshot Directory
+
+First, ensure your snapshot directory exists and has proper permissions:
+
+```bash
+# Check if the directory exists
+docker exec opensearch ls -la /usr/share/opensearch/snapshots
+
+# Set proper permissions (if needed)
+docker exec opensearch chmod 777 /usr/share/opensearch/snapshots
+
+# Verify permissions
+docker exec opensearch ls -la /usr/share/opensearch/snapshots
+```
+
+### Step 2: Register the Snapshot Repository
+
+Register a repository for storing your snapshots:
+
+```bash
+curl -X PUT "http://localhost:9200/_snapshot/my_backup" -H 'Content-Type: application/json' -d'
+{
+  "type": "fs",
+  "settings": {
+    "location": "/usr/share/opensearch/snapshots",
+    "compress": true
+  }
+}'
+```
+
+This only needs to be done once unless you change repository settings.
+
+### Step 3: Create a Snapshot
+
+Create a snapshot of a specific index (e.g., `lucille_code_vectors`):
+
+```bash
+curl -X PUT "http://localhost:9200/_snapshot/my_backup/snapshot_name?wait_for_completion=true" -H 'Content-Type: application/json' -d'
+{
+  "indices": "lucille_code_vectors",
+  "ignore_unavailable": true,
+  "include_global_state": false
+}'
+```
+
+Replace `snapshot_name` with a descriptive name (e.g., `snapshot_20250318`).
+
+To back up all indices, omit the `indices` parameter:
+
+```bash
+curl -X PUT "http://localhost:9200/_snapshot/my_backup/snapshot_all?wait_for_completion=true" -H 'Content-Type: application/json' -d'
+{
+  "ignore_unavailable": true,
+  "include_global_state": true
+}'
+```
+
+### Step 4: Verify the Snapshot
+
+Check that your snapshot completed successfully:
+
+```bash
+# List all snapshots in the repository
+curl -X GET "http://localhost:9200/_snapshot/my_backup/_all"
+
+# Check details of a specific snapshot
+curl -X GET "http://localhost:9200/_snapshot/my_backup/snapshot_name"
+```
+
+### Step 5: Verify Local Files
+
+Confirm that snapshot files are present on your local machine:
+
+```bash
+# List files in the snapshot directory
+ls -la ./opensearch_snapshots
+```
+
+You should see files like `meta-*.dat`, `snap-*.dat`, and an `indices` directory.
+
 ## Troubleshooting
 
 If you encounter API rate limit errors, you can further adjust the throttling parameters in `conf/opensearch-vector.conf`:
