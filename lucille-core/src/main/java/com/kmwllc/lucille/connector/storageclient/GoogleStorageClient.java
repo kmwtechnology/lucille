@@ -132,7 +132,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected boolean validFile(FileReference fileRef) {
+  protected boolean isValidFile(FileReference fileRef) {
     Blob blob = fileRef.getBlob();
     return !blob.isDirectory();
   }

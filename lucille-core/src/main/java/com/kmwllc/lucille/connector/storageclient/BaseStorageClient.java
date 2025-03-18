@@ -128,7 +128,7 @@ public abstract class BaseStorageClient implements StorageClient {
       // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
       // (preprocessing is currently a NO-OP unless a subclass overrides it)
       String fileName = getFileName(fileReference);
-      if (!validFile(fileReference)
+      if (!isValidFile(fileReference)
           || !params.includeFile(fileName, fileReference.getLastModified())
           || !beforeProcessingFile(fullPathStr)) {
         return;
@@ -306,7 +306,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * Returns whether the given FileReference is a valid path to a file in this Storage Client's file system.
    * (Primarily a check that the given reference is not a directory.)
    */
-  protected abstract boolean validFile(FileReference fileRef);
+  protected abstract boolean isValidFile(FileReference fileRef);
 
   /**
    * Returns the name of the file associated with the given FileReference.

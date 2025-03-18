@@ -131,7 +131,7 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected boolean validFile(FileReference fileRef) {
+  protected boolean isValidFile(FileReference fileRef) {
     // Currently a no-op. Files.walk won't return any directories
     return true;
   }

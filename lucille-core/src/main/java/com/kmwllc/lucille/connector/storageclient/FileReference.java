@@ -17,9 +17,9 @@ public class FileReference {
   Blob blob;
   final Instant lastModified;
 
-  public FileReference(Path path, Instant lastModifiedInstant) {
+  public FileReference(Path path, Instant lastModified) {
     this.path = path;
-    this.lastModified = lastModifiedInstant;
+    this.lastModified = lastModified;
   }
 
   public FileReference(S3Object s3Object) {

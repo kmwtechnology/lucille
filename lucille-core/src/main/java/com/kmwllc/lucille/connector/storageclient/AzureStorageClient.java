@@ -186,7 +186,7 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected boolean validFile(FileReference fileRef) {
+  protected boolean isValidFile(FileReference fileRef) {
     BlobItem blob = fileRef.getBlobItem();
     return !blob.isPrefix();
   }

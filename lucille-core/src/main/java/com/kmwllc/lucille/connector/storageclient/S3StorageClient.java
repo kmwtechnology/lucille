@@ -176,7 +176,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected boolean validFile(FileReference ref) {
+  protected boolean isValidFile(FileReference ref) {
     S3Object s3Obj = ref.getS3Object();
     return !s3Obj.key().endsWith("/");
   }
