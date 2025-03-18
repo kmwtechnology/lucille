@@ -35,6 +35,7 @@ import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -168,6 +169,10 @@ public class GoogleStorageClientTest {
     googleStorageClient.setStorageForTesting(storage);
     googleStorageClient.initializeForTesting();
     googleStorageClient.traverse(publisher, params);
+
+    Pattern pattern = Pattern.compile("my-object2");
+    System.out.println(pattern.matcher("gs://bucket/my-object2").matches());
+    System.out.println();
 
     // validate that only 2 blob are published and none are object2 or object3
     List<Document> documents = messenger.getDocsSentForProcessing();

@@ -53,6 +53,8 @@ public class FileReference {
     return blob;
   }
 
+  public Instant getLastModified() { return lastModified; }
+
   public boolean isCloudFileReference() {
     return s3Object != null || blobItem != null || blob != null;
   }

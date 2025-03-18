@@ -123,17 +123,14 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param fileExtension fileExtension of the file. Used to determine if the file should be processed by file handler
    * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
    */
-  // TODO: Rename "processAndPublishFileIfValid" or smth like that.
-  // TODO: check shouldProcessFile.
-  protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference, TraversalParams params) {
+  protected void processAndPublishFileIfValid(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference, TraversalParams params) {
     try {
       // preprocessing is currently a NO-OP unless a subclass overrides it
-      // TODO: Remove time check
-      if (!params.timeWithinCutoff(fileReference.lastModified) || !beforeProcessingFile(fullPathStr)) {
-        // Skip the file if it's not within the cutoff or preprocessing failed.
+      // Skip the file if it's not compliant with filter options or preprocessing failed.
+      if (!shouldProcessFile(fileReference, fullPathStr, params) || !beforeProcessingFile(fullPathStr)) {
         return;
       }
-      
+
       // handle compressed files if needed to the end
       if (params.getHandleCompressedFiles() && isSupportedCompressedFileType(fullPathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
@@ -307,8 +304,8 @@ public abstract class BaseStorageClient implements StorageClient {
    * (based on the specific Storage Client implementation) and checking whether the filterOptions of the given
    * TraversalParams include the file's path.
    */
-  private boolean shouldProcessFile(FileReference fileRef, TraversalParams params) {
-    return validFile(fileRef) && params.filterOptionsIncludeFile(getFullPath(fileRef, params), fileRef.lastModified);
+  private boolean shouldProcessFile(FileReference fileRef, String fullPathString, TraversalParams params) {
+    return validFile(fileRef) && params.filterOptionsIncludeFile(fullPathString, fileRef.getLastModified());
   }
 
   /**
