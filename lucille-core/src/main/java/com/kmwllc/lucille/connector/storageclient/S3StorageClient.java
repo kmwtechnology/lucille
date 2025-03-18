@@ -167,8 +167,8 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected String getFullPath(FileReference fileRef, TraversalParams params) {
-    return getFullPath(fileRef.getS3Object(), params);
+  protected String getFileName(FileReference fileRef) {
+    return fileRef.getS3Object().key();
   }
 
   private String getFullPath(S3Object obj, TraversalParams params) {

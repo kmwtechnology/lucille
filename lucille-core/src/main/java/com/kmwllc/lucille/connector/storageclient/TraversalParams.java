@@ -72,25 +72,19 @@ public class TraversalParams {
   }
 
   /**
-   * Returns whether the filterOptions allow for the publishing / processing of the file, described by the given path String
+   * Returns whether the filterOptions allow for the publishing / processing of the file, described by its name
    * and the last time it was modified.
    */
-  public boolean filterOptionsIncludeFile(String pathString, Instant fileLastModified) {
-    return patternsAllowFile(pathString) && timeWithinCutoff(fileLastModified);
+  public boolean filterOptionsIncludeFile(String fileName, Instant fileLastModified) {
+    return patternsAllowFile(fileName) && timeWithinCutoff(fileLastModified);
   }
 
   /**
-   * Returns whether the given file associated with the given path String should be processed, based on this object's
-   * includes/excludes patterns.
+   * Returns whether a file with the given name should be processed, based on the includes/excludes patterns.
    */
-  public boolean patternsAllowFile(String pathStr) {
-    System.out.println(pathStr);
-    boolean returnVal = excludes.stream().noneMatch(pattern -> pattern.matcher(pathStr).matches())
-        && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(pathStr).matches()));
-
-    System.out.println(returnVal);
-
-    return returnVal;
+  public boolean patternsAllowFile(String fileName) {
+    return excludes.stream().noneMatch(pattern -> pattern.matcher(fileName).matches())
+        && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(fileName).matches()));
   }
 
   /**

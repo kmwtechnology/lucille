@@ -138,9 +138,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected String getFullPath(FileReference fileRef, TraversalParams params) {
-    return getFullPath(fileRef.getBlob(), params);
-  }
+  protected String getFileName(FileReference fileRef) { return fileRef.getBlob().getName(); }
 
   private String getFullPath(Blob blob, TraversalParams params) {
     return params.getURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + blob.getName();

@@ -127,7 +127,8 @@ public abstract class BaseStorageClient implements StorageClient {
     try {
       // preprocessing is currently a NO-OP unless a subclass overrides it
       // Skip the file if it's not compliant with filter options or preprocessing failed.
-      if (!shouldProcessFile(fileReference, fullPathStr, params) || !beforeProcessingFile(fullPathStr)) {
+      String fileName = getFileName(fileReference);
+      if (!shouldProcessFile(fileReference, fileName, params) || !beforeProcessingFile(fullPathStr)) {
         return;
       }
 
@@ -304,8 +305,8 @@ public abstract class BaseStorageClient implements StorageClient {
    * (based on the specific Storage Client implementation) and checking whether the filterOptions of the given
    * TraversalParams include the file's path.
    */
-  private boolean shouldProcessFile(FileReference fileRef, String fullPathString, TraversalParams params) {
-    return validFile(fileRef) && params.filterOptionsIncludeFile(fullPathString, fileRef.getLastModified());
+  private boolean shouldProcessFile(FileReference fileRef, String fileName, TraversalParams params) {
+    return validFile(fileRef) && params.filterOptionsIncludeFile(fileName, fileRef.getLastModified());
   }
 
   /**
@@ -315,10 +316,9 @@ public abstract class BaseStorageClient implements StorageClient {
   protected abstract boolean validFile(FileReference fileRef);
 
   /**
-   * Returns a String representation of the full path to this file reference. For cloud providers, this includes the scheme
-   * (s3, https, gs); for local files, this is just the normalized, absolute path to the file.
+   * Returns the name of the file associated with the given FileReference.
    */
-  protected abstract String getFullPath(FileReference fileReference, TraversalParams params);
+  protected abstract String getFileName(FileReference fileReference);
 
   /**
    * method for performing operations before processing files. This method is ill be called before processing 

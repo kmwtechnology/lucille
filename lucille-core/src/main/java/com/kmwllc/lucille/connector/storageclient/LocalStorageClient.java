@@ -137,8 +137,8 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected String getFullPath(FileReference fileRef, TraversalParams params) {
-    return fileRef.getPath().toString();
+  protected String getFileName(FileReference fileRef) {
+    return fileRef.getPath().getFileName().toString();
   }
 
   private Document pathToDoc(Path path, InputStream in, String decompressedFullPathStr, TraversalParams params)

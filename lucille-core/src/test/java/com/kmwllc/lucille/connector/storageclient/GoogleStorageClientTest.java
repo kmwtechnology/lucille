@@ -170,10 +170,6 @@ public class GoogleStorageClientTest {
     googleStorageClient.initializeForTesting();
     googleStorageClient.traverse(publisher, params);
 
-    Pattern pattern = Pattern.compile("my-object2");
-    System.out.println(pattern.matcher("gs://bucket/my-object2").matches());
-    System.out.println();
-
     // validate that only 2 blob are published and none are object2 or object3
     List<Document> documents = messenger.getDocsSentForProcessing();
     assertEquals(2, documents.size());

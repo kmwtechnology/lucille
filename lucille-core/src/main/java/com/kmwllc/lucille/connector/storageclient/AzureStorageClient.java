@@ -127,9 +127,7 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected String getFullPath(FileReference fileRef, TraversalParams params) {
-    return getFullPath(fileRef.getBlobItem(), params);
-  }
+  protected String getFileName(FileReference fileRef) { return fileRef.getBlobItem().getName(); }
 
   private String getFullPath(BlobItem blobItem, TraversalParams params) {
     URI pathURI = params.getURI();
