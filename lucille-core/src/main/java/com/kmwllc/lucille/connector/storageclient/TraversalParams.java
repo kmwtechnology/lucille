@@ -65,16 +65,29 @@ public class TraversalParams {
    * Returns whether the filterOptions allow for the publishing / processing of the file, described by its name
    * and the last time it was modified.
    */
-  public boolean filterOptionsIncludeFile(String fileName, Instant fileLastModified) {
+  public boolean includeFile(String fileName, Instant fileLastModified) {
     return patternsAllowFile(fileName) && timeWithinCutoff(fileLastModified);
   }
 
   /**
    * Returns whether a file with the given name should be processed, based on the includes/excludes patterns.
    */
-  public boolean patternsAllowFile(String fileName) {
+  private boolean patternsAllowFile(String fileName) {
     return excludes.stream().noneMatch(pattern -> pattern.matcher(fileName).matches())
         && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(fileName).matches()));
+  }
+
+  /**
+   * Returns whether the given Instant indicates the file should be published / processed. Always returns true if there is no
+   * modificationCutoff set. If it is set, returns whether the file was modified recently enough to be processed/published.
+   */
+  private boolean timeWithinCutoff(Instant fileLastModified) {
+    if (modificationCutoff == null) {
+      return true;
+    }
+
+    Instant cutoffPoint = Instant.now().minus(modificationCutoff);
+    return fileLastModified.isAfter(cutoffPoint);
   }
 
   /**
@@ -83,19 +96,6 @@ public class TraversalParams {
    */
   public boolean supportedFileType(String fileExtension) {
     return !getFileOptions().isEmpty() && FileHandler.supportAndContainFileType(fileExtension, getFileOptions());
-  }
-
-  /**
-   * Returns whether the given Instant indicates the file should be published / processed. Always returns true if there is no
-   * modificationCutoff set. If it is set, returns whether the file was modified recently enough to be processed/published.
-   */
-  public boolean timeWithinCutoff(Instant fileLastModified) {
-    if (modificationCutoff == null) {
-      return true;
-    }
-
-    Instant cutoffPoint = Instant.now().minus(modificationCutoff);
-    return fileLastModified.isAfter(cutoffPoint);
   }
 
   public URI getURI() {

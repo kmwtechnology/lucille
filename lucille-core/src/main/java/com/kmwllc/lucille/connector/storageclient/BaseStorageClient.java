@@ -125,10 +125,12 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   protected void processAndPublishFileIfValid(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference, TraversalParams params) {
     try {
-      // preprocessing is currently a NO-OP unless a subclass overrides it
-      // Skip the file if it's not compliant with filter options or preprocessing failed.
+      // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
+      // (preprocessing is currently a NO-OP unless a subclass overrides it)
       String fileName = getFileName(fileReference);
-      if (!shouldProcessFile(fileReference, fileName, params) || !beforeProcessingFile(fullPathStr)) {
+      if (!validFile(fileReference)
+          || !params.includeFile(fileName, fileReference.getLastModified())
+          || !beforeProcessingFile(fullPathStr)) {
         return;
       }
 
@@ -218,7 +220,7 @@ public abstract class BaseStorageClient implements StorageClient {
           continue;
         }
         // checking validity only for the entries
-        if (!entry.isDirectory() && params.patternsAllowFile(entry.getName())) {
+        if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant())) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (params.supportedFileType(entryExtension)) {
             handleStreamExtensionFiles(publisher, in, entryExtension, entryFullPathStr);
@@ -298,15 +300,6 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   protected String getArchiveEntryFullPath(String fullPathStr, String entryName) {
     return fullPathStr + ARCHIVE_FILE_SEPARATOR + entryName;
-  }
-
-  /**
-   * Returns whether the given file should be published / processed. Involves checking that the file is valid
-   * (based on the specific Storage Client implementation) and checking whether the filterOptions of the given
-   * TraversalParams include the file's path.
-   */
-  private boolean shouldProcessFile(FileReference fileRef, String fileName, TraversalParams params) {
-    return validFile(fileRef) && params.filterOptionsIncludeFile(fileName, fileRef.getLastModified());
   }
 
   /**

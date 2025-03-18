@@ -33,7 +33,8 @@ import org.slf4j.LoggerFactory;
  *  excludes (list of strings, Optional): list of regex patterns to exclude files.
  *  modificationCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time. Set <b>cutoffType</b>
  *  to exclude files modified before this amount of time ago. See the HOCON documentation for examples of a Duration -
- *  strings like "1h", "2d" and "3s" are accepted, for example.
+ *  strings like "1h", "2d" and "3s" are accepted, for example. Note that, for archive files, this cutoff applies to both the
+ *  archive file itself and its individual contents.
  *
  * FileOptions:
  *  getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.
@@ -61,7 +62,6 @@ import org.slf4j.LoggerFactory;
  * "accountName" : azure account name
  * "accountKey" : azure account key
  * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
- *
  */
 
 public class FileConnector extends AbstractConnector {
