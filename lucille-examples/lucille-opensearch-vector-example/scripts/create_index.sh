@@ -1,64 +1,39 @@
 #!/bin/bash
 
-# Exit on error
-set -e
+# Set variables
+OPENSEARCH_URL="https://34.139.11.141:9200"
+OPENSEARCH_USER="admin"
+OPENSEARCH_PASSWORD="StrongPassword123!"
+INDEX_NAME="lucille_code_vectors"
+MAPPING_FILE="gemini_index_mapping.json"
 
-# Source the environment setup
-source "$(dirname "$0")/setup_environment.sh"
-
-# Get the directory where the script is located
-SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-# Navigate to the parent directory
-PROJECT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
-
-echo "Creating OpenSearch index: $OPENSEARCH_INDEX"
-
-# Remove trailing slash from OPENSEARCH_URL if present
-OPENSEARCH_URL=$(echo "$OPENSEARCH_URL" | sed 's/\/$//')
-
-# Check if OpenSearch is running
-if ! curl -s "$OPENSEARCH_URL" > /dev/null; then
-  echo "ERROR: OpenSearch is not running at $OPENSEARCH_URL"
-  echo "Start OpenSearch with: ./scripts/opensearch_control.sh start"
+# Check if the mapping file exists
+if [ ! -f "$MAPPING_FILE" ]; then
+  echo "Error: Mapping file $MAPPING_FILE not found!"
   exit 1
 fi
 
-# First check if the index already exists
-INDEX_EXISTS=$(curl -s -o /dev/null -w "%{http_code}" "$OPENSEARCH_URL/$OPENSEARCH_INDEX")
-if [ "$INDEX_EXISTS" = "200" ]; then
-  echo "WARNING: Index $OPENSEARCH_INDEX already exists."
-  read -p "Do you want to delete and recreate it? (y/n): " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "Deleting existing index..."
-    curl -XDELETE "$OPENSEARCH_URL/$OPENSEARCH_INDEX"
-  else
-    echo "Keeping existing index. Exiting."
-    exit 0
-  fi
-fi
+# Check if index exists and delete it if it does
+echo "Checking if index $INDEX_NAME exists..."
+HTTP_STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" -u "$OPENSEARCH_USER:$OPENSEARCH_PASSWORD" "$OPENSEARCH_URL/$INDEX_NAME")
 
-# Determine which mapping file to use
-MAPPING_FILE="$PROJECT_DIR/gemini_index_mapping.json"
-if [ ! -f "$MAPPING_FILE" ]; then
-  # Try alternative location
-  MAPPING_FILE="$PROJECT_DIR/mapping/opensearch_vector_mappings.json"
-  if [ ! -f "$MAPPING_FILE" ]; then
-    echo "ERROR: Mapping file not found at either location."
-    echo "  - $PROJECT_DIR/gemini_index_mapping.json"
-    echo "  - $PROJECT_DIR/mapping/opensearch_vector_mappings.json"
-    exit 1
-  fi
+if [ $HTTP_STATUS -eq 200 ]; then
+  echo "Index $INDEX_NAME already exists. Deleting..."
+  curl -k -X DELETE "$OPENSEARCH_URL/$INDEX_NAME" -u "$OPENSEARCH_USER:$OPENSEARCH_PASSWORD"
+  echo ""
 fi
-
-echo "Using mapping file: $MAPPING_FILE"
 
 # Create the index with the mapping
-echo "Creating index with vector mapping..."
-curl -XPUT "$OPENSEARCH_URL/$OPENSEARCH_INDEX" \
+echo "Creating index $INDEX_NAME with vector search mapping..."
+curl -k -X PUT "$OPENSEARCH_URL/$INDEX_NAME" \
   -H 'Content-Type: application/json' \
-  -d @"$MAPPING_FILE"
-
+  -u "$OPENSEARCH_USER:$OPENSEARCH_PASSWORD" \
+  -d "@$MAPPING_FILE"
 echo ""
-echo "Index $OPENSEARCH_INDEX created successfully."
-echo "You can now run the indexing process with: ./scripts/run_ingest.sh"
+
+# Verify the index was created
+echo "Verifying index creation..."
+curl -k -X GET "$OPENSEARCH_URL/$INDEX_NAME" -u "$OPENSEARCH_USER:$OPENSEARCH_PASSWORD"
+echo ""
+
+echo "Index setup complete!"

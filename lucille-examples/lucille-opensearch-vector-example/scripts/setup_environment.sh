@@ -1,18 +1,16 @@
 #!/bin/bash
-# Setup environment variables for Lucille OpenSearch Vector example
 
-# Set the OpenSearch URL
-export OPENSEARCH_URL=${OPENSEARCH_URL:-"http://localhost:9200/"}
+# OpenSearch connection details
+export OPENSEARCH_URL="https://34.139.11.141:9200"
+export OPENSEARCH_USERNAME="admin"
+export OPENSEARCH_PASSWORD="StrongPassword123!"
+export OPENSEARCH_INDEX="lucille_code_vectors"
 
-# Set the OpenSearch index name
-export OPENSEARCH_INDEX=${OPENSEARCH_INDEX:-"lucille_code_vectors"}
+# Project path for the file connector
+export PROJECT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-# Get the absolute path to the project root directory
-export PROJECT_PATH=$(cd "$(dirname "$0")/.." && cd .. && cd .. && pwd)
-
+# Print environment information
 echo "Environment variables set:"
 echo "OPENSEARCH_URL: $OPENSEARCH_URL"
 echo "OPENSEARCH_INDEX: $OPENSEARCH_INDEX"
 echo "PROJECT_PATH: $PROJECT_PATH"
-echo ""
-echo "You can now run the indexing process with: ./scripts/run_ingest.sh"

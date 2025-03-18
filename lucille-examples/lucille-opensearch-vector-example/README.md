@@ -17,7 +17,7 @@ This example demonstrates how to use Lucille to index project files with vector 
 - Java 11 or higher
 - Maven for building and running the example
 - Google Gemini API key
-- Docker and Docker Compose for running OpenSearch and OpenSearch Dashboards
+- Access to the remote OpenSearch instance on GCP
 
 ## Complete Setup and Running Guide
 
@@ -31,20 +31,16 @@ cd lucille
 mvn clean install -DskipTests
 ```
 
-### 2. Start OpenSearch Environment
+### 2. Remote OpenSearch Environment
 
-Navigate to the example directory and start the OpenSearch environment:
+This example has been configured to use a remote OpenSearch instance deployed on GCP with the following details:
 
-```bash
-cd lucille-examples/lucille-opensearch-vector-example
-./scripts/opensearch_control.sh start
-```
+- OpenSearch URL: `https://34.139.11.141:9200`
+- OpenSearch Dashboards URL: `https://34.139.11.141:5601`
+- Username: `admin`
+- Password: `StrongPassword123!`
 
-This will:
-
-- Start an OpenSearch container (accessible at [http://localhost:9200](http://localhost:9200))
-- Start an OpenSearch Dashboards container (accessible at [http://localhost:5601](http://localhost:5601))
-- Configure both services with security disabled for ease of use in development
+Note: The remote instance uses self-signed certificates, so certificate verification is disabled in the configuration.
 
 ### 3. Create the Vector-enabled Index
 
@@ -82,11 +78,12 @@ You can check the indexed documents using OpenSearch Dashboards or with curl:
 
 ```bash
 # Get total document count
-curl -X GET "http://localhost:9200/lucille_code_vectors/_count?pretty"
+curl -k -X GET "https://34.139.11.141:9200/lucille_code_vectors/_count?pretty" -u admin:StrongPassword123!
 
 # View a sample of documents 
-curl -X POST "http://localhost:9200/lucille_code_vectors/_search?pretty" \
+curl -k -X POST "https://34.139.11.141:9200/lucille_code_vectors/_search?pretty" \
   -H 'Content-Type: application/json' \
+  -u admin:StrongPassword123! \
   -d '{"query": {"match_all": {}}, "size": 5}'
 ```
 
@@ -235,105 +232,6 @@ GET lucille_code_vectors/_search
 }
 ```
 
-## Creating OpenSearch Backups
-
-This example includes configuration for creating snapshots of your OpenSearch indices, which is useful for backups and data migration.
-
-### Prerequisites
-
-Ensure your `docker-compose.yml` has the following configuration (already included):
-
-```yaml
-opensearch:
-  # ... other configurations ...
-  environment:
-    # ... other environment variables ...
-    - "path.repo=/usr/share/opensearch/snapshots"
-  volumes:
-    # ... other volumes ...
-    - ./opensearch_snapshots:/usr/share/opensearch/snapshots
-```
-
-### Step 1: Set up the Snapshot Directory
-
-First, ensure your snapshot directory exists and has proper permissions:
-
-```bash
-# Check if the directory exists
-docker exec opensearch ls -la /usr/share/opensearch/snapshots
-
-# Set proper permissions (if needed)
-docker exec opensearch chmod 777 /usr/share/opensearch/snapshots
-
-# Verify permissions
-docker exec opensearch ls -la /usr/share/opensearch/snapshots
-```
-
-### Step 2: Register the Snapshot Repository
-
-Register a repository for storing your snapshots:
-
-```bash
-curl -X PUT "http://localhost:9200/_snapshot/my_backup" -H 'Content-Type: application/json' -d'
-{
-  "type": "fs",
-  "settings": {
-    "location": "/usr/share/opensearch/snapshots",
-    "compress": true
-  }
-}'
-```
-
-This only needs to be done once unless you change repository settings.
-
-### Step 3: Create a Snapshot
-
-Create a snapshot of a specific index (e.g., `lucille_code_vectors`):
-
-```bash
-curl -X PUT "http://localhost:9200/_snapshot/my_backup/snapshot_name?wait_for_completion=true" -H 'Content-Type: application/json' -d'
-{
-  "indices": "lucille_code_vectors",
-  "ignore_unavailable": true,
-  "include_global_state": false
-}'
-```
-
-Replace `snapshot_name` with a descriptive name (e.g., `snapshot_20250318`).
-
-To back up all indices, omit the `indices` parameter:
-
-```bash
-curl -X PUT "http://localhost:9200/_snapshot/my_backup/snapshot_all?wait_for_completion=true" -H 'Content-Type: application/json' -d'
-{
-  "ignore_unavailable": true,
-  "include_global_state": true
-}'
-```
-
-### Step 4: Verify the Snapshot
-
-Check that your snapshot completed successfully:
-
-```bash
-# List all snapshots in the repository
-curl -X GET "http://localhost:9200/_snapshot/my_backup/_all"
-
-# Check details of a specific snapshot
-curl -X GET "http://localhost:9200/_snapshot/my_backup/snapshot_name"
-```
-
-### Step 5: Verify Local Files
-
-Confirm that snapshot files are present on your local machine:
-
-```bash
-# List files in the snapshot directory
-ls -la ./opensearch_snapshots
-```
-
-You should see files like `meta-*.dat`, `snap-*.dat`, and an `indices` directory.
-
 ## Troubleshooting
 
 If you encounter API rate limit errors, you can further adjust the throttling parameters in `conf/opensearch-vector.conf`:
@@ -342,6 +240,19 @@ If you encounter API rate limit errors, you can further adjust the throttling pa
 - Increase `sleepBetweenDocs` for longer pauses between documents
 - Increase `throttleDelayMs` in the connector configuration
 - Decrease `batchSize` values to process fewer documents at once
+
+### Common SSL/HTTPS Issues
+
+When working with the remote OpenSearch instance:
+
+1. **Certificate Warnings**: These are expected with self-signed certificates
+   - When using curl, always use the `-k` flag to bypass certificate validation
+   - In browsers, you may need to click "Advanced" and "Proceed" to bypass warnings
+
+2. **Connection Issues**:
+   - Ensure proper credentials are being used in all requests
+   - If getting authentication errors, make sure to include `-u admin:StrongPassword123!` with curl requests
+   - For Java clients, make sure SSL verification is properly configured
 
 ## Additional Resources
 
