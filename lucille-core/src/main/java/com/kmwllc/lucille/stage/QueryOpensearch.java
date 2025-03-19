@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.JsonPointer;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -15,6 +16,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Iterator;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A stage for running a search request on an Opensearch index, specifying a field in the response, and putting that field's value
@@ -24,62 +27,73 @@ import java.util.List;
  * name you want to query on, and whether invalid certificates can be accepted. See the opensearch ingest example for an
  * example of the configuration needed. (Be sure to include it as part of the Stage's Config.)
  *
- * templateName (String): The name you want to associate your search template with.
+ * templateName (String, Optional): The name / id of a saved search template in your Opensearch cluster that you want to use. If not specified,
+ * you must specify a searchTemplate to use for the Stage instead.
  *
- * searchTemplate (String): A query template to provide to Opensearch. The parameter names you define should match field names
+ * searchTemplate (String, Optional): The query template you want to use. The parameter names you define should match field names
  * in the Documents you are processing. You can define default values if fields will not always be prevalent in Documents. See
- * Opensearch's Search Templates documentation for information about defining templates, parameters, default values, etc.
+ * Opensearch's Search Templates documentation for information about defining templates, parameters, default values, etc. If not
+ * specified, you must specify a templateName to use for the Stage instead. This template will <b>not</b> be saved to your Opensearch
+ * cluster.
  *
- * paramNames (list of String): A list of field names. This list should...
- *   1.) Contain all of the parameter names you defined in your search template
- *   2.) Be composed of field names that will be found in the Documents you process.
- * It is important to note that Exceptions are not thrown when a parameter without a default value is not found in your Document and,
- * as such, not specified in the template's execution. Rather, Opensearch returns an empty response.
- *
- *
- * TODO: Is that needed?
  * requiredParamNames (list of String, optional): A list of field names that you require to be found on every document. This list should...
- *   1.) Contain all parameters you defined in your search template that do <b>not</b> have default values
- *   2.) Be found on every Document you intend to process.
- * If any of the required parameters are missing, Lucille will throw an Exception to prevent unexpected query results from being applied to Documents.
+ *   1.) Contain all parameters you defined in your search template that <b>do not</b> have default values
+ *   2.) Be made of names that can be found on Documents.
+ * If any of the required parameters are missing, Lucille will log a warning and put an error in "queryOpensearchError" on the Document.
  *
  * optionalParamNames (list of String, optional): A list of field names that you do not require to be found on every document, but want
- * to include in your query if they are found. This list should...
- *   1.) contain all parameters you defined in your search template that have default values
- *   2.) The same field names should be found on Documents (when present / defined).
- * If any of the optional parameters are missing, they will not be used in the search, and the default value will be used instead.
+ * to include in your if they are present. This list should...
+ *   1.) contain all parameters in your search template that have default values
+ *   2.) Be made of names that can be found on Documents.
+ * If any of the optional parameters are missing, they will not be used in the search, and the default value will be used (by Opensearch) instead.
+ *
+ * <b>NOTE:</b> If the field names on your Document do not match the parameter names in your search template, use the
+ * <b>RenameFields</b> stage to match them.
+ *
+ * <b>NOTE:</b> If a field without a default value is missing, Opensearch does not throw an Exception. Instead, it returns a response with 0 hits,
+ * which can cause in undesirable results or potential JSON-related exceptions. As such, it is important to define <b>requiredParamNames</b>
+ * and <b>optionalParamNames</b> very carefully!
  *
  * opensearchResponsePath (String, Optional): A path to a field in the Opensearch response whose value you want to place on a Lucille Document.
- * Use JsonPointer notation. An IllegalArgumentException will be thrown if the path has invalid formatting. Defaults to using the entire
- * response.
+ * Use JsonPointer notation (separating fields / array indices by a '/'). An IllegalArgumentException will be thrown if the path has invalid formatting.
+ * Defaults to using the entire response.
  *
  * destinationField (String, Optional): The name of the field you'll write the response value to in a Lucille Document. Defaults to "response".
  */
 public class QueryOpensearch extends Stage {
 
+  private static final Logger log = LoggerFactory.getLogger(QueryOpensearch.class);
+
   private final URI searchURI;
-  private final URI templateURI;
 
   private final String templateName;
-  private final String searchTemplate;
-  private final List<String> paramNames;
+  private final String searchTemplateStr;
+  private final List<String> requiredParamNames;
+  private final List<String> optionalParamNames;
   private final JsonPointer opensearchResponsePath;
   private final String destinationField;
 
   private final HttpClient httpClient;
 
+  private JsonNode searchTemplateJson;
+
   public QueryOpensearch(Config config) {
     super(config, new StageSpec()
         .withRequiredParents("opensearch")
-        .withRequiredProperties("templateName", "searchTemplate", "paramNames")
-        .withOptionalProperties("opensearchResponsePath", "destinationField"));
+        .withOptionalProperties("templateName", "searchTemplate", "requiredParamNames",
+            "optionalParamNames", "opensearchResponsePath", "destinationField"));
 
-    this.searchURI = getSearchURI(config);
-    this.templateURI = getTemplateURI(config);
+    this.searchURI = getTemplateSearchURI(config);
 
-    this.templateName = config.getString("templateName");
-    this.searchTemplate = config.getString("searchTemplate");
-    this.paramNames = config.getStringList("paramNames");
+    this.templateName = ConfigUtils.getOrDefault(config, "templateName", null);
+    this.searchTemplateStr = ConfigUtils.getOrDefault(config, "searchTemplate", null);
+
+    if (templateName == null && searchTemplateStr == null) {
+      throw new IllegalArgumentException("Both templateName and searchTemplate cannot be null.");
+    }
+
+    this.requiredParamNames = ConfigUtils.getOrDefault(config, "requiredParamNames", List.of());
+    this.optionalParamNames = ConfigUtils.getOrDefault(config, "optionalParamNames", List.of());
 
     if (config.hasPath("opensearchResponsePath")) {
       this.opensearchResponsePath = JsonPointer.compile(config.getString("opensearchResponsePath"));
@@ -94,21 +108,16 @@ public class QueryOpensearch extends Stage {
 
   @Override
   public void start() throws StageException {
-    // Register the search template with Opensearch.
-    HttpRequest request = HttpRequest.newBuilder()
-        .uri(templateURI)
-        .header("Content-Type", "application/json")
-        .POST(HttpRequest.BodyPublishers.ofString(searchTemplate))
-        .build();
+    // Get JSON for the search template, if it was specified.
+    if (searchTemplateStr == null) {
+      return;
+    }
 
     try {
-      HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-      if (response.statusCode() != 200) {
-        throw new StageException("Non-200 status code from registering Search Template with Opensearch, response: " + response.body());
-      }
-    } catch (Exception e) {
-      throw new StageException("Error occurred sending template to Opensearch.", e);
+      ObjectMapper mapper = new ObjectMapper();
+      searchTemplateJson = mapper.readTree(searchTemplateStr);
+    } catch (JsonProcessingException e) {
+      throw new StageException("Error building JSON from the searchTemplate provided.", e);
     }
   }
 
@@ -116,17 +125,35 @@ public class QueryOpensearch extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    // Build a JSON object - fill out "id" and "params". Pretty simple... will use the list of Strings
-    JsonNode templateForQuery = jsonSearchForDoc(doc);
+    ObjectNode requestJson;
 
-    HttpRequest request = HttpRequest.newBuilder()
+    if (searchTemplateJson != null) {
+      // Use an existing search template. Need the json for the template, will populate it with "params" for this document.
+      requestJson = (ObjectNode) searchTemplateJson;
+    } else {
+      // 2. Lookup by an existing template. Populate the "id" field. Will populate it with "params" for this document.
+      ObjectMapper mapper = new ObjectMapper();
+      requestJson = mapper.createObjectNode().put("id", templateName);
+    }
+
+    // If there is an exception (a missing required params?) then log a warning, put an error, and return.
+    try {
+      populateJsonWithParams(doc, requestJson);
+    } catch (NoSuchFieldException e) {
+      log.warn("A required field was missing from Document, no query will be executed.", e);
+      doc.setField("queryOpensearchError", "A requiredField was missing.");
+      return null;
+    }
+
+    // Building the actual request and then executing it
+    HttpRequest httpRequest = HttpRequest.newBuilder()
         .uri(searchURI)
         .header("Content-Type", "application/json")
-        .POST(HttpRequest.BodyPublishers.ofString(templateForQuery.toString()))
+        .POST(HttpRequest.BodyPublishers.ofString(requestJson.toString()))
         .build();
 
     try {
-      HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
 
       ObjectMapper objectMapper = new ObjectMapper();
       JsonNode currentNode = objectMapper.readTree(response.body());
@@ -134,43 +161,40 @@ public class QueryOpensearch extends Stage {
       JsonNode responseFieldNode = currentNode.at(opensearchResponsePath);
       doc.setField(destinationField, responseFieldNode.toString());
     } catch (Exception e) {
-      throw new StageException("Error occurred executing the Opensearch Query.", e);
+      throw new StageException("Error occurred executing the Opensearch Query + Getting Response.", e);
     }
 
     return null;
   }
 
-  // Creates a search request that will invoke the template with the given templateName, filling out the
-  // "params" using all
-  private JsonNode jsonSearchForDoc(Document doc) {
+  // Adds a "params" node to the root of the given JSON, populated with the required / optional param names present on the given Document.
+  // Throws a NoSuchFieldException if a "requiredParam" is not present on the given document.
+  private void populateJsonWithParams(Document doc, ObjectNode json) throws NoSuchFieldException {
     ObjectMapper objectMapper = new ObjectMapper();
-    ObjectNode request = objectMapper.createObjectNode();
-
-    request.put("id", templateName);
-
     ObjectNode paramsNode = objectMapper.createObjectNode();
 
-    for (String paramName : paramNames) {
+    for (String requiredParamName : requiredParamNames) {
+      if (!doc.has(requiredParamName)) {
+        throw new NoSuchFieldException("Field " + requiredParamName + " is required, but missing from Document " + doc.getId() + ".");
+      }
+
       // OpenSearch can handle parsing doubles / ints from a String when that is the parameter type needed.
-      paramsNode.put(paramName, doc.getString(paramName));
+      paramsNode.put(requiredParamName, doc.getString(requiredParamName));
     }
 
-    request.set("params", paramsNode);
-    return request;
-  }
+    for (String optionalParamName : optionalParamNames) {
+      if (doc.has(optionalParamName)) {
+        paramsNode.put(optionalParamName, doc.getString(optionalParamName));
+      }
+    }
 
-  /**
-   * A URI to the search template endpoint on Opensearch, based on the given config.
-   */
-  private URI getTemplateURI(Config config) {
-    String uriString = config.getString("opensearch.url") + "/_scripts/" + config.getString("templateName");
-    return URI.create(uriString);
+    json.set("params", paramsNode);
   }
 
   /**
    * A URI to the search endpoint on Opensearch based on the given config.
    */
-  private URI getSearchURI(Config config) {
+  private URI getTemplateSearchURI(Config config) {
     String uriString = config.getString("opensearch.url") + "/" + config.getString("opensearch.index") + "/_search/template";
     return URI.create(uriString);
   }
