@@ -3,22 +3,21 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import org.junit.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
-// TODO: a test with non-string params?
-// TODO: Make sure to do a test with extra and also missing param values
-// TODO: make sure to do a test with default values
-// TODO: Test with a bad template response
 public class QueryOpensearchTest {
 
   private final StageFactory factory = StageFactory.of(QueryOpensearch.class);
@@ -139,5 +138,69 @@ public class QueryOpensearchTest {
     assertThrows(StageException.class, () -> factory.get("QueryOpensearchTest/badConfs/noTemplate.conf"));
     assertThrows(StageException.class, () -> factory.get("QueryOpensearchTest/badConfs/noTemplateName.conf"));
     assertThrows(StageException.class, () -> factory.get("QueryOpensearchTest/badConfs/partialOpensearch.conf"));
+  }
+
+  @Test
+  public void testBadTemplateRequest() throws Exception {
+    HttpResponse mockTemplateResponse = mock(HttpResponse.class);
+    when(mockTemplateResponse.statusCode()).thenReturn(400);
+
+    try (MockedStatic<HttpClient> client = Mockito.mockStatic(HttpClient.class)) {
+      HttpClient mockClient = mock(HttpClient.class);
+      client.when(() -> HttpClient.newHttpClient()).thenReturn(mockClient);
+      when(mockClient.send(any(), any()))
+          .thenReturn(mockTemplateResponse);
+
+      assertThrows(StageException.class, () -> factory.get("QueryOpensearchTest/searchTemplate.conf"));
+    }
+  }
+
+  @Test
+  public void testCorrectURIsViaMocking() throws Exception {
+    final URI testTemplateURI = URI.create("http://localhost:9200/_scripts/match_phrase_template");
+    final URI testSearchURI = URI.create("http://localhost:9200/parks/_search/template");
+
+    HttpResponse mockTemplateResponse = mock(HttpResponse.class);
+    when(mockTemplateResponse.statusCode()).thenReturn(200);
+
+    HttpResponse mockQueryResponse = mock(HttpResponse.class);
+    when(mockQueryResponse.body()).thenReturn(neckCreekResponse);
+
+    // Mocking http requests just so we can use these in Argument matchers.
+    HttpRequest mockTemplateRequest = mock(HttpRequest.class);
+    HttpRequest mockQueryRequest = mock(HttpRequest.class);
+
+    try (MockedStatic<HttpClient> client = Mockito.mockStatic(HttpClient.class);
+        MockedStatic<HttpRequest> builder = Mockito.mockStatic(HttpRequest.class)) {
+      HttpClient mockClient = mock(HttpClient.class);
+      client.when(() -> HttpClient.newHttpClient()).thenReturn(mockClient);
+
+      HttpRequest.Builder mockBuilderForTemplate = mock(HttpRequest.Builder.class);
+      HttpRequest.Builder mockBuilderForQuery = mock(HttpRequest.Builder.class);
+      builder.when(() -> HttpRequest.newBuilder())
+          .thenReturn(mockBuilderForTemplate)
+          .thenReturn(mockBuilderForQuery);
+
+      when(mockBuilderForTemplate.uri(testTemplateURI)).thenReturn(mockBuilderForTemplate);
+      when(mockBuilderForTemplate.header("Content-Type", "application/json")).thenReturn(mockBuilderForTemplate);
+      when(mockBuilderForTemplate.POST(any())).thenReturn(mockBuilderForTemplate);
+      when(mockBuilderForTemplate.build()).thenReturn(mockTemplateRequest);
+
+      when(mockBuilderForQuery.uri(testSearchURI)).thenReturn(mockBuilderForQuery);
+      when(mockBuilderForQuery.header("Content-Type", "application/json")).thenReturn(mockBuilderForQuery);
+      when(mockBuilderForQuery.POST(any())).thenReturn(mockBuilderForQuery);
+      when(mockBuilderForQuery.build()).thenReturn(mockQueryRequest);
+
+      when(mockClient.send(eq(mockTemplateRequest), any())).thenReturn(mockTemplateResponse);
+      when(mockClient.send(eq(mockQueryRequest), any())).thenReturn(mockQueryResponse);
+
+      Stage stage = factory.get("QueryOpensearchTest/searchTemplate.conf");
+
+      Document testDoc = Document.create("neck_creek");
+      testDoc.setField("park_name", "Neck Creek Preserve");
+      stage.processDocument(testDoc);
+
+      assertEquals("6.7708125", testDoc.getString("response"));
+    }
   }
 }

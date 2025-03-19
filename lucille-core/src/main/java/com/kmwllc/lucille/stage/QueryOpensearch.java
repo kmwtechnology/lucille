@@ -108,7 +108,7 @@ public class QueryOpensearch extends Stage {
         throw new StageException("Non-200 status code from registering Search Template with Opensearch, response: " + response.body());
       }
     } catch (Exception e) {
-      throw new StageException("Error occurred executing the Opensearch Query.", e);
+      throw new StageException("Error occurred sending template to Opensearch.", e);
     }
   }
 
