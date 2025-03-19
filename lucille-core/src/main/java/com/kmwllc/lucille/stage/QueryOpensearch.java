@@ -89,7 +89,9 @@ public class QueryOpensearch extends Stage {
     try {
       HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-      // TODO: Throw an exception for an unexpected status code (not 200, 201, or 202 - one is the correct answer)
+      if (response.statusCode() != 200) {
+        throw new StageException("Non-200 status code from registering Search Template with Opensearch, response: " + response.body());
+      }
     } catch (Exception e) {
       throw new StageException("Error occurred executing the Opensearch Query.", e);
     }
@@ -136,7 +138,7 @@ public class QueryOpensearch extends Stage {
     ObjectNode paramsNode = objectMapper.createObjectNode();
 
     for (String paramName : paramNames) {
-      // TODO: Is it okay to just call "getString"? (Is opensearch smart enough to handle this...)
+      // TODO: Is it okay to just call "getString"? (Is opensearch smart enough to handle this if the field is a double, for example...)
       paramsNode.put(paramName, doc.getString(paramName));
     }
 
