@@ -88,8 +88,9 @@ public class QueryOpensearch extends Stage {
     this.templateName = ConfigUtils.getOrDefault(config, "templateName", null);
     this.searchTemplateStr = ConfigUtils.getOrDefault(config, "searchTemplate", null);
 
-    if (templateName == null && searchTemplateStr == null) {
-      throw new IllegalArgumentException("Both templateName and searchTemplate cannot be null.");
+    // XNOR - cannot both be null, cannot both be specified.
+    if ((templateName == null) == (searchTemplateStr == null)) {
+      throw new IllegalArgumentException("You must specify templateName or searchTemplate.");
     }
 
     this.requiredParamNames = ConfigUtils.getOrDefault(config, "requiredParamNames", List.of());
@@ -167,9 +168,12 @@ public class QueryOpensearch extends Stage {
     return null;
   }
 
-  // Adds a "params" node to the root of the given JSON, populated with the required / optional param names present on the given Document.
-  // Throws a NoSuchFieldException if a "requiredParam" is not present on the given document.
-  private void populateJsonWithParams(Document doc, ObjectNode json) throws NoSuchFieldException {
+  /**
+   * Adds a "params" node to the root of the given JSON, populated with the required / optional param names present on the given Document.
+   * Throws a NoSuchFieldException if a "requiredParam" is not present on the given document.
+   * (package access so we can test, make sure we are getting the appropriate objects)
+   */
+  void populateJsonWithParams(Document doc, ObjectNode json) throws NoSuchFieldException {
     ObjectMapper objectMapper = new ObjectMapper();
     ObjectNode paramsNode = objectMapper.createObjectNode();
 
@@ -194,7 +198,7 @@ public class QueryOpensearch extends Stage {
   /**
    * A URI to the search endpoint on Opensearch based on the given config.
    */
-  private URI getTemplateSearchURI(Config config) {
+  URI getTemplateSearchURI(Config config) {
     String uriString = config.getString("opensearch.url") + "/" + config.getString("opensearch.index") + "/_search/template";
     return URI.create(uriString);
   }
