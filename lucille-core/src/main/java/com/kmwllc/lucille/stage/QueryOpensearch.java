@@ -28,11 +28,26 @@ import java.util.List;
  *
  * searchTemplate (String): A query template to provide to Opensearch. The parameter names you define should match field names
  * in the Documents you are processing. You can define default values if fields will not always be prevalent in Documents. See
- * Opensearch's Search Templates documentation for information about defining templates.
+ * Opensearch's Search Templates documentation for information about defining templates, parameters, default values, etc.
  *
- * paramNames (list of String): A list of field names. This list should,
+ * paramNames (list of String): A list of field names. This list should...
  *   1.) Contain all of the parameter names you defined in your search template
  *   2.) Be composed of field names that will be found in the Documents you process.
+ * It is important to note that Exceptions are not thrown when a parameter without a default value is not found in your Document and,
+ * as such, not specified in the template's execution. Rather, Opensearch returns an empty response.
+ *
+ *
+ * TODO: Is that needed?
+ * requiredParamNames (list of String, optional): A list of field names that you require to be found on every document. This list should...
+ *   1.) Contain all parameters you defined in your search template that do <b>not</b> have default values
+ *   2.) Be found on every Document you intend to process.
+ * If any of the required parameters are missing, Lucille will throw an Exception to prevent unexpected query results from being applied to Documents.
+ *
+ * optionalParamNames (list of String, optional): A list of field names that you do not require to be found on every document, but want
+ * to include in your query if they are found. This list should...
+ *   1.) contain all parameters you defined in your search template that have default values
+ *   2.) The same field names should be found on Documents (when present / defined).
+ * If any of the optional parameters are missing, they will not be used in the search, and the default value will be used instead.
  *
  * opensearchResponsePath (String, Optional): A path to a field in the Opensearch response whose value you want to place on a Lucille Document.
  * Use JsonPointer notation. An IllegalArgumentException will be thrown if the path has invalid formatting. Defaults to using the entire
@@ -113,8 +128,6 @@ public class QueryOpensearch extends Stage {
     try {
       HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-      // TODO: What is the specific error message or status code associated with a missing field?
-      // TODO: Want to warn instead of failing in the event of some missing parameters?
       ObjectMapper objectMapper = new ObjectMapper();
       JsonNode currentNode = objectMapper.readTree(response.body());
 
@@ -138,7 +151,7 @@ public class QueryOpensearch extends Stage {
     ObjectNode paramsNode = objectMapper.createObjectNode();
 
     for (String paramName : paramNames) {
-      // TODO: Is it okay to just call "getString"? (Is opensearch smart enough to handle this if the field is a double, for example...)
+      // OpenSearch can handle parsing doubles / ints from a String when that is the parameter type needed.
       paramsNode.put(paramName, doc.getString(paramName));
     }
 
