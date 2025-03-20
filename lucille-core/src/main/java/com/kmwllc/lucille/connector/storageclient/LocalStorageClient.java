@@ -146,15 +146,7 @@ public class LocalStorageClient extends BaseStorageClient {
     return new FileInputStream(file);
   }
 
-  @Override
-  protected String getStartingDirectory(TraversalParams params) {
-    return params.getURI().getPath();
-  }
-
-  @Override
-  protected String getBucketOrContainerName(TraversalParams params) {
-    return params.getURI().getAuthority();
-  }
+  private String getStartingDirectory(TraversalParams params) { return params.getURI().getPath(); }
 
   public class LocalFileVisitor implements FileVisitor<Path> {
 

@@ -38,8 +38,9 @@ public abstract class BaseStorageClient implements StorageClient {
   private static final Logger log = LoggerFactory.getLogger(BaseStorageClient.class);
 
   protected final Config config;
-  protected Map<String, FileHandler> fileHandlers;
   protected final int maxNumOfPages;
+
+  private Map<String, FileHandler> fileHandlers;
 
   private boolean initialized = false;
 
@@ -207,7 +208,7 @@ public abstract class BaseStorageClient implements StorageClient {
    *                    Cloud path would include schema and bucket/container name
    *                    e.g gs://bucket-name/folder/file.zip or s3://bucket-name/file.tar
    */
-  protected void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fullPathStr, TraversalParams params) throws ArchiveException, IOException, ConnectorException {
+  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fullPathStr, TraversalParams params) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
@@ -255,7 +256,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param fullPathStr can be entry full path or decompressed full path. Can be a cloud path or local path.
    *                    e.g. gs://bucket-name/folder/file.zip:entry.json OR path/to/example.csv
    */
-  protected void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fullPathStr)
+  private void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fullPathStr)
       throws ConnectorException {
     try {
       InputStream wrappedNonClosingStream = new InputStream() {
@@ -281,7 +282,7 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * helper method to publish using file handler using file content (InputStream)
    */
-  protected void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String pathStr) throws Exception {
+  private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String pathStr) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
@@ -297,7 +298,7 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * helper method to get the full path of an entry in an archived file. Only used for archive files
    */
-  protected String getArchiveEntryFullPath(String fullPathStr, String entryName) {
+  private String getArchiveEntryFullPath(String fullPathStr, String entryName) {
     return fullPathStr + ARCHIVE_FILE_SEPARATOR + entryName;
   }
 
@@ -306,7 +307,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * each file in traversal.  If the method returns true, the file will be processed.  A return of false indicates
    * the file should be skipped.
    */
-  protected boolean beforeProcessingFile(String pathStr) throws Exception {
+  private boolean beforeProcessingFile(String pathStr) throws Exception {
     // Base implementation, process all files. 
     return true;
   }
@@ -315,7 +316,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * method for performing operations after processing files. Additional operations can be added
    * in the implementation of this method. Will be called after processing each file in traversal.
    */
-  protected void afterProcessingFile(String pathStr, TraversalParams params) throws IOException {
+  private void afterProcessingFile(String pathStr, TraversalParams params) throws IOException {
     if (params.getMoveToAfterProcessing() != null) {
       // move to processed folder
       moveFile(pathStr, params.getMoveToAfterProcessing());
@@ -327,7 +328,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * in the implementation of this method. Will be called in the catch block for each file in traversal
    * in the tryProcessAndPublishFile method.
    */
-  protected void errorProcessingFile(String pathStr, TraversalParams params) throws IOException {
+  private void errorProcessingFile(String pathStr, TraversalParams params) throws IOException {
     if (params.getMoveToErrorFolder() != null) {
       // move to error folder
       moveFile(pathStr, params.getMoveToErrorFolder());
@@ -359,16 +360,6 @@ public abstract class BaseStorageClient implements StorageClient {
       throw new UnsupportedOperationException("Moving cloud files is not supported yet");
     }
   }
-
-  /**
-   * Return the starting directory for this StorageClient, based on the given params and its pathToStorageURI.
-   */
-  protected abstract String getStartingDirectory(TraversalParams params);
-
-  /**
-   * Return the bucket/container name for this StorageClient, based on the params and its pathToStorageURI.
-   */
-  protected abstract String getBucketOrContainerName(TraversalParams params);
 
   /**
    * helper method to check if the file is a supported compressed file type.
