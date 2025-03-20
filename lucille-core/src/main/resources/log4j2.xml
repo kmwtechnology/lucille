@@ -32,6 +32,7 @@
         <Root level="INFO">
             <AppenderRef ref="console" />
             <AppenderRef ref="file" />
+            <AppenderRef ref="file-json" />
         </Root>
         <Logger name="com.kmwllc.lucille.core.Heartbeat" level="INFO" additivity="false">
             <AppenderRef ref="heartbeat" />
