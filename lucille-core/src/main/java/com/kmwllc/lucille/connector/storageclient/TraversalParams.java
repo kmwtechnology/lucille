@@ -6,7 +6,6 @@ import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES
 import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_AFTER_PROCESSING;
 import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_ERROR_FOLDER;
 
-import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.typesafe.config.Config;
 import java.net.URI;
@@ -38,7 +37,6 @@ public class TraversalParams {
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
   private final Duration modificationCutoff;
-  private final boolean excludeFilesBefore;
 
   public TraversalParams(URI uri, String docIdPrefix, Config fileOptions, Config filterOptions) {
     this.uri = uri;
@@ -61,14 +59,6 @@ public class TraversalParams {
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
 
     this.modificationCutoff = filterOptions.hasPath("modificationCutoff") ? filterOptions.getDuration("modificationCutoff") : null;
-
-    String cutoffType = ConfigUtils.getOrDefault(filterOptions, "cutoffType", "before");
-
-    if (!cutoffType.equalsIgnoreCase("before") && !cutoffType.equalsIgnoreCase("after")) {
-      throw new IllegalArgumentException("filterOptions.cutoffType was specified, but was not \"Before\" or \"After\".");
-    }
-
-    this.excludeFilesBefore = cutoffType.equalsIgnoreCase("before");
   }
 
   /**
@@ -79,12 +69,32 @@ public class TraversalParams {
   }
 
   /**
-   * Returns whether the given file associated with the given path String should be processed, based on this object's
-   * includes/excludes patterns.
+   * Returns whether the filterOptions allow for the publishing / processing of the file, described by its name
+   * and the last time it was modified.
    */
-  public boolean patternsAllowFile(String pathStr) {
-    return excludes.stream().noneMatch(pattern -> pattern.matcher(pathStr).matches())
-        && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(pathStr).matches()));
+  public boolean includeFile(String fileName, Instant fileLastModified) {
+    return patternsAllowFile(fileName) && timeWithinCutoff(fileLastModified);
+  }
+
+  /**
+   * Returns whether a file with the given name should be processed, based on the includes/excludes patterns.
+   */
+  private boolean patternsAllowFile(String fileName) {
+    return excludes.stream().noneMatch(pattern -> pattern.matcher(fileName).matches())
+        && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(fileName).matches()));
+  }
+
+  /**
+   * Returns whether the given Instant indicates the file should be published / processed. Always returns true if there is no
+   * modificationCutoff set. If it is set, returns whether the file was modified recently enough to be processed/published.
+   */
+  private boolean timeWithinCutoff(Instant fileLastModified) {
+    if (modificationCutoff == null) {
+      return true;
+    }
+
+    Instant cutoffPoint = Instant.now().minus(modificationCutoff);
+    return fileLastModified.isAfter(cutoffPoint);
   }
 
   /**
@@ -93,26 +103,6 @@ public class TraversalParams {
    */
   public boolean supportedFileType(String fileExtension) {
     return !getFileOptions().isEmpty() && FileHandler.supportAndContainFileType(fileExtension, getFileOptions());
-  }
-
-  /**
-   * Returns whether the given Instant indicates that the file should be included in a traversal, based on the
-   * duration of the modificationCutoff and whether the traversal is supposed to exclude files before or after this cutoff time.
-   * Always returns true if there is no modificationCutoff specified (the parameter is null).
-   */
-  public boolean timeWithinCutoff(Instant fileLastModified) {
-    if (modificationCutoff == null) {
-      return true;
-    }
-
-    Instant cutoffPoint = Instant.now().minus(modificationCutoff);
-
-    if (excludeFilesBefore) {
-      // Return true for files after the cutoff, false for before.
-      return fileLastModified.isAfter(cutoffPoint);
-    } else {
-      return fileLastModified.isBefore(cutoffPoint);
-    }
   }
 
   public URI getURI() {

@@ -35,6 +35,7 @@ import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -410,6 +411,10 @@ public class GoogleStorageClientTest {
 
     storageClient.shutdown();
   }
+
+  // ** NOTE: There is not a test for the modificationCutoff here. Unfortunately, there doesn't appear to be an easy way
+  // to create objects with a certain modification time (including trying to do so via Mockito). If this somehow changes
+  // in the future it would be worth a revisit. **
 
   private static Map<String, byte[]> readAllFilesAsBytesWithMap(String folderPath) throws Exception {
     Map<String, byte[]> fileBytesMap = new LinkedHashMap<>();

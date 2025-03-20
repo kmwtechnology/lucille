@@ -123,17 +123,16 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param fileExtension fileExtension of the file. Used to determine if the file should be processed by file handler
    * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
    */
-  // TODO: Rename "processAndPublishFileIfValid" or smth like that.
-  // TODO: check shouldProcessFile.
-  protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference, TraversalParams params) {
+  protected void processAndPublishFileIfValid(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference, TraversalParams params) {
     try {
-      // preprocessing is currently a NO-OP unless a subclass overrides it
-      // TODO: Remove time check
-      if (!params.timeWithinCutoff(fileReference.getLastModified()) || !beforeProcessingFile(fullPathStr)) {
-        // Skip the file if it's not within the cutoff or preprocessing failed.
+      // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
+      // (preprocessing is currently a NO-OP unless a subclass overrides it)
+      if (!fileReference.isValidFile()
+          || !params.includeFile(fileReference)
+          || !beforeProcessingFile(fullPathStr)) {
         return;
       }
-      
+
       // handle compressed files if needed to the end
       if (params.getHandleCompressedFiles() && isSupportedCompressedFileType(fullPathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
@@ -220,7 +219,7 @@ public abstract class BaseStorageClient implements StorageClient {
           continue;
         }
         // checking validity only for the entries
-        if (!entry.isDirectory() && params.patternsAllowFile(entry.getName())) {
+        if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant())) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (params.supportedFileType(entryExtension)) {
             handleStreamExtensionFiles(publisher, in, entryExtension, entryFullPathStr);

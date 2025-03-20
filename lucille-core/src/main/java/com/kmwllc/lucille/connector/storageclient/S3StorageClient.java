@@ -148,10 +148,10 @@ public class S3StorageClient extends BaseStorageClient {
     response.stream()
         .forEachOrdered(resp -> {
           resp.contents().forEach(obj -> {
-            FileReference fileRef = new S3FileReference(obj);
+            S3FileReference fileRef = new S3FileReference(obj);
             String fullPathStr = fileRef.getFullPath(params);
             String fileExtension = FilenameUtils.getExtension(fullPathStr);
-            tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, fileRef, params);
+            processAndPublishFileIfValid(publisher, fullPathStr, fileExtension, fileRef, params);
           });
         });
   }

@@ -150,10 +150,10 @@ public class GoogleStorageClient extends BaseStorageClient {
     do {
       page.streamAll()
           .forEachOrdered(blob -> {
-            FileReference fileRef = new GoogleFileReference(blob);
+            GoogleFileReference fileRef = new GoogleFileReference(blob);
             String fullPathStr = fileRef.getFullPath(params);
             String fileExtension = FilenameUtils.getExtension(fullPathStr);
-            tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, fileRef, params);
+            processAndPublishFileIfValid(publisher, fullPathStr, fileExtension, fileRef, params);
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
     } while (page != null);

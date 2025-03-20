@@ -460,10 +460,8 @@ public class AzureStorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
-    Map<String, String> filterOptionsMap = Map.of(
-        "modificationCutoff", "2h",
-        "cutoffType", "after"
-    );
+    // only files modified in the last 2 hours
+    Map<String, String> filterOptionsMap = Map.of("modificationCutoff", "2h");
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "",
         ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
 
@@ -478,8 +476,8 @@ public class AzureStorageClientTest {
 
     azureStorageClient.initializeForTesting();
     azureStorageClient.traverse(publisher, params);
-    // only blob1 processed, since it was last modified on Jan 1 1970
-    assertEquals(1, publisher.numPublished());
+    // only blobs with instant.now() as modified time are returned, there are three of them
+    assertEquals(3, publisher.numPublished());
   }
 
   private Stream<BlobItem> getCompressedAndArchivedBlobStream() {

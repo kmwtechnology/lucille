@@ -156,12 +156,9 @@ public class AzureStorageClient extends BaseStorageClient {
             Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
           AzureFileReference fileRef = new AzureFileReference(blob);
-
-          if (fileRef.isValidFile()) {
-            String fullPathStr = getFullPath(blob, params);
-            String fileExtension = FilenameUtils.getExtension(fullPathStr);
-            tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, fileRef, params);
-          }
+          String fullPathStr = getFullPath(blob, params);
+          String fileExtension = FilenameUtils.getExtension(fullPathStr);
+          processAndPublishFileIfValid(publisher, fullPathStr, fileExtension, fileRef, params);
         });
   }
 

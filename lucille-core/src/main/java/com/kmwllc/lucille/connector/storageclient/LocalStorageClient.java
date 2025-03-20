@@ -173,14 +173,10 @@ public class LocalStorageClient extends BaseStorageClient {
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
       // Visit the file and actually process it!
-      if (!params.patternsAllowFile(file.toString())) {
-        // this file is skipped by the configuration.
-        return FileVisitResult.CONTINUE;
-      }
-      Path fullPath = file.toAbsolutePath().normalize();
-      String fullPathStr = fullPath.toString();
+      FileReference fileRef = new LocalFileReference(file, attrs.lastModifiedTime().toInstant());
+      String fullPathStr = fileRef.getFullPath(params);
       String fileExtension = FilenameUtils.getExtension(fullPathStr);
-      tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new LocalFileReference(fullPath, attrs.lastModifiedTime().toInstant()), params);
+      processAndPublishFileIfValid(publisher, fullPathStr, fileExtension, fileRef, params);
       return FileVisitResult.CONTINUE;
     }
 

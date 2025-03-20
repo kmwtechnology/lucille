@@ -440,10 +440,8 @@ public class S3StorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
-    Map<String, String> filterOptionsMap = Map.of(
-        "modificationCutoff", "2h",
-        "cutoffType", "after"
-    );
+    // only files modified in the last 2 hours
+    Map<String, String> filterOptionsMap = Map.of("modificationCutoff", "2h");
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
         ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
 
@@ -458,8 +456,8 @@ public class S3StorageClientTest {
 
     s3StorageClient.initializeForTesting();
     s3StorageClient.traverse(publisher, params);
-    // all documents processed
-    assertEquals(1, publisher.numPublished());
+    // 3 documents, each set with "Instant.now()" as modified time, are the ones returned
+    assertEquals(3, publisher.numPublished());
   }
 
   private List<S3Object> getMockedS3Objects() throws Exception {
