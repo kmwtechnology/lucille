@@ -4,6 +4,7 @@ import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.parquet.ParquetDocUtils;
 import com.typesafe.config.Config;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -43,7 +44,7 @@ public class ParquetConnector extends AbstractConnector {
 
   public ParquetConnector(Config config) {
     super(config);
-    this.path = config.getString("path");
+    this.path = config.getString("pathToStorage");
     this.idField = config.getString("id_field");
     this.fsUri = config.getString("fs_uri");
 
@@ -125,13 +126,13 @@ public class ParquetConnector extends AbstractConnector {
                   continue;
                 }
                 if (field.isPrimitive()) {
-                  setDocField(doc, field, simpleGroup, j);
+                  ParquetDocUtils.setDocField(doc, field, simpleGroup, j);
                 } else {
                   for (int k = 0; k < simpleGroup.getGroup(j, 0).getFieldRepetitionCount(0); k++) {
                     Group group = simpleGroup.getGroup(j, 0).getGroup(0, k);
                     Type type = group.getType().getType(0);
                     if (type.isPrimitive()) {
-                      addToField(doc, fieldName, type, group);
+                      ParquetDocUtils.addToField(doc, fieldName, type, group);
                     }
                   }
                 }
@@ -146,56 +147,6 @@ public class ParquetConnector extends AbstractConnector {
       }
     } catch (Exception e) {
       throw new ConnectorException("Problem running the ParquetConnector", e);
-    }
-  }
-
-  private static void setDocField(Document doc, Type field, SimpleGroup simpleGroup, int j) {
-
-    // check if we have a field value before setting it.
-    if (simpleGroup.getFieldRepetitionCount(j) == 0) {
-      return;
-    }
-
-    String fieldName = field.getName();
-
-    switch (field.asPrimitiveType().getPrimitiveTypeName()) {
-      case BINARY:
-        doc.setField(fieldName, simpleGroup.getString(j, 0));
-        break;
-      case FLOAT:
-        doc.setField(fieldName, simpleGroup.getFloat(j, 0));
-        break;
-      case INT32:
-        doc.setField(fieldName, simpleGroup.getInteger(j, 0));
-        break;
-      case INT64:
-        doc.setField(fieldName, simpleGroup.getLong(j, 0));
-        break;
-      case DOUBLE:
-        doc.setField(fieldName, simpleGroup.getDouble(j, 0));
-        break;
-      // todo consider adding a default case
-    }
-  }
-
-  private static void addToField(Document doc, String fieldName, Type type, Group group) {
-    switch (type.asPrimitiveType().getPrimitiveTypeName()) {
-      case BINARY:
-        doc.addToField(fieldName, group.getString(0, 0));
-        break;
-      case FLOAT:
-        doc.addToField(fieldName, group.getFloat(0, 0));
-        break;
-      case INT32:
-        doc.addToField(fieldName, group.getInteger(0, 0));
-        break;
-      case INT64:
-        doc.addToField(fieldName, group.getLong(0, 0));
-        break;
-      case DOUBLE:
-        doc.addToField(fieldName, group.getDouble(0, 0));
-        break;
-      // todo consider adding a default case
     }
   }
 }
