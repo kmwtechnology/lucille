@@ -74,14 +74,12 @@ public class ParquetConnectorTest {
     connector.execute(publisher);
     List<Document> docs = messenger.getDocsSentForProcessing();
 
-    // TODO: This represents a bug. There is no effect to setting start = 1... I think.
-    //  Have to decide what the intended behavior is. I think this is a one-off error.
-    assertEquals(4, docs.size());
+    assertEquals(3, docs.size());
 
     for (int i = 0; i < docs.size(); i++) {
       Document nthDoc = docs.get(i);
       // Should get docs w/ ids 3, 4, 5, 6
-      assertEquals("" + (i + 3), nthDoc.getId());
+      assertEquals("" + (i + 4), nthDoc.getId());
     }
   }
 
@@ -98,12 +96,11 @@ public class ParquetConnectorTest {
 
     assertEquals(2, docs.size());
 
-    // TODO: Same "start" one-off bug.
-//    for (int i = 0; i <= docs.size(); i++) {
-//      Document nthDoc = docs.get(i);
-//      // Should get docs w/ ids 3, 4
-//      assertEquals("" + (i + 3), nthDoc.getId());
-//    }
+    for (int i = 0; i < docs.size(); i++) {
+      Document nthDoc = docs.get(i);
+      // Should get docs w/ ids 3, 4
+      assertEquals("" + (i + 3), nthDoc.getId());
+    }
   }
 
   // The following tests use the "with_row_groups" file...
@@ -156,13 +153,12 @@ public class ParquetConnectorTest {
     connector.execute(publisher);
     List<Document> docs = messenger.getDocsSentForProcessing();
 
-    // TODO: Similar to above, this might be a bug (one-off)
-    assertEquals(4, docs.size());
+    assertEquals(3, docs.size());
 
     for (int i = 0; i < docs.size(); i++) {
       Document nthDoc = docs.get(i);
       // Should get docs w/ ids 4, 5, 6
-      assertEquals("" + (i + 3), nthDoc.getId());
+      assertEquals("" + (i + 4), nthDoc.getId());
     }
   }
 
@@ -179,15 +175,14 @@ public class ParquetConnectorTest {
 
     assertEquals(2, docs.size());
 
-    // TODO: Same "start" one-off bug.
-//    for (int i = 0; i <= docs.size(); i++) {
-//      Document nthDoc = docs.get(i);
-//      // Should get docs w/ ids 3, 4
-//      assertEquals("" + (i + 3), nthDoc.getId());
-//    }
+    for (int i = 0; i < docs.size(); i++) {
+      Document nthDoc = docs.get(i);
+      // Should get docs w/ ids 3, 4
+      assertEquals("" + (i + 3), nthDoc.getId());
+    }
   }
 
-  // Some smaller cases
+  // Some smaller, more specific cases
   @Test
   public void testSkipEntireFile() throws Exception {
     TestMessenger messenger = new TestMessenger();

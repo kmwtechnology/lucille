@@ -4,41 +4,33 @@ import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.parquet.ParquetDocUtils;
+import com.kmwllc.lucille.parquet.ParquetFileIterator;
 import com.typesafe.config.Config;
+import java.util.Iterator;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.parquet.avro.AvroReadSupport;
-import org.apache.parquet.column.page.PageReadStore;
-import org.apache.parquet.example.data.Group;
-import org.apache.parquet.example.data.simple.SimpleGroup;
-import org.apache.parquet.example.data.simple.convert.GroupRecordConverter;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
-import org.apache.parquet.io.ColumnIOFactory;
-import org.apache.parquet.io.MessageColumnIO;
-import org.apache.parquet.io.RecordReader;
-import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.Type;
 
 import java.net.URI;
-import java.util.List;
 
 public class ParquetConnector extends AbstractConnector {
 
   private final String path;
   private final String idField;
   private final String fsUri;
-  private final long limit;
+
 
   private final String s3Key;
   private final String s3Secret;
 
   // non final
   private long start;
+  private long limit;
   private long count = 0L;
 
 
@@ -56,14 +48,6 @@ public class ParquetConnector extends AbstractConnector {
 
   private boolean limitNotReached() {
     return limit < 0 || count < limit;
-  }
-
-  private boolean canSkipAndUpdateStart(long n) {
-    if (start > n) {
-      start -= n;
-      return true;
-    }
-    return false;
   }
 
   @Override
@@ -86,63 +70,22 @@ public class ParquetConnector extends AbstractConnector {
           continue;
         }
 
-        try (ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(status, conf))) {
+        ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(status, conf));
+        // start gets updated as we publish individual documents in the connector.
+        // we want to extract only up to the "remaining" limit from any one file.
+        Iterator<Document> docIterator = new ParquetFileIterator(reader, idField, start, limit - count);
 
-          // check if we can skip this file
-          if (canSkipAndUpdateStart(reader.getRecordCount())) {
-            continue;
-          }
+        while (docIterator.hasNext()) {
+          Document doc = docIterator.next();
 
-          MessageType schema = reader.getFooter().getFileMetaData().getSchema();
-          List<Type> fields = schema.getFields();
-          PageReadStore pages;
-          while (limitNotReached() && (pages = reader.readNextRowGroup()) != null) {
+          if (doc != null) {
+            publisher.publish(doc);
+            count++;
 
-            // check if we can skip this row group
-            long nRows = pages.getRowCount();
-            if (canSkipAndUpdateStart(nRows)) {
-              continue;
-            }
-
-            MessageColumnIO columnIO = new ColumnIOFactory().getColumnIO(schema);
-            RecordReader<Group> recordReader = columnIO.getRecordReader(pages, new GroupRecordConverter(schema));
-
-            // at this point start is either 0 or < nRows, if later will update start to 0 after the loop
-            while (limitNotReached() && nRows-- > 0) {
-
-              // read record regardless of the start parameter
-              SimpleGroup simpleGroup = (SimpleGroup) recordReader.read();
-              if (canSkipAndUpdateStart(1)) {
-                continue;
-              }
-
-              String id = simpleGroup.getString(idField, 0);
-              Document doc = Document.create(id);
-              for (int j = 0; j < fields.size(); j++) {
-
-                Type field = fields.get(j);
-                String fieldName = field.getName();
-                if (fieldName.equals(idField)) {
-                  continue;
-                }
-                if (field.isPrimitive()) {
-                  ParquetDocUtils.setDocField(doc, field, simpleGroup, j);
-                } else {
-                  for (int k = 0; k < simpleGroup.getGroup(j, 0).getFieldRepetitionCount(0); k++) {
-                    Group group = simpleGroup.getGroup(j, 0).getGroup(0, k);
-                    Type type = group.getType().getType(0);
-                    if (type.isPrimitive()) {
-                      ParquetDocUtils.addToField(doc, fieldName, type, group);
-                    }
-                  }
-                }
-              }
-              publisher.publish(doc);
-              count++;
+            if (start > 0) {
+              start--;
             }
           }
-        } catch (Exception e) {
-          throw new ConnectorException("Problem running the connector.", e);
         }
       }
     } catch (Exception e) {
