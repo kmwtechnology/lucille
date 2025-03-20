@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.storageclient.filereference;
+package com.kmwllc.lucille.connector.storageclient;
 
 import java.time.Instant;
 

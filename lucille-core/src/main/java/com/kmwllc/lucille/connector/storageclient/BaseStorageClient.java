@@ -7,7 +7,6 @@ import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
-import com.kmwllc.lucille.connector.storageclient.filereference.FileReference;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
@@ -138,7 +137,7 @@ public abstract class BaseStorageClient implements StorageClient {
       // handle compressed files if needed to the end
       if (params.getHandleCompressedFiles() && isSupportedCompressedFileType(fullPathStr)) {
         // unzip the file, compressorStream will be closed when try block is exited
-        try (BufferedInputStream bis = new BufferedInputStream(getFileReferenceContentStream(fileReference, params));
+        try (BufferedInputStream bis = new BufferedInputStream(fileReference.getContentStream(params));
             CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
           // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
           String decompressedPath = FilenameUtils.removeExtension(fullPathStr);
@@ -153,7 +152,7 @@ public abstract class BaseStorageClient implements StorageClient {
             if (params.supportedFileType(resolvedExtension)) {
               handleStreamExtensionFiles(publisher, compressorStream, resolvedExtension, filePathFormat);
             } else {
-              Document doc = convertFileReferenceToDoc(fileReference, compressorStream, filePathFormat, params);
+              Document doc = fileReference.toDoc(compressorStream, filePathFormat, params);
               publisher.publish(doc);
             }
           }
@@ -164,7 +163,7 @@ public abstract class BaseStorageClient implements StorageClient {
 
       // handle archived files if needed to the end
       if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(fullPathStr)) {
-        try (InputStream is = getFileReferenceContentStream(fileReference, params)) {
+        try (InputStream is = fileReference.getContentStream(params)) {
           handleArchiveFiles(publisher, is, fullPathStr, params);
         }
         afterProcessingFile(fullPathStr, params);
@@ -174,7 +173,7 @@ public abstract class BaseStorageClient implements StorageClient {
       // handle file types using fileHandler if needed to the end
       if (params.supportedFileType(fileExtension)) {
         // Get a stream for the file content, so we don't have to load it all at once.
-        InputStream contentStream = getFileReferenceContentStream(fileReference, params);
+        InputStream contentStream = fileReference.getContentStream(params);
         // get the right FileHandler and publish based on content
         publishUsingFileHandler(publisher, fileExtension, contentStream, fullPathStr);
 
@@ -183,7 +182,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       // handle normal files
-      Document doc = convertFileReferenceToDoc(fileReference, params);
+      Document doc = fileReference.toDoc(params);
       publisher.publish(doc);
       afterProcessingFile(fullPathStr, params);
     } catch (UnsupportedOperationException e) {
@@ -304,27 +303,6 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * Returns whether the given file should be published / processed. Involves checking that the file is valid
-   * (based on the specific Storage Client implementation) and checking whether the filterOptions of the given
-   * TraversalParams include the file's path.
-   */
-  private boolean shouldProcessFile(FileReference fileRef, TraversalParams params) {
-    return validFile(fileRef) && params.filterOptionsIncludeFile(fileRef.getFilePath(params), fileRef.getLastModified());
-  }
-
-  /**
-   * Returns whether the given FileReference is a valid path to a file in this Storage Client's file system.
-   * (Primarily a check that the given reference is not a directory.)
-   */
-  protected abstract boolean validFile(FileReference fileRef);
-
-  /**
-   * Returns a String representation of the full path to this file reference. For cloud providers, this includes the scheme
-   * (s3, https, gs); for local files, this is just the normalized, absolute path to the file.
-   */
-  protected abstract String getFullPath(FileReference fileReference, TraversalParams params);
-
-  /**
    * method for performing operations before processing files. This method is ill be called before processing 
    * each file in traversal.  If the method returns true, the file will be processed.  A return of false indicates
    * the file should be skipped.
@@ -382,22 +360,6 @@ public abstract class BaseStorageClient implements StorageClient {
       throw new UnsupportedOperationException("Moving cloud files is not supported yet");
     }
   }
-
-  /**
-   * converts a file reference (Path or cloud Storage object implementation) to a document.
-   */
-  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, TraversalParams params);
-
-  /**
-   * will only be called in the scenario where after decompression and file will not be handled by a file handler
-   */
-  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr, TraversalParams params);
-
-  /**
-   * get the content of the file reference as an InputStream. Always called within a try-with-resources block
-   */
-  protected abstract InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params);
-
 
   /**
    * Return the starting directory for this StorageClient, based on the given params and its pathToStorageURI.

@@ -1,0 +1,49 @@
+package com.kmwllc.lucille.connector.storageclient;
+
+import com.kmwllc.lucille.core.Document;
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.Instant;
+
+/**
+ * Stores a reference to a file in a cloud storage service or a local file system.
+ */
+public interface FileReference {
+  /**
+   * @return A String representing the full path to this file.
+   */
+  String getFullPath(TraversalParams params);
+
+  /**
+   * @return Whether this FileReference is for a cloud file.
+   */
+  boolean isCloudFileReference();
+
+  /**
+   * @return Whether this FileReference is valid, namely, whether it is a reference to an actual file and not
+   * a Directory.
+   */
+  boolean isValidFile();
+
+  /**
+   * @return The instant at which this FileReference was last modified.
+   */
+  Instant getLastModified();
+
+  /**
+   * @return An InputStream for the file's contents, using the given TraversalParams as needed.
+   */
+  InputStream getContentStream(TraversalParams params);
+
+  /**
+   * @return A Lucille Document from this file reference. Will get the file's contents if params.shouldGetFileContent()
+   * is true.
+   */
+  Document toDoc(TraversalParams params);
+
+  /**
+   * @return A Lucille Document from this file reference, using the given full path string to create the Document's ID / path,
+   * and reading all bytes from the given input stream if params.shouldGetFileContent() is true.
+   */
+  Document toDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException;
+}

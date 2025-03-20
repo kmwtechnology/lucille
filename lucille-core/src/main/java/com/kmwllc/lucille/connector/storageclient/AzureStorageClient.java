@@ -12,8 +12,6 @@ import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.connector.storageclient.filereference.AzureFileReference;
-import com.kmwllc.lucille.connector.storageclient.filereference.FileReference;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
@@ -27,6 +25,88 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class AzureStorageClient extends BaseStorageClient {
+
+  private class AzureFileReference extends BaseFileReference {
+
+    private final BlobItem blobItem;
+
+    public AzureFileReference(BlobItem blobItem) {
+      super(blobItem.getProperties().getLastModified().toInstant());
+
+      this.blobItem = blobItem;
+    }
+
+    @Override
+    public String getFullPath(TraversalParams params) {
+      URI pathURI = params.getURI();
+
+      return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
+          pathURI.getPath().split("/")[1], blobItem.getName());
+    }
+
+    @Override
+    public boolean isCloudFileReference() {
+      return true;
+    }
+
+    @Override
+    public boolean isValidFile() {
+      return !blobItem.isPrefix();
+    }
+
+    @Override
+    public InputStream getContentStream(TraversalParams params) {
+      return serviceClient
+          .getBlobContainerClient(getBucketOrContainerName(params))
+          .getBlobClient(blobItem.getName()).openInputStream();
+    }
+
+    @Override
+    public Document toDoc(TraversalParams params) {
+      String fullPath = getFullPath(params);
+      String docId = DigestUtils.md5Hex(fullPath);
+      Document doc = Document.create(params.getDocIdPrefix() + docId);
+
+      BlobItemProperties properties = blobItem.getProperties();
+      doc.setField(FileConnector.FILE_PATH, fullPath);
+
+      if (properties.getLastModified() != null) {
+        doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
+      }
+
+      if (properties.getCreationTime() != null) {
+        doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
+      }
+
+      doc.setField(FileConnector.SIZE, properties.getContentLength());
+
+      return doc;
+    }
+
+    @Override
+    public Document toDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
+      String docId = DigestUtils.md5Hex(decompressedFullPathStr);
+      Document doc = Document.create(params.getDocIdPrefix() + docId);
+
+      BlobItemProperties properties = blobItem.getProperties();
+      doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
+
+      if (properties.getLastModified() != null) {
+        doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
+      }
+
+      if (properties.getCreationTime() != null) {
+        doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
+      }
+
+      // unable to get the decompressed size via inputStream
+      if (params.shouldGetFileContent()) {
+        doc.setField(FileConnector.CONTENT, in.readAllBytes());
+      }
+
+      return doc;
+    }
+  }
 
   private BlobServiceClient serviceClient;
   private static final Logger log = LoggerFactory.getLogger(AzureStorageClient.class);
@@ -77,7 +157,7 @@ public class AzureStorageClient extends BaseStorageClient {
         .forEachOrdered(blob -> {
           AzureFileReference fileRef = new AzureFileReference(blob);
 
-          if (validFile(fileRef)) {
+          if (fileRef.isValidFile()) {
             String fullPathStr = getFullPath(blob, params);
             String fileExtension = FilenameUtils.getExtension(fullPathStr);
             tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, fileRef, params);
@@ -92,20 +172,6 @@ public class AzureStorageClient extends BaseStorageClient {
 
     BlobContainerClient containerClient = serviceClient.getBlobContainerClient(containerName);
     return containerClient.getBlobClient(blobName).openInputStream();
-  }
-
-  @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, TraversalParams params) {
-    Document fileReferenceDoc = fileReference.toDoc(params);
-
-  }
-
-  @Override
-  protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
-    BlobItem blobItem = fileReference.getBlobItem();
-    return serviceClient
-        .getBlobContainerClient(getBucketOrContainerName(params))
-        .getBlobClient(blobItem.getName()).openInputStream();
   }
 
   @Override

@@ -72,11 +72,10 @@ public class TraversalParams {
   }
 
   /**
-   * Returns whether the filterOptions allow for the publishing / processing of the file, described by the given {URI / FILE PATH / ??}
-   * and an Instant representing the last time it was modified.
+   * Returns whether the filterOptions allow for the publishing / processing of the given FileReference.
    */
-  public boolean filterOptionsIncludeFile(String pathString, Instant fileLastModified) {
-    return patternsAllowFile(pathString) && timeWithinCutoff(fileLastModified);
+  public boolean includeFileRef(FileReference fileRef) {
+    return patternsAllowFile(fileRef.getFullPath(this)) && timeWithinCutoff(fileRef.getLastModified());
   }
 
   /**
