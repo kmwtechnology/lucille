@@ -38,6 +38,11 @@ public class GoogleStorageClient extends BaseStorageClient {
     }
 
     @Override
+    public String getName() {
+      return blob.getName();
+    }
+
+    @Override
     public String getFullPath(TraversalParams params) {
       URI paramsURI = params.getURI();
       return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();

@@ -37,6 +37,11 @@ public class AzureStorageClient extends BaseStorageClient {
     }
 
     @Override
+    public String getName() {
+      return blobItem.getName();
+    }
+
+    @Override
     public String getFullPath(TraversalParams params) {
       URI pathURI = params.getURI();
 
@@ -79,6 +84,10 @@ public class AzureStorageClient extends BaseStorageClient {
       }
 
       doc.setField(FileConnector.SIZE, properties.getContentLength());
+
+      if (params.shouldGetFileContent()) {
+        doc.setField(FileConnector.CONTENT, serviceClient.getBlobContainerClient(getBucketOrContainerName(params)).getBlobClient(blobItem.getName()).downloadContent().toBytes());
+      }
 
       return doc;
     }

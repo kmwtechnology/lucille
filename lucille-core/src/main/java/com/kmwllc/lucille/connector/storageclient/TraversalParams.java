@@ -62,13 +62,6 @@ public class TraversalParams {
   }
 
   /**
-   * Returns whether the filterOptions allow for the publishing / processing of the given FileReference.
-   */
-  public boolean includeFileRef(FileReference fileRef) {
-    return patternsAllowFile(fileRef.getFullPath(this)) && timeWithinCutoff(fileRef.getLastModified());
-  }
-
-  /**
    * Returns whether the filterOptions allow for the publishing / processing of the file, described by its name
    * and the last time it was modified.
    */

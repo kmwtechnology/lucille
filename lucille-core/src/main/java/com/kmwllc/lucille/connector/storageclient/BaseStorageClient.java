@@ -128,7 +128,7 @@ public abstract class BaseStorageClient implements StorageClient {
       // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
       // (preprocessing is currently a NO-OP unless a subclass overrides it)
       if (!fileReference.isValidFile()
-          || !params.includeFile(fileReference)
+          || !params.includeFile(fileReference.getName(), fileReference.getLastModified())
           || !beforeProcessingFile(fullPathStr)) {
         return;
       }

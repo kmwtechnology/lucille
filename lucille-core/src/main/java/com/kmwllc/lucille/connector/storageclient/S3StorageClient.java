@@ -37,6 +37,11 @@ public class S3StorageClient extends BaseStorageClient {
     }
 
     @Override
+    public String getName() {
+      return s3Obj.key();
+    }
+
+    @Override
     public String getFullPath(TraversalParams params) {
       URI paramsURI = params.getURI();
       return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();

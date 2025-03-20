@@ -10,6 +10,11 @@ import java.time.Instant;
  */
 public interface FileReference {
   /**
+   * @return The name of this file.
+   */
+  String getName();
+
+  /**
    * @return A String representing the full path to this file.
    */
   String getFullPath(TraversalParams params);

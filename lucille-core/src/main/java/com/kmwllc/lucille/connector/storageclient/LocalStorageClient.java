@@ -42,6 +42,11 @@ public class LocalStorageClient extends BaseStorageClient {
     }
 
     @Override
+    public String getName() {
+      return path.getFileName().toString();
+    }
+
+    @Override
     public String getFullPath(TraversalParams params) {
       return path.toString();
     }
