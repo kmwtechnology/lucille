@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.5.3-SNAPSHOT</version>
+    <version>0.5.4-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
@@ -253,25 +253,6 @@
       <groupId>io.github.hakky54</groupId>
       <artifactId>sslcontext-kickstart</artifactId>
       <version>${sslcontext-kickstart.version}</version>
-    </dependency>
-
-    <!-- Needed by VFS S3 Plugin to support AWS Security Token Service for EKS -->
-    <dependency>
-      <groupId>com.amazonaws</groupId>
-      <artifactId>aws-java-sdk-sts</artifactId>
-    </dependency>
-
-    <!-- S3 Virtual File System Support -->
-    <dependency>
-      <groupId>com.github.abashev</groupId>
-      <artifactId>vfs-s3</artifactId>
-      <version>${vfs-s3.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.apache.hadoop</groupId>
-          <artifactId>hadoop-hdfs</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <!-- FileConnector -->
