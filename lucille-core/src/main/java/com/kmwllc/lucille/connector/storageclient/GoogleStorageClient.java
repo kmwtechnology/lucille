@@ -21,7 +21,6 @@ import java.net.URI;
 import java.nio.channels.Channels;
 import java.util.Objects;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -156,9 +155,7 @@ public class GoogleStorageClient extends BaseStorageClient {
       page.streamAll()
           .forEachOrdered(blob -> {
             GoogleFileReference fileRef = new GoogleFileReference(blob);
-            String fullPathStr = fileRef.getFullPath(params);
-            String fileExtension = FilenameUtils.getExtension(fullPathStr);
-            processAndPublishFileIfValid(publisher, fullPathStr, fileExtension, fileRef, params);
+            processAndPublishFileIfValid(publisher, fileRef, params);
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
     } while (page != null);

@@ -118,12 +118,12 @@ public abstract class BaseStorageClient implements StorageClient {
    * This method would try to process and publish the file. It also performs any preprocessing, error handling, and post-processing.
    *
    * @param publisher publisher used to publish documents
-   * @param fullPathStr full path of the file, can be a cloud path or local path. Cloud path would include schema and bucket/container name
-   *                    e.g. gs://bucket-name/folder/file.txt or s3://bucket-name/file.txt
-   * @param fileExtension fileExtension of the file. Used to determine if the file should be processed by file handler
    * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
    */
-  protected void processAndPublishFileIfValid(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference, TraversalParams params) {
+  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params) {
+    String fullPathStr = fileReference.getFullPath(params);
+    String fileExtension = fileReference.getFileExtension();
+
     try {
       // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
       // (preprocessing is currently a NO-OP unless a subclass overrides it)

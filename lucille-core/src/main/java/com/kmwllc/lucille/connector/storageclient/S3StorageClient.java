@@ -13,7 +13,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.util.Objects;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -154,9 +153,7 @@ public class S3StorageClient extends BaseStorageClient {
         .forEachOrdered(resp -> {
           resp.contents().forEach(obj -> {
             S3FileReference fileRef = new S3FileReference(obj);
-            String fullPathStr = fileRef.getFullPath(params);
-            String fileExtension = FilenameUtils.getExtension(fullPathStr);
-            processAndPublishFileIfValid(publisher, fullPathStr, fileExtension, fileRef, params);
+            processAndPublishFileIfValid(publisher, fileRef, params);
           });
         });
   }

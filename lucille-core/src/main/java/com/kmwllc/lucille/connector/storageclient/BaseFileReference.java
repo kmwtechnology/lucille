@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector.storageclient;
 
 import java.time.Instant;
+import org.apache.commons.io.FilenameUtils;
 
 public abstract class BaseFileReference implements FileReference {
 
@@ -10,11 +11,14 @@ public abstract class BaseFileReference implements FileReference {
     this.lastModified = lastModified;
   }
 
-  /**
-   * Returns the instant at which this file reference was last modified.
-   */
   @Override
   public Instant getLastModified() {
     return this.lastModified;
+  }
+
+  @Override
+  public String getFileExtension() {
+    String fileName = getName();
+    return FilenameUtils.getExtension(fileName);
   }
 }

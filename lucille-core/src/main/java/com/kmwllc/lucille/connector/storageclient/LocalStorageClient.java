@@ -24,7 +24,6 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,9 +41,7 @@ public class LocalStorageClient extends BaseStorageClient {
     }
 
     @Override
-    public String getName() {
-      return path.getFileName().toString();
-    }
+    public String getName() { return path.getFileName().toString();}
 
     @Override
     public String getFullPath(TraversalParams params) {
@@ -179,9 +176,7 @@ public class LocalStorageClient extends BaseStorageClient {
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
       // Visit the file and actually process it!
       FileReference fileRef = new LocalFileReference(file, attrs.lastModifiedTime().toInstant());
-      String fullPathStr = fileRef.getFullPath(params);
-      String fileExtension = FilenameUtils.getExtension(fullPathStr);
-      processAndPublishFileIfValid(publisher, fullPathStr, fileExtension, fileRef, params);
+      processAndPublishFileIfValid(publisher, fileRef, params);
       return FileVisitResult.CONTINUE;
     }
 

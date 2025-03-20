@@ -20,7 +20,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -165,9 +164,7 @@ public class AzureStorageClient extends BaseStorageClient {
             Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
           AzureFileReference fileRef = new AzureFileReference(blob);
-          String fullPathStr = getFullPath(blob, params);
-          String fileExtension = FilenameUtils.getExtension(fullPathStr);
-          processAndPublishFileIfValid(publisher, fullPathStr, fileExtension, fileRef, params);
+          processAndPublishFileIfValid(publisher, fileRef, params);
         });
   }
 

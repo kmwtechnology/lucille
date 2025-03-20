@@ -20,6 +20,11 @@ public interface FileReference {
   String getFullPath(TraversalParams params);
 
   /**
+   * @return The extension associated with this file.
+   */
+  String getFileExtension();
+
+  /**
    * @return Whether this FileReference is for a cloud file.
    */
   boolean isCloudFileReference();
