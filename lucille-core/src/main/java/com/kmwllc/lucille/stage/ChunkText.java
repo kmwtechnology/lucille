@@ -101,6 +101,11 @@ public class ChunkText extends Stage {
   private SentenceDetector sentenceDetector;
   private static final Logger log = LoggerFactory.getLogger(ChunkText.class);
 
+  /**
+   * Creates the ChunkText stage from the given config.
+   * @param config Configuration for the ChunkText stage.
+   * @throws StageException If your configuration is invalid.
+   */
   public ChunkText(Config config) throws StageException {
     super(config, new StageSpec()
         .withOptionalProperties("chunking_method", "chunks_to_merge", "dest", "regex", "character_limit",
@@ -255,6 +260,12 @@ public class ChunkText extends Stage {
     }
   }
 
+  /**
+   * Splits the given String input into chunks, using the given chunkSize.
+   * @param input The String you want to chunk up.
+   * @param chunkSize The desired size of your chunks.
+   * @return The chunked String as an array of individual Strings.
+   */
   public String[] splitBySize(String input, int chunkSize) {
     int inputLength = input.length();
     int numOfChunks = (inputLength + chunkSize - 1) / chunkSize;

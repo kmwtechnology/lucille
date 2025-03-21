@@ -24,6 +24,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * A file handler for CSV files. Extracts documents from the rows of a CSV file.
+ */
 public class CSVFileHandler extends BaseFileHandler {
 
   private static final Logger log = LoggerFactory.getLogger(CSVFileHandler.class);
@@ -41,6 +44,10 @@ public class CSVFileHandler extends BaseFileHandler {
   private final List<String> ignoredTerms;
   private static final String UTF8_BOM = "\uFEFF";
 
+  /**
+   * Creates a CSVFileHandler from the given config.
+   * @param config Configuration for the CSVFileHandler.
+   */
   public CSVFileHandler(Config config) {
     super(config);
     this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";

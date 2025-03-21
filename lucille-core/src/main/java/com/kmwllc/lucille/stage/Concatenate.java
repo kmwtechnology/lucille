@@ -35,6 +35,10 @@ public class Concatenate extends Stage {
 
   private final List<String> fields;
 
+  /**
+   * Creates the Concatenate stage from the given configuration.
+   * @param config Configuration for the Concatenate stage.
+   */
   public Concatenate(Config config) {
     super(config, new StageSpec()
         .withRequiredProperties("dest", "format_string")

@@ -22,6 +22,10 @@ public class CreateChildrenStage extends Stage {
   private final Integer failAfter;
   private final Integer dropChild;
 
+  /**
+   * Creates the CreateChildrenStage from the given config.
+   * @param config Configuration for the CreateChildrenStage.
+   */
   public CreateChildrenStage(Config config) {
     super(config, new StageSpec().withOptionalProperties("numChildren", "dropParent", "failAfter", "dropChild"));
     this.numChildren = config.hasPath("numChildren") ? config.getInt("numChildren") : 3;

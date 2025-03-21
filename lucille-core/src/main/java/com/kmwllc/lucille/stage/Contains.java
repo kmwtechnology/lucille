@@ -32,6 +32,11 @@ public class Contains extends Stage {
 
   private PayloadTrie<String> trie;
 
+  /**
+   * Creates the Contains stage from the given Config.
+   *
+   * @param config Configuration for the Contains stage.
+   */
   public Contains(Config config) {
     super(config, new StageSpec()
         .withRequiredProperties("contains", "output", "value", "fields")

@@ -9,11 +9,19 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
+/**
+ * A Stage for decoding base64 data strings and outputting them as arrays of bytes on a document.
+ */
 public class Base64Decode extends Stage {
 
   private String inputField;
   private String outputField;
-  
+
+  /**
+   * Creates the Base64Decode stage from the given configuration.
+   *
+   * @param config Configuration for the Base64Decode stage.
+   */
   public Base64Decode(Config config) {
     super(config, new StageSpec().withRequiredProperties("input_field", "output_field"));
     inputField = config.getString("input_field");

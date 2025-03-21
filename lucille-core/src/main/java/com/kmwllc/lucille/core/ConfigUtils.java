@@ -9,11 +9,19 @@ import org.apache.http.message.BasicHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Utility functions for working with Config.
+ */
 public class ConfigUtils {
 
+  /**
+   * The pipeline environment property.
+   */
   public static final String ENV_PROP = "pipeline.env";
 
   private static final Logger log = LoggerFactory.getLogger(ConfigUtils.class);
+
+  private ConfigUtils() {}
 
   /**
    * Get the value of the given setting from the config file, or a default value if the setting does not exist in the

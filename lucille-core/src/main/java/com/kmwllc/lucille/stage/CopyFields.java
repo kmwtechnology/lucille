@@ -30,6 +30,10 @@ public class CopyFields extends Stage {
   private final List<String> destFields;
   private final UpdateMode updateMode;
 
+  /**
+   * Creates the CopyFields from the given config.
+   * @param config Configuration for the CopyFields stage.
+   */
   public CopyFields(Config config) {
     super(config, new StageSpec()
         .withRequiredProperties("source", "dest")

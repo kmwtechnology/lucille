@@ -14,11 +14,28 @@ public class ConnectorResult {
 
   private String message;
 
+  /**
+   * Creates a ConnectorResult for the given connector / publisher, using the given status (representing whether it was
+   * successful) and the given error Message.
+   * @param connector The associated connector you want to create a result for.
+   * @param publisher The associated publisher you want to create a result for.
+   * @param status Whether the connector was successful.
+   * @param errorMsg An error message associated with the connector / publisher's run.
+   */
   public ConnectorResult(Connector connector, Publisher publisher,
       boolean status, String errorMsg) {
     this(connector, publisher, status, errorMsg, null);
   }
 
+  /**
+   * Creates a ConnectorResult for the given connector / publisher, using the given status (representing whether it was
+   * successful) and the given error Message.
+   * @param connector The associated connector you want to create a result for.
+   * @param publisher The associated publisher you want to create a result for.
+   * @param status Whether the connector was successful.
+   * @param errMsg An error message associated with the connector / publisher's run.
+   * @param durationSecs How long the connector took.
+   */
   public ConnectorResult(Connector connector, Publisher publisher,
       boolean status, String errMsg, Double durationSecs) {
     this.status = status;
@@ -32,14 +49,26 @@ public class ConnectorResult {
     }
   }
 
+  /**
+   * Get the status of this ConnectorResult.
+   * @return the status of this ConnectorResult.
+   */
   public boolean getStatus() {
     return status;
   }
 
+  /**
+   * Get whether this ConnectorResult had docs that failed.
+   * @return whether this ConnectorResult had docs that failed.
+   */
   public boolean hasFailingDocs() {
     return numFailed > 0;
   }
 
+  /**
+   * Get whether this ConnectorResult had docs.
+   * @return whether this ConnectorResult had docs.
+   */
   public boolean hasDocs() {
     return numFailed + numSucceeded > 0;
   }

@@ -25,9 +25,14 @@ import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 import sun.misc.Signal;
 
+/**
+ * Indexes documents into a target destination.
+ */
 public abstract class Indexer implements Runnable {
 
+  /** The default number of documents in a batch. */
   public static final int DEFAULT_BATCH_SIZE = 100;
+  /** The default amount of seconds until a batch times out. */
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
@@ -59,11 +64,21 @@ public abstract class Indexer implements Runnable {
   // A runID for a local (local / test) run. Null if not in one of those modes / started independently.
   private final String localRunId;
 
+  /**
+   * Terminates the Indexer.
+   */
   public void terminate() {
     running = false;
     log.debug("terminate");
   }
 
+  /**
+   * Creates an Indexer from the given configuration, messenger, prefix for metrics, and run id.
+   * @param config The configuration for the indexer.
+   * @param messenger The messenger the indexer will use.
+   * @param metricsPrefix The prefix for metrics used to track the Indexer's performance.
+   * @param localRunId A runID for a local run. May be null.
+   */
   public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) {
     this.messenger = messenger;
     this.idOverrideField =
@@ -130,6 +145,8 @@ public abstract class Indexer implements Runnable {
   /**
    * Return true if connection to the destination search engine is valid and the relevant index or
    * collection exists; false otherwise.
+   *
+   * @return Whether this Indexer has a valid connection to its destination.
    */
   public abstract boolean validateConnection();
 
@@ -137,6 +154,9 @@ public abstract class Indexer implements Runnable {
    * Send a batch of documents to the destination search engine. Implementations should use a single
    * call to the batch API provided by the search engine client, if available, as opposed to sending
    * each document individually.
+   *
+   * @param documents The documents to send to the destination.
+   * @throws Exception If an error occurs while indexing the documents.
    */
   protected abstract void sendToIndex(List<Document> documents) throws Exception;
 
@@ -173,6 +193,11 @@ public abstract class Indexer implements Runnable {
     }
   }
 
+  /**
+   * Runs the Indexer, having it check for documents a certain number of times.
+   *
+   * @param iterations The number of times to check for a document.
+   */
   public void run(int iterations) {
     try {
       for (int i = 0; i < iterations; i++) {

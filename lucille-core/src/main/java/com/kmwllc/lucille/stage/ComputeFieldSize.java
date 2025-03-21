@@ -25,6 +25,10 @@ public class ComputeFieldSize extends Stage {
   private final String source;
   private final String destination;
 
+  /**
+   * Creates the ComputeFieldSize stage from the given config.
+   * @param config Configuration for the ComputeFieldSize stage.
+   */
   public ComputeFieldSize(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest"));
 

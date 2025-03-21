@@ -31,6 +31,10 @@ public class CreateStaticTeaser extends Stage {
   private final int maxLength;
   private final UpdateMode updateMode;
 
+  /**
+   * Creates the CreateStaticTeaser stage from the given config.
+   * @param config Configuration for the CreateStaticTeaser stage.
+   */
   public CreateStaticTeaser(Config config) {
     super(config, new StageSpec()
         .withRequiredProperties("source", "dest", "maxLength")

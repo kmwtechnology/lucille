@@ -27,6 +27,10 @@ public class CSVConnector extends AbstractConnector {
   private final String moveToAfterProcessing;
   private final String moveToErrorFolder;
 
+  /**
+   * Creates a CSVConnector from the given config.
+   * @param config Configuration for the CSVConnector.
+   */
   public CSVConnector(Config config) {
     super(config);
     this.pathStr = config.getString("path");
@@ -69,6 +73,9 @@ public class CSVConnector extends AbstractConnector {
     return "CSVConnector: " + pathStr;
   }
 
+  /**
+   * If specified in the configuration, creates the moveToAfterProcessing and the moveToErrorFolder folders.
+   */
   public void createProcessedAndErrorFoldersIfSet() {
     if (moveToAfterProcessing != null) {
       // Create the destination directory if it doesn't exist.
@@ -88,6 +95,11 @@ public class CSVConnector extends AbstractConnector {
     }
   }
 
+  /**
+   * Moves the file at the given path to the path specified by the given String.
+   * @param absolutePath An absolute path to the file you want to move.
+   * @param option The path you want to move the file to.
+   */
   public void moveFile(Path absolutePath, String option) {
     if (absolutePath.startsWith("classpath:")) {
       log.warn("Skipping moving classpath file: {} to {}", absolutePath, moveToAfterProcessing);

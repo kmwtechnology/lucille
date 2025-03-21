@@ -21,7 +21,11 @@ public class CollapseChildrenDocuments extends Stage {
 
   private List<String> fieldsToCopy;
   private boolean dropChildren;
-  
+
+  /**
+   * Creates the CollapseChildrenDocuments stage from the given config.
+   * @param config Configuration for the CollapseChildrenDocuments stage.
+   */
   public CollapseChildrenDocuments(Config config) { 
     super(config, new StageSpec().withRequiredProperties("fieldsToCopy", "dropChildren"));
     fieldsToCopy = config.getStringList("fieldsToCopy"); 
