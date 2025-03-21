@@ -16,6 +16,9 @@ public class DateTwoYearsFormatter implements BiFunction<String, ZoneId, ZonedDa
 
   private static final Pattern datePattern = Pattern.compile("\\d{1,4}\\W\\d{1,4}");
 
+  /** Creates a DateTwoYearsFormatter. */
+  public DateTwoYearsFormatter() {}
+
   @Override
   public ZonedDateTime apply(String value, ZoneId zone) {
     Matcher matcher = datePattern.matcher(value);

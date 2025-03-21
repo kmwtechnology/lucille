@@ -305,6 +305,9 @@ public abstract class Indexer implements Runnable {
    * Returns the ID that should be sent to the destination index/collection for the given doc, in
    * place of the value of the Document.ID_FIELD field. Returns null if no override should be
    * applied for the given document.
+   *
+   * @param doc The document you want to get an ID Override for.
+   * @return The idOverride from the document, if it exists. If not, returns null.
    */
   protected String getDocIdOverride(Document doc) {
     if (idOverrideField != null && doc.has(idOverrideField)) {
@@ -316,6 +319,9 @@ public abstract class Indexer implements Runnable {
   /**
    * Returns the index that should be the destination for the given doc, in place of the default
    * index. Returns null if no index override should be applied for the given document.
+   *
+   * @param doc The document you want to get an index override for.
+   * @return The indexOverride from the document, if it exists. If not, returns null.
    */
   protected String getIndexOverride(Document doc) {
     if (indexOverrideField != null && doc.has(indexOverrideField)) {

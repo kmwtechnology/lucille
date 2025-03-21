@@ -14,6 +14,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * An indexer that stores documents in a CSV file.
+ */
 public class CSVIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(CSVIndexer.class);
@@ -23,7 +26,15 @@ public class CSVIndexer extends Indexer {
   private final List<String> columns;
   private final boolean includeHeader;
 
-
+  /**
+   * Creates a CSVIndexer from the given arguments.
+   * @param config Configuration for the CSVIndexer.
+   * @param messenger The messenger to use for the CSVIndexer.
+   * @param writer The CSVWriter to use for storing documents.
+   * @param bypass Whether to always invalidate the connection.
+   * @param metricsPrefix The prefix associated with metrics for this indexer.
+   * @param localRunId The runID for a local run, null otherwise.
+   */
   public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix, String localRunId) {
     super(config, messenger, metricsPrefix, localRunId);
     if (this.indexOverrideField != null) {
@@ -36,16 +47,37 @@ public class CSVIndexer extends Indexer {
     this.includeHeader = config.hasPath("csv.includeHeader") ? config.getBoolean("csv.includeHeader") : true;
   }
 
+  /**
+   * Creates a CSVIndexer from the given arguments.
+   * @param config Configuration for the CSVIndexer.
+   * @param messenger The messenger to use for the CSVIndexer.
+   * @param bypass Whether to always invalidate the connection.
+   * @param metricsPrefix The prefix associated with metrics for this indexer.
+   * @param localRunId The runID for a local run, null otherwise.
+   */
   public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
     this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix, localRunId);
   }
 
-  // Convenience constructor, mostly for testing. (No localRunId)
+  /**
+   * Creates a CSVIndexer from the given arguments with no local runID. Mostly for testing.
+   * @param config Configuration for the CSVIndexer.
+   * @param messenger The messenger to use for the CSVIndexer.
+   * @param writer The CSVWriter to use for storing documents.
+   * @param bypass Whether to always invalidate the connection.
+   * @param metricsPrefix The prefix associated with metrics for this indexer.
+   */
   public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix) {
     this(config, messenger, writer, bypass, metricsPrefix, null);
   }
 
-  // Convenience constructor, mostly for testing. (No localRunId)
+  /**
+   * Creates a CSVIndexer from the given arguments with no local runID. Mostly for testing.
+   * @param config Configuration for the CSVIndexer.
+   * @param messenger The messenger to use for the CSVIndexer.
+   * @param bypass Whether to always invalidate the connection.
+   * @param metricsPrefix The prefix associated with metrics for this indexer.
+   */
   public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
     this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix, null);
   }

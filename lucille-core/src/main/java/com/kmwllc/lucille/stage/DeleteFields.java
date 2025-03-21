@@ -19,6 +19,10 @@ public class DeleteFields extends Stage {
 
   private final List<String> fields;
 
+  /**
+   * Creates the DeleteFields stage from the given config.
+   * @param config Configuration for the DeleteFields stage.
+   */
   public DeleteFields(Config config) {
     super(config, new StageSpec().withRequiredProperties("fields"));
     this.fields = config.getStringList("fields");

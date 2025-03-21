@@ -62,6 +62,11 @@ public class DictionaryLookup extends Stage {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   // Dummy value to indicate that a key is present in the HashMap
 
+  /**
+   * Creates the DictionaryLookup stage from the given configuration.
+   * @param config Configuration for the DictionaryLookup stage.
+   * @throws StageException If the provided configuration is invalid / insufficient.
+   */
   public DictionaryLookup(Config config) throws StageException {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "dict_path")
         .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "ignore_missing_source")

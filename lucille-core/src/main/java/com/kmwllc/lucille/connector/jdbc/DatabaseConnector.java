@@ -73,7 +73,10 @@ public class DatabaseConnector extends AbstractConnector {
   // TODO: consider moving this down to the base connector class.
   //  private ConnectorState state = null;
 
-  // The constructor that takes the config.
+  /**
+   * Creates a DatabaseConnector from the given config.
+   * @param config Configuration for the DatabaseConnector.
+   */
   public DatabaseConnector(Config config) {
     super(config);
 
@@ -385,7 +388,9 @@ public class DatabaseConnector extends AbstractConnector {
     }
   }
 
-  //@Override
+  /**
+   * Stops the DatabaseConnector. Currently a no-op.
+   */
   public void stop() {
     // TODO: move this to a base class..
   }
@@ -405,8 +410,10 @@ public class DatabaseConnector extends AbstractConnector {
     connections.clear();
   }
 
-  // for testing purposes
-  // return true if any connection is open to the database
+  /**
+   * Primarily for testing purposes. Returns whether the DatabaseConnector is closed.
+   * @return Whether the DatabaseConnector is closed.
+   */
   public boolean isClosed() {
     if (connections.isEmpty()) {
       return true;

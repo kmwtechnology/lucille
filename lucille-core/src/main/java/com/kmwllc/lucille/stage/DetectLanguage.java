@@ -51,6 +51,10 @@ public class DetectLanguage extends Stage {
 
   private Detector detector;
 
+  /**
+   * Creates the DetectLanguage stage from the given config.
+   * @param config Configuration for the DetectLanguage stage.
+   */
   public DetectLanguage(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "language_field")
         .withOptionalProperties("language_confidence_field", "min_length", "max_length",

@@ -9,13 +9,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- *  Attempts to find dates of the form "January 1, 2000" and extract
- *  the values into a Java date. Will return null of the there are no dates formatted in it's style within the String.
+ * Attempts to find dates of the form "January 1, 2000" and extract the values into a Java date.
+ * Will return null of the there are no dates formatted in its style within the String.
  */
 public class DateMonthStrFormatter implements BiFunction<String, ZoneId, ZonedDateTime> {
 
   private static final Pattern datePattern = Pattern.compile("\\w+ \\d{1,2}, \\d{1,4}");
   private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("LLLL d, u");
+
+  /** Creates a DateMonthStrFormatter. */
+  public DateMonthStrFormatter() {}
 
   @Override
   public ZonedDateTime apply(String value, ZoneId zone) {
