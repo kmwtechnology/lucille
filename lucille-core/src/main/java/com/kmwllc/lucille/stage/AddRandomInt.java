@@ -34,6 +34,11 @@ public class AddRandomInt extends Stage {
   private final int rangeStart;
   private final int rangeEnd;
 
+  /**
+   * Creates the AddRandomInt stage from the given config.
+   * @param config Configuration for the AddRandomInt stage.
+   * @throws StageException If the range_start is greater than range_end.
+   */
   public AddRandomInt(Config config) throws StageException {
     super(config, new StageSpec()
         .withOptionalProperties("field_name", "range_start", "range_end"));

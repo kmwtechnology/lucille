@@ -34,6 +34,11 @@ public class AddRandomDouble extends Stage {
   private final double rangeStart;
   private final double rangeEnd;
 
+  /**
+   * Creates the AddRandomDouble stage from the given config.
+   * @param config Configuration for the AddRandomDouble stage.
+   * @throws StageException If the range_start is greater than range_end.
+   */
   public AddRandomDouble(Config config) throws StageException {
     super(config, new StageSpec()
         .withOptionalProperties("field_name", "range_start", "range_end"));

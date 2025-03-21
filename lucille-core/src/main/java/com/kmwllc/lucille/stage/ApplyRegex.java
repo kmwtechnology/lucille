@@ -50,6 +50,10 @@ public class ApplyRegex extends Stage {
 
   private Pattern pattern;
 
+  /**
+   * Create the ApplyRegex stage from the given config.
+   * @param config Configuration for the ApplyRegex stage.
+   */
   public ApplyRegex(Config config) {
     super(config, new StageSpec().withRequiredProperties("source", "dest", "regex")
         .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));

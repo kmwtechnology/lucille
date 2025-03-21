@@ -26,6 +26,11 @@ public class AddRandomBoolean extends Stage {
   private final String fieldName;
   private final int percentTrue;
 
+  /**
+   * Creates the AddRandomBoolean stage from the given Config.
+   * @param config Configuration for the AddRandomBoolean stage.
+   * @throws StageException If the percentTrue parameter has value less than 0 or greater than 100.
+   */
   public AddRandomBoolean(Config config) throws StageException {
     super(config, new StageSpec()
         .withOptionalProperties("field_name", "percent_true"));

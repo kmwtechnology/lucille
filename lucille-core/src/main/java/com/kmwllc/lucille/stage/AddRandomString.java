@@ -60,6 +60,11 @@ public class AddRandomString extends Stage {
   private List<String> fileData;
   private final boolean concatenate;
 
+  /**
+   * Creates the AddRandomDate stage from the given Config.
+   * @param config Configuration for the AddRandomDate stage.
+   * @throws StageException In the event your config contains invalid values.
+   */
   public AddRandomString(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("input_data_path", "field_name", "range_size", "min_num_of_terms",
         "max_num_of_terms", "is_nested", "concatenate"));

@@ -33,16 +33,36 @@ import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * The base implementation for StorageClients. Has fileHandlers for additional processing of supported types. Must be initialized
+ * before traversal / getting a file's contents. Has a common method for processing / publishing a file, if valid.
+ */
 public abstract class BaseStorageClient implements StorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(BaseStorageClient.class);
 
+  /**
+   * The configuration for this StorageClient.
+   */
   protected final Config config;
+  /**
+   * The fileHandlers available to this StorageClient, keyed by their respective file extensions.
+   */
   protected Map<String, FileHandler> fileHandlers;
+  /**
+   * The maximum number of pages to be loaded in memory at once.
+   */
   protected final int maxNumOfPages;
 
   private boolean initialized = false;
 
+  /**
+   * Creates a base implementation of a Storage client from the given config. Validates the provided options, throwing an
+   * IllegalArgumentException if they are invalid.
+   * @param config Configuration used for the storage client implementation.
+   *
+   * @throws IllegalArgumentException If the configuration is invalid for the storage client.
+   */
   public BaseStorageClient(Config config) {
     validateOptions(config);
     this.config = config;
@@ -55,6 +75,9 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * Validate that the given config is sufficient to construct an instance of this StorageClient. Throws an
    * IllegalArgumentException if the config does not contain the necessary information.
+   *
+   * @param config The configuration you want to validate.
+   * @throws IllegalArgumentException If the configuration is not sufficient for this StorageClient.
    */
   protected abstract void validateOptions(Config config);
 
@@ -66,7 +89,10 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  // Actually do the storage client specific initialization.
+  /**
+   * Perform any StorageClient-specific setup that is needed, like opening connections.
+   * @throws IOException If an error occurs during initialization.
+   */
   protected abstract void initializeStorageClient() throws IOException;
 
   @Override
@@ -77,11 +103,15 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  // Actually do the storage client specific shutdown.
+  /**
+   * Performs any StorageClient-specific shutdown that is needed, like closing connections and freeing resources.
+   * @throws IOException If an error occurs during shutdown.
+   */
   protected abstract void shutdownStorageClient() throws IOException;
 
   /**
-   * Returns whether this StorageClient is currently initialized successfully and not shutdown.
+   * Returns whether this StorageClient has been initialized successfully and not subsequently shutdown.
+   * @return Whether this StorageClient is initialized.
    */
   public boolean isInitialized() {
     return this.initialized;
@@ -101,6 +131,14 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
+  /**
+   * Performs a traversal through the storage client's file system, publishing documents to the given Publisher as they are
+   * extracted, and using the given params to customize the traversal.
+   *
+   * @param publisher The publisher you want to publish extracted documents to.
+   * @param params Parameters that customize your traversal.
+   * @throws Exception If an error occurs during traversal.
+   */
   protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception;
 
   @Override
@@ -112,6 +150,12 @@ public abstract class BaseStorageClient implements StorageClient {
     return getFileContentStreamFromStorage(uri);
   }
 
+  /**
+   * Performs a StorageClient-specific approach to get the contents of the file at the given URI (in an InputStream).
+   * @param uri A URI for the file whose contents you want to extract.
+   * @return An InputStream of the file's contents.
+   * @throws IOException If an error occurs getting the file's contents.
+   */
   protected abstract InputStream getFileContentStreamFromStorage(URI uri) throws IOException;
 
   /**
@@ -122,6 +166,7 @@ public abstract class BaseStorageClient implements StorageClient {
    *                    e.g. gs://bucket-name/folder/file.txt or s3://bucket-name/file.txt
    * @param fileExtension fileExtension of the file. Used to determine if the file should be processed by file handler
    * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
+   * @param params Parameters to customize the traversal / handling of files.
    */
   protected void tryProcessAndPublishFile(Publisher publisher, String fullPathStr, String fileExtension, FileReference fileReference, TraversalParams params) {
     try {
@@ -204,6 +249,11 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param fullPathStr full path of the archive file including the extension. Can be a cloud path or local path.
    *                    Cloud path would include schema and bucket/container name
    *                    e.g gs://bucket-name/folder/file.zip or s3://bucket-name/file.tar
+   * @param params Parameters to customize the traversal / handling of files.
+   *
+   * @throws ArchiveException If an error occurs getting the archive file's entries.
+   * @throws IOException If an error regarding file I/O occurs
+   * @throws ConnectorException If an error occurs handling subsequent archive entries.
    */
   protected void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fullPathStr, TraversalParams params) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
@@ -250,8 +300,10 @@ public abstract class BaseStorageClient implements StorageClient {
    *
    * @param publisher publisher used to publish documents
    * @param in An InputStream for an archive / compressed file. This InputStream will <b>NOT</b> be closed by this method.
+   * @param fileExtension The extension of the file you're processing.
    * @param fullPathStr can be entry full path or decompressed full path. Can be a cloud path or local path.
    *                    e.g. gs://bucket-name/folder/file.zip:entry.json OR path/to/example.csv
+   * @throws ConnectorException If an error occurs processing / handling the file.
    */
   protected void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fullPathStr)
       throws ConnectorException {
@@ -277,7 +329,14 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * helper method to publish using file handler using file content (InputStream)
+   * Publishes a file using a file handler and an InputStream to its contents.
+   *
+   * @param publisher The publisher to publish documents to.
+   * @param fileExtension The extension of the file. Should be a supported file handler type.
+   * @param inputStream An InputStream for the file's contents.
+   * @param pathStr A string representation of the file's path.
+   *
+   * @throws Exception If an error occurs or the file extension doesn't have a file handler to use.
    */
   protected void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String pathStr) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
@@ -293,7 +352,11 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * helper method to get the full path of an entry in an archived file. Only used for archive files
+   * helper method to get the full path of an entry in an archived file. Only used for archive files.
+   * @param fullPathStr A String representing the full path to the archive file.
+   * @param entryName The name of the file extracted from the archive file.
+   * @return A String representing the full path to this archive entry, including the full path to the
+   * archive file, the archive file separator, and then the entry's name.
    */
   protected String getArchiveEntryFullPath(String fullPathStr, String entryName) {
     return fullPathStr + ARCHIVE_FILE_SEPARATOR + entryName;
@@ -303,6 +366,10 @@ public abstract class BaseStorageClient implements StorageClient {
    * method for performing operations before processing files. This method is ill be called before processing 
    * each file in traversal.  If the method returns true, the file will be processed.  A return of false indicates
    * the file should be skipped.
+   *
+   * @param pathStr A String representing the path to the file.
+   * @return Whether preprocessing was successful and the file can be subsequently processed.
+   * @throws Exception If an error occurs during preprocessing.
    */
   protected boolean beforeProcessingFile(String pathStr) throws Exception {
     // Base implementation, process all files. 
@@ -312,6 +379,10 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * method for performing operations after processing files. Additional operations can be added
    * in the implementation of this method. Will be called after processing each file in traversal.
+   *
+   * @param pathStr A String representing the path to the file.
+   * @param params The params for the traversal.
+   * @throws IOException If an error occurs during post processing.
    */
   protected void afterProcessingFile(String pathStr, TraversalParams params) throws IOException {
     if (params.getMoveToAfterProcessing() != null) {
@@ -324,6 +395,10 @@ public abstract class BaseStorageClient implements StorageClient {
    * method for performing operations when encountering an error while processing files. Additional operations can be added
    * in the implementation of this method. Will be called in the catch block for each file in traversal
    * in the tryProcessAndPublishFile method.
+   *
+   * @param pathStr A String representing the path to the file.
+   * @param params The params for the traversal.
+   * @throws IOException If an error occurs moving the file / other actions taken in response to the error.
    */
   protected void errorProcessingFile(String pathStr, TraversalParams params) throws IOException {
     if (params.getMoveToErrorFolder() != null) {
@@ -332,6 +407,15 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
+  /**
+   * Moves the file at the given path to the given option path. Only works for local files, cloud files are not supported yet.
+   *
+   * @param pathStr The path to the file that you want to move.
+   * @param option The path you want to move the file to.
+   * @throws IOException If an error occurs moving the files.
+   *
+   * @throws UnsupportedOperationException If you attempt to move a cloud file.
+   */
   private void moveFile(String pathStr, String option) throws IOException {
     if (pathStr.startsWith("classpath:")) {
       log.warn("Skipping moving classpath file: {} to {}", pathStr, option);
@@ -360,33 +444,56 @@ public abstract class BaseStorageClient implements StorageClient {
 
   /**
    * converts a file reference (Path or cloud Storage object implementation) to a document.
+   *
+   * @param fileReference The FileReference you want to convert to a Lucille Document.
+   * @param params The params for your traversal.
+   * @return A Document representing the file.
    */
   protected abstract Document convertFileReferenceToDoc(FileReference fileReference, TraversalParams params);
 
   /**
    * will only be called in the scenario where after decompression and file will not be handled by a file handler
+   *
+   * @param fileReference The FileReference you want to convert to a Lucille Document.
+   * @param in An InputStream to the archive file's contents.
+   * @param decompressedFullPathStr The full path String to the decompressed file.
+   * @param params The params for your traversal.
+   * @return A Document representing the file.
    */
   protected abstract Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr, TraversalParams params);
 
   /**
    * get the content of the file reference as an InputStream. Always called within a try-with-resources block
+   *
+   * @param fileReference The FileReference whose contents you want to access.
+   * @param params The params for your traversal.
+   * @return An InputStream to the file's contents.
    */
   protected abstract InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params);
 
 
   /**
    * Return the starting directory for this StorageClient, based on the given params and its pathToStorageURI.
+   *
+   * @param params The params for your traversal.
+   * @return The starting directory for your traversal as a String.
    */
   protected abstract String getStartingDirectory(TraversalParams params);
 
   /**
    * Return the bucket/container name for this StorageClient, based on the params and its pathToStorageURI.
+   *
+   * @param params The params for your traversal.
+   * @return The bucket or container name as a String.
    */
   protected abstract String getBucketOrContainerName(TraversalParams params);
 
   /**
    * helper method to check if the file is a supported compressed file type.
    * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
+   *
+   * @param pathStr The path to the file.
+   * @return Whether the file is a supported compressed file type.
    */
   private boolean isSupportedCompressedFileType(String pathStr) {
     return pathStr.endsWith(".gz");
@@ -402,6 +509,9 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * helper method to check if the file is a supported archived file type.
    * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
+   *
+   * @param pathStr The path to the file.
+   * @return Whether the file is a supported archive file type.
    */
   private boolean isSupportedArchiveFileType(String pathStr) {
     return pathStr.endsWith(".tar") ||
@@ -414,12 +524,23 @@ public abstract class BaseStorageClient implements StorageClient {
     // string.endsWith(".dmp");
   }
 
+  /**
+   * Creates a document ID using the given initial docID and the params.
+   *
+   * @param docId The document ID you want to use.
+   * @param params Parameters for the traversal.
+   * @return The document ID with the prefix added if needed / appropriate.
+   */
   //should sync with abstract connector class?
   protected String createDocId(String docId, TraversalParams params) {
     return params.getDocIdPrefix() + docId;
   }
 
   // Only for testing
+
+  /**
+   * Should only be used for testing. Sets this storage client to be initialized.
+   */
   void initializeForTesting() {
     this.initialized = true;
   }

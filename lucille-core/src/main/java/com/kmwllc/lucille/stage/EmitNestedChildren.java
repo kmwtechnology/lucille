@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
  *
  * Config Parameters:
  * - drop_parent (Boolean, Optional): if set to true, will mark parent document as dropped. Defaults to false
- * - fields_to_copy (Map<String>, Optional): map of fields to copy from parent to children. It's a map of the source field name to the destination field name.
+ * - fields_to_copy (Map (String, String), Optional): map of fields to copy from parent to children. It's a map of the source field name to the destination field name.
  */
 public class EmitNestedChildren extends Stage {
 

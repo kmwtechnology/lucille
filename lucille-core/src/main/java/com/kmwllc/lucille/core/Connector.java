@@ -26,27 +26,32 @@ import java.util.List;
 public interface Connector extends AutoCloseable {
 
   /**
-   * Returns the name of the Connector as specified in the configuration.
-   * Connectors within a Run must have unique names.
+   * Get the name of this connector. Connectors within a Run must have unique names.
+   * @return the name of the Connector as specified in the configuration.
    */
   String getName();
 
   /**
-   * Returns the name of the pipeline to which this Connector's Documents should be sent.
+   * Get the name of the pipeline that this Connector will send documents to.
+   * @return the name of the pipeline to which this Connector's Documents should be sent.
    */
   String getPipelineName();
 
   /**
-   * Indicates whether this Connector instance expects to be passed a collapsing Publisher
-   * when execute() is called. A collapsing Publisher combines Documents that are
+   * Return whether this Connector requires a collapsing Publisher. A collapsing Publisher combines Documents that are
    * published in sequence and share the same ID. Such sequences of Documents are combined
    * into a single document with multi-valued fields.
    *
+   * @return whether this Connector instance expects to be passed a collapsing Publisher
+   * when execute() is called.
    */
   boolean requiresCollapsingPublisher();
 
   /**
    * Performs any logic that should occur before execute().
+   *
+   * @param runId The id of the run you are pre-executing.
+   * @throws ConnectorException in the event an error occurs
    */
   void preExecute(String runId) throws ConnectorException;
 
@@ -58,6 +63,7 @@ public interface Connector extends AutoCloseable {
    * Will not be called if preExecute() throws an exception.
    *
    * @param publisher provides a publish() method accepting a document to be published
+   * @throws ConnectorException in the event an error occurs
    */
   void execute(Publisher publisher) throws ConnectorException;
 
@@ -66,14 +72,21 @@ public interface Connector extends AutoCloseable {
    * the closing of connections, which should be done in close().
    *
    * Will not be called if preExecute() or execute() throw an exception.
+   *
+   * @param runId The id of the run you are post-executing.
+   * @throws ConnectorException in the event an error occurs
    */
   void postExecute(String runId) throws ConnectorException;
 
   /**
    * Instantiates a list of Connectors from the designated Config.
+   *
+   * @param config The configuration you want to extract Connectors from.
+   * @throws ReflectiveOperationException If a reflective error occurs while constructing the specified Connector.
+   * @throws ConnectorException In the event you specify multiple connectors with the same name.
+   * @return A list of Connectors build from the given Config.
    */
-  static List<Connector> fromConfig(Config config) throws ClassNotFoundException, NoSuchMethodException,
-      IllegalAccessException, InvocationTargetException, InstantiationException, ConnectorException {
+  static List<Connector> fromConfig(Config config) throws ReflectiveOperationException, ConnectorException {
     List<? extends Config> connectorConfigs = config.getConfigList("connectors");
 
     List<Connector> connectors = new ArrayList();
@@ -97,7 +110,9 @@ public interface Connector extends AutoCloseable {
   }
 
   /**
-   * Returns a message that should be included in the Lucille Run Summary for this connector instance.
+   * Get the message that should be included in the Lucille Run Summary for this connector instance.
+   *
+   * @return A message that should be included in the Lucille Run Summary for this connector instance.
    */
   String getMessage();
 

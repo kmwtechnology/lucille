@@ -51,6 +51,10 @@ public class ApplyFileHandlers extends Stage {
 
   private Map<String, FileHandler> fileHandlers;
 
+  /**
+   * Creates the ApplyFileHandlers stage from the given config.
+   * @param config Configuration for the ApplyFileHandlers stage.
+   */
   public ApplyFileHandlers(Config config) {
     super(config, new StageSpec()
         .withOptionalParents("handlerOptions", "gcp", "azure", "s3")

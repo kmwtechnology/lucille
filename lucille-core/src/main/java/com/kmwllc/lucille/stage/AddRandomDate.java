@@ -39,6 +39,10 @@ public class AddRandomDate extends Stage {
   private Date rangeStartDate;
   private Date rangeEndDate;
 
+  /**
+   * Creates the AddRandomDate stage from the given Config.
+   * @param config Configuration for the AddRandomDate stage.
+   */
   public AddRandomDate(Config config) {
     super(config, new StageSpec()
         .withOptionalProperties("field_name", "range_start_date", "range_end_date"));

@@ -7,7 +7,6 @@ import com.typesafe.config.Config;
 /**
  * Base class for use by Connector implementations, providing basic Config parsing behavior
  * for obtaining connector name, pipeline name, doc ID prefix, and collapsing mode.
- *
  */
 public abstract class AbstractConnector implements Connector {
 
@@ -16,8 +15,16 @@ public abstract class AbstractConnector implements Connector {
   private String docIdPrefix;
   private boolean collapse;
   private String message = null;
+
+  /**
+   * The configuration for this Connector.
+   */
   protected final Config config;
 
+  /**
+   * Create an abstract connector from the given Config.
+   * @param config The configuration of the connector. Must have a name.
+   */
   public AbstractConnector(Config config) {
     this.config = config;
     this.name = config.getString("name");
@@ -59,6 +66,7 @@ public abstract class AbstractConnector implements Connector {
   /**
    * Returns the configured prefix that this Connector will prepend to ids from the source
    * data when creating Documents from that data.
+   * @return The prefix that this Connector will append to document IDs when created.
    */
   public String getDocIdPrefix() {
     return docIdPrefix;
@@ -67,6 +75,8 @@ public abstract class AbstractConnector implements Connector {
   /**
    * Creates an extended doc ID by adding a prefix (and possibly in the future, a suffix) to the
    * given id.
+   * @param id An id to use and, potentially, add a prefix to.
+   * @return A completed doc ID, including the prefix and the given id.
    */
   public String createDocId(String id) {
     return docIdPrefix + id;
@@ -77,6 +87,10 @@ public abstract class AbstractConnector implements Connector {
     return message;
   }
 
+  /**
+   * Sets the message associated with this connector.
+   * @param message The new message to associate with this connector.
+   */
   protected void setMessage(String message) {
     this.message = message;
   }

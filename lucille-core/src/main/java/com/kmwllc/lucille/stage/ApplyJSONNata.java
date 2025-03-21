@@ -43,6 +43,11 @@ public class ApplyJSONNata extends Stage {
   private final String expression;
   private Expressions parsed;
 
+  /**
+   * Create the ApplyJSONNata stage from the given config.
+   * @param config Configuration for the ApplyJSONNata stage.
+   * @throws StageException If the configuration is invalid.
+   */
   public ApplyJSONNata(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("source", "destination").withRequiredProperties("expression"));
     this.source = ConfigUtils.getOrDefault(config, "source", null);

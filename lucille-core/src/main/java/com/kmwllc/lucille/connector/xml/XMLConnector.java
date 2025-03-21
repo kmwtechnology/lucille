@@ -15,8 +15,6 @@ import java.util.List;
 
 /**
  * Connector implementation that produces documents from a given XML file.
- * <p>
- * <p>
  * Config Parameters:
  * <ul>
  * <li>filePaths (List&lt;String&gt;): The list of file paths to parse through.</li>

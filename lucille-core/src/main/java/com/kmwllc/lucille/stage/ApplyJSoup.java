@@ -72,6 +72,11 @@ public class ApplyJSoup extends Stage {
     STRING, BYTE, FILE
   }
 
+  /**
+   * Creates the ApplyJSoup stage from the given config.
+   * @param config Configuration for the ApplyJSoup stage.
+   * @throws StageException If your configuration is invalid.
+   */
   public ApplyJSoup(Config config) throws StageException {
     super(config, new StageSpec().withOptionalProperties("filePathField", "byteArrayField", "stringField", "charset")
         .withRequiredParents("destinationFields"));

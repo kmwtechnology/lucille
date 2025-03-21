@@ -115,12 +115,23 @@ public abstract class Stage {
     }
   }
 
+  /**
+   * Starts this stage, performing any setup if needed.
+   * @throws StageException If an error occurs.
+   */
   public void start() throws StageException {
   }
 
+  /**
+   * Stops this stage, freeing any resources / closing any connections as needed.
+   * @throws StageException If an error occurs.
+   */
   public void stop() throws StageException {
   }
 
+  /**
+   * Log metrics relating to the stage's performance, if metrics have been initialized.
+   */
   public void logMetrics() {
     if (timer == null || childCounter == null || errorCounter == null) {
       LoggerFactory.getLogger(Stage.class).error("Metrics not initialized");
@@ -152,7 +163,7 @@ public abstract class Stage {
    *
    * @param doc the Document
    * @return a list of child documents resulting from this Stages processing
-   * @throws StageException
+   * @throws StageException If an error occurs while processing a document.
    */
   public Iterator<Document> processConditional(Document doc) throws StageException {
     if (shouldProcess(doc)) {
@@ -177,6 +188,10 @@ public abstract class Stage {
   /**
    * Applies an operation to a Document in place and returns an Iterator over any child Documents generated
    * by the operation, not including the parent. If no child Documents are generated, the return value should be null.
+   *
+   * @param doc The document to process.
+   * @return An iterator of children documents created by the stage. May be null.
+   * @throws StageException If an error occurs while processing the document.
    */
   public abstract Iterator<Document> processDocument(Document doc) throws StageException;
 
@@ -185,6 +200,10 @@ public abstract class Stage {
    * by the operation, with the input or parent document at the end. Unlike processDocument, the return
    * value will always be non-null and will at least contain the input document.
    * If the input document has a run ID, this ID will be copied to any children that do not have it.
+   *
+   * @param doc The document to process.
+   * @return An iterator of children documents created by the stage. May be null.
+   * @throws StageException If an error occurs while processing the document.
    */
   public Iterator<Document> apply(Document doc) throws StageException {
 
@@ -233,6 +252,10 @@ public abstract class Stage {
 
   /**
    * Wraps an Iterator over Documents so as to call apply(doc) on each doc in the sequence.
+   *
+   * @param docs The iterator of documents you want to wrap around.
+   * @return An iterator of documents, wrapping around the given iterator, calling apply on each as they are returned.
+   * @throws StageException in the event an error occurs.
    */
   public Iterator<Document> apply(Iterator<Document> docs) throws StageException {
 
@@ -281,13 +304,17 @@ public abstract class Stage {
     };
   }
 
-
+  /**
+   * Gets the name of this stage, as-is.
+   * @return The name of this stage, as-is.
+   */
   public String getName() {
     return name;
   }
 
   /**
    * Returns the class name plus the stage name in parentheses, if it is not null.
+   * @return A formatted version of this stage's name.
    */
   private String getDisplayName() {
     return this.getClass().getName() +
@@ -296,6 +323,9 @@ public abstract class Stage {
 
   /**
    * Initialize metrics and set the Stage's name based on the position if the name has not already been set.
+   * @param position The position of the stage.
+   * @param metricsPrefix The metricsPrefix associated with this stage.
+   * @throws StageException In the event of an error.
    */
   public void initialize(int position, String metricsPrefix) throws StageException {
     if (name == null) {
@@ -308,10 +338,18 @@ public abstract class Stage {
     this.childCounter = metrics.counter(metricsPrefix + ".stage." + name + ".children");
   }
 
+  /**
+   * Gets this stage's config.
+   * @return This stage's config.
+   */
   public Config getConfig() {
     return config;
   }
 
+  /**
+   * Throws an exception if the config for this stage is not valid or if the specified conditions are not all validated.
+   * @throws StageException If the stage is not valid.
+   */
   public void validateConfigWithConditions() throws StageException {
 
     try {
