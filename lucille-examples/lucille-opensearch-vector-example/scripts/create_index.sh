@@ -4,7 +4,7 @@
 OPENSEARCH_URL="https://34.23.62.171:9200"
 OPENSEARCH_USER="admin"
 OPENSEARCH_PASSWORD="StrongPassword123!"
-INDEX_NAME="lucille_code_vectors"
+INDEX_NAME="lucille_code_vectors2"
 MAPPING_FILE="gemini_index_mapping.json"
 
 # Check if the mapping file exists
