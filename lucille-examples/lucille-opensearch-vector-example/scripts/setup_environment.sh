@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # OpenSearch connection details
-export OPENSEARCH_URL="https://34.23.62.171:9200"
-export OPENSEARCH_USERNAME="admin"
-export OPENSEARCH_PASSWORD="StrongPassword123!"
+export OPENSEARCH_URL="http://34.23.62.171:9200"
+# Security is disabled, no authentication needed
+# export OPENSEARCH_USERNAME="admin"
+# export OPENSEARCH_PASSWORD="StrongPassword123!"
 export OPENSEARCH_INDEX="lucille_code_vectors2"
 
 # Project path for the file connector
