@@ -1,7 +1,7 @@
 # OpenSearch Authentication Issue Support Ticket
 
 ## Issue Description
-We're experiencing persistent authentication issues when trying to connect to our OpenSearch instance at `https://34.139.11.141:9200` from the Lucille ingestion pipeline. Despite providing valid credentials (username: `admin`, password: `StrongPassword123!`), we consistently receive a 401 Unauthorized error.
+We're experiencing persistent authentication issues when trying to connect to our OpenSearch instance at `https://34.23.62.171:9200` from the Lucille ingestion pipeline. Despite providing valid credentials (username: `admin`, password: `StrongPassword123!`), we consistently receive a 401 Unauthorized error.
 
 ## Environment Details
 - **Platform**: macOS 15.3.2
@@ -63,13 +63,13 @@ java.io.IOException: Unauthorized access
 Caused by: org.opensearch.client.transport.TransportException: Unauthorized access
         at org.opensearch.client.transport.httpclient5.ApacheHttpClient5Transport.prepareResponse(ApacheHttpClient5Transport.java:499)
         
-Caused by: org.opensearch.client.transport.httpclient5.ResponseException: method [HEAD], host [https://34.139.11.141:9200], URI [/], status line [HTTP/1.1 401 Unauthorized]
+Caused by: org.opensearch.client.transport.httpclient5.ResponseException: method [HEAD], host [https://34.23.62.171:9200], URI [/], status line [HTTP/1.1 401 Unauthorized]
 ```
 
 ## OpenSearch Configuration
 Our OpenSearch instance appears to be using basic authentication. We've confirmed the credentials work when used with curl:
 ```bash
-curl -k -u "admin:StrongPassword123!" -X GET "https://34.139.11.141:9200"
+curl -k -u "admin:StrongPassword123!" -X GET "https://34.23.62.171:9200"
 ```
 
 ## Additional Observations

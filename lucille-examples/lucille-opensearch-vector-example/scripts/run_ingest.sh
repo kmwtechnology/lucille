@@ -42,7 +42,7 @@ cat > "$AUTH_CONFIG" << EOF
 # OpenSearch authentication configuration - direct settings with raw values
 
 # Core opensearch settings
-opensearch.nodes.0.host=34.139.11.141
+opensearch.nodes.0.host=34.23.62.171
 opensearch.nodes.0.port=9200
 opensearch.nodes.0.scheme=https
 opensearch.nodes.0.username=admin

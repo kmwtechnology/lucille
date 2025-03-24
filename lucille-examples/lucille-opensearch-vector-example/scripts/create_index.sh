@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set variables
-OPENSEARCH_URL="https://34.139.11.141:9200"
+OPENSEARCH_URL="https://34.23.62.171:9200"
 OPENSEARCH_USER="admin"
 OPENSEARCH_PASSWORD="StrongPassword123!"
 INDEX_NAME="lucille_code_vectors"

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # OpenSearch connection details
-export OPENSEARCH_URL="https://34.139.11.141:9200"
+export OPENSEARCH_URL="https://34.23.62.171:9200"
 export OPENSEARCH_USERNAME="admin"
 export OPENSEARCH_PASSWORD="StrongPassword123!"
 export OPENSEARCH_INDEX="lucille_code_vectors"

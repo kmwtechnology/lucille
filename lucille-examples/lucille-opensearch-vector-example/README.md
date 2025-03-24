@@ -35,8 +35,8 @@ mvn clean install -DskipTests
 
 This example has been configured to use a remote OpenSearch instance deployed on GCP with the following details:
 
-- OpenSearch URL: `https://34.139.11.141:9200`
-- OpenSearch Dashboards URL: `https://34.139.11.141:5601`
+- OpenSearch URL: `https://34.23.62.171:9200`
+- OpenSearch Dashboards URL: `https://34.23.62.171:5601`
 - Username: `admin`
 - Password: `StrongPassword123!`
 
@@ -78,10 +78,10 @@ You can check the indexed documents using OpenSearch Dashboards or with curl:
 
 ```bash
 # Get total document count
-curl -k -X GET "https://34.139.11.141:9200/lucille_code_vectors/_count?pretty" -u admin:StrongPassword123!
+curl -k -X GET "https://34.23.62.171:9200/lucille_code_vectors/_count?pretty" -u admin:StrongPassword123!
 
 # View a sample of documents 
-curl -k -X POST "https://34.139.11.141:9200/lucille_code_vectors/_search?pretty" \
+curl -k -X POST "https://34.23.62.171:9200/lucille_code_vectors/_search?pretty" \
   -H 'Content-Type: application/json' \
   -u admin:StrongPassword123! \
   -d '{"query": {"match_all": {}}, "size": 5}'
