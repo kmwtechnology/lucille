@@ -56,27 +56,90 @@ public interface Document {
    *
    * Returns null in two cases: if the field is absent, or if the field is present but contains a null.
    * To distinguish between these cases, use has() to see if the field exists.
+   *
+   * @param name the name of the field you want to get a String value for.
+   * @return The value of the designated field as a String.
    */
   String getString(String name);
 
+  /**
+   * Returns the value of the designated field as a boolean.
+   *
+   * @param name the name of the field you want to get a boolean value for.
+   * @return The value of the designated field as a boolean.
+   */
   Boolean getBoolean(String name);
 
+  /**
+   * Returns the value of the designated field as an int.
+   *
+   * @param name the name of the field you want to get an int value for.
+   * @return The value of the designated field as an int.
+   */
   Integer getInt(String name);
 
+  /**
+   * Returns the value of the designated field as a double.
+   *
+   * @param name the name of the field you want to get a double value for.
+   * @return The value of the designated field as a double.
+   */
   Double getDouble(String name);
 
+  /**
+   * Returns the value of the designated field as a float.
+   *
+   * @param name the name of the field you want to get a flaot value for.
+   * @return The value of the designated field as a float.
+   */
   Float getFloat(String name);
 
+  /**
+   * Returns the value of the designated float as a long.
+   *
+   * @param name the name of the field you want to get a long value for.
+   * @return The value of the designated field as a long.
+   */
   Long getLong(String name);
 
+  /**
+   * Returns the value of the designated float as an instant.
+   *
+   * @param name the name of the field you want to get an instant value for.
+   * @return The value of the designated field as an instant.
+   */
   Instant getInstant(String name);
 
+  /**
+   * Returns the value of the designated float as a byte array.
+   *
+   * @param name the name of the field you want to get a byte array for.
+   * @return The value of the designated field as a byte array.
+   */
   byte[] getBytes(String name);
 
+  /**
+   * Returns the value of the designated float as a JsonNode.
+   *
+   * @param name the name of the field you want to get a JsonNode from.
+   * @return The value of the designated field as a JsonNode.
+   */
   JsonNode getJson(String name);
 
+  /**
+   * Returns the value of the designated float as a Date.
+   *
+   * @param name the name of the field you want to get a Date value for.
+   * @return The value of the designated field as a Date.
+   */
   Date getDate(String name);
 
+  /**
+   * Returns the value of the designated float as a Timestamp.
+   *
+   * @param name the name of the field you want to get a Timestamp value for.
+   * @return The value of the designated field as a Timestamp.
+   */
   Timestamp getTimestamp(String name);
 
   /* --- LIST GETTERS --- */
@@ -85,28 +148,99 @@ public interface Document {
    * Returns the value of the designated field as a List of Strings. If the field is single-valued, the single value
    * will be placed inside a List and returned, but the field will not be converted to multi-valued.
    *
-   * Returns null if the field is absent.
+   * @param name the name of the field you want to get a String list from.
+   * @return The value of the designated field as a String list.
    */
   List<String> getStringList(String name);
 
+  /**
+   * Returns the value of the designated field as a List of Booleans. If the field is single-valued, the single value
+   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
+   *
+   * @param name the name of the field you want to get a boolean list from.
+   * @return The value of the designated field as a boolean list.
+   */
   List<Boolean> getBooleanList(String name);
 
+  /**
+   * Returns the value of the designated field as a List of integers. If the field is single-valued, the single value
+   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
+   *
+   * @param name the name of the field you want to get a int list from.
+   * @return The value of the designated field as a int list.
+   */
   List<Integer> getIntList(String name);
 
+  /**
+   * Returns the value of the designated field as a List of doubles. If the field is single-valued, the single value
+   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
+   *
+   * @param name the name of the field you want to get a double list from.
+   * @return The value of the designated field as a double list.
+   */
   List<Double> getDoubleList(String name);
 
+  /**
+   * Returns the value of the designated field as a List of floats. If the field is single-valued, the single value
+   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
+   *
+   * @param name the name of the field you want to get a float list from.
+   * @return The value of the designated field as a float list.
+   */
   List<Float> getFloatList(String name);
 
+  /**
+   * Returns the value of the designated field as a List of longs. If the field is single-valued, the single value
+   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
+   *
+   * @param name the name of the field you want to get a long list from.
+   * @return The value of the designated field as a long list.
+   */
   List<Long> getLongList(String name);
 
+  /**
+   * Returns the value of the designated field as a List of Instants. If the field is single-valued, the single value
+   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
+   *
+   * @param name the name of the field you want to get an instant list from.
+   * @return The value of the designated field as an instant list.
+   */
   List<Instant> getInstantList(String name);
 
+  /**
+   * Returns the value of the designated field as a List of byte arrays. If the field is single-valued, the single value
+   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
+   *
+   * @param name the name of the field you want to get a list of byte arrays from.
+   * @return The value of the designated field as a list of byte arrays from.
+   */
   List<byte[]> getBytesList(String name);
 
+  /**
+   * Returns the value of the designated field as a List of JsonNodes. If the field is single-valued, the single value
+   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
+   *
+   * @param name the name of the field you want to get a JsonNode list from.
+   * @return The value of the designated field as a JsonNode list from.
+   */
   List<JsonNode> getJsonList(String name);
 
+  /**
+   * Returns the value of the designated field as a List of Dates. If the field is single-valued, the single value
+   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
+   *
+   * @param name the name of the field you want to get a Date list from.
+   * @return The value of the designated field as a Date list from.
+   */
   List<Date> getDateList(String name);
 
+  /**
+   * Returns the value of the designated field as a List of Timestamps. If the field is single-valued, the single value
+   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
+   *
+   * @param name the name of the field you want to get a Timestamp list from.
+   * @return The value of the designated field as a Timestamp list from.
+   */
   List<Timestamp> getTimestampList(String name);
 
   /* --- SINGLE-VALUE SETTERS --- */
