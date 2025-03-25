@@ -12,7 +12,8 @@ import org.junit.Test;
 
 public class ParquetConnectorTest {
   /*
-  The data is:
+  In example.parquet, the data is:
+
   'name': ['Oliver', 'Mia', 'Jasper', 'Mr. Meow', 'Elijah', 'Spot'],
   'age': [20, 35, 46, 8, 7, 3],
   'net_worth': [10.0, 12.5, 7.5, 0.0, 15.3, -2.0],
@@ -21,9 +22,14 @@ public class ParquetConnectorTest {
   'hobbies': [['Reading', 'Running'], ['Cooking', 'Painting'], ['Gaming', 'Reading'],
                  ['Sleeping', 'Chasing mice'], ['Drawing', 'Coding'], ['Playing', 'Sleeping']]
 
-  The "with rows" file has three different row groups to read from, in order, each with length 2.
+  Hobbies, a list of lists, is an example of a non-primitive field.
+
+  The "with rows" file has three different row groups to read from, in order, each with length 2. Otherwise, it is the same data.
+
+  In long_example.parquet, there is data with the same schema, but there are 25 entries, with IDs 1, 2, ..., 24, 25.
    */
 
+  // Starting with some more fine-grained tests on just a single file w/ the connector
   @Test
   public void testConnector() throws Exception {
     TestMessenger messenger = new TestMessenger();
@@ -103,86 +109,80 @@ public class ParquetConnectorTest {
     }
   }
 
-  // The following tests use the "with_row_groups" file...
   @Test
-  public void testConnectorWithRows() throws Exception {
+  public void testTraversal() throws Exception {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/connectorWithRows.conf");
+    Config config = ConfigFactory.load("ParquetConnectorTest/conf/traversal.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
     List<Document> docs = messenger.getDocsSentForProcessing();
 
-    assertEquals(6, docs.size());
-
-    for (int i = 1; i <= docs.size(); i++) {
-      Document nthDoc = docs.get(i - 1);
-      assertEquals("" + i, nthDoc.getId());
-    }
+    assertEquals(37, docs.size());
   }
 
   @Test
-  public void testLimitWithRows() throws Exception {
+  public void testTraversalWithStart() throws Exception {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/limitWithRows.conf");
+    Config config = ConfigFactory.load("ParquetConnectorTest/conf/traversalWithStart.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
     List<Document> docs = messenger.getDocsSentForProcessing();
 
-    assertEquals(3, docs.size());
-
-    for (int i = 1; i <= docs.size(); i++) {
-      Document nthDoc = docs.get(i - 1);
-      assertEquals("" + i, nthDoc.getId());
-    }
+    assertEquals(31, docs.size());
   }
 
   @Test
-  public void testStartWithRows() throws Exception {
+  public void testTraversalWithLimit() throws Exception {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/startWithRows.conf");
+    Config config = ConfigFactory.load("ParquetConnectorTest/conf/traversalWithLimit.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
     List<Document> docs = messenger.getDocsSentForProcessing();
 
-    assertEquals(3, docs.size());
-
-    for (int i = 0; i < docs.size(); i++) {
-      Document nthDoc = docs.get(i);
-      // Should get docs w/ ids 4, 5, 6
-      assertEquals("" + (i + 4), nthDoc.getId());
-    }
+    assertEquals(15, docs.size());
   }
 
+  // Start = 2 - so we hit the limit, still have 31 documents in total
   @Test
-  public void testStartAndLimitWithRows() throws Exception {
+  public void testTraversalWithStart2AndLimit() throws Exception {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/startAndLimitWithRows.conf");
+    Config config = ConfigFactory.load("ParquetConnectorTest/conf/traversalWithStart2AndLimit.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
     List<Document> docs = messenger.getDocsSentForProcessing();
 
-    assertEquals(2, docs.size());
-
-    for (int i = 0; i < docs.size(); i++) {
-      Document nthDoc = docs.get(i);
-      // Should get docs w/ ids 3, 4
-      assertEquals("" + (i + 3), nthDoc.getId());
-    }
+    assertEquals(15, docs.size());
   }
 
-  // Some smaller, more specific cases
+  // Start = 20, so we only have 5 documents to get from the "long_example" file
+  @Test
+  public void testTraversalWithStart30AndLimit() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    Config config = ConfigFactory.load("ParquetConnectorTest/conf/traversalWithStart20AndLimit.conf");
+    ParquetConnector connector = new ParquetConnector(config);
+
+    connector.execute(publisher);
+    List<Document> docs = messenger.getDocsSentForProcessing();
+
+    assertEquals(5, docs.size());
+  }
+
+  // Some smaller, more specific cases, that are somewhat covered by the "traversal" tests.
+  // Making sure we will skip entire files as appropriate
   @Test
   public void testSkipEntireFile() throws Exception {
     TestMessenger messenger = new TestMessenger();
@@ -196,6 +196,7 @@ public class ParquetConnectorTest {
     assertEquals(0, docs.size());
   }
 
+  // Also making sure we will just skip non-parquet files as well.
   @Test
   public void testSkipNonParquetFile() throws Exception {
     TestMessenger messenger = new TestMessenger();
