@@ -150,7 +150,7 @@ public class S3StorageClient extends BaseStorageClient {
       String docId = DigestUtils.md5Hex(fullPath);
       Document doc = Document.create(params.getDocIdPrefix() + docId);
       doc.setField(FileConnector.FILE_PATH, fullPath);
-      doc.setField(FileConnector.MODIFIED, s3Obj.lastModified());
+      doc.setField(FileConnector.MODIFIED, getLastModified());
       // s3 doesn't have object creation date
       doc.setField(FileConnector.SIZE, s3Obj.size());
 

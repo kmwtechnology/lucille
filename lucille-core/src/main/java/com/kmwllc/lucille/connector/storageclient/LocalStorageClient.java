@@ -78,7 +78,7 @@ public class LocalStorageClient extends BaseStorageClient {
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
       // Visit the file and actually process it!
-      FileReference fileRef = new LocalFileReference(file, attrs.lastModifiedTime().toInstant());
+      FileReference fileRef = new LocalFileReference(file, attrs);
       processAndPublishFileIfValid(publisher, fileRef, params);
       return FileVisitResult.CONTINUE;
     }
@@ -102,11 +102,17 @@ public class LocalStorageClient extends BaseStorageClient {
 
     private final Path path;
 
+    // information that other FileReferences usually have access to via the storage object.
+    private final Instant creationTime;
+    private final long size;
+
     // The provided path should be absolute and normalized.
-    public LocalFileReference(Path path, Instant lastModified) {
-      super(lastModified);
+    public LocalFileReference(Path path, BasicFileAttributes attributes) {
+      super(attributes.lastModifiedTime().toInstant());
 
       this.path = path;
+      this.creationTime = attributes.creationTime().toInstant();
+      this.size = attributes.size();
     }
 
     @Override
@@ -137,26 +143,22 @@ public class LocalStorageClient extends BaseStorageClient {
       String docId = DigestUtils.md5Hex(fullPath);
       Document doc = Document.create(createDocId(docId, params));
 
-      try {
-        BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
+      doc.setField(FILE_PATH, fullPath);
+      doc.setField(SIZE, size);
+      doc.setField(MODIFIED, getLastModified());
 
-        doc.setField(FILE_PATH, fullPath);
-        doc.setField(SIZE, attrs.size());
-
-        if (attrs.lastModifiedTime() != null) {
-          doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
-        }
-
-        if (attrs.creationTime() != null) {
-          doc.setField(CREATED, attrs.creationTime().toInstant());
-        }
-
-        if (params.shouldGetFileContent()) {
-          doc.setField(CONTENT, Files.readAllBytes(path));
-        }
-      } catch (IOException e) {
-        throw new IllegalArgumentException("Unable to convert path '" + path + "' to Document", e);
+      if (creationTime != null) {
+        doc.setField(CREATED, creationTime);
       }
+
+      if (params.shouldGetFileContent()) {
+        try {
+          doc.setField(CONTENT, Files.readAllBytes(path));
+        } catch (IOException e) {
+          throw new IllegalArgumentException("Unable to get file contents from '" + path + "' for document", e);
+        }
+      }
+
       return doc;
     }
 
