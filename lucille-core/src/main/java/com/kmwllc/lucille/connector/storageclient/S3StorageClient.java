@@ -25,81 +25,6 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 
 public class S3StorageClient extends BaseStorageClient {
-  public class S3FileReference extends BaseFileReference {
-
-    private final S3Object s3Obj;
-
-    public S3FileReference(S3Object s3Obj) {
-      super(s3Obj.lastModified());
-
-      this.s3Obj = s3Obj;
-    }
-
-    @Override
-    public String getName() {
-      return s3Obj.key();
-    }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      URI paramsURI = params.getURI();
-      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();
-    }
-
-    @Override
-    public boolean isCloudFileReference() {
-      return true;
-    }
-
-    @Override
-    public boolean isValidFile() {
-      return !s3Obj.key().endsWith("/");
-    }
-
-    @Override
-    public InputStream getContentStream(TraversalParams params) {
-      String objKey = s3Obj.key();
-      GetObjectRequest objectRequest = GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(objKey).build();
-      return s3.getObject(objectRequest);
-    }
-
-    @Override
-    public Document toDoc(TraversalParams params) {
-      String fullPath = getFullPath(params);
-      String docId = DigestUtils.md5Hex(fullPath);
-      Document doc = Document.create(params.getDocIdPrefix() + docId);
-      doc.setField(FileConnector.FILE_PATH, fullPath);
-      doc.setField(FileConnector.MODIFIED, s3Obj.lastModified());
-      // s3 doesn't have object creation date
-      doc.setField(FileConnector.SIZE, s3Obj.size());
-
-      if (params.shouldGetFileContent()) {
-        byte[] content = s3.getObjectAsBytes(
-            GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(s3Obj.key()).build()
-        ).asByteArray();
-        doc.setField(FileConnector.CONTENT, content);
-      }
-
-      return doc;
-    }
-
-    @Override
-    public Document toDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-      String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-      Document doc = Document.create(params.getDocIdPrefix() + docId);
-
-      doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
-      doc.setField(FileConnector.MODIFIED, s3Obj.lastModified());
-
-      // no creation date in S3. no compressor size. Would normally be set here...
-
-      if (params.shouldGetFileContent()) {
-        doc.setField(FileConnector.CONTENT, in.readAllBytes());
-      }
-
-      return doc;
-    }
-  }
 
   private S3Client s3;
   private static final Logger log = LoggerFactory.getLogger(S3StorageClient.class);
@@ -183,5 +108,77 @@ public class S3StorageClient extends BaseStorageClient {
   // Only for testing
   void setS3ClientForTesting(S3Client s3) {
     this.s3 = s3;
+  }
+
+
+  private class S3FileReference extends BaseFileReference {
+
+    private final S3Object s3Obj;
+
+    public S3FileReference(S3Object s3Obj) {
+      super(s3Obj.lastModified());
+
+      this.s3Obj = s3Obj;
+    }
+
+    @Override
+    public String getName() {
+      return s3Obj.key();
+    }
+
+    @Override
+    public String getFullPath(TraversalParams params) {
+      URI paramsURI = params.getURI();
+      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();
+    }
+
+    @Override
+    public boolean isValidFile() {
+      return !s3Obj.key().endsWith("/");
+    }
+
+    @Override
+    public InputStream getContentStream(TraversalParams params) {
+      String objKey = s3Obj.key();
+      GetObjectRequest objectRequest = GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(objKey).build();
+      return s3.getObject(objectRequest);
+    }
+
+    @Override
+    public Document asDoc(TraversalParams params) {
+      String fullPath = getFullPath(params);
+      String docId = DigestUtils.md5Hex(fullPath);
+      Document doc = Document.create(params.getDocIdPrefix() + docId);
+      doc.setField(FileConnector.FILE_PATH, fullPath);
+      doc.setField(FileConnector.MODIFIED, s3Obj.lastModified());
+      // s3 doesn't have object creation date
+      doc.setField(FileConnector.SIZE, s3Obj.size());
+
+      if (params.shouldGetFileContent()) {
+        byte[] content = s3.getObjectAsBytes(
+            GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(s3Obj.key()).build()
+        ).asByteArray();
+        doc.setField(FileConnector.CONTENT, content);
+      }
+
+      return doc;
+    }
+
+    @Override
+    public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
+      String docId = DigestUtils.md5Hex(decompressedFullPathStr);
+      Document doc = Document.create(params.getDocIdPrefix() + docId);
+
+      doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
+      doc.setField(FileConnector.MODIFIED, s3Obj.lastModified());
+
+      // no creation date in S3. no compressor size. Would normally be set here...
+
+      if (params.shouldGetFileContent()) {
+        doc.setField(FileConnector.CONTENT, in.readAllBytes());
+      }
+
+      return doc;
+    }
   }
 }

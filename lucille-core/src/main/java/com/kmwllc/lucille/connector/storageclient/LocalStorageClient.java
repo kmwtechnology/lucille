@@ -29,95 +29,6 @@ import org.slf4j.LoggerFactory;
 
 public class LocalStorageClient extends BaseStorageClient {
 
-  private class LocalFileReference extends BaseFileReference {
-
-    private final Path path;
-
-    // The provided path should be absolute and normalized.
-    public LocalFileReference(Path path, Instant lastModified) {
-      super(lastModified);
-
-      this.path = path;
-    }
-
-    @Override
-    public String getName() { return path.getFileName().toString();}
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      return path.toString();
-    }
-
-    @Override
-    public boolean isCloudFileReference() {
-      return false;
-    }
-
-    @Override
-    public boolean isValidFile() {
-      return true;
-    }
-
-    @Override
-    public InputStream getContentStream(TraversalParams params) {
-      try {
-        return Files.newInputStream(path);
-      } catch (IOException e) {
-        throw new IllegalArgumentException("Unable to get content stream of path '" + path + "'", e);
-      }
-    }
-
-    @Override
-    public Document toDoc(TraversalParams params) {
-      String fullPath = path.toAbsolutePath().normalize().toString();
-      String docId = DigestUtils.md5Hex(fullPath);
-      Document doc = Document.create(createDocId(docId, params));
-
-      try {
-        BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
-
-        doc.setField(FILE_PATH, fullPath);
-        doc.setField(SIZE, attrs.size());
-
-        if (attrs.lastModifiedTime() != null) {
-          doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
-        }
-
-        if (attrs.creationTime() != null) {
-          doc.setField(CREATED, attrs.creationTime().toInstant());
-        }
-
-        if (params.shouldGetFileContent()) {
-          doc.setField(CONTENT, Files.readAllBytes(path));
-        }
-      } catch (IOException e) {
-        throw new IllegalArgumentException("Unable to convert path '" + path + "' to Document", e);
-      }
-      return doc;
-    }
-
-    @Override
-    public Document toDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-      String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-      Document doc = Document.create(createDocId(docId, params));
-
-      // get file attributes
-      BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
-
-      // setting fields on document
-      // remove Extension to show that we have decompressed the file and obtained its information
-      doc.setField(FILE_PATH, decompressedFullPathStr);
-      doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
-      doc.setField(CREATED, attrs.creationTime().toInstant());
-      // unable to get decompressed file size
-      if (params.shouldGetFileContent()) {
-        doc.setField(CONTENT, in.readAllBytes());
-      }
-
-      return doc;
-    }
-  }
-
   private static final Logger log = LoggerFactory.getLogger(LocalStorageClient.class);
 
   public LocalStorageClient() {
@@ -183,6 +94,91 @@ public class LocalStorageClient extends BaseStorageClient {
     public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
       // we don't care about after we finished the directory
       return FileVisitResult.CONTINUE;
+    }
+  }
+
+
+  private class LocalFileReference extends BaseFileReference {
+
+    private final Path path;
+
+    // The provided path should be absolute and normalized.
+    public LocalFileReference(Path path, Instant lastModified) {
+      super(lastModified);
+
+      this.path = path;
+    }
+
+    @Override
+    public String getName() { return path.getFileName().toString();}
+
+    @Override
+    public String getFullPath(TraversalParams params) {
+      return path.toString();
+    }
+
+    @Override
+    public boolean isValidFile() {
+      return true;
+    }
+
+    @Override
+    public InputStream getContentStream(TraversalParams params) {
+      try {
+        return Files.newInputStream(path);
+      } catch (IOException e) {
+        throw new IllegalArgumentException("Unable to get content stream of path '" + path + "'", e);
+      }
+    }
+
+    @Override
+    public Document asDoc(TraversalParams params) {
+      String fullPath = path.toAbsolutePath().normalize().toString();
+      String docId = DigestUtils.md5Hex(fullPath);
+      Document doc = Document.create(createDocId(docId, params));
+
+      try {
+        BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
+
+        doc.setField(FILE_PATH, fullPath);
+        doc.setField(SIZE, attrs.size());
+
+        if (attrs.lastModifiedTime() != null) {
+          doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
+        }
+
+        if (attrs.creationTime() != null) {
+          doc.setField(CREATED, attrs.creationTime().toInstant());
+        }
+
+        if (params.shouldGetFileContent()) {
+          doc.setField(CONTENT, Files.readAllBytes(path));
+        }
+      } catch (IOException e) {
+        throw new IllegalArgumentException("Unable to convert path '" + path + "' to Document", e);
+      }
+      return doc;
+    }
+
+    @Override
+    public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
+      String docId = DigestUtils.md5Hex(decompressedFullPathStr);
+      Document doc = Document.create(createDocId(docId, params));
+
+      // get file attributes
+      BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
+
+      // setting fields on document
+      // remove Extension to show that we have decompressed the file and obtained its information
+      doc.setField(FILE_PATH, decompressedFullPathStr);
+      doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
+      doc.setField(CREATED, attrs.creationTime().toInstant());
+      // unable to get decompressed file size
+      if (params.shouldGetFileContent()) {
+        doc.setField(CONTENT, in.readAllBytes());
+      }
+
+      return doc;
     }
   }
 }

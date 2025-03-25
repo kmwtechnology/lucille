@@ -152,7 +152,7 @@ public abstract class BaseStorageClient implements StorageClient {
             if (params.supportedFileType(resolvedExtension)) {
               handleStreamExtensionFiles(publisher, compressorStream, resolvedExtension, filePathFormat);
             } else {
-              Document doc = fileReference.toDoc(compressorStream, filePathFormat, params);
+              Document doc = fileReference.asDoc(compressorStream, filePathFormat, params);
               publisher.publish(doc);
             }
           }
@@ -182,7 +182,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       // handle normal files
-      Document doc = fileReference.toDoc(params);
+      Document doc = fileReference.asDoc(params);
       publisher.publish(doc);
       afterProcessingFile(fullPathStr, params);
     } catch (UnsupportedOperationException e) {

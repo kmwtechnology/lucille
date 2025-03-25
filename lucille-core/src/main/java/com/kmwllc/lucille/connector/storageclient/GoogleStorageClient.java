@@ -26,92 +26,6 @@ import org.slf4j.LoggerFactory;
 
 public class GoogleStorageClient extends BaseStorageClient {
 
-  public class GoogleFileReference extends BaseFileReference {
-
-    private final Blob blob;
-
-    public GoogleFileReference(Blob blob) {
-      super(blob.getUpdateTimeOffsetDateTime().toInstant());
-
-      this.blob = blob;
-    }
-
-    @Override
-    public String getName() {
-      return blob.getName();
-    }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      URI paramsURI = params.getURI();
-      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
-    }
-
-    @Override
-    public boolean isCloudFileReference() {
-      return true;
-    }
-
-    @Override
-    public boolean isValidFile() {
-      return !blob.isDirectory();
-    }
-
-    @Override
-    public InputStream getContentStream(TraversalParams params) {
-      ReadChannel readChannel = blob.reader();
-      return Channels.newInputStream(readChannel);
-    }
-
-    @Override
-    public Document toDoc(TraversalParams params) {
-      String fullPath = getFullPath(params);
-      String docId = DigestUtils.md5Hex(fullPath);
-      Document doc = Document.create(params.getDocIdPrefix() + docId);
-
-      doc.setField(FileConnector.FILE_PATH, fullPath);
-
-      if (blob.getUpdateTimeOffsetDateTime() != null) {
-        doc.setField(FileConnector.MODIFIED, blob.getUpdateTimeOffsetDateTime().toInstant());
-      }
-
-      if (blob.getCreateTimeOffsetDateTime() != null) {
-        doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
-      }
-
-      doc.setField(FileConnector.SIZE, blob.getSize());
-
-      if (params.shouldGetFileContent()) {
-        doc.setField(FileConnector.CONTENT, blob.getContent());
-      }
-
-      return doc;
-    }
-
-    @Override
-    public Document toDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-      final String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-      final Document doc = Document.create(params.getDocIdPrefix() + docId);
-
-      doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
-
-      if (blob.getUpdateTimeOffsetDateTime() != null) {
-        doc.setField(FileConnector.MODIFIED, blob.getUpdateTimeOffsetDateTime().toInstant());
-      }
-
-      if (blob.getCreateTimeOffsetDateTime() != null) {
-        doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
-      }
-
-      // unable to get decompressed file size
-      if (params.shouldGetFileContent()) {
-        doc.setField(FileConnector.CONTENT, in.readAllBytes());
-      }
-
-      return doc;
-    }
-  }
-
   private static final Logger log = LoggerFactory.getLogger(GoogleStorageClient.class);
   private Storage storage;
 
@@ -187,5 +101,87 @@ public class GoogleStorageClient extends BaseStorageClient {
   // Only for testing
   void setStorageForTesting(Storage storage) {
     this.storage = storage;
+  }
+
+
+  private class GoogleFileReference extends BaseFileReference {
+
+    private final Blob blob;
+
+    public GoogleFileReference(Blob blob) {
+      super(blob.getUpdateTimeOffsetDateTime().toInstant());
+
+      this.blob = blob;
+    }
+
+    @Override
+    public String getName() {
+      return blob.getName();
+    }
+
+    @Override
+    public String getFullPath(TraversalParams params) {
+      URI paramsURI = params.getURI();
+      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
+    }
+
+    @Override
+    public boolean isValidFile() {
+      return !blob.isDirectory();
+    }
+
+    @Override
+    public InputStream getContentStream(TraversalParams params) {
+      ReadChannel readChannel = blob.reader();
+      return Channels.newInputStream(readChannel);
+    }
+
+    @Override
+    public Document asDoc(TraversalParams params) {
+      String fullPath = getFullPath(params);
+      String docId = DigestUtils.md5Hex(fullPath);
+      Document doc = Document.create(params.getDocIdPrefix() + docId);
+
+      doc.setField(FileConnector.FILE_PATH, fullPath);
+
+      if (blob.getUpdateTimeOffsetDateTime() != null) {
+        doc.setField(FileConnector.MODIFIED, blob.getUpdateTimeOffsetDateTime().toInstant());
+      }
+
+      if (blob.getCreateTimeOffsetDateTime() != null) {
+        doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
+      }
+
+      doc.setField(FileConnector.SIZE, blob.getSize());
+
+      if (params.shouldGetFileContent()) {
+        doc.setField(FileConnector.CONTENT, blob.getContent());
+      }
+
+      return doc;
+    }
+
+    @Override
+    public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
+      final String docId = DigestUtils.md5Hex(decompressedFullPathStr);
+      final Document doc = Document.create(params.getDocIdPrefix() + docId);
+
+      doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
+
+      if (blob.getUpdateTimeOffsetDateTime() != null) {
+        doc.setField(FileConnector.MODIFIED, blob.getUpdateTimeOffsetDateTime().toInstant());
+      }
+
+      if (blob.getCreateTimeOffsetDateTime() != null) {
+        doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
+      }
+
+      // unable to get decompressed file size
+      if (params.shouldGetFileContent()) {
+        doc.setField(FileConnector.CONTENT, in.readAllBytes());
+      }
+
+      return doc;
+    }
   }
 }

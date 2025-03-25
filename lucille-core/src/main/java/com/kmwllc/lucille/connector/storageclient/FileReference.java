@@ -25,11 +25,6 @@ public interface FileReference {
   String getFileExtension();
 
   /**
-   * @return Whether this FileReference is for a cloud file.
-   */
-  boolean isCloudFileReference();
-
-  /**
    * @return Whether this FileReference is valid, namely, whether it is a reference to an actual file and not
    * a Directory.
    */
@@ -49,11 +44,11 @@ public interface FileReference {
    * @return A Lucille Document from this file reference. Will get the file's contents if params.shouldGetFileContent()
    * is true.
    */
-  Document toDoc(TraversalParams params);
+  Document asDoc(TraversalParams params);
 
   /**
    * @return A Lucille Document from this file reference, using the given full path string to create the Document's ID / path,
    * and reading all bytes from the given input stream if params.shouldGetFileContent() is true.
    */
-  Document toDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException;
+  Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException;
 }

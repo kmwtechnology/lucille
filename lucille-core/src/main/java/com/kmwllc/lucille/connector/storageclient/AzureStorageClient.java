@@ -25,97 +25,6 @@ import org.slf4j.LoggerFactory;
 
 public class AzureStorageClient extends BaseStorageClient {
 
-  private class AzureFileReference extends BaseFileReference {
-
-    private final BlobItem blobItem;
-
-    public AzureFileReference(BlobItem blobItem) {
-      super(blobItem.getProperties().getLastModified().toInstant());
-
-      this.blobItem = blobItem;
-    }
-
-    @Override
-    public String getName() {
-      return blobItem.getName();
-    }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      URI pathURI = params.getURI();
-
-      return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
-          pathURI.getPath().split("/")[1], blobItem.getName());
-    }
-
-    @Override
-    public boolean isCloudFileReference() {
-      return true;
-    }
-
-    @Override
-    public boolean isValidFile() {
-      return !blobItem.isPrefix();
-    }
-
-    @Override
-    public InputStream getContentStream(TraversalParams params) {
-      return serviceClient
-          .getBlobContainerClient(getBucketOrContainerName(params))
-          .getBlobClient(blobItem.getName()).openInputStream();
-    }
-
-    @Override
-    public Document toDoc(TraversalParams params) {
-      String fullPath = getFullPath(params);
-      String docId = DigestUtils.md5Hex(fullPath);
-      Document doc = Document.create(params.getDocIdPrefix() + docId);
-
-      BlobItemProperties properties = blobItem.getProperties();
-      doc.setField(FileConnector.FILE_PATH, fullPath);
-
-      if (properties.getLastModified() != null) {
-        doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
-      }
-
-      if (properties.getCreationTime() != null) {
-        doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
-      }
-
-      doc.setField(FileConnector.SIZE, properties.getContentLength());
-
-      if (params.shouldGetFileContent()) {
-        doc.setField(FileConnector.CONTENT, serviceClient.getBlobContainerClient(getBucketOrContainerName(params)).getBlobClient(blobItem.getName()).downloadContent().toBytes());
-      }
-
-      return doc;
-    }
-
-    @Override
-    public Document toDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-      String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-      Document doc = Document.create(params.getDocIdPrefix() + docId);
-
-      BlobItemProperties properties = blobItem.getProperties();
-      doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
-
-      if (properties.getLastModified() != null) {
-        doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
-      }
-
-      if (properties.getCreationTime() != null) {
-        doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
-      }
-
-      // unable to get the decompressed size via inputStream
-      if (params.shouldGetFileContent()) {
-        doc.setField(FileConnector.CONTENT, in.readAllBytes());
-      }
-
-      return doc;
-    }
-  }
-
   private BlobServiceClient serviceClient;
   private static final Logger log = LoggerFactory.getLogger(AzureStorageClient.class);
 
@@ -198,5 +107,92 @@ public class AzureStorageClient extends BaseStorageClient {
   // Only for testing
   void setServiceClientForTesting(BlobServiceClient serviceClient) {
     this.serviceClient = serviceClient;
+  }
+
+
+  private class AzureFileReference extends BaseFileReference {
+
+    private final BlobItem blobItem;
+
+    public AzureFileReference(BlobItem blobItem) {
+      super(blobItem.getProperties().getLastModified().toInstant());
+
+      this.blobItem = blobItem;
+    }
+
+    @Override
+    public String getName() {
+      return blobItem.getName();
+    }
+
+    @Override
+    public String getFullPath(TraversalParams params) {
+      URI pathURI = params.getURI();
+
+      return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
+          pathURI.getPath().split("/")[1], blobItem.getName());
+    }
+
+    @Override
+    public boolean isValidFile() {
+      return !blobItem.isPrefix();
+    }
+
+    @Override
+    public InputStream getContentStream(TraversalParams params) {
+      return serviceClient
+          .getBlobContainerClient(getBucketOrContainerName(params))
+          .getBlobClient(blobItem.getName()).openInputStream();
+    }
+
+    @Override
+    public Document asDoc(TraversalParams params) {
+      String fullPath = getFullPath(params);
+      String docId = DigestUtils.md5Hex(fullPath);
+      Document doc = Document.create(params.getDocIdPrefix() + docId);
+
+      BlobItemProperties properties = blobItem.getProperties();
+      doc.setField(FileConnector.FILE_PATH, fullPath);
+
+      if (properties.getLastModified() != null) {
+        doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
+      }
+
+      if (properties.getCreationTime() != null) {
+        doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
+      }
+
+      doc.setField(FileConnector.SIZE, properties.getContentLength());
+
+      if (params.shouldGetFileContent()) {
+        doc.setField(FileConnector.CONTENT, serviceClient.getBlobContainerClient(getBucketOrContainerName(params)).getBlobClient(blobItem.getName()).downloadContent().toBytes());
+      }
+
+      return doc;
+    }
+
+    @Override
+    public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
+      String docId = DigestUtils.md5Hex(decompressedFullPathStr);
+      Document doc = Document.create(params.getDocIdPrefix() + docId);
+
+      BlobItemProperties properties = blobItem.getProperties();
+      doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
+
+      if (properties.getLastModified() != null) {
+        doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
+      }
+
+      if (properties.getCreationTime() != null) {
+        doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
+      }
+
+      // unable to get the decompressed size via inputStream
+      if (params.shouldGetFileContent()) {
+        doc.setField(FileConnector.CONTENT, in.readAllBytes());
+      }
+
+      return doc;
+    }
   }
 }
