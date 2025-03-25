@@ -19,7 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * An iterator of Lucille Documents extracted from a ParquetFileReader. Resources are closed when hasNext returns false.
+ * An iterator of Lucille Documents, extracted from a ParquetFileReader. Resources are closed when hasNext returns false.
  */
 public class ParquetFileIterator implements Iterator<Document> {
 
@@ -27,6 +27,7 @@ public class ParquetFileIterator implements Iterator<Document> {
 
   private final String idField;
   private final long limit;
+
   private long numToSkip;
   private long count = 0L;
 
@@ -43,11 +44,13 @@ public class ParquetFileIterator implements Iterator<Document> {
   private RecordReader<Group> recordReader;
 
   /**
+   * Creates a ParquetFileIterator using the given reader + parameters to help extract Documents.
+   *
    * @param reader A reader for a Parquet file from which Lucille documents will be extracted. The reader will
    *               be closed by the iterator when hasNext(), or if next() throws an Exception.
    * @param idField An id field found in the Parquet file. This field must be present in the Parquet schema,
    *                or an Exception is thrown.
-   * @param numToSkip The number of initial rows to skip and not publish documents for. When set to n, the first n documents found will be skipped.
+   * @param numToSkip When set to n, the first n documents found will be skipped / not returned by this iterator.
    * @param limit The maximum number of Lucille documents to extract and return from the given ParquetReader. Set to -1 for no limit.
    */
   public ParquetFileIterator(ParquetFileReader reader, String idField, long numToSkip, long limit) {
@@ -88,14 +91,12 @@ public class ParquetFileIterator implements Iterator<Document> {
       throw new NoSuchElementException("Requested document from Parquet, but hasNext() is false.");
     }
 
-    // As long as we have rows to work on
     while (nRows > 0) {
       nRows--;
-      // read record regardless of whether we will skip it...
+      // read records regardless of whether we will skip them...
       SimpleGroup simpleGroup = (SimpleGroup) recordReader.read();
 
-      // if this was the last row in the page, try to fetch a new page for our *next* iteration - which could be
-      // from skipping this row or from a subsequent call to next().
+      // if this was the last row in the page, try to fetch a new page for our next iteration of this loop.
       if (nRows <= 0) {
         readNewPages();
       }
@@ -108,7 +109,7 @@ public class ParquetFileIterator implements Iterator<Document> {
     }
 
     // This is unlikely to occur - a combination of skipping a row AND readNewPages() failing due to an IOException within the loop.
-    // The constructor handles the case of start being greater than the number of rows to read, so this doesn't execute
+    // The constructor handles the case of numToSkip being greater than the number of rows to read, so this doesn't execute
     // simply due to "running out".
     // hasNext() WILL be false after this, so the iterator will be able to close.
     log.warn("ParquetFileIterator.next() is returning null.");
@@ -116,21 +117,20 @@ public class ParquetFileIterator implements Iterator<Document> {
   }
 
   /**
-   * Attempt to read the next row group from the Parquet reader. Updates nRows and recordReader when successful. Will read another
-   * rowGroup and update start if the group has less rows than start. If there are no more rowGroups to read from, or an exception
-   * occurs, pages will be null.
+   * Attempt to read the next row group from the Parquet reader. Updates nRows, columnIO, and recordReader when successful.
+   * Will skip row groups based on their number of rows, as appropriate.
+   * If there are no more rowGroups to read from, or an exception occurs, pages will be null.
    */
   private void readNewPages() {
     try {
       while ((pages = reader.readNextRowGroup()) != null) {
-        nRows = pages.getRowCount();
-
         // checking if we can skip this row group.
         // rowGroups always will have at least one row - an exception would be thrown by Parquet.
-        if (shouldSkipNumDocs(nRows)) {
+        if (shouldSkipNumDocs(pages.getRowCount())) {
           continue;
         }
 
+        nRows = pages.getRowCount();
         MessageColumnIO columnIO = new ColumnIOFactory().getColumnIO(schema);
         recordReader = columnIO.getRecordReader(pages, new GroupRecordConverter(schema));
 
@@ -144,7 +144,7 @@ public class ParquetFileIterator implements Iterator<Document> {
     }
   }
 
-  // Creates a document from the given SimpleGroup, and increments count.
+  // Creates a document from the given SimpleGroup, and increments count by 1.
   private Document createDocumentFromSimpleGroup(SimpleGroup simpleGroup) {
     String id = simpleGroup.getString(idField, 0);
     Document doc = Document.create(id);
@@ -172,14 +172,20 @@ public class ParquetFileIterator implements Iterator<Document> {
     return doc;
   }
 
-  // Returns whether the current count is greater than the limit. Always returns true if limit is a negative number.
+  /**
+   * Returns whether the limit exists and has been reached / met.
+   * @return Whether count is currently greater than limit. Always returns true if limit is a negative number.
+   */
   private boolean limitReached() {
     return limit >= 0 && count >= limit;
   }
 
   /**
-   * Returns whether n document(s) should be skipped, based on the numToSkip value.
-   * If n document(s) should be skipped, start is decreased by n, and the function returns "true".
+   * Returns whether n document(s) should be skipped, based on numToSkip's value.
+   * If n document(s) should be skipped, numToSkip is decreased by n, and the function returns "true".
+   *
+   * @param n The number of documents you want to potentially skip.
+   * @return Whether n document(s) should be skipped, based on numToSkip's value.
    */
   private boolean shouldSkipNumDocs(long n) {
     if (numToSkip >= n) {

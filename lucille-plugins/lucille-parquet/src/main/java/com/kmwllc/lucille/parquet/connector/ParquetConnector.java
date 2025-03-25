@@ -18,32 +18,45 @@ import org.apache.parquet.hadoop.util.HadoopInputFile;
 
 import java.net.URI;
 
+/**
+ * A connector for processing Parquet files, either locally, or on S3, and publishing Lucille documents from
+ * files.
+ */
 public class ParquetConnector extends AbstractConnector {
 
   private final String path;
   private final String idField;
   private final String fsUri;
+  private final Configuration hadoopConfig;
 
+  // The row to start at in files. Can also think of this as a number of documents to skip (from the beginning of the file).
+  private final long start;
+  private final long limit;
 
-  private final String s3Key;
-  private final String s3Secret;
-
-  // non final
-  private long start;
-  private long limit;
   private long count = 0L;
 
-
+  /**
+   * Creates a ParquetConnector from the given config.
+   * @param config Configuration for the ParquetConnector.
+   */
   public ParquetConnector(Config config) {
     super(config);
     this.path = config.getString("pathToStorage");
     this.idField = config.getString("id_field");
     this.fsUri = config.getString("fs_uri");
 
-    this.s3Key = config.hasPath("s3_key") ? config.getString("s3_key") : null;
-    this.s3Secret = config.hasPath("s3_secret") ? config.getString("s3_secret") : null;
     this.limit = config.hasPath("limit") ? config.getLong("limit") : -1;
     this.start = config.hasPath("start") ? config.getLong("start") : 0L;
+
+    this.hadoopConfig = new Configuration();
+
+    if (config.hasPath("s3_key") && config.hasPath("s3_secret")) {
+      hadoopConfig.set("fs.s3a.access.key", config.getString("s3_key"));
+      hadoopConfig.set("fs.s3a.secret.key", config.getString("s3_secret"));
+      hadoopConfig.set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem");
+      hadoopConfig.setBoolean("fs.s3a.path.style.access", true);
+      hadoopConfig.setBoolean(AvroReadSupport.READ_INT96_AS_FIXED, true);
+    }
   }
 
   private boolean limitNotReached() {
@@ -52,27 +65,17 @@ public class ParquetConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    Configuration conf = new Configuration();
-    if (s3Key != null && s3Secret != null) {
-      conf.set("fs.s3a.access.key", s3Key);
-      conf.set("fs.s3a.secret.key", s3Secret);
-      conf.set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem");
-      conf.setBoolean("fs.s3a.path.style.access", true);
-      conf.setBoolean(AvroReadSupport.READ_INT96_AS_FIXED, true);
-    }
-
-    try (FileSystem fs = FileSystem.get(new URI(fsUri), conf)) {
+    try (FileSystem fs = FileSystem.get(new URI(fsUri), hadoopConfig)) {
       RemoteIterator<LocatedFileStatus> statusIterator = fs.listFiles(new Path(path), true);
+
       while (limitNotReached() && statusIterator.hasNext()) {
         LocatedFileStatus status = statusIterator.next();
-        //only process parquet files
+        // only processing parquet files
         if (!status.getPath().getName().endsWith("parquet")) {
           continue;
         }
 
-        ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(status, conf));
-        // start gets updated as we publish individual documents in the connector.
-        // we want to extract only up to the "remaining" limit from any one file.
+        ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(status, hadoopConfig));
         Iterator<Document> docIterator = new ParquetFileIterator(reader, idField, start, limit - count);
 
         while (docIterator.hasNext()) {
@@ -81,10 +84,6 @@ public class ParquetConnector extends AbstractConnector {
           if (doc != null) {
             publisher.publish(doc);
             count++;
-
-            if (start > 0) {
-              start--;
-            }
           }
         }
       }
