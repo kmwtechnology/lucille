@@ -218,4 +218,25 @@ public class QueryOpensearchTest {
 
     assertEquals("http://localhost:9200/parks/_search/template", stage.getTemplateSearchURI(goodConfig).toString());
   }
+
+  @Test
+  public void testBadResponsePath() throws Exception {
+    HttpResponse mockQueryResponse = mock(HttpResponse.class);
+    when(mockQueryResponse.body()).thenReturn(neckCreekResponse);
+
+    try (MockedStatic<HttpClient> client = Mockito.mockStatic(HttpClient.class)) {
+      HttpClient mockClient = mock(HttpClient.class);
+      client.when(() -> HttpClient.newHttpClient()).thenReturn(mockClient);
+      when(mockClient.send(any(), any())).thenReturn(mockQueryResponse);
+
+      Stage stage = factory.get("QueryOpensearchTest/badResponsePath.conf");
+
+      Document testDoc = Document.create("neck_creek");
+      testDoc.setField("park_name", "Neck Creek Preserve");
+      stage.processDocument(testDoc);
+
+      // Should have an empty response, since the pointer is an invalid path, but there is no Exception here.
+      assertEquals("", testDoc.getString("response"));
+    }
+  }
 }

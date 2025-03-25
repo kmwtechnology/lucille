@@ -63,6 +63,7 @@ import org.slf4j.LoggerFactory;
 public class QueryOpensearch extends Stage {
 
   private static final Logger log = LoggerFactory.getLogger(QueryOpensearch.class);
+  private static final ObjectMapper mapper = new ObjectMapper();
 
   private final URI searchURI;
 
@@ -115,7 +116,6 @@ public class QueryOpensearch extends Stage {
     }
 
     try {
-      ObjectMapper mapper = new ObjectMapper();
       searchTemplateJson = mapper.readTree(searchTemplateStr);
     } catch (JsonProcessingException e) {
       throw new StageException("Error building JSON from the searchTemplate provided.", e);
@@ -129,11 +129,10 @@ public class QueryOpensearch extends Stage {
     ObjectNode requestJson;
 
     if (searchTemplateJson != null) {
-      // Use an existing search template. Need the json for the template, will populate it with "params" for this document.
+      // 1. Use an existing search template. Need the json for the template, will populate it with "params" for this document.
       requestJson = (ObjectNode) searchTemplateJson;
     } else {
       // 2. Lookup by an existing template. Populate the "id" field. Will populate it with "params" for this document.
-      ObjectMapper mapper = new ObjectMapper();
       requestJson = mapper.createObjectNode().put("id", templateName);
     }
 
@@ -153,18 +152,17 @@ public class QueryOpensearch extends Stage {
         .POST(HttpRequest.BodyPublishers.ofString(requestJson.toString()))
         .build();
 
+    JsonNode responseNode;
+
     try {
       HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
-
-      ObjectMapper objectMapper = new ObjectMapper();
-      JsonNode currentNode = objectMapper.readTree(response.body());
-
-      JsonNode responseFieldNode = currentNode.at(opensearchResponsePath);
-      doc.setField(destinationField, responseFieldNode.toString());
+      responseNode = mapper.readTree(response.body());
     } catch (Exception e) {
-      throw new StageException("Error occurred executing the Opensearch Query + Getting Response.", e);
+      throw new StageException("Error occurred sending the Opensearch query / getting JSON.", e);
     }
 
+    JsonNode responseFieldNode = responseNode.at(opensearchResponsePath);
+    doc.setField(destinationField, responseFieldNode.toString());
     return null;
   }
 
@@ -174,8 +172,7 @@ public class QueryOpensearch extends Stage {
    * (package access so we can test, make sure we are getting the appropriate objects)
    */
   void populateJsonWithParams(Document doc, ObjectNode json) throws NoSuchFieldException {
-    ObjectMapper objectMapper = new ObjectMapper();
-    ObjectNode paramsNode = objectMapper.createObjectNode();
+    ObjectNode paramsNode = mapper.createObjectNode();
 
     for (String requiredParamName : requiredParamNames) {
       if (!doc.has(requiredParamName)) {
