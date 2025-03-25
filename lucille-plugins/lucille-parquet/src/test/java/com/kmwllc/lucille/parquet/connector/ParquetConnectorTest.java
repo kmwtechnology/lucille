@@ -1,7 +1,9 @@
 package com.kmwllc.lucille.parquet.connector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
@@ -208,5 +210,17 @@ public class ParquetConnectorTest {
     connector.execute(publisher);
     List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(0, docs.size());
+  }
+
+  // Getting an IOException during traversal due to pointing it to a path / file that doesn't exist
+  @Test
+  public void testNonExistentFile() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    Config config = ConfigFactory.load("ParquetConnectorTest/conf/fakeFile.conf");
+    ParquetConnector connector = new ParquetConnector(config);
+
+    assertThrows(ConnectorException.class, () -> connector.execute(publisher));
   }
 }
