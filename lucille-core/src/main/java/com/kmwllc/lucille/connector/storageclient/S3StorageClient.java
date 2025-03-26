@@ -146,10 +146,9 @@ public class S3StorageClient extends BaseStorageClient {
 
     @Override
     public Document asDoc(TraversalParams params) {
-      String fullPath = getFullPath(params);
-      String docId = DigestUtils.md5Hex(fullPath);
-      Document doc = Document.create(params.getDocIdPrefix() + docId);
-      doc.setField(FileConnector.FILE_PATH, fullPath);
+      Document doc = createEmptyDocument(params);
+
+      doc.setField(FileConnector.FILE_PATH, getFullPath(params));
       doc.setField(FileConnector.MODIFIED, getLastModified());
       // s3 doesn't have object creation date
       doc.setField(FileConnector.SIZE, s3Obj.size());

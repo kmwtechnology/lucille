@@ -138,11 +138,9 @@ public class GoogleStorageClient extends BaseStorageClient {
 
     @Override
     public Document asDoc(TraversalParams params) {
-      String fullPath = getFullPath(params);
-      String docId = DigestUtils.md5Hex(fullPath);
-      Document doc = Document.create(params.getDocIdPrefix() + docId);
+      Document doc = createEmptyDocument(params);
 
-      doc.setField(FileConnector.FILE_PATH, fullPath);
+      doc.setField(FileConnector.FILE_PATH, getFullPath(params));
       doc.setField(FileConnector.MODIFIED, getLastModified());
 
       if (blob.getCreateTimeOffsetDateTime() != null) {

@@ -139,11 +139,9 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public Document asDoc(TraversalParams params) {
-      String fullPath = getFullPath(params);
-      String docId = DigestUtils.md5Hex(fullPath);
-      Document doc = Document.create(createDocId(docId, params));
+      Document doc = createEmptyDocument(params);
 
-      doc.setField(FILE_PATH, fullPath);
+      doc.setField(FILE_PATH, getFullPath(params));
       doc.setField(SIZE, size);
       doc.setField(MODIFIED, getLastModified());
 
@@ -165,17 +163,17 @@ public class LocalStorageClient extends BaseStorageClient {
     @Override
     public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
       String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-      Document doc = Document.create(createDocId(docId, params));
+      Document doc = Document.create(StorageClient.createDocId(docId, params));
 
       // get file attributes
-      BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
 
       // setting fields on document
       // remove Extension to show that we have decompressed the file and obtained its information
       doc.setField(FILE_PATH, decompressedFullPathStr);
-      doc.setField(MODIFIED, attrs.lastModifiedTime().toInstant());
-      doc.setField(CREATED, attrs.creationTime().toInstant());
+      doc.setField(MODIFIED, getLastModified());
+      doc.setField(CREATED, creationTime);
       // unable to get decompressed file size
+
       if (params.shouldGetFileContent()) {
         doc.setField(CONTENT, in.readAllBytes());
       }

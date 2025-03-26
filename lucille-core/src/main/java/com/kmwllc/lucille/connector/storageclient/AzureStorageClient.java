@@ -147,12 +147,10 @@ public class AzureStorageClient extends BaseStorageClient {
 
     @Override
     public Document asDoc(TraversalParams params) {
-      String fullPath = getFullPath(params);
-      String docId = DigestUtils.md5Hex(fullPath);
-      Document doc = Document.create(params.getDocIdPrefix() + docId);
+      Document doc = createEmptyDocument(params);
 
       BlobItemProperties properties = blobItem.getProperties();
-      doc.setField(FileConnector.FILE_PATH, fullPath);
+      doc.setField(FileConnector.FILE_PATH, getFullPath(params));
 
       if (properties.getLastModified() != null) {
         doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());

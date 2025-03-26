@@ -227,7 +227,7 @@ public abstract class BaseStorageClient implements StorageClient {
           } else {
             // handle entry to be published as a normal document
             // note that if there exists a file within the same parent directory with the same name as the entries, it will have the same id
-            Document doc = Document.create(createDocId(DigestUtils.md5Hex(entryFullPathStr), params));
+            Document doc = Document.create(StorageClient.createDocId(DigestUtils.md5Hex(entryFullPathStr), params));
             doc.setField(FILE_PATH, entryFullPathStr);
             doc.setField(MODIFIED, entry.getLastModifiedDate().toInstant());
             // entry does not have creation date
@@ -389,11 +389,6 @@ public abstract class BaseStorageClient implements StorageClient {
     // string.endsWith(".cpio") ||
     // string.endsWith(".dump") ||
     // string.endsWith(".dmp");
-  }
-
-  //should sync with abstract connector class?
-  protected String createDocId(String docId, TraversalParams params) {
-    return params.getDocIdPrefix() + docId;
   }
 
   // Only for testing
