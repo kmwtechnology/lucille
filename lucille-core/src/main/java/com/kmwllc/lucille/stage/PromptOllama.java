@@ -78,19 +78,7 @@ public class PromptOllama extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // TODO: Use "fields" here instead of always just doc.toString()
-    OllamaChatRequest request;
-
-    if (fields == null) {
-      request = chatBuilder.withMessage(OllamaChatMessageRole.USER, doc.toString()).build();
-    } else {
-      ObjectNode requestNode = mapper.createObjectNode();
-
-      for (String field : fields) {
-        requestNode.put(field, doc.getString(field));
-      }
-
-      request = chatBuilder.withMessage(OllamaChatMessageRole.USER, requestNode.toString()).build();
-    }
+    OllamaChatRequest request = createRequestWithSpecifiedFields(doc);
 
     try {
       log.info("Sending request {}.", request);
@@ -104,5 +92,20 @@ public class PromptOllama extends Stage {
     }
 
     return null;
+  }
+
+  // Creates an OllamaChatRequest using all of the fields, if fields is null, or only the specified fields from the document, as Strings.
+  private OllamaChatRequest createRequestWithSpecifiedFields(Document doc) {
+    if (fields == null) {
+      return chatBuilder.withMessage(OllamaChatMessageRole.USER, doc.toString()).build();
+    } else {
+      ObjectNode requestNode = mapper.createObjectNode();
+
+      for (String field : fields) {
+        requestNode.set(field, doc.getJson(field));
+      }
+
+      return chatBuilder.withMessage(OllamaChatMessageRole.USER, requestNode.toString()).build();
+    }
   }
 }

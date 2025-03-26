@@ -2,7 +2,6 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
-import java.util.List;
 import org.junit.Test;
 
 public class PromptOllamaTest {
