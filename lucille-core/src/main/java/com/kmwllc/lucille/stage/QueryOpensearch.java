@@ -162,7 +162,7 @@ public class QueryOpensearch extends Stage {
     }
 
     JsonNode responseFieldNode = responseNode.at(opensearchResponsePath);
-    doc.setField(destinationField, responseFieldNode.toString());
+    doc.setField(destinationField, responseFieldNode);
     return null;
   }
 
@@ -179,13 +179,12 @@ public class QueryOpensearch extends Stage {
         throw new NoSuchFieldException("Field " + requiredParamName + " is required, but missing from Document " + doc.getId() + ".");
       }
 
-      // OpenSearch can handle parsing doubles / ints from a String when that is the parameter type needed.
-      paramsNode.put(requiredParamName, doc.getString(requiredParamName));
+      paramsNode.set(requiredParamName, doc.getJson(requiredParamName));
     }
 
     for (String optionalParamName : optionalParamNames) {
       if (doc.has(optionalParamName)) {
-        paramsNode.put(optionalParamName, doc.getString(optionalParamName));
+        paramsNode.set(optionalParamName, doc.getJson(optionalParamName));
       }
     }
 
