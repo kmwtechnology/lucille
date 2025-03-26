@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -8,35 +9,84 @@ import io.github.ollama4j.OllamaAPI;
 import io.github.ollama4j.models.chat.OllamaChatMessageRole;
 import io.github.ollama4j.models.chat.OllamaChatRequest;
 import io.github.ollama4j.models.chat.OllamaChatRequestBuilder;
-import io.github.ollama4j.types.OllamaModelType;
+import io.github.ollama4j.models.chat.OllamaChatResult;
+import io.github.ollama4j.utils.Options;
+import io.github.ollama4j.utils.OptionsBuilder;
 import java.util.Iterator;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
+ * A stage for sending a Document to an LLM for general enrichment via the use of a system prompt. It is highly recommended that you
+ * instruct your LLM to output only a JSON object, for two primary reasons:
+ * 1. Many LLMs tend to respond better to system prompts involving JSON.
+ * 2. Lucille can automatically add the fields from the response to your Document as is.
+ *
+ * If you do not use a system prompt that includes JSON, or the LLM outputs a malformed response, Lucille will place the entire
+ * response in the "ollamaResponse" field.
+ *
  * Parameters:
  *  hostURL (String): A URL to your ollama server.
  *  modelName (String): The name of the model you want to communicate with. See https://ollama.ai/library for available models/
  *  the appropriate names to use.
  *
- *  systemPrompt (String, Optional): The system prompt you want to provide to your LLM.
+ *  systemPrompt (String): The system prompt you want to provide to your LLM.
  *  <b>Note:</b> It is recommended that you instruct your LLM to format its output as a JSON object, even if you are only
  *  asking for a single piece of information (like a summary).
- *  fields (list of Strings, Optional): The fields in the document you want to send to the LLM. Defaults to sending the entire
+ *
+ *  fields (list of Strings, Optional): The fields in the document you want to be sent to the LLM. Defaults to sending the entire
  *  Document to the LLM for enriching.
  */
 public class PromptOllama extends Stage {
 
+  private static final Logger log = LoggerFactory.getLogger(PromptOllama.class);
+
+  private final String hostURL;
+  private final String modelName;
+
+  private final String systemPrompt;
+  private final List<String> fields;
+
+  private OllamaAPI ollamaAPI;
+  private OllamaChatRequestBuilder chatBuilder;
+
   public PromptOllama(Config config) {
-    super(config);
+    super(config, new StageSpec().withRequiredProperties("hostURL", "modelName", "systemPrompt").withOptionalProperties("fields"));
+
+    this.hostURL = config.getString("hostURL");
+    this.modelName = config.getString("modelName");
+
+    this.systemPrompt = config.getString("systemPrompt");
+    this.fields = ConfigUtils.getOrDefault(config, "fields", null);
+  }
+
+  @Override
+  public void start() throws StageException {
+    this.ollamaAPI = new OllamaAPI(hostURL);
+    this.chatBuilder = OllamaChatRequestBuilder
+        .getInstance(modelName)
+        .withMessage(OllamaChatMessageRole.SYSTEM, systemPrompt);
+  }
+
+  @Override
+  public void stop() throws StageException {
+    // TODO: Make sure there is nothing that can be closed, delete method if so.
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    new OllamaAPI();
-    new OllamaAPI("");
+    // TODO: Use "fields" here instead of always just doc.toString()
+    OllamaChatRequest request = chatBuilder.withMessage(OllamaChatMessageRole.SYSTEM, doc.toString()).build();
 
-    OllamaChatRequestBuilder builder = OllamaChatRequestBuilder.getInstance(OllamaModelType.LLAMA3);
+    try {
+      OllamaChatResult chatResult = ollamaAPI.chat(request);
 
-    OllamaChatRequest request = builder.withMessage(OllamaChatMessageRole.getRole("user"));
+      System.out.println(chatResult.toString());
+    } catch (Exception e) {
+      throw new StageException("Error communicating with Ollama server.", e);
+    }
+
     return null;
   }
 }
