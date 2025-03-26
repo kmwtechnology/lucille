@@ -171,8 +171,7 @@ public class AzureStorageClient extends BaseStorageClient {
 
     @Override
     public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-      String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-      Document doc = Document.create(params.getDocIdPrefix() + docId);
+      Document doc = createEmptyDocument(params, decompressedFullPathStr);
 
       BlobItemProperties properties = blobItem.getProperties();
       doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);

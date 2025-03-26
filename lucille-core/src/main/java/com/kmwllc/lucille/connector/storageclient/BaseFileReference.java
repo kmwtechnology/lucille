@@ -32,7 +32,17 @@ public abstract class BaseFileReference implements FileReference {
    */
   protected Document createEmptyDocument(TraversalParams params) {
     String fullPath = getFullPath(params);
-    String docId = DigestUtils.md5Hex(fullPath);
+    return createEmptyDocument(params, fullPath);
+  }
+
+  /**
+   * Creates an empty document for this FileReference. Uses the given full path and params to create an appropriate docId.
+   * @param params Parameters for your storage traversal.
+   * @param fullPathString The full path String to the file reference
+   * @return An empty Document with an appropriate docId representing this file reference.
+   */
+  protected Document createEmptyDocument(TraversalParams params, String fullPathString) {
+    String docId = DigestUtils.md5Hex(fullPathString);
     return Document.create(StorageClient.createDocId(docId, params));
   }
 }

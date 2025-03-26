@@ -165,8 +165,7 @@ public class S3StorageClient extends BaseStorageClient {
 
     @Override
     public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-      String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-      Document doc = Document.create(params.getDocIdPrefix() + docId);
+      Document doc = createEmptyDocument(params, decompressedFullPathStr);
 
       doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
       doc.setField(FileConnector.MODIFIED, s3Obj.lastModified());

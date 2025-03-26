@@ -162,8 +162,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-      String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-      Document doc = Document.create(StorageClient.createDocId(docId, params));
+      Document doc = createEmptyDocument(params, decompressedFullPathStr);
 
       // setting fields on document
       // remove Extension to show that we have decompressed the file and obtained its information
