@@ -20,7 +20,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,9 +72,8 @@ public class AzureStorageClient extends BaseStorageClient {
         .listBlobs(new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages),
             Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
-          String fullPathStr = getFullPath(blob, params);
-          String fileExtension = FilenameUtils.getExtension(fullPathStr);
-          processAndPublishFileIfValid(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
+          AzureFileReference fileRef = new AzureFileReference(blob);
+          processAndPublishFileIfValid(publisher, fileRef, params);
         });
   }
 
@@ -88,46 +86,16 @@ public class AzureStorageClient extends BaseStorageClient {
     return containerClient.getBlobClient(blobName).openInputStream();
   }
 
-  @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, TraversalParams params) {
-    BlobItem blobItem = fileReference.getBlobItem();
-    return blobItemToDoc(blobItem, params);
-  }
-
-  @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr, TraversalParams params) {
-    BlobItem blobItem = fileReference.getBlobItem();
-
-    try {
-      return blobItemToDoc(blobItem, in, decompressedFullPathStr, params);
-    } catch (IOException e) {
-      throw new IllegalArgumentException("Unable to convert BlobItem '" + blobItem.getName() + "' to Document", e);
-    }
-  }
-
-  @Override
-  protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
-    BlobItem blobItem = fileReference.getBlobItem();
-    return serviceClient
-        .getBlobContainerClient(getBucketOrContainerName(params))
-        .getBlobClient(blobItem.getName()).openInputStream();
-  }
-
-  @Override
-  protected String getStartingDirectory(TraversalParams params) {
+  private String getStartingDirectory(TraversalParams params) {
     String path = params.getURI().getPath();
     // path is in the format /containerName/folder1/folder2/... so need to return folder1/folder2/...
     String[] subPaths = path.split("/", 3);
     return subPaths.length > 2 ? subPaths[2] : "";
   }
 
-  @Override
-  protected String getBucketOrContainerName(TraversalParams params) {
+  private String getBucketOrContainerName(TraversalParams params) {
     return params.getURI().getPath().split("/")[1];
   }
-
-  @Override
-  protected String getFileName(FileReference fileRef) { return fileRef.getBlobItem().getName(); }
 
   private String getFullPath(BlobItem blobItem, TraversalParams params) {
     URI pathURI = params.getURI();
@@ -136,63 +104,89 @@ public class AzureStorageClient extends BaseStorageClient {
         getBucketOrContainerName(params), blobItem.getName());
   }
 
-  private Document blobItemToDoc(BlobItem blob, TraversalParams params) {
-    String fullPath = getFullPath(blob, params);
-    String docId = DigestUtils.md5Hex(fullPath);
-    Document doc = Document.create(params.getDocIdPrefix() + docId);
-
-    BlobItemProperties properties = blob.getProperties();
-    doc.setField(FileConnector.FILE_PATH, fullPath);
-
-    if (properties.getLastModified() != null) {
-      doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
-    }
-
-    if (properties.getCreationTime() != null) {
-      doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
-    }
-
-    doc.setField(FileConnector.SIZE, properties.getContentLength());
-
-    if (params.shouldGetFileContent()) {
-      doc.setField(FileConnector.CONTENT, serviceClient.getBlobContainerClient(getBucketOrContainerName(params)).getBlobClient(blob.getName()).downloadContent().toBytes());
-    }
-
-    return doc;
-  }
-
-  private Document blobItemToDoc(BlobItem blob, InputStream is, String decompressedFullPathStr, TraversalParams params)
-      throws IOException {
-    String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-    Document doc = Document.create(params.getDocIdPrefix() + docId);
-
-    BlobItemProperties properties = blob.getProperties();
-    doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
-
-    if (properties.getLastModified() != null) {
-      doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
-    }
-
-    if (properties.getCreationTime() != null) {
-      doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
-    }
-
-    // unable to get the decompressed size via inputStream
-    if (params.shouldGetFileContent()) {
-      doc.setField(FileConnector.CONTENT, is.readAllBytes());
-    }
-
-    return doc;
-  }
-
-  @Override
-  protected boolean isValidFile(FileReference fileRef) {
-    BlobItem blob = fileRef.getBlobItem();
-    return !blob.isPrefix();
-  }
-
   // Only for testing
   void setServiceClientForTesting(BlobServiceClient serviceClient) {
     this.serviceClient = serviceClient;
+  }
+
+
+  private class AzureFileReference extends BaseFileReference {
+
+    private final BlobItem blobItem;
+
+    public AzureFileReference(BlobItem blobItem) {
+      super(blobItem.getProperties().getLastModified().toInstant());
+
+      this.blobItem = blobItem;
+    }
+
+    @Override
+    public String getName() {
+      return blobItem.getName();
+    }
+
+    @Override
+    public String getFullPath(TraversalParams params) {
+      URI pathURI = params.getURI();
+
+      return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
+          pathURI.getPath().split("/")[1], blobItem.getName());
+    }
+
+    @Override
+    public boolean isValidFile() {
+      return !blobItem.isPrefix();
+    }
+
+    @Override
+    public InputStream getContentStream(TraversalParams params) {
+      return serviceClient
+          .getBlobContainerClient(getBucketOrContainerName(params))
+          .getBlobClient(blobItem.getName()).openInputStream();
+    }
+
+    @Override
+    public Document asDoc(TraversalParams params) {
+      Document doc = createEmptyDocument(params);
+
+      BlobItemProperties properties = blobItem.getProperties();
+      doc.setField(FileConnector.FILE_PATH, getFullPath(params));
+
+      if (properties.getLastModified() != null) {
+        doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
+      }
+
+      if (properties.getCreationTime() != null) {
+        doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
+      }
+
+      doc.setField(FileConnector.SIZE, properties.getContentLength());
+
+      if (params.shouldGetFileContent()) {
+        doc.setField(FileConnector.CONTENT, serviceClient.getBlobContainerClient(getBucketOrContainerName(params)).getBlobClient(blobItem.getName()).downloadContent().toBytes());
+      }
+
+      return doc;
+    }
+
+    @Override
+    public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
+      Document doc = createEmptyDocument(params, decompressedFullPathStr);
+
+      BlobItemProperties properties = blobItem.getProperties();
+      doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
+      doc.setField(FileConnector.MODIFIED, getLastModified());
+
+      if (properties.getCreationTime() != null) {
+        doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
+      }
+
+      // unable to get the decompressed size via inputStream
+      if (params.shouldGetFileContent()) {
+        doc.setField(FileConnector.CONTENT, in.readAllBytes());
+      }
+
+      return doc;
+    }
   }
 }
