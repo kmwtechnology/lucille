@@ -1,37 +1,86 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import io.github.ollama4j.OllamaAPI;
+import io.github.ollama4j.models.chat.OllamaChatMessage;
+import io.github.ollama4j.models.chat.OllamaChatRequest;
+import io.github.ollama4j.models.chat.OllamaChatResponseModel;
+import io.github.ollama4j.models.chat.OllamaChatResult;
 import org.junit.Test;
+import org.mockito.MockedConstruction;
+import org.mockito.Mockito;
 
 public class PromptOllamaTest {
 
   private final StageFactory factory = StageFactory.of(PromptOllama.class);
 
+  private final String firstEnronResponse = """
+{
+  "fraud": false,
+  "summary": "Person is trying to hide something from their boss."
+}
+""";
+
+  private final String secondEnronResponse = """
+{
+  "fraud": true,
+  "summary": "Employee coerces another into juicing earnings results to bolster market confidence, assuring them the company is on their side."
+}
+""";
+
+  private OllamaChatResult createMockChatResultWithMessage(String messageStr) {
+    // Supporting the call to: chatResult.getResponseModel().getMessage().getContent()
+    OllamaChatResult chatResult = mock(OllamaChatResult.class);
+    OllamaChatResponseModel responseModel = mock(OllamaChatResponseModel.class);
+    OllamaChatMessage chatMessage = mock(OllamaChatMessage.class);
+
+    when(chatResult.getResponseModel()).thenReturn(responseModel);
+    when(responseModel.getMessage()).thenReturn(chatMessage);
+    when(chatMessage.getContent()).thenReturn(messageStr);
+
+    return chatResult;
+  }
+
   @Test
   public void testOllama() throws Exception {
-    Stage stage = factory.get("PromptOllamaTest/example.conf");
+    OllamaChatResult firstResult = createMockChatResultWithMessage(firstEnronResponse);
+    OllamaChatResult secondResult = createMockChatResultWithMessage(secondEnronResponse);
 
-    Document doc = Document.create("doc1");
-    doc.setField("message", "Let's try to keep this hidden, wouldn't want the boss finding out.");
-    doc.setField("sender", "j@abcdef.com");
+    try (MockedConstruction<OllamaAPI> mockAPIConstruction = mockConstruction(OllamaAPI.class, (mockAPI, context) -> {
+      when(mockAPI.chat(any()))
+          .thenReturn(firstResult)
+          .thenReturn(secondResult);
+    })) {
+      Stage stage = factory.get("PromptOllamaTest/example.conf");
 
-    Document doc2 = Document.create("doc2");
-    doc2.setField("message", "We want to make sure we are reporting higher earnings for the next quarter. You have as much leeway as you need. CEO is very focused on beating projections to bolster confidence in the markets.");
-    doc2.setField("sender", "e1Jamie@enron.com");
+      Document doc1 = Document.create("doc1");
+      doc1.setField("message", "Let's try to keep this hidden, wouldn't want the boss finding out.");
+      doc1.setField("sender", "j@abcdef.com");
 
-    stage.processDocument(doc);
-    stage.processDocument(doc2);
+      Document doc2 = Document.create("doc2");
+      doc2.setField("message", "We want to make sure we are reporting higher earnings for the next quarter. You have as much leeway as you need. CEO is very focused on beating projections to bolster confidence in the markets.");
+      doc2.setField("sender", "e1Jamie@company.com");
 
-    assertTrue(doc.has("fraud"));
-    assertTrue(doc.has("summary"));
+      stage.processDocument(doc1);
+      stage.processDocument(doc2);
 
-    assertTrue(doc2.has("fraud"));
-    assertTrue(doc2.has("summary"));
+      assertFalse(doc1.getBoolean("fraud"));
+      assertEquals("Person is trying to hide something from their boss.", doc1.getString("summary"));
+
+      assertTrue(doc2.getBoolean("fraud"));
+      assertEquals("Employee coerces another into juicing earnings results to bolster market confidence, assuring them the company is on their side.", doc2.getString("summary"));
+    }
   }
 
   @Test
@@ -90,6 +139,7 @@ public class PromptOllamaTest {
     doc.setField("sender", "j@abcdef.com");
 
     stage.processDocument(doc);
+    System.out.println(doc);
 
     assertTrue(doc.has("fraud"));
     assertTrue(doc.has("summary"));
