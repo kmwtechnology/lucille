@@ -238,7 +238,7 @@ public abstract class Indexer implements Runnable {
           }
 
           messenger.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
-          docLogger.warn("Sent failure message for doc {}.", d.getId());
+          docLogger.error("Sent failure message for doc {}.", d.getId());
         } catch (Exception e2) {
           // TODO: The run won't be able to finish if this event isn't received; can we do something
           // special here?
