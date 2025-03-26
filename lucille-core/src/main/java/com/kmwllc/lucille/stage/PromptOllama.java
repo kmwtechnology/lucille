@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.ConfigUtils;
@@ -77,18 +79,29 @@ public class PromptOllama extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    // TODO: Use "fields" here instead of always just doc.toString()
     OllamaChatRequest request = createRequestWithSpecifiedFields(doc);
 
+    OllamaChatResult chatResult;
     try {
-      log.info("Sending request {}.", request);
+      log.info("Sending request {}:", request);
 
-      OllamaChatResult chatResult = ollamaAPI.chat(request);
+      chatResult = ollamaAPI.chat(request);
 
       // How you get just the pure response from the LLM
-      log.info("Got response {}.", chatResult.getResponseModel().getMessage().getContent());
+      log.info("Got response {}:", chatResult.getResponseModel().getMessage().getContent());
     } catch (Exception e) {
       throw new StageException("Error communicating with Ollama server.", e);
+    }
+
+    // TODO: Integrate the response / build a JSON from the response and add it to the Document.
+
+    try {
+      JsonNode node = mapper.readTree(chatResult.getResponseModel().getMessage().getContent());
+
+      node.fields().forEachRemaining(entry -> doc.setField(entry.getKey(), entry.getValue()));
+    } catch (JsonProcessingException e) {
+      log.warn("An error occurred processing the JSON from the LLM response. The response's entire contents have been placed into ollamaResponse instead.", e);
+      doc.setField("ollamaResponse", chatResult.getResponseModel().getMessage().getContent());
     }
 
     return null;

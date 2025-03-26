@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertTrue;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import org.junit.Test;
@@ -22,6 +24,12 @@ public class PromptOllamaTest {
 
     stage.processDocument(doc);
     stage.processDocument(doc2);
+
+    assertTrue(doc.has("fraud"));
+    assertTrue(doc.has("summary"));
+
+    assertTrue(doc2.has("fraud"));
+    assertTrue(doc2.has("summary"));
   }
 
   @Test
@@ -42,5 +50,30 @@ public class PromptOllamaTest {
 
     stage.processDocument(doc);
     stage.processDocument(doc2);
+
+    assertTrue(doc.has("rating"));
+    assertTrue(doc.has("opinion"));
+
+    assertTrue(doc2.has("rating"));
+    assertTrue(doc2.has("opinion"));
+  }
+
+  @Test
+  public void testNoJson() throws Exception {
+    Stage stage = factory.get("PromptOllamaTest/noJson.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("message", "Let's try to keep this hidden, wouldn't want the boss finding out.");
+    doc.setField("sender", "j@abcdef.com");
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("message", "We want to make sure we are reporting higher earnings for the next quarter. You have as much leeway as you need. CEO is very focused on beating projections to bolster confidence in the markets.");
+    doc2.setField("sender", "e1Jamie@enron.com");
+
+    stage.processDocument(doc);
+    stage.processDocument(doc2);
+
+    assertTrue(doc.has("ollamaResponse"));
+    assertTrue(doc2.has("ollamaResponse"));
   }
 }
