@@ -106,17 +106,17 @@ public class LocalStorageClient extends BaseStorageClient {
     private final Instant creationTime;
     private final long size;
 
-    // The provided path should be absolute and normalized.
+    // The given path will become absolute and will be normalized.
     public LocalFileReference(Path path, BasicFileAttributes attributes) {
       super(attributes.lastModifiedTime().toInstant());
 
-      this.path = path;
+      this.path = path.toAbsolutePath().normalize();
       this.creationTime = attributes.creationTime().toInstant();
       this.size = attributes.size();
     }
 
     @Override
-    public String getName() { return path.getFileName().toString();}
+    public String getName() { return path.getFileName().toString(); }
 
     @Override
     public String getFullPath(TraversalParams params) {
@@ -139,7 +139,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public Document asDoc(TraversalParams params) {
-      String fullPath = path.toAbsolutePath().normalize().toString();
+      String fullPath = getFullPath(params);
       String docId = DigestUtils.md5Hex(fullPath);
       Document doc = Document.create(createDocId(docId, params));
 
