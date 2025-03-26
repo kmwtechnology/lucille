@@ -1,9 +1,11 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
 
 public class PromptOllamaTest {
@@ -36,6 +38,7 @@ public class PromptOllamaTest {
   public void testFields() throws Exception {
     Stage stage = factory.get("PromptOllamaTest/fields.conf");
 
+    // TODO: In the mocked test, make sure the request doesn't contain "eps" - it is not in "fields".
     Document doc = Document.create("doc1");
     doc.setField("stock_name", "Apple Inc.");
     doc.setField("company_summary", "Apple Inc. is a global technology company known for its iPhones, Mac computers, iPads, and software ecosystem. It emphasizes innovation, design, privacy, and premium user experiences.");
@@ -58,9 +61,10 @@ public class PromptOllamaTest {
     assertTrue(doc2.has("opinion"));
   }
 
+  // The LLM isn't outputting a JSON response. requireJSON is set to false by default.
   @Test
-  public void testNoJson() throws Exception {
-    Stage stage = factory.get("PromptOllamaTest/noJson.conf");
+  public void testNoJsonPrompt() throws Exception {
+    Stage stage = factory.get("PromptOllamaTest/noJsonPrompt.conf");
 
     Document doc = Document.create("doc1");
     doc.setField("message", "Let's try to keep this hidden, wouldn't want the boss finding out.");
@@ -75,5 +79,22 @@ public class PromptOllamaTest {
 
     assertTrue(doc.has("ollamaResponse"));
     assertTrue(doc2.has("ollamaResponse"));
+  }
+
+  @Test
+  public void testRequireJson() throws Exception {
+    Stage stage = factory.get("PromptOllamaTest/example.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("message", "Let's try to keep this hidden, wouldn't want the boss finding out.");
+    doc.setField("sender", "j@abcdef.com");
+
+    stage.processDocument(doc);
+
+    assertTrue(doc.has("fraud"));
+    assertTrue(doc.has("summary"));
+
+    Stage noJsonStage = factory.get("PromptOllamaTest/noJsonPromptRequireJson.conf");
+    assertThrows(StageException.class, () -> noJsonStage.processDocument(doc));
   }
 }
