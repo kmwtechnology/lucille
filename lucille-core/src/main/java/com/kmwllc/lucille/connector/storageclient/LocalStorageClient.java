@@ -165,8 +165,6 @@ public class LocalStorageClient extends BaseStorageClient {
       String docId = DigestUtils.md5Hex(decompressedFullPathStr);
       Document doc = Document.create(StorageClient.createDocId(docId, params));
 
-      // get file attributes
-
       // setting fields on document
       // remove Extension to show that we have decompressed the file and obtained its information
       doc.setField(FILE_PATH, decompressedFullPathStr);
