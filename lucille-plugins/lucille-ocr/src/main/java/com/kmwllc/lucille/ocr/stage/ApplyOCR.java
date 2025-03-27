@@ -7,17 +7,13 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.FileAttribute;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.imageio.ImageIO;
 import org.apache.commons.io.FilenameUtils;
@@ -104,7 +100,7 @@ public class ApplyOCR extends Stage {
 
 
   public ApplyOCR(Config config) throws StageException {
-    super(config, new StageSpec().withOptionalProperties("pages_field", "extraction_templates", "extract_all_dest")
+    super(config, new ConfigSpec().withOptionalProperties("pages_field", "extraction_templates", "extract_all_dest")
         .withRequiredProperties("lang", "path_field").withOptionalParents("pages"));
 
     lang = config.getString("lang");

@@ -48,7 +48,7 @@ public class EmitDocsToDeleteByPrefix extends Stage {
   private final String deletionMarkerFieldValue;
 
   public EmitDocsToDeleteByPrefix(Config config) {
-    super(config, new StageSpec()
+    super(config, new ConfigSpec()
         .withOptionalProperties("dropOriginal", "addPrefix")
         .withOptionalParents("namespaces")
         .withRequiredProperties("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index"));

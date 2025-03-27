@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -36,7 +37,7 @@ public class Concatenate extends Stage {
   private final List<String> fields;
 
   public Concatenate(Config config) {
-    super(config, new StageSpec()
+    super(config, new ConfigSpec()
         .withRequiredProperties("dest", "format_string")
         .withOptionalProperties("update_mode")
         .withOptionalParents("default_inputs"));

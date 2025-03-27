@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -7,7 +8,6 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 
@@ -27,7 +27,7 @@ public class ExtractFirstCharacter extends Stage {
   private final String replacement;
 
   public ExtractFirstCharacter(Config config) {
-    super(config, new StageSpec().withOptionalProperties("replacement")
+    super(config, new ConfigSpec().withOptionalProperties("replacement")
         .withRequiredParents("fieldMapping"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";

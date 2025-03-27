@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -19,7 +20,7 @@ public class RandomVector extends Stage {
   private final UpdateMode updateMode;
 
   public RandomVector(Config config) {
-    super(config, new StageSpec()
+    super(config, new ConfigSpec()
         .withOptionalProperties("update_mode")
         .withRequiredProperties("fields", "dimensions"));
     this.fields = config.getStringList("fields");

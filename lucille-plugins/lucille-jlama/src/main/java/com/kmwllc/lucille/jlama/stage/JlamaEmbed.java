@@ -71,7 +71,7 @@ public class JlamaEmbed extends Stage {
   private static final Logger log = LoggerFactory.getLogger(JlamaEmbed.class);
 
   public JlamaEmbed(Config config) {
-    super(config, new StageSpec()
+    super(config, new ConfigSpec()
         .withRequiredProperties("model", "source", "pathToStoreModel")
         .withOptionalProperties("workingMemoryType", "workingQuantizationType", "dest", "deleteModelAfter"));
     this.pathToStoreModel = config.getString("pathToStoreModel");

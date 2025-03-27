@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -49,7 +50,7 @@ public class NormalizeText extends Stage {
    * @param config
    */
   public NormalizeText(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "dest", "mode")
+    super(config, new ConfigSpec().withRequiredProperties("source", "dest", "mode")
         .withOptionalProperties("update_mode"));
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -52,7 +53,7 @@ public class ApplyFileHandlers extends Stage {
   private Map<String, FileHandler> fileHandlers;
 
   public ApplyFileHandlers(Config config) {
-    super(config, new StageSpec()
+    super(config, new ConfigSpec()
         .withOptionalParents("handlerOptions", "gcp", "azure", "s3")
         .withOptionalProperties("filePathField", "fileContentField"));
 

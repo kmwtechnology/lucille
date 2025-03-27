@@ -1,14 +1,11 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -35,7 +32,7 @@ public class AddRandomInt extends Stage {
   private final int rangeEnd;
 
   public AddRandomInt(Config config) throws StageException {
-    super(config, new StageSpec()
+    super(config, new ConfigSpec()
         .withOptionalProperties("field_name", "range_start", "range_end"));
 
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");

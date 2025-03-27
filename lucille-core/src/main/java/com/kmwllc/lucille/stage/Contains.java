@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -33,7 +34,7 @@ public class Contains extends Stage {
   private PayloadTrie<String> trie;
 
   public Contains(Config config) {
-    super(config, new StageSpec()
+    super(config, new ConfigSpec()
         .withRequiredProperties("contains", "output", "value", "fields")
         .withOptionalProperties("ignoreCase"));
 

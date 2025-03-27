@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigSpec;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -8,7 +9,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -73,7 +73,7 @@ public class ApplyJSoup extends Stage {
   }
 
   public ApplyJSoup(Config config) throws StageException {
-    super(config, new StageSpec().withOptionalProperties("filePathField", "byteArrayField", "stringField", "charset")
+    super(config, new ConfigSpec().withOptionalProperties("filePathField", "byteArrayField", "stringField", "charset")
         .withRequiredParents("destinationFields"));
 
     this.destinationFields = config.getConfig("destinationFields").root().unwrapped();

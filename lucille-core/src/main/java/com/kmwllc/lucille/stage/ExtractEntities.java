@@ -5,7 +5,6 @@ import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import org.ahocorasick.trie.PayloadEmit;
 import org.ahocorasick.trie.PayloadToken;
@@ -69,7 +68,7 @@ public class ExtractEntities extends Stage {
   private final FileContentFetcher fileFetcher;
 
   public ExtractEntities(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "dest", "dictionaries")
+    super(config, new ConfigSpec().withRequiredProperties("source", "dest", "dictionaries")
         .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
             "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field")
         .withOptionalParents("s3", "gcp", "azure"));

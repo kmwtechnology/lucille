@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigSpec;
 import java.util.Iterator;
 import java.util.List;
 
@@ -27,7 +28,7 @@ public class SplitFieldValues extends Stage {
   private String delimiter;
 
   public SplitFieldValues(Config config) {
-    super(config, new StageSpec().withRequiredProperties("inputField", "outputField",
+    super(config, new ConfigSpec().withRequiredProperties("inputField", "outputField",
         "delimiter", "trimWhitespace"));
 
     inputField = config.getString("inputField");
