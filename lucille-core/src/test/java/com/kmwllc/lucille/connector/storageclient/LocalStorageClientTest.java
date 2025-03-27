@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.connector.VFSConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
@@ -16,6 +15,8 @@ import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -70,16 +71,12 @@ public class LocalStorageClientTest {
 
     localStorageClient.traverse(publisher, params);
 
-    for (Document d : messenger.getDocsSentForProcessing()) {
-      System.out.println(d);
-    }
-
     Assert.assertEquals(3, messenger.getDocsSentForProcessing().size());
     String[] fileNames = {"a.json", "b.json", "c.json"};
     for (Document doc : messenger.getDocsSentForProcessing()) {
       String docId = doc.getId();
-      String filePath = doc.getString(VFSConnector.FILE_PATH);
-      String content = new String(doc.getBytes(VFSConnector.CONTENT));
+      String filePath = doc.getString(FileConnector.FILE_PATH);
+      String content = new String(doc.getBytes(FileConnector.CONTENT));
       Assert.assertTrue(Arrays.stream(fileNames).anyMatch(filePath::endsWith));
       if (filePath.endsWith("a.json")) {
         Assert.assertTrue(content.contains("\"filename\":\"400_106547e2f83b.jpg\""));
@@ -358,5 +355,22 @@ public class LocalStorageClientTest {
     InputStream stream = client.getFileContentStream(testFile.toURI());
 
     assertEquals("Hello there.", new String(stream.readAllBytes()));
+  }
+
+  // Ensuring that providing an absolute path to the LocalStorageClient works as appropriate - doesn't remove the first
+  // "/" as TraversalParams does, instead, falls back on its specific implementation of getStartingDirectory()
+  @Test
+  public void testAbsolutePath() throws Exception {
+    Path defaultAbsolutePath = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault").toAbsolutePath();
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    TraversalParams params = new TraversalParams(URI.create(defaultAbsolutePath.toString()), "file_", List.of(), List.of(), ConfigFactory.empty());
+    localStorageClient.init();
+    localStorageClient.traverse(publisher, params);
+
+    assertEquals(8, publisher.numPublished());
   }
 }

@@ -1,10 +1,10 @@
 package com.kmwllc.lucille.message;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -74,7 +74,7 @@ public class KafkaUtils {
     consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
     consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-    consumerProps.put(ConsumerConfig.METADATA_MAX_AGE_CONFIG, 30000);
+    consumerProps.put(ConsumerConfig.METADATA_MAX_AGE_CONFIG, ConfigUtils.getOrDefault(config, "kafka.metadataMaxAgeMs", 30000));
     return consumerProps;
   }
 

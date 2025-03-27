@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.channels.Channels;
+import java.util.Objects;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -117,6 +118,21 @@ public class GoogleStorageClient extends BaseStorageClient {
     return Channels.newInputStream(readChannel);
   }
 
+  @Override
+  protected String getStartingDirectory(TraversalParams params) {
+    URI pathURI = params.getURI();
+    String startingDirectory = Objects.equals(pathURI.getPath(), "/") ? "" : pathURI.getPath();
+    if (startingDirectory.startsWith("/")) {
+      return startingDirectory.substring(1);
+    }
+    return startingDirectory;
+  }
+
+  @Override
+  protected String getBucketOrContainerName(TraversalParams params) {
+    return params.getURI().getAuthority();
+  }
+
   private boolean isValid(Blob blob, TraversalParams params) {
     if (blob.isDirectory()) return false;
 
@@ -124,7 +140,7 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   private String getFullPath(Blob blob, TraversalParams params) {
-    return params.getPathToStorageURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + blob.getName();
+    return params.getURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + blob.getName();
   }
 
   private Document blobToDoc(Blob blob, TraversalParams params) throws IOException {

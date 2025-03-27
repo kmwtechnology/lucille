@@ -117,7 +117,7 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   protected String getStartingDirectory(TraversalParams params) {
-    String path = params.getPathToStorageURI().getPath();
+    String path = params.getURI().getPath();
     // path is in the format /containerName/folder1/folder2/... so need to return folder1/folder2/...
     String[] subPaths = path.split("/", 3);
     return subPaths.length > 2 ? subPaths[2] : "";
@@ -125,11 +125,11 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   protected String getBucketOrContainerName(TraversalParams params) {
-    return params.getPathToStorageURI().getPath().split("/")[1];
+    return params.getURI().getPath().split("/")[1];
   }
 
   private String getFullPath(BlobItem blobItem, TraversalParams params) {
-    URI pathURI = params.getPathToStorageURI();
+    URI pathURI = params.getURI();
 
     return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
         getBucketOrContainerName(params), blobItem.getName());
