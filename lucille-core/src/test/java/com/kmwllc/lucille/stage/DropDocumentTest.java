@@ -80,6 +80,14 @@ public class DropDocumentTest {
     assertFalse(doc2.isDropped());
     stage.processConditional(doc2);
     assertTrue(doc2.isDropped());
+
+    Document doc3 = Document.create("doc3");
+    doc3.setField("field1", "true");
+    doc3.setField("field2", "true");
+
+    assertFalse(doc3.isDropped());
+    stage.processConditional(doc3);
+    assertTrue(doc3.isDropped());
   }
 
   @Test
@@ -102,5 +110,13 @@ public class DropDocumentTest {
     assertFalse(doc2.isDropped());
     stage.processConditional(doc2);
     assertTrue(doc2.isDropped());
+
+    Document doc3 = Document.create("doc3");
+    doc3.setField("field1", "12");
+    doc3.setField("field2", "123.5");
+
+    assertFalse(doc3.isDropped());
+    stage.processConditional(doc3);
+    assertTrue(doc3.isDropped());
   }
 }
