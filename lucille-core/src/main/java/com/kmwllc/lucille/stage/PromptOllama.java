@@ -44,8 +44,8 @@ import org.slf4j.LoggerFactory;
  *  <b>Note:</b> It is recommended that you instruct your LLM to format its output as a JSON object, even if you are only
  *  asking for a single piece of information (like a summary).
  *
- *  fields (list of Strings, Optional): The fields in the document you want to be sent to the LLM. Defaults to sending the entire
- *  Document to the LLM for enriching.
+ *  fields (list of Strings, Optional): The fields in the document you want to be sent to the LLM. If the list is empty or not specified,
+ *  defaults to sending the entire Document to the LLM for enriching.
  *
  *  requireJSON (Boolean, Optional): Whether you are requiring & expecting the LLM to output a JSON-only response. When true,
  *  Lucille will throw an Exception upon receiving a non-JSON response from the LLM. When false, Lucille will place the response's
@@ -77,7 +77,7 @@ public class PromptOllama extends Stage {
     this.timeout = ConfigUtils.getOrDefault(config, "timeout", null);
 
     this.systemPrompt = config.getString("systemPrompt");
-    this.fields = ConfigUtils.getOrDefault(config, "fields", null);
+    this.fields = ConfigUtils.getOrDefault(config, "fields", List.of());
     this.requireJSON = ConfigUtils.getOrDefault(config, "requireJSON", false);
   }
 
@@ -126,9 +126,9 @@ public class PromptOllama extends Stage {
     return null;
   }
 
-  // Creates an OllamaChatRequest using all of the fields, if fields is null, or only the specified fields from the document, as Strings.
+  // Creates an OllamaChatRequest using all the fields, if fields is null, or only the specified fields from the document, as Strings.
   private OllamaChatRequest createRequestWithSpecifiedFields(Document doc) {
-    if (fields == null) {
+    if (fields.isEmpty()) {
       return chatBuilder.withMessage(OllamaChatMessageRole.USER, doc.toString()).build();
     } else {
       ObjectNode requestNode = mapper.createObjectNode();

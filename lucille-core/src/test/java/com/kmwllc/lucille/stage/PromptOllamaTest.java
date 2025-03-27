@@ -4,11 +4,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -19,11 +23,11 @@ import io.github.ollama4j.models.chat.OllamaChatResponseModel;
 import io.github.ollama4j.models.chat.OllamaChatResult;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
-import org.mockito.Mockito;
 
 public class PromptOllamaTest {
 
   private final StageFactory factory = StageFactory.of(PromptOllama.class);
+  private static final ObjectMapper mapper = new ObjectMapper();
 
   private final String firstEnronResponse = """
 {
@@ -39,18 +43,7 @@ public class PromptOllamaTest {
 }
 """;
 
-  private OllamaChatResult createMockChatResultWithMessage(String messageStr) {
-    // Supporting the call to: chatResult.getResponseModel().getMessage().getContent()
-    OllamaChatResult chatResult = mock(OllamaChatResult.class);
-    OllamaChatResponseModel responseModel = mock(OllamaChatResponseModel.class);
-    OllamaChatMessage chatMessage = mock(OllamaChatMessage.class);
-
-    when(chatResult.getResponseModel()).thenReturn(responseModel);
-    when(responseModel.getMessage()).thenReturn(chatMessage);
-    when(chatMessage.getContent()).thenReturn(messageStr);
-
-    return chatResult;
-  }
+  private final String noJsonResponse = "Person is trying to hide something from their boss.";
 
   @Test
   public void testOllama() throws Exception {
@@ -85,66 +78,130 @@ public class PromptOllamaTest {
 
   @Test
   public void testFields() throws Exception {
-    Stage stage = factory.get("PromptOllamaTest/fields.conf");
+    OllamaChatResult firstResult = createMockChatResultWithMessage(firstEnronResponse);
+    OllamaChatResult secondResult = createMockChatResultWithMessage(secondEnronResponse);
 
-    // TODO: In the mocked test, make sure the request doesn't contain "eps" - it is not in "fields".
-    Document doc = Document.create("doc1");
-    doc.setField("stock_name", "Apple Inc.");
-    doc.setField("company_summary", "Apple Inc. is a global technology company known for its iPhones, Mac computers, iPads, and software ecosystem. It emphasizes innovation, design, privacy, and premium user experiences.");
-    doc.setField("pe_multiple", 32.1);
-    doc.setField("eps", "6.42");
+    try (MockedConstruction<OllamaAPI> mockAPIConstruction = mockConstruction(OllamaAPI.class, (mockAPI, context) -> {
+      when(mockAPI.chat(any()))
+          // Verifying that "daySent", which is NOT specified in fields, is not present in the request JSON
+          .then(invocation -> {
+            OllamaChatRequest request = invocation.getArgument(0, OllamaChatRequest.class);
+            String recentMessageContent = request.getMessages().get(1).getContent();
 
-    Document doc2 = Document.create("doc2");
-    doc2.setField("stock_name", "Aerotyne International");
-    doc2.setField("company_summary", "Aerotyne International is a cutting-edge firm poised for explosive growth in aerospace technology. Ground-floor opportunity");
-    doc2.setField("pe_multiple", "N/A");
-    doc2.setField("eps", "-300.21");
+            if (stringJsonHasFields(recentMessageContent, "daySent")) {
+              fail("The message content had fields it should not have had.");
+            }
 
-    stage.processDocument(doc);
-    stage.processDocument(doc2);
+            return firstResult;
+          })
+          .then(invocation -> {
+            OllamaChatRequest request = invocation.getArgument(0, OllamaChatRequest.class);
+            String recentMessageContent = request.getMessages().get(2).getContent();
 
-    assertTrue(doc.has("rating"));
-    assertTrue(doc.has("opinion"));
+            if (stringJsonHasFields(recentMessageContent, "daySent")) {
+              fail("The message content had fields it should not have had.");
+            }
 
-    assertTrue(doc2.has("rating"));
-    assertTrue(doc2.has("opinion"));
+            return secondResult;
+          });
+    })) {
+      Stage stage = factory.get("PromptOllamaTest/fields.conf");
+
+      Document doc1 = Document.create("doc1");
+      doc1.setField("message", "Let's try to keep this hidden, wouldn't want the boss finding out.");
+      doc1.setField("sender", "j@abcdef.com");
+      doc1.setField("daySent", "March 20, 2000");
+
+      Document doc2 = Document.create("doc2");
+      doc2.setField("message",
+          "We want to make sure we are reporting higher earnings for the next quarter. You have as much leeway as you need. CEO is very focused on beating projections to bolster confidence in the markets.");
+      doc2.setField("sender", "e1Jamie@company.com");
+      doc2.setField("daySent", "September 21st, 2003");
+
+      stage.processDocument(doc1);
+      stage.processDocument(doc2);
+    }
   }
 
   // The LLM isn't outputting a JSON response. requireJSON is set to false by default.
   @Test
   public void testNoJsonPrompt() throws Exception {
-    Stage stage = factory.get("PromptOllamaTest/noJsonPrompt.conf");
+    OllamaChatResult result = createMockChatResultWithMessage(noJsonResponse);
 
     Document doc = Document.create("doc1");
     doc.setField("message", "Let's try to keep this hidden, wouldn't want the boss finding out.");
     doc.setField("sender", "j@abcdef.com");
 
-    Document doc2 = Document.create("doc2");
-    doc2.setField("message", "We want to make sure we are reporting higher earnings for the next quarter. You have as much leeway as you need. CEO is very focused on beating projections to bolster confidence in the markets.");
-    doc2.setField("sender", "e1Jamie@enron.com");
+    try (MockedConstruction<OllamaAPI> mockAPIConstruction = mockConstruction(OllamaAPI.class, (mockAPI, context) -> {
+      when(mockAPI.chat(any())).thenReturn(result);
+    })) {
+      Stage stage = factory.get("PromptOllamaTest/noJsonPrompt.conf");
 
-    stage.processDocument(doc);
-    stage.processDocument(doc2);
+      stage.processDocument(doc);
 
-    assertTrue(doc.has("ollamaResponse"));
-    assertTrue(doc2.has("ollamaResponse"));
+      assertFalse(doc.has("fraud"));
+      assertFalse(doc.has("summary"));
+      assertEquals("Person is trying to hide something from their boss.", doc.getString("ollamaResponse"));
+    }
   }
 
   @Test
   public void testRequireJson() throws Exception {
-    Stage stage = factory.get("PromptOllamaTest/example.conf");
+    OllamaChatResult firstResult = createMockChatResultWithMessage(firstEnronResponse);
+    OllamaChatResult noJsonResult = createMockChatResultWithMessage(noJsonResponse);
 
     Document doc = Document.create("doc1");
     doc.setField("message", "Let's try to keep this hidden, wouldn't want the boss finding out.");
     doc.setField("sender", "j@abcdef.com");
 
-    stage.processDocument(doc);
-    System.out.println(doc);
+    try (MockedConstruction<OllamaAPI> mockAPIConstruction = mockConstruction(OllamaAPI.class, (mockAPI, context) -> {
+      when(mockAPI.chat(any())).thenReturn(firstResult);
+    })) {
+      Stage stage = factory.get("PromptOllamaTest/example.conf");
 
-    assertTrue(doc.has("fraud"));
-    assertTrue(doc.has("summary"));
+      stage.processDocument(doc);
 
-    Stage noJsonStage = factory.get("PromptOllamaTest/noJsonPromptRequireJson.conf");
-    assertThrows(StageException.class, () -> noJsonStage.processDocument(doc));
+      assertFalse(doc.getBoolean("fraud"));
+      assertEquals("Person is trying to hide something from their boss.", doc.getString("summary"));
+    }
+
+    try (MockedConstruction<OllamaAPI> mockAPIConstruction = mockConstruction(OllamaAPI.class, (mockAPI, context) -> {
+      when(mockAPI.chat(any())).thenReturn(noJsonResult);
+    })) {
+      Stage noJsonStage = factory.get("PromptOllamaTest/noJsonPromptRequireJson.conf");
+      assertThrows(StageException.class, () -> noJsonStage.processDocument(doc));
+    }
+  }
+
+
+  private OllamaChatResult createMockChatResultWithMessage(String messageStr) {
+    // Supporting the call to: chatResult.getResponseModel().getMessage().getContent()
+    OllamaChatResult chatResult = mock(OllamaChatResult.class);
+    OllamaChatResponseModel responseModel = mock(OllamaChatResponseModel.class);
+    OllamaChatMessage chatMessage = mock(OllamaChatMessage.class);
+
+    when(chatResult.getResponseModel()).thenReturn(responseModel);
+    when(responseModel.getMessage()).thenReturn(chatMessage);
+    when(chatMessage.getContent()).thenReturn(messageStr);
+
+    return chatResult;
+  }
+
+  // Returns whether the given string, which should be json, has any of the given fields. Returns false
+  // if JSON cannot be parsed from the given String.
+  private boolean stringJsonHasFields(String stringJson, String... fields) {
+    try {
+      JsonNode json = mapper.readTree(stringJson);
+
+      for (String field : fields) {
+        if (json.has(field)) {
+          return true;
+        }
+      }
+
+      return false;
+    } catch (JsonProcessingException e) {
+      return false;
+    }
   }
 }
