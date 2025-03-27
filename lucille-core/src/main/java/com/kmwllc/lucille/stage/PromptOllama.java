@@ -27,8 +27,9 @@ import org.slf4j.LoggerFactory;
  * choice what you would like it to do with the document you provide. (For example, ask it to extract all the person names in the Document,
  * or to provide a brief summary, etc.) If your system prompt has the LLM output JSON, the fields in that JSON will be integrated into
  * the Lucille Document. If not, and requireJSON is set to false, the LLM's response will be placed into the "ollamaResponse" field.
+ * Fields will be overwritten if they are already on a Document - modify your system prompt to avoid this, if not desired.
  *
- * It is highly recommended that you instruct your LLM to output only a JSON object, for two primary reasons:
+ * It is recommended that you instruct your LLM to output JSON, for two primary reasons:
  *   1. Many LLMs tend to respond better to system prompts involving JSON.
  *   2. Lucille can automatically add the fields from the response to your Document.
  *
@@ -99,12 +100,7 @@ public class PromptOllama extends Stage {
 
     OllamaChatResult chatResult;
     try {
-      log.debug("Sending request {}:", request);
-
       chatResult = ollamaAPI.chat(request);
-
-      // How you get just the pure response from the LLM
-      log.debug("Got response {}:", chatResult.getResponseModel().getMessage().getContent());
     } catch (Exception e) {
       throw new StageException("Error communicating with Ollama server.", e);
     }
@@ -112,7 +108,7 @@ public class PromptOllama extends Stage {
     // Always try to get JSON from the response, even if requireJSON is false.
     try {
       JsonNode node = mapper.readTree(chatResult.getResponseModel().getMessage().getContent());
-
+      // put all the fields from the JSON onto the Lucille Document.
       node.fields().forEachRemaining(entry -> doc.setField(entry.getKey(), entry.getValue()));
     } catch (JsonProcessingException e) {
       if (requireJSON) {
@@ -129,6 +125,7 @@ public class PromptOllama extends Stage {
   // Creates an OllamaChatRequest using all the fields, if fields is null, or only the specified fields from the document, as Strings.
   private OllamaChatRequest createRequestWithSpecifiedFields(Document doc) {
     if (fields.isEmpty()) {
+      // If no fields specified, default to just using the entire Document.
       return chatBuilder.withMessage(OllamaChatMessageRole.USER, doc.toString()).build();
     } else {
       ObjectNode requestNode = mapper.createObjectNode();
