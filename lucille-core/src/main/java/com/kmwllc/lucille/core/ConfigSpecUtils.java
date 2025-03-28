@@ -5,7 +5,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Utility methods for a ConfigSpec (namely its validation of a Config)
+ * Utility methods for a StageSpec (namely its validation of a Config)
  */
 public class ConfigSpecUtils {
   @SafeVarargs

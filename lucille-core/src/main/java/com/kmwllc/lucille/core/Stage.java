@@ -55,7 +55,7 @@ public abstract class Stage {
   private Counter childCounter;
 
   public Stage(Config config) {
-    this(config, new ConfigSpec());
+    this(config, new StageSpec());
   }
 
   protected Stage(Config config, ConfigSpec configSpec) {
@@ -306,7 +306,7 @@ public abstract class Stage {
       // validate conditions
       if (config.hasPath("conditions")) {
         for (Config condition : config.getConfigList("conditions")) {
-          ConfigSpec.validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST, EMPTY_LIST);
+          StageSpec.validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST, EMPTY_LIST);
         }
       }
     } catch (IllegalArgumentException e) {

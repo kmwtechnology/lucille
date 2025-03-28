@@ -116,7 +116,7 @@ public class ConfigValidationTest {
   
      List<Exception> exceptions2 = exceptions.get("pipeline2");
      assertEquals(2, exceptions2.size());
-  
+
      testException(exceptions1.get(0), IllegalArgumentException.class, "Unknown: " +
          "Config contains unknown property invalid_property");
   

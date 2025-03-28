@@ -51,7 +51,7 @@ public class ApplyRegex extends Stage {
   private Pattern pattern;
 
   public ApplyRegex(Config config) {
-    super(config, new ConfigSpec().withRequiredProperties("source", "dest", "regex")
+    super(config, new StageSpec().withRequiredProperties("source", "dest", "regex")
         .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
 
     this.sourceFields = config.getStringList("source");

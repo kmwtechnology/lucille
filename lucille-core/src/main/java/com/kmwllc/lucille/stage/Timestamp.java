@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.StageSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -23,7 +23,7 @@ public class Timestamp extends Stage {
   private final String destField;
 
   public Timestamp(Config config) {
-    super(config, new ConfigSpec().withRequiredProperties("dest_field"));
+    super(config, new StageSpec().withRequiredProperties("dest_field"));
     this.destField = config.getString("dest_field");
   }
 

@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.StageSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -37,7 +37,7 @@ public class Print extends Stage {
   private List<String> excludeFields;
 
   public Print(Config config) {
-    super(config, new ConfigSpec().withOptionalProperties("shouldLog", "outputFile",
+    super(config, new StageSpec().withOptionalProperties("shouldLog", "outputFile",
         "overwriteFile", "excludeFields"));
     this.outputFile = config.hasPath("outputFile") ? config.getString("outputFile") : null;
     this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;
