@@ -29,13 +29,9 @@ import java.util.stream.Collectors;
  *       Can be 'must' or 'must_not'. Defaults to must.
  * </ul>
  *
- * <p>Config validation:<br>
- * The config validation will happen based on {@link Stage#optionalProperties}, {@link
- * Stage#requiredProperties}, {@link Stage#requiredParents}, and {@link Stage#optionalParents}.
- * Note that all of these properties are stored as sets and are disjoint from each other. As the
- * name suggests {@link Stage#requiredProperties} and {@link Stage#requiredParents} are required to
- * be present in the config while {@link Stage#optionalProperties} and {@link Stage#optionalParents}
- * are optional.
+ * All stages will have their configuration, including conditions, validated by {@link ConfigSpec#validate(Config)}. In the Stage constructor, define
+ * the required/optional properties/parents via a StageSpec. The StageSpec's display name will be set by {@link Stage} and then
+ * validated. A {@link StageSpec} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
  */
 public abstract class Stage {
 

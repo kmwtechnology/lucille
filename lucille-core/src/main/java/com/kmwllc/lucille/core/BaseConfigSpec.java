@@ -8,6 +8,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * The base implementation of a ConfigSpec.
+ */
 public abstract class BaseConfigSpec implements ConfigSpec {
 
   private final Set<String> requiredProperties;
@@ -17,6 +20,9 @@ public abstract class BaseConfigSpec implements ConfigSpec {
 
   private String displayName;
 
+  /**
+   * Creates the base implementation of a ConfigSpec. DisplayName is initially set to "unknown".
+   */
   public BaseConfigSpec() {
     requiredProperties = new HashSet<>();
     optionalProperties = new HashSet<>();
@@ -54,6 +60,7 @@ public abstract class BaseConfigSpec implements ConfigSpec {
     this.displayName = newDisplayName;
   }
 
+  @Override
   public void validate(Config config) {
     if (!ConfigSpecUtils.disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
       throw new IllegalArgumentException(displayName
@@ -94,9 +101,14 @@ public abstract class BaseConfigSpec implements ConfigSpec {
     }
   }
 
+  @Override
   public Set<String> getLegalProperties() {
     return ConfigSpecUtils.mergeSets(requiredProperties, optionalProperties, getDefaultSpecProperties());
   }
 
+  /**
+   * Returns the default, allowed properties associated with this specific ConfigSpec implementation.
+   * @return the default, allowed properties associated with this specific ConfigSpec implementation.
+   */
   protected abstract Set<String> getDefaultSpecProperties();
 }
