@@ -120,7 +120,8 @@ public class Runner {
         renderConfig(config);
       }
       if (cli.hasOption("validate")) {
-        logValidation(validatePipelines(config));
+        logValidation(validateConnectors(config), "Connector");
+        logValidation(validatePipelines(config), "Pipeline");
       }
       return;
     }
@@ -162,24 +163,21 @@ public class Runner {
     return result.getHistory();
   }
 
-  // Returns a mapping from pipeline names to the list of exceptions produced when validating them.
-  private static void logValidation(Map<String, List<Exception>> exceptions) {
-    log.info(stringifyValidation(exceptions));
+  private static void logValidation(Map<String, List<Exception>> exceptions, String validationName) {
+    log.info(stringifyValidation(exceptions, validationName));
   }
 
   /**
    * Returns a stringified version of the given map of exceptions. 
    */
-  public static String stringifyValidation(Map<String, List<Exception>> exceptions) {
-    // TODO: take in a name so it doesn't just say "Configuration is valid"
+  public static String stringifyValidation(Map<String, List<Exception>> exceptions, String validationName) {
     if (exceptions.entrySet().stream().allMatch(e -> e.getValue().isEmpty())) {
-      return "Configuration is valid";
+      return validationName + " Configuration is valid";
     } else {
-      StringBuilder message = new StringBuilder("Configuration is invalid. Printing the list of exceptions for each pipeline\n");
+      StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. Printing the list of exceptions for each pipeline\n");
 
-      // TODO: Possibly add list of connectors which are being used, their piplines, and if those pipelines are valid
       for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
-        message.append("\tPipeline: ").append(entry.getKey()).append("\tError count: ").append(entry.getValue().size())
+        message.append("\t" + validationName + ": ").append(entry.getKey()).append("\tError count: ").append(entry.getValue().size())
             .append("\n");
         int i = 1;
 
@@ -196,18 +194,18 @@ public class Runner {
   }
 
   public static Map<String, List<Exception>> runInValidationMode(Config config) throws Exception {
-    Map<String, List<Exception>> exceptions = validatePipelines(config);
-    logValidation(exceptions);
+    Map<String, List<Exception>> pipelineExceptions = validatePipelines(config);
+    logValidation(pipelineExceptions, "Pipeline");
 
     Map<String, List<Exception>> connectorExceptions = validateConnectors(config);
-    logValidation(connectorExceptions);
+    logValidation(connectorExceptions, "Connector");
 
     // TODO: Something a bit cleaner here
-    exceptions.putAll(connectorExceptions);
-    return exceptions;
+    pipelineExceptions.putAll(connectorExceptions);
+    return pipelineExceptions;
   }
 
-  public static Map<String, List<Exception>> validateConnectors(Config rootConfig) throws Exception {
+  private static Map<String, List<Exception>> validateConnectors(Config rootConfig) throws Exception {
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
 
     // Resolve the config in case it is referenced as another file, but don't worry about providing system values
@@ -217,7 +215,7 @@ public class Runner {
       String name = connectorConfig.getString("name");
 
       if (!exceptionMap.containsKey(name)) {
-        // Still uses a List so we can support extra for duplicate pipeline names
+        // Still uses a List so we can support extra exceptions for duplicate pipeline names
         exceptionMap.put(name, Connector.validate(connectorConfig));
       } else {
         exceptionMap.get(name).add(new Exception("There exists a connector with the same name"));
@@ -231,7 +229,7 @@ public class Runner {
    * Returns a mapping from pipline names to the list of exceptions produced when validating them. TODO: create a validateEverything(Config config) method 
    * which makes a call to this method as well as calls which validate other parts of the config
    */
-  public static Map<String, List<Exception>> validatePipelines(Config config) throws Exception {
+  private static Map<String, List<Exception>> validatePipelines(Config config) throws Exception {
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
     for (Config pipelineConfig : config.getConfigList("pipelines")) {
       String name = pipelineConfig.getString("name");
