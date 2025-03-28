@@ -17,6 +17,8 @@ public class ConfigSpec {
 
   private final String displayName;
 
+  private static final Set<String> DEFAULT_ALLOWED_PROPERTIES = Set.of("name", "class", "conditions", "conditionPolicy");
+
   public ConfigSpec() {
     this("Unknown");
   }
@@ -59,7 +61,7 @@ public class ConfigSpec {
     Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
     for (String property : requiredProperties) {
       if (!keys.contains(property)) {
-        throw new IllegalArgumentException(displayName + ": Stage config must contain property "
+        throw new IllegalArgumentException(displayName + ": Config must contain property "
             + property);
       }
     }
@@ -68,23 +70,23 @@ public class ConfigSpec {
     // 1. all remaining properties are in the optional set or are nested;
     // 2. all required parents are present
     Set<String> observedRequiredParents = new HashSet<>();
-    Set<String> legalProperties = ConfigSpecUtils.mergeSets(requiredProperties, optionalProperties);
+    Set<String> legalProperties = ConfigSpecUtils.mergeSets(requiredProperties, optionalProperties, DEFAULT_ALLOWED_PROPERTIES);
     for (String key : keys) {
       if (!legalProperties.contains(key)) {
         String parent = ConfigSpecUtils.getParent(key);
         if (parent == null) {
-          throw new IllegalArgumentException(displayName + ": Stage config contains unknown property "
+          throw new IllegalArgumentException(displayName + ": Config contains unknown property "
               + key);
         } else if (requiredParents.contains(parent)) {
           observedRequiredParents.add(parent);
         } else if (!optionalParents.contains(parent)) {
-          throw new IllegalArgumentException(displayName + ": Stage config contains unknown property "
+          throw new IllegalArgumentException(displayName + ": Config contains unknown property "
               + key);
         }
       }
     }
     if (observedRequiredParents.size() != requiredParents.size()) {
-      throw new IllegalArgumentException(displayName + ": Stage config is missing required parents: " +
+      throw new IllegalArgumentException(displayName + ": Config is missing required parents: " +
           Sets.difference(requiredParents, observedRequiredParents));
     }
   }
@@ -100,6 +102,6 @@ public class ConfigSpec {
   }
 
   public Set<String> getLegalProperties() {
-    return ConfigSpecUtils.mergeSets(requiredProperties, optionalProperties);
+    return ConfigSpecUtils.mergeSets(requiredProperties, optionalProperties, DEFAULT_ALLOWED_PROPERTIES);
   }
 }
