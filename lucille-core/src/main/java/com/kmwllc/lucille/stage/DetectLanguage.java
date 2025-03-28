@@ -3,7 +3,7 @@ package com.kmwllc.lucille.stage;
 import com.cybozu.labs.langdetect.Detector;
 import com.cybozu.labs.langdetect.DetectorFactory;
 import com.cybozu.labs.langdetect.Language;
-import com.kmwllc.lucille.core.StageSpec;
+import com.kmwllc.lucille.core.configSpec.StageSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;

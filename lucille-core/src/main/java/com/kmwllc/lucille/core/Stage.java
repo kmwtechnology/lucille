@@ -4,6 +4,8 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import com.kmwllc.lucille.core.configSpec.ConfigSpec;
+import com.kmwllc.lucille.core.configSpec.StageSpec;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.collections4.iterators.IteratorChain;

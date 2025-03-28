@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.jayway.jsonpath.*;
 import com.jayway.jsonpath.spi.json.JacksonJsonProvider;
 import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
-import com.kmwllc.lucille.core.StageSpec;
+import com.kmwllc.lucille.core.configSpec.StageSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;

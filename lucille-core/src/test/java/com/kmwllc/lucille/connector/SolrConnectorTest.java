@@ -24,7 +24,7 @@ public class SolrConnectorTest {
 
   @Test
   public void testExecute() throws Exception {
-    Config config = ConfigFactory.load("SolrConnectorTest/execute.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrConnectorTest/execute.conf");
     SolrClient mockClient = mock(SolrClient.class);
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
@@ -70,7 +70,7 @@ public class SolrConnectorTest {
 
   @Test(expected = ConnectorException.class)
   public void testFailingExecute() throws SolrServerException, IOException, ConnectorException {
-    Config config = ConfigFactory.load("SolrConnectorTest/execute.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrConnectorTest/execute.conf");
     SolrClient mockClient = mock(SolrClient.class);
     Publisher mockPublisher = mock(Publisher.class);
     when(mockClient.request(any(GenericSolrRequest.class))).thenThrow();
@@ -81,7 +81,7 @@ public class SolrConnectorTest {
 
   @Test
   public void testActions() throws ConnectorException, SolrServerException, IOException {
-    Config config = ConfigFactory.load("SolrConnectorTest/config.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrConnectorTest/config.conf");
     SolrClient mockClient = mock(SolrClient.class);
     when(mockClient.request(any(GenericSolrRequest.class))).thenReturn(new NamedList<>());
     Connector connector = new SolrConnector(config, mockClient);
@@ -95,7 +95,7 @@ public class SolrConnectorTest {
 
   @Test(expected = ConnectorException.class)
   public void testFailingActions() throws SolrServerException, IOException, ConnectorException {
-    Config config = ConfigFactory.load("SolrConnectorTest/config.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrConnectorTest/config.conf");
     SolrClient mockClient = mock(SolrClient.class);
     when(mockClient.request(any(GenericSolrRequest.class))).thenThrow();
     Connector connector = new SolrConnector(config, mockClient);
@@ -106,7 +106,7 @@ public class SolrConnectorTest {
 
   @Test
   public void testRunIdReplacement() throws SolrServerException, IOException, ConnectorException {
-    Config config = ConfigFactory.load("SolrConnectorTest/runId.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrConnectorTest/runId.conf");
     SolrClient mockClient = mock(SolrClient.class);
     when(mockClient.request(any(GenericSolrRequest.class))).thenReturn(new NamedList<>());
     SolrConnector connector = new SolrConnector(config, mockClient);
@@ -124,7 +124,7 @@ public class SolrConnectorTest {
 
   @Test
   public void testRunIdReplacementJson() throws SolrServerException, IOException, ConnectorException {
-    Config config = ConfigFactory.load("SolrConnectorTest/runIdJson.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrConnectorTest/runIdJson.conf");
     SolrClient mockClient = mock(SolrClient.class);
     when(mockClient.request(any(GenericSolrRequest.class))).thenReturn(new NamedList<>());
     SolrConnector connector = new SolrConnector(config, mockClient);

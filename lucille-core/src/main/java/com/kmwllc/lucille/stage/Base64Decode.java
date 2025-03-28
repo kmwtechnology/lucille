@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.StageSpec;
+import com.kmwllc.lucille.core.configSpec.StageSpec;
 import java.util.Iterator;
 
 import org.apache.commons.codec.binary.Base64;

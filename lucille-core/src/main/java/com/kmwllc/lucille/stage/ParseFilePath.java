@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.StageSpec;
+import com.kmwllc.lucille.core.configSpec.StageSpec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import java.io.File;
 import java.util.Arrays;

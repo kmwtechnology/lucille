@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.configSpec.ConnectorSpec;
 import com.typesafe.config.Config;
 
 public class NoOpConnector extends AbstractConnector {
@@ -11,7 +12,7 @@ public class NoOpConnector extends AbstractConnector {
   private static Publisher suppliedPublisher = null;
 
   public NoOpConnector(Config config) {
-    super(config);
+    super(config, new ConnectorSpec());
   }
 
   @Override

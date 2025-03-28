@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.core.configSpec.StageSpec;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 

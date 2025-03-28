@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core;
+package com.kmwllc.lucille.core.configSpec;
 
 import com.google.common.collect.Sets;
 import com.typesafe.config.Config;

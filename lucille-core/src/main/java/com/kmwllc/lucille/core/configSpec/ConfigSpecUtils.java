@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core;
+package com.kmwllc.lucille.core.configSpec;
 
 import java.util.Collections;
 import java.util.HashSet;

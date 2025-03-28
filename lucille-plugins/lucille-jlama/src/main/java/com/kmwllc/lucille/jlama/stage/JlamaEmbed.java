@@ -5,7 +5,7 @@ import com.github.tjake.jlama.model.ModelSupport;
 import com.github.tjake.jlama.model.functions.Generator.PoolingType;
 import com.github.tjake.jlama.safetensors.DType;
 import com.github.tjake.jlama.safetensors.SafeTensorSupport;
-import com.kmwllc.lucille.core.StageSpec;
+import com.kmwllc.lucille.core.configSpec.StageSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;

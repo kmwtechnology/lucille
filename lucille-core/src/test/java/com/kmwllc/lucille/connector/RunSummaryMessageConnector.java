@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.configSpec.ConnectorSpec;
 import com.typesafe.config.Config;
 
 /**
@@ -12,7 +13,7 @@ public class RunSummaryMessageConnector extends AbstractConnector {
   public static final String MESSAGE = "RunSummaryMessage123";
 
   public RunSummaryMessageConnector(Config config) {
-    super(config);
+    super(config, new ConnectorSpec());
   }
 
   @Override

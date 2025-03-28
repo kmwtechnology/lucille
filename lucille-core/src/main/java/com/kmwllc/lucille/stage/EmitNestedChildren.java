@@ -2,7 +2,7 @@ package com.kmwllc.lucille.stage;
 
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.kmwllc.lucille.core.StageSpec;
+import com.kmwllc.lucille.core.configSpec.StageSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;

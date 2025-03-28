@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector.xml;
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.configSpec.ConnectorSpec;
 import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
@@ -39,7 +40,9 @@ public class XMLConnector extends AbstractConnector {
 
 
   public XMLConnector(Config config) {
-    super(config);
+    super(config, new ConnectorSpec()
+        .withRequiredProperties("xmlRootPath", "xmlIdPath", "encoding", "outputField")
+        .withOptionalProperties("filePaths", "urlFiles"));
     filePaths = config.hasPath("filePaths") ? config.getStringList("filePaths") : null;
     urlFiles = config.hasPath("urlFiles") ? config.getStringList("urlFiles") : null;
     this.xmlFileHandler = new XMLFileHandler(config);

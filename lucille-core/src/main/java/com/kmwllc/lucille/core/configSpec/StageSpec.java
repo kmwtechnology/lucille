@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core;
+package com.kmwllc.lucille.core.configSpec;
 
 import com.typesafe.config.Config;
 import java.util.List;

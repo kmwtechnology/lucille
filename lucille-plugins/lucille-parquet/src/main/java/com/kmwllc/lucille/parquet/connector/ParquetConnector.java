@@ -4,6 +4,7 @@ import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.configSpec.ConnectorSpec;
 import com.typesafe.config.Config;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -42,7 +43,9 @@ public class ParquetConnector extends AbstractConnector {
 
 
   public ParquetConnector(Config config) {
-    super(config);
+    super(config, new ConnectorSpec()
+        .withRequiredProperties("path", "id_field", "fs_uri")
+        .withOptionalProperties("s3_key", "s3_secret", "limit", "start"));
     this.path = config.getString("path");
     this.idField = config.getString("id_field");
     this.fsUri = config.getString("fs_uri");

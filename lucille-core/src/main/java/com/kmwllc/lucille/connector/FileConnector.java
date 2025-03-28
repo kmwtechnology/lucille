@@ -4,6 +4,7 @@ import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.configSpec.ConnectorSpec;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
@@ -101,7 +102,11 @@ public class FileConnector extends AbstractConnector {
   private final URI storageURI;
 
   public FileConnector(Config config) throws ConnectorException {
-    super(config);
+    super(config, new ConnectorSpec()
+        .withRequiredProperties("pathToStorage")
+        .withOptionalProperties("includes", "excludes")
+        .withOptionalParents("fileOptions", "s3", "gcp", "azure"));
+
     this.pathToStorage = config.getString("pathToStorage");
     // compile include and exclude regex paths or set an empty list if none were provided (allow all files)
     List<String> includeRegex = config.hasPath("includes") ?
