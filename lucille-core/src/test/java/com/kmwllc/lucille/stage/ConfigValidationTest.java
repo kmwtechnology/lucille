@@ -63,7 +63,7 @@ public class ConfigValidationTest {
   @Test
   public void testDuplicatePipeline() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("shared-pipeline.conf"));
-    assertEquals(1, exceptions.size());
+    assertEquals(3, exceptions.size());
 
     List<Exception> exceptions1 = exceptions.get("pipeline1");
     assertEquals(2, exceptions1.size());
@@ -109,7 +109,7 @@ public class ConfigValidationTest {
    @Test
    public void testValidationModeException() throws Exception {
      Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
-     assertEquals(2, exceptions.size());
+     assertEquals(4, exceptions.size());
   
      List<Exception> exceptions1 = exceptions.get("pipeline1");
      assertEquals(2, exceptions1.size());

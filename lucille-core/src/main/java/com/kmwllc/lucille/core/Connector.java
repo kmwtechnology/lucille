@@ -96,6 +96,25 @@ public interface Connector extends AutoCloseable {
     return connectors;
   }
 
+  static List<Exception> validate(Config connectorConfig) throws Exception {
+    // We still use a list so we can support adding extra exceptions in the event of duplicate connector names,
+    // even though we will only ever add one exception in the body of this method!
+    List<Exception> exceptionList = new ArrayList<>();
+
+    try {
+      Class<?> clazz = Class.forName(connectorConfig.getString("class"));
+      Constructor<?> constructor = clazz.getConstructor(Config.class);
+
+      // Creates the connector, AbstractConnector will run validation and throw an exception as needed.
+      constructor.newInstance(connectorConfig);
+    } catch (ClassNotFoundException e) {
+      exceptionList.add(new ConnectorException("Connector class not found: " + e.getMessage()));
+    } catch (Exception e) {
+      exceptionList.add(e);
+    }
+    return exceptionList;
+  }
+
   /**
    * Returns a message that should be included in the Lucille Run Summary for this connector instance.
    */

@@ -11,6 +11,7 @@ import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
+import com.typesafe.config.ConfigResolveOptions;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
@@ -170,6 +171,7 @@ public class Runner {
    * Returns a stringified version of the given map of exceptions. 
    */
   public static String stringifyValidation(Map<String, List<Exception>> exceptions) {
+    // TODO: take in a name so it doesn't just say "Configuration is valid"
     if (exceptions.entrySet().stream().allMatch(e -> e.getValue().isEmpty())) {
       return "Configuration is valid";
     } else {
@@ -196,7 +198,33 @@ public class Runner {
   public static Map<String, List<Exception>> runInValidationMode(Config config) throws Exception {
     Map<String, List<Exception>> exceptions = validatePipelines(config);
     logValidation(exceptions);
+
+    Map<String, List<Exception>> connectorExceptions = validateConnectors(config);
+    logValidation(connectorExceptions);
+
+    // TODO: Something a bit cleaner here
+    exceptions.putAll(connectorExceptions);
     return exceptions;
+  }
+
+  public static Map<String, List<Exception>> validateConnectors(Config rootConfig) throws Exception {
+    Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
+
+    // Resolve the config in case it is referenced as another file, but don't worry about providing system values
+    rootConfig = rootConfig.resolve();
+
+    for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
+      String name = connectorConfig.getString("name");
+
+      if (!exceptionMap.containsKey(name)) {
+        // Still uses a List so we can support extra for duplicate pipeline names
+        exceptionMap.put(name, Connector.validate(connectorConfig));
+      } else {
+        exceptionMap.get(name).add(new Exception("There exists a connector with the same name"));
+      }
+    }
+
+    return exceptionMap;
   }
 
   /**
