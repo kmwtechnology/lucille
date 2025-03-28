@@ -69,7 +69,7 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions1.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "Unknown: Config contains unknown property invalid_property");
+        "com.kmwllc.lucille.stage.NopStage: Config contains unknown property invalid_property");
     testException(exceptions1.get(1), IllegalArgumentException.class, "Config must contain property fields");
   }
 
@@ -83,7 +83,7 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions1.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "Unknown: Config contains unknown property invalid_property");
+        "com.kmwllc.lucille.stage.NopStage: Config contains unknown property invalid_property");
 
     testException(exceptions1.get(1), IllegalArgumentException.class, "Config must contain property fields");
   }
@@ -117,7 +117,7 @@ public class ConfigValidationTest {
      List<Exception> exceptions2 = exceptions.get("pipeline2");
      assertEquals(2, exceptions2.size());
 
-     testException(exceptions1.get(0), IllegalArgumentException.class, "Unknown: " +
+     testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NopStage: " +
          "Config contains unknown property invalid_property");
   
      // TODO note that for the following two exceptions, the fields are retrieved before
@@ -129,7 +129,7 @@ public class ConfigValidationTest {
      testException(exceptions2.get(0), IllegalArgumentException.class,
          "Config must contain property dest");
   
-     testException(exceptions2.get(1), IllegalArgumentException.class, "Unknown: " +
+     testException(exceptions2.get(1), IllegalArgumentException.class, "com.kmwllc.lucille.stage.Concatenate: " +
          "Config contains unknown property default_inputs3");
    }
 

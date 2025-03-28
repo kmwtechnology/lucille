@@ -10,7 +10,7 @@ public class StageSpec extends BaseConfigSpec {
 
   // TODO: Require the stage name to be supplied.
   public StageSpec() {
-    super("Unknown");
+    super();
   }
 
   public static void validateConfig(Config config, List<String> requiredProperties, List<String> optionalProperties, List<String> requiredParents, List<String> optionalParents) {

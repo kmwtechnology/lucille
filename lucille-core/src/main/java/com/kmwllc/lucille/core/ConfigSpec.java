@@ -13,6 +13,8 @@ public interface ConfigSpec {
 
   ConfigSpec withOptionalParents(String... properties);
 
+  void setDisplayName(String newDisplayName);
+
   void validate(Config config);
 
   Set<String> getLegalProperties();

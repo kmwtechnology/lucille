@@ -15,14 +15,14 @@ public abstract class BaseConfigSpec implements ConfigSpec {
   private final Set<String> requiredParents;
   private final Set<String> optionalParents;
 
-  private final String displayName;
+  private String displayName;
 
-  public BaseConfigSpec(String displayName) {
+  public BaseConfigSpec() {
     requiredProperties = new HashSet<>();
     optionalProperties = new HashSet<>();
     requiredParents = new HashSet<>();
     optionalParents = new HashSet<>();
-    this.displayName = displayName;
+    this.displayName = "Unknown";
   }
 
   @Override
@@ -47,6 +47,11 @@ public abstract class BaseConfigSpec implements ConfigSpec {
   public ConfigSpec withOptionalParents(String... properties) {
     optionalParents.addAll(Arrays.asList(properties));
     return this;
+  }
+
+  @Override
+  public void setDisplayName(String newDisplayName) {
+    this.displayName = newDisplayName;
   }
 
   public void validate(Config config) {

@@ -42,7 +42,6 @@ public abstract class Stage {
   private static final List<String> EMPTY_LIST = Collections.emptyList();
   private static final List<String> CONDITIONS_OPTIONAL = List.of("operator", "values");
   private static final List<String> CONDITIONS_REQUIRED = List.of("fields");
-  private static final Set<String> OPTIONAL_PROPERTIES = Set.of("class", "name", "conditions", "conditionPolicy");
 
   protected Config config;
   private final ConfigSpec configSpec;
@@ -67,6 +66,8 @@ public abstract class Stage {
 
     this.config = config;
     this.configSpec = configSpec;
+
+    configSpec.setDisplayName(getDisplayName());
 
     // validates the properties that were just assigned
     try {
@@ -317,49 +318,4 @@ public abstract class Stage {
   public Set<String> getLegalProperties() {
     return configSpec.getLegalProperties();
   }
-
-//  // this can be used in a specific stage to validate nested properties
-//  protected void validateConfig(
-//      Config config, Set<String> requiredProperties, Set<String> optionalProperties,
-//      Set<String> requiredParents, Set<String> optionalParents) {
-//
-//    // verifies that set intersection is empty
-//    if (!disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
-//      throw new IllegalArgumentException(getDisplayName()
-//          + ": Properties and parents sets must be disjoint.");
-//    }
-//
-//    // verifies all required properties are present
-//    Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
-//    for (String property : requiredProperties) {
-//      if (!keys.contains(property)) {
-//        throw new IllegalArgumentException(getDisplayName() + ": Stage config must contain property "
-//            + property);
-//      }
-//    }
-//
-//    // verifies that
-//    // 1. all remaining properties are in the optional set or are nested;
-//    // 2. all required parents are present
-//    Set<String> observedRequiredParents = new HashSet<>();
-//    Set<String> legalProperties = mergeSets(requiredProperties, optionalProperties);
-//    for (String key : keys) {
-//      if (!legalProperties.contains(key)) {
-//        String parent = getParent(key);
-//        if (parent == null) {
-//          throw new IllegalArgumentException(getDisplayName() + ": Stage config contains unknown property "
-//              + key);
-//        } else if (requiredParents.contains(parent)) {
-//          observedRequiredParents.add(parent);
-//        } else if (!optionalParents.contains(parent)) {
-//          throw new IllegalArgumentException(getDisplayName() + ": Stage config contains unknown property "
-//              + key);
-//        }
-//      }
-//    }
-//    if (observedRequiredParents.size() != requiredParents.size()) {
-//      throw new IllegalArgumentException(getDisplayName() + ": Stage config is missing required parents: " +
-//          Sets.difference(requiredParents, observedRequiredParents));
-//    }
-//  }
 }
