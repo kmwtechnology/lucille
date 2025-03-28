@@ -49,6 +49,7 @@ public class RunnerManagerTest {
     assertThrows(RunnerManagerException.class, () -> runnerManager.runWithConfig(runId, configId));
 
     // Wait until the run is over
+
     runnerManager.waitForRunCompletion(runId);
 
     // Ensure lucille is not running and make sure we can now kick off a new run

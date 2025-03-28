@@ -3,6 +3,9 @@ package com.kmwllc.lucille.core.configSpec;
 import com.typesafe.config.Config;
 import java.util.Set;
 
+/**
+ * Specifications for a Config and which properties it is allowed / required to have.
+ */
 public interface ConfigSpec {
 
   /**

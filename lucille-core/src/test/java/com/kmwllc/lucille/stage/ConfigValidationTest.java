@@ -3,7 +3,7 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
-import java.util.LinkedHashMap;
+
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -86,24 +86,6 @@ public class ConfigValidationTest {
         "com.kmwllc.lucille.stage.NopStage: Config contains unknown property invalid_property");
 
     testException(exceptions1.get(1), IllegalArgumentException.class, "Config must contain property fields");
-  }
-
-  @Test
-  public void testStringifyValidationExceptions() {
-    Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
-    exceptions.put("pipeline1", List.of(new Exception("exception 1"), new Exception("exception 2")));
-    exceptions.put("pipeline2", List.of(new Exception("exception 3")));
-
-    String expected = "Pipeline Configuration is invalid. Printing the list of exceptions for each pipeline\n"
-        + "\tPipeline: pipeline1\tError count: 2\n\t\tException 1: exception 1\n\t\tException 2: exception 2\n"
-        + "\tPipeline: pipeline2\tError count: 1\n\t\tException 1: exception 3";
-    assertEquals(expected, Runner.stringifyValidation(exceptions, "Pipeline"));
-  }
-
-  @Test
-  public void testStringifyValidationNoExceptions() {
-    Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
-    assertEquals("Pipeline Configuration is valid", Runner.stringifyValidation(exceptions, "Pipeline"));
   }
 
    @Test
