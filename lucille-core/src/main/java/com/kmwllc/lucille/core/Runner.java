@@ -225,8 +225,7 @@ public class Runner {
   }
 
   /**
-   * Returns a mapping from pipline names to the list of exceptions produced when validating them. TODO: create a validateEverything(Config config) method 
-   * which makes a call to this method as well as calls which validate other parts of the config
+   * Returns a mapping from pipline names to the list of exceptions produced when validating them.
    */
   private static Map<String, List<Exception>> validatePipelines(Config config) throws Exception {
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
