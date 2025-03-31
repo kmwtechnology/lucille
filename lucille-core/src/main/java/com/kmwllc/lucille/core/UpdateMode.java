@@ -2,6 +2,11 @@ package com.kmwllc.lucille.core;
 
 import com.typesafe.config.Config;
 
+/**
+ * <p>APPEND: the provided values will be appended to the field.
+ * <p>OVERWRITE: the provided values will overwrite any current field values
+ * <p>SKIP: the provided values will populate the field if the field didn't previously exist; otherwise no change will be made.
+ */
 public enum UpdateMode {
   APPEND("append"), OVERWRITE("overwrite"), SKIP("skip");
 
