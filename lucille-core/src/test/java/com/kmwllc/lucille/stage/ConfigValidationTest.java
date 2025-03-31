@@ -2,8 +2,11 @@ package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
+import com.kmwllc.lucille.core.configSpec.ConfigSpec;
+import com.kmwllc.lucille.core.configSpec.StageSpec;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -88,32 +91,41 @@ public class ConfigValidationTest {
     testException(exceptions1.get(1), IllegalArgumentException.class, "Config must contain property fields");
   }
 
-   @Test
-   public void testValidationModeException() throws Exception {
-     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
-     assertEquals(4, exceptions.size());
-  
-     List<Exception> exceptions1 = exceptions.get("pipeline1");
-     assertEquals(2, exceptions1.size());
-  
-     List<Exception> exceptions2 = exceptions.get("pipeline2");
-     assertEquals(2, exceptions2.size());
+  @Test
+  public void testValidationModeException() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
+    assertEquals(4, exceptions.size());
 
-     testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NopStage: " +
-         "Config contains unknown property invalid_property");
-  
-     // TODO note that for the following two exceptions, the fields are retrieved before
-     //  the config validation is called
-  
-     testException(exceptions1.get(1), IllegalArgumentException.class,
-         "Config must contain property fields");
-  
-     testException(exceptions2.get(0), IllegalArgumentException.class,
-         "Config must contain property dest");
-  
-     testException(exceptions2.get(1), IllegalArgumentException.class, "com.kmwllc.lucille.stage.Concatenate: " +
-         "Config contains unknown property default_inputs3");
-   }
+    List<Exception> exceptions1 = exceptions.get("pipeline1");
+    assertEquals(2, exceptions1.size());
+
+    List<Exception> exceptions2 = exceptions.get("pipeline2");
+    assertEquals(2, exceptions2.size());
+
+    testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NopStage: " +
+        "Config contains unknown property invalid_property");
+
+    // TODO note that for the following two exceptions, the fields are retrieved before
+    //  the config validation is called
+
+    testException(exceptions1.get(1), IllegalArgumentException.class,
+        "Config must contain property fields");
+
+    testException(exceptions2.get(0), IllegalArgumentException.class,
+        "Config must contain property dest");
+
+    testException(exceptions2.get(1), IllegalArgumentException.class, "com.kmwllc.lucille.stage.Concatenate: " +
+        "Config contains unknown property default_inputs3");
+  }
+
+  @Test
+  public void testNonDisjointPropertiesValidation() {
+    ConfigSpec spec = new StageSpec()
+        .withRequiredProperties("property1", "property2")
+        .withOptionalParents("property1", "property3");
+
+    assertThrows(IllegalArgumentException.class, () -> spec.validate(ConfigFactory.empty()));
+  }
 
   private static void processDoc(Class<? extends Stage> stageClass, String config, Document doc)
       throws StageException {

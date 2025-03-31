@@ -9,6 +9,8 @@ import java.util.Set;
  */
 public class ConfigSpecUtils {
 
+  private ConfigSpecUtils() { }
+  
   /**
    * Returns whether the provided sets are disjoint. You must specify at least one set.
    *
