@@ -11,7 +11,6 @@ import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
-import com.typesafe.config.ConfigResolveOptions;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
@@ -168,7 +167,8 @@ public class Runner {
   }
 
   /**
-   * Returns a stringified version of the given map of exceptions. 
+   * Returns a stringified version of the given map of exceptions. Uses the given validation name in logged messages
+   * to clarify which element of the Lucille Config is being validated.
    */
   public static String stringifyValidation(Map<String, List<Exception>> exceptions, String validationName) {
     if (exceptions.entrySet().stream().allMatch(e -> e.getValue().isEmpty())) {
@@ -200,15 +200,14 @@ public class Runner {
     Map<String, List<Exception>> connectorExceptions = validateConnectors(config);
     logValidation(connectorExceptions, "Connector");
 
-    // TODO: Something a bit cleaner here
     pipelineExceptions.putAll(connectorExceptions);
     return pipelineExceptions;
   }
 
-  private static Map<String, List<Exception>> validateConnectors(Config rootConfig) throws Exception {
+  private static Map<String, List<Exception>> validateConnectors(Config rootConfig) {
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
 
-    // Resolve the config in case it is referenced as another file, but don't worry about providing system values
+    // Resolve the config in case it is referenced as another file / has system properties
     rootConfig = rootConfig.resolve();
 
     for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
@@ -216,7 +215,7 @@ public class Runner {
 
       if (!exceptionMap.containsKey(name)) {
         // Still uses a List so we can support extra exceptions for duplicate pipeline names
-        exceptionMap.put(name, Connector.validate(connectorConfig));
+        exceptionMap.put(name, Connector.getConnectorConfigExceptions(connectorConfig));
       } else {
         exceptionMap.get(name).add(new Exception("There exists a connector with the same name"));
       }

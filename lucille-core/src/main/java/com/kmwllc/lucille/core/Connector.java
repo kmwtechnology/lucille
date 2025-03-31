@@ -96,7 +96,7 @@ public interface Connector extends AutoCloseable {
     return connectors;
   }
 
-  static List<Exception> validate(Config connectorConfig) throws Exception {
+  static List<Exception> getConnectorConfigExceptions(Config connectorConfig) {
     // We still use a list so we can support adding extra exceptions in the event of duplicate connector names,
     // even though we will only ever add one exception in the body of this method!
     List<Exception> exceptionList = new ArrayList<>();
