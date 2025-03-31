@@ -9,6 +9,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.configSpec.StageSpec;
 import com.typesafe.config.Config;
 import java.net.URI;
 import java.net.http.HttpClient;
