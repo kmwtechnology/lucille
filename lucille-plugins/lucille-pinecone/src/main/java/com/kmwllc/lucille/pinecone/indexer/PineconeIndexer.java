@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.configSpec.IndexerSpec;
 import com.kmwllc.lucille.pinecone.util.PineconeUtils;
 import io.pinecone.clients.Pinecone;
 import io.pinecone.proto.UpsertResponse;
@@ -54,7 +55,11 @@ public class PineconeIndexer extends Indexer {
   private final String defaultEmbeddingField;
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) throws IndexerException {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, metricsPrefix, localRunId, new IndexerSpec()
+        .withRequiredProperties("apiKey", "index")
+        .withOptionalParents("namespaces")
+        .withOptionalProperties("metadataFields", "mode", "defaultEmbeddingField"));
+
     this.client = new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
     this.indexName = config.getString("pinecone.index");
     this.index = client.getIndexConnection(indexName);
@@ -87,6 +92,9 @@ public class PineconeIndexer extends Indexer {
   public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
     this(config, messenger, metricsPrefix, null);
   }
+
+  @Override
+  public String getIndexerConfigKey() { return "pinecone"; }
 
   @Override
   public boolean validateConnection() {

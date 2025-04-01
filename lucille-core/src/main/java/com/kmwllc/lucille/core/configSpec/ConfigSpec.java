@@ -55,4 +55,16 @@ public interface ConfigSpec {
    */
   Set<String> getLegalProperties();
 
+  /**
+   * Returns a ConfigSpec without any default legal properties.
+   * @return a ConfigSpec without any default legal properties.
+   */
+  static ConfigSpec withNoDefaults() {
+    return new BaseConfigSpec() {
+      @Override
+      protected Set<String> getDefaultSpecProperties() {
+        return Set.of();
+      }
+    };
+  }
 }

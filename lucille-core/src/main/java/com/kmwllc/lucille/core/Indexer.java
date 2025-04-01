@@ -7,6 +7,8 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.kmwllc.lucille.core.configSpec.ConfigSpec;
+import com.kmwllc.lucille.core.configSpec.IndexerSpec;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
@@ -64,7 +66,8 @@ public abstract class Indexer implements Runnable {
     log.debug("terminate");
   }
 
-  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) {
+  // TODO: Write up a comment about how validation will work on the config, etc.
+  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId, ConfigSpec specificImplConfigSpec) {
     this.messenger = messenger;
     this.idOverrideField =
         config.hasPath("indexer.idOverrideField")
@@ -123,9 +126,33 @@ public abstract class Indexer implements Runnable {
     this.stopWatch = new StopWatch();
     this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
     this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
-
     this.localRunId = localRunId;
+
+    if (config.hasPath("indexer")) {
+      // Validate the "indexer" entry in the config
+      IndexerSpec.validateGeneralIndexerConfig(config.getConfig("indexer"));
+    }
+
+    // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present.
+    if (getIndexerConfigKey() != null && config.hasPath(getIndexerConfigKey())) {
+      specificImplConfigSpec.setDisplayName(getDisplayName());
+      specificImplConfigSpec.validate(config.getConfig(getIndexerConfigKey()));
+    }
   }
+
+  /**
+   * Returns the class name plus the Indexer's name in parentheses, if it is not null.
+   */
+  private String getDisplayName() {
+    return this.getClass().getName() +
+        ((this.getIndexerConfigKey() == null) ? "" : " (" + this.getIndexerConfigKey() + ")");
+  }
+
+  /**
+   * Gets the key / parent name of this Indexer in a Config. For example, "elasticsearch" for ElasticsearchIndexer.
+   * @return the key / parent name of this Indexer in a Config.
+   */
+  public abstract String getIndexerConfigKey();
 
   /**
    * Return true if connection to the destination search engine is valid and the relevant index or

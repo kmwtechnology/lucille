@@ -3,6 +3,7 @@ package com.kmwllc.lucille.indexer;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.configSpec.IndexerSpec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.SolrUtils;
@@ -34,13 +35,15 @@ public class SolrIndexer extends Indexer {
 
   public SolrIndexer(
       Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, metricsPrefix, localRunId, new IndexerSpec()
+        .withOptionalProperties("sendEnabled", "useCloudClient", "zkHosts", "url", "defaultCollection"));
     this.solrClient = solrClient;
   }
 
   public SolrIndexer(
       Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, metricsPrefix, localRunId, new IndexerSpec()
+        .withOptionalProperties("sendEnabled", "useCloudClient", "zkHosts", "url", "defaultCollection"));
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
     this.solrClient = getSolrClient(config, bypass);
@@ -56,6 +59,9 @@ public class SolrIndexer extends Indexer {
       Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
     this(config, messenger, bypass, metricsPrefix, null);
   }
+
+  @Override
+  public String getIndexerConfigKey() { return "solr"; }
 
   private static SolrClient getSolrClient(Config config, boolean bypass) {
     return bypass ? null : SolrUtils.getSolrClient(config);
