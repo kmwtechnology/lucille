@@ -62,7 +62,7 @@ public abstract class BaseConfigSpec implements ConfigSpec {
 
   @Override
   public void validate(Config config) {
-    if (!ConfigSpecUtils.disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
+    if (!ConfigSpec.disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
       throw new IllegalArgumentException(displayName
           + ": Properties and parents sets must be disjoint.");
     }
@@ -80,10 +80,10 @@ public abstract class BaseConfigSpec implements ConfigSpec {
     // 1. all remaining properties are in the optional set or are nested;
     // 2. all required parents are present
     Set<String> observedRequiredParents = new HashSet<>();
-    Set<String> legalProperties = ConfigSpecUtils.mergeSets(requiredProperties, optionalProperties, getDefaultSpecProperties());
+    Set<String> legalProperties = ConfigSpec.mergeSets(requiredProperties, optionalProperties, getDefaultSpecProperties());
     for (String key : keys) {
       if (!legalProperties.contains(key)) {
-        String parent = ConfigSpecUtils.getParent(key);
+        String parent = ConfigSpec.getParent(key);
         if (parent == null) {
           throw new IllegalArgumentException(displayName + ": Config contains unknown property "
               + key);
@@ -103,7 +103,7 @@ public abstract class BaseConfigSpec implements ConfigSpec {
 
   @Override
   public Set<String> getLegalProperties() {
-    return ConfigSpecUtils.mergeSets(requiredProperties, optionalProperties, getDefaultSpecProperties());
+    return ConfigSpec.mergeSets(requiredProperties, optionalProperties, getDefaultSpecProperties());
   }
 
   /**
