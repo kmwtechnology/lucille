@@ -153,8 +153,8 @@ public class AzureStorageClient extends BaseStorageClient {
       BlobItemProperties properties = blobItem.getProperties();
       doc.setField(FileConnector.FILE_PATH, getFullPath(params));
 
-      if (properties.getLastModified() != null) {
-        doc.setField(FileConnector.MODIFIED, properties.getLastModified().toInstant());
+      if (getLastModified() != null) {
+        doc.setField(FileConnector.MODIFIED, getLastModified());
       }
 
       if (properties.getCreationTime() != null) {

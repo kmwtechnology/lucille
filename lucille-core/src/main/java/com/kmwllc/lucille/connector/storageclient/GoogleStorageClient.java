@@ -163,8 +163,8 @@ public class GoogleStorageClient extends BaseStorageClient {
 
       doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
 
-      if (blob.getUpdateTimeOffsetDateTime() != null) {
-        doc.setField(FileConnector.MODIFIED, blob.getUpdateTimeOffsetDateTime().toInstant());
+      if (getLastModified() != null) {
+        doc.setField(FileConnector.MODIFIED, getLastModified());
       }
 
       if (blob.getCreateTimeOffsetDateTime() != null) {

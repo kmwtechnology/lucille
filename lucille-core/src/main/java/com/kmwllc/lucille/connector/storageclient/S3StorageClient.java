@@ -169,7 +169,7 @@ public class S3StorageClient extends BaseStorageClient {
       Document doc = createEmptyDocument(params, decompressedFullPathStr);
 
       doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
-      doc.setField(FileConnector.MODIFIED, s3Obj.lastModified());
+      doc.setField(FileConnector.MODIFIED, getLastModified());
 
       // no creation date in S3. no compressor size. Would normally be set here...
 
