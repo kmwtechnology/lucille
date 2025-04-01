@@ -121,6 +121,7 @@ public class Runner {
       if (cli.hasOption("validate")) {
         logValidation(validateConnectors(config), "Connector");
         logValidation(validatePipelines(config), "Pipeline");
+        logValidation(Map.of("Indexer", validateIndexer(config)), "Indexer");
       }
       return;
     }
