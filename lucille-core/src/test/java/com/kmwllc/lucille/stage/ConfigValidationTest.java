@@ -5,8 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
-import com.kmwllc.lucille.core.configSpec.ConfigSpec;
-import com.kmwllc.lucille.core.configSpec.StageSpec;
+import com.kmwllc.lucille.core.ConfigSpec;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -120,7 +119,7 @@ public class ConfigValidationTest {
 
   @Test
   public void testNonDisjointPropertiesValidation() {
-    ConfigSpec spec = new StageSpec()
+    ConfigSpec spec = ConfigSpec.forConnector()
         .withRequiredProperties("property1", "property2")
         .withOptionalParents("property1", "property3");
 

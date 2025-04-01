@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.configSpec.StageSpec;
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -24,7 +24,7 @@ public class TrimWhitespace extends Stage {
   private final List<String> fields;
 
   public TrimWhitespace(Config config) {
-    super(config, new StageSpec().withRequiredProperties("fields"));
+    super(config, ConfigSpec.forStage().withRequiredProperties("fields"));
     this.fields = config.getStringList("fields");
   }
 

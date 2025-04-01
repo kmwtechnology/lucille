@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.configSpec.StageSpec;
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -32,7 +32,7 @@ public class CopyFields extends Stage {
   private final UpdateMode updateMode;
 
   public CopyFields(Config config) {
-    super(config, new StageSpec()
+    super(config, ConfigSpec.forStage()
         .withRequiredProperties("source", "dest")
         .withOptionalProperties("update_mode"));
     this.sourceFields = config.getStringList("source");

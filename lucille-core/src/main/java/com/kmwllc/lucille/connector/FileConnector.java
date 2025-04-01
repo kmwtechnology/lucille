@@ -4,7 +4,7 @@ import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.configSpec.ConnectorSpec;
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
@@ -102,7 +102,7 @@ public class FileConnector extends AbstractConnector {
   private final URI storageURI;
 
   public FileConnector(Config config) throws ConnectorException {
-    super(config, new ConnectorSpec()
+    super(config, ConfigSpec.forConnector()
         .withRequiredProperties("pathToStorage")
         .withOptionalProperties("includes", "excludes")
         .withOptionalParents("fileOptions", "s3", "gcp", "azure"));

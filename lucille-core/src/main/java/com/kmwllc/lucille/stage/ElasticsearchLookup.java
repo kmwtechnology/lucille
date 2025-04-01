@@ -5,7 +5,7 @@ import co.elastic.clients.elasticsearch.core.GetResponse;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.core.configSpec.StageSpec;
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -31,7 +31,7 @@ public class ElasticsearchLookup extends Stage {
   private final UpdateMode updateMode;
 
   public ElasticsearchLookup(Config config) {
-    super(config, new StageSpec()
+    super(config, ConfigSpec.forStage()
         .withOptionalProperties("update_mode")
         .withRequiredProperties("source", "dest", "elasticsearch.url", "elasticsearch.index")
         .withOptionalProperties("elasticsearch.acceptInvalidCert", "update_mode"));

@@ -5,7 +5,7 @@ import com.github.tjake.jlama.model.ModelSupport;
 import com.github.tjake.jlama.model.functions.Generator.PoolingType;
 import com.github.tjake.jlama.safetensors.DType;
 import com.github.tjake.jlama.safetensors.SafeTensorSupport;
-import com.kmwllc.lucille.core.configSpec.StageSpec;
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -72,7 +72,7 @@ public class JlamaEmbed extends Stage {
   private static final Logger log = LoggerFactory.getLogger(JlamaEmbed.class);
 
   public JlamaEmbed(Config config) {
-    super(config, new StageSpec()
+    super(config, ConfigSpec.forStage()
         .withRequiredProperties("model", "source", "pathToStoreModel")
         .withOptionalProperties("workingMemoryType", "workingQuantizationType", "dest", "deleteModelAfter"));
     this.pathToStoreModel = config.getString("pathToStoreModel");

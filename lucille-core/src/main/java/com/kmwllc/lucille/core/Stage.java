@@ -4,8 +4,6 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.kmwllc.lucille.core.configSpec.ConfigSpec;
-import com.kmwllc.lucille.core.configSpec.StageSpec;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.collections4.iterators.IteratorChain;
@@ -33,7 +31,7 @@ import java.util.stream.Collectors;
  *
  * All stages will have their configuration, including conditions, validated by {@link ConfigSpec#validate(Config)}. In the Stage constructor, define
  * the required/optional properties/parents via a StageSpec. The StageSpec's display name will be set by {@link Stage} and then
- * validated. A {@link StageSpec} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
+ * validated. A {@link ConfigSpec#forStage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
  */
 public abstract class Stage {
 
@@ -52,7 +50,7 @@ public abstract class Stage {
   private Counter childCounter;
 
   public Stage(Config config) {
-    this(config, new StageSpec());
+    this(config, ConfigSpec.forStage());
   }
 
   protected Stage(Config config, ConfigSpec configSpec) {
@@ -305,7 +303,7 @@ public abstract class Stage {
       // validate conditions
       if (config.hasPath("conditions")) {
         for (Config condition : config.getConfigList("conditions")) {
-          StageSpec.validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST, EMPTY_LIST);
+          ConfigSpec.validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST, EMPTY_LIST);
         }
       }
     } catch (IllegalArgumentException e) {

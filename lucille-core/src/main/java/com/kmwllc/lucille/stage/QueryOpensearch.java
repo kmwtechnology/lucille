@@ -5,11 +5,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.core.configSpec.StageSpec;
 import com.typesafe.config.Config;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -80,7 +80,7 @@ public class QueryOpensearch extends Stage {
   private JsonNode searchTemplateJson;
 
   public QueryOpensearch(Config config) {
-    super(config, new StageSpec()
+    super(config, ConfigSpec.forStage()
         .withRequiredParents("opensearch")
         .withOptionalProperties("templateName", "searchTemplate", "requiredParamNames",
             "optionalParamNames", "opensearchResponsePath", "destinationField"));

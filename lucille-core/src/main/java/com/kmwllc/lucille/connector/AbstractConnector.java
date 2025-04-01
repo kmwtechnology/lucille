@@ -2,8 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.configSpec.ConfigSpec;
-import com.kmwllc.lucille.core.configSpec.ConnectorSpec;
+import com.kmwllc.lucille.core.ConfigSpec;
 import com.typesafe.config.Config;
 
 /**
@@ -12,7 +11,7 @@ import com.typesafe.config.Config;
  *
  * All Connectors will have their configuration validated by {@link ConfigSpec#validate(Config)}. In the Connector's constructor,
  * define the required/optional properties/parents via a ConnectorSpec. The ConnectorSpec's display name will be set by {@link AbstractConnector}
- * as the Connector's name, and then it will be validated. A {@link ConnectorSpec} always has "name", "class", "pipeline", "docIdPrefix",,
+ * as the Connector's name, and then it will be validated. A {@link ConfigSpec#forConnector()} always has "name", "class", "pipeline", "docIdPrefix",,
  * and "collapse" as legal properties.
  */
 public abstract class AbstractConnector implements Connector {
