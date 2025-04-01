@@ -200,6 +200,9 @@ public class Runner {
     Map<String, List<Exception>> connectorExceptions = validateConnectors(config);
     logValidation(connectorExceptions, "Connector");
 
+    List<Exception> indexerExceptions = validateIndexer(config);
+    logValidation(Map.of("Indexer", indexerExceptions), "Indexer");
+
     pipelineExceptions.putAll(connectorExceptions);
     return pipelineExceptions;
   }
@@ -239,6 +242,17 @@ public class Runner {
       }
     }
     return exceptionMap;
+  }
+
+  private static List<Exception> validateIndexer(Config config) {
+    // Want to create a map of "Indexer" and the specific key, like "elastic"
+    try {
+      IndexerFactory.fromConfig(config, new LocalMessenger(), true, "");
+    } catch (IndexerException e) {
+      return List.of(e);
+    }
+
+    return List.of();
   }
 
   public static void renderConfig(Config config) {

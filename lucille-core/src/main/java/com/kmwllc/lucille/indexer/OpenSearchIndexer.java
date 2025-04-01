@@ -49,7 +49,7 @@ public class OpenSearchIndexer extends Indexer {
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
     super(config, messenger, metricsPrefix, localRunId, new IndexerSpec()
         .withRequiredProperties("index", "url")
-        .withOptionalProperties("update", "sendEnabled", "type"));
+        .withOptionalProperties("update", "sendEnabled", "type", "acceptInvalidCert"));
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create OpenSearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by OpenSearchIndexer.");
