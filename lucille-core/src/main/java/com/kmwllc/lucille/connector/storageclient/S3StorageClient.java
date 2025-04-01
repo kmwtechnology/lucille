@@ -20,6 +20,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -36,22 +37,32 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   protected void validateOptions(Config config) {
-    if (!config.hasPath(S3_ACCESS_KEY_ID)
-        || !config.hasPath(S3_SECRET_ACCESS_KEY)
-        || !config.hasPath(S3_REGION)) {
-      throw new IllegalArgumentException("Missing '" + S3_ACCESS_KEY_ID + "' or '" + S3_SECRET_ACCESS_KEY + "' or '" + S3_REGION + "' in Config for S3StorageClient.");
+    if (!config.hasPath(S3_REGION)) {
+      throw new IllegalArgumentException("Missing '" + S3_REGION + "' in Config for S3StorageClient.");
+    }
+    if (config.hasPath(S3_ACCESS_KEY_ID) ^ config.hasPath(S3_SECRET_ACCESS_KEY)) {
+      throw new IllegalArgumentException("'" + S3_ACCESS_KEY_ID + "' and '" + S3_SECRET_ACCESS_KEY +
+          "' must be specified together or omitted together in Config for S3StorageClient.");
     }
   }
 
   @Override
   protected void initializeStorageClient() throws IOException {
     try {
-      AwsBasicCredentials awsCred = AwsBasicCredentials.create(config.getString(S3_ACCESS_KEY_ID), config.getString(S3_SECRET_ACCESS_KEY));
-      s3 = S3Client
-          .builder()
-          .region(Region.of(config.getString(S3_REGION)))
-          .credentialsProvider(StaticCredentialsProvider.create(awsCred))
-          .build();
+      S3ClientBuilder builder = S3Client.builder();
+
+      if (config.hasPath(S3_REGION)) {
+        builder = builder.region(Region.of(config.getString(S3_REGION)));
+      }
+
+      // use StaticCredentialsProvider when access key is provided,
+      // otherwise don't set a credentials provider but instead implicitly use the default credentials provider chain
+      if (config.hasPath(S3_ACCESS_KEY_ID) && config.hasPath(S3_SECRET_ACCESS_KEY)) {
+        AwsBasicCredentials awsCred = AwsBasicCredentials.create(config.getString(S3_ACCESS_KEY_ID), config.getString(S3_SECRET_ACCESS_KEY));
+        builder = builder.credentialsProvider(StaticCredentialsProvider.create(awsCred));
+      }
+
+      s3 = builder.build();
     } catch (Exception e) {
       throw new IOException("Error occurred building S3Client", e);
     }
