@@ -80,16 +80,18 @@ public class S3StorageClientTest {
   @Test
   public void testConfigValidation() {
 
-    // valid: region + accessKeyId + secretAccessKey
-    new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
-        S3_SECRET_ACCESS_KEY, "secretKey")));
+    // valid: no properties specified
+    new S3StorageClient(ConfigFactory.parseMap(Map.of()));
 
     // valid: region only
     new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1")));
 
-    // invalid: accessKeyID + secretAccesKey without region
-    assertThrows(IllegalArgumentException.class,
-        () -> new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ACCESS_KEY_ID, "accessKey", S3_SECRET_ACCESS_KEY, "secretKey"))));
+    // valid: region + accessKeyId + secretAccessKey
+    new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey")));
+
+    // valid: accessKeyID + secretAccesKey
+    new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ACCESS_KEY_ID, "accessKey", S3_SECRET_ACCESS_KEY, "secretKey")));
 
     // invalid: region + accessKeyId without secretAccessKey
     assertThrows(IllegalArgumentException.class,

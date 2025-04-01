@@ -37,9 +37,6 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   protected void validateOptions(Config config) {
-    if (!config.hasPath(S3_REGION)) {
-      throw new IllegalArgumentException("Missing '" + S3_REGION + "' in Config for S3StorageClient.");
-    }
     if (config.hasPath(S3_ACCESS_KEY_ID) ^ config.hasPath(S3_SECRET_ACCESS_KEY)) {
       throw new IllegalArgumentException("'" + S3_ACCESS_KEY_ID + "' and '" + S3_SECRET_ACCESS_KEY +
           "' must be specified together or omitted together in Config for S3StorageClient.");
