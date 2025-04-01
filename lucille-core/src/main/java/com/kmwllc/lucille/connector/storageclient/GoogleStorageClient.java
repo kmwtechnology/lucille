@@ -109,6 +109,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     private final Blob blob;
 
     public GoogleFileReference(Blob blob) {
+      // This is an inexpensive call that doesn't involve networking / RPC.
       super(blob.getUpdateTimeOffsetDateTime().toInstant());
 
       this.blob = blob;

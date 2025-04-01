@@ -116,6 +116,7 @@ public class S3StorageClient extends BaseStorageClient {
     private final S3Object s3Obj;
 
     public S3FileReference(S3Object s3Obj) {
+      // This is an inexpensive call, this is stored inside the S3Object
       super(s3Obj.lastModified());
 
       this.s3Obj = s3Obj;

@@ -115,6 +115,7 @@ public class AzureStorageClient extends BaseStorageClient {
     private final BlobItem blobItem;
 
     public AzureFileReference(BlobItem blobItem) {
+      // This is an inexpensive call, this is stored inside the BlobItem.
       super(blobItem.getProperties().getLastModified().toInstant());
 
       this.blobItem = blobItem;
