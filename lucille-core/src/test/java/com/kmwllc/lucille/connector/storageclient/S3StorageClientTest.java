@@ -78,6 +78,31 @@ public class S3StorageClientTest {
   }
 
   @Test
+  public void testConfigValidation() {
+
+    // valid: no properties specified
+    new S3StorageClient(ConfigFactory.parseMap(Map.of()));
+
+    // valid: region only
+    new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1")));
+
+    // valid: region + accessKeyId + secretAccessKey
+    new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey")));
+
+    // valid: accessKeyID + secretAccesKey
+    new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ACCESS_KEY_ID, "accessKey", S3_SECRET_ACCESS_KEY, "secretKey")));
+
+    // invalid: region + accessKeyId without secretAccessKey
+    assertThrows(IllegalArgumentException.class,
+        () -> new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey"))));
+
+    // invalid: region + secretAccessKey without accessKeyId
+    assertThrows(IllegalArgumentException.class,
+        () -> new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_SECRET_ACCESS_KEY, "secretKey"))));
+  }
+
+  @Test
   public void testPublishValidFiles() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey"));
