@@ -30,8 +30,7 @@ public abstract class AbstractConnector implements Connector {
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
     this.collapse = config.hasPath("collapse") ? config.getBoolean("collapse") : false;
 
-    spec.setDisplayName(name);
-    spec.validate(config);
+    spec.validate(config, name);
   }
 
   @Override

@@ -137,7 +137,7 @@ public class ConfigValidationTest {
         .withRequiredProperties("property1", "property2")
         .withOptionalParents("property1", "property3");
 
-    assertThrows(IllegalArgumentException.class, () -> spec.validate(ConfigFactory.empty()));
+    assertThrows(IllegalArgumentException.class, () -> spec.validate(ConfigFactory.empty(), "name"));
   }
 
   private static void processDoc(Class<? extends Stage> stageClass, String config, Document doc)
@@ -172,8 +172,7 @@ public class ConfigValidationTest {
 
   private static void testException(Class<? extends Stage> stageClass, String config) {
     try {
-      Stage stage = StageFactory.of(stageClass).get(addPath(config));
-      stage.validateConfigWithConditions();
+      StageFactory.of(stageClass).get(addPath(config));
       fail();
     } catch (StageException e) {
       // expected

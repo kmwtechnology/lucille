@@ -22,8 +22,6 @@ public class Spec {
   private final Set<String> requiredParents;
   private final Set<String> optionalParents;
 
-  private String displayName;
-
   private Spec(Set<String> defaultLegalProperties) {
     this.defaultLegalProperties = defaultLegalProperties;
 
@@ -31,8 +29,6 @@ public class Spec {
     this.optionalProperties = new HashSet<>();
     this.requiredParents = new HashSet<>();
     this.optionalParents = new HashSet<>();
-
-    this.displayName = "Unknown";
   }
 
   // Convenience constructor to create a Spec without default legal properties.
@@ -113,19 +109,13 @@ public class Spec {
   }
 
   /**
-   * Sets this Spec to have the given display name.
-   * @param newDisplayName The new display name for this Spec.
-   */
-  public void setDisplayName(String newDisplayName) {
-    this.displayName = newDisplayName;
-  }
-
-  /**
    * Validates this Config using this Spec's properties. Throws an Exception if the Config is missing a required
    * parent / property or contains a non-legal property.
    * @param config The Config that you want to validate against this Spec's properties.
+   * @throws IllegalArgumentException If the given config is either missing a required property / parent or contains
+   * a non-legal property / parent.
    */
-  public void validate(Config config) {
+  public void validate(Config config, String displayName) {
     if (!disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
       throw new IllegalArgumentException(displayName
           + ": Properties and parents sets must be disjoint.");
@@ -237,18 +227,19 @@ public class Spec {
    * Validates the given config against the given properties, without any default legal properties.
    *
    * @param config The configuration you want to validate.
+   * @param displayName A displayName for the object you're validating. Included in any exceptions / error messages.
    * @param requiredProperties The properties you require in your config.
    * @param optionalProperties The properties allowed in your config.
    * @param requiredParents The parents you require in your config.
    * @param optionalParents The parents you allow in your config.
    */
-  public static void validateConfig(Config config, List<String> requiredProperties, List<String> optionalProperties, List<String> requiredParents, List<String> optionalParents) {
+  public static void validateConfig(Config config, String displayName, List<String> requiredProperties, List<String> optionalProperties, List<String> requiredParents, List<String> optionalParents) {
     Spec spec = new Spec(Set.of())
         .withRequiredProperties(requiredProperties.toArray(new String[0]))
         .withOptionalProperties(optionalProperties.toArray(new String[0]))
         .withRequiredParents(requiredParents.toArray(new String[0]))
         .withOptionalParents(optionalParents.toArray(new String[0]));
 
-    spec.validate(config);
+    spec.validate(config, displayName);
   }
 }

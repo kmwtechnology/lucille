@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
  *       Can be 'must' or 'must_not'. Defaults to must.
  * </ul>
  *
- * All stages will have their configuration, including conditions, validated by {@link Spec#validate(Config)}. In the Stage constructor, define
+ * All stages will have their configuration, including conditions, validated by {@link Spec#validate(Config, String)}. In the Stage constructor, define
  * the required/optional properties/parents via a StageSpec. The StageSpec's display name will be set by {@link Stage} and then
  * validated. A {@link Spec#stage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
  */
@@ -63,14 +63,8 @@ public abstract class Stage {
     this.config = config;
     this.spec = spec;
 
-    spec.setDisplayName(getDisplayName());
-
-    // validates the properties that were just assigned
-    try {
-      validateConfigWithConditions();
-    } catch (StageException e) {
-      throw new IllegalArgumentException(e);
-    }
+    // validates the config as well as any potential conditions. throws an IllegalArgumentException if invalid.
+    validateConfigAndConditions();
 
     this.condition = getMergedConditions();
   }
@@ -295,19 +289,15 @@ public abstract class Stage {
     return config;
   }
 
-  public void validateConfigWithConditions() throws StageException {
+  private void validateConfigAndConditions() {
+    spec.validate(config, getDisplayName());
 
-    try {
-      spec.validate(config);
-
-      // validate conditions
-      if (config.hasPath("conditions")) {
-        for (Config condition : config.getConfigList("conditions")) {
-          Spec.validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST, EMPTY_LIST);
-        }
+    // validate conditions
+    if (config.hasPath("conditions")) {
+      for (Config condition : config.getConfigList("conditions")) {
+        Spec.validateConfig(condition, getDisplayName() + " Condition", CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST,
+            EMPTY_LIST);
       }
-    } catch (IllegalArgumentException e) {
-      throw new StageException(e.getMessage());
     }
   }
 
