@@ -158,8 +158,7 @@ public class ConfigValidationTest {
 
   private static void testException(Class<? extends Stage> stageClass, String config) {
     try {
-      Stage stage = StageFactory.of(stageClass).get(addPath(config));
-      stage.validateConfigWithConditions();
+      StageFactory.of(stageClass).get(addPath(config));
       fail();
     } catch (StageException e) {
       // expected

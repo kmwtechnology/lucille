@@ -70,8 +70,8 @@ public class Pipeline {
       try {
         Class<?> clazz = Class.forName(c.getString("class"));
         Constructor<?> constructor = clazz.getConstructor(Config.class);
-        Stage stage = getInstance(constructor, c);
-        stage.validateConfigWithConditions();
+        // Construct the stage. Validation takes place in the super() constructor.
+        getInstance(constructor, c);
       } catch (ClassNotFoundException e) {
         exceptions.add(new StageException("Stage class not found: " + e.getMessage()));
       } catch (Exception e) {
