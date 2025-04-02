@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -63,7 +63,7 @@ public class DictionaryLookup extends Stage {
   // Dummy value to indicate that a key is present in the HashMap
 
   public DictionaryLookup(Config config) throws StageException {
-    super(config, ConfigSpec.forStage().withRequiredProperties("source", "dest", "dict_path")
+    super(config, Spec.stage().withRequiredProperties("source", "dest", "dict_path")
         .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "ignore_missing_source")
         .withOptionalParents("s3", "gcp", "azure"));
 

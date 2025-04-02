@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.tika.stage;
 
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -59,7 +59,7 @@ public class TextExtractor extends Stage {
   private final FileContentFetcher fileFetcher;
 
   public TextExtractor(Config config) throws StageException {
-    super(config, ConfigSpec.forStage()
+    super(config, Spec.stage()
         .withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
         "metadata_prefix", "metadata_whitelist", "metadata_blacklist", "text_content_limit")
         .withOptionalParents("s3", "gcp", "azure"));

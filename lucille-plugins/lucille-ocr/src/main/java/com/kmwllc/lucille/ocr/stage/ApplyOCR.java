@@ -2,7 +2,7 @@ package com.kmwllc.lucille.ocr.stage;
 
 import static org.bytedeco.leptonica.global.leptonica.pixRead;
 
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.Spec;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -102,7 +102,7 @@ public class ApplyOCR extends Stage {
 
 
   public ApplyOCR(Config config) throws StageException {
-    super(config, ConfigSpec.forStage().withOptionalProperties("pages_field", "extraction_templates", "extract_all_dest")
+    super(config, Spec.stage().withOptionalProperties("pages_field", "extraction_templates", "extract_all_dest")
         .withRequiredProperties("lang", "path_field").withOptionalParents("pages"));
 
     lang = config.getString("lang");

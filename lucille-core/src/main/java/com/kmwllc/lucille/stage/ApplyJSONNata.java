@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.Spec;
 import java.io.IOException;
 import java.util.Iterator;
 import org.slf4j.Logger;
@@ -45,7 +45,7 @@ public class ApplyJSONNata extends Stage {
   private Expressions parsed;
 
   public ApplyJSONNata(Config config) throws StageException {
-    super(config, ConfigSpec.forStage().withOptionalProperties("source", "destination").withRequiredProperties("expression"));
+    super(config, Spec.stage().withOptionalProperties("source", "destination").withRequiredProperties("expression"));
     this.source = ConfigUtils.getOrDefault(config, "source", null);
     this.destination = ConfigUtils.getOrDefault(config, "destination", null);
     this.expression = config.getString("expression");

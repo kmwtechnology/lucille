@@ -4,14 +4,13 @@ import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -102,7 +101,7 @@ public class FileConnector extends AbstractConnector {
   private final URI storageURI;
 
   public FileConnector(Config config) throws ConnectorException {
-    super(config, ConfigSpec.forConnector()
+    super(config, Spec.connector()
         .withRequiredProperties("pathToStorage")
         .withOptionalProperties("includes", "excludes")
         .withOptionalParents("fileOptions", "s3", "gcp", "azure"));

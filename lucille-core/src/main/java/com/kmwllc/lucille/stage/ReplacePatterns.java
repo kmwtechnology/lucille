@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
@@ -58,7 +58,7 @@ public class ReplacePatterns extends Stage {
   private List<Pattern> patterns;
 
   public ReplacePatterns(Config config) throws StageException {
-    super(config, ConfigSpec.forStage().withRequiredProperties("source", "dest", "regex")
+    super(config, Spec.stage().withRequiredProperties("source", "dest", "regex")
         .withOptionalProperties("replacement", "replacement_field", "update_mode", "ignore_case", "multiline", "dotall", "literal"));
 
     this.patterns = new ArrayList<>();

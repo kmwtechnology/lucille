@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -24,7 +24,7 @@ public class DropValues extends Stage {
   private final List<String> values;
 
   public DropValues(Config config) {
-    super(config, ConfigSpec.forStage().withRequiredProperties("source", "values"));
+    super(config, Spec.stage().withRequiredProperties("source", "values"));
     this.sourceFields = config.getStringList("source");
     this.values = config.getStringList("values");
   }

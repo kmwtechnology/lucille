@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -41,7 +41,7 @@ public class MatchQuery extends Stage {
 
 
   public MatchQuery(Config config) {
-    super(config, ConfigSpec.forStage()
+    super(config, Spec.stage()
         .withRequiredProperties(FIELDS_PARAM, QUERIES_PARAM, MATCHEDQUERIES_PARAM));
     fieldsList = config.getStringList(FIELDS_PARAM);
     queryList = config.getObjectList(QUERIES_PARAM);

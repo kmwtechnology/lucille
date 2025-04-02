@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.Spec;
 import java.text.Normalizer;
 import java.util.Iterator;
 import com.kmwllc.lucille.core.ConfigUtils;
@@ -27,7 +27,7 @@ public class RemoveDiacritics extends Stage {
   private final String destination;
 
   public RemoveDiacritics(Config config) throws StageException {
-    super(config, ConfigSpec.forStage().withRequiredProperties("source").withOptionalProperties("destination"));
+    super(config, Spec.stage().withRequiredProperties("source").withOptionalProperties("destination"));
     this.source = config.getString("source");
     this.destination = ConfigUtils.getOrDefault(config, "destination", null);
   }

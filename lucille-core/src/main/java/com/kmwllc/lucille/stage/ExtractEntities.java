@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
@@ -69,7 +69,7 @@ public class ExtractEntities extends Stage {
   private final FileContentFetcher fileFetcher;
 
   public ExtractEntities(Config config) {
-    super(config, ConfigSpec.forStage().withRequiredProperties("source", "dest", "dictionaries")
+    super(config, Spec.stage().withRequiredProperties("source", "dest", "dictionaries")
         .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
             "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field")
         .withOptionalParents("s3", "gcp", "azure"));

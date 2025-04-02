@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 /**
  * Specifications for a Config and which properties it is allowed / required to have.
  */
-public class ConfigSpec {
+public class Spec {
 
   private final Set<String> defaultLegalProperties;
 
@@ -24,7 +24,7 @@ public class ConfigSpec {
 
   private String displayName;
 
-  private ConfigSpec(Set<String> defaultLegalProperties) {
+  private Spec(Set<String> defaultLegalProperties) {
     this.defaultLegalProperties = defaultLegalProperties;
 
     this.requiredProperties = new HashSet<>();
@@ -36,76 +36,76 @@ public class ConfigSpec {
   }
 
   /**
-   * Creates a ConfigSpec with default legal properties suitable for a Stage. Includes name, class, conditions, and
+   * Creates a Spec with default legal properties suitable for a Stage. Includes name, class, conditions, and
    * conditionPolicy.
-   * @return a ConfigSpec with default legal properties suitable for a Stage.
+   * @return a Spec with default legal properties suitable for a Stage.
    */
-  public static ConfigSpec forStage() {
-    return new ConfigSpec(Set.of("name", "class", "conditions", "conditionPolicy"));
+  public static Spec stage() {
+    return new Spec(Set.of("name", "class", "conditions", "conditionPolicy"));
   }
 
   /**
-   * Creates a ConfigSpec with default legal properties suitable for a Connector. Includes name, class, pipeline, docIdPrefix, and
+   * Creates a Spec with default legal properties suitable for a Connector. Includes name, class, pipeline, docIdPrefix, and
    * collapse.
-   * @return a ConfigSpec with default legal properties suitable for a Connector.
+   * @return a Spec with default legal properties suitable for a Connector.
    */
-  public static ConfigSpec forConnector() {
-    return new ConfigSpec(Set.of("name", "class", "pipeline", "docIdPrefix", "collapse"));
+  public static Spec connector() {
+    return new Spec(Set.of("name", "class", "pipeline", "docIdPrefix", "collapse"));
   }
 
 
   /**
-   * Returns this ConfigSpec with the given properties added as required properties.
-   * @param properties The required properties you want to add to this ConfigSpec.
-   * @return This ConfigSpec with the given required properties added.
+   * Returns this Spec with the given properties added as required properties.
+   * @param properties The required properties you want to add to this Spec.
+   * @return This Spec with the given required properties added.
    */
-  public ConfigSpec withRequiredProperties(String... properties) {
+  public Spec withRequiredProperties(String... properties) {
     requiredProperties.addAll(Arrays.asList(properties));
     return this;
   }
 
   /**
-   * Returns this ConfigSpec with the given properties added as optional properties.
-   * @param properties The optional properties you want to add to this ConfigSpec.
-   * @return This ConfigSpec with the given optional properties added.
+   * Returns this Spec with the given properties added as optional properties.
+   * @param properties The optional properties you want to add to this Spec.
+   * @return This Spec with the given optional properties added.
    */
-  public ConfigSpec withOptionalProperties(String... properties) {
+  public Spec withOptionalProperties(String... properties) {
     optionalProperties.addAll(Arrays.asList(properties));
     return this;
   }
 
   /**
-   * Returns this ConfigSpec with the given parents added as required parents.
-   * @param properties The required parents you want to add to this ConfigSpec.
-   * @return This ConfigSpec with the given required parents added.
+   * Returns this Spec with the given parents added as required parents.
+   * @param properties The required parents you want to add to this Spec.
+   * @return This Spec with the given required parents added.
    */
-  public ConfigSpec withRequiredParents(String... properties) {
+  public Spec withRequiredParents(String... properties) {
     requiredParents.addAll(Arrays.asList(properties));
     return this;
   }
 
   /**
-   * Returns this ConfigSpec with the given parents added as optional parents.
-   * @param properties The optional parents you want to add to this ConfigSpec.
-   * @return This ConfigSpec with the given optional parents added.
+   * Returns this Spec with the given parents added as optional parents.
+   * @param properties The optional parents you want to add to this Spec.
+   * @return This Spec with the given optional parents added.
    */
-  public ConfigSpec withOptionalParents(String... properties) {
+  public Spec withOptionalParents(String... properties) {
     optionalParents.addAll(Arrays.asList(properties));
     return this;
   }
 
   /**
-   * Sets this ConfigSpec to have the given display name.
-   * @param newDisplayName The new display name for this ConfigSpec.
+   * Sets this Spec to have the given display name.
+   * @param newDisplayName The new display name for this Spec.
    */
   public void setDisplayName(String newDisplayName) {
     this.displayName = newDisplayName;
   }
 
   /**
-   * Validates this Config using this ConfigSpec's properties. Throws an Exception if the Config is missing a required
+   * Validates this Config using this Spec's properties. Throws an Exception if the Config is missing a required
    * parent / property or contains a non-legal property.
-   * @param config The Config that you want to validate against this ConfigSpec's properties.
+   * @param config The Config that you want to validate against this Spec's properties.
    */
   public void validate(Config config) {
     if (!disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
@@ -148,8 +148,8 @@ public class ConfigSpec {
   }
 
   /**
-   * Returns a Set of the legal properties associated with this ConfigSpec.
-   * @return a Set of the legal properties associated with this ConfigSpec.
+   * Returns a Set of the legal properties associated with this Spec.
+   * @return a Set of the legal properties associated with this Spec.
    */
   public Set<String> getLegalProperties() {
     return mergeSets(requiredProperties, optionalProperties, defaultLegalProperties);
@@ -225,7 +225,7 @@ public class ConfigSpec {
    * @param optionalParents The parents you allow in your config.
    */
   public static void validateConfig(Config config, List<String> requiredProperties, List<String> optionalProperties, List<String> requiredParents, List<String> optionalParents) {
-    ConfigSpec spec = new ConfigSpec(Set.of())
+    Spec spec = new Spec(Set.of())
         .withRequiredProperties(requiredProperties.toArray(new String[0]))
         .withOptionalProperties(optionalProperties.toArray(new String[0]))
         .withRequiredParents(requiredParents.toArray(new String[0]))

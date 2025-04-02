@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -41,7 +41,7 @@ public class AddRandomDate extends Stage {
   private Date rangeEndDate;
 
   public AddRandomDate(Config config) {
-    super(config, ConfigSpec.forStage()
+    super(config, Spec.stage()
         .withOptionalProperties("field_name", "range_start_date", "range_end_date"));
 
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");

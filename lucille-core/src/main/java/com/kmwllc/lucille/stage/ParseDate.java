@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.ConfigSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -49,7 +49,7 @@ public class ParseDate extends Stage {
   private final ZoneId zoneId;
 
   public ParseDate(Config config) {
-    super(config, ConfigSpec.forStage().withRequiredProperties("source", "dest")
+    super(config, Spec.stage().withRequiredProperties("source", "dest")
         .withOptionalProperties("format_strs", "update_mode", "formatters", "time_zone_id"));
 
     this.formatters = new ArrayList<>();
