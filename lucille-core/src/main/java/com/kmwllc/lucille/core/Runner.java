@@ -174,7 +174,7 @@ public class Runner {
     if (exceptions.entrySet().stream().allMatch(e -> e.getValue().isEmpty())) {
       return validationName + " Configuration is valid";
     } else {
-      StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. Printing the list of exceptions for each pipeline\n");
+      StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. Printing the list of exceptions for each element\n");
 
       for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
         message.append("\t" + validationName + ": ").append(entry.getKey()).append("\tError count: ").append(entry.getValue().size())
