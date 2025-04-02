@@ -4,7 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
-import com.kmwllc.lucille.core.configSpec.IndexerSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
@@ -47,7 +47,7 @@ public class OpenSearchIndexer extends Indexer {
   private final boolean update;
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, new IndexerSpec()
+    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withRequiredProperties("index", "url")
         .withOptionalProperties("update", "sendEnabled", "type", "acceptInvalidCert"));
 

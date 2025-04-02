@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
 import com.kmwllc.lucille.core.IndexerException;
-import com.kmwllc.lucille.core.configSpec.IndexerSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.pinecone.util.PineconeUtils;
 import io.pinecone.clients.Pinecone;
 import io.pinecone.proto.UpsertResponse;
@@ -55,7 +55,7 @@ public class PineconeIndexer extends Indexer {
   private final String defaultEmbeddingField;
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) throws IndexerException {
-    super(config, messenger, metricsPrefix, localRunId, new IndexerSpec()
+    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withRequiredProperties("apiKey", "index")
         .withOptionalParents("namespaces")
         .withOptionalProperties("metadataFields", "mode", "defaultEmbeddingField"));

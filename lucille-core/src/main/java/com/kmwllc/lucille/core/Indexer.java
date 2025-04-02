@@ -7,8 +7,6 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.kmwllc.lucille.core.configSpec.ConfigSpec;
-import com.kmwllc.lucille.core.configSpec.IndexerSpec;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
@@ -31,6 +29,11 @@ public abstract class Indexer implements Runnable {
 
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
+
+  // Using a String[] so it can be passed directly to varargs for a Spec
+  private static final String[] OPTIONAL_INDEXER_CONFIG_PROPERTIES = new String[] {"type", "class", "idOverrideField", "indexOverrideField", "ignoreFields", "deletionMarkerField",
+      "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue", "batchSize", "batchTimeout", "logRate",
+      "versionType", "routingField", "sendEnabled"};
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
@@ -67,7 +70,7 @@ public abstract class Indexer implements Runnable {
   }
 
   // TODO: Write up a comment about how validation will work on the config, etc.
-  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId, ConfigSpec specificImplConfigSpec) {
+  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId, Spec specificImplSpec) {
     this.messenger = messenger;
     this.idOverrideField =
         config.hasPath("indexer.idOverrideField")
@@ -130,13 +133,15 @@ public abstract class Indexer implements Runnable {
 
     if (config.hasPath("indexer")) {
       // Validate the "indexer" entry in the config
-      IndexerSpec.validateGeneralIndexerConfig(config.getConfig("indexer"));
+      Spec.withoutDefaults()
+          .withOptionalProperties(OPTIONAL_INDEXER_CONFIG_PROPERTIES)
+          .validate(config.getConfig("indexer"));
     }
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present.
     if (getIndexerConfigKey() != null && config.hasPath(getIndexerConfigKey())) {
-      specificImplConfigSpec.setDisplayName(getDisplayName());
-      specificImplConfigSpec.validate(config.getConfig(getIndexerConfigKey()));
+      specificImplSpec.setDisplayName(getDisplayName());
+      specificImplSpec.validate(config.getConfig(getIndexerConfigKey()));
     }
   }
 

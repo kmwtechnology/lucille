@@ -35,6 +35,11 @@ public class Spec {
     this.displayName = "Unknown";
   }
 
+  // Convenience constructor to create a Spec without default legal properties.
+  private Spec() {
+    this(Set.of());
+  }
+
   /**
    * Creates a Spec with default legal properties suitable for a Stage. Includes name, class, conditions, and
    * conditionPolicy.
@@ -53,6 +58,19 @@ public class Spec {
     return new Spec(Set.of("name", "class", "pipeline", "docIdPrefix", "collapse"));
   }
 
+  /**
+   * Creates a Spec for a specific Indexer implementation (elasticsearch, solr, csv, etc.) There are no common, legal properties
+   * associated with specific Indexers.
+   * <p> This spec should <b>not</b> be used to validate the general "indexer" block of a Lucille configuration.
+   * @return a Spec with default legal properties suitable for a specific Indexer implementation.
+   */
+  public static Spec indexer() { return new Spec(); }
+
+  /**
+   * Creates a Spec without any default, legal properties.
+   * @return a Spec without any default, legal properties.
+   */
+  public static Spec withoutDefaults() { return new Spec(); }
 
   /**
    * Returns this Spec with the given properties added as required properties.

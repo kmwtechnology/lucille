@@ -13,7 +13,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
-import com.kmwllc.lucille.core.configSpec.IndexerSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
 import com.typesafe.config.Config;
@@ -41,7 +41,7 @@ public class ElasticsearchIndexer extends Indexer {
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, ElasticsearchClient client,
       String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, new IndexerSpec()
+    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withRequiredProperties("index", "url")
         .withOptionalProperties("update", "parentName", "sendEnabled", "type")
         .withOptionalParents("join"));
