@@ -36,6 +36,9 @@ public interface FileReference {
   Instant getLastModified();
 
   /**
+   * Returns an InputStream for the file's contents, using the given TraversalParams as needed.
+   * <p> <b>Note:</b> The returned InputStream will not necessarily be buffered!
+   *
    * @return An InputStream for the file's contents, using the given TraversalParams as needed.
    */
   InputStream getContentStream(TraversalParams params);
