@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.configSpec.StageSpec;
+import com.kmwllc.lucille.core.Spec;
 import java.util.Iterator;
 import java.util.List;
 
@@ -37,7 +37,7 @@ public class HashFieldValueToBucket extends Stage {
   private final int numBuckets;
 
   public HashFieldValueToBucket(Config config) throws StageException {
-    super(config, new StageSpec().withRequiredProperties("field_name", "dest", "buckets"));
+    super(config, Spec.stage().withRequiredProperties("field_name", "dest", "buckets"));
     this.fieldName = config.getString("field_name");
     this.buckets = config.getStringList("buckets");
     this.destField = config.getString("dest");

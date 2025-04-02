@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.pinecone.stage;
 
-import com.kmwllc.lucille.core.configSpec.StageSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -49,7 +49,7 @@ public class EmitDocsToDeleteByPrefix extends Stage {
   private final String deletionMarkerFieldValue;
 
   public EmitDocsToDeleteByPrefix(Config config) {
-    super(config, new StageSpec()
+    super(config, Spec.stage()
         .withOptionalProperties("dropOriginal", "addPrefix")
         .withOptionalParents("namespaces")
         .withRequiredProperties("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index"));

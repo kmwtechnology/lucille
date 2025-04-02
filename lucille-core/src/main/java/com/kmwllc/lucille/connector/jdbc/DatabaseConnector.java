@@ -5,7 +5,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.configSpec.ConnectorSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.util.JDBCUtils;
 import com.typesafe.config.Config;
 import java.util.concurrent.TimeUnit;
@@ -76,7 +76,7 @@ public class DatabaseConnector extends AbstractConnector {
 
   // The constructor that takes the config.
   public DatabaseConnector(Config config) {
-    super(config, new ConnectorSpec()
+    super(config, Spec.connector()
         .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
         .withOptionalProperties("fetchSize", "preSQL", "postSQL", "otherSQLs", "otherJoinFields", "ignoreColumns", "connectionRetries", "connectionRetryPause"));
 

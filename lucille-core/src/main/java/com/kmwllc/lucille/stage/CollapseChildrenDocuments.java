@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.configSpec.StageSpec;
+import com.kmwllc.lucille.core.Spec;
 import java.util.Iterator;
 import java.util.List;
 
@@ -24,7 +24,7 @@ public class CollapseChildrenDocuments extends Stage {
   private boolean dropChildren;
   
   public CollapseChildrenDocuments(Config config) { 
-    super(config, new StageSpec().withRequiredProperties("fieldsToCopy", "dropChildren"));
+    super(config, Spec.stage().withRequiredProperties("fieldsToCopy", "dropChildren"));
     fieldsToCopy = config.getStringList("fieldsToCopy"); 
     dropChildren = config.getBoolean("dropChildren"); 
   }

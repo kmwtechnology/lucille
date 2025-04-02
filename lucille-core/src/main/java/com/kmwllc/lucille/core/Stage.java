@@ -4,8 +4,6 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.kmwllc.lucille.core.configSpec.ConfigSpec;
-import com.kmwllc.lucille.core.configSpec.StageSpec;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.collections4.iterators.IteratorChain;
@@ -31,9 +29,9 @@ import java.util.stream.Collectors;
  *       Can be 'must' or 'must_not'. Defaults to must.
  * </ul>
  *
- * All stages will have their configuration, including conditions, validated by {@link ConfigSpec#validate(Config)}. In the Stage constructor, define
+ * All stages will have their configuration, including conditions, validated by {@link Spec#validate(Config)}. In the Stage constructor, define
  * the required/optional properties/parents via a StageSpec. The StageSpec's display name will be set by {@link Stage} and then
- * validated. A {@link StageSpec} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
+ * validated. A {@link Spec#stage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
  */
 public abstract class Stage {
 
@@ -42,7 +40,7 @@ public abstract class Stage {
   private static final List<String> CONDITIONS_REQUIRED = List.of("fields");
 
   protected Config config;
-  private final ConfigSpec configSpec;
+  private final Spec spec;
   private final Predicate<Document> condition;
   private String name;
 
@@ -52,10 +50,10 @@ public abstract class Stage {
   private Counter childCounter;
 
   public Stage(Config config) {
-    this(config, new StageSpec());
+    this(config, Spec.stage());
   }
 
-  protected Stage(Config config, ConfigSpec configSpec) {
+  protected Stage(Config config, Spec spec) {
     if (config == null) {
       throw new IllegalArgumentException("Config cannot be null");
     }
@@ -63,9 +61,9 @@ public abstract class Stage {
     this.name = ConfigUtils.getOrDefault(config, "name", null);
 
     this.config = config;
-    this.configSpec = configSpec;
+    this.spec = spec;
 
-    configSpec.setDisplayName(getDisplayName());
+    spec.setDisplayName(getDisplayName());
 
     // validates the properties that were just assigned
     try {
@@ -300,12 +298,12 @@ public abstract class Stage {
   public void validateConfigWithConditions() throws StageException {
 
     try {
-      configSpec.validate(config);
+      spec.validate(config);
 
       // validate conditions
       if (config.hasPath("conditions")) {
         for (Config condition : config.getConfigList("conditions")) {
-          StageSpec.validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST, EMPTY_LIST);
+          Spec.validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST, EMPTY_LIST);
         }
       }
     } catch (IllegalArgumentException e) {
@@ -314,6 +312,6 @@ public abstract class Stage {
   }
 
   public Set<String> getLegalProperties() {
-    return configSpec.getLegalProperties();
+    return spec.getLegalProperties();
   }
 }

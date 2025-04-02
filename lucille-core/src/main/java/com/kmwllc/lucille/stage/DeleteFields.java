@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.configSpec.StageSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -21,7 +21,7 @@ public class DeleteFields extends Stage {
   private final List<String> fields;
 
   public DeleteFields(Config config) {
-    super(config, new StageSpec().withRequiredProperties("fields"));
+    super(config, Spec.stage().withRequiredProperties("fields"));
     this.fields = config.getStringList("fields");
   }
 

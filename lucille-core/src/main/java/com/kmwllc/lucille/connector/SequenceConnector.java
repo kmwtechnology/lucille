@@ -3,7 +3,7 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.configSpec.ConnectorSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +18,7 @@ public class SequenceConnector extends AbstractConnector {
   private final int startWith;
 
   public SequenceConnector(Config config) {
-    super(config, new ConnectorSpec()
+    super(config, Spec.connector()
         .withRequiredProperties("numDocs")
         .withOptionalProperties("startWith"));
 

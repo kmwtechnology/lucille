@@ -1,9 +1,9 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.configSpec.ConnectorSpec;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
@@ -22,7 +22,7 @@ public class AbstractConnectorTest {
   private class MyConnector extends AbstractConnector {
 
     public MyConnector(Config config) {
-      super(config, new ConnectorSpec());
+      super(config, Spec.connector());
     }
 
     @Override

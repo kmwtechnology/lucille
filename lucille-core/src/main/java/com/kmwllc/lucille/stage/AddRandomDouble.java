@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.configSpec.StageSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -32,7 +32,7 @@ public class AddRandomDouble extends Stage {
   private final double rangeEnd;
 
   public AddRandomDouble(Config config) throws StageException {
-    super(config, new StageSpec()
+    super(config, Spec.stage()
         .withOptionalProperties("field_name", "range_start", "range_end"));
 
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");

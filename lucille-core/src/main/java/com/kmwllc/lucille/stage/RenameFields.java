@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.configSpec.StageSpec;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -27,7 +27,7 @@ public class RenameFields extends Stage {
   private final UpdateMode updateMode;
 
   public RenameFields(Config config) {
-    super(config, new StageSpec()
+    super(config, Spec.stage()
         .withOptionalProperties("update_mode")
         .withRequiredParents("fieldMapping"));
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
