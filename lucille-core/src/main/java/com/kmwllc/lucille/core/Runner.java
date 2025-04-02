@@ -119,17 +119,9 @@ public class Runner {
         renderConfig(config);
       }
       if (cli.hasOption("validate")) {
-        if (config.hasPath("connectors")) {
-          logValidation(validateConnectors(config), "Connector");
-        }
-
-        if (config.hasPath("pipelines")) {
-          logValidation(validatePipelines(config), "Pipeline");
-        }
-
-        if (config.hasPath("indexer")) {
-          logValidation(Map.of("Indexer", validateIndexer(config)), "Indexer");
-        }
+        logValidation(validateConnectors(config), "Connector");
+        logValidation(validatePipelines(config), "Pipeline");
+        logValidation(validateIndexer(config), "Indexer");
       }
       return;
     }
@@ -209,10 +201,11 @@ public class Runner {
     Map<String, List<Exception>> connectorExceptions = validateConnectors(config);
     logValidation(connectorExceptions, "Connector");
 
-    List<Exception> indexerExceptions = validateIndexer(config);
-    logValidation(Map.of("Indexer", indexerExceptions), "Indexer");
+    Map<String, List<Exception>> indexerExceptions = validateIndexer(config);
+    logValidation(indexerExceptions, "Indexer");
 
     pipelineExceptions.putAll(connectorExceptions);
+    pipelineExceptions.putAll(indexerExceptions);
     return pipelineExceptions;
   }
 
@@ -261,15 +254,14 @@ public class Runner {
     return exceptionMap;
   }
 
-  private static List<Exception> validateIndexer(Config config) {
-    // Want to create a map of "Indexer" and the specific key, like "elastic"
+  private static Map<String, List<Exception>> validateIndexer(Config config) {
     try {
       IndexerFactory.fromConfig(config, new LocalMessenger(), true, "");
-    } catch (IndexerException e) {
-      return List.of(e);
+    } catch (Exception e) {
+      return Map.of("Indexer", List.of(e));
     }
 
-    return List.of();
+    return Map.of("Indexer", List.of());
   }
 
   public static void renderConfig(Config config) {
@@ -298,7 +290,7 @@ public class Runner {
   public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
     return runWithResultLog(config, runType, null);
   }
-  
+
   /**
    * Kicks off a new Lucille run and logs information about the run to the console after completion.
    */
@@ -323,7 +315,7 @@ public class Runner {
           (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
     }
   }
-  
+
   /**
    * Non managed Run with internal generated runId
    *

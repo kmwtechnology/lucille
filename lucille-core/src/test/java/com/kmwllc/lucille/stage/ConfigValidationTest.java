@@ -66,7 +66,7 @@ public class ConfigValidationTest {
   @Test
   public void testDuplicatePipeline() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("shared-pipeline.conf"));
-    assertEquals(3, exceptions.size());
+    assertEquals(4, exceptions.size());
 
     List<Exception> exceptions1 = exceptions.get("pipeline1");
     assertEquals(2, exceptions1.size());
@@ -80,7 +80,7 @@ public class ConfigValidationTest {
   @Test
   public void testUnusedPipeline() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("no-used-pipelines.conf"));
-    assertEquals(1, exceptions.size());
+    assertEquals(2, exceptions.size());
 
     List<Exception> exceptions1 = exceptions.get("pipeline1");
     assertEquals(2, exceptions1.size());
@@ -94,7 +94,7 @@ public class ConfigValidationTest {
   @Test
   public void testValidationModeException() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
-    assertEquals(4, exceptions.size());
+    assertEquals(5, exceptions.size());
 
     List<Exception> exceptions1 = exceptions.get("pipeline1");
     assertEquals(2, exceptions1.size());
@@ -121,7 +121,7 @@ public class ConfigValidationTest {
   @Test
   public void testBadConnector() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badConnector.conf"));
-    assertEquals(4, exceptions.size());
+    assertEquals(5, exceptions.size());
 
     assertEquals(1, exceptions.get("connector1").size());
     assertEquals(1, exceptions.get("connector2").size());
@@ -130,6 +130,17 @@ public class ConfigValidationTest {
     assertTrue(exceptions.get("connector2").get(0).getMessage().contains("No configuration setting found for key 'class'"));
   }
 
+  @Test
+  public void testBadIndexer() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badIndexer.conf"));
+    // five "things" to validate here - Indexer is always one entry on the map.
+    assertEquals(5, exceptions.size());
+    assertTrue(exceptions.get("Indexer").get(0).getMessage().contains("must contain property index"));
+
+    exceptions = Runner.runInValidationMode(addPath("extraIndexerProps.conf"));
+    assertEquals(5, exceptions.size());
+    assertTrue(exceptions.get("Indexer").get(0).getMessage().contains("unknown property blah"));
+  }
 
   @Test
   public void testNonDisjointPropertiesValidation() {

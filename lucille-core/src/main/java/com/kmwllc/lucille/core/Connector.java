@@ -111,10 +111,11 @@ public interface Connector extends AutoCloseable {
       exceptionList.add(new ConnectorException("Connector class not found: ", e));
     } catch (InvocationTargetException e) {
       // invalid arguments cause this exception, and we only get the actual details (what the property was) via unwrapping it like so
-      exceptionList.add(new ConnectorException("Error with Connector " + connectorConfig.getString("class") + ": " + e.getCause()));
+      exceptionList.add(new ConnectorException(connectorConfig.getString("class") + ": " + e.getCause()));
     } catch (Exception e) {
       exceptionList.add(e);
     }
+
     return exceptionList;
   }
 
