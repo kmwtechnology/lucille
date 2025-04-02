@@ -112,7 +112,7 @@ public class PromptOllama extends Stage {
       node.fields().forEachRemaining(entry -> doc.setField(entry.getKey(), entry.getValue()));
     } catch (JsonProcessingException e) {
       if (requireJSON) {
-        throw new StageException("Error getting JSON from response", e);
+        throw new StageException("Error getting JSON from response (requireJSON was set to true):", e);
       } else {
         log.info("Didn't get JSON from Ollama response. The response was placed into ollamaResponse instead.");
         doc.setField("ollamaResponse", chatResult.getResponseModel().getMessage().getContent());
