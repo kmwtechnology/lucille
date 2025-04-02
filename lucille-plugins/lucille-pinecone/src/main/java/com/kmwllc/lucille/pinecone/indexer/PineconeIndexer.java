@@ -55,14 +55,18 @@ public class PineconeIndexer extends Indexer {
   private final String defaultEmbeddingField;
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) throws IndexerException {
+    this(config, messenger, false, metricsPrefix, localRunId);
+  }
+
+  public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withRequiredProperties("apiKey", "index")
         .withOptionalParents("namespaces")
         .withOptionalProperties("metadataFields", "mode", "defaultEmbeddingField"));
 
-    this.client = new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
+    this.client = bypass ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
     this.indexName = config.getString("pinecone.index");
-    this.index = client.getIndexConnection(indexName);
+    this.index = bypass? null : client.getIndexConnection(indexName);
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
     this.metadataFields = config.hasPath("pinecone.metadataFields")
         ? new HashSet<>(config.getStringList("pinecone.metadataFields")) : new HashSet<>();
@@ -78,10 +82,6 @@ public class PineconeIndexer extends Indexer {
           "Maximum batch size for Pinecone is 1000, and lower if vectors have higher dimensions. Set indexer batchSize config to"
               + "1000 or lower.");
     }
-  }
-
-  public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    this(config, messenger, metricsPrefix, localRunId);
   }
 
   // Convenience Constructors
