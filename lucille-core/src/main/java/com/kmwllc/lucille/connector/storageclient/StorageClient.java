@@ -127,4 +127,16 @@ public interface StorageClient {
 
     return results;
   }
+
+  /**
+   * Creates a full document ID from the initial docId and the given params. Adds the parameters' ID prefix
+   * to the beginning of the initial ID.
+   *
+   * @param docId The initial docId for your document.
+   * @param params Parameters for your storage traversal.
+   * @return A full document ID to use, adding the parameters' ID prefix to the beginning of the initial ID.
+   */
+  static String createDocId(String docId, TraversalParams params) {
+    return params.getDocIdPrefix() + docId;
+  }
 }
