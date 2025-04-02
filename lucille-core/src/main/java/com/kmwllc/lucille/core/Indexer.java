@@ -131,17 +131,17 @@ public abstract class Indexer implements Runnable {
     this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
     this.localRunId = localRunId;
 
+    // Validate the "indexer" entry in the config, if present.
     if (config.hasPath("indexer")) {
-      // Validate the "indexer" entry in the config
       Spec.withoutDefaults()
           .withOptionalProperties(OPTIONAL_INDEXER_CONFIG_PROPERTIES)
-          .validate(config.getConfig("indexer"));
+          .validate(config.getConfig("indexer"), "Indexer");
     }
 
-    // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present.
+    // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
     if (getIndexerConfigKey() != null && config.hasPath(getIndexerConfigKey())) {
-      specificImplSpec.setDisplayName(getDisplayName());
-      specificImplSpec.validate(config.getConfig(getIndexerConfigKey()));
+      Config specificImplConfig = config.getConfig(getIndexerConfigKey());
+      specificImplSpec.validate(specificImplConfig, getDisplayName());
     }
   }
 
