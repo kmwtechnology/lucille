@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
@@ -21,6 +22,7 @@ import io.github.ollama4j.models.chat.OllamaChatMessage;
 import io.github.ollama4j.models.chat.OllamaChatRequest;
 import io.github.ollama4j.models.chat.OllamaChatResponseModel;
 import io.github.ollama4j.models.chat.OllamaChatResult;
+import java.util.List;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
 
@@ -170,6 +172,42 @@ public class PromptOllamaTest {
     })) {
       Stage noJsonStage = factory.get("PromptOllamaTest/noJsonPromptRequireJson.conf");
       assertThrows(StageException.class, () -> noJsonStage.processDocument(doc));
+    }
+  }
+
+  @Test
+  public void testUpdateMode() throws Exception {
+    OllamaChatResult firstResult = createMockChatResultWithMessage(firstEnronResponse);
+    OllamaChatResult secondResult = createMockChatResultWithMessage(secondEnronResponse);
+
+    try (MockedConstruction<OllamaAPI> mockAPIConstruction = mockConstruction(OllamaAPI.class, (mockAPI, context) -> {
+      when(mockAPI.chat(any()))
+          .thenReturn(firstResult)
+          .thenReturn(secondResult);
+    })) {
+      String doc1FirstSummary = "An employee is doing something potentially sketchy, but perhaps not.";
+
+      Stage stage = factory.get("PromptOllamaTest/updateAppend.conf");
+
+      Document doc1 = Document.create("doc1");
+      doc1.setField("message", "Let's try to keep this hidden, wouldn't want the boss finding out.");
+      doc1.setField("sender", "j@abcdef.com");
+      doc1.setField("fraud", false);
+      doc1.setField("summary", doc1FirstSummary);
+
+      Document doc2 = Document.create("doc2");
+      doc2.setField("message", "We want to make sure we are reporting higher earnings for the next quarter. You have as much leeway as you need. CEO is very focused on beating projections to bolster confidence in the markets.");
+      doc2.setField("sender", "e1Jamie@company.com");
+      doc2.setField("fraud", true);
+
+      stage.processDocument(doc1);
+      stage.processDocument(doc2);
+
+      assertEquals(List.of(false, false), doc1.getBooleanList("fraud"));
+      assertEquals(List.of(doc1FirstSummary, "Person is trying to hide something from their boss."), doc1.getStringList("summary"));
+
+      assertEquals(List.of(true, true), doc2.getBooleanList("fraud"));
+      assertEquals(List.of("Employee coerces another into juicing earnings results to bolster market confidence, assuring them the company is on their side."), doc2.getStringList("summary"));
     }
   }
 

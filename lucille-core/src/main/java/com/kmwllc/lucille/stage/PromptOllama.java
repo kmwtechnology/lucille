@@ -8,6 +8,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 import io.github.ollama4j.OllamaAPI;
 import io.github.ollama4j.models.chat.OllamaChatMessageRole;
@@ -20,37 +21,42 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A stage for sending a Document to an LLM for general enrichment via the use of a system prompt, with particular support for
+ * <p> A stage for sending a Document to an LLM for general enrichment via the use of a system prompt, with particular support for
  * JSON-based responses.
  *
- * To use the stage, you'll specify some Ollama Server config (hostURL, modelName) and a systemPrompt, detailing to the LLM of your
+ * <p> To use the stage, you'll specify some Ollama Server config (hostURL, modelName) and a systemPrompt, detailing to the LLM of your
  * choice what you would like it to do with the document you provide. (For example, ask it to extract all the person names in the Document,
  * or to provide a brief summary, etc.) If your system prompt has the LLM output JSON, the fields in that JSON will be integrated into
  * the Lucille Document. If not, and requireJSON is set to false, the LLM's response will be placed into the "ollamaResponse" field.
- * Fields will be overwritten if they are already on a Document - modify your system prompt to avoid this, if not desired.
+ * Fields will be updated in accordance with the given update_mode, defaulting to overwriting any existing fields if they are present
+ * on both the Document and the LLM's response.
  *
- * It is recommended that you instruct your LLM to output JSON, for two primary reasons:
- *   1. Many LLMs tend to respond better to system prompts involving JSON.
- *   2. Lucille can automatically add the fields from the response to your Document.
+ * <p> It is recommended that you instruct your LLM to output JSON, for two primary reasons:
+ *   <br> 1. Many LLMs tend to respond better to system prompts involving JSON.
+ *   <br> 2. Lucille can automatically add the fields from the response to your Document.
  *
- * Parameters:
+ * <p> Parameters:
  *
- *  hostURL (String): A URL to your ollama server.
- *  modelName (String): The name of the model you want to communicate with. See https://ollama.ai/library for available models/
+ *  <p> hostURL (String): A URL to your ollama server.
+ *  <p> modelName (String): The name of the model you want to communicate with. See https://ollama.ai/library for available models/
  *  the appropriate names to use.
- *  timeout (Long, Optional): How long you want to wait for a request to be processed before failing. Passed directly to Ollama.
+ *  <p> timeout (Long, Optional): How long you want to wait for a request to be processed before failing. Passed directly to Ollama.
  *  Uses Ollama's default of 10 seconds when not specified.
  *
- *  systemPrompt (String): The system prompt you want to provide to your LLM.
- *  <b>Note:</b> It is recommended that you instruct your LLM to format its output as a JSON object, even if you are only
+ *  <p> systemPrompt (String): The system prompt you want to provide to your LLM.
+ *  <p> <b>Note:</b> It is recommended that you instruct your LLM to format its output as a JSON object, even if you are only
  *  asking for a single piece of information (like a summary).
  *
- *  fields (list of Strings, Optional): The fields in the document you want to be sent to the LLM. If the list is empty or not specified,
+ *  <p> fields (list of Strings, Optional): The fields in the document you want to be sent to the LLM. If the list is empty or not specified,
  *  defaults to sending the entire Document to the LLM for enriching.
  *
- *  requireJSON (Boolean, Optional): Whether you are requiring & expecting the LLM to output a JSON-only response. When true,
+ *  <p> requireJSON (Boolean, Optional): Whether you are requiring & expecting the LLM to output a JSON-only response. When true,
  *  Lucille will throw an Exception upon receiving a non-JSON response from the LLM. When false, Lucille will place the response's
  *  raw contents into the "ollamaResponse" field. Defaults to false.
+ *
+ *  <p> update_mode (String, Optional): How you want Lucille to update the fields in your Document, based on what it extracts from a JSON
+ *  based response. Has no effect on a textual response placed in "ollamaResponse" - that will always overwrite any existing data.
+ *  Should be one of "append", "overwrite", or "skip". Defaults to overwrite.
  */
 public class PromptOllama extends Stage {
 
@@ -68,10 +74,12 @@ public class PromptOllama extends Stage {
   private OllamaAPI ollamaAPI;
   private OllamaChatRequestBuilder chatBuilder;
 
+  private final UpdateMode updateMode;
+
   public PromptOllama(Config config) {
     super(config, new StageSpec()
         .withRequiredProperties("hostURL", "modelName", "systemPrompt")
-        .withOptionalProperties("timeout", "fields", "requireJSON"));
+        .withOptionalProperties("timeout", "fields", "requireJSON", "update_mode"));
 
     this.hostURL = config.getString("hostURL");
     this.modelName = config.getString("modelName");
@@ -80,6 +88,8 @@ public class PromptOllama extends Stage {
     this.systemPrompt = config.getString("systemPrompt");
     this.fields = ConfigUtils.getOrDefault(config, "fields", List.of());
     this.requireJSON = ConfigUtils.getOrDefault(config, "requireJSON", false);
+
+    this.updateMode = UpdateMode.fromConfig(config);
   }
 
   @Override
@@ -109,7 +119,7 @@ public class PromptOllama extends Stage {
     try {
       JsonNode node = mapper.readTree(chatResult.getResponseModel().getMessage().getContent());
       // put all the fields from the JSON onto the Lucille Document.
-      node.fields().forEachRemaining(entry -> doc.setField(entry.getKey(), entry.getValue()));
+      node.fields().forEachRemaining(entry -> doc.update(entry.getKey(), updateMode, entry.getValue()));
     } catch (JsonProcessingException e) {
       if (requireJSON) {
         throw new StageException("Error getting JSON from response (requireJSON was set to true):", e);
