@@ -63,8 +63,6 @@ public abstract class Stage {
     this.config = config;
     this.spec = spec;
 
-    spec.setDisplayName(getDisplayName());
-
     // validates the properties that were just assigned
     try {
       validateConfigWithConditions();
@@ -298,12 +296,12 @@ public abstract class Stage {
   public void validateConfigWithConditions() throws StageException {
 
     try {
-      spec.validate(config);
+      spec.validate(config, getDisplayName());
 
       // validate conditions
       if (config.hasPath("conditions")) {
         for (Config condition : config.getConfigList("conditions")) {
-          Spec.validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST, EMPTY_LIST);
+          Spec.validateConfig(condition, getDisplayName() + " Condition", CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST, EMPTY_LIST);
         }
       }
     } catch (IllegalArgumentException e) {

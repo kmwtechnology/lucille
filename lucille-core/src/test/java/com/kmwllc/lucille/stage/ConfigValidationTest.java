@@ -123,7 +123,7 @@ public class ConfigValidationTest {
         .withRequiredProperties("property1", "property2")
         .withOptionalParents("property1", "property3");
 
-    assertThrows(IllegalArgumentException.class, () -> spec.validate(ConfigFactory.empty()));
+    assertThrows(IllegalArgumentException.class, () -> spec.validate(ConfigFactory.empty(), "name"));
   }
 
   private static void processDoc(Class<? extends Stage> stageClass, String config, Document doc)
