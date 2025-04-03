@@ -195,6 +195,7 @@ public class Runner {
   }
 
   public static Map<String, List<Exception>> runInValidationMode(Config config) throws Exception {
+    // Resolve any potential substitutions once to prevent errors about missing values.
     config = config.resolve();
 
     Map<String, List<Exception>> pipelineExceptions = validatePipelines(config);

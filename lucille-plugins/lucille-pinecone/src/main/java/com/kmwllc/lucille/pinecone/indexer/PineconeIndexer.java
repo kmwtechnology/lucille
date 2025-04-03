@@ -66,7 +66,7 @@ public class PineconeIndexer extends Indexer {
 
     this.client = bypass ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
     this.indexName = config.getString("pinecone.index");
-    this.index = bypass? null : client.getIndexConnection(indexName);
+    this.index = bypass ? null : client.getIndexConnection(indexName);
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
     this.metadataFields = config.hasPath("pinecone.metadataFields")
         ? new HashSet<>(config.getStringList("pinecone.metadataFields")) : new HashSet<>();
