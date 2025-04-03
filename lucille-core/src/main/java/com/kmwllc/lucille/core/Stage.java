@@ -18,20 +18,20 @@ import java.util.stream.Collectors;
  * This abstract class provides some base functionality which should be applicable to all Stages.
  * <br>
  * <br>
- * Config Parameters:
  *
+ * Config Parameters (Conditions):
  * <ul>
- *   <li>conditional_fields (List&lt;String&gt;, Optional) : The fields which will be used to determine if
+ *   <li>fields (List&lt;String&gt;, Optional) : The fields which will be used to determine if
  *       this stage should be applied. Turns off conditional execution by default.
- *   <li>conditional_values (List&lt;String&gt;, Optional) : The values which we will search the
+ *   <li>values (List&lt;String&gt;, Optional) : The values which we will search the
  *       conditional fields for. If not set, only the existence of fields is checked.
- *   <li>conditional_operator (String, Optional) : The operator to determine conditional execution.
+ *   <li>operator (String, Optional) : The operator to determine conditional execution.
  *       Can be 'must' or 'must_not'. Defaults to must.
  * </ul>
  *
  * All stages will have their configuration, including conditions, validated by {@link Spec#validate(Config, String)}. In the Stage constructor, define
- * the required/optional properties/parents via a StageSpec. The StageSpec's display name will be set by {@link Stage} and then
- * validated. A {@link Spec#stage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
+ * the required/optional properties/parents via a StageSpec. Any error messages regarding the Stage's Config will include the stage's
+ * display name. A {@link Spec#stage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
  */
 public abstract class Stage {
 
@@ -49,6 +49,10 @@ public abstract class Stage {
   private Counter errorCounter;
   private Counter childCounter;
 
+  /**
+   * Creates a Stage without any optional / required properties, other than the default legal properties for all Stages.
+   * @param config The configuration for the Stage.
+   */
   public Stage(Config config) {
     this(config, Spec.stage());
   }
