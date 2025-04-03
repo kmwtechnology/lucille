@@ -3,6 +3,7 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.kmwllc.lucille.core.Spec;
@@ -115,6 +116,18 @@ public class ConfigValidationTest {
 
     testException(exceptions2.get(1), IllegalArgumentException.class, "com.kmwllc.lucille.stage.Concatenate: " +
         "Config contains unknown property default_inputs3");
+  }
+
+  @Test
+  public void testBadConnector() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badConnector.conf"));
+    assertEquals(4, exceptions.size());
+
+    assertEquals(1, exceptions.get("connector1").size());
+    assertEquals(1, exceptions.get("connector2").size());
+
+    assertTrue(exceptions.get("connector1").get(0).getMessage().contains("Config must contain property path"));
+    assertTrue(exceptions.get("connector2").get(0).getMessage().contains("No configuration setting found for key 'class'"));
   }
 
   @Test

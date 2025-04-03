@@ -106,12 +106,21 @@ public interface Connector extends AutoCloseable {
       Constructor<?> constructor = clazz.getConstructor(Config.class);
 
       // Creates the connector, AbstractConnector will run validation and throw an exception as needed.
-      constructor.newInstance(connectorConfig);
-    } catch (ClassNotFoundException e) {
+      try {
+        constructor.newInstance(connectorConfig);
+      } catch (InvocationTargetException e) {
+        if (e.getTargetException() instanceof Exception) {
+          throw (Exception) e.getCause();
+        } else {
+          throw e;
+        }
+      }
+    } catch (ReflectiveOperationException e) {
       exceptionList.add(new ConnectorException("Connector class not found: " + e.getMessage()));
     } catch (Exception e) {
       exceptionList.add(e);
     }
+
     return exceptionList;
   }
 
