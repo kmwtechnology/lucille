@@ -49,6 +49,7 @@ public class KafkaTest {
     Config config = ConfigFactory.load("KafkaTest/twoConnectors.conf");
     RunResult result =
         Runner.run(config, Runner.RunType.KAFKA_LOCAL);
+    assertTrue(result.getStatus());
 
     // connector1 will feed 3 documents to pipeline1, so there should be 3 messages in each of
     // the source, dest, and event topics after the run is complete

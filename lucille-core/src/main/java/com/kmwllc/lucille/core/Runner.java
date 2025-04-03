@@ -210,10 +210,6 @@ public class Runner {
   }
 
   private static Map<String, List<Exception>> validateConnectors(Config rootConfig) {
-    if (!rootConfig.hasPath("connectors")) {
-      return Map.of();
-    }
-
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
 
     // Resolve the config in case it is referenced as another file / has system properties
@@ -237,10 +233,6 @@ public class Runner {
    * Returns a mapping from pipline names to the list of exceptions produced when validating them.
    */
   private static Map<String, List<Exception>> validatePipelines(Config config) throws Exception {
-    if (!config.hasPath("pipelines")) {
-      return Map.of();
-    }
-
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
     for (Config pipelineConfig : config.getConfigList("pipelines")) {
       String name = pipelineConfig.getString("name");

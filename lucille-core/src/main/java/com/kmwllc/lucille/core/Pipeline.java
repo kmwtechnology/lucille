@@ -74,9 +74,6 @@ public class Pipeline {
         getInstance(constructor, c);
       } catch (ClassNotFoundException e) {
         exceptions.add(new StageException("Stage class not found: " + e.getMessage()));
-      } catch (ReflectiveOperationException e) {
-        // invalid arguments cause this exception, and we only get the actual details (what the property was) via unwrapping it like so
-        exceptions.add(new StageException("Error with Stage " + c.getString("class") + ": " + e.getCause()));
       } catch (Exception e) {
         exceptions.add(e);
       }

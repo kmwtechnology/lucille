@@ -57,7 +57,9 @@ public class Spec {
   /**
    * Creates a Spec for a specific Indexer implementation (elasticsearch, solr, csv, etc.) There are no common, legal properties
    * associated with specific Indexers.
-   * <p> This spec should <b>not</b> be used to validate the general "indexer" block of a Lucille configuration.
+   * <p> <b>Note:</b> This spec should <b>not</b> be used to validate the general "indexer" block of a Lucille configuration.
+   * <p> <b>Note:</b> You should define your required/optional properties/parents <i>without</i> including your indexer-specific
+   * parent name / key. For example, do <i>not</i> write "elasticsearch.index"; instead, write "index".
    * @return a Spec with default legal properties suitable for a specific Indexer implementation.
    */
   public static Spec indexer() { return new Spec(); }
