@@ -165,10 +165,6 @@ public abstract class Stage {
         docLogger.info("Stage {} to process {}.", name, doc.getId());
         return processDocument(doc);
       } finally {
-        if (doc.isDropped()) {
-          docLogger.info("Document {} was dropped in Stage {}", doc.getId(), name);
-        }
-
         if (context != null) {
           // this only tracks the time taken to process the input document and
           // return the iterator over any children; it doesn't track the time taken
