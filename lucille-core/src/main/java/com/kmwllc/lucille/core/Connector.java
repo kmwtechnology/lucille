@@ -116,7 +116,7 @@ public interface Connector extends AutoCloseable {
         }
       }
     } catch (ReflectiveOperationException e) {
-      exceptionList.add(new ConnectorException("Connector class not found: " + e.getMessage()));
+      exceptionList.add(new ConnectorException("Reflective error with Connector: " + e.getMessage()));
     } catch (Exception e) {
       exceptionList.add(e);
     }
