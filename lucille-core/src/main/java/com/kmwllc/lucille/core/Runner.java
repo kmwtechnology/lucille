@@ -178,12 +178,10 @@ public class Runner {
       StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. Printing the list of exceptions for each element\n");
 
       for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
-        message.append("\t" + validationName + ": ").append(entry.getKey()).append("\tError count: ").append(entry.getValue().size())
-            .append("\n");
-        int i = 1;
+        message.append("\t").append(validationName).append(": ").append(entry.getKey()).append("\n");
 
         for (Exception e : entry.getValue()) {
-          message.append("\t\tException ").append(i++).append(": ").append(e.getMessage()).append("\n");
+          message.append("\t\t").append(e.getMessage()).append("\n");
         }
       }
       return message.delete(message.length() - 1, message.length()).toString();

@@ -123,12 +123,14 @@ public class Spec {
           + ": Properties and parents sets must be disjoint.");
     }
 
+    // mainly using a set to prevent repeats with the "unknown parent" message
+    Set<String> errorMessages = new HashSet<>();
+
     // verifies all required properties are present
     Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
     for (String property : requiredProperties) {
       if (!keys.contains(property)) {
-        throw new IllegalArgumentException(displayName + ": Config must contain property "
-            + property);
+        errorMessages.add("Config must contain property " + property);
       }
     }
 
@@ -141,19 +143,20 @@ public class Spec {
       if (!legalProperties.contains(key)) {
         String parent = getParent(key);
         if (parent == null) {
-          throw new IllegalArgumentException(displayName + ": Config contains unknown property "
-              + key);
+          errorMessages.add("Config contains unknown property " + key);
         } else if (requiredParents.contains(parent)) {
           observedRequiredParents.add(parent);
         } else if (!optionalParents.contains(parent)) {
-          throw new IllegalArgumentException(displayName + ": Config contains unknown property "
-              + key);
+          errorMessages.add("Config contains unknown parent " + parent);
         }
       }
     }
     if (observedRequiredParents.size() != requiredParents.size()) {
-      throw new IllegalArgumentException(displayName + ": Config is missing required parents: " +
-          Sets.difference(requiredParents, observedRequiredParents));
+      errorMessages.add("Config is missing required parents: " + Sets.difference(requiredParents, observedRequiredParents));
+    }
+
+    if (!errorMessages.isEmpty()) {
+      throw new IllegalArgumentException("Error(s) with " + displayName + " Config: " + errorMessages);
     }
   }
 

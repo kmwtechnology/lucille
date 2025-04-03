@@ -72,7 +72,7 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions1.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "com.kmwllc.lucille.stage.NopStage: Config contains unknown property invalid_property");
+        "Error(s) with com.kmwllc.lucille.stage.NopStage Config: [Config contains unknown property invalid_property]");
     testException(exceptions1.get(1), IllegalArgumentException.class, "Config must contain property fields");
   }
 
@@ -86,7 +86,7 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions1.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "com.kmwllc.lucille.stage.NopStage: Config contains unknown property invalid_property");
+        "Error(s) with com.kmwllc.lucille.stage.NopStage Config: [Config contains unknown property invalid_property]");
 
     testException(exceptions1.get(1), IllegalArgumentException.class, "Config must contain property fields");
   }
@@ -102,8 +102,8 @@ public class ConfigValidationTest {
     List<Exception> exceptions2 = exceptions.get("pipeline2");
     assertEquals(2, exceptions2.size());
 
-    testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NopStage: " +
-        "Config contains unknown property invalid_property");
+    testException(exceptions1.get(0), IllegalArgumentException.class,
+        "Error(s) with com.kmwllc.lucille.stage.NopStage Config: [Config contains unknown property invalid_property]");
 
     // TODO note that for the following two exceptions, the fields are retrieved before
     //  the config validation is called
@@ -114,8 +114,22 @@ public class ConfigValidationTest {
     testException(exceptions2.get(0), IllegalArgumentException.class,
         "Config must contain property dest");
 
-    testException(exceptions2.get(1), IllegalArgumentException.class, "com.kmwllc.lucille.stage.Concatenate: " +
-        "Config contains unknown property default_inputs3");
+    testException(exceptions2.get(1), IllegalArgumentException.class,
+        "Error(s) with com.kmwllc.lucille.stage.Concatenate Config: [Config contains unknown parent default_inputs3]");
+  }
+
+  @Test
+  public void testValidationModeMultipleExceptionsInStage() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("veryBadStage.conf"));
+    assertEquals(3, exceptions.size());
+
+    // should only be one exception, but we should have both of the errors mentioned in the response
+    assertEquals(1, exceptions.get("pipeline1").size());
+
+    String message = exceptions.get("pipeline1").get(0).getMessage();
+
+    assertTrue(message.contains("Config contains unknown parent bad_parent"));
+    assertTrue(message.contains("Config contains unknown property invalid_property"));
   }
 
   @Test
