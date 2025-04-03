@@ -9,10 +9,9 @@ import com.typesafe.config.Config;
  * Base class for use by Connector implementations, providing basic Config parsing behavior
  * for obtaining connector name, pipeline name, doc ID prefix, and collapsing mode.
  *
- * All Connectors will have their configuration validated by {@link Spec#validate(Config)}. In the Connector's constructor,
- * define the required/optional properties/parents via a ConnectorSpec. The ConnectorSpec's display name will be set by {@link AbstractConnector}
- * as the Connector's name, and then it will be validated. A {@link Spec#connector()} always has "name", "class", "pipeline", "docIdPrefix",,
- * and "collapse" as legal properties.
+ * All Connectors will have their configuration validated by {@link Spec#validate(Config, String)}. In the Connector's constructor,
+ * define the required/optional properties/parents via a ConnectorSpec. Validation errors will mention the connector's name.
+ * A {@link Spec#connector()} always has "name", "class", "pipeline", "docIdPrefix", and "collapse" as legal properties.
  */
 public abstract class AbstractConnector implements Connector {
 

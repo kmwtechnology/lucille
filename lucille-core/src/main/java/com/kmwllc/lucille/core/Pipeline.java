@@ -102,6 +102,9 @@ public class Pipeline {
     return pipeline;
   }
 
+  // Constructs a Stage from the given constructor, using the given Config. All Stage constructors run
+  // validation. Will throw the target exception (cause) of an InvocationTargetException, if thrown, to clearly
+  // state what properties were missing / illegal.
   private static Stage getInstance(Constructor<?> constructor, Config c)
       throws Exception {
     try {
