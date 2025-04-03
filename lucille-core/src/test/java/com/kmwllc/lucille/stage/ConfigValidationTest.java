@@ -115,7 +115,7 @@ public class ConfigValidationTest {
         "Config must contain property dest");
 
     testException(exceptions2.get(1), IllegalArgumentException.class, "com.kmwllc.lucille.stage.Concatenate: " +
-        "Config contains unknown property default_inputs3");
+        "Config contains unknown parent default_inputs3");
   }
 
   @Test

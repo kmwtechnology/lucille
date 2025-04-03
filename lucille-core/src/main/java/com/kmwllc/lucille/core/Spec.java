@@ -126,8 +126,8 @@ public class Spec {
         } else if (requiredParents.contains(parent)) {
           observedRequiredParents.add(parent);
         } else if (!optionalParents.contains(parent)) {
-          throw new IllegalArgumentException(displayName + ": Config contains unknown property "
-              + key);
+          throw new IllegalArgumentException(displayName + ": Config contains unknown parent "
+              + parent);
         }
       }
     }
