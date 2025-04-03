@@ -72,7 +72,7 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   @Override
-  public String getIndexerConfigKey() { return "elasticsearch"; }
+  protected String getIndexerConfigKey() { return "elasticsearch"; }
 
   private static ElasticsearchClient getClient(Config config, boolean bypass) {
     return bypass ? null : ElasticsearchUtils.getElasticsearchOfficialClient(config);

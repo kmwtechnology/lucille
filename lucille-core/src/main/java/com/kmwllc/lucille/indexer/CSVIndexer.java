@@ -54,7 +54,7 @@ public class CSVIndexer extends Indexer {
   }
 
   @Override
-  public String getIndexerConfigKey() { return "csv"; }
+  protected String getIndexerConfigKey() { return "csv"; }
 
   private static ICSVWriter getCsvWriter(Config config, boolean bypass) {
     boolean append = config.hasPath("csv.append") ? config.getBoolean("csv.append") : false;

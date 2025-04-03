@@ -73,7 +73,7 @@ public class WeaviateIndexer extends Indexer {
   }
 
   @Override
-  public String getIndexerConfigKey() { return "weaviate"; }
+  protected String getIndexerConfigKey() { return "weaviate"; }
 
   private static WeaviateClient getClient(Config config, boolean bypass) {
     if (bypass) {

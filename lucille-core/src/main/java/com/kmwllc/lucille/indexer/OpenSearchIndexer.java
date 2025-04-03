@@ -77,7 +77,7 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  public String getIndexerConfigKey() { return "opensearch"; }
+  protected String getIndexerConfigKey() { return "opensearch"; }
 
   private static OpenSearchClient getClient(Config config, boolean bypass) {
     return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(config);

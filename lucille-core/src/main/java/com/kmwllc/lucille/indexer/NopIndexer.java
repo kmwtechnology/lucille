@@ -22,7 +22,7 @@ public class NopIndexer extends Indexer {
   }
 
   @Override
-  public String getIndexerConfigKey() { return null; }
+  protected String getIndexerConfigKey() { return null; }
 
   @Override
   public boolean validateConnection() {

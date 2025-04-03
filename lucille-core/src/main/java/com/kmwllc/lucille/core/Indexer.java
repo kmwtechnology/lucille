@@ -141,23 +141,15 @@ public abstract class Indexer implements Runnable {
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
     if (getIndexerConfigKey() != null && config.hasPath(getIndexerConfigKey())) {
       Config specificImplConfig = config.getConfig(getIndexerConfigKey());
-      specificImplSpec.validate(specificImplConfig, getDisplayName());
+      specificImplSpec.validate(specificImplConfig, getIndexerConfigKey());
     }
-  }
-
-  /**
-   * Returns the class name plus the Indexer's name in parentheses, if it is not null.
-   */
-  private String getDisplayName() {
-    return this.getClass().getName() +
-        ((this.getIndexerConfigKey() == null) ? "" : " (" + this.getIndexerConfigKey() + ")");
   }
 
   /**
    * Gets the key / parent name of this Indexer in a Config. For example, "elasticsearch" for ElasticsearchIndexer.
    * @return the key / parent name of this Indexer in a Config.
    */
-  public abstract String getIndexerConfigKey();
+  protected abstract String getIndexerConfigKey();
 
   /**
    * Return true if connection to the destination search engine is valid and the relevant index or

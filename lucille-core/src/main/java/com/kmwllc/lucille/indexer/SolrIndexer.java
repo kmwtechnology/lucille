@@ -61,7 +61,7 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  public String getIndexerConfigKey() { return "solr"; }
+  protected String getIndexerConfigKey() { return "solr"; }
 
   private static SolrClient getSolrClient(Config config, boolean bypass) {
     return bypass ? null : SolrUtils.getSolrClient(config);

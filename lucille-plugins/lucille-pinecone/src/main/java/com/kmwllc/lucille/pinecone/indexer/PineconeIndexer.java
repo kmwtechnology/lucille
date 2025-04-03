@@ -94,7 +94,7 @@ public class PineconeIndexer extends Indexer {
   }
 
   @Override
-  public String getIndexerConfigKey() { return "pinecone"; }
+  protected String getIndexerConfigKey() { return "pinecone"; }
 
   @Override
   public boolean validateConnection() {
