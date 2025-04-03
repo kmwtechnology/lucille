@@ -831,8 +831,11 @@ public class RunnerTest {
     exceptions.put("pipeline2", List.of(new Exception("exception 3")));
 
     String expected = "Pipeline Configuration is invalid. Printing the list of exceptions for each element\n"
-        + "\tPipeline: pipeline1\tError count: 2\n\t\tException 1: exception 1\n\t\tException 2: exception 2\n"
-        + "\tPipeline: pipeline2\tError count: 1\n\t\tException 1: exception 3";
+        + "\tPipeline: pipeline1\n"
+        + "\t\texception 1\n"
+        + "\t\texception 2\n"
+        + "\tPipeline: pipeline2\n"
+        + "\t\texception 3";
     assertEquals(expected, Runner.stringifyValidation(exceptions, "Pipeline"));
   }
 
