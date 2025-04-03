@@ -139,18 +139,8 @@ public abstract class Indexer implements Runnable {
     this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
     this.localRunId = localRunId;
 
-    // Validate the "indexer" entry in the config, if present.
-    if (config.hasPath("indexer")) {
-      Spec.withoutDefaults()
-          .withOptionalProperties(OPTIONAL_INDEXER_CONFIG_PROPERTIES)
-          .validate(config.getConfig("indexer"), "Indexer");
-    }
-
-    // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
-    if (getIndexerConfigKey() != null && config.hasPath(getIndexerConfigKey())) {
-      Config specificImplConfig = config.getConfig(getIndexerConfigKey());
-      specificImplSpec.validate(specificImplConfig, getIndexerConfigKey());
-    }
+    // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
+    validateIndexerConfig(config, specificImplSpec);
   }
 
   /**
@@ -367,6 +357,22 @@ public abstract class Indexer implements Runnable {
           }
           System.exit(0);
         });
+  }
+
+  private void validateIndexerConfig(Config config, Spec specificImplSpec) {
+    // Validate the general "indexer" entry in the Config, if present.
+    if (config.hasPath("indexer")) {
+      Config indexerConfig = config.getConfig("indexer");
+      Spec.withoutDefaults()
+          .withOptionalProperties(OPTIONAL_INDEXER_CONFIG_PROPERTIES)
+          .validate(indexerConfig, "Indexer");
+    }
+
+    // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
+    if (getIndexerConfigKey() != null && config.hasPath(getIndexerConfigKey())) {
+      Config specificImplConfig = config.getConfig(getIndexerConfigKey());
+      specificImplSpec.validate(specificImplConfig, getIndexerConfigKey());
+    }
   }
 
   public int getBatchCapacity() {

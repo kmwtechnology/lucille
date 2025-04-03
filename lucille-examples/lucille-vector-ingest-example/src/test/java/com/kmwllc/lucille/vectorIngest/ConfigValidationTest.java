@@ -7,7 +7,6 @@ public class ConfigValidationTest {
 
   @Test
   public void testConf() throws Exception {
-    // TODO: Bring back test. Currently broken.
-//    ConfigValidationUtils.validateConfigs();
+    ConfigValidationUtils.validateConfigs();
   }
 }

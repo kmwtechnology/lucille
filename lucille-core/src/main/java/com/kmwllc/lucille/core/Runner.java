@@ -195,6 +195,8 @@ public class Runner {
   }
 
   public static Map<String, List<Exception>> runInValidationMode(Config config) throws Exception {
+    config = config.resolve();
+
     Map<String, List<Exception>> pipelineExceptions = validatePipelines(config);
     logValidation(pipelineExceptions, "Pipeline");
 
@@ -211,9 +213,6 @@ public class Runner {
 
   private static Map<String, List<Exception>> validateConnectors(Config rootConfig) {
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
-
-    // Resolve the config in case it is referenced as another file / has system properties
-    rootConfig = rootConfig.resolve();
 
     for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
       String name = connectorConfig.getString("name");
