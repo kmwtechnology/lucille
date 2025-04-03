@@ -69,7 +69,15 @@ public abstract class Indexer implements Runnable {
     log.debug("terminate");
   }
 
-  // TODO: Write up a comment about how validation will work on the config, etc.
+  /**
+   * Creates the base implementation of an Indexer from the given parameters and validates it. Runs validation on the common "indexer"
+   * config as well as the specific implementation's config, as either are present.
+   *
+   * @param config The root config for Lucille. (In other words, should potentially include both "indexer" and specific
+   *               implementation config, like "solr" or "elasticsearch".)
+   * @param specificImplSpec A Spec for the specific Indexer implementation and its properties. Should define what is allowed in the
+   *                         config, for example, index, url, etc. for "elasticsearch".
+   */
   public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId, Spec specificImplSpec) {
     this.messenger = messenger;
     this.idOverrideField =
@@ -146,7 +154,8 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
-   * Gets the key / parent name of this Indexer in a Config. For example, "elasticsearch" for ElasticsearchIndexer.
+   * Gets the key / parent name of this Indexer in a Config. For example, "elasticsearch" for ElasticsearchIndexer. Return null
+   * if this Indexer does not take additional / specific configuration and, as such, has no config key.
    * @return the key / parent name of this Indexer in a Config.
    */
   protected abstract String getIndexerConfigKey();
