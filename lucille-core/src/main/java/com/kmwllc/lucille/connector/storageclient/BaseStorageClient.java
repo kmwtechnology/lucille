@@ -459,52 +459,6 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * converts a file reference (Path or cloud Storage object implementation) to a document.
-   *
-   * @param fileReference The FileReference you want to convert to a Lucille Document.
-   * @param params The params for your traversal.
-   * @return A Document representing the file.
-   */
-  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, TraversalParams params);
-
-  /**
-   * will only be called in the scenario where after decompression and file will not be handled by a file handler
-   *
-   * @param fileReference The FileReference you want to convert to a Lucille Document.
-   * @param in An InputStream to the archive file's contents.
-   * @param decompressedFullPathStr The full path String to the decompressed file.
-   * @param params The params for your traversal.
-   * @return A Document representing the file.
-   */
-  protected abstract Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr, TraversalParams params);
-
-  /**
-   * get the content of the file reference as an InputStream. Always called within a try-with-resources block
-   *
-   * @param fileReference The FileReference whose contents you want to access.
-   * @param params The params for your traversal.
-   * @return An InputStream to the file's contents.
-   */
-  protected abstract InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params);
-
-
-  /**
-   * Return the starting directory for this StorageClient, based on the given params and its pathToStorageURI.
-   *
-   * @param params The params for your traversal.
-   * @return The starting directory for your traversal as a String.
-   */
-  protected abstract String getStartingDirectory(TraversalParams params);
-
-  /**
-   * Return the bucket/container name for this StorageClient, based on the params and its pathToStorageURI.
-   *
-   * @param params The params for your traversal.
-   * @return The bucket or container name as a String.
-   */
-  protected abstract String getBucketOrContainerName(TraversalParams params);
-
-  /**
    * helper method to check if the file is a supported compressed file type.
    * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
    *
