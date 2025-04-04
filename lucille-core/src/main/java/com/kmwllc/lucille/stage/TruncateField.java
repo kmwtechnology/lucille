@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import java.util.Iterator;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
@@ -39,7 +40,7 @@ public class TruncateField extends Stage {
   private static final Logger log = LoggerFactory.getLogger(TruncateField.class);
 
   public TruncateField(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "max_size").withOptionalProperties("destination"));
+    super(config, Spec.stage().withRequiredProperties("source", "max_size").withOptionalProperties("destination"));
 
 
     this.source = config.getString("source");

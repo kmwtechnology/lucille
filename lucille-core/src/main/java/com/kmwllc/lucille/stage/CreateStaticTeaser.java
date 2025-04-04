@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -36,7 +37,7 @@ public class CreateStaticTeaser extends Stage {
    * @param config Configuration for the CreateStaticTeaser stage.
    */
   public CreateStaticTeaser(Config config) {
-    super(config, new StageSpec()
+    super(config, Spec.stage()
         .withRequiredProperties("source", "dest", "maxLength")
         .withOptionalProperties("update_mode"));
 

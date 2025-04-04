@@ -3,6 +3,7 @@ package com.kmwllc.lucille.stage;
 import com.cybozu.labs.langdetect.Detector;
 import com.cybozu.labs.langdetect.DetectorFactory;
 import com.cybozu.labs.langdetect.Language;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -56,7 +57,7 @@ public class DetectLanguage extends Stage {
    * @param config Configuration for the DetectLanguage stage.
    */
   public DetectLanguage(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "language_field")
+    super(config, Spec.stage().withRequiredProperties("source", "language_field")
         .withOptionalProperties("language_confidence_field", "min_length", "max_length",
             "min_probability", "update_mode"));
 

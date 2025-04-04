@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.stage.util.ChunkingMethod;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -107,7 +108,7 @@ public class ChunkText extends Stage {
    * @throws StageException If your configuration is invalid.
    */
   public ChunkText(Config config) throws StageException {
-    super(config, new StageSpec()
+    super(config, Spec.stage()
         .withOptionalProperties("chunking_method", "chunks_to_merge", "dest", "regex", "character_limit",
             "clean_chunks", "overlap_percentage", "length_to_split", "pre_merge_min_chunk_len", "pre_merge_max_chunk_len",
             "chunks_to_overlap")

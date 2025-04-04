@@ -4,17 +4,13 @@ import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.Spec;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,12 +23,18 @@ import org.slf4j.LoggerFactory;
  *    gs://bucket-name/folder/
  *    s3://bucket-name/folder/
  *    https://accountName.blob.core.windows.net/containerName/prefix/
- *  includes (list of strings, Optional): list of regex patterns to include files
- *  excludes (list of strings, Optional): list of regex patterns to exclude files.
- *  fileOptions (Map, Optional): file options for handling of files and file types. Example of fileOptions below
+ *  filterOptions (Map, Optional): configuration for <i>which</i> files should/shouldn't be processed in your traversal. Example of filterOptions below.
+ *  fileOptions (Map, Optional): Options for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.
  *  gcp (Map, Optional): options for handling GoogleCloud files. See example below.
- *  s3(Map, Optional): options for handling S3 files. See example below.
- *  azure(Map, Optional): options for handling Azure files. See example below.
+ *  s3 (Map, Optional): options for handling S3 files. See example below.
+ *  azure (Map, Optional): options for handling Azure files. See example below.
+ *
+ * FilterOptions:
+ *  includes (list of strings, Optional): list of regex patterns to include files.
+ *  excludes (list of strings, Optional): list of regex patterns to exclude files.
+ *  modificationCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time.
+ *  See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
+ *  Note that, for archive files, this cutoff applies to both the archive file itself and its individual contents.
  *
  * FileOptions:
  *  getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.
@@ -60,7 +62,6 @@ import org.slf4j.LoggerFactory;
  * "accountName" : azure account name
  * "accountKey" : azure account key
  * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
- *
  */
 
 public class FileConnector extends AbstractConnector {
@@ -95,22 +96,19 @@ public class FileConnector extends AbstractConnector {
 
   private final String pathToStorage;
   private final Config fileOptions;
-  private final List<Pattern> includes;
-  private final List<Pattern> excludes;
+  private final Config filterOptions;
   private StorageClient storageClient;
   private final URI storageURI;
 
   public FileConnector(Config config) throws ConnectorException {
-    super(config);
+    super(config, Spec.connector()
+        .withRequiredProperties("pathToStorage")
+        .withOptionalParents("fileOptions", "filterOptions", "s3", "gcp", "azure"));
+
     this.pathToStorage = config.getString("pathToStorage");
-    // compile include and exclude regex paths or set an empty list if none were provided (allow all files)
-    List<String> includeRegex = config.hasPath("includes") ?
-        config.getStringList("includes") : Collections.emptyList();
-    this.includes = includeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
-    List<String> excludeRegex = config.hasPath("excludes") ?
-        config.getStringList("excludes") : Collections.emptyList();
-    this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
+    this.filterOptions = config.hasPath("filterOptions") ? config.getConfig("filterOptions") : ConfigFactory.empty();
+
     try {
       this.storageURI = new URI(pathToStorage);
       log.debug("using path {} with scheme {}", pathToStorage, storageURI.getScheme());
@@ -133,7 +131,7 @@ public class FileConnector extends AbstractConnector {
 
     try {
       storageClient.init();
-      TraversalParams params = new TraversalParams(storageURI, getDocIdPrefix(), includes, excludes, fileOptions);
+      TraversalParams params = new TraversalParams(storageURI, getDocIdPrefix(), fileOptions, filterOptions);
       storageClient.traverse(publisher, params);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while initializing client or publishing files.", e);

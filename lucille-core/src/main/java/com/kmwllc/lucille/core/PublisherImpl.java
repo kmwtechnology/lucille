@@ -165,7 +165,7 @@ public class PublisherImpl implements Publisher {
   public void handleEvent(Event event) {
     String docId = event.getDocumentId();
     MDC.put(Document.ID_FIELD, docId);
-    docLogger.info("Handling event for doc {}", docId);
+    docLogger.info("Publisher is handling an event ({}) for doc {}.", event.getType(), docId);
 
     if (event.isCreate()) {
 

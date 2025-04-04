@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
@@ -55,7 +56,7 @@ public class ApplyRegex extends Stage {
    * @param config Configuration for the ApplyRegex stage.
    */
   public ApplyRegex(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "dest", "regex")
+    super(config, Spec.stage().withRequiredProperties("source", "dest", "regex")
         .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
 
     this.sourceFields = config.getStringList("source");

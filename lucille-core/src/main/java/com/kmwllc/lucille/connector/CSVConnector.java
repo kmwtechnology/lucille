@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
@@ -32,7 +33,11 @@ public class CSVConnector extends AbstractConnector {
    * @param config Configuration for the CSVConnector.
    */
   public CSVConnector(Config config) {
-    super(config);
+    super(config, Spec.connector()
+        .withRequiredProperties("path")
+        .withOptionalProperties("moveToAfterProcessing", "moveToErrorFolder", "lineNumberField", "filenameField", "filePathField",
+            "idField", "docIdFormat", "separatorChar", "useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields", "ignoredTerms"));
+
     this.pathStr = config.getString("path");
     this.csvFileHandler = new CSVFileHandler(config);
     this.moveToAfterProcessing = config.hasPath("moveToAfterProcessing") ? config.getString("moveToAfterProcessing") : null;

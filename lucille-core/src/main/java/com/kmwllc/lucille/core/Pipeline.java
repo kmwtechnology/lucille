@@ -70,8 +70,8 @@ public class Pipeline {
       try {
         Class<?> clazz = Class.forName(c.getString("class"));
         Constructor<?> constructor = clazz.getConstructor(Config.class);
-        Stage stage = getInstance(constructor, c);
-        stage.validateConfigWithConditions();
+        // Construct the stage. Validation takes place in the super() constructor.
+        getInstance(constructor, c);
       } catch (ClassNotFoundException e) {
         exceptions.add(new StageException("Stage class not found: " + e.getMessage()));
       } catch (Exception e) {
@@ -99,6 +99,9 @@ public class Pipeline {
     return pipeline;
   }
 
+  // Constructs a Stage from the given constructor, using the given Config. All Stage constructors run
+  // validation. Will throw the target exception (cause) of an InvocationTargetException, if thrown, to clearly
+  // state what properties were missing / illegal.
   private static Stage getInstance(Constructor<?> constructor, Config c)
       throws Exception {
     try {

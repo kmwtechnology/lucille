@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import java.util.Iterator;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -30,7 +31,7 @@ public class ComputeFieldSize extends Stage {
    * @param config Configuration for the ComputeFieldSize stage.
    */
   public ComputeFieldSize(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "dest"));
+    super(config, Spec.stage().withRequiredProperties("source", "dest"));
 
     this.source = config.getString("source");
     this.destination = config.getString("dest");

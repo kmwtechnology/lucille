@@ -1,53 +1,57 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import com.azure.storage.blob.models.BlobItem;
-import com.google.cloud.storage.Blob;
-import java.nio.file.Path;
-import software.amazon.awssdk.services.s3.model.S3Object;
+import com.kmwllc.lucille.core.Document;
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.Instant;
 
 /**
  * Stores a reference to a file in a cloud storage service or a local file system.
  */
+public interface FileReference {
+  /**
+   * @return The name of this file.
+   */
+  String getName();
 
-public class FileReference {
-  Path path;
-  S3Object s3Object;
-  BlobItem blobItem;
-  Blob blob;
+  /**
+   * @return A String representing the full path to this file.
+   */
+  String getFullPath(TraversalParams params);
 
-  public FileReference(Path path) {
-    this.path = path;
-  }
+  /**
+   * @return The extension associated with this file.
+   */
+  String getFileExtension();
 
-  public FileReference(S3Object s3Object) {
-    this.s3Object = s3Object;
-  }
+  /**
+   * @return Whether this FileReference is valid, namely, whether it is a reference to an actual file and not
+   * a Directory.
+   */
+  boolean isValidFile();
 
-  public FileReference(BlobItem blobItem) {
-    this.blobItem = blobItem;
-  }
+  /**
+   * @return The instant at which this FileReference was last modified.
+   */
+  Instant getLastModified();
 
-  public FileReference(Blob blob) {
-    this.blob = blob;
-  }
+  /**
+   * Returns an InputStream for the file's contents, using the given TraversalParams as needed.
+   * <p> <b>Note:</b> The returned InputStream will not necessarily be buffered!
+   *
+   * @return An InputStream for the file's contents, using the given TraversalParams as needed.
+   */
+  InputStream getContentStream(TraversalParams params);
 
-  public Path getPath() {
-    return path;
-  }
+  /**
+   * @return A Lucille Document from this file reference. Will get the file's contents if params.shouldGetFileContent()
+   * is true.
+   */
+  Document asDoc(TraversalParams params);
 
-  public S3Object getS3Object() {
-    return s3Object;
-  }
-
-  public BlobItem getBlobItem() {
-    return blobItem;
-  }
-
-  public Blob getBlob() {
-    return blob;
-  }
-
-  public boolean isCloudFileReference() {
-    return s3Object != null || blobItem != null || blob != null;
-  }
+  /**
+   * @return A Lucille Document from this file reference, using the given full path string to create the Document's ID / path,
+   * and reading all bytes from the given input stream if params.shouldGetFileContent() is true.
+   */
+  Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException;
 }

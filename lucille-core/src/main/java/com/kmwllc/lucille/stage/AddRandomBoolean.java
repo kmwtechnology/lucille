@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -32,7 +33,7 @@ public class AddRandomBoolean extends Stage {
    * @throws StageException If the percentTrue parameter has value less than 0 or greater than 100.
    */
   public AddRandomBoolean(Config config) throws StageException {
-    super(config, new StageSpec()
+    super(config, Spec.stage()
         .withOptionalProperties("field_name", "percent_true"));
 
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");

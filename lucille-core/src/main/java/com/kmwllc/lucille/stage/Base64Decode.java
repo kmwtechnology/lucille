@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import java.util.Iterator;
 
 import org.apache.commons.codec.binary.Base64;
@@ -23,7 +24,7 @@ public class Base64Decode extends Stage {
    * @param config Configuration for the Base64Decode stage.
    */
   public Base64Decode(Config config) {
-    super(config, new StageSpec().withRequiredProperties("input_field", "output_field"));
+    super(config, Spec.stage().withRequiredProperties("input_field", "output_field"));
     inputField = config.getString("input_field");
     outputField = config.getString("output_field");
   }

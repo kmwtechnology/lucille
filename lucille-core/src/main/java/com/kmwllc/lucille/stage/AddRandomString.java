@@ -2,6 +2,7 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -66,7 +67,7 @@ public class AddRandomString extends Stage {
    * @throws StageException In the event your config contains invalid values.
    */
   public AddRandomString(Config config) throws StageException {
-    super(config, new StageSpec().withOptionalProperties("input_data_path", "field_name", "range_size", "min_num_of_terms",
+    super(config, Spec.stage().withOptionalProperties("input_data_path", "field_name", "range_size", "min_num_of_terms",
         "max_num_of_terms", "is_nested", "concatenate"));
     this.inputDataPath = ConfigUtils.getOrDefault(config, "input_data_path", null);
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");

@@ -2,8 +2,11 @@ package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import java.util.LinkedHashMap;
+
+import com.kmwllc.lucille.core.Spec;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -63,14 +66,14 @@ public class ConfigValidationTest {
   @Test
   public void testDuplicatePipeline() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("shared-pipeline.conf"));
-    assertEquals(1, exceptions.size());
+    assertEquals(3, exceptions.size());
 
     List<Exception> exceptions1 = exceptions.get("pipeline1");
     assertEquals(2, exceptions1.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "com.kmwllc.lucille.stage.NopStage: Stage config contains unknown property invalid_property");
-    testException(exceptions1.get(1), IllegalArgumentException.class, "Stage config must contain property fields");
+        "Error(s) with com.kmwllc.lucille.stage.NopStage Config: [Config contains unknown property invalid_property]");
+    testException(exceptions1.get(1), IllegalArgumentException.class, "Config must contain property fields");
   }
 
   // asserts that if no connectors use a pipeline it is still validated
@@ -83,55 +86,72 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions1.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "com.kmwllc.lucille.stage.NopStage: Stage config contains unknown property invalid_property");
+        "Error(s) with com.kmwllc.lucille.stage.NopStage Config: [Config contains unknown property invalid_property]");
 
-    testException(exceptions1.get(1), IllegalArgumentException.class, "Stage config must contain property fields");
+    testException(exceptions1.get(1), IllegalArgumentException.class, "Config must contain property fields");
   }
 
   @Test
-  public void testStringifyValidationExceptions() {
-    Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
-    exceptions.put("pipeline1", List.of(new Exception("exception 1"), new Exception("exception 2")));
-    exceptions.put("pipeline2", List.of(new Exception("exception 3")));
+  public void testValidationModeException() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
+    assertEquals(4, exceptions.size());
 
-    String expected = "Configuration is invalid. Printing the list of exceptions for each pipeline\n"
-        + "\tPipeline: pipeline1\tError count: 2\n\t\tException 1: exception 1\n\t\tException 2: exception 2\n"
-        + "\tPipeline: pipeline2\tError count: 1\n\t\tException 1: exception 3";
-    assertEquals(expected, Runner.stringifyValidation(exceptions));
+    List<Exception> exceptions1 = exceptions.get("pipeline1");
+    assertEquals(2, exceptions1.size());
+
+    List<Exception> exceptions2 = exceptions.get("pipeline2");
+    assertEquals(2, exceptions2.size());
+
+    testException(exceptions1.get(0), IllegalArgumentException.class,
+        "Error(s) with com.kmwllc.lucille.stage.NopStage Config: [Config contains unknown property invalid_property]");
+
+    // TODO note that for the following two exceptions, the fields are retrieved before
+    //  the config validation is called
+
+    testException(exceptions1.get(1), IllegalArgumentException.class,
+        "Config must contain property fields");
+
+    testException(exceptions2.get(0), IllegalArgumentException.class,
+        "Config must contain property dest");
+
+    testException(exceptions2.get(1), IllegalArgumentException.class,
+        "Error(s) with com.kmwllc.lucille.stage.Concatenate Config: [Config contains unknown parent default_inputs3]");
   }
 
   @Test
-  public void testStringifyValidationNoExceptions() {
-    Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
-    assertEquals("Configuration is valid", Runner.stringifyValidation(exceptions));
+  public void testValidationModeMultipleExceptionsInStage() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("veryBadStage.conf"));
+    assertEquals(3, exceptions.size());
+
+    // should only be one exception, but we should have both of the errors mentioned in the response
+    assertEquals(1, exceptions.get("pipeline1").size());
+
+    String message = exceptions.get("pipeline1").get(0).getMessage();
+
+    assertTrue(message.contains("Config contains unknown parent bad_parent"));
+    assertTrue(message.contains("Config contains unknown property invalid_property"));
   }
 
-   @Test
-   public void testValidationModeException() throws Exception {
-     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
-     assertEquals(2, exceptions.size());
-  
-     List<Exception> exceptions1 = exceptions.get("pipeline1");
-     assertEquals(2, exceptions1.size());
-  
-     List<Exception> exceptions2 = exceptions.get("pipeline2");
-     assertEquals(2, exceptions2.size());
-  
-     testException(exceptions1.get(0), IllegalArgumentException.class, "com.kmwllc.lucille.stage.NopStage: " +
-         "Stage config contains unknown property invalid_property");
-  
-     // TODO note that for the following two exceptions, the fields are retrieved before
-     //  the config validation is called
-  
-     testException(exceptions1.get(1), IllegalArgumentException.class,
-         "Stage config must contain property fields");
-  
-     testException(exceptions2.get(0), IllegalArgumentException.class,
-         "Stage config must contain property dest");
-  
-     testException(exceptions2.get(1), IllegalArgumentException.class, "com.kmwllc.lucille.stage.Concatenate: " +
-         "Stage config contains unknown property default_inputs3");
-   }
+  @Test
+  public void testBadConnector() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badConnector.conf"));
+    assertEquals(4, exceptions.size());
+
+    assertEquals(1, exceptions.get("connector1").size());
+    assertEquals(1, exceptions.get("connector2").size());
+
+    assertTrue(exceptions.get("connector1").get(0).getMessage().contains("Config must contain property path"));
+    assertTrue(exceptions.get("connector2").get(0).getMessage().contains("No configuration setting found for key 'class'"));
+  }
+
+  @Test
+  public void testNonDisjointPropertiesValidation() {
+    Spec spec = Spec.connector()
+        .withRequiredProperties("property1", "property2")
+        .withOptionalParents("property1", "property3");
+
+    assertThrows(IllegalArgumentException.class, () -> spec.validate(ConfigFactory.empty(), "name"));
+  }
 
   private static void processDoc(Class<? extends Stage> stageClass, String config, Document doc)
       throws StageException {
@@ -165,8 +185,7 @@ public class ConfigValidationTest {
 
   private static void testException(Class<? extends Stage> stageClass, String config) {
     try {
-      Stage stage = StageFactory.of(stageClass).get(addPath(config));
-      stage.validateConfigWithConditions();
+      StageFactory.of(stageClass).get(addPath(config));
       fail();
     } catch (StageException e) {
       // expected
