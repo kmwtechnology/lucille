@@ -56,90 +56,27 @@ public interface Document {
    *
    * Returns null in two cases: if the field is absent, or if the field is present but contains a null.
    * To distinguish between these cases, use has() to see if the field exists.
-   *
-   * @param name the name of the field you want to get a String value for.
-   * @return The value of the designated field as a String.
    */
   String getString(String name);
 
-  /**
-   * Returns the value of the designated field as a boolean.
-   *
-   * @param name the name of the field you want to get a boolean value for.
-   * @return The value of the designated field as a boolean.
-   */
   Boolean getBoolean(String name);
 
-  /**
-   * Returns the value of the designated field as an int.
-   *
-   * @param name the name of the field you want to get an int value for.
-   * @return The value of the designated field as an int.
-   */
   Integer getInt(String name);
 
-  /**
-   * Returns the value of the designated field as a double.
-   *
-   * @param name the name of the field you want to get a double value for.
-   * @return The value of the designated field as a double.
-   */
   Double getDouble(String name);
 
-  /**
-   * Returns the value of the designated field as a float.
-   *
-   * @param name the name of the field you want to get a flaot value for.
-   * @return The value of the designated field as a float.
-   */
   Float getFloat(String name);
 
-  /**
-   * Returns the value of the designated float as a long.
-   *
-   * @param name the name of the field you want to get a long value for.
-   * @return The value of the designated field as a long.
-   */
   Long getLong(String name);
 
-  /**
-   * Returns the value of the designated float as an instant.
-   *
-   * @param name the name of the field you want to get an instant value for.
-   * @return The value of the designated field as an instant.
-   */
   Instant getInstant(String name);
 
-  /**
-   * Returns the value of the designated float as a byte array.
-   *
-   * @param name the name of the field you want to get a byte array for.
-   * @return The value of the designated field as a byte array.
-   */
   byte[] getBytes(String name);
 
-  /**
-   * Returns the value of the designated float as a JsonNode.
-   *
-   * @param name the name of the field you want to get a JsonNode from.
-   * @return The value of the designated field as a JsonNode.
-   */
   JsonNode getJson(String name);
 
-  /**
-   * Returns the value of the designated float as a Date.
-   *
-   * @param name the name of the field you want to get a Date value for.
-   * @return The value of the designated field as a Date.
-   */
   Date getDate(String name);
 
-  /**
-   * Returns the value of the designated float as a Timestamp.
-   *
-   * @param name the name of the field you want to get a Timestamp value for.
-   * @return The value of the designated field as a Timestamp.
-   */
   Timestamp getTimestamp(String name);
 
   /* --- LIST GETTERS --- */
@@ -148,105 +85,34 @@ public interface Document {
    * Returns the value of the designated field as a List of Strings. If the field is single-valued, the single value
    * will be placed inside a List and returned, but the field will not be converted to multi-valued.
    *
-   * @param name the name of the field you want to get a String list from.
-   * @return The value of the designated field as a String list.
+   * Returns null if the field is absent.
    */
   List<String> getStringList(String name);
 
-  /**
-   * Returns the value of the designated field as a List of Booleans. If the field is single-valued, the single value
-   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
-   *
-   * @param name the name of the field you want to get a boolean list from.
-   * @return The value of the designated field as a boolean list.
-   */
   List<Boolean> getBooleanList(String name);
 
-  /**
-   * Returns the value of the designated field as a List of integers. If the field is single-valued, the single value
-   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
-   *
-   * @param name the name of the field you want to get a int list from.
-   * @return The value of the designated field as a int list.
-   */
   List<Integer> getIntList(String name);
 
-  /**
-   * Returns the value of the designated field as a List of doubles. If the field is single-valued, the single value
-   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
-   *
-   * @param name the name of the field you want to get a double list from.
-   * @return The value of the designated field as a double list.
-   */
   List<Double> getDoubleList(String name);
 
-  /**
-   * Returns the value of the designated field as a List of floats. If the field is single-valued, the single value
-   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
-   *
-   * @param name the name of the field you want to get a float list from.
-   * @return The value of the designated field as a float list.
-   */
   List<Float> getFloatList(String name);
 
-  /**
-   * Returns the value of the designated field as a List of longs. If the field is single-valued, the single value
-   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
-   *
-   * @param name the name of the field you want to get a long list from.
-   * @return The value of the designated field as a long list.
-   */
   List<Long> getLongList(String name);
 
-  /**
-   * Returns the value of the designated field as a List of Instants. If the field is single-valued, the single value
-   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
-   *
-   * @param name the name of the field you want to get an instant list from.
-   * @return The value of the designated field as an instant list.
-   */
   List<Instant> getInstantList(String name);
 
-  /**
-   * Returns the value of the designated field as a List of byte arrays. If the field is single-valued, the single value
-   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
-   *
-   * @param name the name of the field you want to get a list of byte arrays from.
-   * @return The value of the designated field as a list of byte arrays from.
-   */
   List<byte[]> getBytesList(String name);
 
-  /**
-   * Returns the value of the designated field as a List of JsonNodes. If the field is single-valued, the single value
-   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
-   *
-   * @param name the name of the field you want to get a JsonNode list from.
-   * @return The value of the designated field as a JsonNode list from.
-   */
   List<JsonNode> getJsonList(String name);
 
-  /**
-   * Returns the value of the designated field as a List of Dates. If the field is single-valued, the single value
-   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
-   *
-   * @param name the name of the field you want to get a Date list from.
-   * @return The value of the designated field as a Date list from.
-   */
   List<Date> getDateList(String name);
 
-  /**
-   * Returns the value of the designated field as a List of Timestamps. If the field is single-valued, the single value
-   * will be placed inside a List and returned, but the field will not be converted to multi-valued.
-   *
-   * @param name the name of the field you want to get a Timestamp list from.
-   * @return The value of the designated field as a Timestamp list from.
-   */
   List<Timestamp> getTimestampList(String name);
 
   /* --- SINGLE-VALUE SETTERS --- */
 
   /**
-   * Sets the designated field to the given String value, overwriting any value
+   * Sets the designated field to the given value, overwriting any value
    * that existed previously, and making the field single-valued.
    *
    * @param name the name of the field you want to set.
@@ -254,95 +120,29 @@ public interface Document {
    */
   void setField(String name, String value);
 
-  /**
-   * Sets the designated field to the given Boolean value, overwriting any value
-   * that existed previously, and making the field single-valued.
-   *
-   * @param name the name of the field you want to set.
-   * @param value the value you want to set the field to have.
-   */
   void setField(String name, Boolean value);
 
-  /**
-   * Sets the designated field to the given Integer value, overwriting any value
-   * that existed previously, and making the field single-valued.
-   *
-   * @param name the name of the field you want to set.
-   * @param value the value you want to set the field to have.
-   */
   void setField(String name, Integer value);
 
-  /**
-   * Sets the designated field to the given Double value, overwriting any value
-   * that existed previously, and making the field single-valued.
-   *
-   * @param name the name of the field you want to set.
-   * @param value the value you want to set the field to have.
-   */
   void setField(String name, Double value);
 
-  /**
-   * Sets the designated field to the given Float value, overwriting any value
-   * that existed previously, and making the field single-valued.
-   *
-   * @param name the name of the field you want to set.
-   * @param value the value you want to set the field to have.
-   */
   void setField(String name, Float value);
 
-  /**
-   * Sets the designated field to the given Long value, overwriting any value
-   * that existed previously, and making the field single-valued.
-   *
-   * @param name the name of the field you want to set.
-   * @param value the value you want to set the field to have.
-   */
   void setField(String name, Long value);
 
-  /**
-   * Sets the designated field to the given Date value, overwriting any value
-   * that existed previously, and making the field single-valued.
-   *
-   * @param name the name of the field you want to set.
-   * @param value the value you want to set the field to have.
-   */
   void setField(String name, Date value);
 
-  /**
-   * Sets the designated field to the given Timestamp value, overwriting any value
-   * that existed previously, and making the field single-valued.
-   *
-   * @param name the name of the field you want to set.
-   * @param value the value you want to set the field to have.
-   */
   void setField(String name, Timestamp value);
 
   /**
    * Converts the given Instant to a String according to DateTimeFormatter.ISO_INSTANT and
    * places it in the designated field. The value can then be accessed as a String via getString()
    * or a converted back to an Instant via getInstant().
-   *
-   * @param name the name of the field you want to set.
-   * @param value the value you want to set the field to have.
    */
   void setField(String name, Instant value);
 
-  /**
-   * Sets the designated field to the given byte[], overwriting any value
-   * that existed previously, and making the field single-valued.
-   *
-   * @param name the name of the field you want to set.
-   * @param value the value you want to set the field to have.
-   */
   void setField(String name, byte[] value);
 
-  /**
-   * Sets the designated field to the given JsonNode, overwriting any value
-   * that existed previously, and making the field single-valued.
-   *
-   * @param name the name of the field you want to set.
-   * @param value the value you want to set the field to have.
-   */
   void setField(String name, JsonNode value);
 
   /**
@@ -387,7 +187,7 @@ public interface Document {
   /* --- LIST ADDERS --- */
 
   /**
-   * Adds the given String to the designated field, converting the field to multivalued (i.e. a list)
+   * Adds the given value to the designated field, converting the field to multivalued (i.e. a list)
    * if it was not multivalued already.
    *
    * @param name the name of the field you want to add the value to.
@@ -395,102 +195,30 @@ public interface Document {
    */
   void addToField(String name, String value);
 
-  /**
-   * Adds the given Boolean to the designated field, converting the field to multivalued (i.e. a list)
-   * if it was not multivalued already.
-   *
-   * @param name the name of the field you want to add the value to.
-   * @param value the value you want to add.
-   */
   void addToField(String name, Boolean value);
 
-  /**
-   * Adds the given Integer to the designated field, converting the field to multivalued (i.e. a list)
-   * if it was not multivalued already.
-   *
-   * @param name the name of the field you want to add the value to.
-   * @param value the value you want to add.
-   */
   void addToField(String name, Integer value);
 
-  /**
-   * Adds the given Double to the designated field, converting the field to multivalued (i.e. a list)
-   * if it was not multivalued already.
-   *
-   * @param name the name of the field you want to add the value to.
-   * @param value the value you want to add.
-   */
   void addToField(String name, Double value);
 
-  /**
-   * Adds the given Float to the designated field, converting the field to multivalued (i.e. a list)
-   * if it was not multivalued already.
-   *
-   * @param name the name of the field you want to add the value to.
-   * @param value the value you want to add.
-   */
   void addToField(String name, Float value);
 
-  /**
-   * Adds the given Long to the designated field, converting the field to multivalued (i.e. a list)
-   * if it was not multivalued already.
-   *
-   * @param name the name of the field you want to add the value to.
-   * @param value the value you want to add.
-   */
   void addToField(String name, Long value);
 
-  /**
-   * Adds the given Instant to the designated field, converting the field to multivalued (i.e. a list)
-   * if it was not multivalued already.
-   *
-   * @param name the name of the field you want to add the value to.
-   * @param value the value you want to add.
-   */
   void addToField(String name, Instant value);
 
-  /**
-   * Adds the given byte[] to the designated field, converting the field to multivalued (i.e. a list)
-   * if it was not multivalued already.
-   *
-   * @param name the name of the field you want to add the value to.
-   * @param value the value you want to add.
-   */
   void addToField(String name, byte[] value);
 
-  /**
-   * Adds the given JsonNode to the designated field, converting the field to multivalued (i.e. a list)
-   * if it was not multivalued already.
-   *
-   * @param name the name of the field you want to add the value to.
-   * @param value the value you want to add.
-   */
   void addToField(String name, JsonNode value);
 
-  /**
-   * Adds the given Date to the designated field, converting the field to multivalued (i.e. a list)
-   * if it was not multivalued already.
-   *
-   * @param name the name of the field you want to add the value to.
-   * @param value the value you want to add.
-   */
   void addToField(String name, Date value);
 
-  /**
-   * Adds the given Timestamp to the designated field, converting the field to multivalued (i.e. a list)
-   * if it was not multivalued already.
-   *
-   * @param name the name of the field you want to add the value to.
-   * @param value the value you want to add.
-   */
   void addToField(String name, Timestamp value);
 
   /**
-   * Adds the given value to the designated field, converting the field to multivalued (i.e. a list)
-   * if it was not multivalued already.
-   *
-   * The provided Object value must be one of:
-   * String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp, or Date.
+   * Adds the given value to the designated field, converting the field to multivalued (i.e. a list)if it was not multivalued already.
+   * The provided Object value must be one of: String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp,
+   * or Date.
    *
    * @param name the name of the field you want to add the value to.
    * @param value the value you want to add.
@@ -528,7 +256,7 @@ public interface Document {
   /* --- SINGLE-VALUE OR LIST ADDERS --- */
 
   /**
-   * Sets the field to the given String if the field is not already present; otherwise, adds the String to the field.
+   * Sets the field to the given value if the field is not already present; otherwise, adds the value to the field.
    *
    * <p>If the field does not already exist and this method is called once, the field will be
    * created as single-valued; if the field already exists and/or this method is called more than
@@ -539,124 +267,24 @@ public interface Document {
    */
   void setOrAdd(String name, String value);
 
-  /**
-   * Sets the field to the given Boolean if the field is not already present; otherwise, adds the Boolean to the field.
-   *
-   * <p>If the field does not already exist and this method is called once, the field will be
-   * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will be converted to multivalued (i.e. a list of values).
-   *
-   * @param name the name of the field you want to set or add a value to.
-   * @param value the value you want to set or add to an existing field.
-   */
   void setOrAdd(String name, Boolean value);
 
-  /**
-   * Sets the field to the given Integer if the field is not already present; otherwise, adds the Integer to the field.
-   *
-   * <p>If the field does not already exist and this method is called once, the field will be
-   * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will be converted to multivalued (i.e. a list of values).
-   *
-   * @param name the name of the field you want to set or add a value to.
-   * @param value the value you want to set or add to an existing field.
-   */
   void setOrAdd(String name, Integer value);
 
-  /**
-   * Sets the field to the given Double if the field is not already present; otherwise, adds the Double to the field.
-   *
-   * <p>If the field does not already exist and this method is called once, the field will be
-   * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will be converted to multivalued (i.e. a list of values).
-   *
-   * @param name the name of the field you want to set or add a value to.
-   * @param value the value you want to set or add to an existing field.
-   */
   void setOrAdd(String name, Double value);
 
-  /**
-   * Sets the field to the given Float if the field is not already present; otherwise, adds the Float to the field.
-   *
-   * <p>If the field does not already exist and this method is called once, the field will be
-   * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will be converted to multivalued (i.e. a list of values).
-   *
-   * @param name the name of the field you want to set or add a value to.
-   * @param value the value you want to set or add to an existing field.
-   */
   void setOrAdd(String name, Float value);
 
-  /**
-   * Sets the field to the given Long if the field is not already present; otherwise, adds the Long to the field.
-   *
-   * <p>If the field does not already exist and this method is called once, the field will be
-   * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will be converted to multivalued (i.e. a list of values).
-   *
-   * @param name the name of the field you want to set or add a value to.
-   * @param value the value you want to set or add to an existing field.
-   */
   void setOrAdd(String name, Long value);
 
-  /**
-   * Sets the field to the given Instant if the field is not already present; otherwise, adds the Instant to the field.
-   *
-   * <p>If the field does not already exist and this method is called once, the field will be
-   * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will be converted to multivalued (i.e. a list of values).
-   *
-   * @param name the name of the field you want to set or add a value to.
-   * @param value the value you want to set or add to an existing field.
-   */
   void setOrAdd(String name, Instant value);
 
-  /**
-   * Sets the field to the given byte[] if the field is not already present; otherwise, adds the byte[] to the field.
-   *
-   * <p>If the field does not already exist and this method is called once, the field will be
-   * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will be converted to multivalued (i.e. a list of values).
-   *
-   * @param name the name of the field you want to set or add a value to.
-   * @param value the value you want to set or add to an existing field.
-   */
   void setOrAdd(String name, byte[] value);
 
-  /**
-   * Sets the field to the given JsonNode if the field is not already present; otherwise, adds the JsonNode to the field.
-   *
-   * <p>If the field does not already exist and this method is called once, the field will be
-   * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will be converted to multivalued (i.e. a list of values).
-   *
-   * @param name the name of the field you want to set or add a value to.
-   * @param value the value you want to set or add to an existing field.
-   */
   void setOrAdd(String name, JsonNode value);
 
-  /**
-   * Sets the field to the given Date if the field is not already present; otherwise, adds the Date to the field.
-   *
-   * <p>If the field does not already exist and this method is called once, the field will be
-   * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will be converted to multivalued (i.e. a list of values).
-   *
-   * @param name the name of the field you want to set or add a value to.
-   * @param value the value you want to set or add to an existing field.
-   */
   void setOrAdd(String name, Date value);
 
-  /**
-   * Sets the field to the given Timestamp if the field is not already present; otherwise, adds the Timestamp to the field.
-   *
-   * <p>If the field does not already exist and this method is called once, the field will be
-   * created as single-valued; if the field already exists and/or this method is called more than
-   * once, the field will be converted to multivalued (i.e. a list of values).
-   *
-   * @param name the name of the field you want to set or add a value to.
-   * @param value the value you want to set or add to an existing field.
-   */
   void setOrAdd(String name, Timestamp value);
 
   /**
@@ -714,8 +342,6 @@ public interface Document {
    * Adds all the fields of the designated "other" document to the current document, excluding
    * reserved fields like id. If a field is already present on the current document, the field is
    * converted to a list and the new value is appended.
-   *
-   * @param other the document to add fields from.
    */
   void setOrAddAll(Document other);
 
@@ -723,7 +349,7 @@ public interface Document {
   /* --- UPDATERS --- */
 
   /**
-   * Updates the designated field to have the supplied String value(s), in accordance with the provided UpdateMode.
+   * Updates the designated field in accordance with the provided UpdateMode.
    * <p> In all cases, the field will be created if it doesn't already exist.
    *
    * @param name the name of the field you want to update.
@@ -734,122 +360,42 @@ public interface Document {
     update(name, mode, v -> setField(name, (String) v), v -> setOrAdd(name, (String) v), values);
   }
 
-  /**
-   * Updates the designated field to have the supplied Boolean value(s), in accordance with the provided UpdateMode.
-   * <p> In all cases, the field will be created if it doesn't already exist.
-   *
-   * @param name the name of the field you want to update.
-   * @param mode the UpdateMode you want to use.
-   * @param values the value(s) you want the field to have.
-   */
   default void update(String name, UpdateMode mode, Boolean... values) {
     update(name, mode, v -> setField(name, (Boolean) v), v -> setOrAdd(name, (Boolean) v), values);
   }
 
-  /**
-   * Updates the designated field to have the supplied Integer value(s), in accordance with the provided UpdateMode.
-   * <p> In all cases, the field will be created if it doesn't already exist.
-   *
-   * @param name the name of the field you want to update.
-   * @param mode the UpdateMode you want to use.
-   * @param values the value(s) you want the field to have.
-   */
   default void update(String name, UpdateMode mode, Integer... values) {
     update(name, mode, v -> setField(name, (Integer) v), v -> setOrAdd(name, (Integer) v), values);
   }
 
-  /**
-   * Updates the designated field to have the supplied Double value(s), in accordance with the provided UpdateMode.
-   * <p> In all cases, the field will be created if it doesn't already exist.
-   *
-   * @param name the name of the field you want to update.
-   * @param mode the UpdateMode you want to use.
-   * @param values the value(s) you want the field to have.
-   */
   default void update(String name, UpdateMode mode, Double... values) {
     update(name, mode, v -> setField(name, (Double) v), v -> setOrAdd(name, (Double) v), values);
   }
 
-  /**
-   * Updates the designated field to have the supplied Float value(s), in accordance with the provided UpdateMode.
-   * <p> In all cases, the field will be created if it doesn't already exist.
-   *
-   * @param name the name of the field you want to update.
-   * @param mode the UpdateMode you want to use.
-   * @param values the value(s) you want the field to have.
-   */
   default void update(String name, UpdateMode mode, Float... values) {
     update(name, mode, v -> setField(name, (Float) v), v -> setOrAdd(name, (Float) v), values);
   }
 
-  /**
-   * Updates the designated field to have the supplied Long value(s), in accordance with the provided UpdateMode.
-   * <p> In all cases, the field will be created if it doesn't already exist.
-   *
-   * @param name the name of the field you want to update.
-   * @param mode the UpdateMode you want to use.
-   * @param values the value(s) you want the field to have.
-   */
   default void update(String name, UpdateMode mode, Long... values) {
     update(name, mode, v -> setField(name, (Long) v), v -> setOrAdd(name, (Long) v), values);
   }
 
-  /**
-   * Updates the designated field to have the supplied Instant value(s), in accordance with the provided UpdateMode.
-   * <p> In all cases, the field will be created if it doesn't already exist.
-   *
-   * @param name the name of the field you want to update.
-   * @param mode the UpdateMode you want to use.
-   * @param values the value(s) you want the field to have.
-   */
   default void update(String name, UpdateMode mode, Instant... values) {
     update(name, mode, v -> setField(name, (Instant) v), v -> setOrAdd(name, (Instant) v), values);
   }
 
-  /**
-   * Updates the designated field to have the supplied byte[] value(s), in accordance with the provided UpdateMode.
-   * <p> In all cases, the field will be created if it doesn't already exist.
-   *
-   * @param name the name of the field you want to update.
-   * @param mode the UpdateMode you want to use.
-   * @param values the value(s) you want the field to have.
-   */
   default void update(String name, UpdateMode mode, byte[]... values) {
     update(name, mode, v -> setField(name, (byte[]) v), v -> setOrAdd(name, (byte[]) v), values);
   }
 
-  /**
-   * Updates the designated field to have the supplied JsonNode value(s), in accordance with the provided UpdateMode.
-   * <p> In all cases, the field will be created if it doesn't already exist.
-   *
-   * @param name the name of the field you want to update.
-   * @param mode the UpdateMode you want to use.
-   * @param values the value(s) you want the field to have.
-   */
   default void update(String name, UpdateMode mode, JsonNode... values) {
     update(name, mode, v -> setField(name, (JsonNode) v), v -> setOrAdd(name, (JsonNode) v), values);
   }
 
-  /**
-   * Updates the designated field to have the supplied Date value(s), in accordance with the provided UpdateMode.
-   * <p> In all cases, the field will be created if it doesn't already exist.
-   *
-   * @param name the name of the field you want to update.
-   * @param mode the UpdateMode you want to use.
-   * @param values the value(s) you want the field to have.
-   */
   default void update(String name, UpdateMode mode, Date... values) {
     update(name, mode, v -> setField(name, (Date) v), v -> setOrAdd(name, (Date) v), values);
   }
 
-  /**
-   * Updates the designated field to have the supplied Timestamp value(s), in accordance with the provided UpdateMode.
-   * <p> In all cases, the field will be created if it doesn't already exist.
-   *
-   * @param name the name of the field you want to update.
-   * @param mode the UpdateMode you want to use.
-   * @param values the value(s) you want the field to have.
-   */
   default void update(String name, UpdateMode mode, Timestamp... values) {
     update(name, mode, v -> setField(name, (Timestamp) v), v -> setOrAdd(name, (Timestamp) v), values);
   }
@@ -868,7 +414,7 @@ public interface Document {
    * @param mode the UpdateMode you want to use.
    * @param values the value(s) you want the field to have.
    * @throws IllegalArgumentException if any of the values is not of a supported type
-   **/
+   */
   default void update(String name, UpdateMode mode, Object... values) {
     update(name, mode, v -> setField(name, v), (v) -> setOrAdd(name, v), values);
   }
@@ -911,52 +457,19 @@ public interface Document {
 
   /**
    * Returns true if the field is present on this document; false otherwise.
-   * @param name the name of the field you want to check for.
-   * @return Whether the document has the given field.
    */
   boolean has(String name);
 
-  /**
-   * Returns true if the field is present on this document and not null; false otherwise.
-   * @param name the name of the field you want to check for.
-   * @return Whether the document has the given field and its value is not null.
-   */
   boolean hasNonNull(String name);
 
-  /**
-   * Returns true if the field is multivalued; false otherwise.
-   * @param name the name of the field you want to check for.
-   * @return Whether the document has the given field and it is multivalued.
-   */
   boolean isMultiValued(String name);
 
-  /**
-   * Returns the number of values associated with this field. Returns 0 if the field is not present on the document.
-   * @param name the name of the field whose length you want to check.
-   * @return The length of the data associated with the given field, or 0 if the field is not present.
-   */
   int length(String name);
 
-  /**
-   * Removes the field and any data associated with it from the document.
-   * @param name The name of the field you want to remove.
-   */
   void removeField(String name);
 
-  /**
-   * Removes the data at the given index from the array at the given field.
-   * @param name The name of a multivalued field that you want to remove an entry from.
-   * @param index The index of the data you want to remove.
-   */
   void removeFromArray(String name, int index);
 
-  /**
-   * Renames the field in accordance with the given UpdateMode.
-   *
-   * @param oldName The old (current) name for the field.
-   * @param newName The new name you want for the field.
-   * @param mode The UpdateMode you'll use to update the field.
-   */
   void renameField(String oldName, String newName, UpdateMode mode);
 
   /**
@@ -969,12 +482,6 @@ public interface Document {
    */
   void removeDuplicateValues(String fieldName, String targetFieldName);
 
-  /**
-   * Validates the given field names, throwing an exception if any of the provided names are a reserved field.
-   *
-   * @param names The field names you want to validate.
-   * @throws IllegalArgumentException If names is null, an individual entry is null or empty, or names contains a reserved field.
-   */
   default void validateFieldNames(String... names) throws IllegalArgumentException {
     if (names == null) {
       throw new IllegalArgumentException("expecting string parameters");
@@ -992,154 +499,69 @@ public interface Document {
 
   /* --- DOCUMENT-LEVEL UTILITIES --- */
 
-  /**
-   * Gets the id of this Document.
-   * @return the id of this Document.
-   */
   String getId();
 
-  /**
-   * Gets the runId of this Document.
-   * @return the runId of this Document.
-   */
   String getRunId();
 
-  /**
-   * If the Document doesn't have a runID, set it to have the given runID. If it does, an IllegalStateException is thrown.
-   * @param value The runID you want the Document to have.
-   * @throws IllegalStateException If the Document already has a runID.
-   */
   void initializeRunId(String value);
 
-  /**
-   * Removes the runID from the Document.
-   */
   void clearRunId();
 
-  /**
-   * Returns whether this Document is dropped.
-   * @return whether this Document is dropped.
-   */
   boolean isDropped();
 
-  /**
-   * Sets the Document's dropped status to be the given boolean.
-   * @param status Whether the Document is dropped.
-   */
   void setDropped(boolean status);
 
-  /**
-   * Returns a deep copy of the Document.
-   * @return a deep copy of the Document.
-   */
   Document deepCopy();
 
   /**
-   * Applies a JSONNata expression to this Document (as if it were a JSON object) and replaces this Document with the result. 
+   * Applies a JSONNata expression to this Document (as if it were a JSON object) and replaces this Document with the result.
    *
-   * @param expr The JSONNata expression you want to apply.
    * @throws DocumentException if any reserved fields are mutated or if the result is not an object (primitive or array)
    * @see <a href="https://github.com/IBM/JSONata4Java">JSONNata implementation</a>
    */
   void transform(Expressions expr) throws DocumentException;
 
   /**
-   * Returns an Iterator that contains only this Document.
-   * @return An Iterator containing only this Document.
+   * Returns an Iterator that contains only this document.
    */
   default Iterator<Document> iterator() {
     return Collections.singleton(this).iterator();
   }
 
-  /**
-   * Returns the names of the Document's fields.
-   * @return the names of the Document's fields.
-   */
   Set<String> getFieldNames();
 
-  /**
-   * Returns the Document as a map of field names to corresponding Object values.
-   * @return the Document as a map of field names to corresponding Object values.
-   */
   Map<String, Object> asMap();
 
 
   /* --- CHILD HANDLING UTILITIES --- */
 
-  /**
-   * Returns whether the document has child documents.
-   * @return whether the document has child documents.
-   */
   boolean hasChildren();
 
-  /**
-   * Gets the Document's children.
-   * @return the Document's children.
-   */
   List<Document> getChildren();
 
-  /**
-   * Adds the given Document to this Document's children.
-   * @param document The Document you want to add as a child.
-   */
   void addChild(Document document);
 
-  /**
-   * Removes this Document's children.
-   */
   void removeChildren();
 
 
   /* --- CREATORS --- */
 
-  /**
-   * Creates a Document from the given ObjectNode.
-   * @param node The ObjectNode you want to create a Document from.
-   * @return A Document created from the given ObjectNode.
-   * @throws DocumentException If an error occurs creating the Document.
-   */
   static Document create(ObjectNode node) throws DocumentException {
     return new JsonDocument(node);
   }
 
-  /**
-   * Creates an empty Document with the given id.
-   * @param id The ID you want the new Document to have.
-   * @return An empty Document with the given id.
-   */
   static Document create(String id) {
     return new JsonDocument(id);
   }
 
-  /**
-   * Creates an empty Document with the given id and runId.
-   * @param id The ID you want the new Document to have.
-   * @param runId The runId you want the new Document to have.
-   * @return An empty Document with the given id and runId.
-   */
   static Document create(String id, String runId) {
     return new JsonDocument(id, runId);
   }
 
-  /**
-   * Creates a Document from the given String of JSON.
-   * @param json A String of JSON you want to create a Document from.
-   * @return A Document created from the given String JSON.
-   * @throws DocumentException If an error occurs creating the Document.
-   * @throws JsonProcessingException If an error occurs parsing the given String as JSON.
-   */
   static Document createFromJson(String json) throws DocumentException, JsonProcessingException {
     return createFromJson(json, null);
   }
 
-  /**
-   * Creates a Document from the given String of JSON using the given idUpdater.
-   * @param json A String of JSON you want to create a Document from.
-   * @param idUpdater The idUpdater you want to use for the document.
-   * @return A Document created from the given String JSON.
-   * @throws DocumentException If an error occurs creating the Document.
-   * @throws JsonProcessingException If an error occurs parsing the given String as JSON.
-   */
   static Document createFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
