@@ -51,6 +51,7 @@ public class WeaviateIndexer extends Indexer {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withRequiredProperties("apiKey", "host")
         .withOptionalProperties("className", "idDestinationName", "vectorField"));
+
     this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
         "id_original";
