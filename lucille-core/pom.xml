@@ -362,6 +362,12 @@
       <version>3.3.3</version>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+        <groupId>io.github.ollama4j</groupId>
+        <artifactId>ollama4j</artifactId>
+        <version>1.0.93</version>
+    </dependency>
   </dependencies>
 
 

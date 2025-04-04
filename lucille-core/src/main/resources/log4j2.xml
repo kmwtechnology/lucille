@@ -42,5 +42,9 @@
             <AppenderRef ref="console" />
             <AppenderRef ref="file" />
         </Logger>
+
+        <!-- Higher level for logging from Ollama4j. At "INFO" it logs every time an LLM request is made and provides
+        the entire JSON related with the request. -->
+        <Logger name="io.github.ollama4j" level="WARN"/>
     </Loggers>
 </Configuration>
