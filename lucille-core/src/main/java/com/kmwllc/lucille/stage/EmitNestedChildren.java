@@ -2,6 +2,7 @@ package com.kmwllc.lucille.stage;
 
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -30,7 +31,7 @@ public class EmitNestedChildren extends Stage {
   private static final Logger log = LoggerFactory.getLogger(EmitNestedChildren.class);
 
   public EmitNestedChildren(Config config) {
-    super(config, new StageSpec()
+    super(config, Spec.stage()
         .withOptionalParents("fields_to_copy")
         .withOptionalProperties("drop_parent", "update_mode"));
     this.dropParent = config.hasPath("drop_parent") ? config.getBoolean("drop_parent") : false;

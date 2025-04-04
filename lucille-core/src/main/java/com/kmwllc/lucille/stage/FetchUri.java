@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.ExponentialBackoffRetryHandler;
@@ -68,7 +69,7 @@ public class FetchUri extends Stage {
   private CloseableHttpClient client;
 
   public FetchUri(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "dest")
+    super(config, Spec.stage().withRequiredProperties("source", "dest")
         .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix", "max_retries", "initial_expiry_ms",
             "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout", "status_code_retry_list")
         .withOptionalParents("headers"));

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import java.io.File;
 import java.util.Arrays;
@@ -47,7 +48,7 @@ public class ParseFilePath extends Stage {
   private static final Logger log = LoggerFactory.getLogger(ParseFilePath.class);
   
   public ParseFilePath(Config config) {
-    super(config, new StageSpec().withOptionalProperties("filePathField", "fileSep", "uppercaseExtension", "includeHierarchy"));
+    super(config, Spec.stage().withOptionalProperties("filePathField", "fileSep", "uppercaseExtension", "includeHierarchy"));
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
     this.fileSep = ConfigUtils.getOrDefault(config, "fileSep", File.separator);
 

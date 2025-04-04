@@ -16,7 +16,7 @@ public class SequenceConnectorTest {
 
   @Test
   public void testExecute() throws Exception {
-    Config config = ConfigFactory.load("SequenceConnectorTest/config.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("SequenceConnectorTest/config.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new SequenceConnector(config);
@@ -40,7 +40,7 @@ public class SequenceConnectorTest {
 
   @Test
   public void testLoadConfigWithLongNumDocs() throws Exception {
-    Config config = ConfigFactory.load("SequenceConnectorTest/configLargeNumDocs.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("SequenceConnectorTest/configLargeNumDocs.conf");
     Connector connector = new SequenceConnector(config);
   }
 

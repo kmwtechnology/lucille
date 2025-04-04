@@ -4,7 +4,6 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.google.common.collect.Sets;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.collections4.iterators.IteratorChain;
@@ -20,34 +19,30 @@ import java.util.stream.Collectors;
  * This abstract class provides some base functionality which should be applicable to all Stages.
  * <br>
  * <br>
- * Config Parameters:
  *
+ * Config Parameters (Conditions):
  * <ul>
- *   <li>conditional_fields (List&lt;String&gt;, Optional) : The fields which will be used to determine if
+ *   <li>fields (List&lt;String&gt;, Optional) : The fields which will be used to determine if
  *       this stage should be applied. Turns off conditional execution by default.
- *   <li>conditional_values (List&lt;String&gt;, Optional) : The values which we will search the
+ *   <li>values (List&lt;String&gt;, Optional) : The values which we will search the
  *       conditional fields for. If not set, only the existence of fields is checked.
- *   <li>conditional_operator (String, Optional) : The operator to determine conditional execution.
+ *   <li>operator (String, Optional) : The operator to determine conditional execution.
  *       Can be 'must' or 'must_not'. Defaults to must.
  * </ul>
  *
- * <p>Config validation:<br>
- * The config validation will happen based on {@link Stage#optionalProperties}, {@link
- * Stage#requiredProperties}, {@link Stage#requiredParents}, and {@link Stage#optionalParents}.
- * Note that all of these properties are stored as sets and are disjoint from each other. As the
- * name suggests {@link Stage#requiredProperties} and {@link Stage#requiredParents} are required to
- * be present in the config while {@link Stage#optionalProperties} and {@link Stage#optionalParents}
- * are optional.
+ * All stages will have their configuration, including conditions, validated by {@link Spec#validate(Config, String)}. In the Stage constructor, define
+ * the required/optional properties/parents via a StageSpec. Any error messages regarding the Stage's Config will include the stage's
+ * display name. A {@link Spec#stage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
  */
 public abstract class Stage {
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
-  private static final Set<String> EMPTY_SET = Collections.emptySet();
-  private static final Set<String> CONDITIONS_OPTIONAL = Set.of("operator", "values");
-  private static final Set<String> CONDITIONS_REQUIRED = Set.of("fields");
-  private static final Set<String> OPTIONAL_PROPERTIES = Set.of("class", "name", "conditions", "conditionPolicy");
+  private static final List<String> EMPTY_LIST = Collections.emptyList();
+  private static final List<String> CONDITIONS_OPTIONAL = List.of("operator", "values");
+  private static final List<String> CONDITIONS_REQUIRED = List.of("fields");
 
   protected Config config;
+  private final Spec spec;
   private final Predicate<Document> condition;
   private String name;
 
@@ -56,22 +51,15 @@ public abstract class Stage {
   private Counter errorCounter;
   private Counter childCounter;
 
-  private final Set<String> requiredProperties;
-  private final Set<String> optionalProperties;
-  private final Set<String> requiredParents;
-  private final Set<String> optionalParents;
-
+  /**
+   * Creates a Stage without any optional / required properties, other than the default legal properties for all Stages.
+   * @param config The configuration for the Stage.
+   */
   public Stage(Config config) {
-    this(config, new StageSpec());
+    this(config, Spec.stage());
   }
 
-  protected Stage(Config config, StageSpec spec) {
-    this(config, spec.requiredProperties, spec.optionalProperties, spec.requiredParents, spec.optionalParents);
-  }
-
-  private Stage(Config config, Set<String> requiredProperties, Set<String> optionalProperties,
-      Set<String> requiredParents, Set<String> optionalParents) {
-
+  protected Stage(Config config, Spec spec) {
     if (config == null) {
       throw new IllegalArgumentException("Config cannot be null");
     }
@@ -79,17 +67,10 @@ public abstract class Stage {
     this.name = ConfigUtils.getOrDefault(config, "name", null);
 
     this.config = config;
-    this.requiredParents = Collections.unmodifiableSet(requiredParents);
-    this.optionalParents = Collections.unmodifiableSet(optionalParents);
-    this.requiredProperties = Collections.unmodifiableSet(requiredProperties);
-    this.optionalProperties = mergeSets(OPTIONAL_PROPERTIES, optionalProperties);
+    this.spec = spec;
 
-    // validates the properties that were just assigned
-    try {
-      validateConfigWithConditions();
-    } catch (StageException e) {
-      throw new IllegalArgumentException(e);
-    }
+    // validates the config as well as any potential conditions. throws an IllegalArgumentException if invalid.
+    validateConfigAndConditions();
 
     this.condition = getMergedConditions();
   }
@@ -318,148 +299,19 @@ public abstract class Stage {
     return config;
   }
 
-  public void validateConfigWithConditions() throws StageException {
+  private void validateConfigAndConditions() {
+    spec.validate(config, getDisplayName());
 
-    try {
-      validateConfig(config, requiredProperties, optionalProperties, requiredParents, optionalParents);
-
-      // validate conditions
-      if (config.hasPath("conditions")) {
-        for (Config condition : config.getConfigList("conditions")) {
-          validateConfig(condition, CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_SET, EMPTY_SET);
-        }
+    // validate conditions
+    if (config.hasPath("conditions")) {
+      for (Config condition : config.getConfigList("conditions")) {
+        Spec.validateConfig(condition, getDisplayName() + " Condition", CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST,
+            EMPTY_LIST);
       }
-    } catch (IllegalArgumentException e) {
-      throw new StageException(e.getMessage());
-    }
-  }
-
-  // this can be used in a specific stage to validate nested properties
-  protected void validateConfig(
-      Config config, Set<String> requiredProperties, Set<String> optionalProperties,
-      Set<String> requiredParents, Set<String> optionalParents) {
-
-    // verifies that set intersection is empty
-    if (!disjoint(requiredProperties, optionalProperties, requiredParents, optionalParents)) {
-      throw new IllegalArgumentException(getDisplayName()
-          + ": Properties and parents sets must be disjoint.");
-    }
-
-    // verifies all required properties are present
-    Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
-    for (String property : requiredProperties) {
-      if (!keys.contains(property)) {
-        throw new IllegalArgumentException(getDisplayName() + ": Stage config must contain property "
-            + property);
-      }
-    }
-
-    // verifies that
-    // 1. all remaining properties are in the optional set or are nested;
-    // 2. all required parents are present
-    Set<String> observedRequiredParents = new HashSet<>();
-    Set<String> legalProperties = mergeSets(requiredProperties, optionalProperties);
-    for (String key : keys) {
-      if (!legalProperties.contains(key)) {
-        String parent = getParent(key);
-        if (parent == null) {
-          throw new IllegalArgumentException(getDisplayName() + ": Stage config contains unknown property "
-              + key);
-        } else if (requiredParents.contains(parent)) {
-          observedRequiredParents.add(parent);
-        } else if (!optionalParents.contains(parent)) {
-          throw new IllegalArgumentException(getDisplayName() + ": Stage config contains unknown property "
-              + key);
-        }
-      }
-    }
-    if (observedRequiredParents.size() != requiredParents.size()) {
-      throw new IllegalArgumentException(getDisplayName() + ": Stage config is missing required parents: " +
-          Sets.difference(requiredParents, observedRequiredParents));
     }
   }
 
   public Set<String> getLegalProperties() {
-    return mergeSets(requiredProperties, optionalProperties);
-  }
-
-  private static String getParent(String property) {
-    int dotIndex = property.indexOf('.');
-    if (dotIndex < 0 || dotIndex == property.length() - 1) {
-      return null;
-    }
-    return property.substring(0, dotIndex);
-  }
-
-  @SafeVarargs
-  private static boolean disjoint(Set<String>... sets) {
-    if (sets == null) {
-      throw new IllegalArgumentException("Sets must not be null");
-    }
-    if (sets.length == 0) {
-      throw new IllegalArgumentException("expecting at least one set");
-    }
-
-    Set<String> observed = new HashSet<>();
-    for (Set<String> set : sets) {
-      if (set == null) {
-        throw new IllegalArgumentException("Each set must not be null");
-      }
-      for (String s : set) {
-        if (observed.contains(s)) {
-          return false;
-        }
-        observed.add(s);
-      }
-    }
-    return true;
-  }
-
-  @SafeVarargs
-  private static <T> Set<T> mergeSets(Set<T>... sets) {
-    Set<T> merged = new HashSet<>();
-    for (Set<T> set : sets) {
-      merged.addAll(set);
-    }
-    return Collections.unmodifiableSet(merged);
-  }
-
-  /**
-   * This class is used for convenience of initializing the extending stages in the super
-   * constructor of {@link Stage}.
-   */
-  protected static class StageSpec {
-
-    private final Set<String> requiredProperties;
-    private final Set<String> optionalProperties;
-    private final Set<String> requiredParents;
-    private final Set<String> optionalParents;
-
-    public StageSpec() {
-      requiredProperties = new HashSet<>();
-      optionalProperties = new HashSet<>();
-      requiredParents = new HashSet<>();
-      optionalParents = new HashSet<>();
-    }
-
-    public StageSpec withRequiredProperties(String... properties) {
-      requiredProperties.addAll(Arrays.asList(properties));
-      return this;
-    }
-
-    public StageSpec withOptionalProperties(String... properties) {
-      optionalProperties.addAll(Arrays.asList(properties));
-      return this;
-    }
-
-    public StageSpec withRequiredParents(String... properties) {
-      requiredParents.addAll(Arrays.asList(properties));
-      return this;
-    }
-
-    public StageSpec withOptionalParents(String... properties) {
-      optionalParents.addAll(Arrays.asList(properties));
-      return this;
-    }
+    return spec.getLegalProperties();
   }
 }

@@ -17,7 +17,7 @@ public class JSONConnectorTest {
 
   @Test
   public void testExecute() throws Exception {
-    Config config = ConfigFactory.load("JSONConnectorTest/config.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("JSONConnectorTest/config.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new JSONConnector(config);

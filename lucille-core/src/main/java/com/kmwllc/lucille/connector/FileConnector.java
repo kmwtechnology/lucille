@@ -4,6 +4,7 @@ import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.Spec;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
@@ -31,7 +32,7 @@ import org.slf4j.LoggerFactory;
  * FilterOptions:
  *  includes (list of strings, Optional): list of regex patterns to include files.
  *  excludes (list of strings, Optional): list of regex patterns to exclude files.
- *  modificationCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time. 
+ *  modificationCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time.
  *  See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
  *  Note that, for archive files, this cutoff applies to both the archive file itself and its individual contents.
  *
@@ -100,7 +101,10 @@ public class FileConnector extends AbstractConnector {
   private final URI storageURI;
 
   public FileConnector(Config config) throws ConnectorException {
-    super(config);
+    super(config, Spec.connector()
+        .withRequiredProperties("pathToStorage")
+        .withOptionalParents("fileOptions", "filterOptions", "s3", "gcp", "azure"));
+
     this.pathToStorage = config.getString("pathToStorage");
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
     this.filterOptions = config.hasPath("filterOptions") ? config.getConfig("filterOptions") : ConfigFactory.empty();

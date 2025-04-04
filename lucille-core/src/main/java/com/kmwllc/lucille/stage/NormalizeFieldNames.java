@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -7,7 +8,6 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
-import java.util.List;
 
 /**
  * Normalizes a document's field values by replacing spaces and non-alphanumeric characters with given delimiters.
@@ -24,7 +24,7 @@ public class NormalizeFieldNames extends Stage {
   private final String nonAlphanumReplacement;
 
   public NormalizeFieldNames(Config config) {
-    super(config, new StageSpec().withOptionalProperties("delimiter", "nonAlphanumReplacement"));
+    super(config, Spec.stage().withOptionalProperties("delimiter", "nonAlphanumReplacement"));
     this.delimeter = config.hasPath("delimeter") ? config.getString("delimeter") : "_";
     this.nonAlphanumReplacement = config.hasPath("nonAlphaNumReplacement") ? config.getString("nonAlphanumReplacement") : "";
   }

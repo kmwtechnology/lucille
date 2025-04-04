@@ -43,7 +43,7 @@ public class FileConnectorTest {
 
   @Test
   public void testExecuteSuccessful() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/gcloudtraversal.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new FileConnector(config);
@@ -62,7 +62,7 @@ public class FileConnectorTest {
 
   @Test
   public void testExecuteSuccessfulExtraCloudConfig() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/multipleCloud.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multipleCloud.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new FileConnector(config);
@@ -81,7 +81,7 @@ public class FileConnectorTest {
 
   @Test
   public void testInitFailed() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/gcloudtraversal.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new FileConnector(config);
@@ -102,7 +102,7 @@ public class FileConnectorTest {
 
   @Test
   public void testPublishFilesFailed() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/gcloudtraversal.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new FileConnector(config);
@@ -128,7 +128,7 @@ public class FileConnectorTest {
     File copy = new File("src/test/resources/FileConnectorTest/faulty.csv");
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
-    Config config = ConfigFactory.load("FileConnectorTest/faulty.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/faulty.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new FileConnector(config);
@@ -160,7 +160,7 @@ public class FileConnectorTest {
     File copy = new File("src/test/resources/FileConnectorTest/defaults.csv");
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
-    Config config = ConfigFactory.load("FileConnectorTest/success.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/success.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new FileConnector(config);
@@ -186,7 +186,7 @@ public class FileConnectorTest {
 
   @Test
   public void testExampleTraversal() throws Exception {
-    Config config = ConfigFactory.load("FileConnectorTest/example.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new FileConnector(config);

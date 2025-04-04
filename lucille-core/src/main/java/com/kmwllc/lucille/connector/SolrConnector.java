@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
@@ -56,7 +57,10 @@ public class SolrConnector extends AbstractConnector {
   }
 
   public SolrConnector(Config config, SolrClient client) {
-    super(config);
+    super(config, Spec.connector()
+        .withRequiredProperties("solr.url")
+        .withOptionalProperties("preActions", "postActions", "useXml", "idField")
+        .withOptionalParents("solrParams"));
     this.client = client;
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());

@@ -823,4 +823,25 @@ public class RunnerTest {
     Config config = ConfigFactory.load("RunnerTest/render.conf");
     Runner.renderConfig(config);
   }
+
+  @Test
+  public void testStringifyValidationExceptions() {
+    Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
+    exceptions.put("pipeline1", List.of(new Exception("exception 1"), new Exception("exception 2")));
+    exceptions.put("pipeline2", List.of(new Exception("exception 3")));
+
+    String expected = "Pipeline Configuration is invalid. Printing the list of exceptions for each element\n"
+        + "\tPipeline: pipeline1\n"
+        + "\t\texception 1\n"
+        + "\t\texception 2\n"
+        + "\tPipeline: pipeline2\n"
+        + "\t\texception 3";
+    assertEquals(expected, Runner.stringifyValidation(exceptions, "Pipeline"));
+  }
+
+  @Test
+  public void testStringifyValidationNoExceptions() {
+    Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
+    assertEquals("Pipeline Configuration is valid", Runner.stringifyValidation(exceptions, "Pipeline"));
+  }
 }
