@@ -121,6 +121,7 @@ public class Runner {
       if (cli.hasOption("validate")) {
         logValidation(validateConnectors(config), "Connector");
         logValidation(validatePipelines(config), "Pipeline");
+        logValidation(validateIndexer(config), "Indexer");
       }
       return;
     }
@@ -192,21 +193,25 @@ public class Runner {
   }
 
   public static Map<String, List<Exception>> runInValidationMode(Config config) throws Exception {
+    // Resolve any potential substitutions once to prevent errors about missing values.
+    config = config.resolve();
+
     Map<String, List<Exception>> pipelineExceptions = validatePipelines(config);
     logValidation(pipelineExceptions, "Pipeline");
 
     Map<String, List<Exception>> connectorExceptions = validateConnectors(config);
     logValidation(connectorExceptions, "Connector");
 
+    Map<String, List<Exception>> indexerExceptions = validateIndexer(config);
+    logValidation(indexerExceptions, "Indexer");
+
     pipelineExceptions.putAll(connectorExceptions);
+    pipelineExceptions.putAll(indexerExceptions);
     return pipelineExceptions;
   }
 
   private static Map<String, List<Exception>> validateConnectors(Config rootConfig) {
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
-
-    // Resolve the config in case it is referenced as another file / has system properties
-    rootConfig = rootConfig.resolve();
 
     for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
       String name = connectorConfig.getString("name");
@@ -237,6 +242,16 @@ public class Runner {
       }
     }
     return exceptionMap;
+  }
+
+  private static Map<String, List<Exception>> validateIndexer(Config config) {
+    try {
+      IndexerFactory.fromConfig(config, new LocalMessenger(), true, "");
+    } catch (Exception e) {
+      return Map.of("Indexer", List.of(e));
+    }
+
+    return Map.of("Indexer", List.of());
   }
 
   public static void renderConfig(Config config) {
