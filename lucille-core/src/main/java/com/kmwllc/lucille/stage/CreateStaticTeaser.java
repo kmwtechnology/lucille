@@ -13,16 +13,16 @@ import java.util.List;
 
 /**
  * Create teasers of a given length from the given source fields. If the character limit is reached in
- * the middle of a word, the teaser will not be truncated until the end of the word. NOTE : If a given field is
- * multivalued, this Stage will only operate on the first value.
+ * the middle of a word, the teaser will not be truncated until the end of the word.
+ * <br> <b>NOTE:</b> If a given field is multivalued, this Stage will only operate on the first value.
  *
+ * <br>
  * Config Parameters:
- *
- *   - source (List&lt;String&gt;) : list of source field names.
- *   - dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination fields
- *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- *   - maxLength (Integer) : The maximum number of characters to include in the extracted teaser.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ * <p> - source (List&lt;String&gt;) : list of source field names.
+ * <p> - dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination fields
+ *       for a 1-1 mapping of results or supply one destination field for all the source fields to be mapped into.
+ * <p> - maxLength (Integer) : The maximum number of characters to include in the extracted teaser.
+ * <p> - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class CreateStaticTeaser extends Stage {
@@ -32,10 +32,6 @@ public class CreateStaticTeaser extends Stage {
   private final int maxLength;
   private final UpdateMode updateMode;
 
-  /**
-   * Creates the CreateStaticTeaser stage from the given config.
-   * @param config Configuration for the CreateStaticTeaser stage.
-   */
   public CreateStaticTeaser(Config config) {
     super(config, Spec.stage()
         .withRequiredProperties("source", "dest", "maxLength")

@@ -17,9 +17,6 @@ public class DateMonthStrFormatter implements BiFunction<String, ZoneId, ZonedDa
   private static final Pattern datePattern = Pattern.compile("\\w+ \\d{1,2}, \\d{1,4}");
   private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("LLLL d, u");
 
-  /** Creates a DateMonthStrFormatter. */
-  public DateMonthStrFormatter() {}
-
   @Override
   public ZonedDateTime apply(String value, ZoneId zone) {
     Matcher matcher = datePattern.matcher(value);

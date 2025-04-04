@@ -21,19 +21,8 @@ import static org.junit.Assert.*;
 @RunWith(JUnit4.class)
 public abstract class DocumentTest {
 
-  /**
-   * Creates a Document from the given ObjectNode.
-   * @param node The node to create a Document from.
-   * @return A Document created from the ObjectNode.
-   * @throws DocumentException If an error occurs.
-   */
   public abstract Document createDocument(ObjectNode node) throws DocumentException;
 
-  /**
-   * Creates an empty Document with the given ID.
-   * @param id The id to use for the document.
-   * @return An empty document with the given ID.
-   */
   public abstract Document createDocument(String id);
 
   public abstract Document createDocument(String id, String runId);

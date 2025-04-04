@@ -15,9 +15,6 @@ public class DateYearOnlyFormatter implements BiFunction<String, ZoneId, ZonedDa
 
   private static final Pattern datePattern = Pattern.compile("^\\d{2,4}$");
 
-  /** Creates a DateYearOnlyFormatter. */
-  public DateYearOnlyFormatter() {}
-
   @Override
   public ZonedDateTime apply(String value, ZoneId zone) {
     Matcher matcher = datePattern.matcher(value);

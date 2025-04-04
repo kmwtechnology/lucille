@@ -56,7 +56,7 @@ public class FileContentFetcher {
 
   /**
    * Shutdown each of the storage clients associated with this FileContentFetcher. If an error occurs while shutting down a
-   * StorageClient, a warning will be logged.
+   * StorageClient, a warning will be logged with the error.
    */
   public void shutdown() {
     started = false;

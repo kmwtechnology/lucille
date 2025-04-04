@@ -10,23 +10,21 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
 /**
- * This stage will iterate over the children documents that are attached to the currently 
- * processing document.  The fields to copy from the children document will be copied down
- * to multi-valued fields on the parent document.
- * 
- * If the dropChildren flag is set to true, the children documents will be dropped from the 
+ * <p> This stage will iterate over the children documents that are attached to the current document.
+ * The fields to copy from the children document will be copied to multi-valued fields on the parent document.
+ *
+ * <p> If dropChildren is set to true, the children documents will be dropped from the
  * parent before letting the parent document continue down the pipeline.
- * 
+ *
+ * <p> Config Parameters:
+ * <p> <b>fieldsToCopy</b> (List&lt;String&gt;): The fields you want to copy from a child document to the parent document.
+ * <p> <b>dropChildren</b> (Boolean): Whether you want to drop the children Documents from their parents after processing.
  */
 public class CollapseChildrenDocuments extends Stage {
 
   private List<String> fieldsToCopy;
   private boolean dropChildren;
 
-  /**
-   * Creates the CollapseChildrenDocuments stage from the given config.
-   * @param config Configuration for the CollapseChildrenDocuments stage.
-   */
   public CollapseChildrenDocuments(Config config) { 
     super(config, Spec.stage().withRequiredProperties("fieldsToCopy", "dropChildren"));
     fieldsToCopy = config.getStringList("fieldsToCopy"); 

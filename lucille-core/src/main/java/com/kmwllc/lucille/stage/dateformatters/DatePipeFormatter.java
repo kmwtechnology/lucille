@@ -14,9 +14,6 @@ public class DatePipeFormatter implements BiFunction<String, ZoneId, ZonedDateTi
 
   private static final Pattern datePattern = Pattern.compile("\\d{1,4}\\|\\d{1,2}\\|\\d{1,2}");
 
-  /** Creates a DatePipeFormatter. */
-  public DatePipeFormatter() {}
-
   @Override
   public ZonedDateTime apply(String value, ZoneId zone) {
     Matcher matcher = datePattern.matcher(value);

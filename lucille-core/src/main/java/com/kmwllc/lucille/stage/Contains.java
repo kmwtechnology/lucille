@@ -14,14 +14,13 @@ import java.util.List;
 /**
  * Checks if any of the given fields contain any of the given values and tags the given
  * output field with the value.
- *
+ * <br>
  * Config Parameters:
- *
- *   - contains (List&lt;String&gt;) : A list of values to search for
- *   - output (String) : The field to tag if a match is found
- *   - value (String) : The value to tag the output field with
- *   - ignoreCase (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true.
- *   - field (List&lt;String&gt;) : The fields to be searched
+ * <p> - contains (List&lt;String&gt;) : A list of values to search for
+ * <p> - output (String) : The field to tag if a match is found
+ * <p> - value (String) : The value to tag the output field with
+ * <p> - ignoreCase (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true.
+ * <p> - fields (List&lt;String&gt;) : The fields to be searched
  */
 public class Contains extends Stage {
 
