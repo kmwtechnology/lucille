@@ -7,6 +7,7 @@ import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.collections4.iterators.IteratorChain;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
  * display name. A {@link Spec#stage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
  */
 public abstract class Stage {
+  private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
   private static final List<String> EMPTY_LIST = Collections.emptyList();
   private static final List<String> CONDITIONS_OPTIONAL = List.of("operator", "values");
@@ -141,6 +143,7 @@ public abstract class Stage {
         context = timer.time();
       }
       try {
+        docLogger.info("Stage {} to process {}.", name, doc.getId());
         return processDocument(doc);
       } finally {
         if (context != null) {
@@ -149,9 +152,12 @@ public abstract class Stage {
           // to actually generate the children documents by exhausting the returned iterator
           context.stop();
         }
+
+        docLogger.info("Stage {} done processing {}.", name, doc.getId());
       }
     }
 
+    docLogger.info("Stage {} did not process {}.", name, doc.getId());
     return null;
   }
 
