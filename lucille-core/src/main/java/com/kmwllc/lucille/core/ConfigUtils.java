@@ -10,7 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Utility functions for working with Config.
+ * Utility functions for working with Configs.
  */
 public class ConfigUtils {
 

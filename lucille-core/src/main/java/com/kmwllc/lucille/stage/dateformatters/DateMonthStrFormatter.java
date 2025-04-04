@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 
 /**
  * Attempts to find dates of the form "January 1, 2000" and extract the values into a Java date.
- * Will return null of the there are no dates formatted in its style within the String.
+ * Will return null if there are no dates formatted in its style within the String.
  */
 public class DateMonthStrFormatter implements BiFunction<String, ZoneId, ZonedDateTime> {
 

@@ -65,7 +65,6 @@ public abstract class AbstractConnector implements Connector {
   /**
    * Returns the configured prefix that this Connector will prepend to ids from the source
    * data when creating Documents from that data.
-   * @return The prefix that this Connector will append to document IDs when created.
    */
   public String getDocIdPrefix() {
     return docIdPrefix;

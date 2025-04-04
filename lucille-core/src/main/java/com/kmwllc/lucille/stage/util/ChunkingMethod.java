@@ -6,10 +6,7 @@ import com.typesafe.config.Config;
  * A method of chunking contents.
  */
 public enum ChunkingMethod {
-  FIXED("fixed"),
-  CUSTOM("custom"),
-  PARAGRAPH("paragraph"),
-  SENTENCE("sentence");
+  FIXED("fixed"), CUSTOM("custom"), PARAGRAPH("paragraph"), SENTENCE("sentence");
 
   public static final String CONFIG_PATH = "chunking_method";
   public static final ChunkingMethod DEFAULT = SENTENCE;
