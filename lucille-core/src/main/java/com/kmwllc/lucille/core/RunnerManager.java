@@ -91,10 +91,8 @@ public class RunnerManager {
   /**
    * Method to create a lucille run with a custom configuration.
    *
-   * @param runId the unique ID for the lucille run
    * @param config the configuration to use for the run
-   * @return true if the run was started successfully; false if a run with the given ID is already
-   *         in progress
+   * @return The UUID associated with the supplied config in the config map.
    */
   public synchronized String createConfig(Config config) {
     String configId = UUID.randomUUID().toString();
@@ -106,7 +104,7 @@ public class RunnerManager {
    * Method to start a lucille run with a custom configuration.
    *
    * @param runId the unique ID for the lucille run
-   * @param config the configuration to use for the run
+   * @param configId the ID of the config you want to use for the run.
    * @return RunDetails
    * @throws RunnerManagerException
    */
