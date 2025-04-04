@@ -2,6 +2,9 @@ package com.kmwllc.lucille.core;
 
 import org.slf4j.MDC;
 
+/**
+ * A thread that runs a connector, publishing documents to a specified Publisher.
+ */
 public class ConnectorThread extends Thread {
 
   private final Connector connector;

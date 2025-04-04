@@ -9,6 +9,9 @@ import org.apache.http.message.BasicHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Utility functions for working with Configs.
+ */
 public class ConfigUtils {
 
   public static final String ENV_PROP = "pipeline.env";

@@ -35,18 +35,27 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 
+/**
+ * The base implementation for StorageClients. Must be initialized before traversal / getting a file's contents using
+ * {@link BaseStorageClient#init()}. Call {@link BaseStorageClient#traverse(Publisher, TraversalParams)} to process and publish
+ * Documents. Call {@link BaseStorageClient#getFileContentStream(URI)} to get the contents of a single file at the given URI.
+ */
 public abstract class BaseStorageClient implements StorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(BaseStorageClient.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
   protected final Config config;
-  protected final int maxNumOfPages;
 
   private Map<String, FileHandler> fileHandlers;
 
+  protected final int maxNumOfPages;
   private boolean initialized = false;
 
+  /**
+   * Creates a base implementation of a Storage client from the given config. Validates the provided options, throwing an
+   * IllegalArgumentException if they are invalid for the specific implementation.
+   */
   public BaseStorageClient(Config config) {
     validateOptions(config);
     this.config = config;
@@ -57,10 +66,13 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * Validate that the given config is sufficient to construct an instance of this StorageClient. Throws an
-   * IllegalArgumentException if the config does not contain the necessary information.
+   * Validate that the given config is sufficient to construct an instance of this StorageClient.
+   * @throws IllegalArgumentException If the configuration is not sufficient for this StorageClient.
    */
   protected abstract void validateOptions(Config config);
+
+  // Wrapping around init, shutdown, and traverse to manage "initialized" before / after doing the actual operations in a
+  // StorageClient-specific way.
 
   @Override
   public final void init() throws IOException {
@@ -70,7 +82,7 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  // Actually do the storage client specific initialization.
+  // StorageClient-specific initialization operations
   protected abstract void initializeStorageClient() throws IOException;
 
   @Override
@@ -81,12 +93,9 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  // Actually do the storage client specific shutdown.
+  // StorageClient-specific shutdown operations
   protected abstract void shutdownStorageClient() throws IOException;
 
-  /**
-   * Returns whether this StorageClient is currently initialized successfully and not shutdown.
-   */
   public boolean isInitialized() {
     return this.initialized;
   }
@@ -116,13 +125,11 @@ public abstract class BaseStorageClient implements StorageClient {
     return getFileContentStreamFromStorage(uri);
   }
 
+  // Performs a StorageClient-specific approach to get the contents of the file at the given URI (in an InputStream),
   protected abstract InputStream getFileContentStreamFromStorage(URI uri) throws IOException;
 
   /**
-   * This method would try to process and publish the file. It also performs any preprocessing, error handling, and post-processing.
-   *
-   * @param publisher publisher used to publish documents
-   * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
+   * If the file is valid, it will be processed and published. Also, perform any preprocessing, error handling, and post-processing.
    */
   protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params) {
     String fullPathStr = fileReference.getFullPath(params);
@@ -216,6 +223,11 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param fullPathStr full path of the archive file including the extension. Can be a cloud path or local path.
    *                    Cloud path would include schema and bucket/container name
    *                    e.g gs://bucket-name/folder/file.zip or s3://bucket-name/file.tar
+   * @param params Parameters to customize the traversal / handling of files.
+   *
+   * @throws ArchiveException If an error occurs getting the archive file's entries.
+   * @throws IOException If an error regarding file I/O occurs
+   * @throws ConnectorException If an error occurs handling subsequent archive entries.
    */
   private void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fullPathStr, TraversalParams params) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
@@ -265,8 +277,10 @@ public abstract class BaseStorageClient implements StorageClient {
    *
    * @param publisher publisher used to publish documents
    * @param in An InputStream for an archive / compressed file. This InputStream will <b>NOT</b> be closed by this method.
+   * @param fileExtension The extension of the file you're processing.
    * @param fullPathStr can be entry full path or decompressed full path. Can be a cloud path or local path.
    *                    e.g. gs://bucket-name/folder/file.zip:entry.json OR path/to/example.csv
+   * @throws ConnectorException If an error occurs processing / handling the file.
    */
   private void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fullPathStr)
       throws ConnectorException {
@@ -292,7 +306,8 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * helper method to publish using file handler using file content (InputStream)
+   * Publishes a file using a file handler and an InputStream to its contents.
+   * @throws Exception If an error occurs or the file extension doesn't have a file handler to use.
    */
   private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String pathStr) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
@@ -308,7 +323,11 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * helper method to get the full path of an entry in an archived file. Only used for archive files
+   * helper method to get the full path of an entry in an archived file. Only used for archive files.
+   * @param fullPathStr A String representing the full path to the archive file.
+   * @param entryName The name of the file extracted from the archive file.
+   * @return A String representing the full path to this archive entry, including the full path to the
+   * archive file, the archive file separator, and then the entry's name.
    */
   private String getArchiveEntryFullPath(String fullPathStr, String entryName) {
     return fullPathStr + ARCHIVE_FILE_SEPARATOR + entryName;
@@ -347,6 +366,10 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
+  /**
+   * Moves the file at the given path to the given option path. Only works for local files - cloud files are not supported yet.
+   * @throws UnsupportedOperationException If you attempt to move a cloud file.
+   */
   private void moveFile(String pathStr, String option) throws IOException {
     if (pathStr.startsWith("classpath:")) {
       log.warn("Skipping moving classpath file: {} to {}", pathStr, option);
@@ -403,7 +426,21 @@ public abstract class BaseStorageClient implements StorageClient {
     // string.endsWith(".dmp");
   }
 
-  // Only for testing
+  /**
+   * Creates a document ID using the given initial docID and the params.
+   *
+   * @param docId The document ID you want to use.
+   * @param params Parameters for the traversal.
+   * @return The document ID with the prefix added if needed / appropriate.
+   */
+  //should sync with abstract connector class?
+  protected String createDocId(String docId, TraversalParams params) {
+    return params.getDocIdPrefix() + docId;
+  }
+
+  /**
+   * Should only be used for testing. Sets this storage client to be initialized.
+   */
   void initializeForTesting() {
     this.initialized = true;
   }

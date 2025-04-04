@@ -21,6 +21,9 @@ public interface Batch {
    * If the batch has reached its capacity or if it is expired, it will be flushed
    * and all of its contents will be returned. The newly added document will not
    * be returned but will be stored as the first element of the current batch.
+   *
+   * @param doc The doc to add to the batch.
+   * @return A list of documents that were flushed, if any. Will not contain the provided document.
    */
   public List<Document> add(Document doc);
 
@@ -28,12 +31,16 @@ public interface Batch {
    * Removes and returns all Documents in the current batch if the batch is expired
    * (i.e. if the configured timeout has been reached since the last add or flush).
    * Returns an empty list otherwise.
+   *
+   * @return If the batch is expired, all of its documents. If not, an empty list.
    */
   public List<Document> flushIfExpired();
 
   /**
    * Removes and returns all Documents in the current batch,
    * regardless of whether the batch is expired.
+   *
+   * @return All documents in the current batch.
    */
   public List<Document> flush();
 

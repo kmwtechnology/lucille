@@ -24,6 +24,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * A file handler for CSV files. Extracts documents from the rows of a CSV file.
+ */
 public class CSVFileHandler extends BaseFileHandler {
 
   private static final Logger log = LoggerFactory.getLogger(CSVFileHandler.class);

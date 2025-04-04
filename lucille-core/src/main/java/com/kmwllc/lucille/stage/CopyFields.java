@@ -14,15 +14,15 @@ import java.util.List;
 /**
  * Copies values from a given set of source fields to a given set of destination fields. If the same number
  * of fields are supplied for both sources and destinations, the fields will be copied from source_1 to dest_1 and
- * source_2 to dest_2. If either source or dest has only one field value, and the other has several, all of the
+ * source_2 to dest_2. If either source or dest has only one field value, and the other has several, all the
  * fields will be copied to/from the same field.
  *
+ * <br>
  * Config Parameters:
- *
- *   - source (List&lt;String&gt;) : list of source field names
- *   - dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination fields
+ * <p> - source (List&lt;String&gt;) : list of source field names
+ * <p> - dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ * <p> - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class CopyFields extends Stage {
