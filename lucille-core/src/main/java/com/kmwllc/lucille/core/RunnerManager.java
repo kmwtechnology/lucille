@@ -92,7 +92,7 @@ public class RunnerManager {
    * Method to create a lucille run with a custom configuration.
    *
    * @param config the configuration to use for the run
-   * @return The UUID associated with the supplied config in the config map.
+   * @return The UUID String associated with the supplied config in the config map.
    */
   public synchronized String createConfig(Config config) {
     String configId = UUID.randomUUID().toString();
