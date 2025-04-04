@@ -46,8 +46,6 @@ public interface Batch {
 
   /**
    * Retrieves the capacity of a batch.
-   *
-   * @return The capacity of the batch.
    */
   public int getCapacity();
 }

@@ -15,13 +15,13 @@ import java.util.Map;
 public interface StorageClient {
 
   /**
-   * Initialize the client and creates necessary connections and/or resources
+   * Initialize the client and creates necessary connections and/or resources.
    * @throws IOException If an error occurs during initialization.
    */
   void init() throws IOException;
 
   /**
-   * Shutdown the client, closes any open connections and/or resources
+   * Shutdown the client, closes any open connections and/or resources.
    * @throws IOException If an error occurs during shutdown.
    */
   void shutdown() throws IOException;

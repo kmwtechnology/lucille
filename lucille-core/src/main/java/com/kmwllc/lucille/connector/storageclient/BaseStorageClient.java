@@ -36,37 +36,25 @@ import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 
 /**
- * The base implementation for StorageClients. Has fileHandlers for additional processing of supported types. Must be initialized
- * before traversal / getting a file's contents. Has a common method for processing / publishing a file, if valid.
+ * The base implementation for StorageClients. Must be initialized before traversal / getting a file's contents using
+ * {@link BaseStorageClient#init()}. Call {@link BaseStorageClient#traverse(Publisher, TraversalParams)} to process and publish
+ * Documents. Call {@link BaseStorageClient#getFileContentStream(URI)} to get the contents of a single file at the given URI.
  */
 public abstract class BaseStorageClient implements StorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(BaseStorageClient.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
-  /**
-   * The configuration for this StorageClient.
-   */
   protected final Config config;
 
-  /**
-   * The fileHandlers available to this StorageClient, keyed by their respective file extensions.
-   */
   private Map<String, FileHandler> fileHandlers;
 
-  /**
-   * The maximum number of pages to be loaded in memory at once.
-   */
   protected final int maxNumOfPages;
-
   private boolean initialized = false;
 
   /**
    * Creates a base implementation of a Storage client from the given config. Validates the provided options, throwing an
-   * IllegalArgumentException if they are invalid.
-   * @param config Configuration used for the storage client implementation.
-   *
-   * @throws IllegalArgumentException If the configuration is invalid for the storage client.
+   * IllegalArgumentException if they are invalid for the specific implementation.
    */
   public BaseStorageClient(Config config) {
     validateOptions(config);
@@ -78,13 +66,13 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * Validate that the given config is sufficient to construct an instance of this StorageClient. Throws an
-   * IllegalArgumentException if the config does not contain the necessary information.
-   *
-   * @param config The configuration you want to validate.
+   * Validate that the given config is sufficient to construct an instance of this StorageClient.
    * @throws IllegalArgumentException If the configuration is not sufficient for this StorageClient.
    */
   protected abstract void validateOptions(Config config);
+
+  // Wrapping around init, shutdown, and traverse to manage "initialized" before / after doing the actual operations in a
+  // StorageClient-specific way.
 
   @Override
   public final void init() throws IOException {
@@ -94,10 +82,7 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  /**
-   * Perform any StorageClient-specific setup that is needed, like opening connections.
-   * @throws IOException If an error occurs during initialization.
-   */
+  // StorageClient-specific initialization operations
   protected abstract void initializeStorageClient() throws IOException;
 
   @Override
@@ -108,16 +93,9 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  /**
-   * Performs any StorageClient-specific shutdown that is needed, like closing connections and freeing resources.
-   * @throws IOException If an error occurs during shutdown.
-   */
+  // StorageClient-specific shutdown operations
   protected abstract void shutdownStorageClient() throws IOException;
 
-  /**
-   * Returns whether this StorageClient has been initialized successfully and not subsequently shutdown.
-   * @return Whether this StorageClient is initialized.
-   */
   public boolean isInitialized() {
     return this.initialized;
   }
@@ -136,14 +114,6 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  /**
-   * Performs a traversal through the storage client's file system, publishing documents to the given Publisher as they are
-   * extracted, and using the given params to customize the traversal.
-   *
-   * @param publisher The publisher you want to publish extracted documents to.
-   * @param params Parameters that customize your traversal.
-   * @throws Exception If an error occurs during traversal.
-   */
   protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception;
 
   @Override
@@ -155,20 +125,11 @@ public abstract class BaseStorageClient implements StorageClient {
     return getFileContentStreamFromStorage(uri);
   }
 
-  /**
-   * Performs a StorageClient-specific approach to get the contents of the file at the given URI (in an InputStream).
-   * @param uri A URI for the file whose contents you want to extract.
-   * @return An InputStream of the file's contents.
-   * @throws IOException If an error occurs getting the file's contents.
-   */
+  // Performs a StorageClient-specific approach to get the contents of the file at the given URI (in an InputStream),
   protected abstract InputStream getFileContentStreamFromStorage(URI uri) throws IOException;
 
   /**
-   * This method would try to process and publish the file. It also performs any preprocessing, error handling, and post-processing.
-   *
-   * @param publisher publisher used to publish documents
-   * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
-   * @param params Parameters to customize the traversal / handling of files.
+   * If the file is valid, it will be processed and published. Also, perform any preprocessing, error handling, and post-processing.
    */
   protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params) {
     String fullPathStr = fileReference.getFullPath(params);
@@ -346,12 +307,6 @@ public abstract class BaseStorageClient implements StorageClient {
 
   /**
    * Publishes a file using a file handler and an InputStream to its contents.
-   *
-   * @param publisher The publisher to publish documents to.
-   * @param fileExtension The extension of the file. Should be a supported file handler type.
-   * @param inputStream An InputStream for the file's contents.
-   * @param pathStr A string representation of the file's path.
-   *
    * @throws Exception If an error occurs or the file extension doesn't have a file handler to use.
    */
   private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String pathStr) throws Exception {
@@ -382,10 +337,6 @@ public abstract class BaseStorageClient implements StorageClient {
    * method for performing operations before processing files. This method is ill be called before processing 
    * each file in traversal.  If the method returns true, the file will be processed.  A return of false indicates
    * the file should be skipped.
-   *
-   * @param pathStr A String representing the path to the file.
-   * @return Whether preprocessing was successful and the file can be subsequently processed.
-   * @throws Exception If an error occurs during preprocessing.
    */
   private boolean beforeProcessingFile(String pathStr) throws Exception {
     // Base implementation, process all files. 
@@ -395,10 +346,6 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * method for performing operations after processing files. Additional operations can be added
    * in the implementation of this method. Will be called after processing each file in traversal.
-   *
-   * @param pathStr A String representing the path to the file.
-   * @param params The params for the traversal.
-   * @throws IOException If an error occurs during post processing.
    */
   private void afterProcessingFile(String pathStr, TraversalParams params) throws IOException {
     if (params.getMoveToAfterProcessing() != null) {
@@ -411,10 +358,6 @@ public abstract class BaseStorageClient implements StorageClient {
    * method for performing operations when encountering an error while processing files. Additional operations can be added
    * in the implementation of this method. Will be called in the catch block for each file in traversal
    * in the tryProcessAndPublishFile method.
-   *
-   * @param pathStr A String representing the path to the file.
-   * @param params The params for the traversal.
-   * @throws IOException If an error occurs moving the file / other actions taken in response to the error.
    */
   private void errorProcessingFile(String pathStr, TraversalParams params) throws IOException {
     if (params.getMoveToErrorFolder() != null) {
@@ -424,12 +367,7 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * Moves the file at the given path to the given option path. Only works for local files, cloud files are not supported yet.
-   *
-   * @param pathStr The path to the file that you want to move.
-   * @param option The path you want to move the file to.
-   * @throws IOException If an error occurs moving the files.
-   *
+   * Moves the file at the given path to the given option path. Only works for local files - cloud files are not supported yet.
    * @throws UnsupportedOperationException If you attempt to move a cloud file.
    */
   private void moveFile(String pathStr, String option) throws IOException {
@@ -461,9 +399,6 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * helper method to check if the file is a supported compressed file type.
    * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
-   *
-   * @param pathStr The path to the file.
-   * @return Whether the file is a supported compressed file type.
    */
   private boolean isSupportedCompressedFileType(String pathStr) {
     return pathStr.endsWith(".gz");
@@ -479,9 +414,6 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * helper method to check if the file is a supported archived file type.
    * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
-   *
-   * @param pathStr The path to the file.
-   * @return Whether the file is a supported archive file type.
    */
   private boolean isSupportedArchiveFileType(String pathStr) {
     return pathStr.endsWith(".tar") ||

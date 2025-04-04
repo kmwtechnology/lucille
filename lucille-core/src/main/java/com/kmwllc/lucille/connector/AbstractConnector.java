@@ -20,16 +20,8 @@ public abstract class AbstractConnector implements Connector {
   private String docIdPrefix;
   private boolean collapse;
   private String message = null;
-
-  /**
-   * The configuration for this Connector.
-   */
   protected final Config config;
 
-  /**
-   * Create an abstract connector from the given Config.
-   * @param config The configuration of the connector. Must have a name.
-   */
   public AbstractConnector(Config config, Spec spec) {
     this.config = config;
     this.name = config.getString("name");
@@ -82,8 +74,6 @@ public abstract class AbstractConnector implements Connector {
   /**
    * Creates an extended doc ID by adding a prefix (and possibly in the future, a suffix) to the
    * given id.
-   * @param id An id to use and, potentially, add a prefix to.
-   * @return A completed doc ID, including the prefix and the given id.
    */
   public String createDocId(String id) {
     return docIdPrefix + id;
@@ -94,10 +84,6 @@ public abstract class AbstractConnector implements Connector {
     return message;
   }
 
-  /**
-   * Sets the message associated with this connector.
-   * @param message The new message to associate with this connector.
-   */
   protected void setMessage(String message) {
     this.message = message;
   }

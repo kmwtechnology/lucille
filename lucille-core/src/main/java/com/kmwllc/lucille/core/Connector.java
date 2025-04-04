@@ -42,8 +42,7 @@ public interface Connector extends AutoCloseable {
    * published in sequence and share the same ID. Such sequences of Documents are combined
    * into a single document with multi-valued fields.
    *
-   * @return whether this Connector instance expects to be passed a collapsing Publisher
-   * when execute() is called.
+   * @return whether this Connector instance expects to be passed a collapsing Publisher when execute() is called.
    */
   boolean requiresCollapsingPublisher();
 
@@ -51,7 +50,7 @@ public interface Connector extends AutoCloseable {
    * Performs any logic that should occur before execute().
    *
    * @param runId The id of the run you are pre-executing.
-   * @throws ConnectorException in the event an error occurs
+   * @throws ConnectorException in the event an error occurs.
    */
   void preExecute(String runId) throws ConnectorException;
 
@@ -62,8 +61,8 @@ public interface Connector extends AutoCloseable {
    *
    * Will not be called if preExecute() throws an exception.
    *
-   * @param publisher provides a publish() method accepting a document to be published
-   * @throws ConnectorException in the event an error occurs
+   * @param publisher An object that provides a publish() method accepting a document to be published.
+   * @throws ConnectorException in the event an error occurs.
    */
   void execute(Publisher publisher) throws ConnectorException;
 
@@ -74,7 +73,7 @@ public interface Connector extends AutoCloseable {
    * Will not be called if preExecute() or execute() throw an exception.
    *
    * @param runId The id of the run you are post-executing.
-   * @throws ConnectorException in the event an error occurs
+   * @throws ConnectorException in the event an error occurs.
    */
   void postExecute(String runId) throws ConnectorException;
 
@@ -82,7 +81,7 @@ public interface Connector extends AutoCloseable {
    * Instantiates a list of Connectors from the designated Config.
    *
    * @param config The configuration you want to extract Connectors from.
-   * @throws ReflectiveOperationException If a reflective error occurs while constructing the specified Connector.
+   * @throws ReflectiveOperationException If a reflective error occurs while constructing a Connector.
    * @throws ConnectorException In the event you specify multiple connectors with the same name.
    * @return A list of Connectors build from the given Config.
    */
@@ -109,6 +108,13 @@ public interface Connector extends AutoCloseable {
     return connectors;
   }
 
+  /**
+   * Gets a List of Exceptions associated with the given configuration for connectors. Use to get the invalid / missing properties
+   * in the given Config.
+   *
+   * @param connectorConfig Configuration for Connectors that you want to get Exceptions for.
+   * @return A List of Exceptions associated with the given Connectors (primarily to do with whether the Configuration is valid).
+   */
   static List<Exception> getConnectorConfigExceptions(Config connectorConfig) {
     // We still use a list so we can support adding extra exceptions in the event of duplicate connector names,
     // even though we will only ever add one exception in the body of this method!
@@ -138,8 +144,6 @@ public interface Connector extends AutoCloseable {
   }
 
   /**
-   * Get the message that should be included in the Lucille Run Summary for this connector instance.
-   *
    * @return A message that should be included in the Lucille Run Summary for this connector instance.
    */
   String getMessage();

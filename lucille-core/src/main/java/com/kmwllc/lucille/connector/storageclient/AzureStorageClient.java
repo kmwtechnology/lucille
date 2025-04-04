@@ -24,7 +24,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A storage client for Microsoft Azure.
+ * A storage client for Microsoft Azure. Create using a configuration (commonly mapped to <b>azure</b>) which contains either
+ * "connectionString" <i>or</i> contains both "accountName" and "accountKey".
  */
 public class AzureStorageClient extends BaseStorageClient {
 

@@ -28,10 +28,6 @@ public class CSVConnector extends AbstractConnector {
   private final String moveToAfterProcessing;
   private final String moveToErrorFolder;
 
-  /**
-   * Creates a CSVConnector from the given config.
-   * @param config Configuration for the CSVConnector.
-   */
   public CSVConnector(Config config) {
     super(config, Spec.connector()
         .withRequiredProperties("path")
