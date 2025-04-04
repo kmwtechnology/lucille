@@ -12,17 +12,16 @@ import com.typesafe.config.Config;
 
 /**
  * A Stage for decoding base64 data strings and outputting them as arrays of bytes on a document.
+ * <br>
+ * Params:
+ * <p> <b>input_field</b> (String): The field containing base64 data Strings you want to decode.
+ * <p> <b>output_field</b> (String): The field you want to place the decoded data (arrays of bytes) into.
  */
 public class Base64Decode extends Stage {
 
   private String inputField;
   private String outputField;
 
-  /**
-   * Creates the Base64Decode stage from the given configuration.
-   *
-   * @param config Configuration for the Base64Decode stage.
-   */
   public Base64Decode(Config config) {
     super(config, Spec.stage().withRequiredProperties("input_field", "output_field"));
     inputField = config.getString("input_field");

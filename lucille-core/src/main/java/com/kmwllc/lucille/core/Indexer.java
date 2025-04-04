@@ -30,9 +30,7 @@ import sun.misc.Signal;
  */
 public abstract class Indexer implements Runnable {
 
-  /** The default number of documents in a batch. */
   public static final int DEFAULT_BATCH_SIZE = 100;
-  /** The default amount of seconds until a batch times out. */
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
@@ -64,17 +62,15 @@ public abstract class Indexer implements Runnable {
   // A runID for a local (local / test) run. Null if not in one of those modes / started independently.
   private final String localRunId;
 
-  /**
-   * Terminates the Indexer.
-   */
   public void terminate() {
     running = false;
     log.debug("terminate");
   }
 
   /**
-   * Creates an Indexer from the given configuration, messenger, prefix for metrics, and run id.
-   * @param config The configuration for the indexer.
+   * Creates an Indexer from the given arguments.
+   * @param config Configuration that should contain, potentially, both "indexer" config and an entry for your specific
+   *               indexer implementation (elasticsearch, solr, etc.)
    * @param messenger The messenger the indexer will use.
    * @param metricsPrefix The prefix for metrics used to track the Indexer's performance.
    * @param localRunId A runID for a local run. May be null.
@@ -308,9 +304,6 @@ public abstract class Indexer implements Runnable {
    * Returns the ID that should be sent to the destination index/collection for the given doc, in
    * place of the value of the Document.ID_FIELD field. Returns null if no override should be
    * applied for the given document.
-   *
-   * @param doc The document you want to get an ID Override for.
-   * @return The idOverride from the document, if it exists. If not, returns null.
    */
   protected String getDocIdOverride(Document doc) {
     if (idOverrideField != null && doc.has(idOverrideField)) {
@@ -322,9 +315,6 @@ public abstract class Indexer implements Runnable {
   /**
    * Returns the index that should be the destination for the given doc, in place of the default
    * index. Returns null if no index override should be applied for the given document.
-   *
-   * @param doc The document you want to get an index override for.
-   * @return The indexOverride from the document, if it exists. If not, returns null.
    */
   protected String getIndexOverride(Document doc) {
     if (indexOverrideField != null && doc.has(indexOverrideField)) {

@@ -13,14 +13,6 @@ public class ConnectorThread extends Thread {
 
   private volatile Exception exception;
 
-  /**
-   * Creates a ConnectorThread from the given arguments.
-   *
-   * @param connector The connector to execute.
-   * @param publisher The publisher to publish documents to.
-   * @param runId The runId associated with this thread.
-   * @param name The name of the thread.
-   */
   public ConnectorThread(Connector connector, Publisher publisher, String runId, String name) {
     this.setName(name);
     this.connector = connector;
@@ -39,18 +31,10 @@ public class ConnectorThread extends Thread {
     }
   }
 
-  /**
-   * Get the exception associated with this connector thread.
-   * @return the exception associated with this connector thread.
-   */
   public Exception getException() {
     return exception;
   }
 
-  /**
-   * Returns whether this thread has an exception.
-   * @return whether this thread has an exception.
-   */
   public boolean hasException() {
     return exception != null;
   }

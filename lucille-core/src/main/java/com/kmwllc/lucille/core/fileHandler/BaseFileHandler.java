@@ -19,15 +19,8 @@ public abstract class BaseFileHandler implements FileHandler {
   private static final Logger log = LoggerFactory.getLogger(BaseFileHandler.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
-  /**
-   * The prefix to add to any Document's ID when it is created by this FileHandler.
-   */
   protected String docIdPrefix;
 
-  /**
-   * Creates the base implementation of a FileHandler from the given config.
-   * @param config Configuration for a FileHandler.
-   */
   public BaseFileHandler(Config config) {
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
   }
@@ -38,7 +31,7 @@ public abstract class BaseFileHandler implements FileHandler {
    *
    * @param publisher The publisher you want to publish documents to.
    * @param inputStream An InputStream of the file's contents.
-   * @param pathStr A string to the file you're processing, used for logging / debugging.
+   * @param pathStr A string representing the path to the file being processed. Used for logging / debugging.
    * @throws FileHandlerException If an error occurs while processing the file / setting up an Iterator of Documents
    * to extract from the file.
    */

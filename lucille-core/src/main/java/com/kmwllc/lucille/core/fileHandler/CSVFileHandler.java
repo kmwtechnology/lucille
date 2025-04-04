@@ -44,10 +44,6 @@ public class CSVFileHandler extends BaseFileHandler {
   private final List<String> ignoredTerms;
   private static final String UTF8_BOM = "\uFEFF";
 
-  /**
-   * Creates a CSVFileHandler from the given config.
-   * @param config Configuration for the CSVFileHandler.
-   */
   public CSVFileHandler(Config config) {
     super(config);
     this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";

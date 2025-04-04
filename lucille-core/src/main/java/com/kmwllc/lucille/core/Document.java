@@ -41,15 +41,10 @@ public interface Document {
 
   /* --- NAMES OF RESERVED FIELDS --- */
 
-  /** The reserved field for a Document's id. */
   String ID_FIELD = "id";
-  /** The reserved field for a Document's runId. */
   String RUNID_FIELD = "run_id";
-  /** The reserved field for a Document's children. */
   String CHILDREN_FIELD = ".children";
-  /** The reserved field for a Document's dropped status. */
   String DROP_FIELD = ".dropped";
-  /** The reserved fields of a Document. */
   Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD));
 
 

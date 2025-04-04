@@ -27,38 +27,38 @@ import org.slf4j.LoggerFactory;
  * Order of processing chunks: chunking method -> cleaning -> pre-merge processing -> merge -> overlap -> character limiting
  *
  * Config Parameters:
- * - source (String) : field of which Chunking Stage will chunk the text.
- * - dest (String, optional): the name of the field that will hold the chunk contents in the children documents.
+ * <p> - source (String) : field of which Chunking Stage will chunk the text.
+ * <p> - dest (String, optional): the name of the field that will hold the chunk contents in the children documents.
  *   Defaults to "chunk".
- * - chunking_method (Type Enum, optional) : how to split contents in source. Defaults to Sentence chunking
- *  1. fixed chunking ("fixed"): split by variable lengthToSplit
- *  2. paragraph chunking ("paragraph"): split by 2 consecutive line break sequence (\n, \r, \r\n) with optional whitespaces between,
+ * <p> - chunking_method (Type Enum, optional) : how to split contents in source. Defaults to Sentence chunking.
+ * <p> 1. fixed chunking ("fixed"): split by variable lengthToSplit
+ * <p> 2. paragraph chunking ("paragraph"): split by 2 consecutive line break sequence (\n, \r, \r\n) with optional whitespaces between,
  *     e.g. \n\n \n \n
- *  3. sentence chunking ("sentence"): use openNLP sentence model for splitting
- *  4. custom chunking ("custom"): regex option in config required, used to split content
- * - regex (String, only for custom chunking): regEx that will be used to split chunks
- * - length_to_split (Integer, only for fixed chunking): length of characters of each initial chunk before processing
- * - pre_merge_min_chunk_len (Integer, optional): removes and append chunk to the neighboring chunk if below given number of characters,
+ * <p> 3. sentence chunking ("sentence"): use openNLP sentence model for splitting
+ * <p> 4. custom chunking ("custom"): regex option in config required, used to split content
+ * <p> - regex (String, only for custom chunking): regEx that will be used to split chunks
+ * <p> - length_to_split (Integer, only for fixed chunking): length of characters of each initial chunk before processing
+ * <p> - pre_merge_min_chunk_len (Integer, optional): removes and append chunk to the neighboring chunk if below given number of characters,
  *    defaults appending to next chunk.
- * - pre_merge_max_chunk_len (Integer, optional): truncates the chunks if over given amount, applies before merging and overlapping
- * - chunks_to_merge (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.
+ * <p> - pre_merge_max_chunk_len (Integer, optional): truncates the chunks if over given amount, applies before merging and overlapping
+ * <p> - chunks_to_merge (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.
  *    defaults to 1, keeping the chunks as they were after splitting.
  *    e.g. chunks_to_merge: 2 -> { chunk1/chunk2, chunk3/chunk4, chunk5/chunk6}
- * - overlap_percentage (Integer, optional) : adds on neighboring chunk's content based on percentage of current chunk, defaults to 0
- * - chunks_to_overlap (Integer, optional) : indicate the number of overlap of smaller chunks to overlap while merging into final chunk
+ * <p> - overlap_percentage (Integer, optional) : adds on neighboring chunk's content based on percentage of current chunk, defaults to 0
+ * <p> - chunks_to_overlap (Integer, optional) : indicate the number of overlap of smaller chunks to overlap while merging into final chunk
  *    e.g. chunks_to_overlap: 1 -> { chunk1/chunk2/chunk3, chunk3/chunk4/chunk5, chunk5/chunk6/chunk7}
  *         chunks_to_overlap: 2 -> { chunk1/chunk2/chunk3, chunk2/chunk3/chunk4, chunk3/chunk4/chunk5}
- * - character_limit (Integer, optional) : hard limit number of characters in the final chunk. Truncate rest. Performed after
+ * <p> - character_limit (Integer, optional) : hard limit number of characters in the final chunk. Truncate rest. Performed after
  *   merging and overlapping if they are set.
  *
- *  - child document fields:
- *       - "id" : the child id, in the format of "parent_id-chunk_number"
- *       - "parent_id" : id of parent Document
- *       - "offset" : number of character offset from start of document
- *       - "length" : number of characters in this chunk
- *       - "chunk_number" : chunk number
- *       - "total_chunks" : total chunk number produced from parent document
- *       - "chunk" : the chunk contents. field name can be changed with config option "dest"
+ * <p>  - child document fields:
+ * <p>       - "id" : the child id, in the format of "parent_id-chunk_number"
+ * <p>       - "parent_id" : id of parent Document
+ * <p>       - "offset" : number of character offset from start of document
+ * <p>       - "length" : number of characters in this chunk
+ * <p>       - "chunk_number" : chunk number
+ * <p>       - "total_chunks" : total chunk number produced from parent document
+ * <p>       - "chunk" : the chunk contents. field name can be changed with config option "dest"
  *
  *  e.g. of paragraph chunking configuration, with a minimum size of 50 characters per chunk, followed by emitting the children
  *       documents
@@ -102,11 +102,6 @@ public class ChunkText extends Stage {
   private SentenceDetector sentenceDetector;
   private static final Logger log = LoggerFactory.getLogger(ChunkText.class);
 
-  /**
-   * Creates the ChunkText stage from the given config.
-   * @param config Configuration for the ChunkText stage.
-   * @throws StageException If your configuration is invalid.
-   */
   public ChunkText(Config config) throws StageException {
     super(config, Spec.stage()
         .withOptionalProperties("chunking_method", "chunks_to_merge", "dest", "regex", "character_limit",

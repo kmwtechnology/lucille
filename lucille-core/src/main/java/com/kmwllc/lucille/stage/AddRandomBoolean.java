@@ -13,25 +13,16 @@ import java.util.concurrent.ThreadLocalRandom;
  * Adds random Booleans to documents given parameters.
  *
  * <br>
- * Config Parameters -
- * <br>
- * <p>
- * <b>field_name</b> (String, Optional) : Field name of field where data is placed. Defaults to "data"
- * </p>
- * <p>
- * <b>percent_true</b> (Integer, Optional) : Determines the rate at which "true" is selected and placed on a document. Defaults to 50.
- * </p>
+ *
+ * Config Parameters:
+ * <p> <b>field_name</b> (String, Optional) : Field name of field where data is placed. Defaults to "data".
+ * <p> <b>percent_true</b> (Integer, Optional) : Determines the rate at which "true" is selected and placed on a document. Defaults to 50.
  */
 public class AddRandomBoolean extends Stage {
 
   private final String fieldName;
   private final int percentTrue;
 
-  /**
-   * Creates the AddRandomBoolean stage from the given Config.
-   * @param config Configuration for the AddRandomBoolean stage.
-   * @throws StageException If the percentTrue parameter has value less than 0 or greater than 100.
-   */
   public AddRandomBoolean(Config config) throws StageException {
     super(config, Spec.stage()
         .withOptionalProperties("field_name", "percent_true"));

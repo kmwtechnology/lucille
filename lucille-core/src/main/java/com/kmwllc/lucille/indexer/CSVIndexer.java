@@ -28,11 +28,8 @@ public class CSVIndexer extends Indexer {
 
   /**
    * Creates a CSVIndexer from the given arguments.
-   * @param config Configuration for the CSVIndexer.
-   * @param messenger The messenger to use for the CSVIndexer.
-   * @param writer The CSVWriter to use for storing documents.
-   * @param bypass Whether to always invalidate the connection.
-   * @param metricsPrefix The prefix associated with metrics for this indexer.
+   * @param config Configuration for Lucille which should potentially contain "indexer" as well as "csv"
+   *              (Configuration for the CSVIndexer)
    * @param localRunId The runID for a local run, null otherwise.
    */
   public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix, String localRunId) {
@@ -49,34 +46,29 @@ public class CSVIndexer extends Indexer {
 
   /**
    * Creates a CSVIndexer from the given arguments.
-   * @param config Configuration for the CSVIndexer.
-   * @param messenger The messenger to use for the CSVIndexer.
-   * @param bypass Whether to always invalidate the connection.
-   * @param metricsPrefix The prefix associated with metrics for this indexer.
+   * @param config Configuration for Lucille which should potentially contain "indexer" as well as "csv"
+   *              (Configuration for the CSVIndexer)
    * @param localRunId The runID for a local run, null otherwise.
    */
   public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
     this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix, localRunId);
   }
 
+  // Convenience Constructors - No localRunId needs to be specified, uses "null".
+
   /**
-   * Creates a CSVIndexer from the given arguments with no local runID. Mostly for testing.
-   * @param config Configuration for the CSVIndexer.
-   * @param messenger The messenger to use for the CSVIndexer.
-   * @param writer The CSVWriter to use for storing documents.
-   * @param bypass Whether to always invalidate the connection.
-   * @param metricsPrefix The prefix associated with metrics for this indexer.
+   * Creates a CSVIndexer from the given arguments with no localRunId.
+   * @param config Configuration for Lucille which should potentially contain "indexer" as well as "csv"
+   *              (Configuration for the CSVIndexer)
    */
   public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix) {
     this(config, messenger, writer, bypass, metricsPrefix, null);
   }
 
   /**
-   * Creates a CSVIndexer from the given arguments with no local runID. Mostly for testing.
-   * @param config Configuration for the CSVIndexer.
-   * @param messenger The messenger to use for the CSVIndexer.
-   * @param bypass Whether to always invalidate the connection.
-   * @param metricsPrefix The prefix associated with metrics for this indexer.
+   * Creates a CSVIndexer from the given arguments with no localRunId.
+   * @param config Configuration for Lucille which should potentially contain "indexer" as well as "csv"
+   *              (Configuration for the CSVIndexer)
    */
   public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
     this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix, null);
