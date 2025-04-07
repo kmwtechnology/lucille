@@ -51,8 +51,8 @@ import org.slf4j.LoggerFactory;
  * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
  *
  * <br> s3:
- * "accessKeyId" : s3 key id
- * "secretAccessKey" : secret access key
+ * "accessKeyId" : s3 key id. Not needed if secretAccessKey is not specified (using default credentials).
+ * "secretAccessKey" : secret access key. Not needed if accessKeyId is not specified (using default credentials).
  * "region" : s3 storage region
  * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
  *
