@@ -33,7 +33,7 @@ public class SolrIndexer extends Indexer {
   public SolrIndexer(
       Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix, String localRunId) {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withOptionalProperties("sendEnabled", "useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
+        .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
             "userName", "password", "acceptInvalidCert")
         .withOptionalParents("ssl"));
     this.solrClient = solrClient;
@@ -42,7 +42,7 @@ public class SolrIndexer extends Indexer {
   public SolrIndexer(
       Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withOptionalProperties("sendEnabled", "useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
+        .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
             "userName", "password", "acceptInvalidCert")
         .withOptionalParents("ssl"));
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config

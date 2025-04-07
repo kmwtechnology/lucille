@@ -49,7 +49,7 @@ public class OpenSearchIndexer extends Indexer {
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withRequiredProperties("index", "url")
-        .withOptionalProperties("update", "sendEnabled", "acceptInvalidCert"));
+        .withOptionalProperties("update", "acceptInvalidCert"));
 
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
