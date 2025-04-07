@@ -935,7 +935,8 @@ public class JsonDocument implements Document {
     HashMap<String, JsonNode> reserved = new HashMap<>();
     RESERVED_FIELDS.stream().filter(field -> has(field)).forEach(field -> reserved.put(field, data.get(field)));
 
-    Object transformed = expr.evaluate(data.toString());
+    Map<String, Object> dataAsMap = new ObjectMapper().convertValue(data, Map.class);
+    Object transformed = expr.evaluate(dataAsMap);
 
     if (transformed == null) {
       throw new DocumentException("Transformation must return a Map (JSON object), returned null");
@@ -943,17 +944,17 @@ public class JsonDocument implements Document {
       throw new DocumentException("Transformation must return a Map (JSON object), returned " + transformed.getClass());
     }
 
-    ObjectNode transformedMap = new ObjectMapper().valueToTree(transformed);
+    ObjectNode transformedNode = new ObjectMapper().valueToTree(transformed);
 
-    System.out.println(transformedMap.toPrettyString());
+    System.out.println(transformedNode.toPrettyString());
 
     for (Map.Entry<String, JsonNode> entry : reserved.entrySet()) {
-      if (!entry.getValue().equals(transformedMap.get(entry.getKey()))) {
+      if (!entry.getValue().equals(transformedNode.get(entry.getKey()))) {
         throw new DocumentException("The given transformation mutates a reserved field");
       }
     }
 
-    data = transformedMap;
+    data = transformedNode;
   }
 
   private static ObjectNode getData(Document other) {

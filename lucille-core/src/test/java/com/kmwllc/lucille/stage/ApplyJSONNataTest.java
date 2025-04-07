@@ -33,10 +33,10 @@ public class ApplyJSONNataTest {
     Document doc = Document.create("id");
     doc.setField("foo", "bar");
 
-//    invalidStage.processDocument(doc);
-//    assertEquals(2, doc.getFieldNames().size());
-//    assertEquals("id", doc.getId());
-//    assertEquals("bar", doc.getString("foo"));
+    invalidStage.processDocument(doc);
+    assertEquals(2, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("bar", doc.getString("foo"));
 
     validStage.processDocument(doc);
     assertEquals(2, doc.getFieldNames().size());
