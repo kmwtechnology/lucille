@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 
 public class IndexerFactory {
 
@@ -28,37 +27,37 @@ public class IndexerFactory {
       }
     }
 
-    String typeName;
+    // prioritize using class, when present. will check for type as a "fallback".
+    if (config.hasPath("indexer.class")) {
 
-    // fetch indexer type if specified
-    if (config.hasPath("indexer.type")) {
-      typeName = config.getString("indexer.type");
-    } else {
-      log.info("Config setting for indexer.type was not specified, using default indexer type of '" + DEFAULT_INDEXER_TYPE + "'.");
-      typeName = DEFAULT_INDEXER_TYPE;
-    }
-
-    // handle type class instantiation or throw exception for unknown type
-    if (typeName.equalsIgnoreCase("Solr")) {
-      return new SolrIndexer(config, messenger, bypass, metricsPrefix, localRunId);
-    } else if (typeName.equalsIgnoreCase("OpenSearch")) {
-      return new OpenSearchIndexer(config, messenger, bypass, metricsPrefix, localRunId);
-    } else if (typeName.equalsIgnoreCase("Elasticsearch")) {
-      return new ElasticsearchIndexer(config, messenger, bypass, metricsPrefix, localRunId);
-    } else if (typeName.equalsIgnoreCase("CSV")) {
-      return new CSVIndexer(config, messenger, bypass, metricsPrefix, localRunId);
-    } else if (config.hasPath("indexer.class")) {
       String className = config.getString("indexer.class");
+
       try {
         Class<?> clazz = Class.forName(className);
         Constructor<?> constructor = clazz.getConstructor(Config.class, IndexerMessenger.class, Boolean.TYPE, String.class, String.class);
         return (Indexer) constructor.newInstance(config, messenger, bypass, metricsPrefix, localRunId);
-      } catch (ClassNotFoundException | NoSuchMethodException | InvocationTargetException | InstantiationException |
-               IllegalAccessException e) {
+      } catch (ReflectiveOperationException e) {
         throw new IndexerException("Problem initializing indexer.class configuration of: '" + className + "'", e);
       }
+
+    } else if (config.hasPath("indexer.type")) {
+
+      String typeName = config.getString("indexer.type");
+
+      if (typeName.equalsIgnoreCase("Solr")) {
+        return new SolrIndexer(config, messenger, bypass, metricsPrefix, localRunId);
+      } else if (typeName.equalsIgnoreCase("OpenSearch")) {
+        return new OpenSearchIndexer(config, messenger, bypass, metricsPrefix, localRunId);
+      } else if (typeName.equalsIgnoreCase("Elasticsearch")) {
+        return new ElasticsearchIndexer(config, messenger, bypass, metricsPrefix, localRunId);
+      } else if (typeName.equalsIgnoreCase("CSV")) {
+        return new CSVIndexer(config, messenger, bypass, metricsPrefix, localRunId);
+      } else {
+        throw new IndexerException("Unknown indexer.type configuration of: '" + typeName + "'");
+      }
+
     } else {
-      throw new IndexerException("Unknown indexer.type configuration of: '" + typeName + "'");
+      throw new IndexerException("No indexer.class or indexer.type specified in Config.");
     }
   }
 
