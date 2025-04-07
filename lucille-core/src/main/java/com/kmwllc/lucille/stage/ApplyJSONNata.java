@@ -1,14 +1,11 @@
 package com.kmwllc.lucille.stage;
 
+import com.dashjoin.jsonata.JException;
+import com.dashjoin.jsonata.Jsonata;
 import com.kmwllc.lucille.core.Spec;
-import java.io.IOException;
 import java.util.Iterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.api.jsonata4java.expressions.EvaluateException;
-import com.api.jsonata4java.expressions.Expressions;
-import com.api.jsonata4java.expressions.ParseException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
@@ -16,10 +13,16 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
+import static com.dashjoin.jsonata.Jsonata.jsonata;
+
 /**
  * Applies a JSONNata expression to a JSON field or entire document treated as a JSON object. Since JSONNata is Turing complete this can 
- * theoretically carry out any transformation. NOTE: Applying a transformation to an entire document is an experimental feature and should be used with caution.
- * See <a href="https://github.com/IBM/JSONata4Java">Here</a> for JSONNata implementation.
+ * theoretically carry out any transformation.
+ *
+ * TODO: Adjust these two lines...
+ *  NOTE: Applying a transformation to an entire document is an experimental feature and should be used with caution.
+ *  See <a href="https://github.com/IBM/JSONata4Java">Here</a> for JSONNata implementation.
+ *
  * <br>
  * Config Parameters -
  * <br>
@@ -42,7 +45,7 @@ public class ApplyJSONNata extends Stage {
   private final String source;
   private final String destination;
   private final String expression;
-  private Expressions parsed;
+  private Jsonata parsedExpression;
 
   public ApplyJSONNata(Config config) throws StageException {
     super(config, Spec.stage().withOptionalProperties("source", "destination").withRequiredProperties("expression"));
@@ -54,37 +57,33 @@ public class ApplyJSONNata extends Stage {
   @Override
   public void start() throws StageException {
     try {
-      parsed = Expressions.parse(expression);
-    } catch (ParseException e) {
+      parsedExpression = jsonata(expression);
+    } catch (JException e) {
       throw new StageException("Exception occurred while parsing expression: " + e.getLocalizedMessage());
-    } catch (IOException e) {
-      throw new StageException("IO exception while parsing expression: " + e.getLocalizedMessage());
     }
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
+    // 1. Transform, if source == null
     if (source == null) {
       try {
-        doc.transform(parsed);
+        doc.transform(parsedExpression);
       } catch (DocumentException e) {
         log.warn("Exception occurred when applying transformation", e);
       }
       return null;
     }
 
-    if (!doc.has(source)) {
+    // 2. If !doc.has(source), return null
+    if (!doc.has(source))  {
       return null;
     }
 
-    JsonNode output = null;
-    try {
-      output = parsed.evaluate(doc.getJson(source));
-    } catch (EvaluateException e) {
-      log.warn("Evaluation exception occurred when applying transformation: ", e);
-      return null;
-    }
+    // 3. JsonNode output, get parsedExpression.evaluate() doc's JSON
+    Object output = parsedExpression.evaluate(doc.getJson(source).toString());
 
+    // 4. put the output in destination / source areas
     if (destination != null) {
       doc.setField(destination, output);
     } else {

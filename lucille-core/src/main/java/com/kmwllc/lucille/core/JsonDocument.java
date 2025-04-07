@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.core;
 
-import com.api.jsonata4java.expressions.EvaluateException;
-import com.api.jsonata4java.expressions.Expressions;
+import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -19,7 +18,6 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 /**
@@ -933,27 +931,29 @@ public class JsonDocument implements Document {
   }
 
   @Override
-  public void transform(Expressions expr) throws DocumentException {
+  public void transform(Jsonata expr) throws DocumentException {
     HashMap<String, JsonNode> reserved = new HashMap<>();
     RESERVED_FIELDS.stream().filter(field -> has(field)).forEach(field -> reserved.put(field, data.get(field)));
-    JsonNode transformed = null;
-    try {
-      transformed = expr.evaluate(data);
-    } catch (EvaluateException e) {
-      throw new DocumentException("Evaluation exception when applying transformation: " + e.getLocalizedMessage());
+
+    Object transformed = expr.evaluate(data.toString());
+
+    if (transformed == null) {
+      throw new DocumentException("Transformation must return a Map (JSON object), returned null");
+    } else if (!(transformed instanceof Map)) {
+      throw new DocumentException("Transformation must return a Map (JSON object), returned " + transformed.getClass());
     }
 
-    if (!transformed.isObject()) {
-      throw new DocumentException("Transformation must return a JSON object, not array or literal");
-    }
+    ObjectNode transformedMap = new ObjectMapper().valueToTree(transformed);
+
+    System.out.println(transformedMap.toPrettyString());
 
     for (Map.Entry<String, JsonNode> entry : reserved.entrySet()) {
-      if (!entry.getValue().equals(transformed.get(entry.getKey()))) {
+      if (!entry.getValue().equals(transformedMap.get(entry.getKey()))) {
         throw new DocumentException("The given transformation mutates a reserved field");
       }
     }
 
-    data = (ObjectNode) transformed;
+    data = transformedMap;
   }
 
   private static ObjectNode getData(Document other) {
