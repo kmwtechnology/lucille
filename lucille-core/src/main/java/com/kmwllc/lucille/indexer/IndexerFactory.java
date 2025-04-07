@@ -11,7 +11,6 @@ import java.lang.reflect.Constructor;
 
 public class IndexerFactory {
 
-  public static final String DEFAULT_INDEXER_TYPE = "Solr";
   private static final Logger log = LoggerFactory.getLogger(IndexerFactory.class);
 
   /**
