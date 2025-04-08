@@ -275,6 +275,10 @@ public abstract class Indexer implements Runnable {
       failedDocs = Set.of();
     }
 
+    if (!failedDocs.isEmpty()) {
+      log.warn("{} Documents were not indexed successfully.", failedDocs.size());
+    }
+
     // Mark all the documents in failedDoc as failed
     for (Document d : failedDocs) {
       try {
