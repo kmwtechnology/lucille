@@ -10,6 +10,7 @@ import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.print.Doc;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.BulkIndexByScrollFailure;
 import org.opensearch.client.opensearch._types.FieldValue;
@@ -140,11 +142,11 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    uploadDocuments(new ArrayList<>(documentsToUpload.values()));
+    Set<Document> failedDocs = uploadDocuments(documentsToUpload);
     deleteById(new ArrayList<>(idsToDelete));
     deleteByQuery(termsToDeleteByQuery);
 
-    return Set.of();
+    return failedDocs;
   }
 
   private void deleteById(List<String> idsToDelete) throws Exception {
@@ -238,13 +240,13 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private void uploadDocuments(List<Document> documentsToUpload) throws IOException, IndexerException {
+  private Set<Document> uploadDocuments(Map<String, Document> documentsToUpload) throws IOException, IndexerException {
     if (documentsToUpload.isEmpty()) {
-      return;
+      return Set.of();
     }
 
     BulkRequest.Builder br = new BulkRequest.Builder();
-    for (Document doc : documentsToUpload) {
+    for (Document doc : documentsToUpload.values()) {
 
       // removing the fields mentioned in the ignoreFields setting in configurations
       Map<String, Object> indexerDoc = getIndexerDoc(doc);
@@ -297,15 +299,27 @@ public class OpenSearchIndexer extends Indexer {
             }));
       }
     }
+
+    Set<Document> failedDocs = new HashSet<>();
+
     BulkResponse response = client.bulk(br.build());
     // We're choosing not to check response.errors(), instead iterating to be sure whether errors exist
     if (response != null) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
-          throw new IndexerException(item.error().reason());
+          // For the error. If the id is a document's id, then it failed, and we add it to the set.
+          // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
+          if (documentsToUpload.containsKey(item.id())) {
+            Document failedDoc = documentsToUpload.get(item.id());
+            failedDocs.add(failedDoc);
+          } else {
+            throw new IndexerException(item.error().reason());
+          }
         }
       }
     }
+
+    return failedDocs;
   }
 
   private void addChildren(Document doc, Map<String, Object> indexerDoc) {
