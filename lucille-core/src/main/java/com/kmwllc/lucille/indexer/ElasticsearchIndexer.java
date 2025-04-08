@@ -14,14 +14,13 @@ import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.IndexerMessenger;
-import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.Signal;
 
 import java.util.HashMap;
 import java.util.List;
@@ -101,10 +100,12 @@ public class ElasticsearchIndexer extends Indexer {
       return null;
     }
 
+    // building a map so we can quickly retrieve documents later on, if they fail during indexing.
+    Map<String, Document> documentsUploaded = new LinkedHashMap<>();
     BulkRequest.Builder br = new BulkRequest.Builder();
 
     for (Document doc : documents) {
-
+      documentsUploaded.put(doc.getId(), doc);
       // populate join data to document
       joinData.populateJoinData(doc);
 
@@ -171,17 +172,26 @@ public class ElasticsearchIndexer extends Indexer {
             ));
       }
     }
+
+    Set<Document> failedDocs = new HashSet<>();
+
     BulkResponse response = client.bulk(br.build());
-    // We're choosing not to check response.errors(), instead iterating to be sure whether errors exist
     if (response != null) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
-          throw new IndexerException(item.error().reason());
+          // For the error - if the id is a document's id, then it failed, and we add it to the set.
+          // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
+          if (documentsUploaded.containsKey(item.id())) {
+            Document failedDoc = documentsUploaded.get(item.id());
+            failedDocs.add(failedDoc);
+          } else {
+            throw new IndexerException(item.error().reason());
+          }
         }
       }
     }
 
-    return Set.of();
+    return failedDocs;
   }
 
   @Override

@@ -303,11 +303,10 @@ public class OpenSearchIndexer extends Indexer {
     Set<Document> failedDocs = new HashSet<>();
 
     BulkResponse response = client.bulk(br.build());
-    // We're choosing not to check response.errors(), instead iterating to be sure whether errors exist
     if (response != null) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
-          // For the error. If the id is a document's id, then it failed, and we add it to the set.
+          // For the error - if the id is a document's id, then it failed, and we add it to the set.
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
           if (documentsToUpload.containsKey(item.id())) {
             Document failedDoc = documentsToUpload.get(item.id());
