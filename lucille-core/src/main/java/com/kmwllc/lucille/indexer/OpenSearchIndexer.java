@@ -162,7 +162,7 @@ public class OpenSearchIndexer extends Indexer {
       );
     }
 
-    BulkResponse response =  client.bulk(br.build());
+    BulkResponse response = client.bulk(br.build());
     if (response.errors()) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
@@ -301,6 +301,7 @@ public class OpenSearchIndexer extends Indexer {
     Set<Document> failedDocs = new HashSet<>();
 
     BulkResponse response = client.bulk(br.build());
+
     if (response != null) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
