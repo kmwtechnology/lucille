@@ -940,7 +940,7 @@ public class JsonDocument implements Document {
       Map<String, Object> dataAsMap = MAPPER.readValue(data.toString(), Map.class);
       transformed = expr.evaluate(dataAsMap);
     } catch (JsonProcessingException e) {
-      throw new DocumentException("Error getting the JSON");
+      throw new DocumentException("Error converting JSON to Map: " + e.getMessage());
     }
 
     if (transformed == null) {
@@ -949,7 +949,7 @@ public class JsonDocument implements Document {
       throw new DocumentException("Transformation must return a Map (JSON object), returned " + transformed.getClass());
     }
 
-    // Jsonata-java outputs a Map, need to convert to ObjectNode so we can update data.
+    // Jsonata-java outputs a Map, converting to ObjectNode so we can update data.
     ObjectNode transformedNode = new ObjectMapper().valueToTree(transformed);
 
     for (Map.Entry<String, JsonNode> entry : reserved.entrySet()) {

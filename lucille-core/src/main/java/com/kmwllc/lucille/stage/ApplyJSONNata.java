@@ -16,27 +16,18 @@ import com.typesafe.config.Config;
 import static com.dashjoin.jsonata.Jsonata.jsonata;
 
 /**
- * Applies a JSONNata expression to a JSON field or entire document treated as a JSON object. Since JSONNata is Turing complete this can 
- * theoretically carry out any transformation.
+ * Applies a given Jsonata expression to extract information from a Document's field or to transform a Document entirely.
+ * Applying a transformation to an entire document is an experimental feature and should be used with caution.
  *
- * TODO: Adjust these two lines...
- *  NOTE: Applying a transformation to an entire document is an experimental feature and should be used with caution.
- *  See <a href="https://github.com/IBM/JSONata4Java">Here</a> for JSONNata implementation.
+ * See <a href="https://github.com/dashjoin/jsonata-java">here</a> for Jsonata implementation.
  *
  * <br>
  * Config Parameters -
- * <br>
- * <p>
- * <b>source</b> (String, Optional) : The source field used as input. If not provided the entire document is used as input and the resulting json 
- * replaces the document. Logs warning and skips document if this transformation fails, mutates reserved fields, or returns a non-object (primitive or array).
- * </p>
- * <p>
- * <b>destination</b> (String, Optional) : The destination field into which the resulting json should be placed. If not provided, 
- * the source field is mutated in place.
- * </p>
- * <p>
- * <b>expression</b> (String) : The JSONNata expression
- * </p>
+ * <p> <b>source</b> (String, Optional) : The field to use for input. Defaults to applying your expression the entire Document and mutating the entire
+ * Document in place. Logs warning and skips document if this transformation fails, mutates reserved fields, or returns a non-object (primitive or array).
+ * <p> <b>destination</b> (String, Optional) : The destination field into which the json response should be placed. Defaults to mutating the source
+ * field. Has no effect if source is not specified.
+ * <p> <b>expression</b> (String) : The Jsonata expression you want to apply to each Document.
  */
 public class ApplyJSONNata extends Stage {
 
@@ -44,20 +35,20 @@ public class ApplyJSONNata extends Stage {
 
   private final String source;
   private final String destination;
-  private final String expression;
+  private final String expressionStr;
   private Jsonata parsedExpression;
 
   public ApplyJSONNata(Config config) throws StageException {
     super(config, Spec.stage().withOptionalProperties("source", "destination").withRequiredProperties("expression"));
     this.source = ConfigUtils.getOrDefault(config, "source", null);
     this.destination = ConfigUtils.getOrDefault(config, "destination", null);
-    this.expression = config.getString("expression");
+    this.expressionStr = config.getString("expression");
   }
 
   @Override
   public void start() throws StageException {
     try {
-      parsedExpression = jsonata(expression);
+      parsedExpression = jsonata(expressionStr);
     } catch (JException e) {
       throw new StageException("Exception occurred while parsing expression: " + e.getLocalizedMessage());
     }
@@ -65,7 +56,6 @@ public class ApplyJSONNata extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    // 1. Transform, if source == null
     if (source == null) {
       try {
         doc.transform(parsedExpression);
@@ -75,15 +65,12 @@ public class ApplyJSONNata extends Stage {
       return null;
     }
 
-    // 2. If !doc.has(source), return null
     if (!doc.has(source))  {
       return null;
     }
 
-    // 3. JsonNode output, get parsedExpression.evaluate() doc's JSON
     Object output = parsedExpression.evaluate(doc.getJson(source).toString());
 
-    // 4. put the output in destination / source areas
     if (destination != null) {
       doc.setField(destination, output);
     } else {
