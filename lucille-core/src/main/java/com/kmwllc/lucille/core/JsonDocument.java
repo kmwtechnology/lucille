@@ -87,7 +87,6 @@ public class JsonDocument implements Document {
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
     JsonDocument doc = new JsonDocument((ObjectNode) MAPPER.readTree(json));
-    ;
     doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
     return doc;
   }
@@ -935,8 +934,14 @@ public class JsonDocument implements Document {
     HashMap<String, JsonNode> reserved = new HashMap<>();
     RESERVED_FIELDS.stream().filter(field -> has(field)).forEach(field -> reserved.put(field, data.get(field)));
 
-    Map<String, Object> dataAsMap = new ObjectMapper().convertValue(data, Map.class);
-    Object transformed = expr.evaluate(dataAsMap);
+    Object transformed;
+    try {
+      // This is in-line with Jsonata-Java's suggested ways to evaluate expressions on JSON.
+      Map<String, Object> dataAsMap = MAPPER.readValue(data.toString(), Map.class);
+      transformed = expr.evaluate(dataAsMap);
+    } catch (JsonProcessingException e) {
+      throw new DocumentException("Error getting the JSON");
+    }
 
     if (transformed == null) {
       throw new DocumentException("Transformation must return a Map (JSON object), returned null");
@@ -944,9 +949,8 @@ public class JsonDocument implements Document {
       throw new DocumentException("Transformation must return a Map (JSON object), returned " + transformed.getClass());
     }
 
+    // Jsonata-java outputs a Map, need to convert to ObjectNode so we can update data.
     ObjectNode transformedNode = new ObjectMapper().valueToTree(transformed);
-
-    System.out.println(transformedNode.toPrettyString());
 
     for (Map.Entry<String, JsonNode> entry : reserved.entrySet()) {
       if (!entry.getValue().equals(transformedNode.get(entry.getKey()))) {
