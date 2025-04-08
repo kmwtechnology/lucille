@@ -37,7 +37,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -134,6 +136,7 @@ public class ElasticsearchIndexerTest {
     }
   }
 
+  // When throwing an exception, all documents fail
   @Test
   public void testElasticsearchIndexerException() throws Exception {
     TestMessenger messenger = new TestMessenger();
@@ -159,6 +162,48 @@ public class ElasticsearchIndexerTest {
       Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       Assert.assertEquals(Event.Type.FAIL, events.get(i - 1).getType());
     }
+  }
+
+  // When specific documents have an error, they are returned by sendToIndex & the method does not throw an Exception
+  @Test
+  public void testElasticsearchDocumentErrors() throws Exception {
+    ElasticsearchClient mockClient2 = Mockito.mock(ElasticsearchClient.class);
+
+    // make first call to validateConnection succeed but subsequent calls to fail
+    Mockito.when(mockClient2.ping()).thenReturn(new BooleanResponse(true), new BooleanResponse(false));
+
+    BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(mockClient2.bulk(any(BulkRequest.class))).thenReturn(mockResponse);
+
+    // mocking for the bulk response items and error causes
+    BulkResponseItem.Builder mockItemBuilder = Mockito.mock(BulkResponseItem.Builder.class);
+    BulkResponseItem mockItemDoc1 = Mockito.mock(BulkResponseItem.class);
+    BulkResponseItem mockItemDoc2 = Mockito.mock(BulkResponseItem.class);
+    BulkResponseItem mockItemDoc3 = Mockito.mock(BulkResponseItem.class);
+    ErrorCause mockError = new ErrorCause.Builder().reason("mock reason").type("mock-type").build();
+    Mockito.when(mockItemDoc1.error()).thenReturn(mockError);
+    Mockito.when(mockItemDoc3.error()).thenReturn(mockError);
+
+    Mockito.when(mockItemDoc1.id()).thenReturn("doc1");
+    Mockito.when(mockItemDoc2.id()).thenReturn("doc2");
+    Mockito.when(mockItemDoc3.id()).thenReturn("doc3");
+
+    List<BulkResponseItem> bulkResponseItems = Arrays.asList(mockItemDoc1, mockItemDoc2, mockItemDoc3);
+    Mockito.when(mockResponse.items()).thenReturn(bulkResponseItems);
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
+
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+    Document doc3 = Document.create("doc3", "test_run");
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient2, "testing");
+    Set<Document> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    assertEquals(2, failedDocs.size());
+    assertTrue(failedDocs.contains(doc));
+    assertFalse(failedDocs.contains(doc2));
+    assertTrue(failedDocs.contains(doc3));
   }
 
   @Test

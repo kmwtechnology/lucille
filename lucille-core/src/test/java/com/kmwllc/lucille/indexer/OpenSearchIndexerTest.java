@@ -219,7 +219,6 @@ public class OpenSearchIndexerTest {
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient2, "testing");
     Set<Document> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
-    System.out.println(failedDocs);
     assertEquals(2, failedDocs.size());
     assertTrue(failedDocs.contains(doc));
     assertFalse(failedDocs.contains(doc2));
