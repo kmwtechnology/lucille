@@ -67,5 +67,11 @@ public class ApplyJSONNataTest {
     assertEquals(2, doc2.getFieldNames().size());
     assertEquals("id", doc2.getId());
     assertEquals(foo, doc2.getJson("source"));
+
+    Document docWithoutSource = Document.create("no_source");
+    docWithoutSource.setField("something_else", 12345);
+    stageWithDest.processDocument(docWithoutSource);
+    assertEquals("no_source", docWithoutSource.getId());
+    assertEquals((Integer) 12345, docWithoutSource.getInt("something_else"));
   }
 }
