@@ -107,7 +107,7 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  protected List<Document> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) {
       return null;
@@ -144,7 +144,7 @@ public class OpenSearchIndexer extends Indexer {
     deleteById(new ArrayList<>(idsToDelete));
     deleteByQuery(termsToDeleteByQuery);
 
-    return null;
+    return Set.of();
   }
 
   private void deleteById(List<String> idsToDelete) throws Exception {

@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The NopIndexer performs no operations and does not send documents to any index. It is intended to be used for testing or
@@ -26,9 +27,9 @@ public class NopIndexer extends Indexer {
   }
 
   @Override
-  protected List<Document> sendToIndex(List<Document> documents) throws Exception {
-    return null;
+  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
     // no-op
+    return Set.of();
   }
 
   @Override

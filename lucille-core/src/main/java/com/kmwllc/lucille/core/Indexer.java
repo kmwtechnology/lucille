@@ -13,6 +13,7 @@ import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.Set;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,8 +138,13 @@ public abstract class Indexer implements Runnable {
    * Send a batch of documents to the destination search engine. Implementations should use a single
    * call to the batch API provided by the search engine client, if available, as opposed to sending
    * each document individually.
+   *
+   * @return A set of the Documents that were not successfully indexed. The set must never be null - returns an empty set
+   * if no Documents failed.
+   * @throws Exception In the event of a considerable error causing indexing to fail entirely, essentially. Does not throw
+   * Exceptions just because a Document may have not been indexed successfully.
    */
-  protected abstract List<Document> sendToIndex(List<Document> documents) throws Exception;
+  protected abstract Set<Document> sendToIndex(List<Document> documents) throws Exception;
 
   /** Close the client or connection to the destination search engine. */
   public abstract void closeConnection();
@@ -221,7 +227,7 @@ public abstract class Indexer implements Runnable {
       return;
     }
 
-    List<Document> failedDocs;
+    Set<Document> failedDocs;
     try {
       stopWatch.reset();
       stopWatch.start();
@@ -230,6 +236,8 @@ public abstract class Indexer implements Runnable {
       histogram.update(stopWatch.getNanoTime() / batchedDocs.size());
       meter.mark(batchedDocs.size());
     } catch (Exception e) {
+      // If an Exception is thrown, there was some larger error causing nothing (or essentially nothing?) to be indexed.
+      // So everything is considered to have failed, we won't look at failedDocs.
       log.error("Error sending documents to index: " + e.getMessage(), e);
 
       for (Document d : batchedDocs) {
@@ -250,8 +258,11 @@ public abstract class Indexer implements Runnable {
           }
         }
       }
+
+      // We've sent a message for each Document. Don't want to repeat in the code below.
       return;
     } finally {
+      // We always mark batches as completed, regardless of if failedDocs isn't null / empty.
       try {
         messenger.batchComplete(batchedDocs);
       } catch (Exception e) {
@@ -259,18 +270,23 @@ public abstract class Indexer implements Runnable {
       }
     }
 
-    if (failedDocs != null) {
-      for (Document d : failedDocs) {
-        try {
-          messenger.sendEvent(d, "FAILED", Event.Type.FAIL);
-        } catch (Exception e) {
-          log.error("Couldn't send failure event for doc " + d.getId(), e);
-        }
+    // to prevent multiple checks for null Set - just use an empty set by default.
+    if (failedDocs == null) {
+      failedDocs = Set.of();
+    }
+
+    // Mark all the documents in failedDoc as failed
+    for (Document d : failedDocs) {
+      try {
+        messenger.sendEvent(d, "FAILED", Event.Type.FAIL);
+        docLogger.error("Sent failure message for doc {}.", d.getId());
+      } catch (Exception e) {
+        log.error("Couldn't send failure event for doc {}", d.getId(), e);
       }
     }
 
     for (Document d : batchedDocs) {
-      if (failedDocs != null && failedDocs.contains(d)) {
+      if (failedDocs.contains(d)) {
         continue;
       }
 

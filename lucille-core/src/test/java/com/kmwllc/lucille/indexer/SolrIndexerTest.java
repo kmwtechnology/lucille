@@ -971,7 +971,7 @@ public class SolrIndexerTest {
     }
 
     @Override
-    public List<Document> sendToIndex(List<Document> docs) throws Exception {
+    public Set<Document> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to Solr are correctly handled");
     }
   }

@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
@@ -120,7 +121,7 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  protected List<Document> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
 
     if (solrClient == null) {
       log.debug("sendToSolr bypassed for documents: " + documents);
@@ -193,7 +194,7 @@ public class SolrIndexer extends Indexer {
       sendDeletionBatch(collection, solrDocRequestsByCollection.get(collection));
     }
 
-    return null;
+    return Set.of();
   }
 
   private void sendAddUpdateBatch(String collection, List<SolrInputDocument> solrDocs)

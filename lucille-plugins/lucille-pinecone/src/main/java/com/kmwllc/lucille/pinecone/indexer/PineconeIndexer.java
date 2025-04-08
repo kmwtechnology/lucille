@@ -99,7 +99,7 @@ public class PineconeIndexer extends Indexer {
   }
 
   @Override
-  protected List<Document> sendToIndex(List<Document> documents) throws IndexerException {
+  protected Set<Document> sendToIndex(List<Document> documents) throws IndexerException {
     // retrieve documents to delete & upload, mapping id to document
     Map<String, Document> deleteMap = new LinkedHashMap<>();
     Map<String, Document> uploadMap = new LinkedHashMap<>();
@@ -142,7 +142,7 @@ public class PineconeIndexer extends Indexer {
       }
     }
 
-    return null;
+    return Set.of();
   }
 
   private void validateUploadRequirements() throws IndexerException {

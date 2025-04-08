@@ -23,6 +23,7 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.Arrays;
+import java.util.Set;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
 import org.junit.Before;
@@ -696,7 +697,7 @@ public class ElasticsearchIndexerTest {
     }
 
     @Override
-    public List<Document> sendToIndex(List<Document> docs) throws Exception {
+    public Set<Document> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
   }

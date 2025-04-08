@@ -18,6 +18,7 @@ import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
@@ -94,7 +95,7 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   @Override
-  protected List<Document> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) {
       return null;
@@ -180,7 +181,7 @@ public class ElasticsearchIndexer extends Indexer {
       }
     }
 
-    return null;
+    return Set.of();
   }
 
   @Override
