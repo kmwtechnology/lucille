@@ -120,11 +120,11 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected List<Document> sendToIndex(List<Document> documents) throws Exception {
 
     if (solrClient == null) {
       log.debug("sendToSolr bypassed for documents: " + documents);
-      return;
+      return null;
     }
 
     Map<String, SolrDocRequests> solrDocRequestsByCollection = new HashMap<>();
@@ -192,6 +192,8 @@ public class SolrIndexer extends Indexer {
           collection, solrDocRequestsByCollection.get(collection).getAddUpdateDocs());
       sendDeletionBatch(collection, solrDocRequestsByCollection.get(collection));
     }
+
+    return null;
   }
 
   private void sendAddUpdateBatch(String collection, List<SolrInputDocument> solrDocs)

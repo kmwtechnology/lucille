@@ -77,11 +77,13 @@ public class CSVIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected List<Document> sendToIndex(List<Document> documents) throws Exception {
     for (Document doc : documents) {
       writer.writeNext(getLine(doc), true);
     }
     writer.flushQuietly();
+
+    return null;
   }
 
   private String[] getLine(Document doc) {

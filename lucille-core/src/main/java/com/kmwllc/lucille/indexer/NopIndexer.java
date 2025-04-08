@@ -26,7 +26,8 @@ public class NopIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected List<Document> sendToIndex(List<Document> documents) throws Exception {
+    return null;
     // no-op
   }
 

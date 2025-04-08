@@ -102,7 +102,7 @@ public class WeaviateIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected List<Document> sendToIndex(List<Document> documents) throws Exception {
 
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
       for (Document doc : documents) {
@@ -149,6 +149,8 @@ public class WeaviateIndexer extends Indexer {
     } catch (Exception e) {
       throw new IndexerException(e.toString());
     }
+
+    return null;
   }
 
   public static String generateDocumentUUID(Document document) {

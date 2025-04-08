@@ -107,10 +107,10 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected List<Document> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) {
-      return;
+      return null;
     }
 
     Map<String, Document> documentsToUpload = new LinkedHashMap<>();
@@ -143,6 +143,8 @@ public class OpenSearchIndexer extends Indexer {
     uploadDocuments(new ArrayList<>(documentsToUpload.values()));
     deleteById(new ArrayList<>(idsToDelete));
     deleteByQuery(termsToDeleteByQuery);
+
+    return null;
   }
 
   private void deleteById(List<String> idsToDelete) throws Exception {
