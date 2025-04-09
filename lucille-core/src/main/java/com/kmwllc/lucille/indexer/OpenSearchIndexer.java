@@ -9,6 +9,7 @@ import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -140,7 +141,7 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    Set<Document> failedDocs = uploadDocuments(documentsToUpload);
+    Set<Document> failedDocs = uploadDocuments(documentsToUpload.values());
     deleteById(new ArrayList<>(idsToDelete));
     deleteByQuery(termsToDeleteByQuery);
 
@@ -238,13 +239,15 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private Set<Document> uploadDocuments(Map<String, Document> documentsToUpload) throws IOException, IndexerException {
+  private Set<Document> uploadDocuments(Collection<Document> documentsToUpload) throws IOException, IndexerException {
     if (documentsToUpload.isEmpty()) {
       return Set.of();
     }
 
+    Map<String, Document> uploadedDocuments = new HashMap<>();
     BulkRequest.Builder br = new BulkRequest.Builder();
-    for (Document doc : documentsToUpload.values()) {
+
+    for (Document doc : documentsToUpload) {
 
       // removing the fields mentioned in the ignoreFields setting in configurations
       Map<String, Object> indexerDoc = getIndexerDoc(doc);
@@ -254,6 +257,7 @@ public class OpenSearchIndexer extends Indexer {
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
       String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
+      uploadedDocuments.put(docId, doc);
 
       // This condition below avoids adding id if ignoreFields contains it and edge cases:
       // - Case 1: id and idOverride in ignoreFields -> idOverride used by Indexer, both removed from Document (tested in testIgnoreFieldsWithOverride)
@@ -307,8 +311,8 @@ public class OpenSearchIndexer extends Indexer {
         if (item.error() != null) {
           // For the error - if the id is a document's id, then it failed, and we add it to the set.
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
-          if (documentsToUpload.containsKey(item.id())) {
-            Document failedDoc = documentsToUpload.get(item.id());
+          if (uploadedDocuments.containsKey(item.id())) {
+            Document failedDoc = uploadedDocuments.get(item.id());
             failedDocs.add(failedDoc);
           } else {
             throw new IndexerException(item.error().reason());

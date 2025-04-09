@@ -176,7 +176,6 @@ public class ElasticsearchIndexerTest {
     Mockito.when(mockClient2.bulk(any(BulkRequest.class))).thenReturn(mockResponse);
 
     // mocking for the bulk response items and error causes
-    BulkResponseItem.Builder mockItemBuilder = Mockito.mock(BulkResponseItem.Builder.class);
     BulkResponseItem mockItemDoc1 = Mockito.mock(BulkResponseItem.class);
     BulkResponseItem mockItemDoc2 = Mockito.mock(BulkResponseItem.class);
     BulkResponseItem mockItemDoc3 = Mockito.mock(BulkResponseItem.class);
@@ -186,17 +185,21 @@ public class ElasticsearchIndexerTest {
 
     Mockito.when(mockItemDoc1.id()).thenReturn("doc1");
     Mockito.when(mockItemDoc2.id()).thenReturn("doc2");
-    Mockito.when(mockItemDoc3.id()).thenReturn("doc3");
+    // testing that the idOverride field doesn't prevent a document from being returned in failed docs
+    // the "id" will be set to be the override field. The exception would be thrown (instead of adding to failed docs)
+    // if the id returned here doesn't match the id the doc gets indexed with.
+    Mockito.when(mockItemDoc3.id()).thenReturn("something_else");
 
     List<BulkResponseItem> bulkResponseItems = Arrays.asList(mockItemDoc1, mockItemDoc2, mockItemDoc3);
     Mockito.when(mockResponse.items()).thenReturn(bulkResponseItems);
 
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/testOverride.conf");
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
     Document doc3 = Document.create("doc3", "test_run");
+    doc3.setField("other_id", "something_else");
 
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient2, "testing");
     Set<Document> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
@@ -699,7 +702,6 @@ public class ElasticsearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/invalidConfig.conf");
 
-    System.out.println(config.getString("indexer.indexOverrideField"));
     assertThrows(IllegalArgumentException.class,
         () -> new ElasticsearchIndexer(config, messenger, mockClient, "testing")
     );

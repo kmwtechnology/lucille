@@ -105,7 +105,6 @@ public class ElasticsearchIndexer extends Indexer {
     BulkRequest.Builder br = new BulkRequest.Builder();
 
     for (Document doc : documents) {
-      documentsUploaded.put(doc.getId(), doc);
       // populate join data to document
       joinData.populateJoinData(doc);
 
@@ -117,6 +116,7 @@ public class ElasticsearchIndexer extends Indexer {
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
       String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
+      documentsUploaded.put(docId, doc);
 
       // This condition below avoids adding id if ignoreFields contains it and edge cases:
       // - Case 1: id and idOverride in ignoreFields -> idOverride used by Indexer, both removed from Document (tested in testIgnoreFieldsWithOverride)

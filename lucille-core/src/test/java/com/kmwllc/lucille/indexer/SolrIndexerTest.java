@@ -726,22 +726,39 @@ public class SolrIndexerTest {
   public void testSolrDocumentErrors() throws Exception {
     Config config = ConfigFactory.empty()
         .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1))
-        .withValue("indexer.indexOverrideField", ConfigValueFactory.fromAnyRef("index_override"));
+        .withValue("indexer.indexOverrideField", ConfigValueFactory.fromAnyRef("other_collection"))
+        .withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("other_id"));
     TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
+
+    // making sure that we are still getting the correct ids for idOverride.
     Document doc2 = Document.create("doc2", "test_run");
-    doc2.setField("index_override", "other_collection");
+    doc2.setField("other_collection", "collection1");
+    doc2.setField("other_id", "idForDoc2");
+
+    Document doc3 = Document.create("doc3", "test_run");
+    doc3.setField("other_collection", "collection2");
+    doc3.setField("other_id", "idForDoc3");
 
     SolrClient solrClient = mock(SolrClient.class);
-    // causes doc to fail, but not doc2, which has a specific collection / index override.
+    // causes doc to fail (it'll be called w/ no collection specified.)
     when(solrClient.add(any(Collection.class))).thenThrow(new IOException("mock IO Exc"));
+
+    // throw an exception once but fail the other time
+    when(solrClient.add(anyString(), any(Collection.class)))
+        .thenThrow(new IOException("mock IO Exc"))
+        .thenReturn(null);
+
     SolrIndexer indexer = new SolrIndexer(config, messenger, solrClient, "");
 
-    Set<Document> failedDocs = indexer.sendToIndex(List.of(doc, doc2));
-    assertEquals(1, failedDocs.size());
+    Set<Document> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    assertEquals(2, failedDocs.size());
     assertTrue(failedDocs.contains(doc));
-    assertFalse(failedDocs.contains(doc2));
+
+    // not sure what is, internally to solr, controlling the ordering behind which document is sent first/not.
+    // so, will just check that both of them do not have the same status (failed/succeeded)
+    assertNotEquals(failedDocs.contains(doc2), failedDocs.contains(doc3));
   }
 
   @Test

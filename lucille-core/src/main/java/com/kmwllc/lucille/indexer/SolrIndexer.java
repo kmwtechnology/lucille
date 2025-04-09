@@ -174,7 +174,7 @@ public class SolrIndexer extends Indexer {
         }
 
       } else {
-        docsUploaded.put(doc.getId(), doc);
+        docsUploaded.put(solrId, doc);
         // note that solrDoc after this code block does not guarantee that "id" field is in document
         SolrInputDocument solrDoc = toSolrDoc(doc, idOverride, collection);
 

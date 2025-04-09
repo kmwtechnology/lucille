@@ -236,8 +236,8 @@ public abstract class Indexer implements Runnable {
       histogram.update(stopWatch.getNanoTime() / batchedDocs.size());
       meter.mark(batchedDocs.size());
     } catch (Exception e) {
-      // If an Exception is thrown, there was some larger error causing nothing (or essentially nothing?) to be indexed.
-      // So everything is considered to have failed, we won't look at failedDocs.
+      // If an Exception is thrown, there was some larger error causing nothing (or essentially nothing) to be indexed.
+      // So everything is considered to have failed - we won't even look at failedDocs.
       log.error("Error sending documents to index: " + e.getMessage(), e);
 
       for (Document d : batchedDocs) {
@@ -259,7 +259,7 @@ public abstract class Indexer implements Runnable {
         }
       }
 
-      // We've sent a message for each Document. Don't want to repeat in the code below.
+      // We've sent a message for each Document. Don't want to run the code below.
       return;
     } finally {
       // We always mark batches as completed, regardless of if failedDocs isn't null / empty.
