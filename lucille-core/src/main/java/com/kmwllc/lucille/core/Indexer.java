@@ -259,7 +259,7 @@ public abstract class Indexer implements Runnable {
         }
       }
 
-      // We've sent a message for each Document. Don't want to run the code below.
+      // We've sent a message for each Document. Don't want to run the code coming after finally.
       return;
     } finally {
       // We always mark batches as completed, regardless of if failedDocs isn't null / empty.
