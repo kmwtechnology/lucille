@@ -111,7 +111,7 @@ public class OpenSearchIndexer extends Indexer {
   protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) {
-      return null;
+      return Set.of();
     }
 
     Map<String, Document> documentsToUpload = new LinkedHashMap<>();

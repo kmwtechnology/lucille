@@ -209,20 +209,7 @@ public class SolrIndexer extends Indexer {
         }
       }
 
-      try {
-        sendDeletionBatch(collection, solrDocRequestsByCollection.get(collection));
-      } catch (Exception e) {
-        // Add all the docs to failed docs
-        for (SolrInputDocument d : solrDocRequestsByCollection.get(collection).getAddUpdateDocs()) {
-          String docId = d.getField(Document.ID_FIELD).toString();
-
-          if (docsUploaded.containsKey(docId)) {
-            failedDocs.add(docsUploaded.get(docId));
-          } else {
-            throw e;
-          }
-        }
-      }
+      sendDeletionBatch(collection, solrDocRequestsByCollection.get(collection));
     }
 
     return failedDocs;

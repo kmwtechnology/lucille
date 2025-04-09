@@ -97,7 +97,7 @@ public class ElasticsearchIndexer extends Indexer {
   protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) {
-      return null;
+      return Set.of();
     }
 
     // building a map so we can quickly retrieve documents later on, if they fail during indexing.

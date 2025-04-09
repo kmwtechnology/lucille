@@ -139,10 +139,10 @@ public abstract class Indexer implements Runnable {
    * call to the batch API provided by the search engine client, if available, as opposed to sending
    * each document individually.
    *
-   * @return A set of the Documents that were not successfully indexed. The set must never be null - returns an empty set
-   * if no Documents failed.
-   * @throws Exception In the event of a considerable error causing indexing to fail entirely, essentially. Does not throw
-   * Exceptions just because a Document may have not been indexed successfully.
+   * @return A set of the Documents that were not successfully indexed. Return an empty set if no documents fail / if not
+   * supported by the Indexer implementation.
+   * @throws Exception In the event of a considerable error causing indexing to fail. Does not throw
+   * Exceptions just because some Documents may have not been indexed successfully.
    */
   protected abstract Set<Document> sendToIndex(List<Document> documents) throws Exception;
 
