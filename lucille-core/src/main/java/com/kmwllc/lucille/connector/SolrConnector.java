@@ -60,10 +60,7 @@ public class SolrConnector extends AbstractConnector {
     super(config, Spec.connector()
         .withRequiredProperties("solr.url")
         .withOptionalProperties("preActions", "postActions", "useXml", "idField")
-        // TODO: have to allow solrParams to have whatever it wants...
-        //  1. Add support for this in a ParentSpec
-        //  2. Allow you to provide strings in optional parent names and that will NOT validate a spec
-//        .withOptionalParents("solrParams")
+        .withOptionalParentNames("solrParams")
     );
     this.client = client;
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());

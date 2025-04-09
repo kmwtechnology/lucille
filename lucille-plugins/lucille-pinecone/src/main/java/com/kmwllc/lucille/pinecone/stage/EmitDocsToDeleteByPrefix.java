@@ -51,7 +51,7 @@ public class EmitDocsToDeleteByPrefix extends Stage {
   public EmitDocsToDeleteByPrefix(Config config) {
     super(config, Spec.stage()
         .withOptionalProperties("dropOriginal", "addPrefix")
-//        .withOptionalParents("namespaces")
+        .withOptionalParentNames("namespaces")
         .withRequiredProperties("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index"));
     this.indexName = config.getString("index");
     this.namespaces = config.hasPath("namespaces") ? config.getConfig("namespaces").root().unwrapped() : null;

@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
  */
 public class OpenSearchUtils {
 
-  // TODO: Complete
   public static final ParentSpec OPENSEARCH_PARENT_SPEC = Spec.parent("opensearch")
       .withRequiredProperties("url", "index")
       .withOptionalProperties("acceptInvalidCert");

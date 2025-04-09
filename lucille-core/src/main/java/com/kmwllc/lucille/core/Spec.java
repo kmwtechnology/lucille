@@ -86,7 +86,8 @@ public class Spec {
   }
 
   /**
-   * Returns this Spec with the given parents added as required parents.
+   * Returns this Spec with the given parents added as required parents. The ParentSpecs provided will be validated as part of
+   * {@link Spec#validate(Config, String)}, and an Exception will be thrown if the parent is missing or has invalid properties.
    * @param properties The required parents you want to add to this Spec.
    * @return This Spec with the given required parents added.
    * @throws IllegalArgumentException If you attempt to add a ParentSpec with a name that is already added to this Spec, either
@@ -95,7 +96,7 @@ public class Spec {
   public Spec withRequiredParents(ParentSpec... properties) {
     for (ParentSpec parentSpec : properties) {
       if (requiredParentMap.containsKey(parentSpec.parentName) || optionalParentMap.containsKey(parentSpec.parentName)) {
-        throw new IllegalArgumentException("There is already a required parent with name " + parentSpec.parentName);
+        throw new IllegalArgumentException("There is already a parent with name " + parentSpec.parentName);
       }
 
       requiredParentMap.put(parentSpec.parentName, parentSpec);
@@ -105,7 +106,8 @@ public class Spec {
   }
 
   /**
-   * Returns this Spec with the given parents added as optional parents.
+   * Returns this Spec with the given parents added as optional parents. The ParentSpecs provided will be validated as part of
+   * {@link Spec#validate(Config, String)}, and an Exception will be thrown if the parent is present and has invalid properties.
    * @param properties The optional parents you want to add to this Spec.
    * @return This Spec with the given ParentSpecs added as optional parents.
    * @throws IllegalArgumentException If you attempt to add a ParentSpec with a name that is already added to this Spec, either
@@ -114,10 +116,52 @@ public class Spec {
   public Spec withOptionalParents(ParentSpec... properties) {
     for (ParentSpec parentSpec : properties) {
       if (requiredParentMap.containsKey(parentSpec.parentName) || optionalParentMap.containsKey(parentSpec.parentName)) {
-        throw new IllegalArgumentException("There is already an optional parent with name " + parentSpec.parentName);
+        throw new IllegalArgumentException("There is already a parent with name " + parentSpec.parentName);
       }
 
       optionalParentMap.put(parentSpec.parentName, parentSpec);
+    }
+
+    return this;
+  }
+
+  /**
+   * Returns this Spec with the given parent names added as required parents. No validation will take place on the child properties
+   * of the declared required parents in a Config you validate with {@link Spec#validate(Config, String)}. As such, this method
+   * should be used for required parents with unpredictable properties / entries.
+   * @param optionalParentNames The names of optional parents you want to add to this Spec.
+   * @return This Spec with the given ParentSpecs added as optional parents.
+   * @throws IllegalArgumentException If you attempt to add an optional parent name that is already a parent name in this Spec, either
+   * as an optional or required parent.
+   */
+  public Spec withRequiredParentNames(String... optionalParentNames) {
+    for (String parentName : optionalParentNames) {
+      if (requiredParentMap.containsKey(parentName) || optionalParentMap.containsKey(parentName)) {
+        throw new IllegalArgumentException("There is already a parent with name " + parentName);
+      }
+
+      requiredParentMap.put(parentName, null);
+    }
+
+    return this;
+  }
+
+  /**
+   * Returns this Spec with the given parent names added as optional parents. No validation will take place on the child properties
+   * of the declared optional parents, if they are present in a Config you validate with {@link Spec#validate(Config, String)}. As
+   * such, this method should be used for optional parents with unpredictable properties / entries.
+   * @param optionalParentNames The names of optional parents you want to add to this Spec.
+   * @return This Spec with the given ParentSpecs added as optional parents.
+   * @throws IllegalArgumentException If you attempt to add an optional parent name that is already a parent name in this Spec, either
+   * as an optional or required parent.
+   */
+  public Spec withOptionalParentNames(String... optionalParentNames) {
+    for (String parentName : optionalParentNames) {
+      if (requiredParentMap.containsKey(parentName) || optionalParentMap.containsKey(parentName)) {
+        throw new IllegalArgumentException("There is already a parent with name " + parentName);
+      }
+
+      optionalParentMap.put(parentName, null);
     }
 
     return this;
@@ -162,18 +206,26 @@ public class Spec {
 
           Config requiredParentConfig = config.getConfig(parentName);
           ParentSpec requiredParentSpec = requiredParentMap.get(parentName);
-          try {
-            requiredParentSpec.validate(requiredParentConfig, parentName);
-          } catch (IllegalArgumentException e) {
-            errorMessages.add(e.getMessage());
+
+          if (requiredParentSpec != null) {
+            try {
+              requiredParentSpec.validate(requiredParentConfig, parentName);
+            } catch (IllegalArgumentException e) {
+              errorMessages.add(e.getMessage());
+            }
           }
         } else if (optionalParentMap.containsKey(parentName)) {
           Config optionalParentConfig = config.getConfig(parentName);
           ParentSpec optionalParentSpec = optionalParentMap.get(parentName);
-          try {
-            optionalParentSpec.validate(optionalParentConfig, parentName);
-          } catch (IllegalArgumentException e) {
-            errorMessages.add(e.getMessage());
+
+          // If not null, then this is a fledged out, optional parent, and the child properties should be validated.
+          // if it is null, only its name was declared, and the properties are dynamic / unpredictable.
+          if (optionalParentSpec != null) {
+            try {
+              optionalParentSpec.validate(optionalParentConfig, parentName);
+            } catch (IllegalArgumentException e) {
+              errorMessages.add(e.getMessage());
+            }
           }
         } else {
           errorMessages.add("Config contains unknown parent " + parentName);

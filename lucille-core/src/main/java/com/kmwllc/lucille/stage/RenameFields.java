@@ -29,8 +29,8 @@ public class RenameFields extends Stage {
   public RenameFields(Config config) {
     super(config, Spec.stage()
         .withOptionalProperties("update_mode")
-//        .withRequiredParents("fieldMapping")
-    );
+        .withRequiredParentNames("fieldMapping"));
+
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
   }
