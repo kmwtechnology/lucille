@@ -155,6 +155,36 @@ public class ConfigValidationTest {
     assertThrows(IllegalArgumentException.class, () -> spec.validate(ConfigFactory.empty(), "name"));
   }
 
+  @Test
+  public void testParentSpecValidation() {
+    Spec spec = Spec.connector()
+        .withRequiredParents(
+            Spec.parent("required")
+                .withRequiredProperties("requiredProp")
+                .withOptionalProperties("optionalProp")
+        )
+        .withOptionalParents(
+            Spec.parent("optional")
+                .withRequiredProperties("requiredProp")
+                .withOptionalProperties("optionalProp")
+        );
+
+    spec.validate(ConfigFactory.parseResourcesAnySyntax("ConfigValidationTest/parentSpec/allPresent.conf"), "test");
+    spec.validate(ConfigFactory.parseResourcesAnySyntax("ConfigValidationTest/parentSpec/noOptionalPropsInParents.conf"), "test");
+    spec.validate(ConfigFactory.parseResourcesAnySyntax("ConfigValidationTest/parentSpec/noOptionalParent.conf"), "test");
+
+    // 1. The optional parent is present, but it is missing one of its required properties.
+    assertThrows(IllegalArgumentException.class,
+        () -> spec.validate(ConfigFactory.parseResourcesAnySyntax("ConfigValidationTest/parentSpec/optionalParentMissingRequired.conf"), "test"));
+
+    // 2. The required parent is present, but it is missing one of its required properties.
+    assertThrows(IllegalArgumentException.class,
+        () -> spec.validate(ConfigFactory.parseResourcesAnySyntax("ConfigValidationTest/parentSpec/requiredParentMissingRequired.conf"), "test"));
+
+    // 3. The required parent is missing.
+    assertThrows(IllegalArgumentException.class,
+        () -> spec.validate(ConfigFactory.parseResourcesAnySyntax("ConfigValidationTest/parentSpec/requiredParentMissing.conf"), "test"));
+  }
   private static void processDoc(Class<? extends Stage> stageClass, String config, Document doc)
       throws StageException {
     Stage s = StageFactory.of(stageClass).get(addPath(config));
