@@ -74,7 +74,8 @@ public class ApplyJSoup extends Stage {
 
   public ApplyJSoup(Config config) throws StageException {
     super(config, Spec.stage().withOptionalProperties("filePathField", "byteArrayField", "stringField", "charset")
-        .withRequiredParents("destinationFields"));
+//        .withRequiredParents("destinationFields")
+    );
 
     this.destinationFields = config.getConfig("destinationFields").root().unwrapped();
     this.charset = ConfigUtils.getOrDefault(config, "charset", null);

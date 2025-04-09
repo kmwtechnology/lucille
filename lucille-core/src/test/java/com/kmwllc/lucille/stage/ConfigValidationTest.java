@@ -147,8 +147,8 @@ public class ConfigValidationTest {
   @Test
   public void testNonDisjointPropertiesValidation() {
     Spec spec = Spec.connector()
-        .withRequiredProperties("property1", "property2")
-        .withOptionalParents("property1", "property3");
+        .withRequiredProperties("property1", "property2");
+//        .withOptionalParents("property1", "property3");
 
     assertThrows(IllegalArgumentException.class, () -> spec.validate(ConfigFactory.empty(), "name"));
   }

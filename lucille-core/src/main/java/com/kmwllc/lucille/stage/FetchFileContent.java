@@ -31,8 +31,9 @@ public class FetchFileContent extends Stage {
   private final FileContentFetcher fileFetcher;
 
   public FetchFileContent(Config config) {
-    super(config, Spec.stage().withOptionalProperties("filePathField", "fileContentField")
-        .withOptionalParents("s3", "azure", "gcp"));
+    super(config, Spec.stage().withOptionalProperties("filePathField", "fileContentField"))
+//        .withOptionalParents("s3", "azure", "gcp"))
+    ;
 
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
     this.fileContentField = ConfigUtils.getOrDefault(config, "fileContentField", "file_content");

@@ -46,7 +46,8 @@ public class XPathExtractor extends Stage {
    */
   public XPathExtractor(Config config) {
     super(config, Spec.stage().withOptionalProperties("xmlField")
-        .withRequiredParents("fieldMapping"));
+//        .withRequiredParents("fieldMapping")
+    );
     xpaths = config.getConfig("fieldMapping").root().unwrapped();
     factory = DocumentBuilderFactory.newInstance();
     XPathFactory xpathFactory = XPathFactory.newInstance();

@@ -65,7 +65,8 @@ public class DictionaryLookup extends Stage {
   public DictionaryLookup(Config config) throws StageException {
     super(config, Spec.stage().withRequiredProperties("source", "dest", "dict_path")
         .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "ignore_missing_source")
-        .withOptionalParents("s3", "gcp", "azure"));
+//        .withOptionalParents("s3", "gcp", "azure")
+    );
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");

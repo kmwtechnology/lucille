@@ -47,7 +47,8 @@ public class ParseJson extends Stage {
     super(config, Spec.stage()
         .withRequiredProperties("src")
         .withOptionalProperties("sourceIsBase64")
-        .withRequiredParents("jsonFieldPaths"));
+//        .withRequiredParents("jsonFieldPaths")
+    );
     this.src = config.getString("src");
     this.jsonFieldPaths = config.getConfig("jsonFieldPaths").root().unwrapped();
     this.sourceIsBase64 = config.hasPath("sourceIsBase64") && config.getBoolean("sourceIsBase64");

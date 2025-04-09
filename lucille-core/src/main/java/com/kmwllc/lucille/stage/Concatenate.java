@@ -40,7 +40,8 @@ public class Concatenate extends Stage {
     super(config, Spec.stage()
         .withRequiredProperties("dest", "format_string")
         .withOptionalProperties("update_mode")
-        .withOptionalParents("default_inputs"));
+//        .withOptionalParents("default_inputs")
+    );
 
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");

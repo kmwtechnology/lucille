@@ -21,7 +21,9 @@ public class RemoveDuplicateValues extends Stage {
   private final Map<String, Object> fieldMapping;
 
   public RemoveDuplicateValues(Config config) {
-    super(config, Spec.stage().withRequiredParents("fieldMapping"));
+    super(config
+//        Spec.stage().withRequiredParents("fieldMapping")
+    );
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
   }
 

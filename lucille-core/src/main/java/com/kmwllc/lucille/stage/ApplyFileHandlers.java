@@ -54,7 +54,7 @@ public class ApplyFileHandlers extends Stage {
 
   public ApplyFileHandlers(Config config) {
     super(config, Spec.stage()
-        .withOptionalParents("handlerOptions", "gcp", "azure", "s3")
+//        .withOptionalParents("handlerOptions", "gcp", "azure", "s3")
         .withOptionalProperties("filePathField", "fileContentField"));
 
     this.handlerOptions = config.getConfig("handlerOptions");

@@ -103,7 +103,9 @@ public class ApplyOCR extends Stage {
 
   public ApplyOCR(Config config) throws StageException {
     super(config, Spec.stage().withOptionalProperties("pages_field", "extraction_templates", "extract_all_dest")
-        .withRequiredProperties("lang", "path_field").withOptionalParents("pages"));
+        .withRequiredProperties("lang", "path_field")
+//        .withOptionalParents("pages")
+    );
 
     lang = config.getString("lang");
     pathField = ConfigUtils.getOrDefault(config, "path_field", null);

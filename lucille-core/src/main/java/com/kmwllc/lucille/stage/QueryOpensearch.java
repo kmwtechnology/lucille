@@ -81,7 +81,7 @@ public class QueryOpensearch extends Stage {
 
   public QueryOpensearch(Config config) {
     super(config, Spec.stage()
-        .withRequiredParents("opensearch")
+//        .withRequiredParents("opensearch")
         .withOptionalProperties("templateName", "searchTemplate", "requiredParamNames",
             "optionalParamNames", "opensearchResponsePath", "destinationField"));
 
