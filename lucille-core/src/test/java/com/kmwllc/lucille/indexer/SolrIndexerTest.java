@@ -693,6 +693,7 @@ public class SolrIndexerTest {
     inOrder.verify(solrClient).close();
   }
 
+  // test for when the method throws an exception, all the documents fail
   @Test
   public void testSolrException() throws Exception {
     TestMessenger messenger = new TestMessenger();
@@ -718,6 +719,29 @@ public class SolrIndexerTest {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       assertEquals(Event.Type.FAIL, events.get(i - 1).getType());
     }
+  }
+
+  // test for when specific documents fail, no exception is thrown.
+  @Test
+  public void testSolrDocumentErrors() throws Exception {
+    Config config = ConfigFactory.empty()
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1))
+        .withValue("indexer.indexOverrideField", ConfigValueFactory.fromAnyRef("index_override"));
+    TestMessenger messenger = new TestMessenger();
+
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+    doc2.setField("index_override", "other_collection");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    // causes doc to fail, but not doc2, which has a specific collection / index override.
+    when(solrClient.add(any(Collection.class))).thenThrow(new IOException("mock IO Exc"));
+    SolrIndexer indexer = new SolrIndexer(config, messenger, solrClient, "");
+
+    Set<Document> failedDocs = indexer.sendToIndex(List.of(doc, doc2));
+    assertEquals(1, failedDocs.size());
+    assertTrue(failedDocs.contains(doc));
+    assertFalse(failedDocs.contains(doc2));
   }
 
   @Test

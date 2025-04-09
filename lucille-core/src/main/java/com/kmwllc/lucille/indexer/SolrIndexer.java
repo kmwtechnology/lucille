@@ -4,10 +4,8 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.message.IndexerMessenger;
-import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,7 +25,6 @@ import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.Signal;
 
 public class SolrIndexer extends Indexer {
 
@@ -198,12 +195,11 @@ public class SolrIndexer extends Indexer {
 
     for (String collection : solrDocRequestsByCollection.keySet()) {
       try {
-        sendAddUpdateBatch(
-            collection, solrDocRequestsByCollection.get(collection).getAddUpdateDocs());
+        sendAddUpdateBatch(collection, solrDocRequestsByCollection.get(collection).getAddUpdateDocs());
       } catch (Exception e) {
         // Add all the docs to failed docs
         for (SolrInputDocument d : solrDocRequestsByCollection.get(collection).getAddUpdateDocs()) {
-          String docId = d.getField(Document.ID_FIELD).toString();
+          String docId = d.getFieldValue(Document.ID_FIELD).toString();
 
           if (docsUploaded.containsKey(docId)) {
             failedDocs.add(docsUploaded.get(docId));
