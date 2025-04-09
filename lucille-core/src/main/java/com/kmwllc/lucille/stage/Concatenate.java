@@ -18,7 +18,6 @@ import org.apache.commons.text.StringSubstitutor;
  *
  * Config Parameters:
  *
- *   - source (List&lt;String&gt;) : list of source field names
  *   - dest (String) : Destination field. This Stage only supports supplying a single destination field.
  *   - format_string (String) : The format String, which will have field values substituted into its placeholders
  *   - defualt_inputs (Map&lt;String, String&gt;, Optional) : Mapping of input fields to a default value. You do not have to
