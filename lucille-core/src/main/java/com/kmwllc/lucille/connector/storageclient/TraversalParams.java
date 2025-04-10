@@ -37,6 +37,7 @@ public class TraversalParams {
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
   private final Duration modificationCutoff;
+  private final Duration lastPublishedCutoff;
 
   public TraversalParams(URI uri, String docIdPrefix, Config fileOptions, Config filterOptions) {
     this.uri = uri;
@@ -59,6 +60,7 @@ public class TraversalParams {
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
 
     this.modificationCutoff = filterOptions.hasPath("modificationCutoff") ? filterOptions.getDuration("modificationCutoff") : null;
+    this.lastPublishedCutoff = filterOptions.hasPath("lastPublishedCutoff") ? filterOptions.getDuration("lastPublishedCutoff") : null;
   }
 
   /**
@@ -82,12 +84,28 @@ public class TraversalParams {
    * modificationCutoff set. If it is set, returns whether the file was modified recently enough to be processed/published.
    */
   private boolean timeWithinCutoff(Instant fileLastModified) {
-    if (modificationCutoff == null) {
-      return true;
+    // If modificationCutoff is specified, return false if it is violated
+    if (modificationCutoff != null) {
+      Instant cutoffPoint = Instant.now().minus(modificationCutoff);
+
+      if (fileLastModified.isBefore(cutoffPoint)) {
+        return false;
+      }
     }
 
-    Instant cutoffPoint = Instant.now().minus(modificationCutoff);
-    return fileLastModified.isAfter(cutoffPoint);
+    // If lastPublishedCutoff is specified, return false if it is violated
+    if (lastPublishedCutoff != null) {
+      Instant cutoffPoint = Instant.now().minus(lastPublishedCutoff);
+
+      // TODO: add the check for the fileLastPublished Instant which will become part of the method
+      /*
+      if (fileLastPublished.isBefore(cutoffPoint)) {
+        return false;
+      }
+       */
+    }
+
+    return true;
   }
 
   /**

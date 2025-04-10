@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
  *    https://accountName.blob.core.windows.net/containerName/prefix/
  *  filterOptions (Map, Optional): configuration for <i>which</i> files should/shouldn't be processed in your traversal. Example of filterOptions below.
  *  fileOptions (Map, Optional): Options for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.
- *  gcp (Map, Optional): options for handling GoogleCloud files. See example below.
+ *  gcp (Map, Optional): options for handling Google Cloud files. See example below.
  *  s3 (Map, Optional): options for handling S3 files. See example below.
  *  azure (Map, Optional): options for handling Azure files. See example below.
  *
@@ -35,6 +35,10 @@ import org.slf4j.LoggerFactory;
  *  modificationCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time.
  *  See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
  *  Note that, for archive files, this cutoff applies to both the archive file itself and its individual contents.
+ *  lastPublishedCutoff (Duration, Optional): Filter files that haven't been published by Lucille since a certain amount of time.
+ *  Relies on your state configuration to determine when files were last published, see ** STATE ** for more.
+ *  TODO: Note that, for archive files, this cutoff applies to both the archive file itself and its individual contents?
+ *  <b>Note:</b> Only files that comply with <b>all</b> of your specified FilterOptions will be processed and published in a traversal.
  *
  * FileOptions:
  *  getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.
