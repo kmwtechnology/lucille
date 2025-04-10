@@ -21,6 +21,9 @@ public class Spec {
   private final Set<String> requiredProperties;
   private final Set<String> optionalProperties;
 
+  // Mapping parent names to the corresponding ParentSpecs. withRequired/OptionalParentNames will add those names to the map,
+  // mapping them to null. Methods throw exceptions if a parent name is declared more than once (among both required and
+  // optional).
   private final Map<String, ParentSpec> requiredParentMap;
   private final Map<String, ParentSpec> optionalParentMap;
 
@@ -150,6 +153,10 @@ public class Spec {
    * Returns this Spec with the given parent names added as optional parents. No validation will take place on the child properties
    * of the declared optional parents, if they are present in a Config you validate with {@link Spec#validate(Config, String)}. As
    * such, this method should be used for optional parents with unpredictable properties / entries.
+   *
+   * <p> <b>Note:</b> If you have a ParentSpec with a required property, an Exception will only be thrown during validation
+   * if the parent is present in a Config but that required property is missing.
+   *
    * @param optionalParentNames The names of optional parents you want to add to this Spec.
    * @return This Spec with the given ParentSpecs added as optional parents.
    * @throws IllegalArgumentException If you attempt to add an optional parent name that is already a parent name in this Spec, either
@@ -328,6 +335,7 @@ public class Spec {
 
     spec.validate(config, displayName);
   }
+
 
   /** Represents a Spec for a Parent in a Config. */
   public static class ParentSpec extends Spec {
