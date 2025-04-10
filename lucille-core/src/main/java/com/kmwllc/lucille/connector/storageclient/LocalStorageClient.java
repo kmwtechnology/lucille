@@ -77,6 +77,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+      // TODO: need to make sure this will give us directories. I'm not sure it will.
       // Visit the file and actually process it!
       FileReference fileRef = new LocalFileReference(file, attrs);
       processAndPublishFileIfValid(publisher, fileRef, params);
@@ -108,7 +109,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
     // The given path will become absolute and will be normalized.
     public LocalFileReference(Path path, BasicFileAttributes attributes) {
-      super(attributes.lastModifiedTime().toInstant());
+      super(path.toAbsolutePath().normalize().toString(), attributes.lastModifiedTime().toInstant());
 
       this.path = path.toAbsolutePath().normalize();
       this.creationTime = attributes.creationTime().toInstant();
@@ -117,11 +118,6 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public String getName() { return path.getFileName().toString(); }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      return path.toString();
-    }
 
     @Override
     public boolean isValidFile() {
@@ -141,7 +137,7 @@ public class LocalStorageClient extends BaseStorageClient {
     public Document asDoc(TraversalParams params) {
       Document doc = createEmptyDocument(params);
 
-      doc.setField(FILE_PATH, getFullPath(params));
+      doc.setField(FILE_PATH, getFullPath());
       doc.setField(SIZE, size);
       doc.setField(MODIFIED, getLastModified());
 

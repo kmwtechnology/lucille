@@ -69,10 +69,11 @@ public class AzureStorageClient extends BaseStorageClient {
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
     serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
+        // TODO: Need to make sure this will give us directories
         .listBlobs(new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages),
             Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
-          AzureFileReference fileRef = new AzureFileReference(blob);
+          AzureFileReference fileRef = new AzureFileReference(blob, params);
           processAndPublishFileIfValid(publisher, fileRef, params);
         });
   }
@@ -114,9 +115,9 @@ public class AzureStorageClient extends BaseStorageClient {
 
     private final BlobItem blobItem;
 
-    public AzureFileReference(BlobItem blobItem) {
+    public AzureFileReference(BlobItem blobItem, TraversalParams params) {
       // This is an inexpensive call, this is stored inside the BlobItem.
-      super(blobItem.getProperties().getLastModified().toInstant());
+      super(getFullPathHelper(blobItem, params), blobItem.getProperties().getLastModified().toInstant());
 
       this.blobItem = blobItem;
     }
@@ -124,14 +125,6 @@ public class AzureStorageClient extends BaseStorageClient {
     @Override
     public String getName() {
       return blobItem.getName();
-    }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      URI pathURI = params.getURI();
-
-      return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
-          pathURI.getPath().split("/")[1], blobItem.getName());
     }
 
     @Override
@@ -151,7 +144,7 @@ public class AzureStorageClient extends BaseStorageClient {
       Document doc = createEmptyDocument(params);
 
       BlobItemProperties properties = blobItem.getProperties();
-      doc.setField(FileConnector.FILE_PATH, getFullPath(params));
+      doc.setField(FileConnector.FILE_PATH, getFullPath());
 
       if (getLastModified() != null) {
         doc.setField(FileConnector.MODIFIED, getLastModified());
@@ -188,6 +181,13 @@ public class AzureStorageClient extends BaseStorageClient {
       }
 
       return doc;
+    }
+
+    private static String getFullPathHelper(BlobItem blobItem, TraversalParams params) {
+      URI pathURI = params.getURI();
+
+      return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
+          pathURI.getPath().split("/")[1], blobItem.getName());
     }
   }
 }

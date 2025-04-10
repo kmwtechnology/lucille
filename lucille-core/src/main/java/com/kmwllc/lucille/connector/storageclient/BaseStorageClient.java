@@ -66,6 +66,8 @@ public abstract class BaseStorageClient implements StorageClient {
   public final void init() throws IOException {
     if (!initialized) {
       initializeStorageClient();
+
+      // TODO: Initialize the state connection here. This should just make the connection - not build the "in-memory" information
       initialized = true;
     }
   }
@@ -78,6 +80,7 @@ public abstract class BaseStorageClient implements StorageClient {
     if (initialized) {
       initialized = false;
       shutdownStorageClient();
+      // TODO: Shutdown the state connection here. This should just close the connection - not perform a "flush"/deletion of any information.
     }
   }
 
@@ -99,9 +102,11 @@ public abstract class BaseStorageClient implements StorageClient {
 
     try {
       this.fileHandlers = FileHandler.createFromConfig(params.getFileOptions());
+      // TODO: Here, we "setup" the state?
       traverseStorageClient(publisher, params);
     } finally {
       fileHandlers = null;
+      // TODO: Here, we "flush" the state?
     }
   }
 
@@ -125,13 +130,15 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
    */
   protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params) {
-    String fullPathStr = fileReference.getFullPath(params);
+    String fullPathStr = fileReference.getFullPath();
     String fileExtension = fileReference.getFileExtension();
 
     try {
+      // TODO: Add the encountered file to state, regardless of the following methods / conditions.
       // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
       // (preprocessing is currently a NO-OP unless a subclass overrides it)
       if (!fileReference.isValidFile()
+          // TODO: need a way to have this file's lastPublished time and pass it to this method. Returns null if it doesn't exist, probably.
           || !params.includeFile(fileReference.getName(), fileReference.getLastModified())
           || !beforeProcessingFile(fullPathStr)) {
         return;

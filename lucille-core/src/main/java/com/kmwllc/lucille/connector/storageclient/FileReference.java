@@ -17,7 +17,7 @@ public interface FileReference {
   /**
    * @return A String representing the full path to this file.
    */
-  String getFullPath(TraversalParams params);
+  String getFullPath();
 
   /**
    * @return The extension associated with this file.

@@ -68,7 +68,8 @@ public class GoogleStorageClient extends BaseStorageClient {
     do {
       page.streamAll()
           .forEachOrdered(blob -> {
-            GoogleFileReference fileRef = new GoogleFileReference(blob);
+            // TODO: need to make sure this will give us directories.
+            GoogleFileReference fileRef = new GoogleFileReference(blob, params);
             processAndPublishFileIfValid(publisher, fileRef, params);
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
@@ -108,9 +109,9 @@ public class GoogleStorageClient extends BaseStorageClient {
 
     private final Blob blob;
 
-    public GoogleFileReference(Blob blob) {
+    public GoogleFileReference(Blob blob, TraversalParams params) {
       // This is an inexpensive call that doesn't involve networking / RPC.
-      super(blob.getUpdateTimeOffsetDateTime().toInstant());
+      super(getFullPathHelper(blob, params), blob.getUpdateTimeOffsetDateTime().toInstant());
 
       this.blob = blob;
     }
@@ -118,12 +119,6 @@ public class GoogleStorageClient extends BaseStorageClient {
     @Override
     public String getName() {
       return blob.getName();
-    }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      URI paramsURI = params.getURI();
-      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
     }
 
     @Override
@@ -141,7 +136,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     public Document asDoc(TraversalParams params) {
       Document doc = createEmptyDocument(params);
 
-      doc.setField(FileConnector.FILE_PATH, getFullPath(params));
+      doc.setField(FileConnector.FILE_PATH, getFullPath());
       doc.setField(FileConnector.MODIFIED, getLastModified());
 
       if (blob.getCreateTimeOffsetDateTime() != null) {
@@ -177,6 +172,12 @@ public class GoogleStorageClient extends BaseStorageClient {
       }
 
       return doc;
+    }
+
+    // Just here to simplify the call to
+    private static String getFullPathHelper(Blob blob, TraversalParams params) {
+      URI paramsURI = params.getURI();
+      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
     }
   }
 }

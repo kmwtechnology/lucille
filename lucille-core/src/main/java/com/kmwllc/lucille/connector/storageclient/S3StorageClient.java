@@ -82,10 +82,11 @@ public class S3StorageClient extends BaseStorageClient {
         .prefix(getStartingDirectory(params))
         .maxKeys(maxNumOfPages).build();
     ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
+    // TODO: want to make sure this will include directories...
     response.stream()
         .forEachOrdered(resp -> {
           resp.contents().forEach(obj -> {
-            S3FileReference fileRef = new S3FileReference(obj);
+            S3FileReference fileRef = new S3FileReference(obj, params);
             processAndPublishFileIfValid(publisher, fileRef, params);
           });
         });
@@ -123,9 +124,9 @@ public class S3StorageClient extends BaseStorageClient {
 
     private final S3Object s3Obj;
 
-    public S3FileReference(S3Object s3Obj) {
-      // This is an inexpensive call, this is stored inside the S3Object
-      super(s3Obj.lastModified());
+    public S3FileReference(S3Object s3Obj, TraversalParams params) {
+      // s3Obj.lastModified is an inexpensive call - it's stored in the S3Object
+      super(getFullPathHelper(params, s3Obj), s3Obj.lastModified());
 
       this.s3Obj = s3Obj;
     }
@@ -133,12 +134,6 @@ public class S3StorageClient extends BaseStorageClient {
     @Override
     public String getName() {
       return s3Obj.key();
-    }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      URI paramsURI = params.getURI();
-      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();
     }
 
     @Override
@@ -157,7 +152,7 @@ public class S3StorageClient extends BaseStorageClient {
     public Document asDoc(TraversalParams params) {
       Document doc = createEmptyDocument(params);
 
-      doc.setField(FileConnector.FILE_PATH, getFullPath(params));
+      doc.setField(FileConnector.FILE_PATH, getFullPath());
       doc.setField(FileConnector.MODIFIED, getLastModified());
       // s3 doesn't have object creation date
       doc.setField(FileConnector.SIZE, s3Obj.size());
@@ -186,6 +181,12 @@ public class S3StorageClient extends BaseStorageClient {
       }
 
       return doc;
+    }
+
+    // Just here to simplify call to super().
+    private static String getFullPathHelper(TraversalParams params, S3Object s3Obj) {
+      URI paramsURI = params.getURI();
+      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();
     }
   }
 }
