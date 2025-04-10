@@ -72,8 +72,8 @@ public class FetchUri extends Stage {
     super(config, Spec.stage().withRequiredProperties("source", "dest")
         .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix", "max_retries", "initial_expiry_ms",
             "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout", "status_code_retry_list")
-        .withOptionalParentNames("headers")
-    );
+        .withOptionalParentNames("headers"));
+
     this.source = config.getString("source");
     this.dest = config.getString("dest");
     this.statusSuffix = ConfigUtils.getOrDefault(config, "status_suffix", "status_code");

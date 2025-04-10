@@ -339,21 +339,26 @@ public class Spec {
       this.parentName = parentName;
     }
 
-    /* Add an automatic cast to the following methods so we can call them and still have a "ParentSpec" specifically. */
+    /* Override the following methods - call the super methods, which are still mutating, but return this (a ParentSpec) instead of a Spec.
+    Allows us to define static ParentSpecs in various classes (OpensearchUtils, SolrUtils) that can be used in withOptional/RequiredParents. */
     public ParentSpec withOptionalProperties(String... properties) {
-      return (ParentSpec) super.withOptionalProperties(properties);
+      super.withOptionalProperties(properties);
+      return this;
     }
 
     public ParentSpec withRequiredProperties(String... properties) {
-      return (ParentSpec) super.withRequiredProperties(properties);
+      super.withRequiredProperties(properties);
+      return this;
     }
 
     public ParentSpec withRequiredParents(ParentSpec... properties) {
-      return (ParentSpec) super.withRequiredParents(properties);
+      super.withRequiredParents(properties);
+      return this;
     }
 
     public ParentSpec withOptionalParents(ParentSpec... properties) {
-      return (ParentSpec) super.withOptionalParents(properties);
+      super.withOptionalParents(properties);
+      return this;
     }
   }
 }

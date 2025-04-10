@@ -147,10 +147,8 @@ public class ConfigValidationTest {
   @Test
   public void testNonDisjointPropertiesValidation() {
     Spec spec = Spec.connector()
-        .withRequiredProperties("property1", "property2")
-        .withOptionalParents(
-            Spec.parent("property1"),
-            Spec.parent("property3"));
+        .withOptionalProperties("property1", "property2")
+        .withOptionalParents(Spec.parent("property1"), Spec.parent("property3"));
 
     assertThrows(IllegalArgumentException.class, () -> spec.validate(ConfigFactory.empty(), "name"));
   }
@@ -161,16 +159,17 @@ public class ConfigValidationTest {
         .withRequiredParents(
             Spec.parent("required")
                 .withRequiredProperties("requiredProp")
-                .withOptionalProperties("optionalProp")
-        )
+                .withOptionalProperties("optionalProp"))
         .withOptionalParents(
             Spec.parent("optional")
                 .withRequiredProperties("requiredProp")
-                .withOptionalProperties("optionalProp")
-        );
+                .withOptionalProperties("optionalProp"));
 
+    // All of the properties allowed are present.
     spec.validate(ConfigFactory.parseResourcesAnySyntax("ConfigValidationTest/parentSpec/allPresent.conf"), "test");
+    // Each of the parents do not have "optionalProp"
     spec.validate(ConfigFactory.parseResourcesAnySyntax("ConfigValidationTest/parentSpec/noOptionalPropsInParents.conf"), "test");
+    // The optional parent is missing. Note that no exception is thrown for optional.requiredProp not being present!
     spec.validate(ConfigFactory.parseResourcesAnySyntax("ConfigValidationTest/parentSpec/noOptionalParent.conf"), "test");
 
     // 1. The optional parent is present, but it is missing one of its required properties.

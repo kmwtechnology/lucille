@@ -29,6 +29,7 @@ public class OpenSearchUtils {
   public static final ParentSpec OPENSEARCH_PARENT_SPEC = Spec.parent("opensearch")
       .withRequiredProperties("url", "index")
       .withOptionalProperties("acceptInvalidCert");
+
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
   /**
