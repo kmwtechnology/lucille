@@ -98,13 +98,6 @@ public class AzureStorageClient extends BaseStorageClient {
     return params.getURI().getPath().split("/")[1];
   }
 
-  private String getFullPath(BlobItem blobItem, TraversalParams params) {
-    URI pathURI = params.getURI();
-
-    return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
-        getBucketOrContainerName(params), blobItem.getName());
-  }
-
   // Only for testing
   void setServiceClientForTesting(BlobServiceClient serviceClient) {
     this.serviceClient = serviceClient;

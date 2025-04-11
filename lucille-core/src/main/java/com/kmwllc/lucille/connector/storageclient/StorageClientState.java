@@ -27,7 +27,7 @@ public class StorageClientState {
   private static final Logger log = LoggerFactory.getLogger(StorageClientState.class);
 
   private final Map<String, Instant> stateEntries;
-  private final Set<String> unencounteredPaths;
+  private final Set<String> notEncounteredPaths;
   // Using a single Instant to apply to all files encountered as part of this traversal.
   private final Instant traversalInstant;
 
@@ -42,8 +42,8 @@ public class StorageClientState {
     this.stateEntries = stateEntries;
 
     // stateEntries.keySet() is not a deep copy of the entries - changes to one cause changes in the other.
-    this.unencounteredPaths = new HashSet<>();
-    unencounteredPaths.addAll(stateEntries.keySet());
+    this.notEncounteredPaths = new HashSet<>();
+    notEncounteredPaths.addAll(stateEntries.keySet());
 
     this.traversalInstant = Instant.now();
   }
@@ -53,7 +53,7 @@ public class StorageClientState {
    * @param fullPathStr The full path to the file you encountered during a StorageClient traversal.
    */
   public void encounteredFile(String fullPathStr) {
-    boolean removed = unencounteredPaths.remove(fullPathStr);
+    boolean removed = notEncounteredPaths.remove(fullPathStr);
 
     if (removed) {
       log.debug("Known file {} was encountered by StorageClient.", fullPathStr);
@@ -80,6 +80,30 @@ public class StorageClientState {
    * @param fullPathStr The full path to the file that was successfully published.
    */
   public void successfullyPublishedFile(String fullPathStr) {
+    if (notEncounteredPaths.contains(fullPathStr)) {
+      log.warn("{} was marked as published, but not encountered", fullPathStr);
+    }
+
     stateEntries.put(fullPathStr, traversalInstant);
+  }
+
+  // Package access getters
+  /**
+   * Returns the Map of file paths to Instants at which they were last published, held by this State. Package access, as this should
+   * only be accessed in {@link StorageClientStateManager} and some unit tests.
+   * @return the Map of file paths to Instants at which they were last published, held by this State.
+   */
+  Map<String, Instant> getStateEntries() {
+    return stateEntries;
+  }
+
+  /**
+   * Returns the Set of file paths which were found in the initially provided {@link #stateEntries}, but have not has a call to
+   * {@link #encounteredFile(String)} yet. Package access, as this should only be accessed in {@link StorageClientStateManager}
+   * and some unit tests.
+   * @return the Set of not encountered file paths.
+   */
+  Set<String> getNotEncounteredPaths() {
+    return notEncounteredPaths;
   }
 }
