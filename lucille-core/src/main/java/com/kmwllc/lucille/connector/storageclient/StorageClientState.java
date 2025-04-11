@@ -27,11 +27,15 @@ public class StorageClientState {
 
   private static final Logger log = LoggerFactory.getLogger(StorageClientState.class);
 
-  // tracking the files (and the times they were published) and the directories we knew about / encountered
+  private final Set<String> knownDirectories;
+  // Is based on the initial information provided in the constructor. fileStateEntries will grow, but we can still check which
+  // entries it has that aren't in encounteredFiles to check what we need to remove.
   private final Map<String, Instant> fileStateEntries;
-  private final Set<String> directories;
 
-  private final Set<String> pathsToDelete;
+  // These are sets that grow as markFileOrDirectoryEncountered is called. Supports determining which paths in the database
+  // need to be deleted.
+  private final Set<String> encounteredDirectories;
+  private final Set<String> encounteredFiles;
 
   // Using a single Instant to apply to all files encountered as part of this traversal.
   private final Instant traversalInstant;
@@ -42,38 +46,35 @@ public class StorageClientState {
    * any file paths that were not referenced in a call to {@link #markFileOrDirectoryEncountered(String)} will be removed from the database.
    *
    * <p> <b>Note:</b> This constructor will <b>not</b> mutate the given Set / Map - it deep copies their contents.
+   * @param knownDirectories The directories which the state database has entries for.
    * @param fileStateEntries A map of file paths (Strings) to the Instant at which they were last published by Lucille, according
    *                     to the state database.
    */
-  public StorageClientState(Set<String> directories, Map<String, Instant> fileStateEntries) {
-    this.fileStateEntries = new HashMap<>(fileStateEntries);
-    this.directories = new HashSet<>(directories);
-
+  public StorageClientState(Set<String> knownDirectories, Map<String, Instant> fileStateEntries) {
     // The paths that we haven't encountered in our traversal. As we see them, we will remove them from the set.
     // At the end of the traversal, these paths will be removed from the directory.
-    this.pathsToDelete = new HashSet<>();
-    pathsToDelete.addAll(fileStateEntries.keySet());
-    pathsToDelete.addAll(directories);
+    this.knownDirectories = new HashSet<>(knownDirectories);
+    this.fileStateEntries = new HashMap<>(fileStateEntries);
+
+    this.encounteredDirectories = new HashSet<>();
+    this.encounteredFiles = new HashSet<>();
 
     this.traversalInstant = Instant.now();
   }
 
   /**
-   * Update this state to reflect that the given file was encountered during a StorageClient traversal.
-   * @param fullPathStr The full path to the file you encountered during a StorageClient traversal.
+   * Update this state to reflect that the given file or directory was encountered during a StorageClient traversal. Directories
+   * must end with the path separator.
+   * @param fullPathStr The full path to the file or directory you encountered during a StorageClient traversal. Directories must
+   *                    end with the path separator.
    */
   public void markFileOrDirectoryEncountered(String fullPathStr) {
-    if (fullPathStr.endsWith("/") && !directories.contains(fullPathStr)) {
-      directories.add(fullPathStr);
-      log.info("New {} found by StorageClient, added to directories.", fullPathStr);
-    }
-
-    boolean removed = pathsToDelete.remove(fullPathStr);
-
-    if (removed) {
-      log.debug("Known file/directory {} was encountered by StorageClient.", fullPathStr);
+    if (fullPathStr.endsWith("/")) {
+      log.debug("Directory {} found by StorageClient, added to encounteredDirectories.", fullPathStr);
+      encounteredDirectories.add(fullPathStr);
     } else {
-      log.debug("New file/directory {} was encountered by StorageClient.", fullPathStr);
+      log.debug("File {} found by StorageClient, added to encounteredDirectories.", fullPathStr);
+      encounteredFiles.add(fullPathStr);
     }
   }
 
@@ -95,41 +96,38 @@ public class StorageClientState {
    * @param fullPathStr The full path to the file that was successfully published.
    */
   public void successfullyPublishedFile(String fullPathStr) {
-    if (pathsToDelete.contains(fullPathStr)) {
-      log.warn("{} was marked as published, but not encountered", fullPathStr);
+    if (!encounteredFiles.contains(fullPathStr)) {
+      log.warn("{} was marked as published, but not encountered - it may get deleted!", fullPathStr);
     }
 
     fileStateEntries.put(fullPathStr, traversalInstant);
   }
 
-  // Package access getters
   /**
-   * Returns the Map of file paths to Instants at which they were last published, held by this State. Package access, as this should
-   * only be accessed in {@link StorageClientStateManager} and some unit tests.
-   * @return the Map of file paths to Instants at which they were last published, held by this State.
+   * Based on the directories and files that have been marked as encountered by {@link #markFileOrDirectoryEncountered(String)}, and
+   * the known directories and files provided at construction, returns a Set of file / directory paths that have presumably been
+   * moved / deleted and should be removed from the state database.
+   * @return A Set of file / directory paths that should be removed from the state database.
    */
-  Map<String, Instant> getFileStateEntries() {
+  public Set<String> getPathsToDelete() {
+    Set<String> results = new HashSet<>();
+
+    Set<String> directoriesNotEncountered = new HashSet<>(knownDirectories);
+    directoriesNotEncountered.removeAll(encounteredDirectories);
+
+    Set<String> filesNotEncountered = new HashSet<>(fileStateEntries.keySet());
+    filesNotEncountered.removeAll(encounteredFiles);
+
+    results.addAll(directoriesNotEncountered);
+    results.addAll(filesNotEncountered);
+    return results;
+  }
+
+  /**
+   * Returns the Map of file paths to Instants at which they were last published, held & modified by this State. This Map may
+   * contain file paths that should be deleted (per {@link #getPathsToDelete()}).
+   */
+  public Map<String, Instant> getFileStateEntries() {
     return fileStateEntries;
-  }
-
-  /**
-   * Returns the Set of file paths which were found in the initially provided {@link #fileStateEntries}, but have not had a call to
-   * {@link #markFileOrDirectoryEncountered(String)} yet.
-   * <p> Package access, as this should only be accessed in {@link StorageClientStateManager} and some unit tests.
-   * @return the Set of file / directory paths that were not encountered (presumably, deleted/moved/renamed)
-   * and should be removed from the database.
-   */
-  Set<String> getPathsToDelete() {
-    return pathsToDelete;
-  }
-
-  /**
-   * Returns the Set of file paths which were found in the initially provided {@link #fileStateEntries}, but have not had a call to
-   * {@link #markFileOrDirectoryEncountered(String)} yet.
-   * <p> Package access, as this should only be accessed in {@link StorageClientStateManager} and some unit tests.
-   * @return the Set of directories that either previously had
-   */
-  Set<String> getDirectories() {
-    return directories;
   }
 }
