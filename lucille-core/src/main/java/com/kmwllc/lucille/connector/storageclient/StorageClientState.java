@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.connector.storageclient;
 
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -12,10 +11,16 @@ import org.slf4j.LoggerFactory;
  * Holds state regarding the relevant files in a StorageClient traversal, namely, files and the last time they were processed &
  * published by Lucille.
  *
- * <p> Call the encounteredFile(FileReference, TraversalParams) method <b>for every file and directory</b> you encounter during a traversal - regardless of
+ * <p> Call the {@link #encounteredFile(String)} method <b>for every file and directory</b> you encounter during a traversal - regardless of
  * whether it complies with FilterOptions or not.
- * <p> Call the getLastPublished(FileReference, TraversalParams) method to lookup when the file was last published by Lucille.
+ * <p> Call the {@link #getLastPublished(String)} method to lookup when the file was last published by Lucille.
  * Returns null if there is no record of the file being processed by Lucille.
+ * <p> Call the {@link #successfullyPublishedFile(String)} method after a file was successfully published by Lucille.
+ *
+ * <p> When your traversal is complete, you'll call {@link StorageClientStateManager#updateState(StorageClientState)} with this
+ * state to update your database and reflect the results of your traversal.
+ * <p> <b>Note:</b> All calls to {@link #successfullyPublishedFile(String)} will result in the file paths having the same Instant
+ * in the updated State. This Instant is created when this StorageClientState is constructed.
  */
 public class StorageClientState {
 
@@ -26,21 +31,26 @@ public class StorageClientState {
   // Using a single Instant to apply to all files encountered as part of this traversal.
   private final Instant traversalInstant;
 
+  /**
+   * Creates a StorageClientState, representing and managing the given Map of file paths to Instants at which they were last modified,
+   * read from a state database. This object will track each of these file paths, and when the database is updated to reflect this state,
+   * any file paths that were not referenced in a call to {@link #encounteredFile(String)} will be removed from the database.
+   * @param stateEntries A map of file paths (Strings) to the Instant at which they were last published by Lucille, according
+   *                     to the state database.
+   */
   public StorageClientState(Map<String, Instant> stateEntries) {
     this.stateEntries = stateEntries;
 
     // stateEntries.keySet() is not a deep copy of the entries - changes to one cause changes in the other.
     this.unencounteredPaths = new HashSet<>();
-    for (String statePath : stateEntries.keySet()) {
-      unencounteredPaths.add(statePath);
-    }
+    unencounteredPaths.addAll(stateEntries.keySet());
 
     this.traversalInstant = Instant.now();
   }
 
   /**
-   *
-   * @param fullPathStr
+   * Update this state to reflect that the given file was encountered during a StorageClient traversal.
+   * @param fullPathStr The full path to the file you encountered during a StorageClient traversal.
    */
   public void encounteredFile(String fullPathStr) {
     boolean removed = unencounteredPaths.remove(fullPathStr);
@@ -52,12 +62,24 @@ public class StorageClientState {
     }
   }
 
-  public Instant getLastPublished(FileReference fileReference) {
-    String filePath = fileReference.getFullPath();
-    return stateEntries.get(filePath);
+  // TODO: What is the behavior for archive files and their entries?
+
+  /**
+   * Retrieves the instant at which this file was last known to be published by Lucille. If this StorageClientState has
+   * no record of publishing this file, a null Instant is returned.
+   * @param fullPathStr The full path to the file you want to get this information for.
+   * @return The instant at which this file was last known to be published by Lucille; null if there is no information
+   * on this file.
+   */
+  public Instant getLastPublished(String fullPathStr) {
+    return stateEntries.get(fullPathStr);
   }
 
-  public void publishedFile(String fullPathStr) {
+  /**
+   * Updates this state to reflect that the given file was successfully published during a StorageClient traversal.
+   * @param fullPathStr The full path to the file that was successfully published.
+   */
+  public void successfullyPublishedFile(String fullPathStr) {
     stateEntries.put(fullPathStr, traversalInstant);
   }
 }

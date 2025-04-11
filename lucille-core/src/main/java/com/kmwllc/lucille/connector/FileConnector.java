@@ -134,6 +134,7 @@ public class FileConnector extends AbstractConnector {
     }
 
     try {
+      // TODO: Pull the strings on StorageClientStateManager to get a StorageClientState. (Perhaps it is now a FileConnectorState...)
       storageClient.init();
       TraversalParams params = new TraversalParams(storageURI, getDocIdPrefix(), fileOptions, filterOptions);
       storageClient.traverse(publisher, params);
