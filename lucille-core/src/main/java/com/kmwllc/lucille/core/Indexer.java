@@ -199,6 +199,9 @@ public abstract class Indexer implements Runnable {
     if (doc == null) {
       sendToIndexWithAccounting(batch.flushIfExpired());
     } else {
+      try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
+        docLogger.info("Indexer polled doc {}, added to batch.", doc.getId());
+      }
       sendToIndexWithAccounting(batch.add(doc));
     }
   }

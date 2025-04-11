@@ -2,12 +2,16 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
+import com.kmwllc.lucille.core.Spec;
 import com.typesafe.config.Config;
 
 /**
  * Base class for use by Connector implementations, providing basic Config parsing behavior
  * for obtaining connector name, pipeline name, doc ID prefix, and collapsing mode.
  *
+ * All Connectors will have their configuration validated by {@link Spec#validate(Config, String)}. In the Connector's constructor,
+ * define the required/optional properties/parents via a ConnectorSpec. Validation errors will mention the connector's name.
+ * A {@link Spec#connector()} always has "name", "class", "pipeline", "docIdPrefix", and "collapse" as legal properties.
  */
 public abstract class AbstractConnector implements Connector {
 
@@ -18,12 +22,14 @@ public abstract class AbstractConnector implements Connector {
   private String message = null;
   protected final Config config;
 
-  public AbstractConnector(Config config) {
+  public AbstractConnector(Config config, Spec spec) {
     this.config = config;
     this.name = config.getString("name");
     this.pipelineName = config.hasPath("pipeline") ? config.getString("pipeline") : null;
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
     this.collapse = config.hasPath("collapse") ? config.getBoolean("collapse") : false;
+
+    spec.validate(config, name);
   }
 
   @Override

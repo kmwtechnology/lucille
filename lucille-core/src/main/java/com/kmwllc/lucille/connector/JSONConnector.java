@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
@@ -17,7 +18,7 @@ public class JSONConnector extends AbstractConnector {
   private final JsonFileHandler jsonFileHandler;
 
   public JSONConnector(Config config) {
-    super(config);
+    super(config, Spec.connector().withRequiredProperties("jsonPath"));
     this.pathStr = config.getString("jsonPath");
     this.jsonFileHandler = new JsonFileHandler(config);
   }

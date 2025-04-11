@@ -48,7 +48,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -97,7 +96,7 @@ public class AzureStorageClientTest {
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.empty());
+        ConfigFactory.empty(), ConfigFactory.empty());
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
@@ -154,7 +153,7 @@ public class AzureStorageClientTest {
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)));
+        ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)), ConfigFactory.empty());
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -195,8 +194,9 @@ public class AzureStorageClientTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
+    Map<String, Object> filterOptionsMap = Map.of("excludes", List.of("blob3", "blob4"));
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(Pattern.compile("blob3"), Pattern.compile("blob4")), ConfigFactory.empty());
+        ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -237,7 +237,7 @@ public class AzureStorageClientTest {
     // azure storage client that handles json files
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(Map.of("json", Map.of(), GET_FILE_CONTENT, false)));
+        ConfigFactory.parseMap(Map.of("json", Map.of(), GET_FILE_CONTENT, false)), ConfigFactory.empty());
 
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
@@ -251,8 +251,7 @@ public class AzureStorageClientTest {
 
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
       FileHandler jsonFileHandler = mock(JsonFileHandler.class);
-      mockFileHandler.when(() -> FileHandler.create(any(), any()))
-          .thenReturn(jsonFileHandler);
+      mockFileHandler.when(() -> FileHandler.createFromConfig(any())).thenReturn(Map.of("json", jsonFileHandler));
       mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
           .thenReturn(true).thenReturn(true).thenReturn(false);
 
@@ -279,14 +278,14 @@ public class AzureStorageClientTest {
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(
-        Map.of(
-            "csv", Map.of(),
-            "json", Map.of(),
-            "handleArchivedFiles", true,
-            "handleCompressedFiles", true
-        )
-    ));
+        ConfigFactory.parseMap(
+            Map.of(
+                "csv", Map.of(),
+                "json", Map.of(),
+                "handleArchivedFiles", true,
+                "handleCompressedFiles", true
+            )),
+        ConfigFactory.empty());
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -400,12 +399,12 @@ public class AzureStorageClientTest {
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        List.of(), List.of(), ConfigFactory.parseMap(
-        Map.of(
-            "moveToAfterProcessing", "https://storagename.blob.core.windows.net/folder/processed",
-            "moveToErrorFolder", "https://storagename.blob.core.windows.net/folder/error"
-        )
-    ));
+        ConfigFactory.parseMap(
+            Map.of(
+                "moveToAfterProcessing", "https://storagename.blob.core.windows.net/folder/processed",
+                "moveToErrorFolder", "https://storagename.blob.core.windows.net/folder/error"
+            )),
+        ConfigFactory.empty());
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -451,6 +450,34 @@ public class AzureStorageClientTest {
     InputStream result = storageClient.getFileContentStream(testURI);
 
     assertEquals("Hello there.", new String(result.readAllBytes()));
+  }
+
+  @Test
+  public void testModificationCutoff() throws Exception {
+    Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
+    // only files modified in the last 2 hours
+    Map<String, String> filterOptionsMap = Map.of("modificationCutoff", "2h");
+    TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "",
+        ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
+
+    BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
+    PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
+    when(pagedIterable.stream()).thenReturn(getBlobItemStreamWithCutoff());
+    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
+
+    BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
+    when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
+    azureStorageClient.setServiceClientForTesting(mockServiceClient);
+
+    azureStorageClient.initializeForTesting();
+    azureStorageClient.traverse(publisher, params);
+    // only blobs with instant.now() as modified time are returned, there are three of them
+    assertEquals(3, publisher.numPublished());
   }
 
   private Stream<BlobItem> getCompressedAndArchivedBlobStream() {
@@ -560,6 +587,38 @@ public class AzureStorageClientTest {
     blobItem4.setProperties(new BlobItemProperties()
         .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(4), ZoneId.of("UTC")))
         .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(4), ZoneId.of("UTC")))
+        .setContentLength(4L));
+
+    return Stream.of(blobItem1, blobItem2, blobItem3, blobItem4);
+  }
+
+  private Stream<BlobItem> getBlobItemStreamWithCutoff() {
+    BlobItem blobItem1 = new BlobItem();
+    blobItem1.setName("blob1");
+    blobItem1.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1L), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1L), ZoneId.of("UTC")))
+        .setContentLength(1L));
+
+    BlobItem blobItem2 = new BlobItem();
+    blobItem2.setName("blob2");
+    blobItem2.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.now(), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.now(), ZoneId.of("UTC")))
+        .setContentLength(2L));
+
+    BlobItem blobItem3 = new BlobItem();
+    blobItem3.setName("blob3");
+    blobItem3.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.now(), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.now(), ZoneId.of("UTC")))
+        .setContentLength(3L));
+
+    BlobItem blobItem4 = new BlobItem();
+    blobItem4.setName("blob4");
+    blobItem4.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.now(), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.now(), ZoneId.of("UTC")))
         .setContentLength(4L));
 
     return Stream.of(blobItem1, blobItem2, blobItem3, blobItem4);

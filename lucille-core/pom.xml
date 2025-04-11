@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.5.3-SNAPSHOT</version>
+    <version>0.5.5-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
@@ -68,7 +68,7 @@
     <dependency>
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka-clients</artifactId>
-      <version>3.6.1</version>
+      <version>3.8.1</version>
     </dependency>
     <dependency>
       <groupId>org.apache.curator</groupId>
@@ -189,6 +189,18 @@
       <groupId>com.jayway.jsonpath</groupId>
       <artifactId>json-path</artifactId>
       <version>2.9.0</version>
+      <exclusions>
+        <exclusion>
+          <groupId>net.minidev</groupId>
+          <artifactId>json-smart</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <!-- Upgrade transitive dependency json-smart for CVE from json-path -->
+    <dependency>
+        <groupId>net.minidev</groupId>
+        <artifactId>json-smart</artifactId>
+        <version>2.5.2</version>
     </dependency>
 
     <!-- TODO remove if not using fastcsv -->
@@ -243,30 +255,21 @@
       <version>${sslcontext-kickstart.version}</version>
     </dependency>
 
-    <!-- Needed by VFS S3 Plugin to support AWS Security Token Service for EKS -->
-    <dependency>
-      <groupId>com.amazonaws</groupId>
-      <artifactId>aws-java-sdk-sts</artifactId>
-    </dependency>
-
-    <!-- S3 Virtual File System Support -->
-    <dependency>
-      <groupId>com.github.abashev</groupId>
-      <artifactId>vfs-s3</artifactId>
-      <version>${vfs-s3.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.apache.hadoop</groupId>
-          <artifactId>hadoop-hdfs</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
     <!-- FileConnector -->
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>s3</artifactId>
       <version>2.29.1</version>
+    </dependency>
+    <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>sso</artifactId>
+        <version>2.29.1</version>
+    </dependency>
+    <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>ssooidc</artifactId>
+        <version>2.29.1</version>
     </dependency>
 
     <dependency>
@@ -312,20 +315,6 @@
       <version>4.2.18</version>
     </dependency>
 
-    <dependency>
-      <groupId>net.mguenther.kafka</groupId>
-      <artifactId>kafka-junit</artifactId>
-      <version>3.6.0</version>
-      <scope>test</scope>
-      <!-- Bug in junit 5.6.2 that doesn't support junit 4.13.2 (only 4.12 and 4.13) -->
-      <exclusions>
-        <exclusion>
-          <groupId>org.junit.jupiter</groupId>
-          <artifactId>junit-jupiter-api</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
     <!--  test dependency for db connector tests -->
     <dependency>
       <groupId>com.h2database</groupId>
@@ -360,8 +349,20 @@
       <version>2.4.0</version>
     </dependency>
 
-  </dependencies>
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka</artifactId>
+      <version>3.3.3</version>
+      <scope>test</scope>
+    </dependency>
 
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka-test</artifactId>
+      <version>3.3.3</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
 
 
   <build>

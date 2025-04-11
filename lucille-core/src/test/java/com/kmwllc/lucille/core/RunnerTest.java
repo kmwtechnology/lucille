@@ -430,6 +430,10 @@ public class RunnerTest {
     result =
         Runner.run(ConfigFactory.load("RunnerTest/threeConnectorsWithFailure.conf"), Runner.RunType.TEST);
     assertFalse(result.getStatus());
+    
+    // should have a message
+    assertNotNull(result.getMessage());
+    
   }
 
   /**
@@ -559,14 +563,25 @@ public class RunnerTest {
   }
 
   /**
-   * If a connector sets a custom message, the message should be included in the run summary.
+   * If a connector sets a custom message, the message should be included in the run summary, toString version.
+   */
+  @Test
+  public void testCustomRunSummaryToString() throws Exception {
+    RunResult result =
+        Runner.run(ConfigFactory.load("RunnerTest/runSummaryMessage.conf"), Runner.RunType.TEST);
+    assertTrue(result.toString().contains(RunSummaryMessageConnector.MESSAGE));
+  }
+
+  /**
+   * If a connector sets a custom message, the message should be included in the run summary getMessage version.
    */
   @Test
   public void testCustomRunSummaryMessage() throws Exception {
     RunResult result =
         Runner.run(ConfigFactory.load("RunnerTest/runSummaryMessage.conf"), Runner.RunType.TEST);
-    assertTrue(result.toString().contains(RunSummaryMessageConnector.MESSAGE));
+    assertTrue(result.getMessage().contains(RunSummaryMessageConnector.MESSAGE));
   }
+
 
   @Test
   public void testPublisherException() throws Exception {
@@ -807,5 +822,26 @@ public class RunnerTest {
   public void testRenderFlag() throws Exception {
     Config config = ConfigFactory.load("RunnerTest/render.conf");
     Runner.renderConfig(config);
+  }
+
+  @Test
+  public void testStringifyValidationExceptions() {
+    Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
+    exceptions.put("pipeline1", List.of(new Exception("exception 1"), new Exception("exception 2")));
+    exceptions.put("pipeline2", List.of(new Exception("exception 3")));
+
+    String expected = "Pipeline Configuration is invalid. Printing the list of exceptions for each element\n"
+        + "\tPipeline: pipeline1\n"
+        + "\t\texception 1\n"
+        + "\t\texception 2\n"
+        + "\tPipeline: pipeline2\n"
+        + "\t\texception 3";
+    assertEquals(expected, Runner.stringifyValidation(exceptions, "Pipeline"));
+  }
+
+  @Test
+  public void testStringifyValidationNoExceptions() {
+    Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
+    assertEquals("Pipeline Configuration is valid", Runner.stringifyValidation(exceptions, "Pipeline"));
   }
 }

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.stage.util.OpenAIEmbeddingModel;
 import com.kmwllc.lucille.core.Stage;
@@ -56,7 +57,7 @@ public class OpenAIEmbed extends Stage {
   private static final Logger log = LoggerFactory.getLogger(OpenAIEmbed.class);
 
   public OpenAIEmbed(Config config) throws StageException {
-    super(config, new StageSpec()
+    super(config, Spec.stage()
         .withRequiredProperties("source", "embed_document", "embed_children", "api_key")
         .withOptionalProperties("dest", "model_name", "dimensions"));
     this.source = config.getString("source");
