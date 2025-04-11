@@ -1,7 +1,14 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import com.typesafe.config.Config;
 import java.io.IOException;
 import java.net.URI;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p> Holds / manages a connection to a JDBC database used to maintain state regarding StorageClient traversals and the last
@@ -22,14 +29,47 @@ import java.net.URI;
  */
 public class StorageClientStateManager {
 
-  // Builds a connection to the database where state is stored - either embedded or a specified JDBC connection / config
-  public void init() throws IOException {
+  private static final Logger log = LoggerFactory.getLogger(StorageClientStateManager.class);
 
+  private final String driver;
+  private final String connectionString;
+  private final String jdbcUser;
+  private final String jdbcPassword;
+
+  private Connection jdbcConnection;
+
+  /**
+   * Creates a StorageClientStateManager from the given config.
+   * @param config Configuration for the StorageClientStateManager.
+   */
+  public StorageClientStateManager(Config config) {
+    this.driver = config.getString("driver");
+    this.connectionString = config.getString("connectionString");
+    this.jdbcUser = config.getString("jdbcUser");
+    this.jdbcPassword = config.getString("jdbcPassword");
+  }
+
+  // Builds a connection to the database where state is stored - either embedded or a specified JDBC connection / config
+  public void init() throws ClassNotFoundException, SQLException {
+    try {
+      Class.forName(driver);
+    } catch (ClassNotFoundException e) {
+      log.error("Driver class {} not found. Is the jar file in your classpath?", driver);
+      throw e;
+    }
+
+    jdbcConnection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
   }
 
   // Closes the connection to the database where state is stored - either embedded or a specified JDBC connection / config
-  public void shutdown() throws IOException {
-
+  public void shutdown() throws SQLException {
+    if (jdbcConnection != null) {
+      try {
+        jdbcConnection.close();
+      } catch (SQLException e) {
+        log.warn("Couldn't close connection to database.", e);
+      }
+    }
   }
 
   // Gets State information relevant for a traversal which starts at the given directory.
@@ -39,6 +79,10 @@ public class StorageClientStateManager {
 
   // Updates the database to reflect the given state, which should have been updated as files were encountered and published.
   public void updateState(StorageClientState state) {
+    // 1. write the state entries for encountered files w/ appropriate indexes (parent directory)
 
+    // 2. add the new directories to the database
+
+    // 3. delete all of the paths in pathsToDelete()
   }
 }
