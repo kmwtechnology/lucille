@@ -103,6 +103,8 @@ public class StorageClientState {
     fileStateEntries.put(fullPathStr, traversalInstant);
   }
 
+  // Getters / methods for StorageClientStateManager to write / modify necessary information in database
+
   /**
    * Based on the directories and files that have been marked as encountered by {@link #markFileOrDirectoryEncountered(String)}, and
    * the known directories and files provided at construction, returns a Set of file / directory paths that have presumably been
@@ -127,7 +129,24 @@ public class StorageClientState {
    * Returns the Map of file paths to Instants at which they were last published, held & modified by this State. This Map may
    * contain file paths that should be deleted (per {@link #getPathsToDelete()}).
    */
-  public Map<String, Instant> getFileStateEntries() {
-    return fileStateEntries;
+  public Map<String, Instant> getEncounteredFileStateEntries() {
+    Map<String, Instant> encounteredFileEntries = new HashMap<>();
+
+    for (String encounteredFile : encounteredFiles) {
+      encounteredFileEntries.put(encounteredFile, fileStateEntries.get(encounteredFile));
+    }
+
+    return encounteredFileEntries;
+  }
+
+  /**
+   * Returns a Set of String paths to the new directories found in the traversal.
+   * @return a Set of String paths to the new directories found in the traversal.
+   */
+  public Set<String> getNewDirectoryPaths() {
+    Set<String> newDirectoryPaths = new HashSet<>(encounteredDirectories);
+    newDirectoryPaths.removeAll(knownDirectories);
+
+    return newDirectoryPaths;
   }
 }

@@ -49,18 +49,17 @@ public class StorageClientStateTest {
     state.markFileOrDirectoryEncountered(secretsFile);
     state.successfullyPublishedFile(secretsFile);
 
-    // want to make sure that the entries have been updated accordingly
-    assertNotEquals(Instant.ofEpochMilli(1), state.getLastPublished(helloFile));
-    assertNotEquals(Instant.ofEpochMilli(2), state.getLastPublished(infoFile));
-    assertNotEquals(Instant.ofEpochMilli(3), state.getLastPublished(secretsFile));
-
-    // minor detail - each file encountered will have the same Instant as their "last published time".
+    // want to make sure that the entries have been updated accordingly, leveraging that
+    // each file encountered will have the same Instant for their "last published time".
     assertEquals(state.getLastPublished(helloFile), state.getLastPublished(infoFile));
     assertEquals(state.getLastPublished(helloFile), state.getLastPublished(secretsFile));
 
-    // There shouldn't be any files/directories we previously had state for that we didn't encounter in
-    // our traversal.
+    // There shouldn't be anything to delete nor new directories we encountered.
     assertTrue(state.getPathsToDelete().isEmpty());
+    assertTrue(state.getNewDirectoryPaths().isEmpty());
+
+    // There should be three entries for encountered files.
+    assertEquals(3, state.getEncounteredFileStateEntries().size());
   }
 
   // An example of traversing where we find a "new file", one we didn't have a state entry for.
@@ -90,9 +89,12 @@ public class StorageClientStateTest {
     assertEquals(state.getLastPublished(helloFile), state.getLastPublished(infoFile));
     assertEquals(state.getLastPublished(helloFile), state.getLastPublished(secretsFile));
 
-    // There shouldn't be any files/directories we previously had state for that we didn't encounter in
-    // our traversal.
+    // There shouldn't be anything to delete nor new *directories* encountered.
     assertTrue(state.getPathsToDelete().isEmpty());
+    assertTrue(state.getNewDirectoryPaths().isEmpty());
+
+    // There should be three entries for encountered files.
+    assertEquals(3, state.getEncounteredFileStateEntries().size());
   }
 
   // An example of a traversal where we don't encounter a file that we have a state entry for,
@@ -114,7 +116,11 @@ public class StorageClientStateTest {
     // These two files should have the updated "published" time.
     assertEquals(state.getLastPublished(helloFile), state.getLastPublished(infoFile));
 
+    // we will delete secretsFile as we didn't encounter it.
     assertTrue(state.getPathsToDelete().contains(secretsFile));
+    // the method should only return state entries for the encountered files, even though we supplied
+    // it entries for all files in the constructor!
+    assertEquals(2, state.getEncounteredFileStateEntries().size());
   }
 
   // An example of a traversal where publishing on a file doesn't take place - either because it
@@ -145,6 +151,8 @@ public class StorageClientStateTest {
     // There shouldn't be any files/directories we previously had state for that we didn't encounter in
     // our traversal.
     assertTrue(state.getPathsToDelete().isEmpty());
+    // Still return a state entry for all the files, even though secret wasn't published.
+    assertEquals(3, state.getEncounteredFileStateEntries().size());
   }
 
   // An example of a traversal where a directory is deleted (in this example, we say subdir was deleted.)
@@ -165,9 +173,13 @@ public class StorageClientStateTest {
     // These two files should have the updated "published" time.
     assertEquals(state.getLastPublished(helloFile), state.getLastPublished(infoFile));
 
+    // delete both the subdir directory and the secrets file.
     assertEquals(2, state.getPathsToDelete().size());
     assertTrue(state.getPathsToDelete().contains(subdirDirectory));
     assertTrue(state.getPathsToDelete().contains(secretsFile));
+
+    // entries for the two files we do encounter.
+    assertEquals(2, state.getEncounteredFileStateEntries().size());
   }
 
   // Pretending we haven't encountered subdir or subdir/secrets.txt before
@@ -192,7 +204,13 @@ public class StorageClientStateTest {
     assertEquals(state.getLastPublished(helloFile), state.getLastPublished(infoFile));
     assertEquals(state.getLastPublished(helloFile), state.getLastPublished(secretsFile));
 
-    // TODO: need some way for the state to hold the information that there was a new directory
     assertTrue(state.getPathsToDelete().isEmpty());
+
+    // encountered one new directory, the subdirDirectory.
+    assertEquals(1, state.getNewDirectoryPaths().size());
+    assertTrue(state.getNewDirectoryPaths().contains(subdirDirectory));
+
+    // have entries for three files
+    assertEquals(3, state.getEncounteredFileStateEntries().size());
   }
 }
