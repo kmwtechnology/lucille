@@ -54,9 +54,6 @@ public class StorageClientStateManagerTest {
 
     assertEquals(0, state.getNewDirectoryPaths().size());
     assertEquals(0, state.getPathsToDelete().size());
-    // After marking them as encountered they get a new value
-    assertEquals(state.getLastPublished(helloFile), state.getLastPublished(infoFile));
-    assertEquals(state.getLastPublished(helloFile), state.getLastPublished(secretsFile));
 
     // TODO: add to test with a "write" method, once it is completed...
 
@@ -131,7 +128,7 @@ public class StorageClientStateManagerTest {
     state.successfullyPublishedFile("/newdir/new.txt");
 
     assertEquals(1, state.getNewDirectoryPaths().size());
-    assertEquals(1, state.getEncounteredFileStateEntries().size());
+    assertEquals(1, state.getNewlyPublishedFilePaths().size());
 
     // TODO: Add to test with a "write" method
 

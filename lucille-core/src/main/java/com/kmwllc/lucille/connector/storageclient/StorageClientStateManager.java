@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -139,19 +138,17 @@ public class StorageClientStateManager {
   // Updates the database to reflect the given state, which should have been updated as files were encountered and published.
   public void updateState(StorageClientState state) {
     // 1. update the state entries for published files
-    for (Entry<String, Instant> updatedStateEntries : state.getEncounteredFileStateEntries().entrySet()) {
+    for (String knownPublishedFilePath : state.getKnownAndPublishedFilePaths()) {
       // an UPDATE SQL statement
     }
 
     // 2. insert state entries for any "new" files encountered in this run
-    /*
-    for (Entry<String, Instant> newStateEntries : state.getNewFileStateEntries().entrySet()) {
+    for (String newlyPublishedFilePath : state.getNewlyPublishedFilePaths()) {
       // an INSERT SQL statement
     }
-     */
 
     // 3. add the new directories to the database
-    for (String newDirectory : state.getNewDirectoryPaths()) {
+    for (String newDirectoryPath : state.getNewDirectoryPaths()) {
 
     }
 

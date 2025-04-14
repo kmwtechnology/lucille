@@ -23,22 +23,20 @@ import org.slf4j.LoggerFactory;
  * <p> <b>Note:</b> All calls to {@link #successfullyPublishedFile(String)} will result in the file paths having the same Instant
  * in the updated State. This Instant is created when this StorageClientState is constructed.
  */
+// TODO: What is the behavior for archive files and their entries?
 public class StorageClientState {
 
   private static final Logger log = LoggerFactory.getLogger(StorageClientState.class);
 
+  // Based on the initial information provided in the constructor (the previous state read / built from the database).
   private final Set<String> knownDirectories;
-  // Is based on the initial information provided in the constructor. fileStateEntries will grow, but we can still check which
-  // entries it has that aren't in encounteredFiles to check what we need to remove.
-  private final Map<String, Instant> fileStateEntries;
+  private final Map<String, Instant> knownFileStateEntries;
 
-  // These are sets that grow as markFileOrDirectoryEncountered is called. Supports determining which paths in the database
-  // need to be deleted.
+  // These grow as markFileOrDirectoryEncountered / successfullyPublishedFile are called.
   private final Set<String> encounteredDirectories;
+  // all paths to files that were encountered (but not necessarily published!) in a traversal
   private final Set<String> encounteredFiles;
-
-  // Using a single Instant to apply to all files encountered as part of this traversal.
-  private final Instant traversalInstant;
+  private final Set<String> publishedFiles;
 
   /**
    * Creates a StorageClientState, representing and managing the given Map of file paths to Instants at which they were last modified,
@@ -47,19 +45,18 @@ public class StorageClientState {
    *
    * <p> <b>Note:</b> This constructor will <b>not</b> mutate the given Set / Map - it deep copies their contents.
    * @param knownDirectories The directories which the state database has entries for.
-   * @param fileStateEntries A map of file paths (Strings) to the Instant at which they were last published by Lucille, according
+   * @param knownFileStateEntries A map of file paths (Strings) to the Instant at which they were last published by Lucille, according
    *                     to the state database.
    */
-  public StorageClientState(Set<String> knownDirectories, Map<String, Instant> fileStateEntries) {
+  public StorageClientState(Set<String> knownDirectories, Map<String, Instant> knownFileStateEntries) {
     // The paths that we haven't encountered in our traversal. As we see them, we will remove them from the set.
     // At the end of the traversal, these paths will be removed from the directory.
     this.knownDirectories = new HashSet<>(knownDirectories);
-    this.fileStateEntries = new HashMap<>(fileStateEntries);
+    this.knownFileStateEntries = new HashMap<>(knownFileStateEntries);
 
     this.encounteredDirectories = new HashSet<>();
     this.encounteredFiles = new HashSet<>();
-
-    this.traversalInstant = Instant.now();
+    this.publishedFiles = new HashSet<>();
   }
 
   /**
@@ -78,17 +75,18 @@ public class StorageClientState {
     }
   }
 
-  // TODO: What is the behavior for archive files and their entries?
-
   /**
    * Retrieves the instant at which this file was last known to be published by Lucille. If this StorageClientState has
-   * no record of publishing this file, a null Instant is returned.
+   * no record of publishing this file, a null Instant is returned. {@link #successfullyPublishedFile(String)} has no
+   * effect on the return value of this method - it is entirely dependent on the information previously retrieved
+   * from the database.
+   *
    * @param fullPathStr The full path to the file you want to get this information for.
    * @return The instant at which this file was last known to be published by Lucille; null if there is no information
    * on this file.
    */
   public Instant getLastPublished(String fullPathStr) {
-    return fileStateEntries.get(fullPathStr);
+    return knownFileStateEntries.get(fullPathStr);
   }
 
   /**
@@ -100,10 +98,55 @@ public class StorageClientState {
       log.warn("{} was marked as published, but not encountered - it may get deleted!", fullPathStr);
     }
 
-    fileStateEntries.put(fullPathStr, traversalInstant);
+    publishedFiles.add(fullPathStr);
   }
 
   // Getters / methods for StorageClientStateManager to write / modify necessary information in database
+
+  /**
+   * Returns all the files that were previously represented / found in the State database and have been published.
+   * These are paths in need of an "UPDATE" on the state database, changing just their timestamp.
+   */
+  public Set<String> getKnownAndPublishedFilePaths() {
+    Set<String> knownAndPublishedFilePaths = new HashSet<>();
+
+    for (String encounteredFile : encounteredFiles) {
+      // previously had state for the file, and it was published --> should get an UPDATE
+      if (knownFileStateEntries.containsKey(encounteredFile) && publishedFiles.contains(encounteredFile)) {
+        knownAndPublishedFilePaths.add(encounteredFile);
+      }
+    }
+
+    return knownAndPublishedFilePaths;
+  }
+
+  /**
+   * Returns all the files that were not previously represented / found in the State database and have been published.
+   * These are paths in need of an "INSERT" on the state database.
+   */
+  public Set<String> getNewlyPublishedFilePaths() {
+    Set<String> newFilePaths = new HashSet<>();
+
+    for (String encounteredFile : encounteredFiles) {
+      // didn't previously have state for the file, and it was published --> should get an "INSERT"
+      if (!knownFileStateEntries.containsKey(encounteredFile) && publishedFiles.contains(encounteredFile)) {
+        newFilePaths.add(encounteredFile);
+      }
+    }
+
+    return newFilePaths;
+  }
+
+  /**
+   * Returns a Set of String paths to the new directories found in the traversal.
+   * @return a Set of String paths to the new directories found in the traversal.
+   */
+  public Set<String> getNewDirectoryPaths() {
+    Set<String> newDirectoryPaths = new HashSet<>(encounteredDirectories);
+    newDirectoryPaths.removeAll(knownDirectories);
+
+    return newDirectoryPaths;
+  }
 
   /**
    * Based on the directories and files that have been marked as encountered by {@link #markFileOrDirectoryEncountered(String)}, and
@@ -117,36 +160,11 @@ public class StorageClientState {
     Set<String> directoriesNotEncountered = new HashSet<>(knownDirectories);
     directoriesNotEncountered.removeAll(encounteredDirectories);
 
-    Set<String> filesNotEncountered = new HashSet<>(fileStateEntries.keySet());
+    Set<String> filesNotEncountered = new HashSet<>(knownFileStateEntries.keySet());
     filesNotEncountered.removeAll(encounteredFiles);
 
     results.addAll(directoriesNotEncountered);
     results.addAll(filesNotEncountered);
     return results;
-  }
-
-  /**
-   * Returns the Map of file paths to Instants at which they were last published, held & modified by this State. This Map may
-   * contain file paths that should be deleted (per {@link #getPathsToDelete()}).
-   */
-  public Map<String, Instant> getEncounteredFileStateEntries() {
-    Map<String, Instant> encounteredFileEntries = new HashMap<>();
-
-    for (String encounteredFile : encounteredFiles) {
-      encounteredFileEntries.put(encounteredFile, fileStateEntries.get(encounteredFile));
-    }
-
-    return encounteredFileEntries;
-  }
-
-  /**
-   * Returns a Set of String paths to the new directories found in the traversal.
-   * @return a Set of String paths to the new directories found in the traversal.
-   */
-  public Set<String> getNewDirectoryPaths() {
-    Set<String> newDirectoryPaths = new HashSet<>(encounteredDirectories);
-    newDirectoryPaths.removeAll(knownDirectories);
-
-    return newDirectoryPaths;
   }
 }
