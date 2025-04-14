@@ -1,1 +1,1 @@
-DROP TABLE fileroot;
+DROP TABLE file;

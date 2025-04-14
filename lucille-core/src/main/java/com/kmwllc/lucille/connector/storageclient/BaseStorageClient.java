@@ -102,15 +102,27 @@ public abstract class BaseStorageClient implements StorageClient {
 
     try {
       this.fileHandlers = FileHandler.createFromConfig(params.getFileOptions());
-      // TODO: Here, we "setup" the state?
+      // TODO: call getStateForTraversal() using the name... params / storage client protected method
       traverseStorageClient(publisher, params);
+      // TODO: call updateState() using the state
     } finally {
       fileHandlers = null;
-      // TODO: Here, we "flush" the state?
     }
   }
 
   protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception;
+
+  /**
+   * Returns the table name for a traversal at the given URI. This name always starts with the URI's scheme. For cloud
+   * storage URIs, the name of the root bucket / container is appended to the scheme as well. For S3 + Google, this is
+   * as simple as just appending the host. For Azure, we extract the storage name. For example:
+   *
+   * 1. /Users/jsquatrito/Desktop --> file
+   * 2. s3://lucille-bucket/test-files --> s3_lucille-bucket
+   * 3. gs://lucille-bucket/test-files --> gs_lucille-bucket
+   * 4. https://storagename.blob.core.windows.net/folder --> https_storagename
+   */
+  protected abstract String getStateTableName(URI pathToStorage);
 
   @Override
   public final InputStream getFileContentStream(URI uri) throws IOException {

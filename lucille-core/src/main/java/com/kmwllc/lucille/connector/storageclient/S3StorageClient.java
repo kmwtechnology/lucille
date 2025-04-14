@@ -93,6 +93,11 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
+  protected String getStateTableName(URI pathToStorage) {
+    return "s3_" + pathToStorage.getHost();
+  }
+
+  @Override
   protected InputStream getFileContentStreamFromStorage(URI uri) throws IOException {
     String bucketName = uri.getAuthority();
     String objectKey = uri.getPath().substring(1);

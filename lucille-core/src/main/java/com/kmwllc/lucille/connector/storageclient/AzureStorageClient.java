@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Objects;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,6 +77,17 @@ public class AzureStorageClient extends BaseStorageClient {
           AzureFileReference fileRef = new AzureFileReference(blob, params);
           processAndPublishFileIfValid(publisher, fileRef, params);
         });
+  }
+
+  // TODO: Ok for now, but want to make sure that this is sufficient for "uniqueness"
+  @Override
+  protected String getStateTableName(URI pathToStorage) {
+    // this gives us "storagename.blob.core.windows.net"
+    String host = pathToStorage.getHost();
+    // Gets us "storagename"
+    String storageName = host.split("\\.")[0];
+
+    return "azure_" + storageName;
   }
 
   @Override

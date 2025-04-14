@@ -1,15 +1,17 @@
 package com.kmwllc.lucille.connector.storageclient;
 
 import com.typesafe.config.Config;
-import java.io.IOException;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.Timestamp;
-import java.util.concurrent.TimeUnit;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +21,7 @@ import org.slf4j.LoggerFactory;
  * <p> The database can either be embedded in the JVM (H2 database), or you can build a connection to any JDBC-compatible
  * database which holds your state information.
  * <p> Call {@link #init()} and {@link #shutdown()} to connect / disconnect to the database.
- * <p> Call {@link #getStateForTraversal(URI)} to build the appropriate / relevant state information for your traversal. Invoke the
+ * <p> Call {@link #getStateForTraversal(URI, String)} to build the appropriate / relevant state information for your traversal. Invoke the
  * appropriate methods on the returned {@link StorageClientState} as you progress throughout your traversal. This object allows
  * you to lookup when a file was last known to be published by Lucille, based on the information in the state database.
  * <p> After your traversal completes, call {@link #updateState(StorageClientState)} method to update the database based on the
@@ -75,9 +77,27 @@ public class StorageClientStateManager {
     }
   }
 
-  // Gets State information relevant for a traversal which starts at the given directory.
-  public StorageClientState getStateForTraversal(URI startingDirectory) {
-    return null;
+  // Gets State information relevant for a traversal which starts at the given directory, and has the given table name
+  // (determined by the Storage Client's handling of the name)
+  public StorageClientState getStateForTraversal(URI pathToStorage, String traversalTableName) {
+    Set<String> knownDirectories = new HashSet<>();
+    Map<String, Instant> fileStateEntries = new HashMap<>();
+    Queue<String> pathsToProcess = new LinkedList<>();
+
+    // TODO: what form the paths will take in the case of a cloud file - use the full URI? ...
+    // We start by processing the starting directory / path to storage.
+    pathsToProcess.add(pathToStorage.toString());
+
+    // Rinse and repeat the process (described below) until the queue is drained.
+    while (!pathsToProcess.isEmpty()) {
+      String currentPath = pathsToProcess.poll();
+
+      // if it is a directory, then we want to see what has this directory as an index, add it to a Set<String> directories
+
+      // if it is a file, add it to a Map<>
+    }
+
+    return new StorageClientState(knownDirectories, fileStateEntries);
   }
 
   // Updates the database to reflect the given state, which should have been updated as files were encountered and published.

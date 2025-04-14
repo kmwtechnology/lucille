@@ -51,6 +51,11 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   @Override
+  protected String getStateTableName(URI pathToStorage) {
+    return "file";
+  }
+
+  @Override
   protected InputStream getFileContentStreamFromStorage(URI uri) throws IOException {
     File file = new File(uri);
 

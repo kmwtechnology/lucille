@@ -77,6 +77,11 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
+  protected String getStateTableName(URI pathToStorage) {
+    return "gs_" + pathToStorage.getHost();
+  }
+
+  @Override
   protected InputStream getFileContentStreamFromStorage(URI uri) throws IOException {
     String bucketName = uri.getAuthority();
     String objectKey = uri.getPath().substring(1);
