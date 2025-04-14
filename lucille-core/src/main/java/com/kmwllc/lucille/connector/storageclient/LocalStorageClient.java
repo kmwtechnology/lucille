@@ -76,7 +76,11 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-      // We don't care about preVisiting a directory
+      // Yes, we create & use a FileReference for the directory. It will NOT be published / processed (attrs.isDirectory() will be false),
+      // but we do need to pass this through to update the state, as appropriate. This mirrors the behavior of the other storage
+      // clients, which also process/publish file references for directories with return false for "isValidFile".
+      FileReference fileRef = new LocalFileReference(dir, attrs);
+      processAndPublishFileIfValid(publisher, fileRef, params);
       return FileVisitResult.CONTINUE;
     }
 
@@ -112,6 +116,8 @@ public class LocalStorageClient extends BaseStorageClient {
     private final Instant creationTime;
     private final long size;
 
+    private final boolean isDirectory;
+
     // The given path will become absolute and will be normalized.
     public LocalFileReference(Path path, BasicFileAttributes attributes) {
       super(path.toAbsolutePath().normalize().toString(), attributes.lastModifiedTime().toInstant());
@@ -119,6 +125,7 @@ public class LocalStorageClient extends BaseStorageClient {
       this.path = path.toAbsolutePath().normalize();
       this.creationTime = attributes.creationTime().toInstant();
       this.size = attributes.size();
+      this.isDirectory = attributes.isDirectory();
     }
 
     @Override
@@ -126,7 +133,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public boolean isValidFile() {
-      return true;
+      return !isDirectory;
     }
 
     @Override

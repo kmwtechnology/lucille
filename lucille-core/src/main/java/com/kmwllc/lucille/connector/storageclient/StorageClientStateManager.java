@@ -84,7 +84,6 @@ public class StorageClientStateManager {
     Map<String, Instant> fileStateEntries = new HashMap<>();
     Queue<String> pathsToProcess = new LinkedList<>();
 
-    // TODO: what form the paths will take in the case of a cloud file - use the full URI? ...
     // We start by processing the starting directory / path to storage.
     pathsToProcess.add(pathToStorage.toString());
 
