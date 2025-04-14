@@ -120,7 +120,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
     // The given path will become absolute and will be normalized.
     public LocalFileReference(Path path, BasicFileAttributes attributes) {
-      super(path.toAbsolutePath().normalize().toString(), attributes.lastModifiedTime().toInstant());
+      super(getFullPathHelper(path, attributes), attributes.lastModifiedTime().toInstant());
 
       this.path = path.toAbsolutePath().normalize();
       this.creationTime = attributes.creationTime().toInstant();
@@ -128,6 +128,7 @@ public class LocalStorageClient extends BaseStorageClient {
       this.isDirectory = attributes.isDirectory();
     }
 
+    // This method won't be called on a directory fileRef, but if it does, it will return just the directory name - no slashes.
     @Override
     public String getName() { return path.getFileName().toString(); }
 
@@ -184,6 +185,15 @@ public class LocalStorageClient extends BaseStorageClient {
       }
 
       return doc;
+    }
+
+    // Directories should include a final '/' to indicate they are directories, similar to the other storage clients
+    private static String getFullPathHelper(Path path, BasicFileAttributes attrs) {
+      if (attrs.isDirectory()) {
+        return path.toAbsolutePath().normalize() + "/";
+      } else {
+        return path.toAbsolutePath().normalize().toString();
+      }
     }
   }
 }

@@ -4,7 +4,10 @@ import com.typesafe.config.Config;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -79,7 +82,8 @@ public class StorageClientStateManager {
 
   // Gets State information relevant for a traversal which starts at the given directory, and has the given table name
   // (determined by the Storage Client's handling of the name)
-  public StorageClientState getStateForTraversal(URI pathToStorage, String traversalTableName) {
+  // TODO: How do tables get setup / initialized? Hrmmmmmm
+  public StorageClientState getStateForTraversal(URI pathToStorage, String traversalTableName) throws SQLException {
     Set<String> knownDirectories = new HashSet<>();
     Map<String, Instant> fileStateEntries = new HashMap<>();
     Queue<String> pathsToProcess = new LinkedList<>();
@@ -91,9 +95,36 @@ public class StorageClientStateManager {
     while (!pathsToProcess.isEmpty()) {
       String currentPath = pathsToProcess.poll();
 
-      // if it is a directory, then we want to see what has this directory as an index, add it to a Set<String> directories
+      // Get the SQL entry, regardless of whether it is a directory or not. Have to know what we actually have state for.
+      String entryQuery = "SELECT * FROM " + traversalTableName + " WHERE name = '" + currentPath + "';";
+      try (Statement statement = jdbcConnection.createStatement();
+          ResultSet rs = statement.executeQuery(entryQuery)) {
+        // todo: obviously a refactor here would be nice
+        if (rs.next()) {
+          if (rs.getBoolean("is_directory")) {
+            log.debug("Adding directory: {}", currentPath);
+            // if it is a directory, then we want to see what has this directory as an index, add it to a Set<String> directories
+            knownDirectories.add(currentPath);
 
-      // if it is a file, add it to a Map<>
+            String directoryIndexQuery = "SELECT * FROM " + traversalTableName + " WHERE parent = '" + currentPath + "';";
+
+            try (Statement directoryStatement = jdbcConnection.createStatement();
+                ResultSet directoryChildrenResults = directoryStatement.executeQuery(directoryIndexQuery)) {
+              while (directoryChildrenResults.next()) {
+                log.debug("Adding directory {} child: {}", currentPath, directoryChildrenResults.getString("name"));
+                pathsToProcess.add(directoryChildrenResults.getString("name"));
+              }
+            }
+          } else {
+            // if it is a file, add its timestamp to a Map<>
+            Timestamp lastPublished = rs.getTimestamp("last_published");
+            log.debug("Adding file: ({}, {})", currentPath, lastPublished.toInstant());
+            fileStateEntries.put(currentPath, lastPublished.toInstant());
+          }
+        } else {
+          log.debug("None for {}", currentPath);
+        }
+      }
     }
 
     return new StorageClientState(knownDirectories, fileStateEntries);

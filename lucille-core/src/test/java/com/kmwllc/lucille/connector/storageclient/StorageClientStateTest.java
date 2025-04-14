@@ -11,22 +11,22 @@ import org.junit.Test;
 
 public class StorageClientStateTest {
 
-  private final String helloFile = "/hello.txt";
-  private final String infoFile = "/files/info.txt";
-  private final String secretsFile = "/files/subdir/secrets.txt";
+  private static final String helloFile = "/hello.txt";
+  private static final String infoFile = "/files/info.txt";
+  private static final String secretsFile = "/files/subdir/secrets.txt";
 
-  private final String filesDirectory = "/files/";
-  private final String subdirDirectory = "/files/subdir/";
+  private static final String filesDirectory = "/files/";
+  private static final String subdirDirectory = "/files/subdir/";
 
   // StorageClientState will not mutate these.
-  private final Set<String> allDirectories = Set.of(filesDirectory, subdirDirectory);
+  private static final Set<String> allDirectories = Set.of(filesDirectory, subdirDirectory);
 
-  private final Map<String, Instant> allFiles = Map.of(
+  private static final Map<String, Instant> allFiles = Map.of(
       helloFile, Instant.ofEpochMilli(1),
       infoFile, Instant.ofEpochMilli(2),
       secretsFile, Instant.ofEpochMilli(3));
 
-  private final Map<String, Instant> allFilesNoSecrets = Map.of(
+  private static final Map<String, Instant> allFilesNoSecrets = Map.of(
       helloFile, Instant.ofEpochMilli(1),
       infoFile, Instant.ofEpochMilli(2));
 
