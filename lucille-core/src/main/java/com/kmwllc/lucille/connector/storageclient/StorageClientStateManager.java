@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -81,8 +82,8 @@ public class StorageClientStateManager {
   }
 
   // Gets State information relevant for a traversal which starts at the given directory, and has the given table name
-  // (determined by the Storage Client's handling of the name)
-  // TODO: How do tables get setup / initialized? Hrmmmmmm
+  // (determined by the Storage Client's handling of the URI)
+  // TODO: How do tables get setup / initialized? How does it persist?
   public StorageClientState getStateForTraversal(URI pathToStorage, String traversalTableName) throws SQLException {
     Set<String> knownDirectories = new HashSet<>();
     Map<String, Instant> fileStateEntries = new HashMap<>();
@@ -99,24 +100,12 @@ public class StorageClientStateManager {
       String entryQuery = "SELECT * FROM " + traversalTableName + " WHERE name = '" + currentPath + "';";
       try (Statement statement = jdbcConnection.createStatement();
           ResultSet rs = statement.executeQuery(entryQuery)) {
-        // todo: obviously a refactor here would be nice
+
         if (rs.next()) {
           if (rs.getBoolean("is_directory")) {
-            log.debug("Adding directory: {}", currentPath);
-            // if it is a directory, then we want to see what has this directory as an index, add it to a Set<String> directories
-            knownDirectories.add(currentPath);
-
-            String directoryIndexQuery = "SELECT * FROM " + traversalTableName + " WHERE parent = '" + currentPath + "';";
-
-            try (Statement directoryStatement = jdbcConnection.createStatement();
-                ResultSet directoryChildrenResults = directoryStatement.executeQuery(directoryIndexQuery)) {
-              while (directoryChildrenResults.next()) {
-                log.debug("Adding directory {} child: {}", currentPath, directoryChildrenResults.getString("name"));
-                pathsToProcess.add(directoryChildrenResults.getString("name"));
-              }
-            }
+            // adds directory to knownDirectories and updates Queue with paths which are indexed to the directory.
+            handleDirectory(currentPath, knownDirectories, pathsToProcess, traversalTableName);
           } else {
-            // if it is a file, add its timestamp to a Map<>
             Timestamp lastPublished = rs.getTimestamp("last_published");
             log.debug("Adding file: ({}, {})", currentPath, lastPublished.toInstant());
             fileStateEntries.put(currentPath, lastPublished.toInstant());
@@ -124,18 +113,51 @@ public class StorageClientStateManager {
         } else {
           log.debug("None for {}", currentPath);
         }
+
       }
     }
 
     return new StorageClientState(knownDirectories, fileStateEntries);
   }
 
+  private void handleDirectory(String directoryPath, Set<String> directorySet, Queue<String> pathsQueue, String tableName) throws SQLException {
+    log.debug("Adding directory: {}", directoryPath);
+    // if it is a directory, then we want to see what has this directory as an index, add it to a Set<String> directories
+    directorySet.add(directoryPath);
+
+    String directoryIndexQuery = "SELECT * FROM " + tableName + " WHERE parent = '" + directoryPath + "';";
+
+    try (Statement directoryStatement = jdbcConnection.createStatement();
+        ResultSet directoryChildrenResults = directoryStatement.executeQuery(directoryIndexQuery)) {
+      while (directoryChildrenResults.next()) {
+        log.debug("Adding directory {} child: {}", directoryPath, directoryChildrenResults.getString("name"));
+        pathsQueue.add(directoryChildrenResults.getString("name"));
+      }
+    }
+  }
+
   // Updates the database to reflect the given state, which should have been updated as files were encountered and published.
   public void updateState(StorageClientState state) {
-    // 1. write the state entries for encountered files w/ appropriate indexes (parent directory)
+    // 1. update the state entries for published files
+    for (Entry<String, Instant> updatedStateEntries : state.getEncounteredFileStateEntries().entrySet()) {
+      // an UPDATE SQL statement
+    }
 
-    // 2. add the new directories to the database
+    // 2. insert state entries for any "new" files encountered in this run
+    /*
+    for (Entry<String, Instant> newStateEntries : state.getNewFileStateEntries().entrySet()) {
+      // an INSERT SQL statement
+    }
+     */
 
-    // 3. delete all of the paths in pathsToDelete()
+    // 3. add the new directories to the database
+    for (String newDirectory : state.getNewDirectoryPaths()) {
+
+    }
+
+    // 4. delete all of the paths in pathsToDelete()
+    for (String pathToDelete : state.getPathsToDelete()) {
+
+    }
   }
 }
