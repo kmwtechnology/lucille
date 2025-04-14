@@ -113,7 +113,7 @@ public class StorageClientStateTest {
   // didn't meet filter options, an error occurred, etc.
   @Test
   public void testExampleTraversalWithoutSomePublishing() {
-    StorageClientState state = new StorageClientState(allDirectories, allFiles);
+    StorageClientState state = new StorageClientState(allDirectories, allFilesNoSecrets);
 
     // we encounter each file / directory, and publish every file except for secrets.
     state.markFileOrDirectoryEncountered(filesDirectory);
@@ -122,11 +122,10 @@ public class StorageClientStateTest {
     state.markFileOrDirectoryEncountered(helloFile);
     state.successfullyPublishedFile(helloFile);
 
+    // info is known, and encountered, but not published. it won't be deleted, but won't get an "UPDATE".
     state.markFileOrDirectoryEncountered(infoFile);
-    state.successfullyPublishedFile(infoFile);
 
-    // secrets is encountered - meaning it won't be deleted from the database! - but not published,
-    // so the time is not updated.
+    // secrets is NEWLY encountered, but not published. it won't get an "INSERT".
     state.markFileOrDirectoryEncountered(secretsFile);
 
     // There shouldn't be any files/directories we previously had state for that we didn't encounter in
@@ -134,9 +133,9 @@ public class StorageClientStateTest {
     assertEquals(0, state.getPathsToDelete().size());
     assertEquals(0, state.getNewDirectoryPaths().size());
 
-    // There are two files - hello and info - which will get a SQL "UPDATE".
-    assertEquals(2, state.getKnownAndPublishedFilePaths().size());
-    // There aren't any files that get a SQL insert though.
+    // Only "hello" file was known and was published, so it will get an update
+    assertEquals(1, state.getKnownAndPublishedFilePaths().size());
+    // No insert for "secretsFile" because, though it was new, it wasn't published.
     assertEquals(0, state.getNewlyPublishedFilePaths().size());
   }
 

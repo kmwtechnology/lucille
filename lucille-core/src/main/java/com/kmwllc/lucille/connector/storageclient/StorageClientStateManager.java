@@ -4,6 +4,7 @@ import com.typesafe.config.Config;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -136,25 +137,57 @@ public class StorageClientStateManager {
   }
 
   // Updates the database to reflect the given state, which should have been updated as files were encountered and published.
-  public void updateState(StorageClientState state) {
+  public void updateState(StorageClientState state, String traversalTableName) throws SQLException {
+    Timestamp sharedTimestamp = Timestamp.from(Instant.now());
+
     // 1. update the state entries for published files
-    for (String knownPublishedFilePath : state.getKnownAndPublishedFilePaths()) {
-      // an UPDATE SQL statement
+    String updateKnownSQL = "UPDATE " + traversalTableName + " SET last_published = '" + sharedTimestamp + "' WHERE name = ?";
+    try (PreparedStatement updateStatement = jdbcConnection.prepareStatement(updateKnownSQL)) {
+      for (String knownPublishedFilePath : state.getKnownAndPublishedFilePaths()) {
+        updateStatement.setString(1, knownPublishedFilePath);
+        updateStatement.addBatch();
+      }
+
+      updateStatement.executeBatch();
     }
 
     // 2. insert state entries for any "new" files encountered in this run
-    for (String newlyPublishedFilePath : state.getNewlyPublishedFilePaths()) {
-      // an INSERT SQL statement
+    String insertNewFileSQL = "INSERT INTO " + traversalTableName + " VALUES (?, '" + sharedTimestamp + "', 0, ?);";
+    try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewFileSQL)) {
+      for (String newlyPublishedFilePath : state.getNewlyPublishedFilePaths()) {
+        // an INSERT SQL statement
+        String parent = newlyPublishedFilePath.substring(0, newlyPublishedFilePath.lastIndexOf("/"));
+        insertStatement.setString(1, newlyPublishedFilePath);
+        insertStatement.setString(2, parent);
+        insertStatement.addBatch();
+      }
+
+      insertStatement.executeBatch();
     }
 
     // 3. add the new directories to the database
-    for (String newDirectoryPath : state.getNewDirectoryPaths()) {
+    String insertNewDirectorySQL = "INSERT INTO " + traversalTableName + " VALUES (?, NULL, 1, ?)";
+    try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewDirectorySQL)) {
+      for (String newDirectoryPath : state.getNewDirectoryPaths()) {
+        // an INSERT, with is_directory = false, timestamp = NULL
+        String parent = newDirectoryPath.substring(0, newDirectoryPath.lastIndexOf("/") + 1);
+        insertStatement.setString(1, newDirectoryPath);
+        insertStatement.setString(2, parent);
+        insertStatement.addBatch();
+      }
 
+      insertStatement.executeBatch();
     }
 
     // 4. delete all of the paths in pathsToDelete()
-    for (String pathToDelete : state.getPathsToDelete()) {
+    String deletePathSQL = "DELETE FROM " + traversalTableName + " WHERE name = ?";
+    try (PreparedStatement deleteStatement = jdbcConnection.prepareStatement(deletePathSQL)) {
+      for (String pathToDelete : state.getPathsToDelete()) {
+        deleteStatement.setString(1, pathToDelete);
+        deleteStatement.addBatch();
+      }
 
+      deleteStatement.executeBatch();
     }
   }
 }
