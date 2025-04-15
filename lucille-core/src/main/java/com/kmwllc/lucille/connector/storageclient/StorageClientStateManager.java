@@ -175,7 +175,7 @@ public class StorageClientStateManager {
     try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewFileSQL)) {
       for (String newlyPublishedFilePath : state.getNewlyPublishedFilePaths()) {
         // an INSERT SQL statement
-        String parent = newlyPublishedFilePath.substring(0, newlyPublishedFilePath.lastIndexOf("/"));
+        String parent = newlyPublishedFilePath.substring(0, newlyPublishedFilePath.lastIndexOf("/") + 1);
         insertStatement.setString(1, newlyPublishedFilePath);
         insertStatement.setString(2, parent);
         insertStatement.addBatch();

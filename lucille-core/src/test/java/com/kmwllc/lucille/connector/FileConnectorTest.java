@@ -280,6 +280,10 @@ public class FileConnectorTest {
 
   @Test
   public void testTraversalWithState() throws Exception {
+    // TODO: Enhance with...
+    //  1. deletion
+    //  2. file handlers
+    //  3. archive, compressed, archived and compressed
     // for now, have no file options - just handle the files as is, no archives / file handlers, etc.
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf");
     TestMessenger messenger1 = new TestMessenger();
@@ -322,6 +326,7 @@ public class FileConnectorTest {
           .thenReturn(pretendState)
           .thenReturn(pretendUpdatedState);
 
+      // the "first" returned state, which had the files last published a long time ago, should have everything marked as published.
       Mockito.doAnswer(invocationOnMock -> {
         assertEquals(9, pretendState.getKnownAndPublishedFilePaths().size());
         assertEquals(0, pretendState.getNewDirectoryPaths().size());
@@ -331,6 +336,8 @@ public class FileConnectorTest {
         return null;
       }).when(manager).updateState(eq(pretendState), eq("file"));
 
+      // the "second" returned state - reflecting an update, where everything was published very recently, shouldn't have had
+      // anything marked as published by the storage clients
       Mockito.doAnswer(invocationOnMock -> {
         assertEquals(0, pretendUpdatedState.getKnownAndPublishedFilePaths().size());
         assertEquals(0, pretendUpdatedState.getNewDirectoryPaths().size());
@@ -339,8 +346,6 @@ public class FileConnectorTest {
 
         return null;
       }).when(manager).updateState(eq(pretendUpdatedState), eq("file"));
-
-
     })) {
       Connector connector = new FileConnector(config);
       connector.execute(publisher1);
