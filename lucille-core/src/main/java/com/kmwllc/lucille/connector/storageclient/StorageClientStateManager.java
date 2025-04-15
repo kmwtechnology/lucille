@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
  *   <ul>
  *     <li>name (VARCHAR): The full path to the file. When using embedded H2, Lucille defaults to a 200 character maximum, and the field is a PRIMARY KEY (recommended).</li>
  *     <li>last_published (TIMESTAMP): The last time the file was known to be published by Lucille.</li>
- *     <li>is_directory (BIT): Whether the path is a directory. 1 for TRUE, 0 for FALSE.</li>
+ *     <li>is_directory (BOOLEAN): Whether the path is a directory.</li>
  *     <li>parent (VARCHAR): The full path to the file's parent folder. When using embedded H2, Lucille defaults to a 200 character maximum. It is <b>strongly recommended</b> you index this field.</li>
  *   </ul>
  *   <li>Tables: The "root" of each file system is its own table. You'll have to delete the table manually if you want to remove the data.</li>
@@ -115,7 +115,7 @@ public class StorageClientStateManager {
       String currentPath = pathsToProcess.poll();
 
       // Get the SQL entry, regardless of whether it is a directory or not. Have to know what we actually have state for.
-      String entryQuery = "SELECT * FROM " + traversalTableName + " WHERE name = '" + currentPath + "';";
+      String entryQuery = "SELECT * FROM " + traversalTableName + " WHERE name = '" + currentPath + "'";
       try (Statement statement = jdbcConnection.createStatement();
           ResultSet rs = statement.executeQuery(entryQuery)) {
 
@@ -143,7 +143,7 @@ public class StorageClientStateManager {
     // if it is a directory, then we want to see what has this directory as an index, add it to a Set<String> directories
     directorySet.add(directoryPath);
 
-    String directoryIndexQuery = "SELECT * FROM " + tableName + " WHERE parent = '" + directoryPath + "';";
+    String directoryIndexQuery = "SELECT * FROM " + tableName + " WHERE parent = '" + directoryPath + "'";
 
     try (Statement directoryStatement = jdbcConnection.createStatement();
         ResultSet directoryChildrenResults = directoryStatement.executeQuery(directoryIndexQuery)) {
@@ -171,7 +171,7 @@ public class StorageClientStateManager {
     }
 
     // 2. insert state entries for any "new" files encountered in this run
-    String insertNewFileSQL = "INSERT INTO " + traversalTableName + " VALUES (?, '" + sharedTimestamp + "', 0, ?);";
+    String insertNewFileSQL = "INSERT INTO " + traversalTableName + " VALUES (?, '" + sharedTimestamp + "', FALSE, ?)";
     try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewFileSQL)) {
       for (String newlyPublishedFilePath : state.getNewlyPublishedFilePaths()) {
         // an INSERT SQL statement
@@ -185,13 +185,13 @@ public class StorageClientStateManager {
     }
 
     // 3. add the new directories to the database
-    String insertNewDirectorySQL = "INSERT INTO " + traversalTableName + " VALUES (?, NULL, 1, ?)";
+    String insertNewDirectorySQL = "INSERT INTO " + traversalTableName + " VALUES (?, NULL, TRUE, ?)";
     try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewDirectorySQL)) {
       for (String newDirectoryPath : state.getNewDirectoryPaths()) {
+        // TODO: Some improved handling here would be nice...
         // an INSERT, with is_directory = false, timestamp = NULL
-        String parent = newDirectoryPath.substring(0, newDirectoryPath.lastIndexOf("/") + 1);
         insertStatement.setString(1, newDirectoryPath);
-        insertStatement.setString(2, parent);
+        insertStatement.setString(2, getDirectoryParent(newDirectoryPath));
         insertStatement.addBatch();
       }
 
@@ -208,5 +208,20 @@ public class StorageClientStateManager {
 
       deleteStatement.executeBatch();
     }
+  }
+
+  // s3://lucille-bucket/ would ideally return null, but it's okay for it to return s3://
+  // / should return null
+  // /Users/ should return /
+  // /Users/Desktop should return
+  private static String getDirectoryParent(String directoryPath) {
+    int lastSlash = directoryPath.lastIndexOf("/");
+
+    if (lastSlash == 0) {
+      return null;
+    }
+
+    String excludingLastSlash = directoryPath.substring(0, lastSlash);
+    return excludingLastSlash.substring(0, excludingLastSlash.lastIndexOf("/")) + "/";
   }
 }

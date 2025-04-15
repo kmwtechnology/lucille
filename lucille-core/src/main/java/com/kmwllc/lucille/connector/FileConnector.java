@@ -136,7 +136,7 @@ public class FileConnector extends AbstractConnector {
   public FileConnector(Config config) throws ConnectorException {
     super(config, Spec.connector()
         .withRequiredProperties("pathToStorage")
-        .withOptionalParents("fileOptions", "filterOptions", "s3", "gcp", "azure"));
+        .withOptionalParents("fileOptions", "filterOptions", "state", "s3", "gcp", "azure"));
 
     this.pathToStorage = config.getString("pathToStorage");
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();

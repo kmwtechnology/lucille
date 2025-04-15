@@ -21,6 +21,7 @@ import org.h2.tools.RunScript;
 import org.junit.Rule;
 import org.junit.Test;
 
+// TODO: Add test coverage on the "parent" field in the resulting (updated) SQL? When there are new directories
 public class StorageClientStateManagerTest {
 
   private static final String helloFile = "/hello.txt";

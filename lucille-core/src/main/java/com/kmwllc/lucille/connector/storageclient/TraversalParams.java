@@ -95,7 +95,7 @@ public class TraversalParams {
     }
 
     // If lastPublishedCutoff is specified, return false if it is violated
-    if (lastPublishedCutoff != null) {
+    if (lastPublishedCutoff != null && fileLastPublished != null) {
       Instant cutoffPoint = Instant.now().minus(lastPublishedCutoff);
 
       // Only want to include files last published *more* than the duration ago (for example, more than one hour ago)
