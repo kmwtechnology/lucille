@@ -5,14 +5,18 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
+import com.kmwllc.lucille.connector.storageclient.StorageClientState;
+import com.kmwllc.lucille.connector.storageclient.StorageClientStateManager;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -25,11 +29,17 @@ import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 public class FileConnectorTest {
 
@@ -266,5 +276,79 @@ public class FileConnectorTest {
         "        <salary currency=\"EUR\">8000</salary>\n" +
         "        <bio>I enjoy reading</bio>\n" +
         "    </staff>", doc16.getString("xml"));
+  }
+
+  @Test
+  public void testTraversalWithState() throws Exception {
+    // for now, have no file options - just handle the files as is, no archives / file handlers, etc.
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf");
+    TestMessenger messenger1 = new TestMessenger();
+    TestMessenger messenger2 = new TestMessenger();
+    Publisher publisher1 = new PublisherImpl(config, messenger1, "run", "pipeline1");
+    Publisher publisher2 = new PublisherImpl(config, messenger2, "run", "pipeline1");
+
+    StorageClientState pretendState = new StorageClientState(Set.of(
+        Paths.get("src/test/resources/FileConnectorTest/example").toAbsolutePath() + "/",
+        Paths.get("src/test/resources/FileConnectorTest/example/subdir").toAbsolutePath() + "/"
+    ), Map.of(
+        Paths.get("src/test/resources/FileConnectorTest/example/a.json").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
+        Paths.get("src/test/resources/FileConnectorTest/example/helloWorld.txt.gz").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
+        Paths.get("src/test/resources/FileConnectorTest/example/skipFile.txt").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
+        Paths.get("src/test/resources/FileConnectorTest/example/subdirWith1csv1xml.tar.gz").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
+        Paths.get("src/test/resources/FileConnectorTest/example/subDirWith2TxtFiles.zip").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
+        Paths.get("src/test/resources/FileConnectorTest/example/subdir/b.json.gz").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
+        Paths.get("src/test/resources/FileConnectorTest/example/subdir/c.jsonl").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
+        Paths.get("src/test/resources/FileConnectorTest/example/subdir/e.yaml").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
+        Paths.get("src/test/resources/FileConnectorTest/example/subdir/skipFile.txt").toAbsolutePath().toString(), Instant.ofEpochMilli(100L)
+    ));
+
+    StorageClientState pretendUpdatedState = new StorageClientState(Set.of(
+        Paths.get("src/test/resources/FileConnectorTest/example").toAbsolutePath() + "/",
+        Paths.get("src/test/resources/FileConnectorTest/example/subdir").toAbsolutePath() + "/"
+    ), Map.of(
+        Paths.get("src/test/resources/FileConnectorTest/example/a.json").toAbsolutePath().toString(), Instant.now(),
+        Paths.get("src/test/resources/FileConnectorTest/example/helloWorld.txt.gz").toAbsolutePath().toString(), Instant.now(),
+        Paths.get("src/test/resources/FileConnectorTest/example/skipFile.txt").toAbsolutePath().toString(), Instant.now(),
+        Paths.get("src/test/resources/FileConnectorTest/example/subdirWith1csv1xml.tar.gz").toAbsolutePath().toString(), Instant.now(),
+        Paths.get("src/test/resources/FileConnectorTest/example/subDirWith2TxtFiles.zip").toAbsolutePath().toString(), Instant.now(),
+        Paths.get("src/test/resources/FileConnectorTest/example/subdir/b.json.gz").toAbsolutePath().toString(), Instant.now(),
+        Paths.get("src/test/resources/FileConnectorTest/example/subdir/c.jsonl").toAbsolutePath().toString(), Instant.now(),
+        Paths.get("src/test/resources/FileConnectorTest/example/subdir/e.yaml").toAbsolutePath().toString(), Instant.now(),
+        Paths.get("src/test/resources/FileConnectorTest/example/subdir/skipFile.txt").toAbsolutePath().toString(), Instant.now()
+    ));
+
+    try (MockedConstruction<StorageClientStateManager> mgr = mockConstruction(StorageClientStateManager.class, (manager, context) -> {
+      when(manager.getStateForTraversal(any(), any()))
+          .thenReturn(pretendState)
+          .thenReturn(pretendUpdatedState);
+
+      Mockito.doAnswer(invocationOnMock -> {
+        assertEquals(9, pretendState.getKnownAndPublishedFilePaths().size());
+        assertEquals(0, pretendState.getNewDirectoryPaths().size());
+        assertEquals(0, pretendState.getPathsToDelete().size());
+        assertEquals(0, pretendState.getNewlyPublishedFilePaths().size());
+
+        return null;
+      }).when(manager).updateState(eq(pretendState), eq("file"));
+
+      Mockito.doAnswer(invocationOnMock -> {
+        assertEquals(0, pretendUpdatedState.getKnownAndPublishedFilePaths().size());
+        assertEquals(0, pretendUpdatedState.getNewDirectoryPaths().size());
+        assertEquals(0, pretendUpdatedState.getPathsToDelete().size());
+        assertEquals(0, pretendUpdatedState.getNewlyPublishedFilePaths().size());
+
+        return null;
+      }).when(manager).updateState(eq(pretendUpdatedState), eq("file"));
+
+
+    })) {
+      Connector connector = new FileConnector(config);
+      connector.execute(publisher1);
+      assertEquals(9, messenger1.getDocsSentForProcessing().size());
+
+      // and now... do it again... but shouldn't have anything published / sent for processing
+      connector.execute(publisher2);
+      assertEquals(0, messenger2.getDocsSentForProcessing().size());
+    }
   }
 }

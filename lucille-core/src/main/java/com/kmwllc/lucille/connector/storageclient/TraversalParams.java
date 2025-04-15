@@ -15,12 +15,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The arguments / parameters associated with a traversal on a StorageClient.
  */
 public class TraversalParams {
 
+  private static final Logger log = LoggerFactory.getLogger(TraversalParams.class);
   // provided arguments
   private final URI uri;
   private final String docIdPrefix;
