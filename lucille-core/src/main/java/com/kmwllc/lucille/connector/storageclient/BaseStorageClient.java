@@ -20,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -66,8 +67,6 @@ public abstract class BaseStorageClient implements StorageClient {
   public final void init() throws IOException {
     if (!initialized) {
       initializeStorageClient();
-
-      // TODO: Initialize the state connection here. This should just make the connection - not build the "in-memory" information
       initialized = true;
     }
   }
@@ -80,7 +79,6 @@ public abstract class BaseStorageClient implements StorageClient {
     if (initialized) {
       initialized = false;
       shutdownStorageClient();
-      // TODO: Shutdown the state connection here. This should just close the connection - not perform a "flush"/deletion of any information.
     }
   }
 
@@ -96,33 +94,26 @@ public abstract class BaseStorageClient implements StorageClient {
 
   @Override
   public final void traverse(Publisher publisher, TraversalParams params) throws Exception {
+    traverse(publisher, params, null);
+  }
+
+  @Override
+  public final void traverse(Publisher publisher, TraversalParams params, StorageClientState state) throws Exception {
     if (!isInitialized()) {
       throw new IllegalStateException("This StorageClient has not been initialized.");
     }
 
     try {
       this.fileHandlers = FileHandler.createFromConfig(params.getFileOptions());
-      // TODO: call getStateForTraversal() using the name... params / storage client protected method
-      traverseStorageClient(publisher, params);
-      // TODO: call updateState() using the state
+      traverseStorageClient(publisher, params, state);
     } finally {
       fileHandlers = null;
     }
   }
 
-  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception;
+  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, StorageClientState state) throws Exception;
 
-  /**
-   * Returns the table name for a traversal at the given URI. This name always starts with the URI's scheme. For cloud
-   * storage URIs, the name of the root bucket / container is appended to the scheme as well. For S3 + Google, this is
-   * as simple as just appending the host. For Azure, we extract the storage name. For example:
-   *
-   * 1. /Users/jsquatrito/Desktop --> file
-   * 2. s3://lucille-bucket/test-files --> s3_lucille-bucket
-   * 3. gs://lucille-bucket/test-files --> gs_lucille-bucket
-   * 4. https://storagename.blob.core.windows.net/folder --> https_storagename
-   */
-  protected abstract String getStateTableName(URI pathToStorage);
+  public abstract String getStateTableName(URI pathToStorage);
 
   @Override
   public final InputStream getFileContentStream(URI uri) throws IOException {
@@ -141,17 +132,19 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param publisher publisher used to publish documents
    * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
    */
-  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params) {
+  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, StorageClientState state) {
     String fullPathStr = fileReference.getFullPath();
     String fileExtension = fileReference.getFileExtension();
 
     try {
-      // TODO: Add the encountered file to state, regardless of the following methods / conditions.
+      if (state != null) {
+        state.markFileOrDirectoryEncountered(fullPathStr);
+      }
+      Instant lastPublished = state == null ? null : state.getLastPublished(fullPathStr);
       // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
       // (preprocessing is currently a NO-OP unless a subclass overrides it)
       if (!fileReference.isValidFile()
-          // TODO: need a way to have this file's lastPublished time and pass it to this method. Returns null if it doesn't exist, probably.
-          || !params.includeFile(fileReference.getName(), fileReference.getLastModified())
+          || !params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)
           || !beforeProcessingFile(fullPathStr)) {
         return;
       }
@@ -212,6 +205,11 @@ public abstract class BaseStorageClient implements StorageClient {
         docLogger.info("StorageClient to publish Document {}.", doc.getId());
       }
       publisher.publish(doc);
+
+      if (state != null) {
+        state.successfullyPublishedFile(fullPathStr);
+      }
+
       afterProcessingFile(fullPathStr, params);
     } catch (UnsupportedOperationException e) {
       throw new UnsupportedOperationException("Encountered unsupported operation", e);
@@ -248,7 +246,8 @@ public abstract class BaseStorageClient implements StorageClient {
           continue;
         }
         // checking validity only for the entries
-        if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant())) {
+        // TODO: decide what shoudl be happening here w.r.t. state...
+        if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant(), null)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (params.supportedFileType(entryExtension)) {
             handleStreamExtensionFiles(publisher, in, entryExtension, entryFullPathStr);

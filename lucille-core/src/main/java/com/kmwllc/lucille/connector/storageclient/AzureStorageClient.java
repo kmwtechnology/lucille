@@ -68,20 +68,20 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, StorageClientState state) throws Exception {
     serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
         // TODO: Need to make sure this will give us directories
         .listBlobs(new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages),
             Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
           AzureFileReference fileRef = new AzureFileReference(blob, params);
-          processAndPublishFileIfValid(publisher, fileRef, params);
+          processAndPublishFileIfValid(publisher, fileRef, params, state);
         });
   }
 
   // TODO: Ok for now, but want to make sure that this is sufficient for "uniqueness"
   @Override
-  protected String getStateTableName(URI pathToStorage) {
+  public String getStateTableName(URI pathToStorage) {
     // this gives us "storagename.blob.core.windows.net"
     String host = pathToStorage.getHost();
     // Gets us "storagename"

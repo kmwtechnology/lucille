@@ -34,14 +34,33 @@ public interface StorageClient {
   void shutdown() throws IOException;
 
   /**
-   * Traverses through the storage client and publish files to Lucille pipeline
+   * Traverses through the storage client and publish files to Lucille pipeline. Uses no StorageClientState, meaning files will not
+   * be tracked and lastPublishedCutoff, if specified, will not be enforced.
    */
   void traverse(Publisher publisher, TraversalParams params) throws Exception;
+
+  /**
+   * Traverses through the storage client and publish files to Lucille pipeline. Updates the given state as files are encountered
+   * and published, and uses the {@link StorageClientState#getLastPublished(String)} method to enforce lastPublishedCutoff, if specified.
+   */
+  void traverse(Publisher publisher, TraversalParams params, StorageClientState state) throws Exception;
 
   /**
    * Opens and returns an InputStream for a file's contents, located at the given URI.
    */
   InputStream getFileContentStream(URI uri) throws IOException;
+
+  /**
+   * Returns the table name for a traversal at the given URI. This name always starts with the URI's scheme. For cloud
+   * storage URIs, the name of the root bucket / container is appended to the scheme as well. For S3 + Google, this is
+   * as simple as just appending the host. For Azure, we extract the storage name. For example:
+   *
+   * 1. /Users/jsquatrito/Desktop --> file
+   * 2. s3://lucille-bucket/test-files --> s3_lucille-bucket
+   * 3. gs://lucille-bucket/test-files --> gs_lucille-bucket
+   * 4. https://storagename.blob.core.windows.net/folder --> https_storagename
+   */
+  String getStateTableName(URI pathToStorage);
 
   /**
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from the Config.

@@ -46,12 +46,12 @@ public class LocalStorageClient extends BaseStorageClient {
   protected void shutdownStorageClient() throws IOException { }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
-    Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params));
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, StorageClientState state) throws Exception {
+    Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params, state));
   }
 
   @Override
-  protected String getStateTableName(URI pathToStorage) {
+  public String getStateTableName(URI pathToStorage) {
     return "file";
   }
 
@@ -68,10 +68,12 @@ public class LocalStorageClient extends BaseStorageClient {
 
     private Publisher publisher;
     private TraversalParams params;
+    private final StorageClientState state;
 
-    public LocalFileVisitor(Publisher publisher, TraversalParams params) {
+    public LocalFileVisitor(Publisher publisher, TraversalParams params, StorageClientState state) {
       this.publisher = publisher;
       this.params = params;
+      this.state = state;
     }
 
     @Override
@@ -80,7 +82,7 @@ public class LocalStorageClient extends BaseStorageClient {
       // but we do need to pass this through to update the state, as appropriate. This mirrors the behavior of the other storage
       // clients, which also process/publish file references for directories with return false for "isValidFile".
       FileReference fileRef = new LocalFileReference(dir, attrs);
-      processAndPublishFileIfValid(publisher, fileRef, params);
+      processAndPublishFileIfValid(publisher, fileRef, params, state);
       return FileVisitResult.CONTINUE;
     }
 
@@ -89,7 +91,7 @@ public class LocalStorageClient extends BaseStorageClient {
       // TODO: need to make sure this will give us directories. I'm not sure it will.
       // Visit the file and actually process it!
       FileReference fileRef = new LocalFileReference(file, attrs);
-      processAndPublishFileIfValid(publisher, fileRef, params);
+      processAndPublishFileIfValid(publisher, fileRef, params, state);
       return FileVisitResult.CONTINUE;
     }
 

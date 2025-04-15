@@ -67,8 +67,8 @@ public class TraversalParams {
    * Returns whether the filterOptions allow for the publishing / processing of the file, described by its name
    * and the last time it was modified.
    */
-  public boolean includeFile(String fileName, Instant fileLastModified) {
-    return patternsAllowFile(fileName) && timeWithinCutoff(fileLastModified);
+  public boolean includeFile(String fileName, Instant fileLastModified, Instant fileLastPublished) {
+    return patternsAllowFile(fileName) && timesWithinCutoffs(fileLastModified, fileLastPublished);
   }
 
   /**
@@ -83,11 +83,12 @@ public class TraversalParams {
    * Returns whether the given Instant indicates the file should be published / processed. Always returns true if there is no
    * modificationCutoff set. If it is set, returns whether the file was modified recently enough to be processed/published.
    */
-  private boolean timeWithinCutoff(Instant fileLastModified) {
+  private boolean timesWithinCutoffs(Instant fileLastModified, Instant fileLastPublished) {
     // If modificationCutoff is specified, return false if it is violated
     if (modificationCutoff != null) {
       Instant cutoffPoint = Instant.now().minus(modificationCutoff);
 
+      // Only want to include files modified within the given duration (for example, within the last hour)
       if (fileLastModified.isBefore(cutoffPoint)) {
         return false;
       }
@@ -97,12 +98,10 @@ public class TraversalParams {
     if (lastPublishedCutoff != null) {
       Instant cutoffPoint = Instant.now().minus(lastPublishedCutoff);
 
-      // TODO: add the check for the fileLastPublished Instant which will become part of the method
-      /*
-      if (fileLastPublished.isBefore(cutoffPoint)) {
+      // Only want to include files last published *more* than the duration ago (for example, more than one hour ago)
+      if (fileLastPublished.isAfter(cutoffPoint)) {
         return false;
       }
-       */
     }
 
     return true;

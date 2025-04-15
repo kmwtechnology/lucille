@@ -75,7 +75,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, StorageClientState state) throws Exception {
     ListObjectsV2Request request = ListObjectsV2Request.builder()
         .bucket(getBucketOrContainerName(params))
         .prefix(getStartingDirectory(params))
@@ -86,13 +86,13 @@ public class S3StorageClient extends BaseStorageClient {
         .forEachOrdered(resp -> {
           resp.contents().forEach(obj -> {
             S3FileReference fileRef = new S3FileReference(obj, params);
-            processAndPublishFileIfValid(publisher, fileRef, params);
+            processAndPublishFileIfValid(publisher, fileRef, params, state);
           });
         });
   }
 
   @Override
-  protected String getStateTableName(URI pathToStorage) {
+  public String getStateTableName(URI pathToStorage) {
     return "s3_" + pathToStorage.getHost();
   }
 

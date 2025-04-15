@@ -23,14 +23,32 @@ import org.slf4j.LoggerFactory;
  * <p> Holds / manages a connection to a JDBC database used to maintain state regarding StorageClient traversals and the last
  * time files were processed and published by Lucille.
  * <p> The database can either be embedded in the JVM (H2 database), or you can build a connection to any JDBC-compatible
- * database which holds your state information.
+ * database which has the appropriate schema and holds your state information.
+ *
  * <p> Call {@link #init()} and {@link #shutdown()} to connect / disconnect to the database.
- * <p> Call {@link #getStateForTraversal(URI, String)} to build the appropriate / relevant state information for your traversal. Invoke the
- * appropriate methods on the returned {@link StorageClientState} as you progress throughout your traversal. This object allows
- * you to lookup when a file was last known to be published by Lucille, based on the information in the state database.
- * <p> After your traversal completes, call {@link #updateState(StorageClientState)} method to update the database based on the
- * results of your traversal. This will update the database to reflect the results of your traversal - like which files were
- * successfully published, which files were not encountered (deleted), etc.
+ * <p> Call {@link #getStateForTraversal(URI, String)} to retrieve the appropriate / relevant state information for your traversal,
+ * holding it in memory. Invoke the appropriate methods on the returned {@link StorageClientState} as you progress throughout your
+ * traversal.
+ * <p> After your traversal completes, call {@link #updateState(StorageClientState, String)} to update the database based on the
+ * results of your traversal. This method performs UPDATE, INSERT, and DELETE operations, based on the status of {@link StorageClientState}.
+ *
+ * <p> The database should have the following schema:
+ * <ul>
+ *   <li>Columns:</li>
+ *   <ul>
+ *     <li>name (VARCHAR): The full path to the file. When using embedded H2, Lucille defaults to a 200 character maximum, and the field is a PRIMARY KEY (recommended).</li>
+ *     <li>last_published (TIMESTAMP): The last time the file was known to be published by Lucille.</li>
+ *     <li>is_directory (BIT): Whether the path is a directory. 1 for TRUE, 0 for FALSE.</li>
+ *     <li>parent (VARCHAR): The full path to the file's parent folder. When using embedded H2, Lucille defaults to a 200 character maximum. It is <b>strongly recommended</b> you index this field.</li>
+ *   </ul>
+ *   <li>Tables: The "root" of each file system is its own table. You'll have to delete the table manually if you want to remove the data.</li>
+ *   <ul>
+ *     <li>The local file system will all be held under one table, "file", representing the "root" of the file system. TODO: Lucille makes sure you have an entry for '/'.</li>
+ *     <li>Google Cloud and S3 files will be held under their own tables, with the name combining the URI scheme and the host bucket/container's name. (s3_bucket or gcp_bucket, for example)</li>
+ *     <li>Azure files will be held under tables based on the storage name in the connection string in your URI. ("https://storagename.blob.core.windows.net/folder" becomes azure_storagename) (TODO: Make sure this doesn't get changed / is sufficient)</li>
+ *   </ul>
+ *   <li>Indices: it is <b>strongly recommended</b> that you index the "parent" column for each table. This will make your state load much faster.</li>
+ * </ul>
  *
  * <p> <b>Note:</b> This class is operating under two key assumptions about FileConnector / Connectors:
  * <p> 1. Connectors run sequentially.
@@ -138,6 +156,7 @@ public class StorageClientStateManager {
 
   // Updates the database to reflect the given state, which should have been updated as files were encountered and published.
   public void updateState(StorageClientState state, String traversalTableName) throws SQLException {
+    // TODO: Performance testing (on enron) w/ and w/out the index... curious how long it would take
     Timestamp sharedTimestamp = Timestamp.from(Instant.now());
 
     // 1. update the state entries for published files
