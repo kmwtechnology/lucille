@@ -38,8 +38,8 @@ import org.slf4j.LoggerFactory;
  *   <li>Tables: The "root" of each file system is its own table. Table names are always fully capitalized by Lucille.</li>
  *     <ul>
  *       <li>The local file system will all be held under one table, "FILE", representing the "root" of the file system.</li>
- *       <li>Google Cloud and S3 files will be held under their own tables, with the name combining the URI scheme and the host bucket/container's name. (S3_BUCKETNAME or GCP_BUCKETNAME, for example)</li>
- *       <li>Azure files will be held under tables based on the connection string's storage name. ("https://storagename.blob.core.windows.net/folder" becomes AZURE_STORAGENAME) (TODO: Make sure this doesn't get changed / is sufficient)</li>
+ *       <li>Google Cloud and S3 table names combine their URI schemes (gs, s3) and the host bucket/container's name. (S3_BUCKETNAME or GS_BUCKETNAME, for example)</li>
+ *       <li>Azure table names are based on the connection string's storage name and the container's name. ("https://storagename.blob.core.windows.net/myContainer" becomes AZURE_STORAGENAME_MYCONTAINER) </li>
  *       <li>If you want to drop a table, removing the data, you'll have to do so manually. (Lucille can't detect when an S3 bucket is deleted, for example!)</li>
  *       <li>As table names are always fully capitalized by Lucille, it is important that you do not use state to traverse through directories with the same names, but different letters capitalized.</li>
  *     </ul>
@@ -252,7 +252,6 @@ public class StorageClientStateManager {
     String insertNewFileSQL = "INSERT INTO \"" + traversalTableName + "\" VALUES (?, '" + sharedTimestamp + "', FALSE, ?)";
     try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewFileSQL)) {
       for (String newlyPublishedFilePath : state.getNewlyPublishedFilePaths()) {
-        // an INSERT SQL statement
         String parent = newlyPublishedFilePath.substring(0, newlyPublishedFilePath.lastIndexOf("/") + 1);
         insertStatement.setString(1, newlyPublishedFilePath);
         insertStatement.setString(2, parent);
@@ -266,7 +265,6 @@ public class StorageClientStateManager {
     String insertNewDirectorySQL = "INSERT INTO \"" + traversalTableName + "\" VALUES (?, NULL, TRUE, ?)";
     try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewDirectorySQL)) {
       for (String newDirectoryPath : state.getNewDirectoryPaths()) {
-        // an INSERT, with is_directory = false, timestamp = NULL
         insertStatement.setString(1, newDirectoryPath);
         insertStatement.setString(2, getDirectoryParent(newDirectoryPath));
         insertStatement.addBatch();
@@ -295,11 +293,11 @@ public class StorageClientStateManager {
   private static String getDirectoryParent(String directoryPath) {
     int lastSlash = directoryPath.lastIndexOf("/");
 
-    if (lastSlash == 0) {
+    if (lastSlash == -1) {
       return null;
     }
 
-    String excludingLastSlash = directoryPath.substring(0, lastSlash);
-    return excludingLastSlash.substring(0, excludingLastSlash.lastIndexOf("/")) + "/";
+    String pathWithoutFinalSlash = directoryPath.substring(0, lastSlash);
+    return pathWithoutFinalSlash.substring(0, pathWithoutFinalSlash.lastIndexOf("/") + 1);
   }
 }
