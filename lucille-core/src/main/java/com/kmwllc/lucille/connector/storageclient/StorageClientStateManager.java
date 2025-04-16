@@ -110,6 +110,12 @@ public class StorageClientStateManager {
     // We start by processing the starting directory / path to storage.
     pathsToProcess.add(pathToStorage.toString());
 
+    // If the starting path is a directory, the entry in the database will end with the slash.
+    // If it is a file, there won't be a corresponding entry in the database for this... not a problem
+    if (!pathToStorage.toString().endsWith("/")) {
+      pathsToProcess.add(pathToStorage + "/");
+    }
+
     // Rinse and repeat the process (described below) until the queue is drained.
     while (!pathsToProcess.isEmpty()) {
       String currentPath = pathsToProcess.poll();

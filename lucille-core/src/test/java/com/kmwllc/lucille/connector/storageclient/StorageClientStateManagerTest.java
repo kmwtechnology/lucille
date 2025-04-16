@@ -32,8 +32,6 @@ public class StorageClientStateManagerTest {
   private static final String subdirDirectory = "/files/subdir/";
 
   private static final List<String> allFilePaths = List.of(helloFile, infoFile, secretsFile);
-  private static final List<String> allDirectoryPaths = List.of("/", filesDirectory, subdirDirectory);
-
   private static final List<String> allFileAndDirectoryPaths = List.of(helloFile, infoFile, secretsFile, "/", filesDirectory, subdirDirectory);
 
   private static final String helloQuery = "SELECT * FROM file WHERE name = '/hello.txt'";
@@ -106,16 +104,16 @@ public class StorageClientStateManagerTest {
     StorageClientStateManager manager = new StorageClientStateManager(config);
     manager.init();
 
-    StorageClientState state = manager.getStateForTraversal(URI.create("/files/subdir/"), "file");
+    StorageClientState state = manager.getStateForTraversal(URI.create(subdirDirectory), "file");
 
     // should only have state entry for the relevant file...
     assertNull(state.getLastPublished(helloFile));
     assertNull(state.getLastPublished(infoFile));
     assertNotNull(state.getLastPublished(secretsFile));
 
-    state.markFileOrDirectoryEncountered("/files/subdir/");
-    state.markFileOrDirectoryEncountered("/files/subdir/secrets.txt");
-    state.successfullyPublishedFile("/files/subdir/secrets.txt");
+    state.markFileOrDirectoryEncountered(subdirDirectory);
+    state.markFileOrDirectoryEncountered(secretsFile);
+    state.successfullyPublishedFile(secretsFile);
 
     assertEquals(0, state.getNewDirectoryPaths().size());
     assertEquals(0, state.getPathsToDelete().size());
@@ -157,8 +155,8 @@ public class StorageClientStateManagerTest {
     assertNotNull(state.getLastPublished(infoFile));
     assertNull(state.getLastPublished(secretsFile));
 
-    state.markFileOrDirectoryEncountered("/files/info.txt");
-    state.successfullyPublishedFile("/files/info.txt");
+    state.markFileOrDirectoryEncountered(infoFile);
+    state.successfullyPublishedFile(infoFile);
 
     assertEquals(0, state.getNewDirectoryPaths().size());
     // no paths to delete - this emphasizes that "/files/" wasn't in the traversal, since it wasn't marked as encountered
@@ -267,6 +265,51 @@ public class StorageClientStateManagerTest {
       assertFalse(secretRS.next());
       assertFalse(filesDirRS.next());
       assertFalse(subdirRS.next());
+    }
+
+    manager.shutdown();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+  @Test
+  public void testStateManagerSubdirWithoutFinalSlash() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+    Config config = ConfigFactory.parseResourcesAnySyntax("StorageClientStateManagerTest/config.conf");
+    StorageClientStateManager manager = new StorageClientStateManager(config);
+    manager.init();
+
+    // not using a final slash in the URI here...
+    StorageClientState state = manager.getStateForTraversal(URI.create("/files/subdir"), "file");
+
+    // running all the same assertions for the regular test (/files/subdir/) as well.
+    assertNull(state.getLastPublished(helloFile));
+    assertNull(state.getLastPublished(infoFile));
+    assertNotNull(state.getLastPublished(secretsFile));
+
+    state.markFileOrDirectoryEncountered(subdirDirectory);
+    state.markFileOrDirectoryEncountered(secretsFile);
+    state.successfullyPublishedFile(secretsFile);
+
+    assertEquals(0, state.getNewDirectoryPaths().size());
+    assertEquals(0, state.getPathsToDelete().size());
+    assertEquals(1, state.getKnownAndPublishedFilePaths().size());
+    assertEquals(0, state.getNewlyPublishedFilePaths().size());
+
+    manager.updateState(state, "file");
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet helloRS = RunScript.execute(connection, new StringReader(helloQuery));
+        ResultSet secretRS = RunScript.execute(connection, new StringReader(secretsQuery))) {
+
+      assertTrue(secretRS.next());
+      Timestamp secretTimestamp = secretRS.getTimestamp("last_published");
+      // the timestamp should be within the last 6 seconds.
+      assertTrue(secretTimestamp.after(Timestamp.from(Instant.now().minusSeconds(6))));
+
+      assertTrue(helloRS.next());
+      Timestamp helloTimestamp = helloRS.getTimestamp("last_published");
+      // the timestamp SHOULDN'T be within the last ~60 seconds - it wasn't published!
+      assertFalse(helloTimestamp.after(Timestamp.from(Instant.now().minusSeconds(60))));
     }
 
     manager.shutdown();
