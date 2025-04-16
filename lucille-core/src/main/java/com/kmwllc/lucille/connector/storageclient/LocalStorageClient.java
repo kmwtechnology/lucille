@@ -88,7 +88,6 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-      // TODO: need to make sure this will give us directories. I'm not sure it will.
       // Visit the file and actually process it!
       FileReference fileRef = new LocalFileReference(file, attrs);
       processAndPublishFileIfValid(publisher, fileRef, params, state);

@@ -21,7 +21,6 @@ import org.h2.tools.RunScript;
 import org.junit.Rule;
 import org.junit.Test;
 
-// TODO: Add test coverage on the "parent" field in the resulting (updated) SQL? When there are new directories
 public class StorageClientStateManagerTest {
 
   private static final String helloFile = "/hello.txt";
@@ -34,12 +33,12 @@ public class StorageClientStateManagerTest {
   private static final List<String> allFilePaths = List.of(helloFile, infoFile, secretsFile);
   private static final List<String> allFileAndDirectoryPaths = List.of(helloFile, infoFile, secretsFile, "/", filesDirectory, subdirDirectory);
 
-  private static final String helloQuery = "SELECT * FROM file WHERE name = '/hello.txt'";
-  private static final String infoQuery = "SELECT * FROM file WHERE name = '/files/info.txt'";
-  private static final String secretsQuery = "SELECT * FROM file WHERE name = '/files/subdir/secrets.txt'";
+  private static final String helloQuery = "SELECT * FROM \"FILE\" WHERE name = '/hello.txt'";
+  private static final String infoQuery = "SELECT * FROM \"FILE\" WHERE name = '/files/info.txt'";
+  private static final String secretsQuery = "SELECT * FROM \"FILE\" WHERE name = '/files/subdir/secrets.txt'";
 
-  private static final String filesQuery = "SELECT * FROM file WHERE name = '/files/'";
-  private static final String subdirQuery = "SELECT * FROM file WHERE name = '/files/subdir/'";
+  private static final String filesQuery = "SELECT * FROM \"FILE\" WHERE name = '/files/'";
+  private static final String subdirQuery = "SELECT * FROM \"FILE\" WHERE name = '/files/subdir/'";
 
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("org.h2.Driver", "jdbc:h2:mem:test", "", "",
@@ -59,6 +58,7 @@ public class StorageClientStateManagerTest {
     assertNotNull(state.getLastPublished(infoFile));
     assertNotNull(state.getLastPublished(secretsFile));
 
+    // everything is encountered + all files are published.
     for (String filePath : allFileAndDirectoryPaths) {
       state.markFileOrDirectoryEncountered(filePath);
     }
@@ -74,8 +74,7 @@ public class StorageClientStateManagerTest {
 
     manager.updateState(state, "file");
 
-    // All of the files should have new timestamps. Use the fact they are equal to have
-    // a simpler assertion (not messing with timestamps / time zones etc)
+    // All of the files should have new (recent) timestamps.
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         ResultSet helloRS = RunScript.execute(connection, new StringReader(helloQuery));
         ResultSet infoRS = RunScript.execute(connection, new StringReader(infoQuery));
@@ -83,14 +82,19 @@ public class StorageClientStateManagerTest {
 
       assertTrue(helloRS.next());
       Timestamp helloTimestamp = helloRS.getTimestamp("last_published");
-      // the timestamp should be within the last ~6 seconds.
-      assertTrue(helloTimestamp.after(Timestamp.from(Instant.now().minusSeconds(6L))));
+      // the timestamp should be within the last ~15 seconds.
+      assertTrue(helloTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      assertEquals("/", helloRS.getString("parent"));
 
       assertTrue(infoRS.next());
-      assertEquals(helloTimestamp, infoRS.getTimestamp("last_published"));
+      Timestamp infoTimestamp = infoRS.getTimestamp("last_published");
+      assertTrue(infoTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      assertEquals(filesDirectory, infoRS.getString("parent"));
 
       assertTrue(secretRS.next());
-      assertEquals(helloTimestamp, secretRS.getTimestamp("last_published"));
+      Timestamp secretTimestamp = secretRS.getTimestamp("last_published");
+      assertTrue(secretTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      assertEquals(subdirDirectory, secretRS.getString("parent"));
     }
 
     manager.shutdown();
@@ -363,6 +367,8 @@ public class StorageClientStateManagerTest {
       assertTrue(infoRS.next());
       assertTrue(secretRS.next());
 
+      // Also want to make sure that "parent" is still handled appropriately. We don't check bucketRS's parent, because it
+      // doesn't really matter (you never traverse from the root of ALL of S3, and want to see all the buckets indexed to the root... ;) )
       assertEquals("s3://lucille-bucket/", filesDirRS.getString("parent"));
       assertEquals("s3://lucille-bucket/files/", subdirRS.getString("parent"));
       assertEquals("s3://lucille-bucket/", helloRS.getString("parent"));
