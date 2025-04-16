@@ -280,10 +280,6 @@ public class FileConnectorTest {
 
   @Test
   public void testTraversalWithState() throws Exception {
-    // TODO: Enhance with...
-    //  1. deletion
-    //  2. file handlers
-    //  3. archive, compressed, archived and compressed
     // for now, have no file options - just handle the files as is, no archives / file handlers, etc.
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf");
     TestMessenger messenger1 = new TestMessenger();
@@ -291,21 +287,20 @@ public class FileConnectorTest {
     Publisher publisher1 = new PublisherImpl(config, messenger1, "run", "pipeline1");
     Publisher publisher2 = new PublisherImpl(config, messenger2, "run", "pipeline1");
 
+    // State only includes everything in /example/. Let's imagine subdir (and its contents) are new...
     StorageClientState pretendState = new StorageClientState(Set.of(
-        Paths.get("src/test/resources/FileConnectorTest/example").toAbsolutePath() + "/",
-        Paths.get("src/test/resources/FileConnectorTest/example/subdir").toAbsolutePath() + "/"
+        Paths.get("src/test/resources/FileConnectorTest/example").toAbsolutePath() + "/"
     ), Map.of(
         Paths.get("src/test/resources/FileConnectorTest/example/a.json").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
         Paths.get("src/test/resources/FileConnectorTest/example/helloWorld.txt.gz").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
         Paths.get("src/test/resources/FileConnectorTest/example/skipFile.txt").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
         Paths.get("src/test/resources/FileConnectorTest/example/subdirWith1csv1xml.tar.gz").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
         Paths.get("src/test/resources/FileConnectorTest/example/subDirWith2TxtFiles.zip").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
-        Paths.get("src/test/resources/FileConnectorTest/example/subdir/b.json.gz").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
-        Paths.get("src/test/resources/FileConnectorTest/example/subdir/c.jsonl").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
-        Paths.get("src/test/resources/FileConnectorTest/example/subdir/e.yaml").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
-        Paths.get("src/test/resources/FileConnectorTest/example/subdir/skipFile.txt").toAbsolutePath().toString(), Instant.ofEpochMilli(100L)
+        // also, we pretend there is a file that used to be in /example/, but was deleted
+        Paths.get("src/test/resources/FileConnectorTest/example").toAbsolutePath() + "/notHere.txt", Instant.ofEpochMilli(100L)
     ));
 
+    // This is what state looks like after "discovering" everything in /example/subdir/
     StorageClientState pretendUpdatedState = new StorageClientState(Set.of(
         Paths.get("src/test/resources/FileConnectorTest/example").toAbsolutePath() + "/",
         Paths.get("src/test/resources/FileConnectorTest/example/subdir").toAbsolutePath() + "/"
@@ -328,10 +323,11 @@ public class FileConnectorTest {
 
       // the "first" returned state, which had the files last published a long time ago, should have everything marked as published.
       Mockito.doAnswer(invocationOnMock -> {
-        assertEquals(9, pretendState.getKnownAndPublishedFilePaths().size());
-        assertEquals(0, pretendState.getNewDirectoryPaths().size());
-        assertEquals(0, pretendState.getPathsToDelete().size());
-        assertEquals(0, pretendState.getNewlyPublishedFilePaths().size());
+        // "published" is only tracked for archived / compressed files themselves - *not* their individual entries.
+        assertEquals(5, pretendState.getKnownAndPublishedFilePaths().size());
+        assertEquals(1, pretendState.getNewDirectoryPaths().size());
+        assertEquals(1, pretendState.getPathsToDelete().size());
+        assertEquals(4, pretendState.getNewlyPublishedFilePaths().size());
 
         return null;
       }).when(manager).updateStateDatabase(eq(pretendState), eq("file"));
@@ -349,9 +345,10 @@ public class FileConnectorTest {
     })) {
       Connector connector = new FileConnector(config);
       connector.execute(publisher1);
-      assertEquals(9, messenger1.getDocsSentForProcessing().size());
+      // See above - textExampleTraversal has 16 files. This has 18, since we don't exclude "skipFile.txt".
+      assertEquals(18, messenger1.getDocsSentForProcessing().size());
 
-      // and now... do it again... but shouldn't have anything published / sent for processing
+      // and now... do it again... but shouldn't have anything published / sent for processing, since our cutoff is 1h.
       connector.execute(publisher2);
       assertEquals(0, messenger2.getDocsSentForProcessing().size());
     }

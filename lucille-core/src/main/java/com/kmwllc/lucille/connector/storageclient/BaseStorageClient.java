@@ -175,6 +175,11 @@ public abstract class BaseStorageClient implements StorageClient {
             }
           }
         }
+
+        // Regardless of what actually gets published in the above code, the compressed file itself was considered / processed by Lucille.
+        if (state != null) {
+          state.successfullyPublishedFile(fullPathStr);
+        }
         afterProcessingFile(fullPathStr, params);
         return;
       }
@@ -184,6 +189,11 @@ public abstract class BaseStorageClient implements StorageClient {
         try (InputStream is = fileReference.getContentStream(params)) {
           handleArchiveFiles(publisher, is, fullPathStr, params);
         }
+
+        // Regardless of what is extracted & published in handleArchiveFiles, the archive file itself was considered / processed by Lucille.
+        if (state != null) {
+          state.successfullyPublishedFile(fullPathStr);
+        }
         afterProcessingFile(fullPathStr, params);
         return;
       }
@@ -192,8 +202,8 @@ public abstract class BaseStorageClient implements StorageClient {
       if (params.supportedFileType(fileExtension)) {
         // Get a stream for the file content, so we don't have to load it all at once.
         InputStream contentStream = fileReference.getContentStream(params);
-        // get the right FileHandler and publish based on content
-        publishUsingFileHandler(publisher, fileExtension, contentStream, fullPathStr);
+        // get the right FileHandler and publish based on content. This will update state as appropriate, as well.
+        publishUsingFileHandler(publisher, fileExtension, contentStream, fullPathStr, state);
 
         afterProcessingFile(fullPathStr, params);
         return;
@@ -246,7 +256,6 @@ public abstract class BaseStorageClient implements StorageClient {
           continue;
         }
         // checking validity only for the entries
-        // TODO: decide what shoudl be happening here w.r.t. state...
         if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant(), null)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (params.supportedFileType(entryExtension)) {
@@ -284,7 +293,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param publisher publisher used to publish documents
    * @param in An InputStream for an archive / compressed file. This InputStream will <b>NOT</b> be closed by this method.
    * @param fullPathStr can be entry full path or decompressed full path. Can be a cloud path or local path.
-   *                    e.g. gs://bucket-name/folder/file.zip:entry.json OR path/to/example.csv
+   *                    e.g. gs://bucket-name/folder/file.zip!entry.json OR path/to/example.csv
    */
   private void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fullPathStr)
       throws ConnectorException {
@@ -310,18 +319,23 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * helper method to publish using file handler using file content (InputStream)
+   * Helper method to publish via file handler, using an InputStream for the file's contents.
    */
-  private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String pathStr) throws Exception {
+  private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String fullPathStr, StorageClientState state) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
     }
 
     try {
-      handler.processFileAndPublish(publisher, inputStream, pathStr);
+      handler.processFileAndPublish(publisher, inputStream, fullPathStr);
+
+      // Regardless of how many Documents were extracted from handling the file, the file itself was processed by Lucille.
+      if (state != null) {
+        state.successfullyPublishedFile(fullPathStr);
+      }
     } catch (Exception e) {
-      throw new ConnectorException("Error occurred while processing or publishing file: " + pathStr, e);
+      throw new ConnectorException("Error occurred while processing or publishing file: " + fullPathStr, e);
     }
   }
 

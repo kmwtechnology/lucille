@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
  *    https://accountName.blob.core.windows.net/containerName/prefix/
  *  filterOptions (Map, Optional): configuration for <i>which</i> files should/shouldn't be processed in your traversal. Example of filterOptions below.
  *  fileOptions (Map, Optional): Options for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.
- *  state (Map, Optional): options for tracking when files were published and processed by Lucille. See example configuration + important notes below.
+ *  state (Map, Optional): options for tracking when files were published and processed by Lucille. See example configuration & some important notes below.
  *  gcp (Map, Optional): options for handling Google Cloud files. See example below.
  *  s3 (Map, Optional): options for handling S3 files. See example below.
  *  azure (Map, Optional): options for handling Azure files. See example below.
@@ -38,13 +38,14 @@ import org.slf4j.LoggerFactory;
  *  excludes (list of strings, Optional): list of regex patterns to exclude files.
  *  modificationCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time.
  *  Specify "1h" to only include / publish files that were modified within the last hour, for example.
- *  Note that, for archive files, this cutoff applies to both the archive file itself and its individual contents.
+ *  Note that, for archive files, this cutoff applies to <b>both</b> the archive file itself and its individual contents.
  *  lastPublishedCutoff (Duration, Optional): Filter files that haven't been published by Lucille since a certain amount of time.
  *  Relies on your state configuration to determine when files were last published. If you do not specify configuration for state, this
  *  wil have no effect. Specify "1h" to only include / publish files that were last published <b>more</b> than an hour ago, for example.
- *  TODO: Note that, for archive files, this cutoff applies to both the archive file itself and its individual contents?
- *  <br> Only files that comply with <b>all</b> of your specified FilterOptions will be processed and published in a traversal.
- *  <br> See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
+ *  Note that, for archive files, this cutoff <b>only</b> applies to the archive file itself - <b>not</b> its individual contents.
+ *  (State is <b>only</b> maintained / tracked for the archive file itself.)
+ * <br> Only files that comply with <b>all</b> of your specified FilterOptions will be processed and published in a traversal.
+ * <br> See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
  *
  * FileOptions:
  *  getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.
@@ -56,9 +57,9 @@ import org.slf4j.LoggerFactory;
  *  json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
  *  xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler
  *
- * <p> <b>State</b>: FileConnector allows you to only publish files that haven't been published recently. In order to keep track of
+ * <p> <b>State</b>: FileConnector allows you to only publish files that haven't been published recently (using FilterOptions.lastPublishedCutoff). In order to keep track of
  * this information, you'll need to specify a connection to a JDBC-compatible database, which will be used to track file paths and
- * when they were last known to be published by Lucille.
+ * when they were last known to be published by Lucille. For more information about the database / its schema, see {@link com.kmwllc.lucille.connector.storageclient.StorageClientStateManager}
  * <br> Config Parameters:
  * <br> - driver (String): The driver to use for creating the connection.
  * <br> - connectionString (String): A String for a connection to your state database.
@@ -67,14 +68,9 @@ import org.slf4j.LoggerFactory;
  *
  * <br> <b>Some notes on state:</b>
  * <ul>
- *   <li>Lucille will automatically delete entries in your database for files that are deleted.</li>
- *   <ul>
- *     <li>Files that get moved or renamed will be treated like deletions - they will always be published, regardless of lastPublishedCutoff.</li>
- *     <li>Lucille <b>cannot</b> detect when the root of a storage source is deleted (for example, an S3 bucket). If you want to delete this data, you will have to do so manually.</li>
- *   </ul>
- *   <li>You can use an embedded, persistent H2 database rather than specifying a JDBC connection. TODO: Describe appropriate configuration for doing so...</li>
- *   <li>You can / should provide state configuration, without using a lastPublishedCutoff, to keep your state updated.</li>
- *   <li>For more information about the database / its schema, see {@link com.kmwllc.lucille.connector.storageclient.StorageClientStateManager}</li>
+ *   <li>Lucille automatically deletes entries in your database for files that appear to have been deleted.</li>
+ *   <li>Files that get moved or renamed will be treated like deletions - they will always be published, regardless of lastPublishedCutoff.</li>
+ *   <li>You can / should provide state configuration, without using a lastPublishedCutoff, and Lucille will keep your state updated.</li>
  * </ul>
  *
  * <br> gcp:
