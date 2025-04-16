@@ -1,13 +1,13 @@
 -- noinspection SqlNoDataSourceInspectionForFile
 
-CREATE TABLE file(name VARCHAR(200) PRIMARY KEY, last_published TIMESTAMP, is_directory BIT, parent VARCHAR(200));
+CREATE TABLE FILE(name VARCHAR(200) PRIMARY KEY, last_published TIMESTAMP, is_directory BOOLEAN, parent VARCHAR(200));
 
-INSERT INTO file VALUES ('/', NULL, 1, NULL);
-INSERT INTO file VALUES ('/files/', NULL, 1, '/');
-INSERT INTO file VALUES ('/files/subdir/', NULL, 1, '/files/');
+INSERT INTO FILE VALUES ('/', NULL, TRUE, NULL);
+INSERT INTO FILE VALUES ('/files/', NULL, TRUE, '/');
+INSERT INTO FILE VALUES ('/files/subdir/', NULL, TRUE, '/files/');
 
-INSERT INTO file VALUES ('/hello.txt', '2025-04-11 14:00:00', 0, '/');
-INSERT INTO file VALUES ('/files/info.txt', '2025-04-10 08:00:00', 0, '/files/');
-INSERT INTO file VALUES ('/files/subdir/secrets.txt', '2025-04-12 20:00:00', 0, '/files/subdir/');
+INSERT INTO FILE VALUES ('/hello.txt', '2025-04-11 14:00:00', FALSE, '/');
+INSERT INTO FILE VALUES ('/files/info.txt', '2025-04-10 08:00:00', FALSE, '/files/');
+INSERT INTO FILE VALUES ('/files/subdir/secrets.txt', '2025-04-12 20:00:00', FALSE, '/files/subdir/');
 
-CREATE INDEX parent ON file(parent);
+CREATE INDEX FILEparent ON FILE(parent);

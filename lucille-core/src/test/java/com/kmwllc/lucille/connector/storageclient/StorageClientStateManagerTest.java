@@ -315,4 +315,62 @@ public class StorageClientStateManagerTest {
     manager.shutdown();
     assertEquals(1, dbHelper.checkNumConnections());
   }
+
+  // Want to make sure that the StateManager can create appropriate tables if they didn't already exist.
+  @Test
+  public void testStateManagerOnNewTable() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+    Config config = ConfigFactory.parseResourcesAnySyntax("StorageClientStateManagerTest/config.conf");
+    StorageClientStateManager manager = new StorageClientStateManager(config);
+    manager.init();
+
+    // this table won't exist, but this method call should create it
+    StorageClientState state = manager.getStateForTraversal(URI.create("s3://lucille-bucket/"), "s3_lucille-bucket");
+
+    // /files/ --> s3://lucille-bucket/files/
+    for (String filePath : allFileAndDirectoryPaths) {
+      state.markFileOrDirectoryEncountered("s3://lucille-bucket" + filePath);
+    }
+
+    // /files/info.txt --> s3://lucille-bucket/files/info.txt
+    for (String filePath : allFilePaths) {
+      state.successfullyPublishedFile("s3://lucille-bucket" + filePath);
+    }
+
+    // files and subdir, but also lucille-bucket is a directory
+    assertEquals(3, state.getNewDirectoryPaths().size());
+    // nothing to delete - no reason the local files should be deleted based on this traversal, too
+    assertEquals(0, state.getPathsToDelete().size());
+    assertEquals(0, state.getKnownAndPublishedFilePaths().size());
+    assertEquals(3, state.getNewlyPublishedFilePaths().size());
+
+    manager.updateState(state, "s3_lucille-bucket");
+
+    // now, to run some queries and make sure that the data is all correct...
+    String baseQuery = "SELECT * FROM \"S3_LUCILLE-BUCKET\" WHERE name = ";
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet bucketRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/'"));
+        ResultSet filesDirRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/'"));
+        ResultSet subdirRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/subdir/'"));
+        ResultSet helloRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/hello.txt'"));
+        ResultSet infoRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/info.txt'"));
+        ResultSet secretRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/subdir/secrets.txt'"))) {
+
+      assertTrue(bucketRS.next());
+      assertTrue(filesDirRS.next());
+      assertTrue(subdirRS.next());
+      assertTrue(helloRS.next());
+      assertTrue(infoRS.next());
+      assertTrue(secretRS.next());
+
+      assertEquals("s3://lucille-bucket/", filesDirRS.getString("parent"));
+      assertEquals("s3://lucille-bucket/files/", subdirRS.getString("parent"));
+      assertEquals("s3://lucille-bucket/", helloRS.getString("parent"));
+      assertEquals("s3://lucille-bucket/files/", infoRS.getString("parent"));
+      assertEquals("s3://lucille-bucket/files/subdir/", secretRS.getString("parent"));
+    }
+
+    manager.shutdown();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
 }

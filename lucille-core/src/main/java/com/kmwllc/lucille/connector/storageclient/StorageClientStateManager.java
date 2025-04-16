@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector.storageclient;
 import com.typesafe.config.Config;
 import java.net.URI;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -101,8 +102,10 @@ public class StorageClientStateManager {
 
   // Gets State information relevant for a traversal which starts at the given directory, and has the given table name
   // (determined by the Storage Client's handling of the URI)
-  // TODO: How do tables get setup / initialized? How does it persist?
   public StorageClientState getStateForTraversal(URI pathToStorage, String traversalTableName) throws SQLException {
+    traversalTableName = traversalTableName.toUpperCase();
+    ensureTableExists(traversalTableName);
+
     Set<String> knownDirectories = new HashSet<>();
     Map<String, Instant> fileStateEntries = new HashMap<>();
     Queue<String> pathsToProcess = new LinkedList<>();
@@ -121,7 +124,7 @@ public class StorageClientStateManager {
       String currentPath = pathsToProcess.poll();
 
       // Get the SQL entry, regardless of whether it is a directory or not. Have to know what we actually have state for.
-      String entryQuery = "SELECT * FROM " + traversalTableName + " WHERE name = '" + currentPath + "'";
+      String entryQuery = "SELECT * FROM \"" + traversalTableName + "\" WHERE name = '" + currentPath + "'";
       try (Statement statement = jdbcConnection.createStatement();
           ResultSet rs = statement.executeQuery(entryQuery)) {
 
@@ -144,12 +147,29 @@ public class StorageClientStateManager {
     return new StorageClientState(knownDirectories, fileStateEntries);
   }
 
+  // Ensures a table with the given name exists in the database. If it does not, it will be created with the appropriate
+  // columns + an index on "parent". Note that, if it does exist, the schema of the database is not validated.
+  // We can't use "CREATE TABLE IF NOT EXISTS", because Apache Derby won't support this.
+  private void ensureTableExists(String tableName) throws SQLException {
+    DatabaseMetaData metadata = jdbcConnection.getMetaData();
+
+    // checking if we have a table under the given name. All table names get stored in uppercase internally.
+    try (ResultSet rs = metadata.getTables(null, null, tableName.toUpperCase(), null)) {
+      if (!rs.next()) {
+        try (Statement statement = jdbcConnection.createStatement()) {
+          statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(200) PRIMARY KEY, last_published TIMESTAMP, is_directory BOOLEAN, parent VARCHAR(200))");
+          statement.executeUpdate("CREATE INDEX \"" + tableName + "parent\" ON \"" + tableName + "\"(parent)");
+        }
+      }
+    }
+  }
+
   private void handleDirectory(String directoryPath, Set<String> directorySet, Queue<String> pathsQueue, String tableName) throws SQLException {
     log.debug("Adding directory: {}", directoryPath);
     // if it is a directory, then we want to see what has this directory as an index, add it to a Set<String> directories
     directorySet.add(directoryPath);
 
-    String directoryIndexQuery = "SELECT * FROM " + tableName + " WHERE parent = '" + directoryPath + "'";
+    String directoryIndexQuery = "SELECT * FROM \"" + tableName + "\" WHERE parent = '" + directoryPath + "'";
 
     try (Statement directoryStatement = jdbcConnection.createStatement();
         ResultSet directoryChildrenResults = directoryStatement.executeQuery(directoryIndexQuery)) {
@@ -162,11 +182,11 @@ public class StorageClientStateManager {
 
   // Updates the database to reflect the given state, which should have been updated as files were encountered and published.
   public void updateState(StorageClientState state, String traversalTableName) throws SQLException {
-    // TODO: Performance testing (on enron) w/ and w/out the index... curious how long it would take
+    traversalTableName = traversalTableName.toUpperCase();
     Timestamp sharedTimestamp = Timestamp.from(Instant.now());
 
     // 1. update the state entries for published files
-    String updateKnownSQL = "UPDATE " + traversalTableName + " SET last_published = '" + sharedTimestamp + "' WHERE name = ?";
+    String updateKnownSQL = "UPDATE \"" + traversalTableName + "\" SET last_published = '" + sharedTimestamp + "' WHERE name = ?";
     try (PreparedStatement updateStatement = jdbcConnection.prepareStatement(updateKnownSQL)) {
       for (String knownPublishedFilePath : state.getKnownAndPublishedFilePaths()) {
         updateStatement.setString(1, knownPublishedFilePath);
@@ -177,7 +197,7 @@ public class StorageClientStateManager {
     }
 
     // 2. insert state entries for any "new" files encountered in this run
-    String insertNewFileSQL = "INSERT INTO " + traversalTableName + " VALUES (?, '" + sharedTimestamp + "', FALSE, ?)";
+    String insertNewFileSQL = "INSERT INTO \"" + traversalTableName + "\" VALUES (?, '" + sharedTimestamp + "', FALSE, ?)";
     try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewFileSQL)) {
       for (String newlyPublishedFilePath : state.getNewlyPublishedFilePaths()) {
         // an INSERT SQL statement
@@ -191,7 +211,7 @@ public class StorageClientStateManager {
     }
 
     // 3. add the new directories to the database
-    String insertNewDirectorySQL = "INSERT INTO " + traversalTableName + " VALUES (?, NULL, TRUE, ?)";
+    String insertNewDirectorySQL = "INSERT INTO \"" + traversalTableName + "\" VALUES (?, NULL, TRUE, ?)";
     try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewDirectorySQL)) {
       for (String newDirectoryPath : state.getNewDirectoryPaths()) {
         // TODO: Some improved handling here would be nice...
@@ -205,7 +225,7 @@ public class StorageClientStateManager {
     }
 
     // 4. delete all of the paths in pathsToDelete()
-    String deletePathSQL = "DELETE FROM " + traversalTableName + " WHERE name = ?";
+    String deletePathSQL = "DELETE FROM \"" + traversalTableName + "\" WHERE name = ?";
     try (PreparedStatement deleteStatement = jdbcConnection.prepareStatement(deletePathSQL)) {
       for (String pathToDelete : state.getPathsToDelete()) {
         deleteStatement.setString(1, pathToDelete);
@@ -219,7 +239,7 @@ public class StorageClientStateManager {
   // s3://lucille-bucket/ would ideally return null, but it's okay for it to return s3://
   // / should return null
   // /Users/ should return /
-  // /Users/Desktop should return
+  // /Users/Desktop should return /Users/
   private static String getDirectoryParent(String directoryPath) {
     int lastSlash = directoryPath.lastIndexOf("/");
 
