@@ -21,7 +21,6 @@ import org.slf4j.LoggerFactory;
  * <p> When your traversal is complete, you'll call {@link StorageClientStateManager#updateStateDatabase(StorageClientState, String)} with this
  * state to update your database and reflect the results of your traversal.
  */
-// TODO: What is the behavior for archive files and their entries?
 public class StorageClientState {
 
   private static final Logger log = LoggerFactory.getLogger(StorageClientState.class);
@@ -65,10 +64,8 @@ public class StorageClientState {
    */
   public void markFileOrDirectoryEncountered(String fullPathStr) {
     if (fullPathStr.endsWith("/")) {
-      log.debug("Directory {} found by StorageClient, added to encounteredDirectories.", fullPathStr);
       encounteredDirectories.add(fullPathStr);
     } else {
-      log.debug("File {} found by StorageClient, added to encounteredDirectories.", fullPathStr);
       encounteredFiles.add(fullPathStr);
     }
   }

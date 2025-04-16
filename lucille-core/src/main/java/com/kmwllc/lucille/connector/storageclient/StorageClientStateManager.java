@@ -23,8 +23,7 @@ import org.slf4j.LoggerFactory;
 /**
  * <p> Holds / manages a connection to a JDBC database used to maintain state regarding StorageClient traversals and the last
  * time files were processed and published by Lucille.
- * <p> The database can either be embedded in the JVM, or you can build a connection to any JDBC-compatible
- * database which holds your state information.
+ * <p> Build a connection to a JDBC-compatible database (can be embedded or not)
  *
  * <p> Call {@link #init()} and {@link #shutdown()} to connect / disconnect to the database.
  * <p> Call {@link #getStateForTraversal(URI, String)} to retrieve the appropriate / relevant state information for your traversal,
@@ -96,7 +95,6 @@ public class StorageClientStateManager {
   /**
    * Connect to the database specified by your Config. Throws an exception if an error occurs.
    */
-  // Builds a connection to the database where state is stored - either embedded or a specified JDBC connection / config
   public void init() throws ClassNotFoundException, SQLException {
     try {
       Class.forName(driver);
@@ -153,17 +151,17 @@ public class StorageClientStateManager {
     // We start by processing the starting directory / path to storage.
     pathsToProcess.add(pathToStorage.toString());
 
-    // If the starting path is a directory, the entry in the database will end with the slash.
-    // If it is a file, there won't be a corresponding entry in the database for this... not a problem
+    // If the starting path is a directory, the entry in the database (and FileReference.getFullPath()) will end with the slash.
+    // pathToStorage is the path as the user input it - and sometimes they might not include the final slash.
+    // If the pathToStorage is a file, there won't be a corresponding entry in the database for this... that isn't a problem
     if (!pathToStorage.toString().endsWith("/")) {
       pathsToProcess.add(pathToStorage + "/");
     }
 
-    // Rinse and repeat the process (described below) until the queue is drained.
     while (!pathsToProcess.isEmpty()) {
       String currentPath = pathsToProcess.poll();
 
-      // Get the SQL entry, regardless of whether it is a directory or not. Have to know what we actually have state for.
+      // Get a potential SQL entry for this path.
       String entryQuery = "SELECT * FROM \"" + traversalTableName + "\" WHERE name = '" + currentPath + "'";
       try (Statement statement = jdbcConnection.createStatement();
           ResultSet rs = statement.executeQuery(entryQuery)) {
@@ -174,13 +172,9 @@ public class StorageClientStateManager {
             handleDirectory(currentPath, knownDirectories, pathsToProcess, traversalTableName);
           } else {
             Timestamp lastPublished = rs.getTimestamp("last_published");
-            log.debug("Adding file: ({}, {})", currentPath, lastPublished.toInstant());
             fileStateEntries.put(currentPath, lastPublished.toInstant());
           }
-        } else {
-          log.debug("None for {}", currentPath);
         }
-
       }
     }
 
@@ -189,11 +183,11 @@ public class StorageClientStateManager {
 
   // Ensures a table with the given name exists in the database. If it does not, it will be created with the appropriate
   // columns + an index on "parent". Note that, if it does exist, the schema of the database is not validated.
-  // We can't use "CREATE TABLE IF NOT EXISTS", because Apache Derby won't support this.
+  // We can't always use "CREATE TABLE IF NOT EXISTS" - have to check the metadata instead.
   private void ensureTableExists(String tableName) throws SQLException {
     DatabaseMetaData metadata = jdbcConnection.getMetaData();
 
-    // checking if we have a table under the given name. All table names get stored in uppercase internally.
+    // checking if we have a table under the given name. All table names get stored in uppercase.
     try (ResultSet rs = metadata.getTables(null, null, tableName.toUpperCase(), null)) {
       if (!rs.next()) {
         try (Statement statement = jdbcConnection.createStatement()) {
@@ -205,7 +199,6 @@ public class StorageClientStateManager {
   }
 
   private void handleDirectory(String directoryPath, Set<String> directorySet, Queue<String> pathsQueue, String tableName) throws SQLException {
-    log.debug("Adding directory: {}", directoryPath);
     // if it is a directory, then we want to see what has this directory as an index, add it to a Set<String> directories
     directorySet.add(directoryPath);
 
@@ -214,7 +207,6 @@ public class StorageClientStateManager {
     try (Statement directoryStatement = jdbcConnection.createStatement();
         ResultSet directoryChildrenResults = directoryStatement.executeQuery(directoryIndexQuery)) {
       while (directoryChildrenResults.next()) {
-        log.debug("Adding directory {} child: {}", directoryPath, directoryChildrenResults.getString("name"));
         pathsQueue.add(directoryChildrenResults.getString("name"));
       }
     }
