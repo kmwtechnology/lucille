@@ -23,37 +23,53 @@ import org.slf4j.LoggerFactory;
 /**
  * <p> Holds / manages a connection to a JDBC database used to maintain state regarding StorageClient traversals and the last
  * time files were processed and published by Lucille.
- * <p> The database can either be embedded in the JVM (H2 database), or you can build a connection to any JDBC-compatible
- * database which has the appropriate schema and holds your state information.
+ * <p> The database can either be embedded in the JVM, or you can build a connection to any JDBC-compatible
+ * database which holds your state information.
  *
  * <p> Call {@link #init()} and {@link #shutdown()} to connect / disconnect to the database.
  * <p> Call {@link #getStateForTraversal(URI, String)} to retrieve the appropriate / relevant state information for your traversal,
  * holding it in memory. Invoke the appropriate methods on the returned {@link StorageClientState} as you progress throughout your
  * traversal.
- * <p> After your traversal completes, call {@link #updateState(StorageClientState, String)} to update the database based on the
+ * <p> After your traversal completes, call {@link #updateStateDatabase(StorageClientState, String)} to update the database based on the
  * results of your traversal. This method performs UPDATE, INSERT, and DELETE operations, based on the status of {@link StorageClientState}.
  *
- * <p> The database should have the following schema:
+ * <p> The database should/will have the following schema:
  * <ul>
+ *   <li>Tables: The "root" of each file system is its own table. Table names are always fully capitalized by Lucille.</li>
+ *     <ul>
+ *       <li>The local file system will all be held under one table, "FILE", representing the "root" of the file system.</li>
+ *       <li>Google Cloud and S3 files will be held under their own tables, with the name combining the URI scheme and the host bucket/container's name. (S3_BUCKETNAME or GCP_BUCKETNAME, for example)</li>
+ *       <li>Azure files will be held under tables based on the connection string's storage name. ("https://storagename.blob.core.windows.net/folder" becomes AZURE_STORAGENAME) (TODO: Make sure this doesn't get changed / is sufficient)</li>
+ *       <li>If you want to drop a table, removing the data, you'll have to do so manually. (Lucille can't detect when an S3 bucket is deleted, for example!)</li>
+ *       <li>As table names are always fully capitalized by Lucille, it is important that you do not use state to traverse through directories with the same names, but different letters capitalized.</li>
+ *     </ul>
  *   <li>Columns:</li>
  *   <ul>
- *     <li>name (VARCHAR): The full path to the file. When using embedded H2, Lucille defaults to a 200 character maximum, and the field is a PRIMARY KEY (recommended).</li>
- *     <li>last_published (TIMESTAMP): The last time the file was known to be published by Lucille.</li>
+ *     <li>name (VARCHAR(200) PRIMARY KEY): The full path (for cloud, the full URI) to the file.</li>
+ *       <ul>
+ *         <li>Directory names <b>must</b> end with '/'. File names <b>must not</b> end with '/'.</li>
+ *         <li>Names are case-sensitive - it is very important to consistently capitalize directory names in your Config when using state.</li>
+ *       </ul>
+ *     <li>last_published (TIMESTAMP): The last time the file was known to be published by Lucille. Is NULL for directories.</li>
  *     <li>is_directory (BOOLEAN): Whether the path is a directory.</li>
- *     <li>parent (VARCHAR): The full path to the file's parent folder. When using embedded H2, Lucille defaults to a 200 character maximum. It is <b>strongly recommended</b> you index this field.</li>
+ *     <li>parent (VARCHAR(200)): The full path to the file's parent folder.</li>
+ *       <ul>
+ *         <li>This name must end with '/'.</li>
+ *       </ul>
  *   </ul>
- *   <li>Tables: The "root" of each file system is its own table. You'll have to delete the table manually if you want to remove the data.</li>
+ *   <li>Indices: The "parent" column will be indexed for each table, allowing state to load much faster.</li>
  *   <ul>
- *     <li>The local file system will all be held under one table, "file", representing the "root" of the file system. TODO: Lucille makes sure you have an entry for '/'.</li>
- *     <li>Google Cloud and S3 files will be held under their own tables, with the name combining the URI scheme and the host bucket/container's name. (s3_bucket or gcp_bucket, for example)</li>
- *     <li>Azure files will be held under tables based on the storage name in the connection string in your URI. ("https://storagename.blob.core.windows.net/folder" becomes azure_storagename) (TODO: Make sure this doesn't get changed / is sufficient)</li>
+ *     <li>The name of the index will be "{tableName}_parent".</li>
+ *     <li>You are free to remove the index, if you find it necessary/beneficial to do so.</li>
  *   </ul>
- *   <li>Indices: it is <b>strongly recommended</b> that you index the "parent" column for each table. This will make your state load much faster.</li>
+ *   <li>If you need more characters for name or parent, you're free to create the table yourself.</li>
  * </ul>
  *
  * <p> <b>Note:</b> This class is operating under two key assumptions about FileConnector / Connectors:
- * <p> 1. Connectors run sequentially.
- * <p> 2. FileConnector does not support individual multithreading.
+ * <ol>
+ *   <li>Connectors run sequentially.</li>
+ *   <li>FileConnector does not support individual multithreading.</li>
+ * </ol>
  */
 public class StorageClientStateManager {
 
@@ -77,6 +93,9 @@ public class StorageClientStateManager {
     this.jdbcPassword = config.getString("jdbcPassword");
   }
 
+  /**
+   * Connect to the database specified by your Config. Throws an exception if an error occurs.
+   */
   // Builds a connection to the database where state is stored - either embedded or a specified JDBC connection / config
   public void init() throws ClassNotFoundException, SQLException {
     try {
@@ -89,7 +108,9 @@ public class StorageClientStateManager {
     jdbcConnection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
   }
 
-  // Closes the connection to the database where state is stored - either embedded or a specified JDBC connection / config
+  /**
+   * Disconnect from the database specified by your Config. Throws an exception if an error occurs.
+   */
   public void shutdown() throws SQLException {
     if (jdbcConnection != null) {
       try {
@@ -100,6 +121,25 @@ public class StorageClientStateManager {
     }
   }
 
+  /**
+   * Returns a {@link StorageClientState} populated with relevant information for a traversal that starts at the given URI. This
+   * allows you to see when files were last known to be published by Lucille, and then later call {@link #updateStateDatabase(StorageClientState, String)}
+   * to update the results of your traversal.
+   * <br>
+   * The {@link StorageClientState} returned will only contain information (last published timestamps)
+   * for relevant files. For example, building state for a traversal starting at /Users/gwashington/Desktop will <b>not</b> include information
+   * for any files found in /Users/gwashington.
+   * <br>
+   * Information will be read from the table with the given name, which should be provided by a storage client, and does
+   * not need to be capitalized. If the table does not exist in the database already, it will be created automatically
+   * (including an index for "parent").
+   * <br>
+   *
+   * @param pathToStorage A URI to the starting point of your traversal. If it is a directory, it is recommended that it ends with '/'.
+   * @param traversalTableName The name for the table with relevant state information for your traversal. Should be determined by a storage client.
+   * @return a StorageClientState with information for your traversal.
+   * @throws SQLException If a SQL-related error occurs.
+   */
   // Gets State information relevant for a traversal which starts at the given directory, and has the given table name
   // (determined by the Storage Client's handling of the URI)
   public StorageClientState getStateForTraversal(URI pathToStorage, String traversalTableName) throws SQLException {
@@ -158,7 +198,7 @@ public class StorageClientStateManager {
       if (!rs.next()) {
         try (Statement statement = jdbcConnection.createStatement()) {
           statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(200) PRIMARY KEY, last_published TIMESTAMP, is_directory BOOLEAN, parent VARCHAR(200))");
-          statement.executeUpdate("CREATE INDEX \"" + tableName + "parent\" ON \"" + tableName + "\"(parent)");
+          statement.executeUpdate("CREATE INDEX \"" + tableName + "_parent\" ON \"" + tableName + "\"(parent)");
         }
       }
     }
@@ -180,8 +220,20 @@ public class StorageClientStateManager {
     }
   }
 
-  // Updates the database to reflect the given state, which should have been updated as files were encountered and published.
-  public void updateState(StorageClientState state, String traversalTableName) throws SQLException {
+  /**
+   * Updates the state database to reflect the information held by the given {@link StorageClientState} under the given table name.
+   * <br>
+   * Executes UPDATE, INSERT, and DELETE statements based on {@link StorageClientState#getKnownAndPublishedFilePaths()},
+   * {@link StorageClientState#getNewlyPublishedFilePaths()}, {@link StorageClientState#getNewDirectoryPaths()}, and
+   * {@link StorageClientState#getPathsToDelete()}.
+   * <br>
+   * All files that got published (according to the state) will receive the same "last_published" Timestamp in the database.
+   *
+   * @param state StorageClientState that has been used in a traversal.
+   * @param traversalTableName The table name for your traversal. Should be produced by a storage client. Doesn't need to be capitalized.
+   * @throws SQLException If a SQL-related error occurs.
+   */
+  public void updateStateDatabase(StorageClientState state, String traversalTableName) throws SQLException {
     traversalTableName = traversalTableName.toUpperCase();
     Timestamp sharedTimestamp = Timestamp.from(Instant.now());
 
@@ -214,7 +266,6 @@ public class StorageClientStateManager {
     String insertNewDirectorySQL = "INSERT INTO \"" + traversalTableName + "\" VALUES (?, NULL, TRUE, ?)";
     try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewDirectorySQL)) {
       for (String newDirectoryPath : state.getNewDirectoryPaths()) {
-        // TODO: Some improved handling here would be nice...
         // an INSERT, with is_directory = false, timestamp = NULL
         insertStatement.setString(1, newDirectoryPath);
         insertStatement.setString(2, getDirectoryParent(newDirectoryPath));
@@ -236,7 +287,8 @@ public class StorageClientStateManager {
     }
   }
 
-  // s3://lucille-bucket/ would ideally return null, but it's okay for it to return s3://
+  // s3://lucille-bucket/ would ideally return null, but it's okay for it to return s3://, since we are never seeing what is
+  // indexed to "s3://" as a parent, for example (that would be the start of a traversal)
   // / should return null
   // /Users/ should return /
   // /Users/Desktop should return /Users/

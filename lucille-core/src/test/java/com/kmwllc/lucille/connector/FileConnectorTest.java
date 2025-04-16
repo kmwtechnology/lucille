@@ -334,7 +334,7 @@ public class FileConnectorTest {
         assertEquals(0, pretendState.getNewlyPublishedFilePaths().size());
 
         return null;
-      }).when(manager).updateState(eq(pretendState), eq("file"));
+      }).when(manager).updateStateDatabase(eq(pretendState), eq("file"));
 
       // the "second" returned state - reflecting an update, where everything was published very recently, shouldn't have had
       // anything marked as published by the storage clients
@@ -345,7 +345,7 @@ public class FileConnectorTest {
         assertEquals(0, pretendUpdatedState.getNewlyPublishedFilePaths().size());
 
         return null;
-      }).when(manager).updateState(eq(pretendUpdatedState), eq("file"));
+      }).when(manager).updateStateDatabase(eq(pretendUpdatedState), eq("file"));
     })) {
       Connector connector = new FileConnector(config);
       connector.execute(publisher1);

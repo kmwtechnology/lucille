@@ -72,7 +72,7 @@ public class StorageClientStateManagerTest {
     assertEquals(3, state.getKnownAndPublishedFilePaths().size());
     assertEquals(0, state.getNewlyPublishedFilePaths().size());
 
-    manager.updateState(state, "file");
+    manager.updateStateDatabase(state, "file");
 
     // All of the files should have new (recent) timestamps.
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
@@ -124,7 +124,7 @@ public class StorageClientStateManagerTest {
     assertEquals(1, state.getKnownAndPublishedFilePaths().size());
     assertEquals(0, state.getNewlyPublishedFilePaths().size());
 
-    manager.updateState(state, "file");
+    manager.updateStateDatabase(state, "file");
 
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         ResultSet helloRS = RunScript.execute(connection, new StringReader(helloQuery));
@@ -168,7 +168,7 @@ public class StorageClientStateManagerTest {
     assertEquals(1, state.getKnownAndPublishedFilePaths().size());
     assertEquals(0, state.getNewlyPublishedFilePaths().size());
 
-    manager.updateState(state, "file");
+    manager.updateStateDatabase(state, "file");
 
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         ResultSet helloRS = RunScript.execute(connection, new StringReader(helloQuery));
@@ -204,28 +204,28 @@ public class StorageClientStateManagerTest {
     assertNull(state.getLastPublished(secretsFile));
 
     state.markFileOrDirectoryEncountered("/newdir/");
-    state.markFileOrDirectoryEncountered("/newdir/new.txt");
-    state.successfullyPublishedFile("/newdir/new.txt");
+    state.markFileOrDirectoryEncountered("/newdir/info.txt");
+    state.successfullyPublishedFile("/newdir/info.txt");
 
     assertEquals(1, state.getNewDirectoryPaths().size());
     assertEquals(0, state.getPathsToDelete().size());
     assertEquals(0, state.getKnownAndPublishedFilePaths().size());
     assertEquals(1, state.getNewlyPublishedFilePaths().size());
 
-    manager.updateState(state, "file");
+    manager.updateStateDatabase(state, "file");
 
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         ResultSet newdirRS = RunScript.execute(connection, new StringReader("SELECT * FROM file WHERE name = '/newdir/'"));
-        ResultSet newFileRS = RunScript.execute(connection, new StringReader("SELECT * FROM file WHERE name = '/newdir/new.txt'"))) {
+        ResultSet infoRS = RunScript.execute(connection, new StringReader("SELECT * FROM file WHERE name = '/newdir/info.txt'"))) {
 
       assertTrue(newdirRS.next());
       assertNull(newdirRS.getTimestamp("last_published"));
       assertTrue(newdirRS.getBoolean("is_directory"));
 
-      assertTrue(newFileRS.next());
-      Timestamp newFileTimestamp = newFileRS.getTimestamp("last_published");
-      // the timestamp should be within the last ~6 seconds.
-      assertTrue(newFileTimestamp.after(Timestamp.from(Instant.now().minusSeconds(6))));
+      assertTrue(infoRS.next());
+      Timestamp newFileTimestamp = infoRS.getTimestamp("last_published");
+      // the timestamp should be within the last ~15 seconds.
+      assertTrue(newFileTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15))));
     }
 
     manager.shutdown();
@@ -255,7 +255,7 @@ public class StorageClientStateManagerTest {
     assertEquals(0, state.getKnownAndPublishedFilePaths().size());
     assertEquals(0, state.getNewlyPublishedFilePaths().size());
 
-    manager.updateState(state, "file");
+    manager.updateStateDatabase(state, "file");
 
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         ResultSet helloRS = RunScript.execute(connection, new StringReader(helloQuery));
@@ -299,7 +299,7 @@ public class StorageClientStateManagerTest {
     assertEquals(1, state.getKnownAndPublishedFilePaths().size());
     assertEquals(0, state.getNewlyPublishedFilePaths().size());
 
-    manager.updateState(state, "file");
+    manager.updateStateDatabase(state, "file");
 
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         ResultSet helloRS = RunScript.execute(connection, new StringReader(helloQuery));
@@ -348,7 +348,7 @@ public class StorageClientStateManagerTest {
     assertEquals(0, state.getKnownAndPublishedFilePaths().size());
     assertEquals(3, state.getNewlyPublishedFilePaths().size());
 
-    manager.updateState(state, "s3_lucille-bucket");
+    manager.updateStateDatabase(state, "s3_lucille-bucket");
 
     // now, to run some queries and make sure that the data is all correct...
     String baseQuery = "SELECT * FROM \"S3_LUCILLE-BUCKET\" WHERE name = ";

@@ -55,10 +55,14 @@ public interface StorageClient {
    * storage URIs, the name of the root bucket / container is appended to the scheme as well. For S3 + Google, this is
    * as simple as just appending the host. For Azure, we extract the storage name. For example:
    *
-   * 1. /Users/jsquatrito/Desktop --> file
-   * 2. s3://lucille-bucket/test-files --> s3_lucille-bucket
-   * 3. gs://lucille-bucket/test-files --> gs_lucille-bucket
-   * 4. https://storagename.blob.core.windows.net/folder --> https_storagename
+   * <ol>
+   *  <li>/Users/abcdef/Desktop --> file</li>
+   *  <li>s3://lucille-bucket/test-files --> s3_lucille-bucket</li>
+   *  <li>gs://lucille-bucket/test-files --> gs_lucille-bucket</li>
+   *  <li>https://storagename.blob.core.windows.net/folder --> https_storagename</li>
+   * </ol>
+   *
+   * Note that the table name is not guaranteed to be capitalized.
    */
   String getStateTableName(URI pathToStorage);
 

@@ -175,7 +175,7 @@ public class FileConnector extends AbstractConnector {
         StorageClientState state = stateManager.getStateForTraversal(storageURI, tableName);
 
         storageClient.traverse(publisher, params, state);
-        stateManager.updateState(state, tableName);
+        stateManager.updateStateDatabase(state, tableName);
       } else {
         storageClient.traverse(publisher, params);
       }

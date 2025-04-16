@@ -18,10 +18,8 @@ import org.slf4j.LoggerFactory;
  * Returns null if there is no record of the file being processed by Lucille.
  * <p> Call the {@link #successfullyPublishedFile(String)} method after a file was successfully published by Lucille.
  *
- * <p> When your traversal is complete, you'll call {@link StorageClientStateManager#updateState(StorageClientState)} with this
+ * <p> When your traversal is complete, you'll call {@link StorageClientStateManager#updateStateDatabase(StorageClientState, String)} with this
  * state to update your database and reflect the results of your traversal.
- * <p> <b>Note:</b> All calls to {@link #successfullyPublishedFile(String)} will result in the file paths having the same Instant
- * in the updated State. This Instant is created when this StorageClientState is constructed.
  */
 // TODO: What is the behavior for archive files and their entries?
 public class StorageClientState {
