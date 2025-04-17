@@ -1,8 +1,6 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
-import com.kmwllc.lucille.connector.storageclient.StorageClientState;
-import com.kmwllc.lucille.connector.storageclient.StorageClientStateManager;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
@@ -59,7 +57,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p> <b>State</b>: FileConnector allows you to only publish files that haven't been published recently (using FilterOptions.lastPublishedCutoff). In order to keep track of
  * this information, you'll need to specify a connection to a JDBC-compatible database, which will be used to track file paths and
- * when they were last known to be published by Lucille. For more information about the database / its schema, see {@link com.kmwllc.lucille.connector.storageclient.StorageClientStateManager}
+ * when they were last known to be published by Lucille. For more information about the database / its schema, see {@link FileConnectorStateManager}
  * <br> Config Parameters:
  * <br> - driver (String): The driver to use for creating the connection.
  * <br> - connectionString (String): A String for a connection to your state database.
@@ -127,7 +125,7 @@ public class FileConnector extends AbstractConnector {
   private StorageClient storageClient;
   private final URI storageURI;
 
-  private final StorageClientStateManager stateManager;
+  private final FileConnectorStateManager stateManager;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config, Spec.connector()
@@ -145,10 +143,14 @@ public class FileConnector extends AbstractConnector {
       throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
     }
 
-    this.stateManager = config.hasPath("state") ? new StorageClientStateManager(config.getConfig("state")) : null;
+    this.stateManager = config.hasPath("state") ? new FileConnectorStateManager(config.getConfig("state")) : null;
 
     if (CLOUD_STORAGE_CLIENT_KEYS.stream().filter(config::hasPath).count() > 1) {
       log.warn("Config for FileConnector contains options for more than one cloud provider.");
+    }
+
+    if (filterOptions.hasPath("lastPublishedCutoff") && !config.hasPath("state")) {
+      log.warn("FilterOptions.lastPublishedCutoff was specified, but no state configuration was provided. It will not be enforced.");
     }
   }
 
@@ -168,7 +170,7 @@ public class FileConnector extends AbstractConnector {
         String tableName = storageClient.getStateTableName(storageURI);
 
         stateManager.init();
-        StorageClientState state = stateManager.getStateForTraversal(storageURI, tableName);
+        FileConnectorState state = stateManager.getStateForTraversal(storageURI, tableName);
 
         storageClient.traverse(publisher, params, state);
         stateManager.updateStateDatabase(state, tableName);
@@ -189,7 +191,7 @@ public class FileConnector extends AbstractConnector {
         try {
           stateManager.shutdown();
         } catch (SQLException e) {
-          throw new ConnectorException("Error occurred while shutting down StorageClientStateManager.", e);
+          throw new ConnectorException("Error occurred while shutting down FileConnectorStateManager.", e);
         }
       }
     }

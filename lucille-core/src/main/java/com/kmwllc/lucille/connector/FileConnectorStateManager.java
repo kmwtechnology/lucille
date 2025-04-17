@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.storageclient;
+package com.kmwllc.lucille.connector;
 
 import com.typesafe.config.Config;
 import java.net.URI;
@@ -21,16 +21,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <p> Holds / manages a connection to a JDBC database used to maintain state regarding StorageClient traversals and the last
+ * <p> Holds / manages a connection to a JDBC database used to maintain state regarding FileConnector traversals and the last
  * time files were processed and published by Lucille.
  * <p> Build a connection to a JDBC-compatible database (can be embedded or not)
  *
  * <p> Call {@link #init()} and {@link #shutdown()} to connect / disconnect to the database.
  * <p> Call {@link #getStateForTraversal(URI, String)} to retrieve the appropriate / relevant state information for your traversal,
- * holding it in memory. Invoke the appropriate methods on the returned {@link StorageClientState} as you progress throughout your
+ * holding it in memory. Invoke the appropriate methods on the returned {@link FileConnectorState} as you progress throughout your
  * traversal.
- * <p> After your traversal completes, call {@link #updateStateDatabase(StorageClientState, String)} to update the database based on the
- * results of your traversal. This method performs UPDATE, INSERT, and DELETE operations, based on the status of {@link StorageClientState}.
+ * <p> After your traversal completes, call {@link #updateStateDatabase(FileConnectorState, String)} to update the database based on the
+ * results of your traversal. This method performs UPDATE, INSERT, and DELETE operations, based on the status of {@link FileConnectorState}.
  *
  * <p> The database should/will have the following schema:
  * <ul>
@@ -70,9 +70,9 @@ import org.slf4j.LoggerFactory;
  *   <li>FileConnector does not support individual multithreading.</li>
  * </ol>
  */
-public class StorageClientStateManager {
+public class FileConnectorStateManager {
 
-  private static final Logger log = LoggerFactory.getLogger(StorageClientStateManager.class);
+  private static final Logger log = LoggerFactory.getLogger(FileConnectorStateManager.class);
 
   private final String driver;
   private final String connectionString;
@@ -82,10 +82,10 @@ public class StorageClientStateManager {
   private Connection jdbcConnection;
 
   /**
-   * Creates a StorageClientStateManager from the given config.
-   * @param config Configuration for the StorageClientStateManager.
+   * Creates a FileConnectorStateManager from the given config.
+   * @param config Configuration for the FileConnectorStateManager.
    */
-  public StorageClientStateManager(Config config) {
+  public FileConnectorStateManager(Config config) {
     this.driver = config.getString("driver");
     this.connectionString = config.getString("connectionString");
     this.jdbcUser = config.getString("jdbcUser");
@@ -120,11 +120,11 @@ public class StorageClientStateManager {
   }
 
   /**
-   * Returns a {@link StorageClientState} populated with relevant information for a traversal that starts at the given URI. This
-   * allows you to see when files were last known to be published by Lucille, and then later call {@link #updateStateDatabase(StorageClientState, String)}
+   * Returns a {@link FileConnectorState} populated with relevant information for a traversal that starts at the given URI. This
+   * allows you to see when files were last known to be published by Lucille, and then later call {@link #updateStateDatabase(FileConnectorState, String)}
    * to update the results of your traversal.
    * <br>
-   * The {@link StorageClientState} returned will only contain information (last published timestamps)
+   * The {@link FileConnectorState} returned will only contain information (last published timestamps)
    * for relevant files. For example, building state for a traversal starting at /Users/gwashington/Desktop will <b>not</b> include information
    * for any files found in /Users/gwashington.
    * <br>
@@ -135,12 +135,10 @@ public class StorageClientStateManager {
    *
    * @param pathToStorage A URI to the starting point of your traversal. If it is a directory, it is recommended that it ends with '/'.
    * @param traversalTableName The name for the table with relevant state information for your traversal. Should be determined by a storage client.
-   * @return a StorageClientState with information for your traversal.
+   * @return a FileConnectorState with information for your traversal.
    * @throws SQLException If a SQL-related error occurs.
    */
-  // Gets State information relevant for a traversal which starts at the given directory, and has the given table name
-  // (determined by the Storage Client's handling of the URI)
-  public StorageClientState getStateForTraversal(URI pathToStorage, String traversalTableName) throws SQLException {
+  public FileConnectorState getStateForTraversal(URI pathToStorage, String traversalTableName) throws SQLException {
     traversalTableName = traversalTableName.toUpperCase();
     ensureTableExists(traversalTableName);
 
@@ -178,7 +176,7 @@ public class StorageClientStateManager {
       }
     }
 
-    return new StorageClientState(knownDirectories, fileStateEntries);
+    return new FileConnectorState(knownDirectories, fileStateEntries);
   }
 
   // Ensures a table with the given name exists in the database. If it does not, it will be created with the appropriate
@@ -213,19 +211,19 @@ public class StorageClientStateManager {
   }
 
   /**
-   * Updates the state database to reflect the information held by the given {@link StorageClientState} under the given table name.
+   * Updates the state database to reflect the information held by the given {@link FileConnectorState} under the given table name.
    * <br>
-   * Executes UPDATE, INSERT, and DELETE statements based on {@link StorageClientState#getKnownAndPublishedFilePaths()},
-   * {@link StorageClientState#getNewlyPublishedFilePaths()}, {@link StorageClientState#getNewDirectoryPaths()}, and
-   * {@link StorageClientState#getPathsToDelete()}.
+   * Executes UPDATE, INSERT, and DELETE statements based on {@link FileConnectorState#getKnownAndPublishedFilePaths()},
+   * {@link FileConnectorState#getNewlyPublishedFilePaths()}, {@link FileConnectorState#getNewDirectoryPaths()}, and
+   * {@link FileConnectorState#getPathsToDelete()}.
    * <br>
    * All files that got published (according to the state) will receive the same "last_published" Timestamp in the database.
    *
-   * @param state StorageClientState that has been used in a traversal.
+   * @param state FileConnectorState that has been used in a traversal.
    * @param traversalTableName The table name for your traversal. Should be produced by a storage client. Doesn't need to be capitalized.
    * @throws SQLException If a SQL-related error occurs.
    */
-  public void updateStateDatabase(StorageClientState state, String traversalTableName) throws SQLException {
+  public void updateStateDatabase(FileConnectorState state, String traversalTableName) throws SQLException {
     traversalTableName = traversalTableName.toUpperCase();
     Timestamp sharedTimestamp = Timestamp.from(Instant.now());
 

@@ -11,6 +11,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageOptions;
 import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.connector.FileConnectorState;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
@@ -20,7 +21,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.nio.channels.Channels;
 import java.util.Objects;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,13 +62,12 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, StorageClientState state) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorState state) throws Exception {
     Page<Blob> page = storage.list(getBucketOrContainerName(params), BlobListOption.prefix(getStartingDirectory(params)),
         BlobListOption.pageSize(maxNumOfPages));
     do {
       page.streamAll()
           .forEachOrdered(blob -> {
-            // TODO: need to make sure this will give us directories.
             GoogleFileReference fileRef = new GoogleFileReference(blob, params);
             processAndPublishFileIfValid(publisher, fileRef, params, state);
           });
@@ -179,7 +178,7 @@ public class GoogleStorageClient extends BaseStorageClient {
       return doc;
     }
 
-    // Just here to simplify the call to
+    // Just here to simplify the call to super()
     private static String getFullPathHelper(Blob blob, TraversalParams params) {
       URI paramsURI = params.getURI();
       return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();

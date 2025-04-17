@@ -5,6 +5,7 @@ import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 
 import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.connector.FileConnectorState;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
@@ -75,13 +76,12 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, StorageClientState state) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorState state) throws Exception {
     ListObjectsV2Request request = ListObjectsV2Request.builder()
         .bucket(getBucketOrContainerName(params))
         .prefix(getStartingDirectory(params))
         .maxKeys(maxNumOfPages).build();
     ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
-    // TODO: want to make sure this will include directories...
     response.stream()
         .forEachOrdered(resp -> {
           resp.contents().forEach(obj -> {

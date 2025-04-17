@@ -15,8 +15,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
-import com.kmwllc.lucille.connector.storageclient.StorageClientState;
-import com.kmwllc.lucille.connector.storageclient.StorageClientStateManager;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -288,7 +286,7 @@ public class FileConnectorTest {
     Publisher publisher2 = new PublisherImpl(config, messenger2, "run", "pipeline1");
 
     // State only includes everything in /example/. Let's imagine subdir (and its contents) are new...
-    StorageClientState pretendState = new StorageClientState(Set.of(
+    FileConnectorState pretendState = new FileConnectorState(Set.of(
         Paths.get("src/test/resources/FileConnectorTest/example").toAbsolutePath() + "/"
     ), Map.of(
         Paths.get("src/test/resources/FileConnectorTest/example/a.json").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
@@ -301,7 +299,7 @@ public class FileConnectorTest {
     ));
 
     // This is what state looks like after "discovering" everything in /example/subdir/
-    StorageClientState pretendUpdatedState = new StorageClientState(Set.of(
+    FileConnectorState pretendUpdatedState = new FileConnectorState(Set.of(
         Paths.get("src/test/resources/FileConnectorTest/example").toAbsolutePath() + "/",
         Paths.get("src/test/resources/FileConnectorTest/example/subdir").toAbsolutePath() + "/"
     ), Map.of(
@@ -316,7 +314,7 @@ public class FileConnectorTest {
         Paths.get("src/test/resources/FileConnectorTest/example/subdir/skipFile.txt").toAbsolutePath().toString(), Instant.now()
     ));
 
-    try (MockedConstruction<StorageClientStateManager> mgr = mockConstruction(StorageClientStateManager.class, (manager, context) -> {
+    try (MockedConstruction<FileConnectorStateManager> mgr = mockConstruction(FileConnectorStateManager.class, (manager, context) -> {
       when(manager.getStateForTraversal(any(), any()))
           .thenReturn(pretendState)
           .thenReturn(pretendUpdatedState);

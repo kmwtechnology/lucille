@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.storageclient;
+package com.kmwllc.lucille.connector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -21,7 +21,7 @@ import org.h2.tools.RunScript;
 import org.junit.Rule;
 import org.junit.Test;
 
-public class StorageClientStateManagerTest {
+public class FileConnectorStateManagerTest {
 
   private static final String helloFile = "/hello.txt";
   private static final String infoFile = "/files/info.txt";
@@ -47,11 +47,11 @@ public class StorageClientStateManagerTest {
   @Test
   public void testStateManagerRootDirectory() throws Exception {
     assertEquals(1, dbHelper.checkNumConnections());
-    Config config = ConfigFactory.parseResourcesAnySyntax("StorageClientStateManagerTest/config.conf");
-    StorageClientStateManager manager = new StorageClientStateManager(config);
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config);
     manager.init();
 
-    StorageClientState state = manager.getStateForTraversal(URI.create("/"), "file");
+    FileConnectorState state = manager.getStateForTraversal(URI.create("/"), "file");
 
     // making sure the times are read correctly from the start file...
     assertNotNull(state.getLastPublished(helloFile));
@@ -104,11 +104,11 @@ public class StorageClientStateManagerTest {
   @Test
   public void testStateManagerSubdirDirectory() throws Exception {
     assertEquals(1, dbHelper.checkNumConnections());
-    Config config = ConfigFactory.parseResourcesAnySyntax("StorageClientStateManagerTest/config.conf");
-    StorageClientStateManager manager = new StorageClientStateManager(config);
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config);
     manager.init();
 
-    StorageClientState state = manager.getStateForTraversal(URI.create(subdirDirectory), "file");
+    FileConnectorState state = manager.getStateForTraversal(URI.create(subdirDirectory), "file");
 
     // should only have state entry for the relevant file...
     assertNull(state.getLastPublished(helloFile));
@@ -148,11 +148,11 @@ public class StorageClientStateManagerTest {
   @Test
   public void testStateManagerSingleFile() throws Exception {
     assertEquals(1, dbHelper.checkNumConnections());
-    Config config = ConfigFactory.parseResourcesAnySyntax("StorageClientStateManagerTest/config.conf");
-    StorageClientStateManager manager = new StorageClientStateManager(config);
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config);
     manager.init();
 
-    StorageClientState state = manager.getStateForTraversal(URI.create("/files/info.txt"), "file");
+    FileConnectorState state = manager.getStateForTraversal(URI.create("/files/info.txt"), "file");
 
     // should only have state entry for the relevant file...
     assertNull(state.getLastPublished(helloFile));
@@ -192,11 +192,11 @@ public class StorageClientStateManagerTest {
   @Test
   public void testStateManagerOnNewDirectory() throws Exception {
     assertEquals(1, dbHelper.checkNumConnections());
-    Config config = ConfigFactory.parseResourcesAnySyntax("StorageClientStateManagerTest/config.conf");
-    StorageClientStateManager manager = new StorageClientStateManager(config);
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config);
     manager.init();
 
-    StorageClientState state = manager.getStateForTraversal(URI.create("/newdir/"), "file");
+    FileConnectorState state = manager.getStateForTraversal(URI.create("/newdir/"), "file");
 
     // shouldn't have gotten state for any of the files
     assertNull(state.getLastPublished(helloFile));
@@ -235,12 +235,12 @@ public class StorageClientStateManagerTest {
   @Test
   public void testStateManagerWithDeletion() throws Exception {
     assertEquals(1, dbHelper.checkNumConnections());
-    Config config = ConfigFactory.parseResourcesAnySyntax("StorageClientStateManagerTest/config.conf");
-    StorageClientStateManager manager = new StorageClientStateManager(config);
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config);
     manager.init();
 
     // a "full" traversal / from the root directory
-    StorageClientState state = manager.getStateForTraversal(URI.create("/"), "file");
+    FileConnectorState state = manager.getStateForTraversal(URI.create("/"), "file");
 
     // should have state for each files
     assertNotNull(state.getLastPublished(helloFile));
@@ -278,12 +278,12 @@ public class StorageClientStateManagerTest {
   @Test
   public void testStateManagerSubdirWithoutFinalSlash() throws Exception {
     assertEquals(1, dbHelper.checkNumConnections());
-    Config config = ConfigFactory.parseResourcesAnySyntax("StorageClientStateManagerTest/config.conf");
-    StorageClientStateManager manager = new StorageClientStateManager(config);
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config);
     manager.init();
 
     // not using a final slash in the URI here...
-    StorageClientState state = manager.getStateForTraversal(URI.create("/files/subdir"), "file");
+    FileConnectorState state = manager.getStateForTraversal(URI.create("/files/subdir"), "file");
 
     // running all the same assertions for the regular test (/files/subdir/) as well.
     assertNull(state.getLastPublished(helloFile));
@@ -324,12 +324,12 @@ public class StorageClientStateManagerTest {
   @Test
   public void testStateManagerOnNewTable() throws Exception {
     assertEquals(1, dbHelper.checkNumConnections());
-    Config config = ConfigFactory.parseResourcesAnySyntax("StorageClientStateManagerTest/config.conf");
-    StorageClientStateManager manager = new StorageClientStateManager(config);
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config);
     manager.init();
 
     // this table won't exist, but this method call should create it
-    StorageClientState state = manager.getStateForTraversal(URI.create("s3://lucille-bucket/"), "s3_lucille-bucket");
+    FileConnectorState state = manager.getStateForTraversal(URI.create("s3://lucille-bucket/"), "s3_lucille-bucket");
 
     // /files/ --> s3://lucille-bucket/files/
     for (String filePath : allFileAndDirectoryPaths) {

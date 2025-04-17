@@ -15,8 +15,8 @@ public interface FileReference {
   String getName();
 
   /**
-   * @return A String representing the full path to this file. If the file is a cloud file, it will include the scheme / be written
-   * like a URI.
+   * @return A String representing the full path to this file. If the file is a cloud file, it will be written as a full URI
+   * to the file. Directories, both locally and in the cloud, will end with '/'.
    */
   String getFullPath();
 

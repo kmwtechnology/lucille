@@ -7,6 +7,7 @@ import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
+import com.kmwllc.lucille.connector.FileConnectorState;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
@@ -92,13 +93,14 @@ public abstract class BaseStorageClient implements StorageClient {
     return this.initialized;
   }
 
+  // Convenience method for traversing without state.
   @Override
   public final void traverse(Publisher publisher, TraversalParams params) throws Exception {
     traverse(publisher, params, null);
   }
 
   @Override
-  public final void traverse(Publisher publisher, TraversalParams params, StorageClientState state) throws Exception {
+  public final void traverse(Publisher publisher, TraversalParams params, FileConnectorState state) throws Exception {
     if (!isInitialized()) {
       throw new IllegalStateException("This StorageClient has not been initialized.");
     }
@@ -111,7 +113,7 @@ public abstract class BaseStorageClient implements StorageClient {
     }
   }
 
-  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, StorageClientState state) throws Exception;
+  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorState state) throws Exception;
 
   public abstract String getStateTableName(URI pathToStorage);
 
@@ -132,7 +134,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param publisher publisher used to publish documents
    * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
    */
-  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, StorageClientState state) {
+  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileConnectorState state) {
     String fullPathStr = fileReference.getFullPath();
     String fileExtension = fileReference.getFileExtension();
 
@@ -202,7 +204,7 @@ public abstract class BaseStorageClient implements StorageClient {
       if (params.supportedFileType(fileExtension)) {
         // Get a stream for the file content, so we don't have to load it all at once.
         InputStream contentStream = fileReference.getContentStream(params);
-        // get the right FileHandler and publish based on content. This will update state as appropriate, as well.
+        // get the right FileHandler and publish based on content. (This method will update state as well.)
         publishUsingFileHandler(publisher, fileExtension, contentStream, fullPathStr, state);
 
         afterProcessingFile(fullPathStr, params);
@@ -321,7 +323,7 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * Helper method to publish via file handler, using an InputStream for the file's contents.
    */
-  private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String fullPathStr, StorageClientState state) throws Exception {
+  private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String fullPathStr, FileConnectorState state) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);

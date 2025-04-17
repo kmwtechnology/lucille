@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.storageclient;
+package com.kmwllc.lucille.connector;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -9,21 +9,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Holds state regarding the relevant files in a StorageClient traversal, namely, files and the last time they were processed &
+ * Holds state regarding the relevant files in a FileConnector traversal, namely, files and the last time they were processed &
  * published by Lucille.
  *
  * <p> Call the {@link #markFileOrDirectoryEncountered(String)} method <b>for every file and directory</b> you encounter during a traversal - regardless of
  * whether it complies with FilterOptions or not.
+ * <p> Call the {@link #successfullyPublishedFile(String)} method after a file was successfully published by Lucille.
  * <p> Call the {@link #getLastPublished(String)} method to lookup when the file was last published by Lucille.
  * Returns null if there is no record of the file being processed by Lucille.
- * <p> Call the {@link #successfullyPublishedFile(String)} method after a file was successfully published by Lucille.
  *
- * <p> When your traversal is complete, you'll call {@link StorageClientStateManager#updateStateDatabase(StorageClientState, String)} with this
+ * <p> When your traversal is complete, you'll call {@link FileConnectorStateManager#updateStateDatabase(FileConnectorState, String)} with this
  * state to update your database and reflect the results of your traversal.
  */
-public class StorageClientState {
+public class FileConnectorState {
 
-  private static final Logger log = LoggerFactory.getLogger(StorageClientState.class);
+  private static final Logger log = LoggerFactory.getLogger(FileConnectorState.class);
 
   // Based on the initial information provided in the constructor (the previous state read / built from the database).
   private final Set<String> knownDirectories;
@@ -36,7 +36,7 @@ public class StorageClientState {
   private final Set<String> publishedFiles;
 
   /**
-   * Creates a StorageClientState, representing and managing the given Map of file paths to Instants at which they were last modified,
+   * Creates a FileConnectorState, representing and managing the given Map of file paths to Instants at which they were last modified,
    * read from a state database. This object will track each of these file paths, and when the database is updated to reflect this state,
    * any file paths that were not referenced in a call to {@link #markFileOrDirectoryEncountered(String)} will be removed from the database.
    *
@@ -45,7 +45,7 @@ public class StorageClientState {
    * @param knownFileStateEntries A map of file paths (Strings) to the Instant at which they were last published by Lucille, according
    *                     to the state database.
    */
-  public StorageClientState(Set<String> knownDirectories, Map<String, Instant> knownFileStateEntries) {
+  public FileConnectorState(Set<String> knownDirectories, Map<String, Instant> knownFileStateEntries) {
     // The paths that we haven't encountered in our traversal. As we see them, we will remove them from the set.
     // At the end of the traversal, these paths will be removed from the directory.
     this.knownDirectories = new HashSet<>(knownDirectories);
@@ -57,9 +57,9 @@ public class StorageClientState {
   }
 
   /**
-   * Update this state to reflect that the given file or directory was encountered during a StorageClient traversal. Directories
+   * Update this state to reflect that the given file or directory was encountered during a FileConnector traversal. Directories
    * must end with the path separator.
-   * @param fullPathStr The full path to the file or directory you encountered during a StorageClient traversal. Directories must
+   * @param fullPathStr The full path to the file or directory you encountered during a FileConnector traversal. Directories must
    *                    end with the path separator.
    */
   public void markFileOrDirectoryEncountered(String fullPathStr) {
@@ -71,7 +71,7 @@ public class StorageClientState {
   }
 
   /**
-   * Retrieves the instant at which this file was last known to be published by Lucille. If this StorageClientState has
+   * Retrieves the instant at which this file was last known to be published by Lucille. If this FileConnectorState has
    * no record of publishing this file, a null Instant is returned. {@link #successfullyPublishedFile(String)} has no
    * effect on the return value of this method - it is entirely dependent on the information previously retrieved
    * from the database.
@@ -85,7 +85,7 @@ public class StorageClientState {
   }
 
   /**
-   * Updates this state to reflect that the given file was successfully published during a StorageClient traversal.
+   * Updates this state to reflect that the given file was successfully published during a FileConnector traversal.
    * @param fullPathStr The full path to the file that was successfully published.
    */
   public void successfullyPublishedFile(String fullPathStr) {
@@ -96,7 +96,7 @@ public class StorageClientState {
     publishedFiles.add(fullPathStr);
   }
 
-  // Getters / methods for StorageClientStateManager to write / modify necessary information in database
+  // Getters / methods for FileConnectorStateManager to write / modify necessary information in database
 
   /**
    * Returns all the files that were previously represented / found in the State database and have been published.

@@ -97,7 +97,7 @@ public class TraversalParams {
       }
     }
 
-    // If lastPublishedCutoff is specified, return false if it is violated
+    // If lastPublishedCutoff is specified, and we found a lastPublished Instant for the file, return false if it is violated
     if (lastPublishedCutoff != null && fileLastPublished != null) {
       Instant cutoffPoint = Instant.now().minus(lastPublishedCutoff);
 

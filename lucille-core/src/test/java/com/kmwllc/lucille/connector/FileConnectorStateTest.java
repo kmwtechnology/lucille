@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.storageclient;
+package com.kmwllc.lucille.connector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
 
-public class StorageClientStateTest {
+public class FileConnectorStateTest {
 
   private static final String helloFile = "/hello.txt";
   private static final String infoFile = "/files/info.txt";
@@ -17,7 +17,7 @@ public class StorageClientStateTest {
   private static final String filesDirectory = "/files/";
   private static final String subdirDirectory = "/files/subdir/";
 
-  // StorageClientState will not mutate these.
+  // FileConnectorState will not mutate these.
   private static final Set<String> allDirectories = Set.of(filesDirectory, subdirDirectory);
 
   private static final Map<String, Instant> allFiles = Map.of(
@@ -32,8 +32,8 @@ public class StorageClientStateTest {
   // An example of traversing with existing state entries for each file.
   @Test
   public void testExampleTraversal() {
-    // Data that would be read from the database + assembled by StorageClientStateManager
-    StorageClientState state = new StorageClientState(allDirectories, allFiles);
+    // Data that would be read from the database + assembled by FileConnectorStateManager
+    FileConnectorState state = new FileConnectorState(allDirectories, allFiles);
 
     // we encounter all files and directories, and publish every file.
     state.markFileOrDirectoryEncountered(filesDirectory);
@@ -60,7 +60,7 @@ public class StorageClientStateTest {
   // An example of traversing where we find a "new file", one we didn't have a state entry for.
   @Test
   public void testExampleTraversalWithNewFiles() {
-    StorageClientState state = new StorageClientState(allDirectories, allFilesNoSecrets);
+    FileConnectorState state = new FileConnectorState(allDirectories, allFilesNoSecrets);
 
     // we encounter and publish every file / directory.
     // State did not previously have record on the secretsFile.
@@ -89,7 +89,7 @@ public class StorageClientStateTest {
   // indicating it was deleted, renamed, or moved.
   @Test
   public void testExampleTraversalWithDeletions() {
-    StorageClientState state = new StorageClientState(allDirectories, allFiles);
+    FileConnectorState state = new FileConnectorState(allDirectories, allFiles);
 
     // we encounter each file / directory, and publish each file, but nothing happens for secrets (not found).
     state.markFileOrDirectoryEncountered(filesDirectory);
@@ -113,7 +113,7 @@ public class StorageClientStateTest {
   // didn't meet filter options, an error occurred, etc.
   @Test
   public void testExampleTraversalWithoutSomePublishing() {
-    StorageClientState state = new StorageClientState(allDirectories, allFilesNoSecrets);
+    FileConnectorState state = new FileConnectorState(allDirectories, allFilesNoSecrets);
 
     // we encounter each file / directory, and publish every file except for secrets.
     state.markFileOrDirectoryEncountered(filesDirectory);
@@ -143,7 +143,7 @@ public class StorageClientStateTest {
   // The previous state still has entries for all files and directories.
   @Test
   public void testExampleTraversalWithDeletedDirectory() {
-    StorageClientState state = new StorageClientState(allDirectories, allFiles);
+    FileConnectorState state = new FileConnectorState(allDirectories, allFiles);
 
     // we only encounter files / directories that aren't in/are subdir.
     state.markFileOrDirectoryEncountered(filesDirectory);
@@ -169,7 +169,7 @@ public class StorageClientStateTest {
   // Pretending we haven't encountered subdir or subdir/secrets.txt before
   @Test
   public void testExampleTraversalWithNewDirectory() {
-    StorageClientState state = new StorageClientState(Set.of(filesDirectory), allFilesNoSecrets);
+    FileConnectorState state = new FileConnectorState(Set.of(filesDirectory), allFilesNoSecrets);
 
     // we encounter and publish every file / directory.
     // State did not previously have record on the subdir directory or the secretsFile.
