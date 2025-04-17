@@ -30,6 +30,11 @@ public abstract class Indexer implements Runnable {
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
 
+  // Using a String[] so it can be passed directly to varargs for a Spec
+  private static final String[] OPTIONAL_INDEXER_CONFIG_PROPERTIES = new String[] {"type", "class", "idOverrideField", "indexOverrideField", "ignoreFields", "deletionMarkerField",
+      "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue", "batchSize", "batchTimeout", "logRate",
+      "versionType", "routingField", "sendEnabled"};
+
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
@@ -64,7 +69,16 @@ public abstract class Indexer implements Runnable {
     log.debug("terminate");
   }
 
-  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) {
+  /**
+   * Creates the base implementation of an Indexer from the given parameters and validates it. Runs validation on the common "indexer"
+   * config as well as the specific implementation's config, as either are present.
+   *
+   * @param config The root config for Lucille. (In other words, should potentially include both "indexer" and specific
+   *               implementation config, like "solr" or "elasticsearch".)
+   * @param specificImplSpec A Spec for the specific Indexer implementation and its properties. Should define what is allowed in the
+   *                         config, for example, index, url, etc. for "elasticsearch".
+   */
+  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId, Spec specificImplSpec) {
     this.messenger = messenger;
     this.idOverrideField =
         config.hasPath("indexer.idOverrideField")
@@ -123,9 +137,18 @@ public abstract class Indexer implements Runnable {
     this.stopWatch = new StopWatch();
     this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
     this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
-
     this.localRunId = localRunId;
+
+    // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
+    validateIndexerConfig(config, specificImplSpec);
   }
+
+  /**
+   * Gets the key / parent name of this Indexer in a Config. For example, "elasticsearch" for ElasticsearchIndexer. Return null
+   * if this Indexer does not take additional / specific configuration and, as such, has no config key.
+   * @return the key / parent name of this Indexer in a Config.
+   */
+  protected abstract String getIndexerConfigKey();
 
   /**
    * Return true if connection to the destination search engine is valid and the relevant index or
@@ -337,6 +360,22 @@ public abstract class Indexer implements Runnable {
           }
           System.exit(0);
         });
+  }
+
+  private void validateIndexerConfig(Config config, Spec specificImplSpec) {
+    // Validate the general "indexer" entry in the Config, if present.
+    if (config.hasPath("indexer")) {
+      Config indexerConfig = config.getConfig("indexer");
+      Spec.withoutDefaults()
+          .withOptionalProperties(OPTIONAL_INDEXER_CONFIG_PROPERTIES)
+          .validate(indexerConfig, "Indexer");
+    }
+
+    // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
+    if (getIndexerConfigKey() != null && config.hasPath(getIndexerConfigKey())) {
+      Config specificImplConfig = config.getConfig(getIndexerConfigKey());
+      specificImplSpec.validate(specificImplConfig, getIndexerConfigKey());
+    }
   }
 
   public int getBatchCapacity() {

@@ -46,7 +46,7 @@ public class CSVIndexerTest {
     assertFalse(outputFile.exists());
 
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("CSVIndexerTest/config.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/config.conf");
 
     Document doc = Document.create("doc1", "test_run");
     doc.setField("f1", "123");
@@ -79,7 +79,7 @@ public class CSVIndexerTest {
     assertFalse(outputFile.exists());
 
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("CSVIndexerTest/config.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/config.conf");
 
     Document doc = Document.create("doc1", "test_run");
     doc.setField("f1", "123");
@@ -108,7 +108,7 @@ public class CSVIndexerTest {
   public void testInvalidConfig() {
     // cannot use the indexOverrideField
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("CSVIndexerTest/invalidConfig.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/invalidConfig.conf");
 
     assertThrows(IllegalArgumentException.class,
         () -> new CSVIndexer(config, messenger, false, "testing"));
@@ -117,7 +117,7 @@ public class CSVIndexerTest {
   @Test
   public void testValidateConnection() {
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("CSVIndexerTest/includeHeader.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/includeHeader.conf");
 
     CSVIndexer noErrorIndexer = new CSVIndexer(config, messenger, null, false, "testing");
     assertFalse(noErrorIndexer.validateConnection());
@@ -130,7 +130,7 @@ public class CSVIndexerTest {
     assertTrue(indexer.validateConnection());
 
     // no include header
-    config = ConfigFactory.load("CSVIndexerTest/config.conf");
+    config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/config.conf");
     indexer = new CSVIndexer(config, messenger, false, "testing");
     assertTrue(indexer.validateConnection());
   }
@@ -148,7 +148,7 @@ public class CSVIndexerTest {
       assertFalse(parentDirFile.exists());
 
       TestMessenger messenger = new TestMessenger();
-      Config config = ConfigFactory.load("CSVIndexerTest/missingParentConfig.conf");
+      Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/missingParentConfig.conf");
       new CSVIndexer(config, messenger, false, "testing");
 
       assertTrue(parentDirFile.exists());
@@ -161,7 +161,7 @@ public class CSVIndexerTest {
   @Test
   public void testCloseNullWriter() {
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("CSVIndexerTest/config.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/config.conf");
     CSVIndexer indexer = new CSVIndexer(config, messenger, null, false, "testing");
 
     // should not throw an error.
@@ -171,7 +171,7 @@ public class CSVIndexerTest {
   @Test
   public void testCloseConnectionWithError() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("CSVIndexerTest/config.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/config.conf");
 
     ICSVWriter mockWriter = Mockito.mock(ICSVWriter.class);
     Mockito.doThrow(new IOException("Mocked Error")).when(mockWriter).close();

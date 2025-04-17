@@ -72,8 +72,8 @@ public class Pipeline {
         Constructor<?> constructor = clazz.getConstructor(Config.class);
         // Construct the stage. Validation takes place in the super() constructor.
         getInstance(constructor, c);
-      } catch (ClassNotFoundException e) {
-        exceptions.add(new StageException("Stage class not found: " + e.getMessage()));
+      } catch (ReflectiveOperationException e) {
+        exceptions.add(new StageException("Reflective error with Stage " + c.getString("class") + "", e));
       } catch (Exception e) {
         exceptions.add(e);
       }
@@ -107,8 +107,8 @@ public class Pipeline {
     try {
       return (Stage) constructor.newInstance(c);
     } catch (InvocationTargetException e) {
-      if (e.getTargetException() instanceof Exception) {
-        throw (Exception) e.getTargetException();
+      if (e.getCause() instanceof Exception) {
+        throw (Exception) e.getCause();
       } else {
         throw e;
       }

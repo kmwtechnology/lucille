@@ -3,11 +3,10 @@ package com.kmwllc.lucille.indexer;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
-import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,7 +23,6 @@ import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.Signal;
 
 public class SolrIndexer extends Indexer {
 
@@ -34,13 +32,19 @@ public class SolrIndexer extends Indexer {
 
   public SolrIndexer(
       Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
+        .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
+            "userName", "password", "acceptInvalidCert")
+        .withOptionalParents("ssl"));
     this.solrClient = solrClient;
   }
 
   public SolrIndexer(
       Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
+        .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
+            "userName", "password", "acceptInvalidCert")
+        .withOptionalParents("ssl"));
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
     this.solrClient = getSolrClient(config, bypass);
@@ -56,6 +60,9 @@ public class SolrIndexer extends Indexer {
       Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
     this(config, messenger, bypass, metricsPrefix, null);
   }
+
+  @Override
+  protected String getIndexerConfigKey() { return "solr"; }
 
   private static SolrClient getSolrClient(Config config, boolean bypass) {
     return bypass ? null : SolrUtils.getSolrClient(config);

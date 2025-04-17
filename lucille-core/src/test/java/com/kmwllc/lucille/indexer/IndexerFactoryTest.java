@@ -15,14 +15,6 @@ import static org.junit.Assert.assertThrows;
 public class IndexerFactoryTest {
 
   @Test
-  public void testFromDefaultTypeConfig() throws Exception {
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("IndexerFactoryTest/config_default_type.conf");
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
-    Assert.assertTrue(indexer instanceof SolrIndexer);
-  }
-
-  @Test
   public void testFromValidTypeConfig() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("IndexerFactoryTest/config_valid_type.conf");
@@ -66,5 +58,13 @@ public class IndexerFactoryTest {
     // removing the foo file created from test
     boolean fooIsDeleted = FileUtils.deleteQuietly(new File(config.getString("csv.path")));
     Assert.assertTrue(fooIsDeleted);
+  }
+
+  @Test
+  public void testFromDefaultTypeConfig() {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("IndexerFactoryTest/config_default_type.conf");
+
+    assertThrows(IndexerException.class, () -> IndexerFactory.fromConfig(config, messenger, true, "testing"));
   }
 }
