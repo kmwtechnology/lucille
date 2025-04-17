@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -81,7 +82,7 @@ public class QueryOpensearch extends Stage {
 
   public QueryOpensearch(Config config) {
     super(config, Spec.stage()
-        .withRequiredParents("opensearch")
+        .withRequiredParents(OpenSearchUtils.OPENSEARCH_PARENT_SPEC)
         .withOptionalProperties("templateName", "searchTemplate", "requiredParamNames",
             "optionalParamNames", "opensearchResponsePath", "destinationField"));
 

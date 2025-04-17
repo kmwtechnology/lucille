@@ -1,6 +1,8 @@
 package com.kmwllc.lucille.util;
 
 
+import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.Spec.ParentSpec;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -23,6 +25,11 @@ import org.slf4j.LoggerFactory;
  * Utility methods for communicating with Solr.
  */
 public class SolrUtils {
+
+  public static final ParentSpec SOLR_PARENT_SPEC = Spec.parent("solr")
+      .withRequiredProperties("url")
+      .withOptionalProperties("useCloudClients", "zkHosts", "zkChroot", "defaultCollection",
+          "userName", "password", "acceptInvalidCert");
 
   private static final Logger log = LoggerFactory.getLogger(SolrUtils.class);
 

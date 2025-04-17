@@ -1,6 +1,8 @@
 package com.kmwllc.lucille.core.fileHandler;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.Spec.ParentSpec;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -16,6 +18,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class JsonFileHandler extends BaseFileHandler {
+
+  public static final ParentSpec PARENT_SPEC = Spec.parent("json").withOptionalProperties("docIdPrefix");
 
   private static final Logger log = LoggerFactory.getLogger(JsonFileHandler.class);
 

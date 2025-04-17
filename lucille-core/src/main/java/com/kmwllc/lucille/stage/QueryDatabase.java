@@ -54,7 +54,7 @@ public class QueryDatabase extends Stage {
   public QueryDatabase(Config config) {
     super(config, Spec.stage()
         .withOptionalProperties("sql", "connectionRetries", "connectionRetryPause")
-        .withRequiredParents("fieldMapping")
+        .withRequiredParentNames("fieldMapping")
         .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword",
             "keyFields", "inputTypes"));
 
