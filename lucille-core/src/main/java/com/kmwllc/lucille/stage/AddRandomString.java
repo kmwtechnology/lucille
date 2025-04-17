@@ -23,30 +23,16 @@ import java.util.concurrent.ThreadLocalRandom;
  * that all random terms added to a field will be distinct.
  * <br>
  * Config Parameters -
- * <br>
- * <p>
- * <b>inputDataPath</b> (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
+ * <p> <b>inputDataPath</b> (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
  *  defaults to numeric data based on range size (0 -&gt; rangeSize - 1). Note that duplicate entries will not be removed.
- * </p>
- * <p>
- * <b>fieldName</b> (String, Optional) : Field name of field where data is placed, defaults to "data"
- *  </p>
- * <p>
- * <b>rangeSize</b> (int, Optional) : size of the subset of datapoints to be grabbed either from
+ * <p> <b>fieldName</b> (String, Optional) : Field name of field where data is placed, defaults to "data"
+ * <p> <b>rangeSize</b> (int, Optional) : size of the subset of datapoints to be grabbed either from
  *  given datapath or from random numbers
- * </p>
- *  <p>
- * <b>minNumOfTerms</b> (Integer, Optional) : minimum number of terms to be in the field, defaults to 1
- * </p>
- * <p>
- * <b>maxNumOfTerms</b> (Integer, Optional) : maximum number of terms to be in the field, defaults to 1
- * </p>
- * <p>
- * <b>isNested</b> (bool, Optional) : setting for structure of field, default or nested
- * <p>
- * <b>concatenate</b> (bool, Optional) : if true, represent multiple terms as a single space-separated string instead of multiple
+ * <p> <b>minNumOfTerms</b> (Integer, Optional) : minimum number of terms to be in the field, defaults to 1
+ * <p> <b>maxNumOfTerms</b> (Integer, Optional) : maximum number of terms to be in the field, defaults to 1
+ * <p> <b>isNested</b> (bool, Optional) : setting for structure of field, default or nested
+ * <p> <b>concatenate</b> (bool, Optional) : if true, represent multiple terms as a single space-separated string instead of multiple
  *  values, defaults to false
- * </p>
  */
 public class AddRandomString extends Stage {
 
@@ -61,6 +47,11 @@ public class AddRandomString extends Stage {
   private List<String> fileData;
   private final boolean concatenate;
 
+  /**
+   * Creates the AddRandomDate stage from the given Config.
+   * @param config Configuration for the AddRandomDate stage.
+   * @throws StageException In the event your config contains invalid values.
+   */
   public AddRandomString(Config config) throws StageException {
     super(config, Spec.stage().withOptionalProperties("input_data_path", "field_name", "range_size", "min_num_of_terms",
         "max_num_of_terms", "is_nested", "concatenate"));

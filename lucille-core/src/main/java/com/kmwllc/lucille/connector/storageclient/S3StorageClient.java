@@ -25,6 +25,10 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 
+/**
+ * A storage client for S3. Create using a configuration (commonly mapped to <b>s3</b>) which can contain
+ * "region" and can contain <b>both</b> "accessKeyId" and "secretAccessKey".
+ */
 public class S3StorageClient extends BaseStorageClient {
 
   private S3Client s3;

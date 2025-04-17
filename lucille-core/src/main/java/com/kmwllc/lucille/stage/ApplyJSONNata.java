@@ -22,18 +22,11 @@ import com.typesafe.config.Config;
  * See <a href="https://github.com/IBM/JSONata4Java">Here</a> for JSONNata implementation.
  * <br>
  * Config Parameters -
- * <br>
- * <p>
- * <b>source</b> (String, Optional) : The source field used as input. If not provided the entire document is used as input and the resulting json 
+ * <p> <b>source</b> (String, Optional) : The source field used as input. If not provided the entire document is used as input and the resulting json
  * replaces the document. Logs warning and skips document if this transformation fails, mutates reserved fields, or returns a non-object (primitive or array).
- * </p>
- * <p>
- * <b>destination</b> (String, Optional) : The destination field into which the resulting json should be placed. If not provided, 
+ * <p> <b>destination</b> (String, Optional) : The destination field into which the resulting json should be placed. If not provided,
  * the source field is mutated in place.
- * </p>
- * <p>
- * <b>expression</b> (String) : The JSONNata expression
- * </p>
+ * <p> <b>expression</b> (String) : The JSONNata expression
  */
 public class ApplyJSONNata extends Stage {
 

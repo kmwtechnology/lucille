@@ -16,7 +16,6 @@ import java.util.function.BiConsumer;
 import java.util.function.UnaryOperator;
 
 import static com.kmwllc.lucille.core.Document.RESERVED_FIELDS;
-import static com.kmwllc.lucille.core.Document.create;
 import static org.junit.Assert.*;
 
 @RunWith(JUnit4.class)
