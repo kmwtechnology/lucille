@@ -22,6 +22,7 @@ import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
+import org.eclipse.jetty.util.MultiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
@@ -121,6 +122,10 @@ public class SolrIndexer extends Indexer {
 
   @Override
   protected void sendToIndex(List<Document> documents) throws Exception {
+    //when sending updates/deletes to separate collections we do not want an error sending to a particular collection to
+    //prevent us from sending to other collections in the batch. collect any errors that occur in this multiexception and
+    //then use it to throw the error(s) at the end.
+    MultiException errorsSending = new MultiException();
 
     if (solrClient == null) {
       log.debug("sendToSolr bypassed for documents: " + documents);
@@ -157,7 +162,12 @@ public class SolrIndexer extends Indexer {
             && doc.has(deleteByFieldField)
             && deleteByFieldValue != null
             && doc.has(deleteByFieldValue))) {
-          sendAddUpdateBatch(collection, solrDocRequests.getAddUpdateDocs());
+          try {
+            sendAddUpdateBatch(collection, solrDocRequests.getAddUpdateDocs());
+          } catch (Exception e) {
+            errorsSending.add(e);
+          }
+
           solrDocRequests.resetAddUpdates();
         }
 
@@ -176,22 +186,35 @@ public class SolrIndexer extends Indexer {
         SolrInputDocument solrDoc = toSolrDoc(doc, idOverride, collection);
 
         // if the delete requests contain the ID of this document, send the deletes immediately so
-        // the delete is
-        // processed before this document.
+        // the delete is processed before this document.
 
         if (solrDocRequests.containsIdForDeletion(solrId)
             || solrDocRequests.containsAnyDeleteByField()) {
-          sendDeletionBatch(collection, solrDocRequests);
+          try {
+            sendDeletionBatch(collection, solrDocRequests);
+          } catch (Exception e) {
+            errorsSending.add(e);
+          }
+
           solrDocRequests.resetDeletes();
         }
         solrDocRequests.addDocForAddUpdate(solrDoc, solrId);
       }
     }
     for (String collection : solrDocRequestsByCollection.keySet()) {
-      sendAddUpdateBatch(
-          collection, solrDocRequestsByCollection.get(collection).getAddUpdateDocs());
-      sendDeletionBatch(collection, solrDocRequestsByCollection.get(collection));
+      try {
+        sendAddUpdateBatch(
+            collection, solrDocRequestsByCollection.get(collection).getAddUpdateDocs());
+      } catch (Exception e) {
+        errorsSending.add(e);
+      }
+      try {
+        sendDeletionBatch(collection, solrDocRequestsByCollection.get(collection));
+      } catch (Exception e) {
+        errorsSending.add(e);
+      }
     }
+    errorsSending.ifExceptionThrow();
   }
 
   private void sendAddUpdateBatch(String collection, List<SolrInputDocument> solrDocs)
