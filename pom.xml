@@ -12,7 +12,6 @@
     <relativePath>lucille-parent/pom.xml</relativePath>
   </parent>
 
-  <groupId>com.kmwllc</groupId>
   <artifactId>lucille</artifactId>
 
 
