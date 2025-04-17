@@ -23,6 +23,7 @@ import io.weaviate.client.v1.misc.api.MetaGetter;
 import io.weaviate.client.v1.misc.model.Meta;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -179,7 +180,7 @@ public class WeaviateIndexerTest {
     }
 
     @Override
-    public void sendToIndex(List<Document> docs) throws Exception {
+    public Set<Document> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
   }

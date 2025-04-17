@@ -7,6 +7,7 @@ import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
 import com.typesafe.config.Config;
 import java.io.File;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,11 +78,13 @@ public class CSVIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
     for (Document doc : documents) {
       writer.writeNext(getLine(doc), true);
     }
     writer.flushQuietly();
+
+    return Set.of();
   }
 
   private String[] getLine(Document doc) {

@@ -24,6 +24,7 @@ import io.weaviate.client.v1.misc.model.Meta;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,7 +103,7 @@ public class WeaviateIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
 
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
       for (Document doc : documents) {
@@ -149,6 +150,8 @@ public class WeaviateIndexer extends Indexer {
     } catch (Exception e) {
       throw new IndexerException(e.toString());
     }
+
+    return Set.of();
   }
 
   public static String generateDocumentUUID(Document document) {

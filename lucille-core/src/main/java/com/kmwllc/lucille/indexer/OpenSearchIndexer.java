@@ -9,7 +9,9 @@ import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -29,7 +31,6 @@ import org.opensearch.client.opensearch.core.DeleteByQueryResponse;
 import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 public class OpenSearchIndexer extends Indexer {
 
@@ -107,10 +108,10 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) {
-      return;
+      return Set.of();
     }
 
     Map<String, Document> documentsToUpload = new LinkedHashMap<>();
@@ -140,9 +141,11 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    uploadDocuments(new ArrayList<>(documentsToUpload.values()));
+    Set<Document> failedDocs = uploadDocuments(documentsToUpload.values());
     deleteById(new ArrayList<>(idsToDelete));
     deleteByQuery(termsToDeleteByQuery);
+
+    return failedDocs;
   }
 
   private void deleteById(List<String> idsToDelete) throws Exception {
@@ -160,7 +163,7 @@ public class OpenSearchIndexer extends Indexer {
       );
     }
 
-    BulkResponse response =  client.bulk(br.build());
+    BulkResponse response = client.bulk(br.build());
     if (response.errors()) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
@@ -236,12 +239,14 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private void uploadDocuments(List<Document> documentsToUpload) throws IOException, IndexerException {
+  private Set<Document> uploadDocuments(Collection<Document> documentsToUpload) throws IOException, IndexerException {
     if (documentsToUpload.isEmpty()) {
-      return;
+      return Set.of();
     }
 
+    Map<String, Document> uploadedDocuments = new HashMap<>();
     BulkRequest.Builder br = new BulkRequest.Builder();
+
     for (Document doc : documentsToUpload) {
 
       // removing the fields mentioned in the ignoreFields setting in configurations
@@ -252,6 +257,7 @@ public class OpenSearchIndexer extends Indexer {
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
       String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
+      uploadedDocuments.put(docId, doc);
 
       // This condition below avoids adding id if ignoreFields contains it and edge cases:
       // - Case 1: id and idOverride in ignoreFields -> idOverride used by Indexer, both removed from Document (tested in testIgnoreFieldsWithOverride)
@@ -295,15 +301,27 @@ public class OpenSearchIndexer extends Indexer {
             }));
       }
     }
+
+    Set<Document> failedDocs = new HashSet<>();
+
     BulkResponse response = client.bulk(br.build());
-    // We're choosing not to check response.errors(), instead iterating to be sure whether errors exist
+
     if (response != null) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
-          throw new IndexerException(item.error().reason());
+          // For the error - if the id is a document's id, then it failed, and we add it to the set.
+          // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
+          if (uploadedDocuments.containsKey(item.id())) {
+            Document failedDoc = uploadedDocuments.get(item.id());
+            failedDocs.add(failedDoc);
+          } else {
+            throw new IndexerException(item.error().reason());
+          }
         }
       }
     }
+
+    return failedDocs;
   }
 
   private void addChildren(Document doc, Map<String, Object> indexerDoc) {
