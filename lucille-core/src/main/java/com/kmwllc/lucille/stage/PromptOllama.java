@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
@@ -77,7 +78,7 @@ public class PromptOllama extends Stage {
   private final UpdateMode updateMode;
 
   public PromptOllama(Config config) {
-    super(config, new StageSpec()
+    super(config, Spec.stage()
         .withRequiredProperties("hostURL", "modelName", "systemPrompt")
         .withOptionalProperties("timeout", "fields", "requireJSON", "update_mode"));
 
