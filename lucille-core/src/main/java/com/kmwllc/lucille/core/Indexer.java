@@ -140,7 +140,7 @@ public abstract class Indexer implements Runnable {
    * each document individually.
    *
    * @return A set of the Documents that were not successfully indexed. Return an empty set if no documents fail / if not
-   * supported by the Indexer implementation.
+   * supported by the Indexer implementation. Must not return null.
    * @throws Exception In the event of a considerable error causing indexing to fail. Does not throw
    * Exceptions just because some Documents may have not been indexed successfully.
    */
@@ -227,14 +227,51 @@ public abstract class Indexer implements Runnable {
       return;
     }
 
-    Set<Document> failedDocs;
+
     try {
       stopWatch.reset();
       stopWatch.start();
-      failedDocs = sendToIndex(batchedDocs);
+      Set<Document> failedDocs = sendToIndex(batchedDocs);
       stopWatch.stop();
       histogram.update(stopWatch.getNanoTime() / batchedDocs.size());
       meter.mark(batchedDocs.size());
+
+      if (!failedDocs.isEmpty()) {
+        log.warn("{} Documents were not indexed successfully.", failedDocs.size());
+      }
+
+      // Mark all the documents in failedDoc as failed
+      for (Document d : failedDocs) {
+        try {
+          messenger.sendEvent(d, "FAILED", Event.Type.FAIL);
+          docLogger.error("Sent failure message for doc {}.", d.getId());
+        } catch (Exception e) {
+          log.error("Couldn't send failure event for doc {}", d.getId(), e);
+        }
+      }
+
+      for (Document d : batchedDocs) {
+        if (failedDocs.contains(d)) {
+          continue;
+        }
+
+        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
+          if (d.getRunId() != null) {
+            MDC.pushByKey(RUNID_FIELD, d.getRunId());
+          }
+
+          messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
+          docLogger.info("Sent success message for doc {}.", d.getId());
+        } catch (Exception e) {
+          // TODO: The run won't be able to finish if this event isn't received; can we do something
+          // special here?
+          log.error("Error sending completion event for doc {}", d.getId(), e);
+        } finally {
+          if (d.getRunId() != null) {
+            MDC.popByKey(RUNID_FIELD);
+          }
+        }
+      }
     } catch (Exception e) {
       // If an Exception is thrown, there was some larger error causing nothing (or essentially nothing) to be indexed.
       // So everything is considered to have failed - we won't even look at failedDocs.
@@ -258,57 +295,12 @@ public abstract class Indexer implements Runnable {
           }
         }
       }
-
-      // We've sent a message for each Document. Don't want to run the code coming after finally.
-      return;
     } finally {
-      // We always mark batches as completed, regardless of if failedDocs isn't null / empty.
+      // We always mark batches as completed, regardless of whether the whole batch failed, some docs failed, etc.
       try {
         messenger.batchComplete(batchedDocs);
       } catch (Exception e) {
         log.error("Error marking batch complete.", e);
-      }
-    }
-
-    // to prevent multiple checks for null Set - just use an empty set by default.
-    if (failedDocs == null) {
-      failedDocs = Set.of();
-    }
-
-    if (!failedDocs.isEmpty()) {
-      log.warn("{} Documents were not indexed successfully.", failedDocs.size());
-    }
-
-    // Mark all the documents in failedDoc as failed
-    for (Document d : failedDocs) {
-      try {
-        messenger.sendEvent(d, "FAILED", Event.Type.FAIL);
-        docLogger.error("Sent failure message for doc {}.", d.getId());
-      } catch (Exception e) {
-        log.error("Couldn't send failure event for doc {}", d.getId(), e);
-      }
-    }
-
-    for (Document d : batchedDocs) {
-      if (failedDocs.contains(d)) {
-        continue;
-      }
-
-      try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
-        if (d.getRunId() != null) {
-          MDC.pushByKey(RUNID_FIELD, d.getRunId());
-        }
-
-        messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
-        docLogger.info("Sent success message for doc {}.", d.getId());
-      } catch (Exception e) {
-        // TODO: The run won't be able to finish if this event isn't received; can we do something
-        // special here?
-        log.error("Error sending completion event for doc {}", d.getId(), e);
-      } finally {
-        if (d.getRunId() != null) {
-          MDC.popByKey(RUNID_FIELD);
-        }
       }
     }
   }
