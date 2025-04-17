@@ -156,6 +156,10 @@ public class FileConnectorStateManager {
       pathsToProcess.add(pathToStorage + "/");
     }
 
+    Instant startInstant = Instant.now();
+    int numQueries = 0;
+
+    log.info("Building State for File Connector...");
     while (!pathsToProcess.isEmpty()) {
       String currentPath = pathsToProcess.poll();
 
@@ -164,10 +168,14 @@ public class FileConnectorStateManager {
       try (Statement statement = jdbcConnection.createStatement();
           ResultSet rs = statement.executeQuery(entryQuery)) {
 
+        numQueries++;
+
         if (rs.next()) {
           if (rs.getBoolean("is_directory")) {
+            numQueries++;
+            knownDirectories.add(currentPath);
             // adds directory to knownDirectories and updates Queue with paths which are indexed to the directory.
-            handleDirectory(currentPath, knownDirectories, pathsToProcess, traversalTableName);
+            handleDirectory(currentPath, fileStateEntries, pathsToProcess, traversalTableName);
           } else {
             Timestamp lastPublished = rs.getTimestamp("last_published");
             fileStateEntries.put(currentPath, lastPublished.toInstant());
@@ -176,6 +184,7 @@ public class FileConnectorStateManager {
       }
     }
 
+    log.info("State was built. {} SQL Queries run. Ran from {} to {}.", numQueries, startInstant, Instant.now());
     return new FileConnectorState(knownDirectories, fileStateEntries);
   }
 
@@ -196,16 +205,19 @@ public class FileConnectorStateManager {
     }
   }
 
-  private void handleDirectory(String directoryPath, Set<String> directorySet, Queue<String> pathsQueue, String tableName) throws SQLException {
-    // if it is a directory, then we want to see what has this directory as an index, add it to a Set<String> directories
-    directorySet.add(directoryPath);
-
+  private void handleDirectory(String directoryPath, Map<String, Instant> fileEntries, Queue<String> pathsQueue, String tableName) throws SQLException {
     String directoryIndexQuery = "SELECT * FROM \"" + tableName + "\" WHERE parent = '" + directoryPath + "'";
 
     try (Statement directoryStatement = jdbcConnection.createStatement();
         ResultSet directoryChildrenResults = directoryStatement.executeQuery(directoryIndexQuery)) {
       while (directoryChildrenResults.next()) {
-        pathsQueue.add(directoryChildrenResults.getString("name"));
+        String childName = directoryChildrenResults.getString("name");
+
+        if (directoryChildrenResults.getBoolean("is_directory")) {
+          pathsQueue.add(childName);
+        } else {
+          fileEntries.put(childName, directoryChildrenResults.getTimestamp("last_published").toInstant());
+        }
       }
     }
   }
