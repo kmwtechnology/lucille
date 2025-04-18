@@ -6,6 +6,7 @@ import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 
+import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 
@@ -23,7 +24,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,8 +46,8 @@ public class LocalStorageClient extends BaseStorageClient {
   protected void shutdownStorageClient() throws IOException { }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
-    Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params));
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+    Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params, stateMgr));
   }
 
   @Override
@@ -63,15 +63,16 @@ public class LocalStorageClient extends BaseStorageClient {
 
     private Publisher publisher;
     private TraversalParams params;
+    private final FileConnectorStateManager stateMgr;
 
-    public LocalFileVisitor(Publisher publisher, TraversalParams params) {
+    public LocalFileVisitor(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) {
       this.publisher = publisher;
       this.params = params;
+      this.stateMgr = stateMgr;
     }
 
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-      // We don't care about preVisiting a directory
       return FileVisitResult.CONTINUE;
     }
 
@@ -79,7 +80,7 @@ public class LocalStorageClient extends BaseStorageClient {
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
       // Visit the file and actually process it!
       FileReference fileRef = new LocalFileReference(file, attrs);
-      processAndPublishFileIfValid(publisher, fileRef, params);
+      processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
       return FileVisitResult.CONTINUE;
     }
 
@@ -108,7 +109,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
     // The given path will become absolute and will be normalized.
     public LocalFileReference(Path path, BasicFileAttributes attributes) {
-      super(attributes.lastModifiedTime().toInstant());
+      super(path.toAbsolutePath().normalize().toString(), attributes.lastModifiedTime().toInstant());
 
       this.path = path.toAbsolutePath().normalize();
       this.creationTime = attributes.creationTime().toInstant();
@@ -117,11 +118,6 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public String getName() { return path.getFileName().toString(); }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      return path.toString();
-    }
 
     @Override
     public boolean isValidFile() {
@@ -141,7 +137,7 @@ public class LocalStorageClient extends BaseStorageClient {
     public Document asDoc(TraversalParams params) {
       Document doc = createEmptyDocument(params);
 
-      doc.setField(FILE_PATH, getFullPath(params));
+      doc.setField(FILE_PATH, getFullPath());
       doc.setField(SIZE, size);
       doc.setField(MODIFIED, getLastModified());
 

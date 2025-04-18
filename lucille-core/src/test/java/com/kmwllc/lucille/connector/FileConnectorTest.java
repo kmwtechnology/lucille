@@ -267,4 +267,6 @@ public class FileConnectorTest {
         "        <bio>I enjoy reading</bio>\n" +
         "    </staff>", doc16.getString("xml"));
   }
+
+  // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which already had a database for testing.
 }

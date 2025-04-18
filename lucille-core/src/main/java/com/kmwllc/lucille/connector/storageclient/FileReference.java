@@ -15,9 +15,10 @@ public interface FileReference {
   String getName();
 
   /**
-   * @return A String representing the full path to this file.
+   * @return A String representing the full path to this file. If the file is a cloud file, it will be written as a full URI
+   * to the file. Local files will be an absolute, normalized path to the file.
    */
-  String getFullPath(TraversalParams params);
+  String getFullPath();
 
   /**
    * @return The extension associated with this file.
