@@ -70,7 +70,7 @@ import org.slf4j.LoggerFactory;
  *
  * <br> <b>Some notes on state:</b>
  * <ul>
- *   <li>The FileConnector will be slower when running with state configured.</li>
+ *   <li>The FileConnector will be slower when running with state.</li>
  *   <li>Files that get moved or renamed will be treated like deletions - they will always be published, regardless of lastPublishedCutoff.</li>
  *   <li>You can provide state configuration, but not a lastPublishedCutoff, and Lucille will keep your state updated.</li>
  * </ul>

@@ -162,7 +162,6 @@ public abstract class BaseStorageClient implements StorageClient {
             CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
           // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
           String decompressedPath = FilenameUtils.removeExtension(fullPathStr);
-          String resolvedExtension = FilenameUtils.getExtension(decompressedPath);
 
           // if detected to be an archive type after decompression
           if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(decompressedPath)) {
@@ -174,6 +173,8 @@ public abstract class BaseStorageClient implements StorageClient {
             }
 
             // if file is a supported file type that should be handled by a file handler
+            String resolvedExtension = FilenameUtils.getExtension(decompressedPath);
+
             if (params.supportedFileType(resolvedExtension)) {
               handleStreamExtensionFiles(publisher, compressorStream, resolvedExtension, compressedFileFullPath);
             } else {
@@ -216,8 +217,12 @@ public abstract class BaseStorageClient implements StorageClient {
       if (params.supportedFileType(fileExtension)) {
         // Get a stream for the file content, so we don't have to load it all at once.
         InputStream contentStream = fileReference.getContentStream(params);
-        // get the right FileHandler and publish based on content. (This method will update state as well.)
-        publishUsingFileHandler(publisher, fileExtension, contentStream, fullPathStr, stateMgr);
+        // get the right FileHandler and publish based on content.
+        publishUsingFileHandler(publisher, fileExtension, contentStream, fullPathStr);
+
+        if (stateMgr != null) {
+          stateMgr.successfullyPublishedFile(fullPathStr);
+        }
 
         afterProcessingFile(fullPathStr, params);
         return;
@@ -278,12 +283,9 @@ public abstract class BaseStorageClient implements StorageClient {
         // checking validity only for the entries
         if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant(), archiveLastPublished)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
+
           if (params.supportedFileType(entryExtension)) {
             handleStreamExtensionFiles(publisher, in, entryExtension, entryFullPathStr);
-
-            if (stateMgr != null) {
-              stateMgr.successfullyPublishedFile(entryFullPathStr);
-            }
           } else {
             // handle entry to be published as a normal document
             // note that if there exists a file within the same parent directory with the same name as the entries, it will have the same id
@@ -301,13 +303,13 @@ public abstract class BaseStorageClient implements StorageClient {
                 docLogger.info("StorageClient to publish Document {}.", doc.getId());
               }
               publisher.publish(doc);
-
-              if (stateMgr != null) {
-                stateMgr.successfullyPublishedFile(entryFullPathStr);
-              }
             } catch (Exception e) {
               throw new ConnectorException("Error occurred while publishing archive entry: " + entry.getName() + " in " + fullPathStr, e);
             }
+          }
+
+          if (stateMgr != null) {
+            stateMgr.successfullyPublishedFile(entryFullPathStr);
           }
         }
       }
@@ -338,7 +340,6 @@ public abstract class BaseStorageClient implements StorageClient {
         public void close() {}
       };
 
-
       FileHandler handler = fileHandlers.get(fileExtension);
       handler.processFileAndPublish(publisher, wrappedNonClosingStream, fullPathStr);
     } catch (Exception e) {
@@ -349,7 +350,7 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * Helper method to publish via file handler, using an InputStream for the file's contents.
    */
-  private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String fullPathStr, FileConnectorStateManager stateMgr) throws Exception {
+  private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String fullPathStr) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
@@ -357,11 +358,6 @@ public abstract class BaseStorageClient implements StorageClient {
 
     try {
       handler.processFileAndPublish(publisher, inputStream, fullPathStr);
-
-      // Regardless of how many Documents were extracted from handling the file, the file itself was processed by Lucille.
-      if (stateMgr != null) {
-        stateMgr.successfullyPublishedFile(fullPathStr);
-      }
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while processing or publishing file: " + fullPathStr, e);
     }

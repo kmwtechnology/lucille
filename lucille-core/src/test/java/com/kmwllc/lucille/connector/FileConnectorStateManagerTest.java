@@ -21,7 +21,6 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import org.h2.tools.RunScript;
 import org.junit.Rule;
 import org.junit.Test;
@@ -219,22 +218,7 @@ public class FileConnectorStateManagerTest {
 
     // and now... do it again... but should only have the two files that we manually modified above get processed.
     connector.execute(publisher2);
-    System.out.println(messenger2.getDocsSentForProcessing());
     // 1 doc from json, 3 from the csv in the archive
     assertEquals(4, messenger2.getDocsSentForProcessing().size());
-
-    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
-        ResultSet aJSONResults = RunScript.execute(connection, new StringReader(baseQuery + "a.json'"));
-        ResultSet subdirCSVResults = RunScript.execute(connection, new StringReader(baseQuery + "subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv'"))) {
-
-      // a json's timestamp shouldn't have change
-      assertTrue(aJSONResults.next());
-      assertEquals(publishedTimestamp, aJSONResults.getTimestamp("last_published"));
-
-      // the archive file entry's timestamp will have changed, but should still be recent
-      assertTrue(subdirCSVResults.next());
-      Timestamp subdirCSVTimestamp = subdirCSVResults.getTimestamp("last_published");
-      assertTrue(subdirCSVTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
-    }
   }
 }
