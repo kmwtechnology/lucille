@@ -14,6 +14,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.kmwllc.lucille.connector.FileConnectorStateManager.FileConnectorState;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.Connector;
@@ -276,79 +277,6 @@ public class FileConnectorTest {
         "    </staff>", doc16.getString("xml"));
   }
 
-  @Test
-  public void testTraversalWithState() throws Exception {
-    // for now, have no file options - just handle the files as is, no archives / file handlers, etc.
-    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf");
-    TestMessenger messenger1 = new TestMessenger();
-    TestMessenger messenger2 = new TestMessenger();
-    Publisher publisher1 = new PublisherImpl(config, messenger1, "run", "pipeline1");
-    Publisher publisher2 = new PublisherImpl(config, messenger2, "run", "pipeline1");
+  // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which has an embedded database for testing.
 
-    // State only includes everything in /example/. Let's imagine subdir (and its contents) are new...
-    FileConnectorState pretendState = new FileConnectorState(Set.of(
-        Paths.get("src/test/resources/FileConnectorTest/example").toAbsolutePath() + "/"
-    ), Map.of(
-        Paths.get("src/test/resources/FileConnectorTest/example/a.json").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
-        Paths.get("src/test/resources/FileConnectorTest/example/helloWorld.txt.gz").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
-        Paths.get("src/test/resources/FileConnectorTest/example/skipFile.txt").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
-        Paths.get("src/test/resources/FileConnectorTest/example/subdirWith1csv1xml.tar.gz").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
-        Paths.get("src/test/resources/FileConnectorTest/example/subDirWith2TxtFiles.zip").toAbsolutePath().toString(), Instant.ofEpochMilli(100L),
-        // also, we pretend there is a file that used to be in /example/, but was deleted
-        Paths.get("src/test/resources/FileConnectorTest/example").toAbsolutePath() + "/notHere.txt", Instant.ofEpochMilli(100L)
-    ));
-
-    // This is what state looks like after "discovering" everything in /example/subdir/
-    FileConnectorState pretendUpdatedState = new FileConnectorState(Set.of(
-        Paths.get("src/test/resources/FileConnectorTest/example").toAbsolutePath() + "/",
-        Paths.get("src/test/resources/FileConnectorTest/example/subdir").toAbsolutePath() + "/"
-    ), Map.of(
-        Paths.get("src/test/resources/FileConnectorTest/example/a.json").toAbsolutePath().toString(), Instant.now(),
-        Paths.get("src/test/resources/FileConnectorTest/example/helloWorld.txt.gz").toAbsolutePath().toString(), Instant.now(),
-        Paths.get("src/test/resources/FileConnectorTest/example/skipFile.txt").toAbsolutePath().toString(), Instant.now(),
-        Paths.get("src/test/resources/FileConnectorTest/example/subdirWith1csv1xml.tar.gz").toAbsolutePath().toString(), Instant.now(),
-        Paths.get("src/test/resources/FileConnectorTest/example/subDirWith2TxtFiles.zip").toAbsolutePath().toString(), Instant.now(),
-        Paths.get("src/test/resources/FileConnectorTest/example/subdir/b.json.gz").toAbsolutePath().toString(), Instant.now(),
-        Paths.get("src/test/resources/FileConnectorTest/example/subdir/c.jsonl").toAbsolutePath().toString(), Instant.now(),
-        Paths.get("src/test/resources/FileConnectorTest/example/subdir/e.yaml").toAbsolutePath().toString(), Instant.now(),
-        Paths.get("src/test/resources/FileConnectorTest/example/subdir/skipFile.txt").toAbsolutePath().toString(), Instant.now()
-    ));
-
-    try (MockedConstruction<FileConnectorStateManager> mgr = mockConstruction(FileConnectorStateManager.class, (manager, context) -> {
-      when(manager.getStateForTraversal(any(), any()))
-          .thenReturn(pretendState)
-          .thenReturn(pretendUpdatedState);
-
-      // the "first" returned state, which had the files last published a long time ago, should have everything marked as published.
-      Mockito.doAnswer(invocationOnMock -> {
-        // "published" is only tracked for archived / compressed files themselves - *not* their individual entries.
-        assertEquals(5, pretendState.getKnownAndPublishedFilePaths().size());
-        assertEquals(1, pretendState.getNewDirectoryPaths().size());
-        assertEquals(1, pretendState.getPathsToDelete().size());
-        assertEquals(4, pretendState.getNewlyPublishedFilePaths().size());
-
-        return null;
-      }).when(manager).updateStateDatabase(eq(pretendState), eq("file"));
-
-      // the "second" returned state - reflecting an update, where everything was published very recently, shouldn't have had
-      // anything marked as published by the storage clients
-      Mockito.doAnswer(invocationOnMock -> {
-        assertEquals(0, pretendUpdatedState.getKnownAndPublishedFilePaths().size());
-        assertEquals(0, pretendUpdatedState.getNewDirectoryPaths().size());
-        assertEquals(0, pretendUpdatedState.getPathsToDelete().size());
-        assertEquals(0, pretendUpdatedState.getNewlyPublishedFilePaths().size());
-
-        return null;
-      }).when(manager).updateStateDatabase(eq(pretendUpdatedState), eq("file"));
-    })) {
-      Connector connector = new FileConnector(config);
-      connector.execute(publisher1);
-      // See above - textExampleTraversal has 16 files. This has 18, since we don't exclude "skipFile.txt".
-      assertEquals(18, messenger1.getDocsSentForProcessing().size());
-
-      // and now... do it again... but shouldn't have anything published / sent for processing, since our cutoff is 1h.
-      connector.execute(publisher2);
-      assertEquals(0, messenger2.getDocsSentForProcessing().size());
-    }
-  }
 }

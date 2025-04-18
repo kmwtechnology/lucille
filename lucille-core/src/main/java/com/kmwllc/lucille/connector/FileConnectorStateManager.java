@@ -11,11 +11,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,11 +22,11 @@ import org.slf4j.LoggerFactory;
  * <p> Build a connection to a JDBC-compatible database (can be embedded or not)
  *
  * <p> Call {@link #init()} and {@link #shutdown()} to connect / disconnect to the database.
- * <p> Call {@link #getStateForTraversal(URI, String)} to retrieve the appropriate / relevant state information for your traversal,
+ * <p> Call {@link #getStateForTraversal(String)}to retrieve the appropriate / relevant state information for your traversal,
  * holding it in memory. Invoke the appropriate methods on the returned {@link FileConnectorState} as you progress throughout your
  * traversal.
- * <p> After your traversal completes, call {@link #updateStateDatabase(FileConnectorState, String)} to update the database based on the
- * results of your traversal. This method performs UPDATE, INSERT, and DELETE operations, based on the status of {@link FileConnectorState}.
+ * <p> After your traversal completes, call {@link #updateDatabaseAfterTraversal(URI, String)} to update the database based on the
+ * results of your traversal. This method deletes rows that weren't encountered and are relevant to the traversal.
  *
  * <p> The database should/will have the following schema:
  * <ul>
@@ -51,6 +47,7 @@ import org.slf4j.LoggerFactory;
  *       </ul>
  *     <li>last_published (TIMESTAMP): The last time the file was known to be published by Lucille. Is NULL for directories.</li>
  *     <li>is_directory (BOOLEAN): Whether the path is a directory.</li>
+ *     <li>encountered (BOOLEAN): Used internally to track files which have been encountered in a traversal, enabling deletions.</li>
  *     <li>parent (VARCHAR(200)): The full path to the file's parent folder.</li>
  *       <ul>
  *         <li>This name must end with '/'.</li>
@@ -121,7 +118,7 @@ public class FileConnectorStateManager {
 
   /**
    * Returns a {@link FileConnectorState} populated with relevant information for a traversal that starts at the given URI. This
-   * allows you to see when files were last known to be published by Lucille, and then later call {@link #updateStateDatabase(FileConnectorState, String)}
+   * allows you to see when files were last known to be published by Lucille, and then later call {@link #updateDatabaseAfterTraversal(URI, String)}
    * to update the results of your traversal.
    * <br>
    * The {@link FileConnectorState} returned will only contain information (last published timestamps)
@@ -133,157 +130,126 @@ public class FileConnectorStateManager {
    * (including an index for "parent").
    * <br>
    *
-   * @param pathToStorage A URI to the starting point of your traversal. If it is a directory, it is recommended that it ends with '/'.
    * @param traversalTableName The name for the table with relevant state information for your traversal. Should be determined by a storage client.
    * @return a FileConnectorState with information for your traversal.
    * @throws SQLException If a SQL-related error occurs.
    */
-  public FileConnectorState getStateForTraversal(URI pathToStorage, String traversalTableName) throws SQLException {
+  public FileConnectorState getStateForTraversal(String traversalTableName) throws SQLException {
+    // All table names get stored in uppercase.
     traversalTableName = traversalTableName.toUpperCase();
-    ensureTableExists(traversalTableName);
 
-    Set<String> knownDirectories = new HashSet<>();
-    Map<String, Instant> fileStateEntries = new HashMap<>();
-    Queue<String> pathsToProcess = new LinkedList<>();
-
-    // We start by processing the starting directory / path to storage.
-    pathsToProcess.add(pathToStorage.toString());
-
-    // If the starting path is a directory, the entry in the database (and FileReference.getFullPath()) will end with the slash.
-    // pathToStorage is the path as the user input it - and sometimes they might not include the final slash.
-    // If the pathToStorage is a file, there won't be a corresponding entry in the database for this... that isn't a problem
-    if (!pathToStorage.toString().endsWith("/")) {
-      pathsToProcess.add(pathToStorage + "/");
-    }
-
-    Instant startInstant = Instant.now();
-    int numQueries = 0;
-
-    log.info("Building State for File Connector...");
-    while (!pathsToProcess.isEmpty()) {
-      String currentPath = pathsToProcess.poll();
-
-      // Get a potential SQL entry for this path.
-      String entryQuery = "SELECT * FROM \"" + traversalTableName + "\" WHERE name = '" + currentPath + "'";
-      try (Statement statement = jdbcConnection.createStatement();
-          ResultSet rs = statement.executeQuery(entryQuery)) {
-
-        numQueries++;
-
-        if (rs.next()) {
-          if (rs.getBoolean("is_directory")) {
-            numQueries++;
-            knownDirectories.add(currentPath);
-            // adds directory to knownDirectories and updates Queue with paths which are indexed to the directory.
-            handleDirectory(currentPath, fileStateEntries, pathsToProcess, traversalTableName);
-          } else {
-            Timestamp lastPublished = rs.getTimestamp("last_published");
-            fileStateEntries.put(currentPath, lastPublished.toInstant());
-          }
-        }
-      }
-    }
-
-    log.info("State was built. {} SQL Queries run. Ran from {} to {}.", numQueries, startInstant, Instant.now());
-    return new FileConnectorState(knownDirectories, fileStateEntries);
-  }
-
-  // Ensures a table with the given name exists in the database. If it does not, it will be created with the appropriate
-  // columns + an index on "parent". Note that, if it does exist, the schema of the database is not validated.
-  // We can't always use "CREATE TABLE IF NOT EXISTS" - have to check the metadata instead.
-  private void ensureTableExists(String tableName) throws SQLException {
+    // Start by making sure the table exists, and creating it if it doesn't.
     DatabaseMetaData metadata = jdbcConnection.getMetaData();
 
-    // checking if we have a table under the given name. All table names get stored in uppercase.
-    try (ResultSet rs = metadata.getTables(null, null, tableName.toUpperCase(), null)) {
+    // checking if we have a table under the given name.
+    try (ResultSet rs = metadata.getTables(null, null, traversalTableName, null)) {
       if (!rs.next()) {
         try (Statement statement = jdbcConnection.createStatement()) {
-          statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(200) PRIMARY KEY, last_published TIMESTAMP, is_directory BOOLEAN, parent VARCHAR(200))");
-          statement.executeUpdate("CREATE INDEX \"" + tableName + "_parent\" ON \"" + tableName + "\"(parent)");
+          statement.executeUpdate("CREATE TABLE \"" + traversalTableName + "\" (name VARCHAR(200) PRIMARY KEY, last_published TIMESTAMP, is_directory BOOLEAN, encountered BOOLEAN, parent VARCHAR(200))");
+          statement.executeUpdate("CREATE INDEX \"" + traversalTableName + "_parent\" ON \"" + traversalTableName + "\"(parent)");
         }
       }
     }
-  }
 
-  private void handleDirectory(String directoryPath, Map<String, Instant> fileEntries, Queue<String> pathsQueue, String tableName) throws SQLException {
-    String directoryIndexQuery = "SELECT * FROM \"" + tableName + "\" WHERE parent = '" + directoryPath + "'";
-
-    try (Statement directoryStatement = jdbcConnection.createStatement();
-        ResultSet directoryChildrenResults = directoryStatement.executeQuery(directoryIndexQuery)) {
-      while (directoryChildrenResults.next()) {
-        String childName = directoryChildrenResults.getString("name");
-
-        if (directoryChildrenResults.getBoolean("is_directory")) {
-          pathsQueue.add(childName);
-        } else {
-          fileEntries.put(childName, directoryChildrenResults.getTimestamp("last_published").toInstant());
-        }
-      }
-    }
+    return new FileConnectorState(traversalTableName);
   }
 
   /**
-   * Updates the state database to reflect the information held by the given {@link FileConnectorState} under the given table name.
-   * <br>
-   * Executes UPDATE, INSERT, and DELETE statements based on {@link FileConnectorState#getKnownAndPublishedFilePaths()},
-   * {@link FileConnectorState#getNewlyPublishedFilePaths()}, {@link FileConnectorState#getNewDirectoryPaths()}, and
-   * {@link FileConnectorState#getPathsToDelete()}.
-   * <br>
-   * All files that got published (according to the state) will receive the same "last_published" Timestamp in the database.
-   *
-   * @param state FileConnectorState that has been used in a traversal.
-   * @param traversalTableName The table name for your traversal. Should be produced by a storage client. Doesn't need to be capitalized.
+   * Deletes any rows that appear to represent files that were deleted from storage, based on the ENCOUNTERED column. Uses the given
+   * URI to determine which files are "relevant" to the traversal, and should be deleted, if ENCOUNTERED = false.
+   * @param pathToStorage The full path to storage used for the traversal.
    * @throws SQLException If a SQL-related error occurs.
    */
-  public void updateStateDatabase(FileConnectorState state, String traversalTableName) throws SQLException {
-    traversalTableName = traversalTableName.toUpperCase();
-    Timestamp sharedTimestamp = Timestamp.from(Instant.now());
+  public void updateDatabaseAfterTraversal(URI pathToStorage, String tableName) throws SQLException {
+    tableName = tableName.toUpperCase();
 
-    // 1. update the state entries for published files
-    String updateKnownSQL = "UPDATE \"" + traversalTableName + "\" SET last_published = '" + sharedTimestamp + "' WHERE name = ?";
-    try (PreparedStatement updateStatement = jdbcConnection.prepareStatement(updateKnownSQL)) {
-      for (String knownPublishedFilePath : state.getKnownAndPublishedFilePaths()) {
-        updateStatement.setString(1, knownPublishedFilePath);
-        updateStatement.addBatch();
+    // if path ends with /, we certainly have a directory, and can just start recurring.
+    if (pathToStorage.toString().endsWith("/")) {
+      updateDatabaseRecursive(pathToStorage.toString(), tableName, false);
+    } else {
+      // Otherwise, we have to handle potentially adding the "/" for the user, in case they didn't.
+
+      if (pathNameInTable(pathToStorage.toString(), tableName)) {
+        updateDatabaseRecursive(pathToStorage.toString(), tableName, false);
+      } else if (pathNameInTable(pathToStorage + "/", tableName)) {
+        updateDatabaseRecursive(pathToStorage + "/", tableName, false);
+      } else {
+        log.warn("There wasn't an entry for {} or {} in the State Database - deletions won't take place.", pathToStorage, pathToStorage + "/");
       }
 
-      updateStatement.executeBatch();
     }
 
-    // 2. insert state entries for any "new" files encountered in this run
-    String insertNewFileSQL = "INSERT INTO \"" + traversalTableName + "\" VALUES (?, '" + sharedTimestamp + "', FALSE, ?)";
-    try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewFileSQL)) {
-      for (String newlyPublishedFilePath : state.getNewlyPublishedFilePaths()) {
-        String parent = newlyPublishedFilePath.substring(0, newlyPublishedFilePath.lastIndexOf("/") + 1);
-        insertStatement.setString(1, newlyPublishedFilePath);
-        insertStatement.setString(2, parent);
-        insertStatement.addBatch();
+    // At the end, set ENCOUNTERED=FALSE for the whole database.
+    String allFalseSQL = "UPDATE \"" + tableName + "\" SET encountered=FALSE";
+    try (Statement statement = jdbcConnection.createStatement()) {
+      statement.executeUpdate(allFalseSQL);
+    }
+  }
+
+  private void updateDatabaseRecursive(String fullPathToProcess, String tableName, boolean deletedParent) throws SQLException {
+    // Get a StateEntry for the path, then call updateDatabaseRecursive using it.
+    String selectEntrySQL = "SELECT * FROM \"" + tableName + "\" WHERE name='" + fullPathToProcess + "'";
+
+    StateEntry entry;
+    try (Statement statement = jdbcConnection.createStatement();
+        ResultSet rs = statement.executeQuery(selectEntrySQL)) {
+
+      if (!rs.next()) {
+        log.warn("Couldn't get a row for {}. Deletions will not continue along this path / its children.", fullPathToProcess);
+        return;
       }
 
-      insertStatement.executeBatch();
+      entry = StateEntry.fromResultSet(rs);
     }
 
-    // 3. add the new directories to the database
-    String insertNewDirectorySQL = "INSERT INTO \"" + traversalTableName + "\" VALUES (?, NULL, TRUE, ?)";
-    try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewDirectorySQL)) {
-      for (String newDirectoryPath : state.getNewDirectoryPaths()) {
-        insertStatement.setString(1, newDirectoryPath);
-        insertStatement.setString(2, getDirectoryParent(newDirectoryPath));
-        insertStatement.addBatch();
-      }
+    updateDatabaseRecursive(entry, tableName, deletedParent);
+  }
 
-      insertStatement.executeBatch();
+  private void updateDatabaseRecursive(StateEntry currentEntry, String tableName, boolean deletedParent) throws SQLException {
+    // 1. Delete this entry itself, if needed.
+    if (!currentEntry.encountered() || deletedParent) {
+      String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE name='" + currentEntry.fullPathStr() + "'";
+
+      try (Statement statement = jdbcConnection.createStatement()) {
+        int rowsChanged = statement.executeUpdate(deleteSQL);
+
+        if (rowsChanged != 1) {
+          log.warn("Deleting {} caused {} rows to be affected (expected 1).", currentEntry.fullPathStr(), rowsChanged);
+        }
+      }
     }
 
-    // 4. delete all of the paths in pathsToDelete()
-    String deletePathSQL = "DELETE FROM \"" + traversalTableName + "\" WHERE name = ?";
-    try (PreparedStatement deleteStatement = jdbcConnection.prepareStatement(deletePathSQL)) {
-      for (String pathToDelete : state.getPathsToDelete()) {
-        deleteStatement.setString(1, pathToDelete);
-        deleteStatement.addBatch();
+    // 2. If it is a directory, call recursive on each of the children, with deletedParent = !encountered || deletedParent
+    if (currentEntry.isDirectory()) {
+      // Run a query for the children. Build a StateEntry for each. Close the connection.
+      String childrenSQL = "SELECT * FROM \"" + tableName + "\" WHERE parent='" + currentEntry.fullPathStr() + "'";
+
+      Set<StateEntry> entries = new HashSet<>();
+
+      try (Statement statement = jdbcConnection.createStatement();
+          ResultSet rs = statement.executeQuery(childrenSQL)) {
+        while (rs.next()) {
+          try {
+            entries.add(StateEntry.fromResultSet(rs));
+          } catch (SQLException e) {
+            log.warn("Error occurred adding a StateEntry, some deletions may not occur.", e);
+          }
+        }
       }
 
-      deleteStatement.executeBatch();
+      for (StateEntry childEntry : entries) {
+        updateDatabaseRecursive(childEntry, tableName, (!currentEntry.encountered() || deletedParent));
+      }
+    }
+  }
+
+  // Returns whether there is an entry in the database for the given full path, in the given table.
+  private boolean pathNameInTable(String fullPathStr, String tableName) throws SQLException {
+    String existenceSQL = "SELECT 1 FROM \"" + tableName + "\" WHERE name='" + fullPathStr + "' LIMIT 1";
+
+    try (Statement statement = jdbcConnection.createStatement();
+        ResultSet rs = statement.executeQuery(existenceSQL)) {
+      return rs.next();
     }
   }
 
@@ -301,5 +267,131 @@ public class FileConnectorStateManager {
 
     String pathWithoutFinalSlash = directoryPath.substring(0, lastSlash);
     return pathWithoutFinalSlash.substring(0, pathWithoutFinalSlash.lastIndexOf("/") + 1);
+  }
+
+  /**
+   * Mainly just a convenient way to use a single table name / timestamp for files associated with a traversal.
+   * Usually gets passed into storage clients - limits the scope of available actions for them to take, allows
+   * FileConnector to still "pull the strings" for the database.
+   */
+  public class FileConnectorState {
+    private final String tableName;
+    private final Timestamp traversalTimestamp;
+
+    private FileConnectorState(String tableName) {
+      this.tableName = tableName;
+      this.traversalTimestamp = Timestamp.from(Instant.now());
+    }
+
+    /**
+     * Update the database to reflect that the given file or directory was encountered during a FileConnector traversal. Directories
+     * must end with the path separator.
+     * @param fullPathStr The full path to the file or directory you encountered during a FileConnector traversal. Directories must
+     *                    end with the path separator.
+     */
+    public void markFileOrDirectoryEncountered(String fullPathStr) {
+      // First, we try an update statement, see if it updates an existing file.
+      String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name='" + fullPathStr + "'";
+
+      try (Statement statement = jdbcConnection.createStatement()) {
+        int rowsChanged = statement.executeUpdate(updateSQL);
+
+        // if it doesn't change any rows, then we need to insert this file - it is "new".
+        if (rowsChanged == 0) {
+          boolean isDirectory = fullPathStr.endsWith("/");
+
+          if (isDirectory) {
+            insertDirectory(fullPathStr);
+          } else {
+            insertFile(fullPathStr);
+          }
+        }
+      } catch (SQLException e) {
+        log.warn("An error occurred trying to mark a file or directory as encountered in your state database.", e);
+      }
+    }
+
+    /**
+     * Retrieves the instant at which this file was last known to be published by Lucille. If the State Database has
+     * no record of publishing this file, a null Instant is returned.
+     *
+     * @param fullPathStr The full path to the file you want to get this information for.
+     * @return The instant at which this file was last known to be published by Lucille; null if there is no information
+     * on this file.
+     */
+    public Instant getLastPublished(String fullPathStr) {
+      String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name='" + fullPathStr + "'";
+
+      try (Statement statement = jdbcConnection.createStatement();
+          ResultSet rs = statement.executeQuery(querySQL)) {
+        if (rs.next()) {
+          Timestamp timestamp = rs.getTimestamp("last_published");
+
+          if (timestamp == null) {
+            return null;
+          } else {
+            return timestamp.toInstant();
+          }
+        } else {
+          return null;
+        }
+      } catch (SQLException e) {
+        log.warn("Error occurred trying to get file's last published time. Returning null, so the file will be published.", e);
+        return null;
+      }
+    }
+
+    /**
+     * Updates the state database to reflect that the given file was successfully published during a FileConnector traversal.
+     * @param fullPathStr The full path to the file that was successfully published.
+     */
+    public void successfullyPublishedFile(String fullPathStr) {
+      String updateSQL = "UPDATE \"" + tableName + "\" SET last_published = ? WHERE name = ?";
+
+      try (PreparedStatement statement = jdbcConnection.prepareStatement(updateSQL)) {
+        statement.setTimestamp(1, traversalTimestamp);
+        statement.setString(2, fullPathStr);
+
+        int rowsChanged = statement.executeUpdate();
+
+        if (rowsChanged != 1) {
+          log.warn("Updating a file's last published timestamp changed {} rows.", rowsChanged);
+        }
+      } catch (SQLException e) {
+        log.warn("Couldn't update a file's last published timestamp.", e);
+      }
+    }
+
+    // Insert a directory with the given name into the database. It will be marked as encountered.
+    private void insertDirectory(String fullPathStr) throws SQLException {
+      String insertNewDirectorySQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE, TRUE, ?)";
+
+      try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewDirectorySQL)) {
+        insertStatement.setString(1, fullPathStr);
+        insertStatement.setString(2, getDirectoryParent(fullPathStr));
+        insertStatement.execute();
+      }
+    }
+
+    // Insert a file with the given name into the database. It will have no "last_published" time, but will
+    // be marked as encountered.
+    private void insertFile(String fullPathStr) throws SQLException {
+      String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, FALSE, TRUE, ?)";
+
+      try (PreparedStatement insertStatement = jdbcConnection.prepareStatement(insertNewFileSQL)) {
+        String parent = fullPathStr.substring(0, fullPathStr.lastIndexOf("/") + 1);
+        insertStatement.setString(1, fullPathStr);
+        insertStatement.setString(2, parent);
+        insertStatement.execute();
+      }
+    }
+  }
+
+  private record StateEntry(String fullPathStr, Timestamp lastPublished, boolean isDirectory, boolean encountered, String parent) {
+    // create a StateEntry from the current value of the given ResultSet. You should already call rs.next() and make sure it's true
+    // before calling this!
+    private static StateEntry fromResultSet(ResultSet rs) throws SQLException {
+      return new StateEntry(rs.getString("name"), rs.getTimestamp("last_published"), rs.getBoolean("is_directory"), rs.getBoolean("encountered"), rs.getString("parent"));
+    }
   }
 }

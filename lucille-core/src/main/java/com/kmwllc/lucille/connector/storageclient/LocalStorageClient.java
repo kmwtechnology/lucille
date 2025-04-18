@@ -6,7 +6,7 @@ import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 
-import com.kmwllc.lucille.connector.FileConnectorState;
+import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 
@@ -46,7 +46,7 @@ public class LocalStorageClient extends BaseStorageClient {
   protected void shutdownStorageClient() throws IOException { }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorState state) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager.FileConnectorState state) throws Exception {
     Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params, state));
   }
 
@@ -68,9 +68,9 @@ public class LocalStorageClient extends BaseStorageClient {
 
     private Publisher publisher;
     private TraversalParams params;
-    private final FileConnectorState state;
+    private final FileConnectorStateManager.FileConnectorState state;
 
-    public LocalFileVisitor(Publisher publisher, TraversalParams params, FileConnectorState state) {
+    public LocalFileVisitor(Publisher publisher, TraversalParams params, FileConnectorStateManager.FileConnectorState state) {
       this.publisher = publisher;
       this.params = params;
       this.state = state;

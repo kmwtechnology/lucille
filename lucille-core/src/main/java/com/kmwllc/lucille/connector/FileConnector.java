@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.connector.FileConnectorStateManager.FileConnectorState;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -137,7 +138,7 @@ public class FileConnector extends AbstractConnector {
     this.filterOptions = config.hasPath("filterOptions") ? config.getConfig("filterOptions") : ConfigFactory.empty();
 
     try {
-      this.storageURI = new URI(pathToStorage);
+      this.storageURI = new URI(pathToStorage).normalize();
       log.debug("using path {} with scheme {}", pathToStorage, storageURI.getScheme());
     } catch (URISyntaxException e) {
       throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
@@ -170,10 +171,10 @@ public class FileConnector extends AbstractConnector {
         String tableName = storageClient.getStateTableName(storageURI);
 
         stateManager.init();
-        FileConnectorState state = stateManager.getStateForTraversal(storageURI, tableName);
+        FileConnectorState state = stateManager.getStateForTraversal(tableName);
 
         storageClient.traverse(publisher, params, state);
-        stateManager.updateStateDatabase(state, tableName);
+        stateManager.updateDatabaseAfterTraversal(storageURI, tableName);
       } else {
         storageClient.traverse(publisher, params);
       }

@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import com.kmwllc.lucille.connector.FileConnectorState;
+import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -42,9 +42,9 @@ public interface StorageClient {
 
   /**
    * Traverses through the storage client and publish files to Lucille pipeline. Updates the given state as files are encountered
-   * and published, and uses the {@link FileConnectorState#getLastPublished(String)} method to enforce lastPublishedCutoff, if specified.
+   * and published, and uses the {@link FileConnectorStateManager.FileConnectorState#getLastPublished(String)} method to enforce lastPublishedCutoff, if specified.
    */
-  void traverse(Publisher publisher, TraversalParams params, FileConnectorState state) throws Exception;
+  void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager.FileConnectorState state) throws Exception;
 
   /**
    * Opens and returns an InputStream for a file's contents, located at the given URI.
