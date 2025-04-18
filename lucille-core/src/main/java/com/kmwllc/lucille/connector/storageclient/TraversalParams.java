@@ -71,7 +71,7 @@ public class TraversalParams {
    * and the last time it was modified.
    */
   public boolean includeFile(String fileName, Instant fileLastModified, Instant fileLastPublished) {
-    return patternsAllowFile(fileName) && timesWithinCutoffs(fileLastModified, fileLastPublished);
+    return patternsAllowFile(fileName) && cutoffsAllowFile(fileLastModified, fileLastPublished);
   }
 
   /**
@@ -86,7 +86,7 @@ public class TraversalParams {
    * Returns whether the given Instant indicates the file should be published / processed. Always returns true if there is no
    * modificationCutoff set. If it is set, returns whether the file was modified recently enough to be processed/published.
    */
-  private boolean timesWithinCutoffs(Instant fileLastModified, Instant fileLastPublished) {
+  private boolean cutoffsAllowFile(Instant fileLastModified, Instant fileLastPublished) {
     // If modificationCutoff is specified, return false if it is violated
     if (modificationCutoff != null) {
       Instant cutoffPoint = Instant.now().minus(modificationCutoff);

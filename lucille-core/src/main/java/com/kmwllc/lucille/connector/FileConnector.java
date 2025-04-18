@@ -55,15 +55,14 @@ import org.slf4j.LoggerFactory;
  *  json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
  *  xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler
  *
- * <p> <b>State</b>: FileConnector allows you to only publish files that haven't been published recently (using FilterOptions.lastPublishedCutoff). In order to keep track of
- * this information, you'll need to specify a connection to a JDBC-compatible database, which will be used to track file paths and
- * when they were last known to be published by Lucille. For more information about the database / its schema, see {@link FileConnectorStateManager}
+ * <p> <b>State</b>: FileConnector allows you to avoid publishing files that were recently published (using FilterOptions.lastPublishedCutoff). In order to keep track of
+ * this information, you'll need to specify a connection to a JDBC-compatible database which will be used to track file paths and
+ * when they were last published by Lucille. For more information about the database / its schema, see {@link FileConnectorStateManager}
  * <br> Config Parameters:
  * <br> - driver (String): The driver to use for creating the connection.
  * <br> - connectionString (String): A String for a connection to your state database.
  * <br> - jdbcUser (String): The username for accessing the database.
  * <br> - jdbcPassword (String): The password for accessing the database.
- * // TODO: This is new stuff to be supported
  * <br> - tableName (String, Optional): The name of the table in your database that holds the relevant state information. Defaults to the connector name.
  * <br> - performDeletions (Boolean, Optional): Whether you want to delete rows in your database corresponding to files that appear to have been deleted
  * in the file system. Defaults to true.
@@ -143,7 +142,7 @@ public class FileConnector extends AbstractConnector {
     this.filterOptions = config.hasPath("filterOptions") ? config.getConfig("filterOptions") : ConfigFactory.empty();
 
     try {
-      this.storageURI = new URI(pathToStorage).normalize();
+      this.storageURI = new URI(pathToStorage);
       log.debug("using path {} with scheme {}", pathToStorage, storageURI.getScheme());
     } catch (URISyntaxException e) {
       throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
@@ -179,7 +178,7 @@ public class FileConnector extends AbstractConnector {
         storageClient.traverse(publisher, params);
       }
     } catch (Exception e) {
-      throw new ConnectorException("Error occurred while initializing client or publishing files.", e);
+      throw new ConnectorException("Error occurred while initializing client/state or publishing files.", e);
     } finally {
       try {
         // closes clients and clears file handlers if any

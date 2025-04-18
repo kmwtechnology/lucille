@@ -103,7 +103,7 @@ public class AzureStorageClientTest {
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getBlobItemStream());
-    when(mockClient.listBlobsByHierarchy(eq("/"), any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
 
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
     azureStorageClient.setServiceClientForTesting(mockServiceClient);
@@ -167,7 +167,7 @@ public class AzureStorageClientTest {
         .setContentLength(1L));
 
     when(pagedIterable.stream()).thenReturn(Stream.of(blobItem1));
-    when(mockClient.listBlobsByHierarchy(eq("/"), any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
@@ -202,7 +202,7 @@ public class AzureStorageClientTest {
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getBlobItemStreamWithDirectory());
-    when(mockClient.listBlobsByHierarchy(eq("/"), any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
@@ -244,7 +244,7 @@ public class AzureStorageClientTest {
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getJsonBlobItemStream());
-    when(mockClient.listBlobsByHierarchy(eq("/"), any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
@@ -291,7 +291,7 @@ public class AzureStorageClientTest {
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getCompressedAndArchivedBlobStream());
-    when(mockClient.listBlobsByHierarchy(eq("/"), any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
@@ -410,7 +410,7 @@ public class AzureStorageClientTest {
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getBlobItemStream());
-    when(mockClient.listBlobsByHierarchy(eq("/"), any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
@@ -469,7 +469,7 @@ public class AzureStorageClientTest {
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getBlobItemStreamWithCutoff());
-    when(mockClient.listBlobsByHierarchy(eq("/"), any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);

@@ -73,11 +73,6 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-      // Yes, we create & use a FileReference for the directory. It will NOT be published / processed (attrs.isDirectory() will be false),
-      // but we do need to pass this through to update the state, as appropriate. This mirrors the behavior of the other storage
-      // clients, which also process/publish file references for directories with return false for "isValidFile".
-      FileReference fileRef = new LocalFileReference(dir, attrs);
-      processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
       return FileVisitResult.CONTINUE;
     }
 
@@ -112,25 +107,21 @@ public class LocalStorageClient extends BaseStorageClient {
     private final Instant creationTime;
     private final long size;
 
-    private final boolean isDirectory;
-
     // The given path will become absolute and will be normalized.
     public LocalFileReference(Path path, BasicFileAttributes attributes) {
-      super(getFullPathHelper(path, attributes), attributes.lastModifiedTime().toInstant());
+      super(path.toAbsolutePath().normalize().toString(), attributes.lastModifiedTime().toInstant());
 
       this.path = path.toAbsolutePath().normalize();
       this.creationTime = attributes.creationTime().toInstant();
       this.size = attributes.size();
-      this.isDirectory = attributes.isDirectory();
     }
 
-    // This method won't be called on a directory fileRef, but if it does, it will return just the directory name - no slashes.
     @Override
     public String getName() { return path.getFileName().toString(); }
 
     @Override
     public boolean isValidFile() {
-      return !isDirectory;
+      return true;
     }
 
     @Override
@@ -181,15 +172,6 @@ public class LocalStorageClient extends BaseStorageClient {
       }
 
       return doc;
-    }
-
-    // Directories should include a final '/' to indicate they are directories, similar to the other storage clients
-    private static String getFullPathHelper(Path path, BasicFileAttributes attrs) {
-      if (attrs.isDirectory()) {
-        return path.toAbsolutePath().normalize() + "/";
-      } else {
-        return path.toAbsolutePath().normalize().toString();
-      }
     }
   }
 }

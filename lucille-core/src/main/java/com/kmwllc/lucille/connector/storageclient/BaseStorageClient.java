@@ -133,18 +133,24 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
    */
   protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileConnectorStateManager stateMgr) {
+    // Skip the file if it's not valid (a directory), and don't mark it as encountered / do anything involving state.
+    if (!fileReference.isValidFile()) {
+      return;
+    }
+
     String fullPathStr = fileReference.getFullPath();
     String fileExtension = fileReference.getFileExtension();
 
     try {
-      if (stateMgr != null) {
-        stateMgr.markFileOrDirectoryEncountered(fullPathStr);
-      }
       Instant lastPublished = stateMgr == null ? null : stateMgr.getLastPublished(fullPathStr);
-      // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
-      // (preprocessing is currently a NO-OP unless a subclass overrides it)
-      if (!fileReference.isValidFile()
-          || !params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)
+
+      // We always mark files as encountered, even if they don't comply with filter options
+      if (stateMgr != null) {
+        stateMgr.markFileEncountered(fullPathStr);
+      }
+
+      // applying filter options + making sure preprocessing is successful.
+      if (!params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)
           || !beforeProcessingFile(fullPathStr)) {
         return;
       }

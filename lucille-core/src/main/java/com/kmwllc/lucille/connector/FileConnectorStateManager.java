@@ -100,7 +100,8 @@ public class FileConnectorStateManager {
   }
 
   /**
-   * Disconnect from the database specified by your Config. Throws an exception if an error occurs.
+   * If configured to, delete any files that weren't encountered. Then, disconnect from the database specified by your Config.
+   * Throws an exception if an error occurs.
    */
   public void shutdown() throws SQLException {
     if (performDeletions) {
@@ -126,12 +127,10 @@ public class FileConnectorStateManager {
   }
 
   /**
-   * Update the database to reflect that the given file or directory was encountered during a FileConnector traversal. Directories
-   * must end with the path separator.
-   * @param fullPathStr The full path to the file or directory you encountered during a FileConnector traversal. Directories must
-   *                    end with the path separator.
+   * Update the database to reflect that the given file was encountered during a FileConnector traversal.
+   * @param fullPathStr The full path to the file you encountered during a FileConnector traversal.
    */
-  public void markFileOrDirectoryEncountered(String fullPathStr) {
+  public void markFileEncountered(String fullPathStr) {
     // First, we try an update statement, see if it updates an existing file.
     String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name='" + fullPathStr + "'";
 
@@ -151,7 +150,7 @@ public class FileConnectorStateManager {
    * Retrieves the instant at which this file was last known to be published by Lucille. If the State Database has
    * no record of publishing this file, a null Instant is returned.
    *
-   * @param fullPathStr The full path to the file you want to get this information for.
+   * @param fullPathStr The full path to the file you want to get a last_published Timestamp for.
    * @return The instant at which this file was last known to be published by Lucille; null if there is no information
    * on this file.
    */

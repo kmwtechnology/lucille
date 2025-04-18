@@ -49,15 +49,12 @@ it will not be enforced!
 
 ### State
 The File Connector can keep track of when files were last known to be published by Lucille. This allows you to use `FilterOptions.lastPublishedCutoff` and
-avoid repeatedly publishing the same files, for example.
+avoid repeatedly publishing the same files in a short period of time.
 
 In order to use state with the File Connector, you'll need to configure a connection to a JDBC-compatible database. The database
 can be embedded, or it can be remote.
 
 It's important to note that File Connector state is designed to be efficient and lightweight. As such, keep a few points in mind:
-1. Lucille will automatically rows for files and directories that appear to have been deleted. This means that moving / renaming files and directories will cause them to have no known last published time!
+1. Files that were recently moved / renamed files will not have the `lastPublishedCutoff` applied.
 2. In your File Connector configuration, it is important that you consistently capitalize directory names in your `pathToStorage`, if you are using state.
-3. The state database will have tables for each "root" of a file system. So, if you delete a bucket or container, you'll have to delete the table yourself.
-   * For the local file system, this is simple - all entries are under "FILE".
-   * For S3 and Google Cloud, the table name is a combination of the URI scheme (gs, s3) and the hosting bucket / container's name.
-   * For Azure, the table name is a combination of your connection String's storage name and the container's name.
+3. Each database table should be used for only one connector configuration.

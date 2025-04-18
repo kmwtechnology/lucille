@@ -55,7 +55,7 @@ public class FileConnectorStateManagerTest {
 
     // everything is encountered + all files are published.
     for (String filePath : allFilePaths) {
-      manager.markFileOrDirectoryEncountered(filePath);
+      manager.markFileEncountered(filePath);
       manager.successfullyPublishedFile(filePath);
     }
 
@@ -91,11 +91,11 @@ public class FileConnectorStateManagerTest {
     manager.init();
 
     for (String filePath : allFilePaths) {
-      manager.markFileOrDirectoryEncountered(filePath);
+      manager.markFileEncountered(filePath);
       manager.successfullyPublishedFile(filePath);
     }
 
-    manager.markFileOrDirectoryEncountered("/newdir/info.txt");
+    manager.markFileEncountered("/newdir/info.txt");
     manager.successfullyPublishedFile("/newdir/info.txt");
 
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
@@ -118,10 +118,7 @@ public class FileConnectorStateManagerTest {
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
     manager.init();
 
-    // pretendng we got to the root of the file system and found nothing else..
-    manager.markFileOrDirectoryEncountered("/");
-
-    // allowing it to perform cleanup / deletions.
+    // pretending we got to the root of the file system and found nothing else..
     manager.shutdown();
     assertEquals(1, dbHelper.checkNumConnections());
 
@@ -146,13 +143,14 @@ public class FileConnectorStateManagerTest {
   @Test
   public void testStateManagerOnNewTable() throws Exception {
     assertEquals(1, dbHelper.checkNumConnections());
+    // has "tableName: "S3""
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/s3.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
     manager.init();
 
     // /files/info.txt --> s3://lucille-bucket/files/info.txt
     for (String filePath : allFilePaths) {
-      manager.markFileOrDirectoryEncountered("s3://lucille-bucket" + filePath);
+      manager.markFileEncountered("s3://lucille-bucket" + filePath);
       manager.successfullyPublishedFile("s3://lucille-bucket" + filePath);
     }
 
@@ -183,9 +181,8 @@ public class FileConnectorStateManagerTest {
   @Test
   public void testTraversalWithState() throws Exception {
     // for now, have no file options - just handle the files as is, no archives / file handlers, etc.
-    String fileConnectorExampleDir = Paths.get("src/test/resources/FileConnectorTest/Example/").toAbsolutePath() + "/";
+    String fileConnectorExampleDir = Paths.get("src/test/resources/FileConnectorTest/Example").toAbsolutePath() + "/";
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf");
-    config = config.withFallback(ConfigFactory.parseMap(Map.of("pathToStorage", fileConnectorExampleDir)));
 
     TestMessenger messenger1 = new TestMessenger();
     TestMessenger messenger2 = new TestMessenger();

@@ -5,10 +5,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -27,17 +25,11 @@ import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.Instant;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 
 public class FileConnectorTest {
 
@@ -276,6 +268,5 @@ public class FileConnectorTest {
         "    </staff>", doc16.getString("xml"));
   }
 
-  // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which has an embedded database for testing.
-
+  // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which already had a database for testing.
 }
