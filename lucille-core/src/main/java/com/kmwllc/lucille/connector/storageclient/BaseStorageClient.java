@@ -166,18 +166,26 @@ public abstract class BaseStorageClient implements StorageClient {
 
           // if detected to be an archive type after decompression
           if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(decompressedPath)) {
-            handleArchiveFiles(publisher, compressorStream, fullPathStr, params);
+            handleArchiveFiles(publisher, compressorStream, fullPathStr, params, stateMgr);
           } else {
-            String filePathFormat = fullPathStr + ARCHIVE_FILE_SEPARATOR + FilenameUtils.getName(decompressedPath);
+            String compressedFileFullPath = getArchiveEntryFullPath(fullPathStr, FilenameUtils.getName(decompressedPath));
+            if (stateMgr != null) {
+              stateMgr.markFileEncountered(compressedFileFullPath);
+            }
+
             // if file is a supported file type that should be handled by a file handler
             if (params.supportedFileType(resolvedExtension)) {
-              handleStreamExtensionFiles(publisher, compressorStream, resolvedExtension, filePathFormat);
+              handleStreamExtensionFiles(publisher, compressorStream, resolvedExtension, compressedFileFullPath);
             } else {
-              Document doc = fileReference.asDoc(compressorStream, filePathFormat, params);
+              Document doc = fileReference.asDoc(compressorStream, compressedFileFullPath, params);
               try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
                 docLogger.info("StorageClient to publish Document {}.", doc.getId());
               }
               publisher.publish(doc);
+            }
+
+            if (stateMgr != null) {
+              stateMgr.successfullyPublishedFile(compressedFileFullPath);
             }
           }
         }
@@ -193,7 +201,7 @@ public abstract class BaseStorageClient implements StorageClient {
       // handle archived files if needed to the end
       if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(fullPathStr)) {
         try (InputStream is = fileReference.getContentStream(params)) {
-          handleArchiveFiles(publisher, is, fullPathStr, params);
+          handleArchiveFiles(publisher, is, fullPathStr, params, stateMgr);
         }
 
         // Regardless of what is extracted & published in handleArchiveFiles, the archive file itself was considered / processed by Lucille.
@@ -250,22 +258,32 @@ public abstract class BaseStorageClient implements StorageClient {
    *                    Cloud path would include schema and bucket/container name
    *                    e.g gs://bucket-name/folder/file.zip or s3://bucket-name/file.tar
    */
-  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fullPathStr, TraversalParams params) throws ArchiveException, IOException, ConnectorException {
+  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fullPathStr, TraversalParams params, FileConnectorStateManager stateMgr) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
 
       while ((entry = in.getNextEntry()) != null) {
         String entryFullPathStr = getArchiveEntryFullPath(fullPathStr, entry.getName());
+        if (stateMgr != null) {
+          stateMgr.markFileEncountered(entryFullPathStr);
+        }
+
         if (!in.canReadEntryData(entry)) {
           log.info("Cannot read entry data for entry: '{}' in '{}'. Skipping...", entry.getName(), fullPathStr);
           continue;
         }
+
+        Instant archiveLastPublished = stateMgr == null ? null : stateMgr.getLastPublished(entryFullPathStr);
         // checking validity only for the entries
-        if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant(), null)) {
+        if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant(), archiveLastPublished)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (params.supportedFileType(entryExtension)) {
             handleStreamExtensionFiles(publisher, in, entryExtension, entryFullPathStr);
+
+            if (stateMgr != null) {
+              stateMgr.successfullyPublishedFile(entryFullPathStr);
+            }
           } else {
             // handle entry to be published as a normal document
             // note that if there exists a file within the same parent directory with the same name as the entries, it will have the same id
@@ -283,6 +301,10 @@ public abstract class BaseStorageClient implements StorageClient {
                 docLogger.info("StorageClient to publish Document {}.", doc.getId());
               }
               publisher.publish(doc);
+
+              if (stateMgr != null) {
+                stateMgr.successfullyPublishedFile(entryFullPathStr);
+              }
             } catch (Exception e) {
               throw new ConnectorException("Error occurred while publishing archive entry: " + entry.getName() + " in " + fullPathStr, e);
             }

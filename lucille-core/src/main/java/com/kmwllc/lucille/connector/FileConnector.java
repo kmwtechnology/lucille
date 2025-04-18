@@ -36,13 +36,12 @@ import org.slf4j.LoggerFactory;
  *  excludes (list of strings, Optional): list of regex patterns to exclude files.
  *  modificationCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time.
  *  Specify "1h" to only include / publish files that were modified within the last hour, for example.
- *  Note that, for archive files, this cutoff applies to <b>both</b> the archive file itself and its individual contents.
  *  lastPublishedCutoff (Duration, Optional): Filter files that haven't been published by Lucille since a certain amount of time.
  *  Relies on your state configuration to determine when files were last published. If you do not specify configuration for state, this
  *  wil have no effect. Specify "1h" to only include / publish files that were last published <b>more</b> than an hour ago, for example.
- *  Note that, for archive files, this cutoff <b>only</b> applies to the archive file itself - <b>not</b> its individual contents.
  *  (State is <b>only</b> maintained / tracked for the archive file itself.)
  * <br> Only files that comply with <b>all</b> of your specified FilterOptions will be processed and published in a traversal.
+ * <br> For archived / compressed files, filter options are applied to the archive / compressed file itself as well as its contents.
  * <br> See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
  *
  * FileOptions:

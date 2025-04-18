@@ -187,7 +187,7 @@ public class FileConnectorStateManager {
       int rowsChanged = statement.executeUpdate();
 
       if (rowsChanged != 1) {
-        log.warn("Updating a file's last published timestamp changed {} rows.", rowsChanged);
+        log.warn("Updating {} last published timestamp changed {} rows.", fullPathStr, rowsChanged);
       }
     } catch (SQLException e) {
       log.warn("Couldn't update a file's last published timestamp.", e);
