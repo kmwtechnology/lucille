@@ -42,30 +42,14 @@ public interface StorageClient {
 
   /**
    * Traverses through the storage client and publish files to Lucille pipeline. Updates the given state as files are encountered
-   * and published, and uses the {@link FileConnectorStateManager.FileConnectorState#getLastPublished(String)} method to enforce lastPublishedCutoff, if specified.
+   * and published, and uses the {@link FileConnectorStateManager#getLastPublished(String)} method to enforce lastPublishedCutoff, if specified.
    */
-  void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager.FileConnectorState state) throws Exception;
+  void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
 
   /**
    * Opens and returns an InputStream for a file's contents, located at the given URI.
    */
   InputStream getFileContentStream(URI uri) throws IOException;
-
-  /**
-   * Returns the table name for a traversal at the given URI. This name always starts with the URI's scheme. For cloud
-   * storage URIs, the name of the root bucket / container is appended to the scheme as well. For S3 + Google, this is
-   * as simple as just appending the host. For Azure, we extract the storage name. For example:
-   *
-   * <ol>
-   *  <li>/Users/abcdef/Desktop --> file</li>
-   *  <li>s3://lucille-bucket/test-files --> s3_lucille-bucket</li>
-   *  <li>gs://lucille-bucket/test-files --> gs_lucille-bucket</li>
-   *  <li>https://storagename.blob.core.windows.net/folder --> https_storagename</li>
-   * </ol>
-   *
-   * Note that the table name is not guaranteed to be capitalized.
-   */
-  String getStateTableName(URI pathToStorage);
 
   /**
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from the Config.

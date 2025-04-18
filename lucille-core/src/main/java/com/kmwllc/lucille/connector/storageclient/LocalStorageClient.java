@@ -46,13 +46,8 @@ public class LocalStorageClient extends BaseStorageClient {
   protected void shutdownStorageClient() throws IOException { }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager.FileConnectorState state) throws Exception {
-    Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params, state));
-  }
-
-  @Override
-  public String getStateTableName(URI pathToStorage) {
-    return "file";
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+    Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params, stateMgr));
   }
 
   @Override
@@ -68,12 +63,12 @@ public class LocalStorageClient extends BaseStorageClient {
 
     private Publisher publisher;
     private TraversalParams params;
-    private final FileConnectorStateManager.FileConnectorState state;
+    private final FileConnectorStateManager stateMgr;
 
-    public LocalFileVisitor(Publisher publisher, TraversalParams params, FileConnectorStateManager.FileConnectorState state) {
+    public LocalFileVisitor(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) {
       this.publisher = publisher;
       this.params = params;
-      this.state = state;
+      this.stateMgr = stateMgr;
     }
 
     @Override
@@ -82,7 +77,7 @@ public class LocalStorageClient extends BaseStorageClient {
       // but we do need to pass this through to update the state, as appropriate. This mirrors the behavior of the other storage
       // clients, which also process/publish file references for directories with return false for "isValidFile".
       FileReference fileRef = new LocalFileReference(dir, attrs);
-      processAndPublishFileIfValid(publisher, fileRef, params, state);
+      processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
       return FileVisitResult.CONTINUE;
     }
 
@@ -90,7 +85,7 @@ public class LocalStorageClient extends BaseStorageClient {
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
       // Visit the file and actually process it!
       FileReference fileRef = new LocalFileReference(file, attrs);
-      processAndPublishFileIfValid(publisher, fileRef, params, state);
+      processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
       return FileVisitResult.CONTINUE;
     }
 

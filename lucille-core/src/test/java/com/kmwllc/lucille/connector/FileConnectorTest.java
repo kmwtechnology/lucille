@@ -14,7 +14,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.kmwllc.lucille.connector.FileConnectorStateManager.FileConnectorState;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.Connector;

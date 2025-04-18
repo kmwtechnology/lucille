@@ -67,27 +67,15 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager.FileConnectorState state) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
     serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
         .listBlobsByHierarchy("/",
             new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages),
             Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
           AzureFileReference fileRef = new AzureFileReference(blob, params);
-          processAndPublishFileIfValid(publisher, fileRef, params, state);
+          processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
         });
-  }
-
-  @Override
-  public String getStateTableName(URI pathToStorage) {
-    // this gives us "storagename.blob.core.windows.net"
-    String host = pathToStorage.getHost();
-    // Gets us "storagename"
-    String storageName = host.split("\\.")[0];
-
-    String containerName = pathToStorage.getPath().split("/")[1];
-
-    return "azure_" + storageName + "_" + containerName;
   }
 
   @Override

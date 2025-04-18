@@ -100,22 +100,20 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   @Override
-  public final void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager.FileConnectorState state) throws Exception {
+  public final void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
     if (!isInitialized()) {
       throw new IllegalStateException("This StorageClient has not been initialized.");
     }
 
     try {
       this.fileHandlers = FileHandler.createFromConfig(params.getFileOptions());
-      traverseStorageClient(publisher, params, state);
+      traverseStorageClient(publisher, params, stateMgr);
     } finally {
       fileHandlers = null;
     }
   }
 
-  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager.FileConnectorState state) throws Exception;
-
-  public abstract String getStateTableName(URI pathToStorage);
+  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
 
   @Override
   public final InputStream getFileContentStream(URI uri) throws IOException {
@@ -134,15 +132,15 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param publisher publisher used to publish documents
    * @param fileReference fileReference object that contains the Path for local Storage or Storage Item implementation for cloud storage
    */
-  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileConnectorStateManager.FileConnectorState state) {
+  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileConnectorStateManager stateMgr) {
     String fullPathStr = fileReference.getFullPath();
     String fileExtension = fileReference.getFileExtension();
 
     try {
-      if (state != null) {
-        state.markFileOrDirectoryEncountered(fullPathStr);
+      if (stateMgr != null) {
+        stateMgr.markFileOrDirectoryEncountered(fullPathStr);
       }
-      Instant lastPublished = state == null ? null : state.getLastPublished(fullPathStr);
+      Instant lastPublished = stateMgr == null ? null : stateMgr.getLastPublished(fullPathStr);
       // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
       // (preprocessing is currently a NO-OP unless a subclass overrides it)
       if (!fileReference.isValidFile()
@@ -179,8 +177,8 @@ public abstract class BaseStorageClient implements StorageClient {
         }
 
         // Regardless of what actually gets published in the above code, the compressed file itself was considered / processed by Lucille.
-        if (state != null) {
-          state.successfullyPublishedFile(fullPathStr);
+        if (stateMgr != null) {
+          stateMgr.successfullyPublishedFile(fullPathStr);
         }
         afterProcessingFile(fullPathStr, params);
         return;
@@ -193,8 +191,8 @@ public abstract class BaseStorageClient implements StorageClient {
         }
 
         // Regardless of what is extracted & published in handleArchiveFiles, the archive file itself was considered / processed by Lucille.
-        if (state != null) {
-          state.successfullyPublishedFile(fullPathStr);
+        if (stateMgr != null) {
+          stateMgr.successfullyPublishedFile(fullPathStr);
         }
         afterProcessingFile(fullPathStr, params);
         return;
@@ -205,7 +203,7 @@ public abstract class BaseStorageClient implements StorageClient {
         // Get a stream for the file content, so we don't have to load it all at once.
         InputStream contentStream = fileReference.getContentStream(params);
         // get the right FileHandler and publish based on content. (This method will update state as well.)
-        publishUsingFileHandler(publisher, fileExtension, contentStream, fullPathStr, state);
+        publishUsingFileHandler(publisher, fileExtension, contentStream, fullPathStr, stateMgr);
 
         afterProcessingFile(fullPathStr, params);
         return;
@@ -218,8 +216,8 @@ public abstract class BaseStorageClient implements StorageClient {
       }
       publisher.publish(doc);
 
-      if (state != null) {
-        state.successfullyPublishedFile(fullPathStr);
+      if (stateMgr != null) {
+        stateMgr.successfullyPublishedFile(fullPathStr);
       }
 
       afterProcessingFile(fullPathStr, params);
@@ -323,7 +321,7 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * Helper method to publish via file handler, using an InputStream for the file's contents.
    */
-  private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String fullPathStr, FileConnectorStateManager.FileConnectorState state) throws Exception {
+  private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String fullPathStr, FileConnectorStateManager stateMgr) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
@@ -333,8 +331,8 @@ public abstract class BaseStorageClient implements StorageClient {
       handler.processFileAndPublish(publisher, inputStream, fullPathStr);
 
       // Regardless of how many Documents were extracted from handling the file, the file itself was processed by Lucille.
-      if (state != null) {
-        state.successfullyPublishedFile(fullPathStr);
+      if (stateMgr != null) {
+        stateMgr.successfullyPublishedFile(fullPathStr);
       }
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while processing or publishing file: " + fullPathStr, e);

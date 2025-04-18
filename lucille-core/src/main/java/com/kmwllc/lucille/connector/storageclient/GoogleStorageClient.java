@@ -62,22 +62,17 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager.FileConnectorState state) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
     Page<Blob> page = storage.list(getBucketOrContainerName(params), BlobListOption.prefix(getStartingDirectory(params)),
         BlobListOption.pageSize(maxNumOfPages));
     do {
       page.streamAll()
           .forEachOrdered(blob -> {
             GoogleFileReference fileRef = new GoogleFileReference(blob, params);
-            processAndPublishFileIfValid(publisher, fileRef, params, state);
+            processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
     } while (page != null);
-  }
-
-  @Override
-  public String getStateTableName(URI pathToStorage) {
-    return "gs_" + pathToStorage.getHost();
   }
 
   @Override

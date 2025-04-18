@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.connector.FileConnectorStateManager.FileConnectorState;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -64,12 +63,18 @@ import org.slf4j.LoggerFactory;
  * <br> - connectionString (String): A String for a connection to your state database.
  * <br> - jdbcUser (String): The username for accessing the database.
  * <br> - jdbcPassword (String): The password for accessing the database.
+ * // TODO: This is new stuff to be supported
+ * <br> - tableName (String, Optional): The name of the table in your database that holds the relevant state information. Defaults to the connector name.
+ * <br> - performDeletions (Boolean, Optional): Whether you want to delete rows in your database corresponding to files that appear to have been deleted
+ * in the file system. Defaults to true.
+ * <br> - pathLength (Int, Optional): The maximum length of file paths allowed in the table (VARCHAR length). Only affects the creation of tables
+ * that did not already exist. Defaults to 200.
  *
  * <br> <b>Some notes on state:</b>
  * <ul>
- *   <li>Lucille automatically deletes entries in your database for files that appear to have been deleted.</li>
+ *   <li>The FileConnector will be slower when running with state configured.</li>
  *   <li>Files that get moved or renamed will be treated like deletions - they will always be published, regardless of lastPublishedCutoff.</li>
- *   <li>You can / should provide state configuration, without using a lastPublishedCutoff, and Lucille will keep your state updated.</li>
+ *   <li>You can provide state configuration, but not a lastPublishedCutoff, and Lucille will keep your state updated.</li>
  * </ul>
  *
  * <br> gcp:
@@ -144,7 +149,7 @@ public class FileConnector extends AbstractConnector {
       throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
     }
 
-    this.stateManager = config.hasPath("state") ? new FileConnectorStateManager(config.getConfig("state")) : null;
+    this.stateManager = config.hasPath("state") ? new FileConnectorStateManager(config.getConfig("state"), getName()) : null;
 
     if (CLOUD_STORAGE_CLIENT_KEYS.stream().filter(config::hasPath).count() > 1) {
       log.warn("Config for FileConnector contains options for more than one cloud provider.");
@@ -168,13 +173,8 @@ public class FileConnector extends AbstractConnector {
       TraversalParams params = new TraversalParams(storageURI, getDocIdPrefix(), fileOptions, filterOptions);
 
       if (stateManager != null) {
-        String tableName = storageClient.getStateTableName(storageURI);
-
         stateManager.init();
-        FileConnectorState state = stateManager.getStateForTraversal(tableName);
-
-        storageClient.traverse(publisher, params, state);
-        stateManager.updateDatabaseAfterTraversal(storageURI, tableName);
+        storageClient.traverse(publisher, params, stateManager);
       } else {
         storageClient.traverse(publisher, params);
       }
