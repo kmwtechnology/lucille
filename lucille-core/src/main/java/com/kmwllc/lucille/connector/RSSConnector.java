@@ -1,9 +1,12 @@
 package com.kmwllc.lucille.connector;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.kmwllc.lucille.core.ConnectorException;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Spec;
-import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
 import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -12,7 +15,9 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * Reads data from an RSS feed, and publishes Documents with each RSS item's content in the "rss_item" field on the Document.
@@ -30,7 +35,7 @@ import java.util.Map;
 public class RSSConnector extends AbstractConnector {
 
   private final URL rssURL;
-  private final XMLFileHandler xmlHandler;
+  private static final XmlMapper xmlMapper = new XmlMapper();
 
   public RSSConnector(Config config) {
     super(config, Spec.connector()
@@ -42,37 +47,46 @@ public class RSSConnector extends AbstractConnector {
     } catch (MalformedURLException e) {
       throw new IllegalArgumentException("Attempted to create RSSConnector with malformed rssURL.", e);
     }
-
-    // building the appropriate config for the XMLFileHandler based on the desired output + what may have been specified
-    // in the config
-    Map<String, Object> xmlHandlerConfigMap = new HashMap<>();
-    xmlHandlerConfigMap.put("xmlRootPath", "/rss/channel/item");
-    xmlHandlerConfigMap.put("outputField", "rss_item");
-    xmlHandlerConfigMap.put("docIdPrefix", getDocIdPrefix());
-
-    if (config.hasPath("idField")) {
-      xmlHandlerConfigMap.put("xmlIdPath", config.getString("idField"));
-    } else {
-      xmlHandlerConfigMap.put("xmlIdPath", "guid");
-    }
-
-    if (config.hasPath("encoding")) {
-      xmlHandlerConfigMap.put("encoding", config.getString("encoding"));
-    }
-
-    Config xmlHandlerConfig = ConfigFactory.parseMap(xmlHandlerConfigMap);
-    this.xmlHandler = new XMLFileHandler(xmlHandlerConfig);
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try {
       InputStream rssStream = rssURL.openStream();
-      xmlHandler.processFileAndPublish(publisher, rssStream, rssURL.toString());
+      JsonNode rssRootNode = xmlMapper.readTree(rssStream);
+
+      // Gets the item(s). Will be an array, if multiple, or just the one object, if only one.
+      JsonNode allItemsNode = rssRootNode.get("channel").get("item");
+
+      if (allItemsNode.isArray()) {
+        for (JsonNode itemNode : allItemsNode) {
+          Document doc = docFromNodeUsingId(itemNode);
+          publisher.publish(doc);
+        }
+      } else if (allItemsNode.isObject()) {
+        Document doc = docFromNodeUsingId(allItemsNode);
+        publisher.publish(doc);
+      } else {
+        throw new ConnectorException("The XML's \"item\" node was of incompatible type: " + allItemsNode.getNodeType());
+      }
     } catch (IOException e) {
       throw new ConnectorException("Error occurred connecting to the RSS feed:", e);
-    } catch (FileHandlerException e) {
-      throw new ConnectorException("Error occurred handling the RSS response:", e);
+    } catch (DocumentException e) {
+      throw new ConnectorException("Error occurred getting Document from RSS item:", e);
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred in RSSConnector:", e);
     }
+  }
+
+  private Document docFromNodeUsingId(JsonNode itemNode) {
+    Document doc = Document.create(itemNode.get("guid").asText());
+    Iterator<Entry<String, JsonNode>> fields = itemNode.fields();
+
+    while (fields.hasNext()) {
+      Entry<String, JsonNode> field = fields.next();
+      doc.setField(field.getKey(), field.getValue());
+    }
+
+    return doc;
   }
 }
