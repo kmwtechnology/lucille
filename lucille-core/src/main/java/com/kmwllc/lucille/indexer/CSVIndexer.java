@@ -15,6 +15,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * An indexer that stores documents in a CSV file.
+ */
 public class CSVIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(CSVIndexer.class);
@@ -24,7 +27,12 @@ public class CSVIndexer extends Indexer {
   private final List<String> columns;
   private final boolean includeHeader;
 
-
+  /**
+   * Creates a CSVIndexer from the given arguments.
+   * @param config Configuration for Lucille which should potentially contain "indexer" as well as "csv"
+   *              (Configuration for the CSVIndexer)
+   * @param localRunId The runID for a local run, null otherwise.
+   */
   public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix, String localRunId) {
     super(config, messenger, metricsPrefix, localRunId);
     if (this.indexOverrideField != null) {
@@ -37,16 +45,32 @@ public class CSVIndexer extends Indexer {
     this.includeHeader = config.hasPath("csv.includeHeader") ? config.getBoolean("csv.includeHeader") : true;
   }
 
+  /**
+   * Creates a CSVIndexer from the given arguments.
+   * @param config Configuration for Lucille which should potentially contain "indexer" as well as "csv"
+   *              (Configuration for the CSVIndexer)
+   * @param localRunId The runID for a local run, null otherwise.
+   */
   public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
     this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix, localRunId);
   }
 
-  // Convenience constructor, mostly for testing. (No localRunId)
+  // Convenience Constructors - No localRunId needs to be specified, uses "null".
+
+  /**
+   * Creates a CSVIndexer from the given arguments with no localRunId.
+   * @param config Configuration for Lucille which should potentially contain "indexer" as well as "csv"
+   *              (Configuration for the CSVIndexer)
+   */
   public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix) {
     this(config, messenger, writer, bypass, metricsPrefix, null);
   }
 
-  // Convenience constructor, mostly for testing. (No localRunId)
+  /**
+   * Creates a CSVIndexer from the given arguments with no localRunId.
+   * @param config Configuration for Lucille which should potentially contain "indexer" as well as "csv"
+   *              (Configuration for the CSVIndexer)
+   */
   public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
     this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix, null);
   }

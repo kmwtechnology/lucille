@@ -51,7 +51,7 @@ import org.slf4j.LoggerFactory;
  *  <p> fields (list of Strings, Optional): The fields in the document you want to be sent to the LLM. If the list is empty or not specified,
  *  defaults to sending the entire Document to the LLM for enriching.
  *
- *  <p> requireJSON (Boolean, Optional): Whether you are requiring & expecting the LLM to output a JSON-only response. When true,
+ *  <p> requireJSON (Boolean, Optional): Whether you are requiring and expecting the LLM to output a JSON-only response. When true,
  *  Lucille will throw an Exception upon receiving a non-JSON response from the LLM. When false, Lucille will place the response's
  *  raw contents into the "ollamaResponse" field. Defaults to false.
  *
