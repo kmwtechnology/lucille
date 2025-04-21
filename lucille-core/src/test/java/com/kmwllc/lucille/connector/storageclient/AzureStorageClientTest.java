@@ -462,7 +462,7 @@ public class AzureStorageClientTest {
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
     // only files modified in the last 2 hours
-    Map<String, String> filterOptionsMap = Map.of("modificationCutoff", "2h");
+    Map<String, String> filterOptionsMap = Map.of("lastModifiedCutoff", "2h");
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "",
         ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
 

@@ -35,8 +35,8 @@ public interface StorageClient {
   void shutdown() throws IOException;
 
   /**
-   * Traverses through the storage client and publish files to Lucille pipeline. Uses no FileConnectorState, meaning files will not
-   * be tracked and lastPublishedCutoff, if specified, will not be enforced.
+   * Traverses through the storage client and publish files to Lucille pipeline. Uses no FileConnectorStateManager, meaning state will
+   * not be updated and lastPublishedCutoff, if specified, will not be enforced.
    */
   void traverse(Publisher publisher, TraversalParams params) throws Exception;
 

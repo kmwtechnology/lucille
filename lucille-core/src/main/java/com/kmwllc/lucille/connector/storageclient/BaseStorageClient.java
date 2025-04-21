@@ -142,12 +142,12 @@ public abstract class BaseStorageClient implements StorageClient {
     String fileExtension = fileReference.getFileExtension();
 
     try {
-      Instant lastPublished = stateMgr == null ? null : stateMgr.getLastPublished(fullPathStr);
-
       // We always mark files as encountered, even if they don't comply with filter options
       if (stateMgr != null) {
         stateMgr.markFileEncountered(fullPathStr);
       }
+
+      Instant lastPublished = stateMgr == null ? null : stateMgr.getLastPublished(fullPathStr);
 
       // applying filter options + making sure preprocessing is successful.
       if (!params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)

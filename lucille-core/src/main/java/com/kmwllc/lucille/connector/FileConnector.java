@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  * FilterOptions:
  *  includes (list of strings, Optional): list of regex patterns to include files.
  *  excludes (list of strings, Optional): list of regex patterns to exclude files.
- *  modificationCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time.
+ *  lastModifiedCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time.
  *  Specify "1h" to only include / publish files that were modified within the last hour, for example.
  *  lastPublishedCutoff (Duration, Optional): Filter files that haven't been published by Lucille since a certain amount of time.
  *  Relies on your state configuration to determine when files were last published. If you do not specify configuration for state, this

@@ -41,7 +41,7 @@ Filter options determine **which** files will/won't be processed & published in 
 If you specify multiple filter options, files must comply with all of them to be processed & published.
 * `includes`: A list of patterns for the only file names that you want to include in your traversal.
 * `excludes`: A list of patterns for file names that you want to exclude from your traversal.
-* `modificationCutoff`: Filter out files that haven't been modified recently. For example, specify `"1h"`, and only
+* `lastModifiedCutoff`: Filter out files that haven't been modified recently. For example, specify `"1h"`, and only
 files modified within the last hour will be processed & published.
 * `lastPublishedCutoff`: Filter out files that were recently published by Lucille. For example, specify `"1h"`, and only
 files published by Lucille more than an hour ago will processed & published. Requires you to provide **state** configuration, otherwise,

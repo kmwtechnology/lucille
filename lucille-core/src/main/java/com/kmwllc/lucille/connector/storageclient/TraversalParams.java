@@ -39,7 +39,7 @@ public class TraversalParams {
   // FilterOptions / its params
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
-  private final Duration modificationCutoff;
+  private final Duration lastModifiedCutoff;
   private final Duration lastPublishedCutoff;
 
   public TraversalParams(URI uri, String docIdPrefix, Config fileOptions, Config filterOptions) {
@@ -62,7 +62,7 @@ public class TraversalParams {
         filterOptions.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
 
-    this.modificationCutoff = filterOptions.hasPath("modificationCutoff") ? filterOptions.getDuration("modificationCutoff") : null;
+    this.lastModifiedCutoff = filterOptions.hasPath("lastModifiedCutoff") ? filterOptions.getDuration("lastModifiedCutoff") : null;
     this.lastPublishedCutoff = filterOptions.hasPath("lastPublishedCutoff") ? filterOptions.getDuration("lastPublishedCutoff") : null;
   }
 
@@ -83,13 +83,13 @@ public class TraversalParams {
   }
 
   /**
-   * Returns whether the given Instant indicates the file should be published / processed. Always returns true if there is no
-   * modificationCutoff set. If it is set, returns whether the file was modified recently enough to be processed/published.
+   * Returns whether the given lastModified and lastPublished instants comply with lastModifiedCutoff / lastPublishedCutoff,
+   * if they are specified.
    */
   private boolean cutoffsAllowFile(Instant fileLastModified, Instant fileLastPublished) {
-    // If modificationCutoff is specified, return false if it is violated
-    if (modificationCutoff != null) {
-      Instant cutoffPoint = Instant.now().minus(modificationCutoff);
+    // If lastModifiedCutoff is specified, return false if it is violated
+    if (lastModifiedCutoff != null) {
+      Instant cutoffPoint = Instant.now().minus(lastModifiedCutoff);
 
       // Only want to include files modified within the given duration (for example, within the last hour)
       if (fileLastModified.isBefore(cutoffPoint)) {

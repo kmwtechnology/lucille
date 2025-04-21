@@ -466,7 +466,7 @@ public class S3StorageClientTest {
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     // only files modified in the last 2 hours
-    Map<String, String> filterOptionsMap = Map.of("modificationCutoff", "2h");
+    Map<String, String> filterOptionsMap = Map.of("lastModifiedCutoff", "2h");
     TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
         ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
 

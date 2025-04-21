@@ -399,7 +399,7 @@ public class LocalStorageClientTest {
     localStorageClient.init();
 
     // Only including files modified in the last 10 hours
-    Config filterOptions = ConfigFactory.parseMap(Map.of("modificationCutoff", "10h"));
+    Config filterOptions = ConfigFactory.parseMap(Map.of("lastModifiedCutoff", "10h"));
     TraversalParams params = new TraversalParams(defaultURI, "", ConfigFactory.empty(), filterOptions);
     localStorageClient.traverse(publisher, params);
     // only "new file" should be published - others are BEFORE the cutoff.

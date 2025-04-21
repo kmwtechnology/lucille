@@ -73,6 +73,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+      // We don't care about preVisiting a directory
       return FileVisitResult.CONTINUE;
     }
 
