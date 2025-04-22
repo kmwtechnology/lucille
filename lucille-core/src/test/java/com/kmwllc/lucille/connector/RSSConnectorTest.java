@@ -30,7 +30,7 @@ public class RSSConnectorTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
 
-    // The test will fail if we do not reference the class here, for some reason...
+    // The test will fail if we do not reference the class here - some kind of interference from Mockito, I think.
     Class.forName("com.kmwllc.lucille.connector.RSSConnector");
     try (MockedConstruction<URL> mockUrlConst = Mockito.mockConstruction(URL.class, (mockURL, context) -> {
       Mockito.when(mockURL.openStream()).thenReturn(new FileInputStream("src/test/Resources/RSSConnectorTest/businessNews.xml"));
@@ -129,9 +129,9 @@ public class RSSConnectorTest {
     assertEquals("Afternoon Market Update - April 21, 2025", publishedDocs.get(0).getString("title"));
     assertEquals("BREAKING: UBER SUED BY FTC", publishedDocs.get(1).getString("title"));
     assertEquals("Leading Economic Indicators - April 21, 2025", publishedDocs.get(2).getString("title"));
-    // has a badly formatted pubDate
+    // has a badly formatted pubDate, so still gets published
     assertEquals("Dow drops 3000 points as Fed slashes rates", publishedDocs.get(3).getString("title"));
-    // has no pubDate
+    // has no pubDate, so still gets published
     assertEquals("Stocks Surge as Central Banks Stimulate", publishedDocs.get(4).getString("title"));
   }
 
@@ -145,6 +145,7 @@ public class RSSConnectorTest {
     Class.forName("com.kmwllc.lucille.connector.RSSConnector");
     RSSConnector connector;
     try (MockedConstruction<URL> mockUrlConst = Mockito.mockConstruction(URL.class, (mockURL, context) -> {
+      // A bit of a simpler case - <guid> doesn't have isPermaLink. Want to make sure it becomes the docID the same as before.
       Mockito.when(mockURL.openStream()).thenReturn(new FileInputStream("src/test/Resources/RSSConnectorTest/businessNewsNoGuidAttribute.xml"));
     })) {
       connector = new RSSConnector(config);
@@ -153,7 +154,6 @@ public class RSSConnectorTest {
 
     List<Document> publishedDocs = messenger.getDocsSentForProcessing();
     assertEquals(3, publishedDocs.size());
-    // the guid should be used as the id. Also, the "isPermaLink" attribute won't have any effect.
     assertEquals("amu042125", publishedDocs.get(0).getId());
     assertEquals("uber-news042125", publishedDocs.get(1).getId());
     assertEquals("lei042125", publishedDocs.get(2).getId());
@@ -162,7 +162,6 @@ public class RSSConnectorTest {
   @Test
   public void testRSSConnectorBadUrl() {
     Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/badURL.conf");
-
     assertThrows(IllegalArgumentException.class, () -> new RSSConnector(config));
   }
 
