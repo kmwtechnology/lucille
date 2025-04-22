@@ -349,21 +349,25 @@ public class Spec {
 
     /* Override the following methods - call the super methods, which are still mutating, but return this (a ParentSpec) instead of a Spec.
     Allows us to define static ParentSpecs in various classes (OpensearchUtils, SolrUtils) that can be used in withOptional/RequiredParents. */
+    @Override
     public ParentSpec withOptionalProperties(String... properties) {
       super.withOptionalProperties(properties);
       return this;
     }
 
+    @Override
     public ParentSpec withRequiredProperties(String... properties) {
       super.withRequiredProperties(properties);
       return this;
     }
 
+    @Override
     public ParentSpec withRequiredParents(ParentSpec... properties) {
       super.withRequiredParents(properties);
       return this;
     }
 
+    @Override
     public ParentSpec withOptionalParents(ParentSpec... properties) {
       super.withOptionalParents(properties);
       return this;
