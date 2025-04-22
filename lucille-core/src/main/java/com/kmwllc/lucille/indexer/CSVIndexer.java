@@ -2,6 +2,7 @@ package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
@@ -25,7 +26,9 @@ public class CSVIndexer extends Indexer {
 
 
   public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
+        .withRequiredProperties("columns", "path")
+        .withOptionalProperties("includeHeader", "append"));
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
@@ -49,6 +52,9 @@ public class CSVIndexer extends Indexer {
   public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
     this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix, null);
   }
+
+  @Override
+  protected String getIndexerConfigKey() { return "csv"; }
 
   private static ICSVWriter getCsvWriter(Config config, boolean bypass) {
     boolean append = config.hasPath("csv.append") ? config.getBoolean("csv.append") : false;

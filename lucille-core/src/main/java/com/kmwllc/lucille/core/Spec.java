@@ -37,6 +37,11 @@ public class Spec {
     this.optionalParentMap = new HashMap<>();
   }
 
+  // Convenience constructor to create a Spec without default legal properties.
+  private Spec() {
+    this(Set.of());
+  }
+
   /**
    * Creates a Spec with default legal properties suitable for a Stage. Includes name, class, conditions, and
    * conditionPolicy.
@@ -54,6 +59,22 @@ public class Spec {
   public static Spec connector() {
     return new Spec(Set.of("name", "class", "pipeline", "docIdPrefix", "collapse"));
   }
+
+  /**
+   * Creates a Spec for a specific Indexer implementation (elasticsearch, solr, csv, etc.) There are no common, legal properties
+   * associated with specific Indexers.
+   * <p> <b>Note:</b> This spec should <b>not</b> be used to validate the general "indexer" block of a Lucille configuration.
+   * <p> <b>Note:</b> You should define your required/optional properties/parents <i>without</i> including your indexer-specific
+   * parent name / key. For example, do <i>not</i> write "elasticsearch.index"; instead, write "index".
+   * @return a Spec with default legal properties suitable for a specific Indexer implementation.
+   */
+  public static Spec indexer() { return new Spec(); }
+
+  /**
+   * Creates a Spec without any default, legal properties.
+   * @return a Spec without any default, legal properties.
+   */
+  public static Spec withoutDefaults() { return new Spec(); }
 
   /**
    * Creates a ParentSpec with the given name. Has no default legal properties.

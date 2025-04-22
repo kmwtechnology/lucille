@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
@@ -46,7 +47,10 @@ public class OpenSearchIndexer extends Indexer {
   private final boolean update;
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
+        .withRequiredProperties("index", "url")
+        .withOptionalProperties("update", "acceptInvalidCert"));
+
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create OpenSearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by OpenSearchIndexer.");
@@ -71,6 +75,9 @@ public class OpenSearchIndexer extends Indexer {
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
     this(config, messenger, getClient(config, bypass), metricsPrefix, null);
   }
+
+  @Override
+  protected String getIndexerConfigKey() { return "opensearch"; }
 
   private static OpenSearchClient getClient(Config config, boolean bypass) {
     return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(config);
