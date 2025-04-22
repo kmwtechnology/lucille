@@ -14,16 +14,9 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * <br>
  * Config Parameters -
- * <br>
- * <p>
- * <b>field_name</b> (String, Optional) : Field name of field where data is placed. Defaults to "data"
- * </p>
- * <p>
- * <b>range_start</b> (Integer, Optional) : Integer representing the start of the range for generating random ints. Defaults to 0.
- * </p>
- * <p>
- * <b>range_end</b> (Integer, Optional) : Integer representing the end of the range for generating random ints. Defaults to 1M (1000000).
- * </p>
+ * <p> <b>field_name</b> (String, Optional) : Field name of field where data is placed. Defaults to "data"
+ * <p> <b>range_start</b> (Integer, Optional) : Integer representing the start of the range for generating random ints. Defaults to 0.
+ * <p> <b>range_end</b> (Integer, Optional) : Integer representing the end of the range for generating random ints. Defaults to 1M (1000000).
  */
 public class AddRandomInt extends Stage {
 

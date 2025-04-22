@@ -11,15 +11,30 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 
+/**
+ * The base implementation of a FileHandler.
+ */
 public abstract class BaseFileHandler implements FileHandler {
-  protected String docIdPrefix;
+
   private static final Logger log = LoggerFactory.getLogger(BaseFileHandler.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
+
+  protected String docIdPrefix;
 
   public BaseFileHandler(Config config) {
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
   }
 
+  /**
+   * Process and publish the file, described by an InputStream to its contents and a String representation of its path, publishing
+   * any extracted documents to the Publisher.
+   *
+   * @param publisher The publisher you want to publish documents to.
+   * @param inputStream An InputStream of the file's contents.
+   * @param pathStr A string representing the path to the file being processed. Used for logging / debugging.
+   * @throws FileHandlerException If an error occurs while processing the file / setting up an Iterator of Documents
+   * to extract from the file.
+   */
   public void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException {
     Iterator<Document> docIterator;
 
