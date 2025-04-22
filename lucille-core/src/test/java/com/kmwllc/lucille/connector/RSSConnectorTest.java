@@ -1,7 +1,9 @@
 package com.kmwllc.lucille.connector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
@@ -10,6 +12,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -130,5 +133,95 @@ public class RSSConnectorTest {
     assertEquals("Dow drops 3000 points as Fed slashes rates", publishedDocs.get(3).getString("title"));
     // has no pubDate
     assertEquals("Stocks Surge as Central Banks Stimulate", publishedDocs.get(4).getString("title"));
+  }
+
+  @Test
+  public void testRSSConnectorWithNoGuidAttribute() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/guidForId.conf");
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
+
+    Class.forName("com.kmwllc.lucille.connector.RSSConnector");
+    RSSConnector connector;
+    try (MockedConstruction<URL> mockUrlConst = Mockito.mockConstruction(URL.class, (mockURL, context) -> {
+      Mockito.when(mockURL.openStream()).thenReturn(new FileInputStream("src/test/Resources/RSSConnectorTest/businessNewsNoGuidAttribute.xml"));
+    })) {
+      connector = new RSSConnector(config);
+      connector.execute(publisher);
+    }
+
+    List<Document> publishedDocs = messenger.getDocsSentForProcessing();
+    assertEquals(3, publishedDocs.size());
+    // the guid should be used as the id. Also, the "isPermaLink" attribute won't have any effect.
+    assertEquals("amu042125", publishedDocs.get(0).getId());
+    assertEquals("uber-news042125", publishedDocs.get(1).getId());
+    assertEquals("lei042125", publishedDocs.get(2).getId());
+  }
+
+  @Test
+  public void testRSSConnectorBadUrl() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/badURL.conf");
+
+    assertThrows(IllegalArgumentException.class, () -> new RSSConnector(config));
+  }
+
+  @Test
+  public void testRSSConnectorIncompatibleItemNodeType() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/default.conf");
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
+
+    // The test will fail if we do not reference the class here, for some reason...
+    Class.forName("com.kmwllc.lucille.connector.RSSConnector");
+    try (MockedConstruction<URL> mockUrlConst = Mockito.mockConstruction(URL.class, (mockURL, context) -> {
+      Mockito.when(mockURL.openStream()).thenReturn(new FileInputStream("src/test/Resources/RSSConnectorTest/weird.xml"));
+    })) {
+      RSSConnector connector = new RSSConnector(config);
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+    }
+  }
+
+  @Test
+  public void testRSSConnectorBadURLConnection() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/default.conf");
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
+
+    // The test will fail if we do not reference the class here, for some reason...
+    Class.forName("com.kmwllc.lucille.connector.RSSConnector");
+    try (MockedConstruction<URL> mockUrlConst = Mockito.mockConstruction(URL.class, (mockURL, context) -> {
+      Mockito.when(mockURL.openStream()).thenThrow(new IOException("mock IO Exc."));
+    })) {
+      RSSConnector connector = new RSSConnector(config);
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+    }
+  }
+
+  // Making sure the connector can read "RDF" RSS feeds - this is a "1.*" version of RSS. The "business news" example
+  // was more in line with "Harvard" / version "2.*".
+  @Test
+  public void testRSSConnectorRDF() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/default.conf");
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
+
+    // The test will fail if we do not reference the class here, for some reason...
+    Class.forName("com.kmwllc.lucille.connector.RSSConnector");
+    try (MockedConstruction<URL> mockUrlConst = Mockito.mockConstruction(URL.class, (mockURL, context) -> {
+      Mockito.when(mockURL.openStream()).thenReturn(new FileInputStream("src/test/Resources/RSSConnectorTest/rdf.xml"));
+    })) {
+      RSSConnector connector = new RSSConnector(config);
+      connector.execute(publisher);
+    }
+
+    List<Document> publishedDocs = messenger.getDocsSentForProcessing();
+    System.out.println(publishedDocs.get(0));
+    assertEquals(1, publishedDocs.size());
+
+    assertEquals("http://www.w3.org/News/2001#item178", publishedDocs.get(0).getString("about"));
   }
 }

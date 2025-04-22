@@ -24,17 +24,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <p> Reads data from an RSS feed, and publishes Documents with each RSS item's content in the "rss_item" field on the Document.
+ * <p> Reads the item(s) from an RSS feed, and publishes Documents with each RSS item's content in the "rss_item" field on the Document.
+ * Can be configured to only publish items with a recent &lt;pubDate&gt;.
  *
  * <p> Config Parameters:
  *
  * <p> rssURL (String): The URL to the RSS feed you want to publish Documents for.
  * <p> idField (String, Optional): The name of the field in the RSS items that you want to use for the ID of documents published.
- * (For example, guid.) Defaults to using a UUID for each document. If the field has an attribute, Lucille handles extracting the actual
+ * (&lt;guid&gt;, for example) Defaults to using a UUID for each document. If the field has an attribute, Lucille handles extracting the actual
  * value for your Document's ID.
  * <p> pubDateCutoff (Duration, Optional): Specify a duration to only publish Documents for recent RSS items. For example, "1h" means
  * only RSS items with a &lt;pubDate&gt; within the last hour will be published as Documents. Defaults to including all files.
  * If &lt;pubDate&gt; is not found in the items, this value has no effect. See the HOCON documentation for examples of a duration.
+ *
+ * <p> <b>Note:</b> By default, XML elements with attributes (ex: &lt;guid isPermaLink="false"&gt;) will be put onto Documents as JSON,
+ * keyed by the element name, with both the attribute(s) and the content of the element as child properties. The content's key
+ * will be an empty String.
  */
 public class RSSConnector extends AbstractConnector {
 
@@ -52,7 +57,7 @@ public class RSSConnector extends AbstractConnector {
   public RSSConnector(Config config) {
     super(config, Spec.connector()
         .withRequiredProperties("rssURL")
-        .withOptionalProperties("encoding", "idField", "pubDateCutoff"));
+        .withOptionalProperties("idField", "pubDateCutoff"));
 
     try {
       this.rssURL = new URL(config.getString("rssURL"));
@@ -75,7 +80,6 @@ public class RSSConnector extends AbstractConnector {
     try {
       InputStream rssStream = rssURL.openStream();
       JsonNode rssRootNode = xmlMapper.readTree(rssStream);
-
       // Gets the item(s). Will be an array, if multiple, or just the one object, if only one.
       JsonNode allItemsNode = rssRootNode.get("channel").get("item");
 
@@ -132,7 +136,6 @@ public class RSSConnector extends AbstractConnector {
       } else {
         doc = Document.create(createDocId(idNode.asText()));
       }
-
     }
 
     Iterator<Entry<String, JsonNode>> fields = itemNode.fields();
