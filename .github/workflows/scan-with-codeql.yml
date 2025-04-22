@@ -2,7 +2,7 @@ name: "Scan code with CodeQL"
 
 on:
   push:
-    branches: [ "main", "LC-458-enable-code-scanning" ]
+    branches: [ "main" ]
   schedule:
     # scan code every Monday at 1am UTC
     - cron: '00 1 * * 1'
