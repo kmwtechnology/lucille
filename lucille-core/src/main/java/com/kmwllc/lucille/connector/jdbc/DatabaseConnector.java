@@ -388,7 +388,6 @@ public class DatabaseConnector extends AbstractConnector {
     }
   }
 
-  //@Override
   public void stop() {
     // TODO: move this to a base class..
   }

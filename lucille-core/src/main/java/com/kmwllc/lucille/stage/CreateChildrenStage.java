@@ -10,9 +10,8 @@ import java.util.Iterator;
 
 /**
  * Creates a designated number of children documents.
- *
- * This stage is intended for use in testing only.
- * It is included in the main source tree so that it can be used in manual tests run against an artifact
+ * <br> This stage is intended for use in testing only.
+ * <br> It is included in the main source tree so that it can be used in manual tests run against an artifact
  * that excludes the test tree.
  *
  */
