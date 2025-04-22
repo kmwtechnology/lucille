@@ -2,50 +2,71 @@ package com.kmwllc.lucille.connector;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Spec;
-import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.HashMap;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Map.Entry;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Reads data from an RSS feed, and publishes Documents with each RSS item's content in the "rss_item" field on the Document.
+ * <p> Reads data from an RSS feed, and publishes Documents with each RSS item's content in the "rss_item" field on the Document.
  *
- * Config Parameters:
+ * <p> Config Parameters:
  *
- * rssURL (String): The URL to the RSS feed.
- *
- * encoding (String, Optional): The encoding used in the RSS feed. Defaults to utf-8 encoding.
- * idField (String, Optional): The name of the field in the XML items that serves as an identifier. Defaults to use guid. It is
- * recommended you only override this value if working with an RSS feed which doesn't include a guid for items.
- *
- * <b>Note: The docIdPrefix you specify in your Config will be applied to each of the extracted RSS items.</b>
+ * <p> rssURL (String): The URL to the RSS feed you want to publish Documents for.
+ * <p> idField (String, Optional): The name of the field in the RSS items that you want to use for the ID of documents published.
+ * (For example, guid.) Defaults to using a UUID for each document. If the field has an attribute, Lucille handles extracting the actual
+ * value for your Document's ID.
+ * <p> pubDateCutoff (Duration, Optional): Specify a duration to only publish Documents for recent RSS items. For example, "1h" means
+ * only RSS items with a &lt;pubDate&gt; within the last hour will be published as Documents. Defaults to including all files.
+ * If &lt;pubDate&gt; is not found in the items, this value has no effect. See the HOCON documentation for examples of a duration.
  */
 public class RSSConnector extends AbstractConnector {
 
-  private final URL rssURL;
   private static final XmlMapper xmlMapper = new XmlMapper();
+  private static final Logger log = LoggerFactory.getLogger(RSSConnector.class);
+
+  // The pubDates *should* comply with RFC 822. Four-digit years are more common than two-digit years, but both
+  // are allowed.
+  private static final SimpleDateFormat PUB_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yy HH:mm:ss Z");
+
+  private final URL rssURL;
+  private final String idField;
+  private final Date pubDateCutoff;
 
   public RSSConnector(Config config) {
     super(config, Spec.connector()
         .withRequiredProperties("rssURL")
-        .withOptionalProperties("encoding", "idField"));
+        .withOptionalProperties("encoding", "idField", "pubDateCutoff"));
 
     try {
       this.rssURL = new URL(config.getString("rssURL"));
     } catch (MalformedURLException e) {
       throw new IllegalArgumentException("Attempted to create RSSConnector with malformed rssURL.", e);
+    }
+
+    this.idField = ConfigUtils.getOrDefault(config, "idField", null);
+
+    if (config.hasPath("pubDateCutoff")) {
+      Duration pubDateCutoffDuration = config.getDuration("pubDateCutoff");
+      this.pubDateCutoff = Date.from(Instant.now().minus(pubDateCutoffDuration));
+    } else {
+      this.pubDateCutoff = null;
     }
   }
 
@@ -60,26 +81,60 @@ public class RSSConnector extends AbstractConnector {
 
       if (allItemsNode.isArray()) {
         for (JsonNode itemNode : allItemsNode) {
-          Document doc = docFromNodeUsingId(itemNode);
-          publisher.publish(doc);
+          createAndPublishDocumentFromNode(itemNode, publisher);
         }
       } else if (allItemsNode.isObject()) {
-        Document doc = docFromNodeUsingId(allItemsNode);
-        publisher.publish(doc);
+        createAndPublishDocumentFromNode(allItemsNode, publisher);
       } else {
         throw new ConnectorException("The XML's \"item\" node was of incompatible type: " + allItemsNode.getNodeType());
       }
     } catch (IOException e) {
       throw new ConnectorException("Error occurred connecting to the RSS feed:", e);
-    } catch (DocumentException e) {
-      throw new ConnectorException("Error occurred getting Document from RSS item:", e);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred in RSSConnector:", e);
     }
   }
 
+  // Attempts to create a Document from the given JsonNode - which should represent an RSS item - and publish it,
+  // if appropriate.
+  private void createAndPublishDocumentFromNode(JsonNode itemNode, Publisher publisher) throws Exception {
+    Document doc = docFromNodeUsingId(itemNode);
+
+    // enforcing the cutoff if it is specified and the item has a pubDate. If something fails, just publish the Document.
+    if (pubDateCutoff != null && doc.has("pubDate")) {
+      try {
+        Date pubDate = PUB_DATE_FORMAT.parse(doc.getString("pubDate"));
+
+        if (pubDate.before(pubDateCutoff)) {
+          return;
+        }
+      } catch (ParseException e) {
+        log.warn("Error parsing pubDate {} from Document. It will be published.", doc.getString("pubDate"));
+      }
+    }
+
+    publisher.publish(doc);
+  }
+
+  // Creates a Document from the node, using the idField for an ID if it is specified; if not, using a random UUID.
+  // Places all fields from the node onto the item as JSON.
   private Document docFromNodeUsingId(JsonNode itemNode) {
-    Document doc = Document.create(itemNode.get("guid").asText());
+    Document doc;
+
+    if (idField == null) {
+      doc = Document.create(createDocId(UUID.randomUUID().toString()));
+    } else {
+      JsonNode idNode = itemNode.get(idField);
+
+      // Handling the case where the field had an attribute (see unit tests)
+      if (idNode.isObject()) {
+        doc = Document.create(createDocId(idNode.get("").asText()));
+      } else {
+        doc = Document.create(createDocId(idNode.asText()));
+      }
+
+    }
+
     Iterator<Entry<String, JsonNode>> fields = itemNode.fields();
 
     while (fields.hasNext()) {

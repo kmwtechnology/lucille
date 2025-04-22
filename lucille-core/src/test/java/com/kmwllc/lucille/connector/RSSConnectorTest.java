@@ -8,8 +8,11 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import java.io.FileInputStream;
 import java.net.URL;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
@@ -19,61 +22,113 @@ public class RSSConnectorTest {
 
   @Test
   public void testRSSConnector() throws Exception {
-    Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/config.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/default.conf");
 
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
 
     // The test will fail if we do not reference the class here, for some reason...
+    Class.forName("com.kmwllc.lucille.connector.RSSConnector");
+    try (MockedConstruction<URL> mockUrlConst = Mockito.mockConstruction(URL.class, (mockURL, context) -> {
+      Mockito.when(mockURL.openStream()).thenReturn(new FileInputStream("src/test/Resources/RSSConnectorTest/businessNews.xml"));
+    })) {
+      RSSConnector connector = new RSSConnector(config);
+      connector.execute(publisher);
+    }
+
+    List<Document> publishedDocs = messenger.getDocsSentForProcessing();
+    assertEquals(3, publishedDocs.size());
+
+    assertEquals("amu042125", publishedDocs.get(0).getJson("guid").get("").asText());
+    assertEquals("Afternoon Market Update - April 21, 2025", publishedDocs.get(0).getString("title"));
+    // checking here that the formatting around the description (in the XML file) gets removed...
+    assertEquals("The Dow is down more than 1,000 points. All indices are lower by 3%+.", publishedDocs.get(0).getString("description"));
+
+    assertEquals("uber-news042125", publishedDocs.get(1).getJson("guid").get("").asText());
+    assertEquals("BREAKING: UBER SUED BY FTC", publishedDocs.get(1).getString("title"));
+
+    assertEquals("lei042125", publishedDocs.get(2).getJson("guid").get("").asText());
+    assertEquals("Leading Economic Indicators - April 21, 2025", publishedDocs.get(2).getString("title"));
+  }
+
+  @Test
+  public void testRSSConnectorSingleItem() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/default.conf");
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
+
+    Class.forName("com.kmwllc.lucille.connector.RSSConnector");
+    try (MockedConstruction<URL> mockUrlConst = Mockito.mockConstruction(URL.class, (mockURL, context) -> {
+      Mockito.when(mockURL.openStream()).thenReturn(new FileInputStream("src/test/Resources/RSSConnectorTest/businessNewsSingle.xml"));
+    })) {
+      RSSConnector connector = new RSSConnector(config);
+      connector.execute(publisher);
+    }
+
+    List<Document> publishedDocs = messenger.getDocsSentForProcessing();
+    assertEquals(1, publishedDocs.size());
+    assertEquals("amu042125", publishedDocs.get(0).getJson("guid").get("").asText());
+    assertEquals("Market Close - April 21, 2025", publishedDocs.get(0).getString("title"));
+  }
+
+  @Test
+  public void testRSSConnectorWithIdField() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/guidForId.conf");
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
+
     Class.forName("com.kmwllc.lucille.connector.RSSConnector");
     RSSConnector connector;
     try (MockedConstruction<URL> mockUrlConst = Mockito.mockConstruction(URL.class, (mockURL, context) -> {
       Mockito.when(mockURL.openStream()).thenReturn(new FileInputStream("src/test/Resources/RSSConnectorTest/businessNews.xml"));
     })) {
       connector = new RSSConnector(config);
+      connector.execute(publisher);
     }
 
-    connector.execute(publisher);
     List<Document> publishedDocs = messenger.getDocsSentForProcessing();
     assertEquals(3, publishedDocs.size());
-
-    // defaults to using the item's guid as the id for the document. it'll still be a separate field on the document, however...
+    // the guid should be used as the id. Also, the "isPermaLink" attribute won't have any effect.
     assertEquals("amu042125", publishedDocs.get(0).getId());
-    assertEquals("amu042125", publishedDocs.get(0).getString("guid"));
-    assertEquals("Afternoon Market Update - April 21, 2025", publishedDocs.get(0).getString("title"));
-    // note here that the formatting around the description (in the XML file) gets removed...
-    assertEquals("The Dow is down more than 1,000 points. All indices are lower by 3%+.", publishedDocs.get(0).getString("description"));
-
     assertEquals("uber-news042125", publishedDocs.get(1).getId());
-    assertEquals("uber-news042125", publishedDocs.get(1).getString("guid"));
-    assertEquals("BREAKING: UBER SUED BY FTC", publishedDocs.get(1).getString("title"));
-
     assertEquals("lei042125", publishedDocs.get(2).getId());
-    assertEquals("lei042125", publishedDocs.get(2).getString("guid"));
-    assertEquals("Leading Economic Indicators - April 21, 2025", publishedDocs.get(2).getString("title"));
   }
 
   @Test
-  public void testRSSConnectorSingleItem() throws Exception {
-    Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/config.conf");
+  public void testRSSConnectorWithPubDateCutoff() throws Exception {
+    // Adding this programmatically so the test will succeed forever. There's three "stories" from 2025,
+    // and then three coming from before - only one has an actual, correctly formatted pubDate though.
+    LocalDate start = LocalDate.of(2025, 1, 1);
+    LocalDate today = LocalDate.now();
+    long daysSince2025Start = ChronoUnit.DAYS.between(start, today);
+    String durationStr = daysSince2025Start + "d";
+
+    Config config = ConfigFactory
+        .parseResourcesAnySyntax("RSSConnectorTest/default.conf")
+        .withValue("pubDateCutoff", ConfigValueFactory.fromAnyRef(durationStr));
 
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
 
-    // The test will fail if we do not reference the class here, for some reason...
     Class.forName("com.kmwllc.lucille.connector.RSSConnector");
-    RSSConnector connector;
     try (MockedConstruction<URL> mockUrlConst = Mockito.mockConstruction(URL.class, (mockURL, context) -> {
-      Mockito.when(mockURL.openStream()).thenReturn(new FileInputStream("src/test/Resources/RSSConnectorTest/businessNewsSingle.xml"));
+      Mockito.when(mockURL.openStream()).thenReturn(new FileInputStream("src/test/Resources/RSSConnectorTest/businessNewsWithOld.xml"));
     })) {
-      connector = new RSSConnector(config);
+      RSSConnector connector = new RSSConnector(config);
+      connector.execute(publisher);
     }
 
-    connector.execute(publisher);
     List<Document> publishedDocs = messenger.getDocsSentForProcessing();
-    assertEquals(1, publishedDocs.size());
-    assertEquals("amu042125", publishedDocs.get(0).getId());
-    assertEquals("amu042125", publishedDocs.get(0).getString("guid"));
-    assertEquals("Market Close - April 21, 2025", publishedDocs.get(0).getString("title"));
+    assertEquals(5, publishedDocs.size());
+
+    assertEquals("Afternoon Market Update - April 21, 2025", publishedDocs.get(0).getString("title"));
+    assertEquals("BREAKING: UBER SUED BY FTC", publishedDocs.get(1).getString("title"));
+    assertEquals("Leading Economic Indicators - April 21, 2025", publishedDocs.get(2).getString("title"));
+    // has a badly formatted pubDate
+    assertEquals("Dow drops 3000 points as Fed slashes rates", publishedDocs.get(3).getString("title"));
+    // has no pubDate
+    assertEquals("Stocks Surge as Central Banks Stimulate", publishedDocs.get(4).getString("title"));
   }
 }
