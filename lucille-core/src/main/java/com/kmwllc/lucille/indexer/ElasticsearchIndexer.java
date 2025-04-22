@@ -13,6 +13,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
 import com.typesafe.config.Config;
@@ -43,7 +44,10 @@ public class ElasticsearchIndexer extends Indexer {
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, ElasticsearchClient client,
       String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
+        .withRequiredProperties("index", "url")
+        .withOptionalProperties("update", "parentName")
+        .withOptionalParents("join"));
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
@@ -69,6 +73,9 @@ public class ElasticsearchIndexer extends Indexer {
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
     this(config, messenger, getClient(config, bypass), metricsPrefix, null);
   }
+
+  @Override
+  protected String getIndexerConfigKey() { return "elasticsearch"; }
 
   private static ElasticsearchClient getClient(Config config, boolean bypass) {
     return bypass ? null : ElasticsearchUtils.getElasticsearchOfficialClient(config);
