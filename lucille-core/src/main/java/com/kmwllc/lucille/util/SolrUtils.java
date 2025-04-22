@@ -29,7 +29,8 @@ public class SolrUtils {
   public static final ParentSpec SOLR_PARENT_SPEC = Spec.parent("solr")
       .withRequiredProperties("url")
       .withOptionalProperties("useCloudClients", "zkHosts", "zkChroot", "defaultCollection",
-          "userName", "password", "acceptInvalidCert");
+          "userName", "password", "acceptInvalidCert")
+      .withOptionalParentNames("ssl");
 
   private static final Logger log = LoggerFactory.getLogger(SolrUtils.class);
 

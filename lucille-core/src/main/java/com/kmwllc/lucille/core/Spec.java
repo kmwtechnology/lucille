@@ -364,7 +364,7 @@ public class Spec {
     private final String parentName;
 
     private ParentSpec(String parentName) {
-      super(Set.of());
+      super();
       this.parentName = parentName;
     }
 
@@ -391,6 +391,18 @@ public class Spec {
     @Override
     public ParentSpec withOptionalParents(ParentSpec... properties) {
       super.withOptionalParents(properties);
+      return this;
+    }
+
+    @Override
+    public ParentSpec withRequiredParentNames(String... properties) {
+      super.withRequiredParentNames(properties);
+      return this;
+    }
+
+    @Override
+    public ParentSpec withOptionalParentNames(String... properties) {
+      super.withOptionalParentNames(properties);
       return this;
     }
   }

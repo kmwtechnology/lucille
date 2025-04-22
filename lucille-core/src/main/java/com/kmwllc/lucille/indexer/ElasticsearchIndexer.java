@@ -44,7 +44,7 @@ public class ElasticsearchIndexer extends Indexer {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withRequiredProperties("index", "url")
         .withOptionalProperties("update", "parentName")
-        .withOptionalParents("join"));
+        .withOptionalParentNames("join"));
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
