@@ -22,6 +22,7 @@ import java.util.Map.Entry;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sun.misc.Signal;
 
 /**
  * <p> Reads the item(s) from an RSS feed, and publishes Documents with each RSS item's content in the "rss_item" field on the Document.
@@ -35,9 +36,13 @@ import org.slf4j.LoggerFactory;
  * value for your Document's ID.
  * <p> pubDateCutoff (Duration, Optional): Specify a duration to only publish Documents for recent RSS items. For example, "1h" means
  * only RSS items with a &lt;pubDate&gt; within the last hour will be published as Documents. Defaults to including all files.
- * If &lt;pubDate&gt; is not found in the items, this value has no effect. See the HOCON documentation for examples of a duration.
+ * If &lt;pubDate&gt; is not found in the items, this value has no effect.
+ * <p> refreshIncrement (Duration, Optional): Specify the frequency with which the Connector should check for updates from the RSS
+ * feed. Defaults to no updates (the Connector will run once).
  *
- * <p> <b>Note:</b> By default, XML elements with attributes (ex: &lt;guid isPermaLink="false"&gt;) will be put onto Documents as JSON,
+ * <p>See the HOCON documentation for examples of a duration.</p>
+ *
+ * <p> <b>Note:</b> By default, XML elements with attributes (ex: &lt;guid isPermaLink="false"&gt;) will be put onto Documents as a JSON object,
  * keyed by the element name, with both the attribute(s) and the content of the element as child properties. The content's key
  * will be an empty String.
  */
@@ -54,10 +59,12 @@ public class RSSConnector extends AbstractConnector {
   private final String idField;
   private final Date pubDateCutoff;
 
+  private Duration refreshIncrement;
+
   public RSSConnector(Config config) {
     super(config, Spec.connector()
         .withRequiredProperties("rssURL")
-        .withOptionalProperties("idField", "pubDateCutoff"));
+        .withOptionalProperties("idField", "pubDateCutoff", "refreshIncrement"));
 
     try {
       this.rssURL = new URL(config.getString("rssURL"));
@@ -73,30 +80,52 @@ public class RSSConnector extends AbstractConnector {
     } else {
       this.pubDateCutoff = null;
     }
+
+    this.refreshIncrement = config.hasPath("refreshIncrement") ? config.getDuration("refreshIncrement") : null;
+
+    Signal.handle(
+        new Signal("INT"),
+        signal -> {
+          this.refreshIncrement = null;
+          log.info("RSSConnector will shut down after next refresh.");
+        });
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    try {
-      InputStream rssStream = rssURL.openStream();
-      JsonNode rssRootNode = xmlMapper.readTree(rssStream);
-      // Gets the item(s). Will be an array, if multiple, or just the one object, if only one.
-      JsonNode allItemsNode = rssRootNode.get("channel").get("item");
+    do {
+      try (InputStream rssStream = rssURL.openStream()) {
+        JsonNode rssRootNode = xmlMapper.readTree(rssStream);
+        rssStream.close();
+        // Gets the item(s). Will be an array, if multiple, or just the one object, if only one.
+        JsonNode allItemsNode = rssRootNode.get("channel").get("item");
 
-      if (allItemsNode.isArray()) {
-        for (JsonNode itemNode : allItemsNode) {
-          createAndPublishDocumentFromNode(itemNode, publisher);
+        if (allItemsNode.isArray()) {
+          for (JsonNode itemNode : allItemsNode) {
+            createAndPublishDocumentFromNode(itemNode, publisher);
+          }
+        } else if (allItemsNode.isObject()) {
+          createAndPublishDocumentFromNode(allItemsNode, publisher);
+        } else {
+          throw new ConnectorException("The XML's \"item\" node was of incompatible type: " + allItemsNode.getNodeType());
         }
-      } else if (allItemsNode.isObject()) {
-        createAndPublishDocumentFromNode(allItemsNode, publisher);
-      } else {
-        throw new ConnectorException("The XML's \"item\" node was of incompatible type: " + allItemsNode.getNodeType());
+      } catch (IOException e) {
+        throw new ConnectorException("Error occurred connecting to the RSS feed:", e);
+      } catch (Exception e) {
+        throw new ConnectorException("Error occurred in RSSConnector:", e);
       }
-    } catch (IOException e) {
-      throw new ConnectorException("Error occurred connecting to the RSS feed:", e);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred in RSSConnector:", e);
-    }
+
+      if (refreshIncrement == null) {
+        return;
+      }
+
+      try {
+        log.info("Finished checking RSS feed. Will wait to refresh.");
+        Thread.sleep(refreshIncrement.toMillis());
+      } catch (InterruptedException e) {
+        throw new ConnectorException("RSSConnector interrupted while waiting to refresh.", e);
+      }
+    } while (true);
   }
 
   // Attempts to create a Document from the given JsonNode - which should represent an RSS item - and publish it,

@@ -17,9 +17,13 @@ import java.net.URL;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
+import sun.misc.Signal;
 
 public class RSSConnectorTest {
 
@@ -218,9 +222,37 @@ public class RSSConnectorTest {
     }
 
     List<Document> publishedDocs = messenger.getDocsSentForProcessing();
-    System.out.println(publishedDocs.get(0));
     assertEquals(1, publishedDocs.size());
 
     assertEquals("http://www.w3.org/News/2001#item178", publishedDocs.get(0).getString("about"));
+  }
+
+  @Test
+  public void testRSSConnectorIncremental() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/incremental.conf");
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
+
+    ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
+    scheduler.schedule(() -> {
+      Signal.raise(new Signal("INT"));
+    }, 8, TimeUnit.SECONDS);
+
+    // The test will fail if we do not reference the class here - some kind of interference from Mockito, I think.
+    Class.forName("com.kmwllc.lucille.connector.RSSConnector");
+    try (MockedConstruction<URL> mockUrlConst = Mockito.mockConstruction(URL.class, (mockURL, context) -> {
+      // using thenAnswer so it repeatedly opens FileInputStreams to the file
+      Mockito.when(mockURL.openStream()).thenAnswer(invocation -> new FileInputStream("src/test/Resources/RSSConnectorTest/businessNews.xml"));
+    })) {
+      RSSConnector connector = new RSSConnector(config);
+      // will be blocked until the signal gets raised. should run three times
+      connector.execute(publisher);
+    }
+
+    // Should run 3 times: 0 sec, 5 sec, then interrupt, run 1 more time
+    List<Document> publishedDocs = messenger.getDocsSentForProcessing();
+    assertEquals(9, publishedDocs.size());
   }
 }
