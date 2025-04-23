@@ -12,7 +12,6 @@
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
-  <groupId>com.kmwllc</groupId>
   <artifactId>lucille-bom</artifactId>
   <name>Lucille Bill of Materials</name>
   <packaging>pom</packaging>

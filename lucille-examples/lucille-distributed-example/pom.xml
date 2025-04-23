@@ -22,12 +22,6 @@
 
   <dependencies>
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>${junit4.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-core</artifactId>
       <version>${project.version}</version>
