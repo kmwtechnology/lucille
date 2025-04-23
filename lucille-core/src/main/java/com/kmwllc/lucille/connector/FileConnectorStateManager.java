@@ -23,14 +23,14 @@ import org.slf4j.LoggerFactory;
  *
  * <p> The database should/will have the following Columns:
  *   <ul>
- *     <li>name (VARCHAR(200) PRIMARY KEY): The full path (for cloud, the full URI) to the file.</li>
+ *     <li>name (VARCHAR(200) PRIMARY KEY): The full path (for cloud, the full URI) to the file.
  *       <ul>
  *         <li>Names are case-sensitive - it is very important to keep the pathToStorage consistent in your Config when using state.</li>
  *       </ul>
+ *     </li>
  *     <li>last_published (TIMESTAMP): The last time the file was known to be published by Lucille. Is NULL for directories.</li>
  *     <li>encountered (BOOLEAN): Used internally to track files which have been encountered in a traversal, enabling deletions.</li>
  *   </ul>
- * </ul>
  *
  * <p> <b>Note:</b> This class is operating under two key assumptions about FileConnector / Connectors:
  * <ol>

@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
  *    https://accountName.blob.core.windows.net/containerName/prefix/
  *  filterOptions (Map, Optional): configuration for <i>which</i> files should/shouldn't be processed in your traversal. Example of filterOptions below.
  *  fileOptions (Map, Optional): Options for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.
- *  state (Map, Optional): options for tracking when files were published and processed by Lucille. See example configuration & some important notes below.
+ *  state (Map, Optional): options for tracking when files were published and processed by Lucille. See example configuration and some important notes below.
  *  gcp (Map, Optional): options for handling Google Cloud files. See example below.
  *  s3 (Map, Optional): options for handling S3 files. See example below.
  *  azure (Map, Optional): options for handling Azure files. See example below.
