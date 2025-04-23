@@ -10,8 +10,11 @@ import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
@@ -127,14 +130,16 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
 
     if (solrClient == null) {
       log.debug("sendToSolr bypassed for documents: " + documents);
-      return;
+      return Set.of();
     }
 
     Map<String, SolrDocRequests> solrDocRequestsByCollection = new HashMap<>();
+    Map<String, Document> docsUploaded = new LinkedHashMap<>();
+
     for (Document doc : documents) {
 
       // if an id override field has been specified, use its value as the id to send to solr,
@@ -179,6 +184,7 @@ public class SolrIndexer extends Indexer {
         }
 
       } else {
+        docsUploaded.put(solrId, doc);
         // note that solrDoc after this code block does not guarantee that "id" field is in document
         SolrInputDocument solrDoc = toSolrDoc(doc, idOverride, collection);
 
@@ -194,11 +200,29 @@ public class SolrIndexer extends Indexer {
         solrDocRequests.addDocForAddUpdate(solrDoc, solrId);
       }
     }
+
+    Set<Document> failedDocs = new HashSet<>();
+
     for (String collection : solrDocRequestsByCollection.keySet()) {
-      sendAddUpdateBatch(
-          collection, solrDocRequestsByCollection.get(collection).getAddUpdateDocs());
+      try {
+        sendAddUpdateBatch(collection, solrDocRequestsByCollection.get(collection).getAddUpdateDocs());
+      } catch (Exception e) {
+        // Add all the docs to failed docs
+        for (SolrInputDocument d : solrDocRequestsByCollection.get(collection).getAddUpdateDocs()) {
+          String docId = d.getFieldValue(Document.ID_FIELD).toString();
+
+          if (docsUploaded.containsKey(docId)) {
+            failedDocs.add(docsUploaded.get(docId));
+          } else {
+            throw e;
+          }
+        }
+      }
+
       sendDeletionBatch(collection, solrDocRequestsByCollection.get(collection));
     }
+
+    return failedDocs;
   }
 
   private void sendAddUpdateBatch(String collection, List<SolrInputDocument> solrDocs)

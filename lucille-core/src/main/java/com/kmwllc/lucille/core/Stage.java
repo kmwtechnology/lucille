@@ -99,12 +99,23 @@ public abstract class Stage {
     }
   }
 
+  /**
+   * Starts this stage, performing any setup if needed.
+   * @throws StageException If an error occurs.
+   */
   public void start() throws StageException {
   }
 
+  /**
+   * Stops this stage, freeing any resources / closing any connections as needed.
+   * @throws StageException If an error occurs.
+   */
   public void stop() throws StageException {
   }
 
+  /**
+   * Log metrics relating to the stage's performance, if metrics have been initialized.
+   */
   public void logMetrics() {
     if (timer == null || childCounter == null || errorCounter == null) {
       LoggerFactory.getLogger(Stage.class).error("Metrics not initialized");
@@ -221,6 +232,10 @@ public abstract class Stage {
 
   /**
    * Wraps an Iterator over Documents so as to call apply(doc) on each doc in the sequence.
+   *
+   * @param docs The iterator of documents you want to wrap around.
+   * @return An iterator of documents, wrapping around the given iterator, calling apply on each as they are returned.
+   * @throws StageException in the event an error occurs.
    */
   public Iterator<Document> apply(Iterator<Document> docs) throws StageException {
 
@@ -269,13 +284,16 @@ public abstract class Stage {
     };
   }
 
-
+  /**
+   * Gets the name of this stage without any formatting / changes.
+   */
   public String getName() {
     return name;
   }
 
   /**
    * Returns the class name plus the stage name in parentheses, if it is not null.
+   * @return A formatted version of this stage's name.
    */
   private String getDisplayName() {
     return this.getClass().getName() +
@@ -284,6 +302,9 @@ public abstract class Stage {
 
   /**
    * Initialize metrics and set the Stage's name based on the position if the name has not already been set.
+   * @param position The position of the stage.
+   * @param metricsPrefix The metricsPrefix associated with this stage.
+   * @throws StageException In the event of an error.
    */
   public void initialize(int position, String metricsPrefix) throws StageException {
     if (name == null) {
@@ -296,10 +317,18 @@ public abstract class Stage {
     this.childCounter = metrics.counter(metricsPrefix + ".stage." + name + ".children");
   }
 
+  /**
+   * Gets this stage's config.
+   * @return This stage's config.
+   */
   public Config getConfig() {
     return config;
   }
 
+  /**
+   * Throws an exception if this stage's config, or its conditions, are not valid
+   * @throws IllegalArgumentException If the config is not valid.
+   */
   private void validateConfigAndConditions() {
     spec.validate(config, getDisplayName());
 

@@ -20,31 +20,30 @@ import java.util.Map;
 import org.apache.commons.io.FilenameUtils;
 
 /**
- * <br> Using a document's file path, applies file handlers to create children documents, as appropriate, using the file's content.
+ * <p> Using a file path found on a Document, applies file handlers to create children documents, as appropriate, using the file's content.
  *
- * <br> filePathField (String, Optional): Specify the field in your documents which will has the file path you want to apply handlers to.
- * Defaults to "file_path". No processing will occur on documents without this field, even if they have the fileContentField present.
+ * <p> filePathField (String, Optional): Specify the field in your documents which will has the file path you want to apply handlers to.
+ * No processing will occur on documents without this field, even if they have the fileContentField present. Defaults to "file_path".
  *
- * <br> fileContentField (String, Optional): Specify the field in your documents which has the file's contents as an array of bytes.
- * Defaults to "file_content". When processing a document with a path to a supported file type, the handler will process the array
- * of bytes found in this field, if present, before having the FileContentFetcher to open an InputStream for the file's contents.
+ * <p> fileContentField (String, Optional): Specify the field in your documents which has the file's contents as an array of bytes.
+ * When processing a document with a path to a supported file type, the handler will process the array of bytes found in this field,
+ * if present, before having the FileContentFetcher to open an InputStream for the file's contents. Defaults to "file_content".
  *
- * <br> handlerOptions (Map): Specifies which file types should be handled / processed by this stage. Valid options include:
- * <br>   csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
- * <br>   json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
+ * <p> handlerOptions (Map): Specifies which file types should be handled / processed by this stage. Valid options include:
+ * <p>   csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
+ * <p>   json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
  *
- * <br> <b>Note:</b> handlerOptions should contain at least one of the above entries, otherwise, an Exception is thrown.
- * <br> <b>Note:</b> XML is not supported.
+ * <p> <b>Note:</b> handlerOptions should contain at least one of the above entries, otherwise, an Exception is thrown.
+ * <p> <b>Note:</b> XML is not supported.
  *
- * <br> gcp (Map, Optional): options for handling GoogleCloud files. Include if you are going to process documents with the filePathField set to a Google Cloud URI.
+ * <p> gcp (Map, Optional): options for handling GoogleCloud files. Include if you are going to process documents with the filePathField set to a Google Cloud URI.
  * See FileConnector for necessary arguments.
  *
- * <br> s3 (Map, Optional): options for handling S3 files. Include if you are going to process documents with the filePathField set to an S3 URI.
+ * <p> s3 (Map, Optional): options for handling S3 files. Include if you are going to process documents with the filePathField set to an S3 URI.
  * See FileConnector for necessary arguments.
  *
- * <br> azure (Map, Optional): options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.
+ * <p> azure (Map, Optional): options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.
  * See FileConnector for necessary arguments.
- *
  */
 public class ApplyFileHandlers extends Stage {
   private final Config handlerOptions;
@@ -55,6 +54,10 @@ public class ApplyFileHandlers extends Stage {
 
   private Map<String, FileHandler> fileHandlers;
 
+  /**
+   * Creates the ApplyFileHandlers stage from the given config.
+   * @param config Configuration for the ApplyFileHandlers stage.
+   */
   public ApplyFileHandlers(Config config) {
     super(config, Spec.stage()
         .withOptionalParents(
