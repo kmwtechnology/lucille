@@ -61,6 +61,8 @@ public class RSSConnector extends AbstractConnector {
 
   private Duration refreshIncrement;
 
+  private boolean running = true;
+
   public RSSConnector(Config config) {
     super(config, Spec.connector()
         .withRequiredProperties("rssURL")
@@ -86,8 +88,8 @@ public class RSSConnector extends AbstractConnector {
     Signal.handle(
         new Signal("INT"),
         signal -> {
-          this.refreshIncrement = null;
-          log.info("RSSConnector will shut down after next refresh.");
+          this.running = false;
+          log.info("RSSConnector to shut down...");
         });
   }
 
@@ -121,11 +123,15 @@ public class RSSConnector extends AbstractConnector {
 
       try {
         log.info("Finished checking RSS feed. Will wait to refresh.");
-        Thread.sleep(refreshIncrement.toMillis());
+        Instant wakeupInstant = Instant.now().plus(refreshIncrement);
+
+        while (Instant.now().isBefore(wakeupInstant) && running) {
+          Thread.sleep(250);
+        }
       } catch (InterruptedException e) {
         throw new ConnectorException("RSSConnector interrupted while waiting to refresh.", e);
       }
-    } while (true);
+    } while (running);
   }
 
   // Attempts to create a Document from the given JsonNode - which should represent an RSS item - and publish it,
@@ -171,6 +177,13 @@ public class RSSConnector extends AbstractConnector {
 
     while (fields.hasNext()) {
       Entry<String, JsonNode> field = fields.next();
+
+      // the Document could contain elements in a namespace. For example, "<metadata:id>" which
+      // will get mapped as just "<id>" by XmlMapper.
+      if (Document.RESERVED_FIELDS.contains(field.getKey())) {
+        continue;
+      }
+
       doc.setField(field.getKey(), field.getValue());
     }
 

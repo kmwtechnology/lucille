@@ -236,6 +236,7 @@ public class RSSConnectorTest {
 
     ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
+    // Stop the connector after 8 seconds, allowing it to run twice, and then it gets interrupted.
     scheduler.schedule(() -> {
       Signal.raise(new Signal("INT"));
     }, 8, TimeUnit.SECONDS);
@@ -251,8 +252,8 @@ public class RSSConnectorTest {
       connector.execute(publisher);
     }
 
-    // Should run 3 times: 0 sec, 5 sec, then interrupt, run 1 more time
+    // Should run 2 times: 0 sec, 5 sec, then interrupted.
     List<Document> publishedDocs = messenger.getDocsSentForProcessing();
-    assertEquals(9, publishedDocs.size());
+    assertEquals(6, publishedDocs.size());
   }
 }
