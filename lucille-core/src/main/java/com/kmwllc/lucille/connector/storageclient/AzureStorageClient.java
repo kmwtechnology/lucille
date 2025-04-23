@@ -23,11 +23,20 @@ import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * A storage client for Microsoft Azure. Create using a configuration (commonly mapped to <b>azure</b>) which contains either
+ * "connectionString" <i>or</i> contains both "accountName" and "accountKey".
+ */
 public class AzureStorageClient extends BaseStorageClient {
 
   private BlobServiceClient serviceClient;
   private static final Logger log = LoggerFactory.getLogger(AzureStorageClient.class);
 
+  /**
+   * Creates an AzureStorageClient from the given azureCloudOptions, which must contain either "connectionString" OR
+   * contains both "accountName" and "accountKey".
+   * @param azureCloudOptions Configuration for the AzureStorageClient.
+   */
   public AzureStorageClient(Config azureCloudOptions) {
     super(azureCloudOptions);
   }

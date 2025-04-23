@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.RunResult;
 import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.Runner.RunType;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -24,6 +25,7 @@ import io.weaviate.client.v1.misc.model.Meta;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +49,10 @@ public class WeaviateIndexer extends Indexer {
 
   public WeaviateIndexer(Config config, IndexerMessenger messenger, WeaviateClient client,
       String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
+        .withRequiredProperties("apiKey", "host")
+        .withOptionalProperties("className", "idDestinationName", "vectorField"));
+
     this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
         "id_original";
@@ -68,6 +73,9 @@ public class WeaviateIndexer extends Indexer {
   public WeaviateIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
     this(config, messenger, getClient(config, bypass), metricsPrefix, null);
   }
+
+  @Override
+  protected String getIndexerConfigKey() { return "weaviate"; }
 
   private static WeaviateClient getClient(Config config, boolean bypass) {
     if (bypass) {
@@ -102,7 +110,7 @@ public class WeaviateIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
 
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
       for (Document doc : documents) {
@@ -149,6 +157,8 @@ public class WeaviateIndexer extends Indexer {
     } catch (Exception e) {
       throw new IndexerException(e.toString());
     }
+
+    return Set.of();
   }
 
   public static String generateDocumentUUID(Document document) {

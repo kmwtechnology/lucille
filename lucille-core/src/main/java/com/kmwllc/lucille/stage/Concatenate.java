@@ -13,18 +13,16 @@ import org.apache.commons.text.StringSubstitutor;
 
 /**
  * Replaces wildcards in a given format String with the value for the given field. To declare a wildcard,
- * surround the name of the field with '{}'. EX: "{city}, {state}, {country}" -&gt; "Boston, MA, USA". NOTE: If a given
- * field is multivalued, this Stage will substitute the first value for every wildcard.
- *
+ * surround the name of the field with '{}'. EX: "{city}, {state}, {country}" -&gt; "Boston, MA, USA".
+ * <br> <b>NOTE:</b> If a given field is multivalued, this Stage will substitute the first value for every wildcard.
+ * <br>
  * Config Parameters:
- *
- *   - source (List&lt;String&gt;) : list of source field names
- *   - dest (String) : Destination field. This Stage only supports supplying a single destination field.
- *   - format_string (String) : The format String, which will have field values substituted into its placeholders
- *   - defualt_inputs (Map&lt;String, String&gt;, Optional) : Mapping of input fields to a default value. You do not have to
- *   supply a default for every input field, if a default is not provided, the default behavior will be to leave the
+ * <p>  - dest (String) : Destination field. This Stage only supports supplying a single destination field.
+ * <p>  - format_string (String) : The format String, which will have field values substituted into its placeholders.
+ * <p>  - default_inputs (Map&lt;String, String&gt;, Optional) : Mapping of input fields to a default value. You do not have to
+ *   supply a default for every input field. If a default is not provided, the default behavior will be to leave the
  *   wildcard for the field in place. Defaults to an empty Map.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ * <p>  - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *       Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
  */
 public class Concatenate extends Stage {

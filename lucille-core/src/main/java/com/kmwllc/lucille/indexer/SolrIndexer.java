@@ -3,16 +3,18 @@ package com.kmwllc.lucille.indexer;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
-import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
@@ -24,7 +26,6 @@ import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.Signal;
 
 public class SolrIndexer extends Indexer {
 
@@ -34,13 +35,19 @@ public class SolrIndexer extends Indexer {
 
   public SolrIndexer(
       Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
+        .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
+            "userName", "password", "acceptInvalidCert")
+        .withOptionalParents("ssl"));
     this.solrClient = solrClient;
   }
 
   public SolrIndexer(
       Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
+        .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
+            "userName", "password", "acceptInvalidCert")
+        .withOptionalParents("ssl"));
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
     this.solrClient = getSolrClient(config, bypass);
@@ -56,6 +63,9 @@ public class SolrIndexer extends Indexer {
       Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
     this(config, messenger, bypass, metricsPrefix, null);
   }
+
+  @Override
+  protected String getIndexerConfigKey() { return "solr"; }
 
   private static SolrClient getSolrClient(Config config, boolean bypass) {
     return bypass ? null : SolrUtils.getSolrClient(config);
@@ -120,14 +130,16 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
 
     if (solrClient == null) {
       log.debug("sendToSolr bypassed for documents: " + documents);
-      return;
+      return Set.of();
     }
 
     Map<String, SolrDocRequests> solrDocRequestsByCollection = new HashMap<>();
+    Map<String, Document> docsUploaded = new LinkedHashMap<>();
+
     for (Document doc : documents) {
 
       // if an id override field has been specified, use its value as the id to send to solr,
@@ -172,6 +184,7 @@ public class SolrIndexer extends Indexer {
         }
 
       } else {
+        docsUploaded.put(solrId, doc);
         // note that solrDoc after this code block does not guarantee that "id" field is in document
         SolrInputDocument solrDoc = toSolrDoc(doc, idOverride, collection);
 
@@ -187,11 +200,29 @@ public class SolrIndexer extends Indexer {
         solrDocRequests.addDocForAddUpdate(solrDoc, solrId);
       }
     }
+
+    Set<Document> failedDocs = new HashSet<>();
+
     for (String collection : solrDocRequestsByCollection.keySet()) {
-      sendAddUpdateBatch(
-          collection, solrDocRequestsByCollection.get(collection).getAddUpdateDocs());
+      try {
+        sendAddUpdateBatch(collection, solrDocRequestsByCollection.get(collection).getAddUpdateDocs());
+      } catch (Exception e) {
+        // Add all the docs to failed docs
+        for (SolrInputDocument d : solrDocRequestsByCollection.get(collection).getAddUpdateDocs()) {
+          String docId = d.getFieldValue(Document.ID_FIELD).toString();
+
+          if (docsUploaded.containsKey(docId)) {
+            failedDocs.add(docsUploaded.get(docId));
+          } else {
+            throw e;
+          }
+        }
+      }
+
       sendDeletionBatch(collection, solrDocRequestsByCollection.get(collection));
     }
+
+    return failedDocs;
   }
 
   private void sendAddUpdateBatch(String collection, List<SolrInputDocument> solrDocs)

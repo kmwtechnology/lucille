@@ -24,6 +24,9 @@ import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * A storage client for Google Cloud. Create using a configuration (commonly mapped to <b>gcp</b>) which contains "pathToServiceKey".
+ */
 public class GoogleStorageClient extends BaseStorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(GoogleStorageClient.class);

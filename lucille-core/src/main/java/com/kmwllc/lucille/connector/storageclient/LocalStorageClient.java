@@ -27,6 +27,9 @@ import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * A storage client for the local file system. Needs no configuration.
+ */
 public class LocalStorageClient extends BaseStorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(LocalStorageClient.class);
