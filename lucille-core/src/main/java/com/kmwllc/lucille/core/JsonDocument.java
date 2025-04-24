@@ -937,8 +937,8 @@ public class JsonDocument implements Document {
     Object transformed;
     try {
       // This is in-line with Jsonata-Java's suggested ways to evaluate expressions on JSON.
-      // We aren't able to call expr.evaluate(asMap) because byte[] is incompatible - jsonata-java wants
-      // only values, Map, or List.
+      // We aren't able to call expr.evaluate on this.asMap() directly, because byte[] is incompatible - jsonata-java wants
+      // only raw values, Maps, or Lists (not arrays).
       Map<String, Object> dataAsMap = MAPPER.readValue(data.toString(), TYPE);
       transformed = expr.evaluate(dataAsMap);
     } catch (JsonProcessingException e) {

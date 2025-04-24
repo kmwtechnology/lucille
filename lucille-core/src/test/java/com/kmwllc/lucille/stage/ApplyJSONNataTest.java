@@ -25,6 +25,7 @@ public class ApplyJSONNataTest {
     assertThrows(StageException.class, () -> factory.get("ApplyJSONNataTest/invalidExpression.conf"));
   }
 
+  // Expression: {"id": "id", "keys": $keys()}
   @Test
   public void testApplyToFullDocument() throws StageException {
     Stage invalidStage = factory.get("ApplyJSONNataTest/fullInvalid.conf");
@@ -44,6 +45,7 @@ public class ApplyJSONNataTest {
     assertEquals(List.of("id", "foo"), doc.getStringList("keys"));
   }
 
+  // Expression: "foo" (which just returns, again, "foo")
   @Test 
   public void testApplyToField() throws StageException {
     Stage stageWithDest = factory.get("ApplyJSONNataTest/withDest.conf");
@@ -73,5 +75,35 @@ public class ApplyJSONNataTest {
     stageWithDest.processDocument(docWithoutSource);
     assertEquals("no_source", docWithoutSource.getId());
     assertEquals((Integer) 12345, docWithoutSource.getInt("something_else"));
+  }
+
+  // Expression: field.value
+  @Test
+  public void testJsonataFieldAccessForValue() throws StageException {
+    Stage stage = factory.get("ApplyJSONNataTest/fieldAccessValue.conf");
+
+    Document doc = Document.create("id");
+    doc.setField("source", mapper.createObjectNode()
+        .set("field", mapper.createObjectNode()
+            .put("value", "8.2")));
+
+    stage.processDocument(doc);
+    assertEquals(8.2, doc.getDouble("dest"), 0.0001);
+  }
+
+  // Expression: field
+  @Test
+  public void testJsonataFieldAccessForJson() throws StageException {
+    Stage stage = factory.get("ApplyJSONNataTest/fieldAccessJson.conf");
+
+    Document doc = Document.create("id");
+    doc.setField("source", mapper.createObjectNode()
+        .set("field", mapper.createObjectNode()
+            .put("value", "8.2")));
+
+    stage.processDocument(doc);
+
+    JsonNode destNode = doc.getJson("dest");
+    assertEquals("{\"value\":\"8.2\"}", destNode.toString());
   }
 }

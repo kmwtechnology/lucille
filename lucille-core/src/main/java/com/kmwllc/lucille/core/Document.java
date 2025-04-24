@@ -517,7 +517,7 @@ public interface Document {
    * Applies a JSONNata expression to this Document (as if it were a JSON object) and replaces this Document with the result.
    *
    * @throws DocumentException if any reserved fields are mutated or if the result is not an object (primitive or array)
-   * @see <a href="https://github.com/IBM/JSONata4Java">JSONNata implementation</a>
+   * @see <a href="https://github.com/dashjoin/jsonata-java">JSONNata implementation</a>
    */
   void transform(Jsonata expr) throws DocumentException;
 

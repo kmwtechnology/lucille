@@ -2,8 +2,11 @@ package com.kmwllc.lucille.stage;
 
 import com.dashjoin.jsonata.JException;
 import com.dashjoin.jsonata.Jsonata;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Spec;
 import java.util.Iterator;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.kmwllc.lucille.core.ConfigUtils;
@@ -32,6 +35,7 @@ import static com.dashjoin.jsonata.Jsonata.jsonata;
 public class ApplyJSONNata extends Stage {
 
   private static final Logger log = LoggerFactory.getLogger(ApplyJSONNata.class);
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   private final String source;
   private final String destination;
@@ -69,7 +73,25 @@ public class ApplyJSONNata extends Stage {
       return null;
     }
 
-    Object output = parsedExpression.evaluate(doc.getJson(source).toString());
+    JsonNode sourceNode = doc.getJson(source);
+
+    Object input;
+    if (sourceNode.isObject() || sourceNode.isArray()) {
+      input = objectMapper.convertValue(doc.getJson(source), Map.class);
+    } else {
+      // If the node we retrieve isn't an object or an array, we can just only operate on the value itself.
+      input = sourceNode.toString();
+    }
+
+    Object output = parsedExpression.evaluate(input);
+
+    if (output == null) {
+      log.info("No jsonata output for document ({}).", doc.getId());
+      return null;
+    }
+
+    // Converting the output (possible a List or Map) back to a Jackson-compatible value.
+    output = objectMapper.valueToTree(output);
 
     if (destination != null) {
       doc.setField(destination, output);
