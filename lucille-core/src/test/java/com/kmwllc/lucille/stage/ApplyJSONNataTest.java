@@ -1,8 +1,12 @@
 package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
+
 import java.util.List;
+import java.util.Optional;
 import org.junit.Test;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -77,9 +81,11 @@ public class ApplyJSONNataTest {
     assertEquals((Integer) 12345, docWithoutSource.getInt("something_else"));
   }
 
-  // Expression: field.value
+  // **NOTE**: For the following three tests, the expression is field.value.
+  // We want to make sure we can correctly return ObjectNodes that are both list and objects,
+  // as well as "raw" values.
   @Test
-  public void testJsonataFieldAccessForValue() throws StageException {
+  public void testAccessValue() throws StageException {
     Stage stage = factory.get("ApplyJSONNataTest/fieldAccessValue.conf");
 
     Document doc = Document.create("id");
@@ -91,19 +97,90 @@ public class ApplyJSONNataTest {
     assertEquals(8.2, doc.getDouble("dest"), 0.0001);
   }
 
-  // Expression: field
   @Test
-  public void testJsonataFieldAccessForJson() throws StageException {
-    Stage stage = factory.get("ApplyJSONNataTest/fieldAccessJson.conf");
+  public void testAccessJson() throws StageException {
+    Stage stage = factory.get("ApplyJSONNataTest/fieldAccessValue.conf");
 
     Document doc = Document.create("id");
     doc.setField("source", mapper.createObjectNode()
         .set("field", mapper.createObjectNode()
-            .put("value", "8.2")));
+            .set("value", mapper.createObjectNode()
+                // (AQID)
+                .put("a", new byte[] {1, 2, 3}))));
 
     stage.processDocument(doc);
+    assertEquals("{\"a\":\"AQID\"}", doc.getJson("dest").toString());
+  }
 
-    JsonNode destNode = doc.getJson("dest");
-    assertEquals("{\"value\":\"8.2\"}", destNode.toString());
+  @Test
+  public void testAccessList() throws StageException {
+    Stage stage = factory.get("ApplyJSONNataTest/fieldAccessValue.conf");
+
+    Document doc = Document.create("id");
+    doc.setField("source", mapper.createObjectNode()
+        .set("field", mapper.createObjectNode()
+            .set("value", mapper.createArrayNode().add(0).add(1).add(2))));
+
+    stage.processDocument(doc);
+    assertEquals("[0,1,2]", doc.getJson("dest").toString());
+  }
+
+  // **NOTE**: For the following three tests, each one hasa different type for "source" - a raw object, a JSON object,
+  // and a JSON array. The expression used is just $string(), which can be easily applied to all of these.
+  @Test
+  public void testSourceValue() throws StageException {
+    Stage stage = factory.get("ApplyJSONNataTest/sourceToString.conf");
+
+    Document doc = Document.create("id");
+    doc.setField("source", 1);
+
+    stage.processDocument(doc);
+    assertTrue(doc.getJson("dest").isTextual());
+    assertEquals("\"1\"", doc.getJson("dest").toString());
+  }
+
+  @Test
+  public void testSourceJson() throws StageException {
+    Stage stage = factory.get("ApplyJSONNataTest/sourceToString.conf");
+
+    Document doc = Document.create("id");
+    // source: {"a": "b"}
+    doc.setField("source", mapper.createObjectNode().put("a", "b"));
+
+    stage.processDocument(doc);
+    assertTrue(doc.getJson("dest").isTextual());
+    // yes, those quotes are returned as escaped by $string()
+    assertEquals("\"{\\\"a\\\":\\\"b\\\"}\"", doc.getJson("dest").toString());
+  }
+
+  @Test
+  public void testSourceList() throws StageException {
+    Stage stage = factory.get("ApplyJSONNataTest/sourceToString.conf");
+
+    Document doc = Document.create("id");
+    doc.setField("source", mapper.createArrayNode().add(1).add(2).add(3));
+
+    stage.processDocument(doc);
+    assertTrue(doc.getJson("dest").isTextual());
+    assertEquals("\"[1,2,3]\"", doc.getJson("dest").toString());
+  }
+
+  @Test
+  public void testAccessFieldFunction() throws StageException {
+    Stage stage = factory.get("ApplyJSONNataTest/conditionallyAccessFieldValue.conf");
+
+    Document hasValue = Document.create("id");
+    hasValue.setField("source", mapper.createObjectNode()
+        .set("field", mapper.createObjectNode()
+            .put("value", 1)));
+
+    stage.processDocument(hasValue);
+    assertEquals((Integer) 1, hasValue.getInt("dest"));
+
+    Document doesntHaveValue = Document.create("noVal");
+    doesntHaveValue.setField("source", mapper.createObjectNode()
+        .put("field", "text"));
+
+    assertNull(doesntHaveValue.getInt("dest"));
   }
 }
