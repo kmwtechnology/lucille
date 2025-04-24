@@ -45,14 +45,14 @@ public interface FileReference {
 
   /**
    * @return A Lucille Document from this file reference. Will retrieve the file's contents if params.shouldGetFileContent()
-   * is true.
+   * is true. Will include the file's path, and may include the file's last modified time, size, and creation time, if specified.
    */
   Document asDoc(TraversalParams params);
 
   /**
    * @return A Lucille Document for an archive or compressed file that came from this file reference.
    * The Document's ID will be a hash of the given path, and the Document's "file_path" will be the given path. However,
-   * the Document's lastModified, size, and creation time will be that of this FileReference.
+   * the Document's lastModified, size, and creation time will be that of this FileReference (if specified).
    * The input stream will be used to get the file's content, if {@link TraversalParams#shouldGetFileContent()} is true.
    */
   Document decompressedFileAsDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException;
