@@ -368,6 +368,12 @@
         <artifactId>ollama4j</artifactId>
         <version>1.0.93</version>
     </dependency>
+
+    <dependency>
+      <groupId>com.chavaillaz</groupId>
+      <artifactId>opensearch-log4j-appender</artifactId>
+      <version>1.0.1</version>
+    </dependency>
   </dependencies>
 
 
