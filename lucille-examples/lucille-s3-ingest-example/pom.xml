@@ -37,12 +37,6 @@
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-tika</artifactId>
     </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>${junit4.version}</version>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
 
   <build>
