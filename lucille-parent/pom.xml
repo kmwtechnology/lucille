@@ -65,6 +65,7 @@
     <dropwizard-core.version>4.0.12</dropwizard-core.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit4.version>4.13.2</junit4.version>
+    <aws-sdk.version>2.29.1</aws-sdk.version>
 
   </properties>
 
