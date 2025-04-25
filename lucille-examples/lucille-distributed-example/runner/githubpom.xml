@@ -8,6 +8,7 @@
 
   <groupId>com.kmwllc</groupId>
   <artifactId>lucille-distributed</artifactId>
+  <!-- Only used while running the example (testing), not part of the project, so doesn't have a real "version". -->
   <version>0.0.1</version>
   <packaging>jar</packaging>
 
