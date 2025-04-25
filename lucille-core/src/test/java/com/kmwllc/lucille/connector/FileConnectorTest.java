@@ -5,6 +5,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -284,5 +285,71 @@ public class FileConnectorTest {
         "        <salary currency=\"EUR\">8000</salary>\n" +
         "        <bio>I enjoy reading</bio>\n" +
         "    </staff>", doc16.getString("xml"));
+  }
+
+  @Test
+  public void testMultiplePathsSameClient() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+    assertEquals(9, documentList.size());
+  }
+
+  @Test
+  public void testMultiplePathsDifferentClients() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocalAndCloud.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    Connector connector;
+    try (MockedStatic<StorageClient> mockStaticStorageClient = mockStatic(StorageClient.class)) {
+      StorageClient s3StorageClient = mock(StorageClient.class);
+      StorageClient googleStorageClient = mock(StorageClient.class);
+
+      mockStaticStorageClient.when(() -> StorageClient.createClients(any()))
+          .thenReturn(Map.of(
+              "file", new LocalStorageClient(),
+              "s3", s3StorageClient,
+              "gs", googleStorageClient));
+
+      doAnswer(invocationOnMock -> {
+        publisher.publish(Document.create("a"));
+        publisher.publish(Document.create("b"));
+        publisher.publish(Document.create("c"));
+        return null;
+      }).when(s3StorageClient).traverse(any(), any());
+
+      doAnswer(invocationOnMock -> {
+        publisher.publish(Document.create("d"));
+        publisher.publish(Document.create("e"));
+        publisher.publish(Document.create("f"));
+        return null;
+      }).when(googleStorageClient).traverse(any(), any());
+
+      connector = new FileConnector(config);
+    }
+
+    connector.execute(publisher);
+
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+    assertEquals(9, documentList.size());
+  }
+
+  @Test
+  public void testUnsupportedClientPath() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsSomeInvalid.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    // should still get the three documents from directory1, even though we had other bad paths.
+    // Two warnings will get logged
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+    assertEquals(3, documentList.size());
   }
 }
