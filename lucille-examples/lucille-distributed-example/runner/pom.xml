@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 
+<!-- **** IMPORTANT NOTE **** -->
+
+<!-- Any changes made to this POM should also be made to githubpom.xml. That is the pom that will be used when the
+smoketest is run on GitHub Actions. (The only difference being that it does not have a declared parent, to prevent
+errors relating to the container's limited context.) -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
