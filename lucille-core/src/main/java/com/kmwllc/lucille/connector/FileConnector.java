@@ -5,6 +5,10 @@ import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.Spec.ParentSpec;
+import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
+import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
+import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
@@ -121,6 +125,15 @@ public class FileConnector extends AbstractConnector {
   public static final String MOVE_TO_AFTER_PROCESSING = "moveToAfterProcessing";
   public static final String MOVE_TO_ERROR_FOLDER = "moveToErrorFolder";
 
+  // parent specs for cloud provider configs
+  public static final ParentSpec GCP_PARENT_SPEC = Spec.parent("gcp")
+      .withRequiredProperties("pathToServiceKey")
+      .withOptionalProperties("maxNumOfPages");
+  public static final ParentSpec S3_PARENT_SPEC = Spec.parent("s3")
+      .withOptionalProperties("accessKeyId", "secretAccessKey", "region", "maxNumOfPages");
+  public static final ParentSpec AZURE_PARENT_SPEC = Spec.parent("azure")
+      .withOptionalProperties("connectionString", "accountName", "accountKey", "maxNumOfPages");
+
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   private final String pathToStorage;
@@ -134,7 +147,19 @@ public class FileConnector extends AbstractConnector {
   public FileConnector(Config config) throws ConnectorException {
     super(config, Spec.connector()
         .withRequiredProperties("pathToStorage")
-        .withOptionalParents("fileOptions", "filterOptions", "state", "s3", "gcp", "azure"));
+        .withOptionalParents(
+            Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "modificationCutoff"),
+            Spec.parent("fileOptions")
+                .withOptionalProperties("getFileContent", "handleArchivedFiles", "handleCompressedFiles", "moveToAfterProcessing",
+                    "moveToErrorFolder")
+                .withOptionalParents(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
+            Spec.parent("state")
+                .withRequiredProperties("driver", "connnectionString", "jdbcUser", "jdbcPassword")
+                .withOptionalProperties("tableName", "performDeletions", "pathLength"),
+            GCP_PARENT_SPEC,
+            AZURE_PARENT_SPEC,
+            S3_PARENT_SPEC
+        ));
 
     this.pathToStorage = config.getString("pathToStorage");
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
