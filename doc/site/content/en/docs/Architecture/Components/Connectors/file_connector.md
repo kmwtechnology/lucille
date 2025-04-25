@@ -7,11 +7,11 @@ description: A Connector that, given a path to S3, Azure, Google Cloud, or the l
 [Source Code](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/FileConnector.java)
 
 The file connector traverses a file system and publishes Lucille documents representing its findings. In your Configuration, specify
-a `pathToStorage`, representing the path you want to traverse. The path can be a path to the local file system or a URI for a supported
+`pathsToStorage`, representing the path(s) you want to traverse. Each path can be a path to the local file system or a URI for a supported
 cloud provider.
 
 ### Working with Cloud Storage
-When you are providing FileConnector with a URI to cloud storage, you also need to apply the appropriate configuration for that cloud provider
+When you are providing FileConnector with URIs to cloud storage, you also need to apply the appropriate configuration for that cloud provider
 so Lucille can communicate with the cloud provider. For each provider, you'll need to provide a form of authentication; you can optionally
 specify the maximum number of files (`maxNumOfPages`) that Lucille will load into memory for a given request.
 

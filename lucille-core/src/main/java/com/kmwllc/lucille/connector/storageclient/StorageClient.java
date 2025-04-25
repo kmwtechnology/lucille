@@ -44,7 +44,7 @@ public interface StorageClient {
 
   /**
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from the Config.
-   * @param pathToStorage A URI to storage - either local or cloud - where you want to start your traversal from.
+   * @param pathToStorage A URI to storage - either local or cloud - that you need a StorageClient for.
    * @param connectorConfig Configuration for your connector, which should contain configuration for cloud storage clients
    *                        as needed.
    * @return The appropriate, configured storage client to use for your traversal.
