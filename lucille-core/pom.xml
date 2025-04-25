@@ -18,9 +18,9 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.ibm.jsonata4java</groupId>
-      <artifactId>JSONata4Java</artifactId>
-      <version>2.5.0</version>
+        <groupId>com.dashjoin</groupId>
+        <artifactId>jsonata</artifactId>
+        <version>0.9.8</version>
     </dependency>
     <dependency>
       <groupId>org.opensearch.client</groupId>
