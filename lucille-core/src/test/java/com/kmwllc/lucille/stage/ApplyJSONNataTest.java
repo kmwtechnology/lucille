@@ -1,12 +1,12 @@
 package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import java.util.List;
-import java.util.Optional;
 import org.junit.Test;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,23 +29,23 @@ public class ApplyJSONNataTest {
     assertThrows(StageException.class, () -> factory.get("ApplyJSONNataTest/invalidExpression.conf"));
   }
 
-  // Expression: {"id": "id", "keys": $keys()}
+  // Expression: {"id": id, "keys": $keys()}
   @Test
   public void testApplyToFullDocument() throws StageException {
     Stage invalidStage = factory.get("ApplyJSONNataTest/fullInvalid.conf");
     Stage validStage = factory.get("ApplyJSONNataTest/fullValid.conf");
 
-    Document doc = Document.create("id");
+    Document doc = Document.create("abc123");
     doc.setField("foo", "bar");
 
     invalidStage.processDocument(doc);
     assertEquals(2, doc.getFieldNames().size());
-    assertEquals("id", doc.getId());
+    assertEquals("abc123", doc.getId());
     assertEquals("bar", doc.getString("foo"));
 
     validStage.processDocument(doc);
     assertEquals(2, doc.getFieldNames().size());
-    assertEquals("id", doc.getId());
+    assertEquals("abc123", doc.getId());
     assertEquals(List.of("id", "foo"), doc.getStringList("keys"));
   }
 
@@ -165,6 +165,7 @@ public class ApplyJSONNataTest {
     assertEquals("\"[1,2,3]\"", doc.getJson("dest").toString());
   }
 
+  // Expression: $exists(field.value) ? $number(field.value) : null
   @Test
   public void testAccessFieldFunction() throws StageException {
     Stage stage = factory.get("ApplyJSONNataTest/conditionallyAccessFieldValue.conf");
@@ -182,5 +183,34 @@ public class ApplyJSONNataTest {
         .put("field", "text"));
 
     assertNull(doesntHaveValue.getInt("dest"));
+  }
+
+  @Test
+  public void testAccessFieldTransform() throws StageException {
+    Stage stage = factory.get("ApplyJSONNataTest/fieldAccessValueTransformation.conf");
+
+    Document doc = Document.create("123");
+
+    /*
+    Expression: {"id": id, "value": field.value} (an in-place transformation, no source field)
+    {
+      "id": "123",
+      "field": {
+        "value": {
+          "a": "b"
+        }
+      }
+    }
+     */
+    doc.setField("field", mapper.createObjectNode()
+        .set("value", mapper.createObjectNode()
+            .put("a", "b")));
+
+    stage.processDocument(doc);
+
+    assertEquals("123", doc.getId());
+    // should no longer have "field".
+    assertFalse(doc.has("field"));
+    assertEquals("{\"a\":\"b\"}", doc.getJson("value").toString());
   }
 }
