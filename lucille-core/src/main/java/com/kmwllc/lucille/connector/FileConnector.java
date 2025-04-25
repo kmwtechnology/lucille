@@ -148,13 +148,13 @@ public class FileConnector extends AbstractConnector {
     super(config, Spec.connector()
         .withRequiredProperties("pathToStorage")
         .withOptionalParents(
-            Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "modificationCutoff"),
+            Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "lastModifiedCutoff", "lastPublishedCutoff"),
             Spec.parent("fileOptions")
                 .withOptionalProperties("getFileContent", "handleArchivedFiles", "handleCompressedFiles", "moveToAfterProcessing",
                     "moveToErrorFolder")
                 .withOptionalParents(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
             Spec.parent("state")
-                .withRequiredProperties("driver", "connnectionString", "jdbcUser", "jdbcPassword")
+                .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword")
                 .withOptionalProperties("tableName", "performDeletions", "pathLength"),
             GCP_PARENT_SPEC,
             AZURE_PARENT_SPEC,
