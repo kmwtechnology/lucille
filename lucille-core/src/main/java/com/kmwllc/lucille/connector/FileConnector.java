@@ -14,6 +14,9 @@ import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +24,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Config parameters:
  *  docIdPrefix (string, Optional): prefix to add to the docId when not handled by a file handler, defaults to empty string. To configure docIdPrefix for CSV, JSON or XML files, configure it in its respective file handler config in fileOptions
- *  pathToStorage (string): path to storage, can be local file system or cloud bucket/container
+ *  pathsToStorage (List&lt;String&gt;): The paths to storage you want to traverse. Can be local file paths or cloud storage URIs. Make sure to include the necessary configuration for cloud providers if they are included in your pathsToStorage.
  *  e.g.
  *    /path/to/storage/in/local/filesystem
  *    gs://bucket-name/folder/
@@ -107,15 +110,14 @@ public class FileConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
-  private final String pathToStorage;
   private final Config fileOptions;
   private final Config filterOptions;
-  private StorageClient storageClient;
-  private final URI storageURI;
+  private final List<URI> storageURIs;
+  private final Map<String, StorageClient> storageClientMap;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config, Spec.connector()
-        .withRequiredProperties("pathToStorage")
+        .withRequiredProperties("pathsToStorage")
         .withOptionalParents(
             Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "modificationCutoff"),
             Spec.parent("fileOptions")
@@ -127,42 +129,58 @@ public class FileConnector extends AbstractConnector {
             S3_PARENT_SPEC
         ));
 
-    this.pathToStorage = config.getString("pathToStorage");
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
     this.filterOptions = config.hasPath("filterOptions") ? config.getConfig("filterOptions") : ConfigFactory.empty();
+    this.storageClientMap = StorageClient.createClients(config);
 
-    try {
-      this.storageURI = new URI(pathToStorage);
-      log.debug("using path {} with scheme {}", pathToStorage, storageURI.getScheme());
-    } catch (URISyntaxException e) {
-      throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
-    }
+    List<String> pathsToStorage = config.getStringList("pathsToStorage");
+    this.storageURIs = new ArrayList<>();
 
-    if (CLOUD_STORAGE_CLIENT_KEYS.stream().filter(config::hasPath).count() > 1) {
-      log.warn("Config for FileConnector contains options for more than one cloud provider.");
+    for (String path : pathsToStorage) {
+      try {
+        URI newStorageURI = new URI(path);
+        storageURIs.add(newStorageURI);
+        log.debug("using path {} with scheme {}", path, newStorageURI.getScheme());
+      } catch (URISyntaxException e) {
+        throw new ConnectorException("Invalid path to storage: " + path, e);
+      }
     }
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try {
-      storageClient = StorageClient.create(storageURI, config);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while creating storage client.", e);
+      for (StorageClient client : storageClientMap.values()) {
+        client.init();
+      }
+    } catch (IOException e) {
+      throw new ConnectorException("Error initializing StorageClient.", e);
     }
 
     try {
-      storageClient.init();
-      TraversalParams params = new TraversalParams(storageURI, getDocIdPrefix(), fileOptions, filterOptions);
-      storageClient.traverse(publisher, params);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while initializing client or publishing files.", e);
+      for (URI pathToTraverse : storageURIs) {
+        try {
+          String clientKey = pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
+          StorageClient storageClient = storageClientMap.get(clientKey);
+
+          if (storageClient == null) {
+            log.warn("No StorageClient was available for {}, the path will be skipped. Did you include the necessary configuration?", pathToTraverse);
+            continue;
+          }
+
+          TraversalParams params = new TraversalParams(pathToTraverse, getDocIdPrefix(), fileOptions, filterOptions);
+          storageClient.traverse(publisher, params);
+        } catch (Exception e) {
+          throw new ConnectorException("Error occurred while initializing client or publishing files.", e);
+        }
+      }
     } finally {
-      try {
-        // closes clients and clears file handlers if any
-        storageClient.shutdown();
-      } catch (IOException e) {
-        throw new ConnectorException("Error occurred while shutting down client.", e);
+      for (StorageClient client : storageClientMap.values()) {
+        try {
+          client.shutdown();
+        } catch (IOException e) {
+          log.warn("Error shutting down StorageClient.", e);
+        }
       }
     }
   }

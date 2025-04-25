@@ -12,6 +12,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.kmwllc.lucille.connector.storageclient.LocalStorageClient;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.Connector;
@@ -23,9 +24,11 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -46,17 +49,20 @@ public class FileConnectorTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
 
-    try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
-      StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any()))
-          .thenReturn(storageClient);
+    try (MockedStatic<StorageClient> mockedStaticStorageClient = mockStatic(StorageClient.class)) {
+      StorageClient mockCloudClient = mock(StorageClient.class);
+      mockedStaticStorageClient.when(() -> StorageClient.createClients(any()))
+          .thenReturn(Map.of(
+              "file", new LocalStorageClient(),
+              "gs", mockCloudClient));
 
+      Connector connector = new FileConnector(config);
       connector.execute(publisher);
-      verify(storageClient, times(1)).init();
-      verify(storageClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class));
-      verify(storageClient, times(1)).shutdown();
+
+      verify(mockCloudClient, times(1)).init();
+      verify(mockCloudClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class));
+      verify(mockCloudClient, times(1)).shutdown();
     }
   }
 
@@ -65,17 +71,26 @@ public class FileConnectorTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multipleCloud.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
 
     try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
-      StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any()))
-          .thenReturn(storageClient);
+      StorageClient mockForGoogle = mock(StorageClient.class);
+      StorageClient mockForAzure = mock(StorageClient.class);
+      mockCloudStorageClient.when(() -> StorageClient.createClients(any()))
+          .thenReturn(Map.of(
+              "file", new LocalStorageClient(),
+              "gs", mockForGoogle,
+              "https", mockForAzure));
 
+      Connector connector = new FileConnector(config);
       connector.execute(publisher);
-      verify(storageClient, times(1)).init();
-      verify(storageClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class));
-      verify(storageClient, times(1)).shutdown();
+      verify(mockForGoogle, times(1)).init();
+      verify(mockForGoogle, times(1)).traverse(any(Publisher.class), any(TraversalParams.class));
+      verify(mockForGoogle, times(1)).shutdown();
+
+      // Azure will get started / shutdown, but not traversed
+      verify(mockForAzure, times(1)).init();
+      verify(mockForAzure, times(0)).traverse(any(Publisher.class), any(TraversalParams.class));
+      verify(mockForAzure, times(1)).shutdown();
     }
   }
 
@@ -84,19 +99,19 @@ public class FileConnectorTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
 
-    try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
-      StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any()))
-          .thenReturn(storageClient);
+    try (MockedStatic<StorageClient> mockedStaticStorageClient = mockStatic(StorageClient.class)) {
+      StorageClient mockCloudClient = mock(StorageClient.class);
+      mockedStaticStorageClient.when(() -> StorageClient.createClients(any()))
+          .thenReturn(Map.of(
+              "file", new LocalStorageClient(),
+              "gs", mockCloudClient));
 
-      // init method did not declare to throw any Exception, so using RuntimeException
-      // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
-      doThrow(new RuntimeException("Failed to initialize client")).when(storageClient).init();
+      Connector connector = new FileConnector(config);
+
+      // nothing takes place if a client fails to initialize
+      doThrow(new IOException("Failed to initialize client")).when(mockCloudClient).init();
       assertThrows(ConnectorException.class, () -> connector.execute(publisher));
-      // verify that shutdown is called even gettingClient fails
-      verify(storageClient, times(1)).shutdown();
     }
   }
 
@@ -105,18 +120,21 @@ public class FileConnectorTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
 
     try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
-      StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any()))
-          .thenReturn(storageClient);
+      StorageClient mockCloudClient = mock(StorageClient.class);
+      mockCloudStorageClient.when(() -> StorageClient.createClients(any()))
+          .thenReturn(Map.of(
+              "file", new LocalStorageClient(),
+              "gs", mockCloudClient));
+
+      Connector connector = new FileConnector(config);
 
       // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
-      doThrow(new Exception("Failed to publish files")).when(storageClient).traverse(any(Publisher.class), any(TraversalParams.class));
+      doThrow(new Exception("Failed to publish files")).when(mockCloudClient).traverse(any(Publisher.class), any(TraversalParams.class));
       assertThrows(ConnectorException.class, () -> connector.execute(publisher));
-      // verify that shutdown is called even gettingClient fails
-      verify(storageClient, times(1)).shutdown();
+      // verify that shutdown is called, even after a traversal fails
+      verify(mockCloudClient, times(1)).shutdown();
     }
   }
 
