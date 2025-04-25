@@ -7,7 +7,7 @@ RUN apt-get install lsof bc openjdk-17-jre-headless -y --fix-missing
 COPY target/ /target/
 COPY conf/ /conf/
 COPY runner/scripts/ /scripts/
-COPY runner/pom.xml /pom.xml
+COPY runner/githubpom.xml /pom.xml
 
 RUN mkdir /output/
 
