@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
@@ -64,7 +65,7 @@ public class DictionaryLookup extends Stage {
   public DictionaryLookup(Config config) throws StageException {
     super(config, Spec.stage().withRequiredProperties("source", "dest", "dict_path")
         .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "ignore_missing_source")
-        .withOptionalParents("s3", "gcp", "azure"));
+        .withOptionalParents(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");

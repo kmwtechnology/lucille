@@ -1,0 +1,50 @@
+name: "Scan code with CodeQL"
+
+on:
+  push:
+    branches: [ "main" ]
+  schedule:
+    # scan code every Monday at 1am UTC
+    - cron: '00 1 * * 1'
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - language: java
+          build-mode: none # This mode only analyzes Java. Set this to 'autobuild' or 'manual' to analyze Kotlin too.
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        build-mode: ${{ matrix.build-mode }}
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      id: analyze
+      env:
+        ACTIONS_STEP_DEBUG: true
+      with:
+        category: "/language:${{matrix.language}}"
+
+    - name: Upload result to GitHub Code Scanning
+      uses: actions/upload-artifact@v4
+      with:
+        name: CodeQLSarif
+        path: ${{ steps.analyze.outputs.sarif-output }}

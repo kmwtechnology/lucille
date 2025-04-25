@@ -1,12 +1,15 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
+import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
@@ -57,7 +60,12 @@ public class ApplyFileHandlers extends Stage {
    */
   public ApplyFileHandlers(Config config) {
     super(config, Spec.stage()
-        .withOptionalParents("handlerOptions", "gcp", "azure", "s3")
+        .withOptionalParents(
+            Spec.parent("handlerOptions")
+                .withOptionalParents(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC),
+            FileConnector.GCP_PARENT_SPEC,
+            FileConnector.AZURE_PARENT_SPEC,
+            FileConnector.S3_PARENT_SPEC)
         .withOptionalProperties("filePathField", "fileContentField"));
 
     this.handlerOptions = config.getConfig("handlerOptions");
