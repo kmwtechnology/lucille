@@ -98,7 +98,6 @@ public class RSSConnector extends AbstractConnector {
     do {
       try (InputStream rssStream = rssURL.openStream()) {
         JsonNode rssRootNode = xmlMapper.readTree(rssStream);
-        rssStream.close();
         // Gets the item(s). Will be an array, if multiple, or just the one object, if only one.
         JsonNode allItemsNode = rssRootNode.get("channel").get("item");
 
