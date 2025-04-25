@@ -34,9 +34,9 @@ import static com.dashjoin.jsonata.Jsonata.jsonata;
  * field. Has no effect if source is not specified.
  * <p> <b>expression</b> (String) : The Jsonata expression you want to apply to each Document.
  */
-public class ApplyJSONNata extends Stage {
+public class ApplyJSONata extends Stage {
 
-  private static final Logger log = LoggerFactory.getLogger(ApplyJSONNata.class);
+  private static final Logger log = LoggerFactory.getLogger(ApplyJSONata.class);
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
   private final String source;
@@ -44,7 +44,7 @@ public class ApplyJSONNata extends Stage {
   private final String expressionStr;
   private Jsonata parsedExpression;
 
-  public ApplyJSONNata(Config config) throws StageException {
+  public ApplyJSONata(Config config) throws StageException {
     super(config, Spec.stage().withOptionalProperties("source", "destination").withRequiredProperties("expression"));
     this.source = ConfigUtils.getOrDefault(config, "source", null);
     this.destination = ConfigUtils.getOrDefault(config, "destination", null);

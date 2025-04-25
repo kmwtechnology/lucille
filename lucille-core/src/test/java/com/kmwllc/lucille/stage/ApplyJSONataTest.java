@@ -14,26 +14,26 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 
-public class ApplyJSONNataTest {
+public class ApplyJSONataTest {
 
-  private final StageFactory factory = StageFactory.of(ApplyJSONNata.class);
+  private final StageFactory factory = StageFactory.of(ApplyJSONata.class);
   private final ObjectMapper mapper = new ObjectMapper();
 
   @Test 
   public void testConfig() {
-    assertThrows(StageException.class, () -> factory.get("ApplyJSONNataTest/noExpression.conf"));
+    assertThrows(StageException.class, () -> factory.get("ApplyJSONataTest/noExpression.conf"));
   }
 
   @Test 
   public void testInvalidExpression() {
-    assertThrows(StageException.class, () -> factory.get("ApplyJSONNataTest/invalidExpression.conf"));
+    assertThrows(StageException.class, () -> factory.get("ApplyJSONataTest/invalidExpression.conf"));
   }
 
   // Expression: {"id": id, "keys": $keys()}
   @Test
   public void testApplyToFullDocument() throws StageException {
-    Stage invalidStage = factory.get("ApplyJSONNataTest/fullInvalid.conf");
-    Stage validStage = factory.get("ApplyJSONNataTest/fullValid.conf");
+    Stage invalidStage = factory.get("ApplyJSONataTest/fullInvalid.conf");
+    Stage validStage = factory.get("ApplyJSONataTest/fullValid.conf");
 
     Document doc = Document.create("abc123");
     doc.setField("foo", "bar");
@@ -52,8 +52,8 @@ public class ApplyJSONNataTest {
   // Expression: "foo" (which just returns, again, "foo")
   @Test 
   public void testApplyToField() throws StageException {
-    Stage stageWithDest = factory.get("ApplyJSONNataTest/withDest.conf");
-    Stage stageWithoutDest = factory.get("ApplyJSONNataTest/withoutDest.conf");
+    Stage stageWithDest = factory.get("ApplyJSONataTest/withDest.conf");
+    Stage stageWithoutDest = factory.get("ApplyJSONataTest/withoutDest.conf");
 
     JsonNode bar = mapper.convertValue("bar", JsonNode.class);
     JsonNode foo = mapper.convertValue("foo", JsonNode.class);
@@ -86,7 +86,7 @@ public class ApplyJSONNataTest {
   // as well as "raw" values.
   @Test
   public void testAccessValue() throws StageException {
-    Stage stage = factory.get("ApplyJSONNataTest/fieldAccessValue.conf");
+    Stage stage = factory.get("ApplyJSONataTest/fieldAccessValue.conf");
 
     Document doc = Document.create("id");
     doc.setField("source", mapper.createObjectNode()
@@ -99,7 +99,7 @@ public class ApplyJSONNataTest {
 
   @Test
   public void testAccessJson() throws StageException {
-    Stage stage = factory.get("ApplyJSONNataTest/fieldAccessValue.conf");
+    Stage stage = factory.get("ApplyJSONataTest/fieldAccessValue.conf");
 
     Document doc = Document.create("id");
     doc.setField("source", mapper.createObjectNode()
@@ -114,7 +114,7 @@ public class ApplyJSONNataTest {
 
   @Test
   public void testAccessList() throws StageException {
-    Stage stage = factory.get("ApplyJSONNataTest/fieldAccessValue.conf");
+    Stage stage = factory.get("ApplyJSONataTest/fieldAccessValue.conf");
 
     Document doc = Document.create("id");
     doc.setField("source", mapper.createObjectNode()
@@ -129,7 +129,7 @@ public class ApplyJSONNataTest {
   // and a JSON array. The expression used is just $string(), which can be easily applied to all of these.
   @Test
   public void testSourceValue() throws StageException {
-    Stage stage = factory.get("ApplyJSONNataTest/sourceToString.conf");
+    Stage stage = factory.get("ApplyJSONataTest/sourceToString.conf");
 
     Document doc = Document.create("id");
     doc.setField("source", 1);
@@ -141,7 +141,7 @@ public class ApplyJSONNataTest {
 
   @Test
   public void testSourceJson() throws StageException {
-    Stage stage = factory.get("ApplyJSONNataTest/sourceToString.conf");
+    Stage stage = factory.get("ApplyJSONataTest/sourceToString.conf");
 
     Document doc = Document.create("id");
     // source: {"a": "b"}
@@ -155,7 +155,7 @@ public class ApplyJSONNataTest {
 
   @Test
   public void testSourceList() throws StageException {
-    Stage stage = factory.get("ApplyJSONNataTest/sourceToString.conf");
+    Stage stage = factory.get("ApplyJSONataTest/sourceToString.conf");
 
     Document doc = Document.create("id");
     doc.setField("source", mapper.createArrayNode().add(1).add(2).add(3));
@@ -168,7 +168,7 @@ public class ApplyJSONNataTest {
   // Expression: $exists(field.value) ? $number(field.value) : null
   @Test
   public void testAccessFieldFunction() throws StageException {
-    Stage stage = factory.get("ApplyJSONNataTest/conditionallyAccessFieldValue.conf");
+    Stage stage = factory.get("ApplyJSONataTest/conditionallyAccessFieldValue.conf");
 
     Document hasValue = Document.create("id");
     hasValue.setField("source", mapper.createObjectNode()
@@ -187,7 +187,7 @@ public class ApplyJSONNataTest {
 
   @Test
   public void testAccessFieldTransform() throws StageException {
-    Stage stage = factory.get("ApplyJSONNataTest/fieldAccessValueTransformation.conf");
+    Stage stage = factory.get("ApplyJSONataTest/fieldAccessValueTransformation.conf");
 
     Document doc = Document.create("123");
 
