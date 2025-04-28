@@ -11,8 +11,8 @@ The file connector traverses a file system and publishes Lucille documents repre
 cloud provider.
 
 ### Working with Cloud Storage
-When you are providing FileConnector with URIs to cloud storage, you also need to apply the appropriate configuration for that cloud provider
-so Lucille can communicate with the cloud provider. For each provider, you'll need to provide a form of authentication; you can optionally
+When you are providing FileConnector with URIs to cloud storage, you also need to apply the appropriate configuration for any 
+cloud providers used. For each provider, you'll need to provide a form of authentication; you can optionally
 specify the maximum number of files (`maxNumOfPages`) that Lucille will load into memory for a given request.
 
 * **Azure**: Specify the needed options in `azure` in your Config. You must provide `connectionString`, or you must provide `accountName` and `accountKey`.

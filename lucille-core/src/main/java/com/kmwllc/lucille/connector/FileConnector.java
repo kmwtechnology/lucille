@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Config parameters:
  *  docIdPrefix (string, Optional): prefix to add to the docId when not handled by a file handler, defaults to empty string. To configure docIdPrefix for CSV, JSON or XML files, configure it in its respective file handler config in fileOptions
- *  pathsToStorage (List&lt;String&gt;): The paths to storage you want to traverse. Can be local file paths or cloud storage URIs. Make sure to include the necessary configuration for cloud providers if they are included in your pathsToStorage.
+ *  pathsToStorage (List&lt;String&gt;): The paths to storage you want to traverse. Can be local file paths or cloud storage URIs. Make sure to include the necessary configuration for cloud providers as they are included in your pathsToStorage.
  *  e.g.
  *    /path/to/storage/in/local/filesystem
  *    gs://bucket-name/folder/
