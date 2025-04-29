@@ -175,10 +175,10 @@ public class Runner {
     if (exceptions.entrySet().stream().allMatch(e -> e.getValue().isEmpty())) {
       return validationName + " Configuration is valid";
     } else {
-      StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. Printing the list of exceptions for each element\n");
+      StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. See exceptions for each element:\n");
 
       for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
-        message.append("\t").append(validationName).append(": ").append(entry.getKey()).append("\n");
+        message.append("\t").append(entry.getKey()).append(":").append("\n");
 
         for (Exception e : entry.getValue()) {
           message.append("\t\t").append(e.getMessage()).append("\n");
@@ -213,6 +213,11 @@ public class Runner {
   private static Map<String, List<Exception>> validateConnectors(Config rootConfig) {
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
 
+    if (!rootConfig.hasPath("connectors")) {
+      exceptionMap.put("connectors", List.of(new Exception("Configuration does not contain key \"connectors\".")));
+      return exceptionMap;
+    }
+
     for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
       String name = connectorConfig.getString("name");
 
@@ -228,15 +233,21 @@ public class Runner {
   }
 
   /**
-   * Returns a mapping from pipline names to the list of exceptions produced when validating them.
+   * Returns a mapping from pipeline names to the list of exceptions produced when validating them.
    */
-  private static Map<String, List<Exception>> validatePipelines(Config config) throws Exception {
+  private static Map<String, List<Exception>> validatePipelines(Config rootConfig) throws Exception {
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
-    for (Config pipelineConfig : config.getConfigList("pipelines")) {
+
+    if (!rootConfig.hasPath("pipelines")) {
+      exceptionMap.put("pipelines", List.of(new Exception("Configuration does not contain key \"pipelines\".")));
+      return exceptionMap;
+    }
+
+    for (Config pipelineConfig : rootConfig.getConfigList("pipelines")) {
       String name = pipelineConfig.getString("name");
 
       if (!exceptionMap.containsKey(name)) {
-        exceptionMap.put(name, Pipeline.validateStages(config, name));
+        exceptionMap.put(name, Pipeline.validateStages(rootConfig, name));
       } else {
         exceptionMap.get(name).add(new Exception("There exists a pipeline with the same name"));
       }
@@ -248,10 +259,10 @@ public class Runner {
     try {
       IndexerFactory.fromConfig(config, new LocalMessenger(), true, "");
     } catch (Exception e) {
-      return Map.of("Indexer", List.of(e));
+      return Map.of("indexer", List.of(e));
     }
 
-    return Map.of("Indexer", List.of());
+    return Map.of("indexer", List.of());
   }
 
   public static void renderConfig(Config config) {

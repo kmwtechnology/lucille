@@ -72,7 +72,7 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions1.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "Error(s) with com.kmwllc.lucille.stage.NopStage Config: [Config contains unknown property invalid_property]");
+        "Error with com.kmwllc.lucille.stage.NopStage Config: Config contains unknown property invalid_property");
     testException(exceptions1.get(1), IllegalArgumentException.class, "Config must contain property fields");
   }
 
@@ -86,7 +86,7 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions1.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "Error(s) with com.kmwllc.lucille.stage.NopStage Config: [Config contains unknown property invalid_property]");
+        "Error with com.kmwllc.lucille.stage.NopStage Config: Config contains unknown property invalid_property");
 
     testException(exceptions1.get(1), IllegalArgumentException.class, "Config must contain property fields");
   }
@@ -103,7 +103,7 @@ public class ConfigValidationTest {
     assertEquals(2, exceptions2.size());
 
     testException(exceptions1.get(0), IllegalArgumentException.class,
-        "Error(s) with com.kmwllc.lucille.stage.NopStage Config: [Config contains unknown property invalid_property]");
+        "Error with com.kmwllc.lucille.stage.NopStage Config: Config contains unknown property invalid_property");
 
     // TODO note that for the following two exceptions, the fields are retrieved before
     //  the config validation is called
@@ -115,7 +115,7 @@ public class ConfigValidationTest {
         "Config must contain property dest");
 
     testException(exceptions2.get(1), IllegalArgumentException.class,
-        "Error(s) with com.kmwllc.lucille.stage.Concatenate Config: [Config contains unknown parent default_inputs3]");
+        "Error with com.kmwllc.lucille.stage.Concatenate Config: Config contains unknown parent default_inputs3");
   }
 
   @Test
@@ -149,11 +149,11 @@ public class ConfigValidationTest {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badIndexer.conf"));
     // five "things" to validate here - Indexer is always one entry on the map.
     assertEquals(5, exceptions.size());
-    assertTrue(exceptions.get("Indexer").get(0).getMessage().contains("must contain property index"));
+    assertTrue(exceptions.get("indexer").get(0).getMessage().contains("must contain property index"));
 
     exceptions = Runner.runInValidationMode(addPath("extraIndexerProps.conf"));
     assertEquals(5, exceptions.size());
-    assertTrue(exceptions.get("Indexer").get(0).getMessage().contains("unknown property blah"));
+    assertTrue(exceptions.get("indexer").get(0).getMessage().contains("unknown property blah"));
   }
 
   @Test
@@ -196,6 +196,29 @@ public class ConfigValidationTest {
     assertThrows(IllegalArgumentException.class,
         () -> spec.validate(ConfigFactory.parseResourcesAnySyntax("ConfigValidationTest/parentSpec/requiredParentMissing.conf"), "test"));
   }
+
+  @Test
+  public void testValidationMissingConnectors() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("noConnectors.conf"));
+
+    // the "connector name" used for this error is just "connectors".
+    assertEquals(1, exceptions.get("connectors").size());
+    assertEquals(0, exceptions.get("pipeline1").size());
+    assertEquals(0, exceptions.get("pipeline2").size());
+    assertEquals(0, exceptions.get("indexer").size());
+  }
+
+  @Test
+  public void testValidationMissingPipelines() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("noPipelines.conf"));
+
+    // the "pipeline name" used for this error is just "pipelines".
+    assertEquals(1, exceptions.get("pipelines").size());
+    assertEquals(0, exceptions.get("connector1").size());
+    assertEquals(0, exceptions.get("connector2").size());
+    assertEquals(0, exceptions.get("indexer").size());
+  }
+
   private static void processDoc(Class<? extends Stage> stageClass, String config, Document doc)
       throws StageException {
     Stage s = StageFactory.of(stageClass).get(addPath(config));
