@@ -128,7 +128,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
 
   /**
    * Main method for launching the Lucille API server. If no args are provided, defaults to 'server conf/default-config.yml'.
-   * @param args command-line arguments (expects Dropwizard "server <config.yml>")
+   * @param args command-line arguments (expects Dropwizard {@code server <config.yml>})
    * @throws Exception if startup fails
    */
   public static void main(String[] args) throws Exception {
