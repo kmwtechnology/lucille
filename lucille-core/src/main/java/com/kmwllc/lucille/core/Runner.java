@@ -121,9 +121,10 @@ public class Runner {
         renderConfig(config);
       }
       if (cli.hasOption("validate")) {
-        logValidation(validateConnectors(config), "Connector");
-        logValidation(validatePipelines(config), "Pipeline");
-        logValidation(validateIndexer(config), "Indexer");
+        log.info(stringifyValidation(validateConnectors(config), "Connector"));
+        log.info(stringifyValidation(validatePipelines(config), "Pipeline"));
+        log.info(stringifyValidation(validateIndexer(config), "Indexer"));
+        log.info(stringifyValidation(validateOtherParents(config), "Other (Publisher, Runner, etc.)"));
       }
       return;
     }
@@ -165,55 +166,52 @@ public class Runner {
     return result.getHistory();
   }
 
-  private static void logValidation(Map<String, List<Exception>> exceptions, String validationName) {
-    log.info(stringifyValidation(exceptions, validationName));
-  }
-
-  /**
-   * Returns a stringified version of the given map of exceptions. Uses the given validation name in logged messages
-   * to clarify which element of the Lucille Config is being validated.
-   */
-  public static String stringifyValidation(Map<String, List<Exception>> exceptions, String validationName) {
-    if (exceptions.entrySet().stream().allMatch(e -> e.getValue().isEmpty())) {
-      return validationName + " Configuration is valid";
-    } else {
-      StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. See exceptions for each element:\n");
-
-      for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
-        message.append("\t").append(entry.getKey()).append(":").append("\n");
-
-        for (Exception e : entry.getValue()) {
-          message.append("\t\t").append(e.getMessage()).append("\n");
-        }
-      }
-      return message.delete(message.length() - 1, message.length()).toString();
-    }
-  }
-
   public static Map<String, List<Exception>> runInValidationMode(String configName) throws Exception {
     return runInValidationMode(ConfigFactory.load(configName));
   }
 
+  /**
+   * Validates the given Config, including its pipelines, connectors, indexers, and other miscellaneous configuration
+   * (Publisher, Runner, Kafka, etc). Returns a map of entry names to lists of Exceptions, representing errors with their
+   * configuration. The map uses individual pipeline / connector names for keys, and then "indexer" and "other" for the indexer / other
+   * validation issues, respectively.
+   *
+   * @param config The configuration you want to validate.
+   * @return Returns a map of entry names to lists of Exceptions (errors with the Config).
+   * @throws Exception If a larger error occurs, preventing the Config from being validates.
+   */
   public static Map<String, List<Exception>> runInValidationMode(Config config) throws Exception {
-    // Resolve any potential substitutions once to prevent errors about missing values.
+    // Resolve any potential substitutions once, to prevent errors about missing values.
     config = config.resolve();
+    Map<String, List<Exception>> allExceptionsMap = new HashMap<>();
 
     Map<String, List<Exception>> pipelineExceptions = validatePipelines(config);
-    logValidation(pipelineExceptions, "Pipeline");
+    log.info(stringifyValidation(pipelineExceptions, "Pipeline"));
 
     Map<String, List<Exception>> connectorExceptions = validateConnectors(config);
-    logValidation(connectorExceptions, "Connector");
+    log.info(stringifyValidation(connectorExceptions, "Connector"));
 
-    Map<String, List<Exception>> indexerExceptions = validateIndexer(config);
-    logValidation(indexerExceptions, "Indexer");
+    List<Exception> indexerExceptions = validateIndexer(config);
+    log.info(stringifyValidation(indexerExceptions, "Indexer"));
 
-    Map<String, List<Exception>> otherParentExceptions = validateOtherParents(config);
-    logValidation(otherParentExceptions, "Other (Publisher, Runner, etc.)");
+    List<Exception> otherParentExceptions = validateOtherParents(config);
+    log.info(stringifyValidation(otherParentExceptions, "Other (Publisher, Runner, etc.)"));
 
-    pipelineExceptions.putAll(connectorExceptions);
-    pipelineExceptions.putAll(indexerExceptions);
-    pipelineExceptions.putAll(otherParentExceptions);
-    return pipelineExceptions;
+    allExceptionsMap.putAll(pipelineExceptions);
+    allExceptionsMap.putAll(connectorExceptions);
+
+    if (allExceptionsMap.containsKey("indexer")) {
+      log.warn("A stage/connector was named \"indexer\". Its validation Exception(s), if present, won't be returned.");
+    }
+
+    if (allExceptionsMap.containsKey("other")) {
+      log.warn("A stage/connector was named \"other\". Its validation Exception(s), if present, won't be returned.");
+    }
+
+    allExceptionsMap.put("indexer", indexerExceptions);
+    allExceptionsMap.put("other", otherParentExceptions);
+
+    return allExceptionsMap;
   }
 
   private static Map<String, List<Exception>> validateConnectors(Config rootConfig) {
@@ -225,13 +223,15 @@ public class Runner {
     }
 
     for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
-      String name = connectorConfig.getString("name");
+      String connectorName = connectorConfig.getString("name");
 
-      if (!exceptionMap.containsKey(name)) {
+      if (!exceptionMap.containsKey(connectorName)) {
         // Still uses a List so we can support extra exceptions for duplicate pipeline names
-        exceptionMap.put(name, Connector.getConnectorConfigExceptions(connectorConfig));
+        exceptionMap.put(connectorName, Connector.getConnectorConfigExceptions(connectorConfig));
       } else {
-        exceptionMap.get(name).add(new Exception("There exists a connector with the same name"));
+        // add all the errors with this config, and another one for duplicate connectors
+        exceptionMap.get(connectorName).addAll(Connector.getConnectorConfigExceptions(connectorConfig));
+        exceptionMap.get(connectorName).add(new Exception("There are multiple connectors with the name " + connectorName));
       }
     }
 
@@ -250,29 +250,27 @@ public class Runner {
     }
 
     for (Config pipelineConfig : rootConfig.getConfigList("pipelines")) {
-      String name = pipelineConfig.getString("name");
+      String pipelineName = pipelineConfig.getString("name");
 
-      if (!exceptionMap.containsKey(name)) {
-        exceptionMap.put(name, Pipeline.validateStages(rootConfig, name));
-      } else {
-        exceptionMap.get(name).add(new Exception("There exists a pipeline with the same name"));
-      }
+      // No checks on whether the map has the pipeline name, since Pipeline checks for duplicate names...
+      exceptionMap.put(pipelineName, Pipeline.validateStages(rootConfig, pipelineName));
     }
+
     return exceptionMap;
   }
 
-  private static Map<String, List<Exception>> validateIndexer(Config config) {
+  private static List<Exception> validateIndexer(Config config) {
     try {
       IndexerFactory.fromConfig(config, new LocalMessenger(), true, "");
     } catch (Exception e) {
-      return Map.of("indexer", List.of(e));
+      return List.of(e);
     }
 
-    return Map.of("indexer", List.of());
+    return List.of();
   }
 
-  private static Map<String, List<Exception>> validateOtherParents(Config rootConfig) {
-    Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
+  private static List<Exception> validateOtherParents(Config rootConfig) {
+    List<Exception> exceptions = new ArrayList<>();
 
     Config configPropertyConfig = ConfigFactory.parseResourcesAnySyntax("validConfigProperties.conf");
 
@@ -303,15 +301,11 @@ public class Runner {
       try {
         spec.validate(rootConfig.getConfig(optionalParentName), optionalParentName);
       } catch (IllegalArgumentException e) {
-        if (!exceptionMap.containsKey("Other")) {
-          exceptionMap.put("Other", new ArrayList<>());
-        }
-
-        exceptionMap.get("Other").add(e);
+        exceptions.add(e);
       }
     }
 
-    return exceptionMap;
+    return exceptions;
   }
 
   public static void renderConfig(Config config) {
@@ -618,6 +612,46 @@ public class Runner {
         indexer.terminate();
         indexerThread.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
       }
+    }
+  }
+
+  /**
+   * Returns a stringified version of the given map of exceptions, which is mapping individual "elements" (usually, pipelines) to their associated
+   * exceptions. Map may be empty. Uses the given validation name in logged messages to clarify which element of the Lucille Config is being validated.
+   */
+  // Package access for unit test
+  static String stringifyValidation(Map<String, List<Exception>> exceptions, String validationName) {
+    if (exceptions.entrySet().stream().allMatch(e -> e.getValue().isEmpty())) {
+      return validationName + " Configuration is valid.";
+    } else {
+      StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. See exceptions for each element:\n");
+
+      for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
+        message.append("\t").append(entry.getKey()).append(":").append("\n");
+
+        for (Exception e : entry.getValue()) {
+          message.append("\t\t").append(e.getMessage()).append("\n");
+        }
+      }
+      return message.delete(message.length() - 1, message.length()).toString();
+    }
+  }
+
+  /**
+   * Returns a stringified version of the given list of exceptions. List may be empty. Uses the given validation name in logged messages
+   * to clarify which element of the Lucille Config is being validated.
+   */
+  // package access for unit test
+  static String stringifyValidation(List<Exception> exceptions, String validationName) {
+    if (exceptions.isEmpty()) {
+      return validationName + " Configuration is valid";
+    } else {
+      StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. Errors:\n");
+
+      for (Exception exc : exceptions) {
+        message.append("\t").append(exc.getMessage()).append("\n");
+      }
+      return message.delete(message.length() - 1, message.length()).toString();
     }
   }
 

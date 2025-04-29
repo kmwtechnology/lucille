@@ -66,7 +66,7 @@ public class ConfigValidationTest {
   @Test
   public void testDuplicatePipeline() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("shared-pipeline.conf"));
-    assertEquals(4, exceptions.size());
+    assertEquals(5, exceptions.size());
 
     List<Exception> exceptions1 = exceptions.get("pipeline1");
     assertEquals(2, exceptions1.size());
@@ -80,7 +80,7 @@ public class ConfigValidationTest {
   @Test
   public void testUnusedPipeline() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("no-used-pipelines.conf"));
-    assertEquals(2, exceptions.size());
+    assertEquals(3, exceptions.size());
 
     List<Exception> exceptions1 = exceptions.get("pipeline1");
     assertEquals(2, exceptions1.size());
@@ -94,7 +94,7 @@ public class ConfigValidationTest {
   @Test
   public void testValidationModeException() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
-    assertEquals(5, exceptions.size());
+    assertEquals(6, exceptions.size());
 
     List<Exception> exceptions1 = exceptions.get("pipeline1");
     assertEquals(2, exceptions1.size());
@@ -121,7 +121,7 @@ public class ConfigValidationTest {
   @Test
   public void testValidationModeMultipleExceptionsInStage() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("veryBadStage.conf"));
-    assertEquals(4, exceptions.size());
+    assertEquals(5, exceptions.size());
 
     // should only be one exception, but we should have both of the errors mentioned in the response
     assertEquals(1, exceptions.get("pipeline1").size());
@@ -135,24 +135,24 @@ public class ConfigValidationTest {
   @Test
   public void testBadConnector() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badConnector.conf"));
-    assertEquals(5, exceptions.size());
+    assertEquals(6, exceptions.size());
 
     assertEquals(1, exceptions.get("connector1").size());
     assertEquals(1, exceptions.get("connector2").size());
 
     assertTrue(exceptions.get("connector1").get(0).getMessage().contains("Config must contain property path"));
-    assertTrue(exceptions.get("connector2").get(0).getMessage().contains("No configuration setting found for key 'class'"));
+    assertTrue(exceptions.get("connector2").get(0).getMessage().contains("No Connector class specified"));
   }
 
   @Test
   public void testBadIndexer() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badIndexer.conf"));
     // five "things" to validate here - Indexer is always one entry on the map.
-    assertEquals(5, exceptions.size());
+    assertEquals(6, exceptions.size());
     assertTrue(exceptions.get("indexer").get(0).getMessage().contains("must contain property index"));
 
     exceptions = Runner.runInValidationMode(addPath("extraIndexerProps.conf"));
-    assertEquals(5, exceptions.size());
+    assertEquals(6, exceptions.size());
     assertTrue(exceptions.get("indexer").get(0).getMessage().contains("unknown property blah"));
   }
 
@@ -224,8 +224,8 @@ public class ConfigValidationTest {
     // only has optional properties. We have one present.
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badRunnerConfig.conf"));
 
-    assertEquals(1, exceptions.get("Other").size());
-    String exceptionMessage = exceptions.get("Other").get(0).getMessage();
+    assertEquals(1, exceptions.get("other").size());
+    String exceptionMessage = exceptions.get("other").get(0).getMessage();
 
     // the message should complain about these properties...
     assertTrue(exceptionMessage.contains("something"));
@@ -235,20 +235,20 @@ public class ConfigValidationTest {
 
     // Zookeeper only has one required property, "connectString".
     exceptions = Runner.runInValidationMode(addPath("badZookeeperConfig.conf"));
-    assertEquals(1, exceptions.get("Other").size());
-    exceptionMessage = exceptions.get("Other").get(0).getMessage();
+    assertEquals(1, exceptions.get("other").size());
+    exceptionMessage = exceptions.get("other").get(0).getMessage();
 
     assertTrue(exceptionMessage.contains("something"));
     assertTrue(exceptionMessage.contains("connectString"));
 
     exceptions = Runner.runInValidationMode(addPath("badZookeeperAndRunner.conf"));
     // designed the validation method so that each parent (publisher, runner, zookeeper) gets its own exception
-    assertEquals(2, exceptions.get("Other").size());
+    assertEquals(2, exceptions.get("other").size());
 
     boolean zookeeperSeen = false;
     boolean runnerSeen = false;
 
-    for (Exception e : exceptions.get("Other")) {
+    for (Exception e : exceptions.get("other")) {
       // running assertions + making sure we see an exception for zookeeper and runner configs
       if (e.getMessage().contains("zookeeper")) {
         assertTrue(e.getMessage().contains("connectString"));
@@ -259,11 +259,23 @@ public class ConfigValidationTest {
         assertTrue(e.getMessage().contains("something_else"));
         runnerSeen = true;
       } else {
-        fail("Exception for \"Other\" that doesn't reference zookeeper or runner.");
+        fail("Exception for \"other\" that doesn't reference zookeeper or runner.");
       }
     }
 
     assertTrue("Didn't see a validation error for zookeeper and runner.", zookeeperSeen && runnerSeen);
+  }
+
+  @Test
+  public void testSameConnectorAndPipelineNames() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("repeatedConnector.conf"));
+
+    // there should be three exceptions - one for each implementation having an unknown property, and one mentioning
+    // that there are multiple connectors named connector1
+    assertEquals(3, exceptions.get("connector1").size());
+    assertTrue(exceptions.get("connector1").get(0).getMessage().contains("bad_prop_first_time"));
+    assertTrue(exceptions.get("connector1").get(1).getMessage().contains("bad_prop_second_time"));
+    assertTrue(exceptions.get("connector1").get(2).getMessage().contains("multiple connectors with"));
   }
 
   private static void processDoc(Class<? extends Stage> stageClass, String config, Document doc)

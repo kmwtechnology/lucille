@@ -825,7 +825,7 @@ public class RunnerTest {
   }
 
   @Test
-  public void testStringifyValidationExceptions() {
+  public void testStringifyValidationExceptionsMap() {
     Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
     exceptions.put("pipeline1", List.of(new Exception("exception 1"), new Exception("exception 2")));
     exceptions.put("pipeline2", List.of(new Exception("exception 3")));
@@ -840,8 +840,20 @@ public class RunnerTest {
   }
 
   @Test
+  public void testStringifyValidationExceptionsList() {
+    List<Exception> exceptions = List.of(new Exception("exception 1"), new Exception("exception 2"), new Exception("exception 3"));
+
+    String expected = "Pipeline Configuration is invalid. Errors:\n"
+        + "\texception 1\n"
+        + "\texception 2\n"
+        + "\texception 3";
+
+    assertEquals(expected, Runner.stringifyValidation(exceptions, "Pipeline"));
+  }
+
+  @Test
   public void testStringifyValidationNoExceptions() {
     Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
-    assertEquals("Pipeline Configuration is valid", Runner.stringifyValidation(exceptions, "Pipeline"));
+    assertEquals("Pipeline Configuration is valid.", Runner.stringifyValidation(exceptions, "Pipeline"));
   }
 }
