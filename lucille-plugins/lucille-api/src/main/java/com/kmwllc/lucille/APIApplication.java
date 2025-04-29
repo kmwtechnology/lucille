@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.RunnerManager;
 import com.kmwllc.lucille.endpoints.LivenessResource;
 import com.kmwllc.lucille.endpoints.LucilleResource;
 import com.kmwllc.lucille.endpoints.ReadinessResource;
+import com.kmwllc.lucille.endpoints.SystemStatsResource;
 import io.dropwizard.auth.AuthDynamicFeature;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.PrincipalImpl;
@@ -30,6 +31,7 @@ import jdk.jfr.Experimental;
  * <pre>
  *   java -jar lucille-api.jar server conf/config.yml
  * </pre>
+ * @see com.kmwllc.lucille.config.LucilleAPIConfiguration
  */
 @Experimental
 public class APIApplication extends Application<LucilleAPIConfiguration> {
@@ -57,7 +59,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
   }
 
   /**
-   * Disables the default Dropwizard logging configuration.
+   * Disables the default Dropwizard logging configuration so that Log4j2 can take over.
    */
   @Override
   protected void bootstrapLogging() {}
@@ -83,10 +85,10 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
   }
 
   /**
-   * Starts the Lucille API server, configures authentication, and registers resources.
+   * Starts the Lucille API server, configures authentication, and registers resources. Throws Exception on unsupported auth type, aborting startup.
    * @param config the Lucille API configuration
    * @param env the Dropwizard environment
-   * @throws Exception if authentication type is unsupported or startup fails
+   * @throws Exception if authentication type is unsupported (startup abort) or other startup failures
    */
   @Override
   public void run(LucilleAPIConfiguration config, Environment env) throws Exception {
@@ -119,11 +121,14 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     env.jersey().register(new LivenessResource());
     env.jersey().register(new ReadinessResource());
     env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));
+
+    // Register SystemStatsResource
+    env.jersey().register(new SystemStatsResource());
   }
 
   /**
-   * Main method for launching the Lucille API server.
-   * @param args command-line arguments (expects Dropwizard &quot;server &lt;config.yml&gt;&quot;)
+   * Main method for launching the Lucille API server. If no args are provided, defaults to 'server conf/default-config.yml'.
+   * @param args command-line arguments (expects Dropwizard "server <config.yml>")
    * @throws Exception if startup fails
    */
   public static void main(String[] args) throws Exception {
