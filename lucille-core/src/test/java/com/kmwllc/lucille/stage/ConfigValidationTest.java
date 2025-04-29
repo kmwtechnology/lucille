@@ -66,62 +66,62 @@ public class ConfigValidationTest {
   @Test
   public void testDuplicatePipeline() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("shared-pipeline.conf"));
-    assertEquals(5, exceptions.size());
+    assertEquals(1, exceptions.size());
 
-    List<Exception> exceptions1 = exceptions.get("pipeline1");
-    assertEquals(2, exceptions1.size());
+    List<Exception> pipeline1Exceptions = exceptions.get("pipeline1");
+    assertEquals(2, pipeline1Exceptions.size());
 
-    testException(exceptions1.get(0), IllegalArgumentException.class,
+    testException(pipeline1Exceptions.get(0), IllegalArgumentException.class,
         "Error with com.kmwllc.lucille.stage.NopStage Config: Config contains unknown property invalid_property");
-    testException(exceptions1.get(1), IllegalArgumentException.class, "Config must contain property fields");
+    testException(pipeline1Exceptions.get(1), IllegalArgumentException.class, "Config must contain property fields");
   }
 
   // asserts that if no connectors use a pipeline it is still validated
   @Test
   public void testUnusedPipeline() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("no-used-pipelines.conf"));
-    assertEquals(3, exceptions.size());
+    assertEquals(1, exceptions.size());
 
-    List<Exception> exceptions1 = exceptions.get("pipeline1");
-    assertEquals(2, exceptions1.size());
+    List<Exception> pipeline1Exceptions = exceptions.get("pipeline1");
+    assertEquals(2, pipeline1Exceptions.size());
 
-    testException(exceptions1.get(0), IllegalArgumentException.class,
+    testException(pipeline1Exceptions.get(0), IllegalArgumentException.class,
         "Error with com.kmwllc.lucille.stage.NopStage Config: Config contains unknown property invalid_property");
 
-    testException(exceptions1.get(1), IllegalArgumentException.class, "Config must contain property fields");
+    testException(pipeline1Exceptions.get(1), IllegalArgumentException.class, "Config must contain property fields");
   }
 
   @Test
   public void testValidationModeException() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
-    assertEquals(6, exceptions.size());
+    assertEquals(2, exceptions.size());
 
-    List<Exception> exceptions1 = exceptions.get("pipeline1");
-    assertEquals(2, exceptions1.size());
+    List<Exception> pipeline1Exceptions = exceptions.get("pipeline1");
+    assertEquals(2, pipeline1Exceptions.size());
 
-    List<Exception> exceptions2 = exceptions.get("pipeline2");
-    assertEquals(2, exceptions2.size());
+    List<Exception> pipeline2Exceptions = exceptions.get("pipeline2");
+    assertEquals(2, pipeline2Exceptions.size());
 
-    testException(exceptions1.get(0), IllegalArgumentException.class,
+    testException(pipeline1Exceptions.get(0), IllegalArgumentException.class,
         "Error with com.kmwllc.lucille.stage.NopStage Config: Config contains unknown property invalid_property");
 
     // TODO note that for the following two exceptions, the fields are retrieved before
     //  the config validation is called
 
-    testException(exceptions1.get(1), IllegalArgumentException.class,
+    testException(pipeline1Exceptions.get(1), IllegalArgumentException.class,
         "Config must contain property fields");
 
-    testException(exceptions2.get(0), IllegalArgumentException.class,
+    testException(pipeline2Exceptions.get(0), IllegalArgumentException.class,
         "Config must contain property dest");
 
-    testException(exceptions2.get(1), IllegalArgumentException.class,
+    testException(pipeline2Exceptions.get(1), IllegalArgumentException.class,
         "Error with com.kmwllc.lucille.stage.Concatenate Config: Config contains unknown parent default_inputs3");
   }
 
   @Test
   public void testValidationModeMultipleExceptionsInStage() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("veryBadStage.conf"));
-    assertEquals(5, exceptions.size());
+    assertEquals(2, exceptions.size());
 
     // should only be one exception, but we should have both of the errors mentioned in the response
     assertEquals(1, exceptions.get("pipeline1").size());
@@ -135,7 +135,7 @@ public class ConfigValidationTest {
   @Test
   public void testBadConnector() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badConnector.conf"));
-    assertEquals(6, exceptions.size());
+    assertEquals(2, exceptions.size());
 
     assertEquals(1, exceptions.get("connector1").size());
     assertEquals(1, exceptions.get("connector2").size());
@@ -148,11 +148,11 @@ public class ConfigValidationTest {
   public void testBadIndexer() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badIndexer.conf"));
     // five "things" to validate here - Indexer is always one entry on the map.
-    assertEquals(6, exceptions.size());
+    assertEquals(5, exceptions.size());
     assertTrue(exceptions.get("indexer").get(0).getMessage().contains("must contain property index"));
 
     exceptions = Runner.runInValidationMode(addPath("extraIndexerProps.conf"));
-    assertEquals(6, exceptions.size());
+    assertEquals(5, exceptions.size());
     assertTrue(exceptions.get("indexer").get(0).getMessage().contains("unknown property blah"));
   }
 
@@ -201,11 +201,9 @@ public class ConfigValidationTest {
   public void testValidationMissingConnectors() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("noConnectors.conf"));
 
-    // the "connector name" used for this error is just "connectors".
+    // the "connector name" used for this error is just "connectors". this is the only error present in the returned map.
+    assertEquals(1, exceptions.size());
     assertEquals(1, exceptions.get("connectors").size());
-    assertEquals(0, exceptions.get("pipeline1").size());
-    assertEquals(0, exceptions.get("pipeline2").size());
-    assertEquals(0, exceptions.get("indexer").size());
   }
 
   @Test
@@ -214,9 +212,6 @@ public class ConfigValidationTest {
 
     // the "pipeline name" used for this error is just "pipelines".
     assertEquals(1, exceptions.get("pipelines").size());
-    assertEquals(0, exceptions.get("connector1").size());
-    assertEquals(0, exceptions.get("connector2").size());
-    assertEquals(0, exceptions.get("indexer").size());
   }
 
   @Test

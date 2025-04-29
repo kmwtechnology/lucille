@@ -121,10 +121,7 @@ public class Runner {
         renderConfig(config);
       }
       if (cli.hasOption("validate")) {
-        log.info(stringifyValidation(validateConnectors(config), "Connector"));
-        log.info(stringifyValidation(validatePipelines(config), "Pipeline"));
-        log.info(stringifyValidation(validateIndexer(config), "Indexer"));
-        log.info(stringifyValidation(validateOtherParents(config), "Other (Publisher, Runner, etc.)"));
+        runInValidationMode(config);
       }
       return;
     }
@@ -172,9 +169,9 @@ public class Runner {
 
   /**
    * Validates the given Config, including its pipelines, connectors, indexers, and other miscellaneous configuration
-   * (Publisher, Runner, Kafka, etc). Returns a map of entry names to lists of Exceptions, representing errors with their
+   * (Publisher, Runner, Kafka, etc). Returns a map of entry names to lists of Exceptions, representing errors with the
    * configuration. The map uses individual pipeline / connector names for keys, and then "indexer" and "other" for the indexer / other
-   * validation issues, respectively.
+   * validation issues, respectively. (Keys are only present if there are associated errors.)
    *
    * @param config The configuration you want to validate.
    * @return Returns a map of entry names to lists of Exceptions (errors with the Config).
@@ -200,16 +197,25 @@ public class Runner {
     allExceptionsMap.putAll(pipelineExceptions);
     allExceptionsMap.putAll(connectorExceptions);
 
-    if (allExceptionsMap.containsKey("indexer")) {
-      log.warn("A stage/connector was named \"indexer\". Its validation Exception(s), if present, won't be returned.");
+    // only put "indexer" key in the map if there are errors.
+    if (!indexerExceptions.isEmpty()) {
+      if (allExceptionsMap.containsKey("indexer")) {
+        log.warn("A pipeline or connector was named \"indexer\". Its validation error(s) will be combined with error(s) for indexer configuration.");
+        allExceptionsMap.get("indexer").addAll(indexerExceptions);
+      } else {
+        allExceptionsMap.put("indexer", indexerExceptions);
+      }
     }
 
-    if (allExceptionsMap.containsKey("other")) {
-      log.warn("A stage/connector was named \"other\". Its validation Exception(s), if present, won't be returned.");
+    // only put "other" key in the map if there are errors.
+    if (!otherParentExceptions.isEmpty()) {
+      if (allExceptionsMap.containsKey("other")) {
+        log.warn("A pipeline or connector was named \"other\". Its validation error(s) will be combined with error(s) for other configuration (publisher, worker, etc.).");
+        allExceptionsMap.get("other").addAll(otherParentExceptions);
+      } else {
+        allExceptionsMap.put("other", otherParentExceptions);
+      }
     }
-
-    allExceptionsMap.put("indexer", indexerExceptions);
-    allExceptionsMap.put("other", otherParentExceptions);
 
     return allExceptionsMap;
   }
@@ -224,14 +230,17 @@ public class Runner {
 
     for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
       String connectorName = connectorConfig.getString("name");
+      List<Exception> exceptionsForConnector = Connector.getConnectorConfigExceptions(connectorConfig);
 
-      if (!exceptionMap.containsKey(connectorName)) {
-        // Still uses a List so we can support extra exceptions for duplicate pipeline names
-        exceptionMap.put(connectorName, Connector.getConnectorConfigExceptions(connectorConfig));
-      } else {
-        // add all the errors with this config, and another one for duplicate connectors
-        exceptionMap.get(connectorName).addAll(Connector.getConnectorConfigExceptions(connectorConfig));
-        exceptionMap.get(connectorName).add(new Exception("There are multiple connectors with the name " + connectorName));
+      if (!exceptionsForConnector.isEmpty()) {
+        if (!exceptionMap.containsKey(connectorName)) {
+          // Still uses a List so we can support extra exceptions for duplicate pipeline names
+          exceptionMap.put(connectorName, exceptionsForConnector);
+        } else {
+          // add all the errors with this config, and another one for duplicate connectors
+          exceptionMap.get(connectorName).addAll(exceptionsForConnector);
+          exceptionMap.get(connectorName).add(new Exception("There are multiple connectors with the name " + connectorName));
+        }
       }
     }
 
@@ -252,8 +261,12 @@ public class Runner {
     for (Config pipelineConfig : rootConfig.getConfigList("pipelines")) {
       String pipelineName = pipelineConfig.getString("name");
 
-      // No checks on whether the map has the pipeline name, since Pipeline checks for duplicate names...
-      exceptionMap.put(pipelineName, Pipeline.validateStages(rootConfig, pipelineName));
+      List<Exception> exceptionsForPipeline = Pipeline.validateStages(rootConfig, pipelineName);
+
+      if (!exceptionsForPipeline.isEmpty()) {
+        // No checks on whether the map has the pipeline name, since Pipeline checks for duplicate names...
+        exceptionMap.put(pipelineName, exceptionsForPipeline);
+      }
     }
 
     return exceptionMap;
@@ -621,7 +634,7 @@ public class Runner {
    */
   // Package access for unit test
   static String stringifyValidation(Map<String, List<Exception>> exceptions, String validationName) {
-    if (exceptions.entrySet().stream().allMatch(e -> e.getValue().isEmpty())) {
+    if (exceptions.isEmpty()) {
       return validationName + " Configuration is valid.";
     } else {
       StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. See exceptions for each element:\n");
