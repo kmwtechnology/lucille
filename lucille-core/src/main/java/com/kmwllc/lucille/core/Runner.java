@@ -11,6 +11,8 @@ import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
+import com.typesafe.config.ConfigValue;
+import java.util.Map.Entry;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
@@ -205,8 +207,12 @@ public class Runner {
     Map<String, List<Exception>> indexerExceptions = validateIndexer(config);
     logValidation(indexerExceptions, "Indexer");
 
+    Map<String, List<Exception>> otherParentExceptions = validateOtherParents(config);
+    logValidation(otherParentExceptions, "Other (Publisher, Runner, etc.)");
+
     pipelineExceptions.putAll(connectorExceptions);
     pipelineExceptions.putAll(indexerExceptions);
+    pipelineExceptions.putAll(otherParentExceptions);
     return pipelineExceptions;
   }
 
@@ -263,6 +269,49 @@ public class Runner {
     }
 
     return Map.of("indexer", List.of());
+  }
+
+  private static Map<String, List<Exception>> validateOtherParents(Config rootConfig) {
+    Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
+
+    Config configPropertyConfig = ConfigFactory.parseResourcesAnySyntax("validConfigProperties.conf");
+
+    // calling entrySet on the root() means it returns the keys - publisher, log, etc... and not entries
+    // for paths to each of the individual values.
+    for (Entry<String, ConfigValue> entry : configPropertyConfig.root().entrySet()) {
+      String optionalParentName = entry.getKey();
+
+      // from this config, we can get required / optional properties
+      if (!rootConfig.hasPath(optionalParentName)) {
+        continue;
+      }
+
+      Config parentPropertyConfig = configPropertyConfig.getConfig(optionalParentName);
+
+      Spec spec = Spec.withoutDefaults();
+
+      if (parentPropertyConfig.hasPath("optionalProperties")) {
+        List<String> optionalProperties = parentPropertyConfig.getStringList("optionalProperties");
+        spec.withOptionalProperties(optionalProperties.toArray(new String[0]));
+      }
+
+      if (parentPropertyConfig.hasPath("requiredProperties")) {
+        List<String> requiredProperties = parentPropertyConfig.getStringList("requiredProperties");
+        spec.withRequiredProperties(requiredProperties.toArray(new String[0]));
+      }
+
+      try {
+        spec.validate(rootConfig.getConfig(optionalParentName), optionalParentName);
+      } catch (IllegalArgumentException e) {
+        if (!exceptionMap.containsKey("Other")) {
+          exceptionMap.put("Other", new ArrayList<>());
+        }
+
+        exceptionMap.get("Other").add(e);
+      }
+    }
+
+    return exceptionMap;
   }
 
   public static void renderConfig(Config config) {
