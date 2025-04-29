@@ -248,7 +248,8 @@ public class Runner {
   }
 
   /**
-   * Returns a mapping from pipeline names to the list of exceptions produced when validating them.
+   * Returns a mapping from pipeline names to the list of exceptions produced when validating them. (only includes
+   * a pipeline name if there are errors with its config.)
    */
   private static Map<String, List<Exception>> validatePipelines(Config rootConfig) throws Exception {
     Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
@@ -657,7 +658,7 @@ public class Runner {
   // package access for unit test
   static String stringifyValidation(List<Exception> exceptions, String validationName) {
     if (exceptions.isEmpty()) {
-      return validationName + " Configuration is valid";
+      return validationName + " Configuration is valid.";
     } else {
       StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. Errors:\n");
 

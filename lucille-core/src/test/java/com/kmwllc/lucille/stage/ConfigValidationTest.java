@@ -133,6 +133,16 @@ public class ConfigValidationTest {
   }
 
   @Test
+  public void testPipelineStagesNoClass() throws Exception {
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipelineStageNoClass.conf"));
+
+    assertEquals(1, exceptions.size());
+    assertEquals(1, exceptions.get("pipeline1").size());
+    // want to make sure we have special handling for a missing "class", using a simple, straightforward message
+    assertEquals("No Stage class specified", exceptions.get("pipeline1").get(0).getMessage());
+  }
+
+  @Test
   public void testBadConnector() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badConnector.conf"));
     assertEquals(2, exceptions.size());
@@ -147,13 +157,12 @@ public class ConfigValidationTest {
   @Test
   public void testBadIndexer() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badIndexer.conf"));
-    // five "things" to validate here - Indexer is always one entry on the map.
-    assertEquals(5, exceptions.size());
-    assertTrue(exceptions.get("indexer").get(0).getMessage().contains("must contain property index"));
+    assertEquals(1, exceptions.size());
+    assertTrue(exceptions.get("indexer").get(0).getMessage().contains("Errors with elasticsearch Config"));
 
     exceptions = Runner.runInValidationMode(addPath("extraIndexerProps.conf"));
-    assertEquals(5, exceptions.size());
-    assertTrue(exceptions.get("indexer").get(0).getMessage().contains("unknown property blah"));
+    assertEquals(1, exceptions.size());
+    assertTrue(exceptions.get("indexer").get(0).getMessage().contains("Error with Indexer Config"));
   }
 
   @Test
