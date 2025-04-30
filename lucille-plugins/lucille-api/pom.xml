@@ -20,13 +20,25 @@
         <groupId>com.kmwllc</groupId>
         <artifactId>lucille-core</artifactId>
         <version>${project.version}</version>
-        <scope>compile</scope>
         <exclusions>
+          <exclusion>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-layout-template-json</artifactId>
+          </exclusion>
           <exclusion>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j2-impl</artifactId>
           </exclusion>
         </exclusions>
+        <scope>compile</scope>
       </dependency>
 
       <!-- Dropwizard Core dependency for Lucille Admin API -->
@@ -114,7 +126,12 @@
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
         <version>1.4.11</version>
-        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-access</artifactId>
+        <version>1.4.11</version>
       </dependency>
     </dependencies>
 
