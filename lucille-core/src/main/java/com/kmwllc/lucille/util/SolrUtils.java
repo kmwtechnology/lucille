@@ -30,7 +30,7 @@ public class SolrUtils {
       .withRequiredProperties("url")
       .withOptionalProperties("useCloudClients", "zkHosts", "zkChroot", "defaultCollection",
           "userName", "password", "acceptInvalidCert")
-      .withOptionalParentNames("ssl");
+      .withOptionalProperties(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES);
 
   private static final Logger log = LoggerFactory.getLogger(SolrUtils.class);
 

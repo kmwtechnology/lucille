@@ -17,6 +17,8 @@ import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.hamcrest.MatcherAssert;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
@@ -37,6 +39,22 @@ import static org.mockito.Mockito.*;
  * invoking that functionality.
  */
 public class SolrIndexerTest {
+
+  private String originalCheckPeerName = null;
+
+  @Before
+  public void setup() {
+    originalCheckPeerName = System.getProperty("solr.ssl.checkPeerName");
+  }
+
+  @After
+  public void tearDown() {
+    if (originalCheckPeerName == null) {
+      System.clearProperty("solr.ssl.checkPeerName");
+    } else {
+      System.setProperty("solr.ssl.checkPeerName", originalCheckPeerName);
+    }
+  }
 
   /**
    * Tests that the indexer correctly polls completed documents from the destination topic and sends
@@ -997,6 +1015,18 @@ public class SolrIndexerTest {
     assertFalse(capturedDoc.containsKey("ignoreField2"));
     assertTrue(capturedDoc.containsKey("normalField"));
     assertTrue(capturedDoc.containsKey("id"));
+  }
+
+  @Test
+  public void testAllowInvalidCert() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrIndexerTest/acceptInvalidCert.conf");
+    TestMessenger messenger = new TestMessenger();
+
+    Indexer indexer = new SolrIndexer(config, messenger, false, "");
+    // should be set when we acceptInvalidCert w/ username/password in config
+    assertEquals("false", System.getProperty("solr.ssl.checkPeerName"));
+
+    indexer.closeConnection();
   }
 
   private static String getCapturedID(ArgumentCaptor<Collection<SolrInputDocument>> captor, int index, int arrIndex) {

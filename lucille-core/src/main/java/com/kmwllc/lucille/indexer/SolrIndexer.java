@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.util.SSLUtils;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -38,7 +39,7 @@ public class SolrIndexer extends Indexer {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
             "userName", "password", "acceptInvalidCert")
-        .withOptionalParentNames("ssl"));
+        .withOptionalProperties(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES));
     this.solrClient = solrClient;
   }
 
