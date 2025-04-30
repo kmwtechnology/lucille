@@ -93,7 +93,7 @@ public class ConfigValidationTest {
 
   @Test
   public void testValidationModeException() throws Exception {
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipeline.conf"));
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badPipeline.conf"));
     assertEquals(2, exceptions.size());
 
     List<Exception> pipeline1Exceptions = exceptions.get("pipeline1");
@@ -156,8 +156,13 @@ public class ConfigValidationTest {
 
   @Test
   public void testBadIndexer() throws Exception {
+    // NOTE that, when validating indexers, if there is an exception with both the "indexer" block and the
+    // specific implementation's config, the "indexer" config gets validated first / has its exceptions thrown
+    // before the second one will. (in other words, you have to fix "indexer" issues before seeing issues with your other
+    // specific implementation config).
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badIndexer.conf"));
     assertEquals(1, exceptions.size());
+    // errors: missing "index", has "sendEnabled" in "elasticsearch"
     assertTrue(exceptions.get("indexer").get(0).getMessage().contains("Errors with elasticsearch Config"));
 
     exceptions = Runner.runInValidationMode(addPath("extraIndexerProps.conf"));
