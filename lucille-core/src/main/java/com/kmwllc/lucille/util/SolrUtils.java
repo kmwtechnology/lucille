@@ -3,13 +3,10 @@ package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Spec.ParentSpec;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
@@ -41,31 +38,21 @@ public class SolrUtils {
    * are found in the config.
    *
    * @param config The configuration file to generate a client from
-   * @return the solr client
+   * @return A ManagedCloseSolrClient, holding the created client and, potentially, another HTTP client created in the
+   * process that needs to be closed manually as well.
    */
-  public static SolrClient getSolrClient(Config config) {
+  public static ManagedCloseSolrClient getSolrClient(Config config) {
     SSLUtils.setSSLSystemProperties(config);
     
     if (config.hasPath("solr.useCloudClient") && config.getBoolean("solr.useCloudClient")) {
-      CloudHttp2SolrClient cloudSolrClient = getCloudClient(config);
-      return cloudSolrClient;
+      return getWrappedCloudClient(config);
     } else {
-      Http2SolrClient.Builder builder = new Http2SolrClient.Builder(getSolrUrl(config));
-
-      if (requiresAuth(config)) {
-        if (getAllowInvalidCert(config)) {
-          // disable the solr ssl host checking if configured to do so.
-          System.setProperty("solr.ssl.checkPeerName", "false");
-        }
-
-        builder.withBasicAuthCredentials(config.getString("solr.userName"), config.getString("solr.password"));
-      }
-
-      return builder.build();
+      Http2SolrClient httpClient = getHttpClientAndSetCheckPeerName(config);
+      return new ManagedCloseSolrClient(httpClient, null);
     }
   }
 
-  private static CloudHttp2SolrClient getCloudClient(Config config) {
+  private static ManagedCloseSolrClient getWrappedCloudClient(Config config) {
     CloudHttp2SolrClient.Builder cloudBuilder;
     if (config.hasPath("solr.zkHosts")) {
       // optional property
@@ -78,26 +65,32 @@ public class SolrUtils {
 
       cloudBuilder = new CloudHttp2SolrClient.Builder(config.getStringList("solr.zkHosts"), zkChroot);
     } else {
-      cloudBuilder = new CloudHttp2SolrClient.Builder(getSolrUrls(config));
+      cloudBuilder = new CloudHttp2SolrClient.Builder(config.getStringList("solr.url"));
     }
     if (config.hasPath("solr.defaultCollection")) {
       cloudBuilder.withDefaultCollection(config.getString("solr.defaultCollection"));
     }
-    if (requiresAuth(config)) {
-      // The Cloud client will close this HttpClient upon closing.
-      cloudBuilder.withHttpClient(getHttpClient(config));
-    }
 
-    return cloudBuilder.build();
+    if (requiresAuth(config)) {
+      Http2SolrClient httpClient = getHttpClientAndSetCheckPeerName(config);
+      cloudBuilder.withHttpClient(httpClient);
+
+      return new ManagedCloseSolrClient(cloudBuilder.build(), httpClient);
+    } else {
+      return new ManagedCloseSolrClient(cloudBuilder.build(), null);
+    }
   }
 
   /**
    * Generates a HttpClient with preemptive authentication if required.
+   * This method has SIDE EFFECTS.  It will set SSL system properties if corresponding properties
+   * are found in the config.
    *
    * @param config The configuration file to generate the HttpClient from.
    * @return the HttpClient
    */
-  public static Http2SolrClient getHttpClient(Config config) {
+  // this still returns the actual client (not wrapped) because it is used in getWrappedCloudClient.
+  static Http2SolrClient getHttpClientAndSetCheckPeerName(Config config) {
     Http2SolrClient.Builder clientBuilder = new Http2SolrClient.Builder();
 
     if (getAllowInvalidCert(config)) {
@@ -120,21 +113,13 @@ public class SolrUtils {
    * @param config The configuration file to check for authentication properties.
    * @return true if authentication is required, false otherwise.
    */
-  public static boolean requiresAuth(Config config) {
+  static boolean requiresAuth(Config config) {
     boolean hasUserName = config.hasPath("solr.userName");
     boolean hasPassword = config.hasPath("solr.password");
     if (hasUserName != hasPassword) {
       log.error("Both the userName and password must be set.");
     }
     return hasUserName && hasPassword;
-  }
-
-  public static String getSolrUrl(Config config) {
-    return config.getString("solr.url");
-  }
-
-  public static List<String> getSolrUrls(Config config) {
-    return config.getStringList("solr.url");
   }
 
   /**
@@ -188,5 +173,34 @@ public class SolrUtils {
     }
     return false;
   }
-  
+
+  /**
+   * Manages the closing of a Solr Client, which may have been set to use another Http2SolrClient to support
+   * authentication. (In the SolrJ SDK, these clients, set by .withHttpClient(), are not automatically closed -
+   * we need to maintain a reference to them and make sure we close them to prevent leaks.)
+   *
+   * <p> <b>Important Note:</b> The {@link ManagedCloseSolrClient#client} should <b>NOT</b> be closed directly. It should
+   * only be closed by calling {@link ManagedCloseSolrClient#close()}!
+   */
+  public static class ManagedCloseSolrClient {
+    public final SolrClient client;
+    private final Http2SolrClient httpClientToClose;
+
+    public ManagedCloseSolrClient(SolrClient client, Http2SolrClient httpClientToClose) {
+      this.client = client;
+      this.httpClientToClose = httpClientToClose;
+    }
+
+    /**
+     * Closes the primary client, and the httpClient it uses, if provided.
+     * @throws IOException If an error occurs while closing either client.
+     */
+    public void close() throws IOException {
+      this.client.close();
+
+      if (httpClientToClose != null) {
+        httpClientToClose.close();
+      }
+    }
+  }
 }

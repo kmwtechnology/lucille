@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.util.SolrUtils;
+import com.kmwllc.lucille.util.SolrUtils.ManagedCloseSolrClient;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
@@ -40,7 +41,7 @@ public class SolrConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  private SolrClient client;
+  private ManagedCloseSolrClient client;
   private final GenericSolrRequest request;
   private List<String> replacedPreActions;
   private List<String> replacedPostActions;
@@ -56,7 +57,7 @@ public class SolrConnector extends AbstractConnector {
     this(config, SolrUtils.getSolrClient(config));
   }
 
-  public SolrConnector(Config config, SolrClient client) {
+  public SolrConnector(Config config, ManagedCloseSolrClient client) {
     super(config, Spec.connector()
         // the Solr ParentSpec has solr.url as a required property.
         .withRequiredParents(SolrUtils.SOLR_PARENT_SPEC)
@@ -91,6 +92,10 @@ public class SolrConnector extends AbstractConnector {
 
   }
 
+  public SolrConnector(Config config, SolrClient client) {
+    this(config, new ManagedCloseSolrClient(client, null));
+  }
+
   @Override
   public void preExecute(String runId) throws ConnectorException {
     replacedPreActions =
@@ -115,7 +120,7 @@ public class SolrConnector extends AbstractConnector {
 
     QueryResponse resp;
     try {
-      resp = client.query(q);
+      resp = client.client.query(q);
     } catch (Exception e) {
       throw new ConnectorException("Unable to query Solr.", e);
     }
@@ -149,7 +154,7 @@ public class SolrConnector extends AbstractConnector {
 
       q.set("cursorMark", resp.getNextCursorMark());
       try {
-        resp = client.query(q);
+        resp = client.client.query(q);
       } catch (Exception e) {
         throw new ConnectorException("Unable to query Solr", e);
       }
@@ -186,7 +191,7 @@ public class SolrConnector extends AbstractConnector {
       request.setContentWriter(contentWriter);
 
       try {
-        NamedList<Object> resp = client.request(request);
+        NamedList<Object> resp = client.client.request(request);
         log.info("Action \"{}\" complete, response: {}", action, resp.asShallowMap().get("responseHeader"));
       } catch (Exception e) {
         throw new ConnectorException("Failed to perform action: " + action, e);
