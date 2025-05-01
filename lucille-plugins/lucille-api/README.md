@@ -2,8 +2,8 @@
 
 ## Running the API
 
-1. Navigate into the `lucille-admin` module
-2. Run `mvn clean install` to generate the admin jar
+1. Navigate into the `lucille-api` module
+2. Run `mvn clean install` to generate the api jar
 
 The API can be run locally or in a Docker container:
 
@@ -25,9 +25,9 @@ The available endpoints are as follows:
 
  |        | GET                                        | POST                                               | DELETE          |
  |--------|--------------------------------------------|----------------------------------------------------|-----------------|
- | lucille| Gets the status of the current lucille run | Kicks off a new lucille run, if one is not running | Not Implemented |
- | livez  | liveness health check endpoint             | Not Implemented                                    | Not Implemented |
- | readyz | readiness health check endpoint            | Not Implemented                                    | Not Implemented |
+ | /v1/lucille| Gets the status of the current lucille run | Kicks off a new lucille run, if one is not running | Not Implemented |
+ | /v1/livez  | liveness health check endpoint             | Not Implemented                                    | Not Implemented |
+ | /v1/readyz | readiness health check endpoint            | Not Implemented                                    | Not Implemented |
 
 ## Configuration
 

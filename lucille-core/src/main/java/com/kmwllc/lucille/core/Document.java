@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.core;
 
-import com.api.jsonata4java.expressions.Expressions;
+import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -517,9 +517,9 @@ public interface Document {
    * Applies a JSONNata expression to this Document (as if it were a JSON object) and replaces this Document with the result.
    *
    * @throws DocumentException if any reserved fields are mutated or if the result is not an object (primitive or array)
-   * @see <a href="https://github.com/IBM/JSONata4Java">JSONNata implementation</a>
+   * @see <a href="https://github.com/dashjoin/jsonata-java">JSONNata implementation</a>
    */
-  void transform(Expressions expr) throws DocumentException;
+  void transform(Jsonata expr) throws DocumentException;
 
   /**
    * Returns an Iterator that contains only this document.
