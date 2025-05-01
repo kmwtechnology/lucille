@@ -216,20 +216,23 @@ public class RSSConnectorTest {
     // Stop the connector after 8 seconds, allowing it to run twice, and then it gets interrupted.
     scheduler.schedule(() -> {
       Signal.raise(new Signal("INT"));
-    }, 8, TimeUnit.SECONDS);
+    }, 12, TimeUnit.SECONDS);
 
     // The test will fail if we do not reference the class here - some kind of interference from Mockito, I think.
     Class.forName("com.kmwllc.lucille.connector.RSSConnector");
     try (MockedConstruction<RssReader> mockReaderConst = Mockito.mockConstruction(RssReader.class, (mockReader, context) -> {
-      // using thenAnswer so it repeatedly returns Streams
-      when(mockReader.read(any(String.class))).thenAnswer(invocation -> Stream.of(basicItems));
+      when(mockReader.read(any(String.class)))
+          .thenReturn(Stream.of(basicItems))
+          .thenReturn(Stream.of(withOld))
+          .thenReturn(Stream.of(singleItem));
     })) {
       RSSConnector connector = new RSSConnector(config);
       // will be blocked until the signal gets raised. should run three times
       connector.execute(publisher);
     }
 
-    // Should run 2 times: 0 sec, 5 sec, then interrupted.
+    // Should run 3 times: 0 sec, 5 sec, 10 sec, then interrupted.
+    // Only has 6 unique items to be published
     List<Document> publishedDocs = messenger.getDocsSentForProcessing();
     assertEquals(6, publishedDocs.size());
   }

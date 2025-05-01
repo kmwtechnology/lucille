@@ -16,8 +16,10 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -63,6 +65,8 @@ public class RSSConnector extends AbstractConnector {
 
   private boolean running = true;
 
+  private Set<Item> processedItems = new HashSet<>();
+
   public RSSConnector(Config config) {
     super(config, Spec.connector()
         .withRequiredProperties("rssURL")
@@ -98,12 +102,16 @@ public class RSSConnector extends AbstractConnector {
       // resetting this cutoff at the start of each iteration, in case it is incremental
       Optional<Instant> pubDateCutoff = Optional.ofNullable(pubDateCutoffDuration == null ? null : Instant.now().minus(pubDateCutoffDuration));
 
+      Set<Item> itemsProcessedThisRefresh = new HashSet<>();
+
       try (Stream<Item> itemStream = rssReader.read(rssURL.toString())) {
         List<Item> rssItems = itemStream.toList();
 
         for (Item item : rssItems) {
+          itemsProcessedThisRefresh.add(item);
+
           // will allow the item to be published if the pubDateCutoff is null or the item doesn't have a pubDate.
-          if (optionalPubDateBeforeCutoff(item, pubDateCutoff)) {
+          if (optionalPubDateBeforeCutoff(item, pubDateCutoff) || processedItems.contains(item)) {
             continue;
           }
 
@@ -119,6 +127,9 @@ public class RSSConnector extends AbstractConnector {
       if (refreshIncrement == null) {
         return;
       }
+
+      // Continuously updating it based on what was seen in the iteration to prevent unbounded growth of the set...
+      processedItems = itemsProcessedThisRefresh;
 
       try {
         log.info("Finished checking RSS feed. Will wait to refresh.");
