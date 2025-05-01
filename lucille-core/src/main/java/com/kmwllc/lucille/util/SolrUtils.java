@@ -50,8 +50,18 @@ public class SolrUtils {
       CloudHttp2SolrClient cloudSolrClient = getCloudClient(config);
       return cloudSolrClient;
     } else {
-      return requiresAuth(config) ? new Http2SolrClient.Builder(getSolrUrl(config)).withHttpClient(getHttpClient(config)).build()
-          : new Http2SolrClient.Builder(getSolrUrl(config)).build();
+      Http2SolrClient.Builder builder = new Http2SolrClient.Builder(getSolrUrl(config));
+
+      if (requiresAuth(config)) {
+        if (getAllowInvalidCert(config)) {
+          // disable the solr ssl host checking if configured to do so.
+          System.setProperty("solr.ssl.checkPeerName", "false");
+        }
+
+        builder.withBasicAuthCredentials(config.getString("solr.userName"), config.getString("solr.password"));
+      }
+
+      return builder.build();
     }
   }
 
@@ -74,6 +84,7 @@ public class SolrUtils {
       cloudBuilder.withDefaultCollection(config.getString("solr.defaultCollection"));
     }
     if (requiresAuth(config)) {
+      // The Cloud client will close this HttpClient upon closing.
       cloudBuilder.withHttpClient(getHttpClient(config));
     }
 
@@ -95,14 +106,10 @@ public class SolrUtils {
     }
     
     if (requiresAuth(config)) {
-      CredentialsProvider provider = new BasicCredentialsProvider();
       String userName = config.getString("solr.userName");
       String password = config.getString("solr.password");
-      UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(userName, password);
-      provider.setCredentials(AuthScope.ANY, credentials);
       clientBuilder.withBasicAuthCredentials(userName, password);
     }
-
     
     return clientBuilder.build();
   }
