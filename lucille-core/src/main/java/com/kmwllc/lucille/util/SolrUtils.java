@@ -186,6 +186,11 @@ public class SolrUtils {
     public final SolrClient client;
     private final Http2SolrClient httpClientToClose;
 
+    /**
+     * @param client The SolrClient to be used / returned. Must not be null. This is the client that should be used
+     *               to run operations on Solr; as such, it is public.
+     * @param httpClientToClose Potentially, an httpClient that the given SolrClient is configured to have. May be null.
+     */
     public ManagedCloseSolrClient(SolrClient client, Http2SolrClient httpClientToClose) {
       this.client = client;
       this.httpClientToClose = httpClientToClose;
