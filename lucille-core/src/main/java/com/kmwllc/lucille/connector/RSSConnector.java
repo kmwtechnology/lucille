@@ -33,7 +33,7 @@ import sun.misc.Signal;
  * <p> Config Parameters:
  *
  * <p> rssURL (String): The URL to the RSS feed you want to publish Documents for.
- * <p> useGuid (Boolean, Optional): Whether you want the GUID of RSS Items to be the IDs for their corresponding Documents. Defaults
+ * <p> useGuidForDocID (Boolean, Optional): Whether you want the GUID of RSS Items to be the IDs for their corresponding Documents. Defaults
  * to true. If set to false, UUIDs are created for each Document.
  * (&lt;guid&gt;, for example) Defaults to using a UUID for each document. If the field has an attribute, Lucille handles extracting the actual
  * value for your Document's ID.
@@ -49,6 +49,21 @@ import sun.misc.Signal;
  * <p> <b>Note:</b> By default, XML elements with attributes (ex: &lt;guid isPermaLink="false"&gt;) will be put onto Documents as a JSON object,
  * keyed by the element name, with both the attribute(s) and the content of the element as child properties. The content's key
  * will be an empty String.
+ *
+ * <p> Document Fields (All Optional):
+ * <ul>
+ *   <li><code>author</code> (String)</li>
+ *   <li><code>categories</code> (List&lt;String&gt;)</li>
+ *   <li><code>comments</code> (List&lt;String&gt;)</li>
+ *   <li><code>content</code> (String)</li>
+ *   <li><code>description</code> (String)</li>
+ *   <li><code>enclosures</code> (List&lt;JsonNode&gt;). Each JsonNode <i>will</i> have <code>type</code> (String) and <code>url</code> (String), and <i>may</i> have "length" (Long).</li>
+ *   <li><code>guid</code> (String)</li>
+ *   <li><code>isPermaLink</code> (String)</li>
+ *   <li><code>link</code> (String)</li>
+ *   <li><code>title</code> (String)</li>
+ *   <li><code>pubDate</code> (Instant)</li>
+ * </ul>
  */
 public class RSSConnector extends AbstractConnector {
 
@@ -56,7 +71,7 @@ public class RSSConnector extends AbstractConnector {
   private static final ObjectMapper mapper = new ObjectMapper();
   private static final Logger log = LoggerFactory.getLogger(RSSConnector.class);
 
-  private final boolean useGuid;
+  private final boolean useGuidForDocID;
   private final URL rssURL;
 
   private final Duration pubDateCutoffDuration;
@@ -70,7 +85,7 @@ public class RSSConnector extends AbstractConnector {
   public RSSConnector(Config config) {
     super(config, Spec.connector()
         .withRequiredProperties("rssURL")
-        .withOptionalProperties("useGuid", "pubDateCutoff", "refreshIncrement"));
+        .withOptionalProperties("useGuidForDocID", "pubDateCutoff", "refreshIncrement"));
 
     try {
       this.rssURL = new URL(config.getString("rssURL"));
@@ -78,7 +93,7 @@ public class RSSConnector extends AbstractConnector {
       throw new IllegalArgumentException("Attempted to create RSSConnector with malformed rssURL.", e);
     }
 
-    this.useGuid = ConfigUtils.getOrDefault(config, "useGuid", true);
+    this.useGuidForDocID = ConfigUtils.getOrDefault(config, "useGuidForDocID", true);
 
     if (config.hasPath("pubDateCutoff")) {
       this.pubDateCutoffDuration = config.getDuration("pubDateCutoff");
@@ -108,6 +123,7 @@ public class RSSConnector extends AbstractConnector {
         List<Item> rssItems = itemStream.toList();
 
         for (Item item : rssItems) {
+          // want to add all items retrieved to the set at the end of the iteration
           itemsProcessedThisRefresh.add(item);
 
           // will allow the item to be published if the pubDateCutoff is null or the item doesn't have a pubDate.
@@ -129,6 +145,8 @@ public class RSSConnector extends AbstractConnector {
       }
 
       // Continuously updating it based on what was seen in the iteration to prevent unbounded growth of the set...
+      // Luckily we don't have to handle some weird edge case where pubDateCutoff + incremental is used. If something doesn't
+      // meet the cutoff 30 seconds ago, it's not going to suddenly be "more recent" 30 seconds later...
       processedItems = itemsProcessedThisRefresh;
 
       try {
@@ -148,7 +166,7 @@ public class RSSConnector extends AbstractConnector {
 
   private Document docFromRSSItem(Item item) {
     Document doc;
-    if (useGuid) {
+    if (useGuidForDocID) {
       if (item.getGuid().isPresent()) {
         doc = Document.create(item.getGuid().get());
       } else {
@@ -160,7 +178,7 @@ public class RSSConnector extends AbstractConnector {
     }
 
     item.getAuthor().ifPresent(author -> doc.setField("author", author));
-    // note that this is a List, and is non-optional
+    // note that this is a List, and is non-optional. but the field won't be on a Document if it's empty.
     item.getCategories().forEach(category -> doc.addToField("categories", category));
     item.getComments().ifPresent(comments -> doc.setField("comments", comments));
     item.getContent().ifPresent(content -> doc.setField("content", content));

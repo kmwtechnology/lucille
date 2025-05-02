@@ -3,11 +3,9 @@ package com.kmwllc.lucille.connector;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.apptasticsoftware.rssreader.DateTime;
-import com.apptasticsoftware.rssreader.DateTimeParser;
 import com.apptasticsoftware.rssreader.Item;
 import com.apptasticsoftware.rssreader.RssReader;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -18,15 +16,11 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.URL;
-import java.net.URLConnection;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,11 +35,8 @@ import sun.misc.Signal;
 public class RSSConnectorTest {
   private static DateTime parser = new DateTime();
 
-  // businessNews.xml
   private Item[] basicItems;
-  // businessNewsSingle.xml
   private Item[] singleItem;
-  // businessNewsWithOld.xml
   private Item[] withOld;
 
   @Before
@@ -100,8 +91,6 @@ public class RSSConnectorTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
 
-    // The test will fail if we do not reference the class here - some kind of interference from Mockito, I think.
-    Class.forName("com.kmwllc.lucille.connector.RSSConnector");
     try (MockedConstruction<RssReader> mockReaderConst = Mockito.mockConstruction(RssReader.class, (mockReader, context) -> {
       when(mockReader.read(any(String.class))).thenReturn(Stream.of(basicItems));
     })) {
@@ -116,12 +105,15 @@ public class RSSConnectorTest {
     assertEquals("Afternoon Market Update - April 21, 2025", publishedDocs.get(0).getString("title"));
     // checking here that the formatting around the description (in the XML file) gets removed...
     assertEquals("The Dow is down more than 1,000 points. All indices are lower by 3%+.", publishedDocs.get(0).getString("description"));
+    assertEquals(Set.of("guid", "description", "title", "pubDate", "run_id", "id"), publishedDocs.get(0).getFieldNames());
 
     assertEquals("uber-news042125", publishedDocs.get(1).getId());
     assertEquals("BREAKING: UBER SUED BY FTC", publishedDocs.get(1).getString("title"));
+    assertEquals(Set.of("guid", "title", "pubDate", "run_id", "id"), publishedDocs.get(1).getFieldNames());
 
     assertEquals("lei042125", publishedDocs.get(2).getId());
     assertEquals("Leading Economic Indicators - April 21, 2025", publishedDocs.get(2).getString("title"));
+    assertEquals(Set.of("guid", "title", "pubDate", "run_id", "id"), publishedDocs.get(2).getFieldNames());
   }
 
   @Test
@@ -131,7 +123,6 @@ public class RSSConnectorTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
 
-    Class.forName("com.kmwllc.lucille.connector.RSSConnector");
     try (MockedConstruction<RssReader> mockReaderConst = Mockito.mockConstruction(RssReader.class, (mockReader, context) -> {
       when(mockReader.read(any(String.class))).thenReturn(Stream.of(singleItem));
     })) {
@@ -152,7 +143,6 @@ public class RSSConnectorTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
 
-    Class.forName("com.kmwllc.lucille.connector.RSSConnector");
     RSSConnector connector;
     try (MockedConstruction<RssReader> mockReaderConst = Mockito.mockConstruction(RssReader.class, (mockReader, context) -> {
       when(mockReader.read(any(String.class))).thenReturn(Stream.of(basicItems));
@@ -186,7 +176,6 @@ public class RSSConnectorTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
 
-    Class.forName("com.kmwllc.lucille.connector.RSSConnector");
     try (MockedConstruction<RssReader> mockReaderConst = Mockito.mockConstruction(RssReader.class, (mockReader, context) -> {
       when(mockReader.read(any(String.class))).thenReturn(Stream.of(withOld));
     })) {
@@ -216,14 +205,50 @@ public class RSSConnectorTest {
     // Stop the connector after 8 seconds, allowing it to run twice, and then it gets interrupted.
     scheduler.schedule(() -> {
       Signal.raise(new Signal("INT"));
-    }, 12, TimeUnit.SECONDS);
+    }, 7, TimeUnit.SECONDS);
 
-    // The test will fail if we do not reference the class here - some kind of interference from Mockito, I think.
-    Class.forName("com.kmwllc.lucille.connector.RSSConnector");
     try (MockedConstruction<RssReader> mockReaderConst = Mockito.mockConstruction(RssReader.class, (mockReader, context) -> {
       when(mockReader.read(any(String.class)))
-          .thenReturn(Stream.of(basicItems))
+          .thenReturn(Stream.of(singleItem))
+          .thenReturn(Stream.of(basicItems));
+    })) {
+      RSSConnector connector = new RSSConnector(config);
+      // will be blocked until the signal gets raised. should run three times
+      connector.execute(publisher);
+    }
+
+    // Should run 2 times: 0 sec, 5 sec, then interrupted.
+    // Only has 3 unique items to be published
+    List<Document> publishedDocs = messenger.getDocsSentForProcessing();
+    assertEquals(3, publishedDocs.size());
+  }
+
+  @Test
+  public void testIncrementalAndCutoff() throws Exception {
+    LocalDate start = LocalDate.of(2025, 1, 1);
+    LocalDate today = LocalDate.now();
+    long daysSince2025Start = ChronoUnit.DAYS.between(start, today);
+    String durationStr = daysSince2025Start + "d";
+
+    Config config = ConfigFactory
+        .parseResourcesAnySyntax("RSSConnectorTest/incremental.conf")
+        .withValue("pubDateCutoff", ConfigValueFactory.fromAnyRef(durationStr));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
+
+    ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
+    // Stop the connector after 8 seconds, allowing it to run twice, and then it gets interrupted.
+    scheduler.schedule(() -> {
+      Signal.raise(new Signal("INT"));
+    }, 12, TimeUnit.SECONDS);
+
+    try (MockedConstruction<RssReader> mockReaderConst = Mockito.mockConstruction(RssReader.class, (mockReader, context) -> {
+      when(mockReader.read(any(String.class)))
+          // simulating a "real" RSS experience - older content slowly getting removed from the feed
           .thenReturn(Stream.of(withOld))
+          .thenReturn(Stream.of(basicItems))
           .thenReturn(Stream.of(singleItem));
     })) {
       RSSConnector connector = new RSSConnector(config);
@@ -231,10 +256,9 @@ public class RSSConnectorTest {
       connector.execute(publisher);
     }
 
-    // Should run 3 times: 0 sec, 5 sec, 10 sec, then interrupted.
-    // Only has 6 unique items to be published
+    // Should be run 3 times, only 4 items w/ valid (or missing) pubDates to be published
     List<Document> publishedDocs = messenger.getDocsSentForProcessing();
-    assertEquals(6, publishedDocs.size());
+    assertEquals(4, publishedDocs.size());
   }
 
   @Test
@@ -250,8 +274,6 @@ public class RSSConnectorTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
 
-    // The test will fail if we do not reference the class here, for some reason...
-    Class.forName("com.kmwllc.lucille.connector.RSSConnector");
     try (MockedConstruction<RssReader> mockReaderConst = Mockito.mockConstruction(RssReader.class, (mockReader, context) -> {
       when(mockReader.read("https://www.businessNews.com/rss/rss.html")).thenThrow(new IOException("failed to connect to URL"));
     })) {
