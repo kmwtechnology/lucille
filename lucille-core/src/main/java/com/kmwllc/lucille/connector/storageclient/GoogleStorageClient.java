@@ -9,6 +9,7 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.cloud.storage.Storage.CopyRequest;
 import com.google.cloud.storage.StorageOptions;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
@@ -108,7 +109,16 @@ public class GoogleStorageClient extends BaseStorageClient {
 
   @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
+    String bucketName = filePath.getAuthority();
+    String fileKey = filePath.getPath().substring(1);
+    String bucketForFolder = folder.getAuthority();
 
+    BlobId source = BlobId.of(bucketName, fileKey);
+    BlobId target = BlobId.of(bucketForFolder, fileKey);
+
+    // copy source to target, and then delete source.
+    storage.copy(CopyRequest.newBuilder().setSource(source).setTarget(target).build());
+    storage.get(source).delete();
   }
 
 

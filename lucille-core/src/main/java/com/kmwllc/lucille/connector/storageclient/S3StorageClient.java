@@ -17,6 +17,8 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -103,7 +105,21 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
+    String bucketName = filePath.getAuthority();
+    String objectKey = filePath.getPath().substring(1);
 
+    String targetBucketName = folder.getAuthority();
+
+    s3.copyObject(
+        CopyObjectRequest.builder()
+            .sourceBucket(bucketName).sourceKey(objectKey)
+            .destinationBucket(targetBucketName).destinationKey(objectKey)
+            .build());
+
+    s3.deleteObject(
+        DeleteObjectRequest.builder()
+            .bucket(bucketName).key(objectKey)
+            .build());
   }
 
   private String getStartingDirectory(TraversalParams params) {
