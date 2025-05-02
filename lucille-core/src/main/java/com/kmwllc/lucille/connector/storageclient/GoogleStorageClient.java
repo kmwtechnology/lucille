@@ -113,7 +113,9 @@ public class GoogleStorageClient extends BaseStorageClient {
 
     public GoogleFileReference(Blob blob) {
       // This is an inexpensive call that doesn't involve networking / RPC.
-      super(blob.getUpdateTimeOffsetDateTime().toInstant());
+      super(blob.getUpdateTimeOffsetDateTime() == null ? null : blob.getUpdateTimeOffsetDateTime().toInstant(),
+          blob.getSize(),
+          blob.getCreateTimeOffsetDateTime() == null ? null : blob.getCreateTimeOffsetDateTime().toInstant());
 
       this.blob = blob;
     }
@@ -141,45 +143,8 @@ public class GoogleStorageClient extends BaseStorageClient {
     }
 
     @Override
-    public Document asDoc(TraversalParams params) {
-      Document doc = createEmptyDocument(params);
-
-      doc.setField(FileConnector.FILE_PATH, getFullPath(params));
-      doc.setField(FileConnector.MODIFIED, getLastModified());
-
-      if (blob.getCreateTimeOffsetDateTime() != null) {
-        doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
-      }
-
-      doc.setField(FileConnector.SIZE, blob.getSize());
-
-      if (params.shouldGetFileContent()) {
-        doc.setField(FileConnector.CONTENT, blob.getContent());
-      }
-
-      return doc;
-    }
-
-    @Override
-    public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-      Document doc = createEmptyDocument(params, decompressedFullPathStr);
-
-      doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
-
-      if (getLastModified() != null) {
-        doc.setField(FileConnector.MODIFIED, getLastModified());
-      }
-
-      if (blob.getCreateTimeOffsetDateTime() != null) {
-        doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
-      }
-
-      // unable to get decompressed file size
-      if (params.shouldGetFileContent()) {
-        doc.setField(FileConnector.CONTENT, in.readAllBytes());
-      }
-
-      return doc;
+    protected byte[] getFileContent(TraversalParams params) {
+      return blob.getContent();
     }
   }
 }
