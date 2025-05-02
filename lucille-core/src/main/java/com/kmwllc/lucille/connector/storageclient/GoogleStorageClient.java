@@ -71,7 +71,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     do {
       page.streamAll()
           .forEachOrdered(blob -> {
-            GoogleFileReference fileRef = new GoogleFileReference(blob);
+            GoogleFileReference fileRef = new GoogleFileReference(blob, params);
             processAndPublishFileIfValid(publisher, fileRef, params);
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
@@ -106,14 +106,20 @@ public class GoogleStorageClient extends BaseStorageClient {
     this.storage = storage;
   }
 
+  @Override
+  public void moveFile(URI filePath, URI folder) throws IOException {
+
+  }
+
 
   private class GoogleFileReference extends BaseFileReference {
 
     private final Blob blob;
 
-    public GoogleFileReference(Blob blob) {
+    public GoogleFileReference(Blob blob, TraversalParams params) {
       // This is an inexpensive call that doesn't involve networking / RPC.
-      super(blob.getUpdateTimeOffsetDateTime() == null ? null : blob.getUpdateTimeOffsetDateTime().toInstant(),
+      super(getFullPathHelper(blob, params),
+          blob.getUpdateTimeOffsetDateTime() == null ? null : blob.getUpdateTimeOffsetDateTime().toInstant(),
           blob.getSize(),
           blob.getCreateTimeOffsetDateTime() == null ? null : blob.getCreateTimeOffsetDateTime().toInstant());
 
@@ -123,12 +129,6 @@ public class GoogleStorageClient extends BaseStorageClient {
     @Override
     public String getName() {
       return blob.getName();
-    }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      URI paramsURI = params.getURI();
-      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
     }
 
     @Override
@@ -145,6 +145,12 @@ public class GoogleStorageClient extends BaseStorageClient {
     @Override
     protected byte[] getFileContent(TraversalParams params) {
       return blob.getContent();
+    }
+
+    private static URI getFullPathHelper(Blob blob, TraversalParams params) {
+      URI paramsURI = params.getURI();
+      String fullPathStr = paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
+      return URI.create(fullPathStr);
     }
   }
 }

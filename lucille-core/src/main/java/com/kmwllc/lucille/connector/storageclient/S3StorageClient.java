@@ -4,15 +4,12 @@ import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 
-import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.Objects;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -89,7 +86,7 @@ public class S3StorageClient extends BaseStorageClient {
     response.stream()
         .forEachOrdered(resp -> {
           resp.contents().forEach(obj -> {
-            S3FileReference fileRef = new S3FileReference(obj);
+            S3FileReference fileRef = new S3FileReference(obj, params);
             processAndPublishFileIfValid(publisher, fileRef, params);
           });
         });
@@ -102,6 +99,11 @@ public class S3StorageClient extends BaseStorageClient {
 
     GetObjectRequest request = GetObjectRequest.builder().bucket(bucketName).key(objectKey).build();
     return s3.getObject(request);
+  }
+
+  @Override
+  public void moveFile(URI filePath, URI folder) throws IOException {
+
   }
 
   private String getStartingDirectory(TraversalParams params) {
@@ -127,10 +129,10 @@ public class S3StorageClient extends BaseStorageClient {
 
     private final S3Object s3Obj;
 
-    public S3FileReference(S3Object s3Obj) {
+    public S3FileReference(S3Object s3Obj, TraversalParams params) {
       // These are inexpensive calls - information stored in the s3 object.
       // "null" for creation time - this isn't available in a S3Object
-      super(s3Obj.lastModified(), s3Obj.size(), null);
+      super(getFullPathHelper(s3Obj, params), s3Obj.lastModified(), s3Obj.size(), null);
 
       this.s3Obj = s3Obj;
     }
@@ -138,12 +140,6 @@ public class S3StorageClient extends BaseStorageClient {
     @Override
     public String getName() {
       return s3Obj.key();
-    }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      URI paramsURI = params.getURI();
-      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();
     }
 
     @Override
@@ -163,6 +159,12 @@ public class S3StorageClient extends BaseStorageClient {
       return s3.getObjectAsBytes(
           GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(s3Obj.key()).build()
       ).asByteArray();
+    }
+
+    private static URI getFullPathHelper(S3Object s3Obj, TraversalParams params) {
+      URI paramsURI = params.getURI();
+      String fullPathStr = paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();
+      return URI.create(fullPathStr);
     }
   }
 }
