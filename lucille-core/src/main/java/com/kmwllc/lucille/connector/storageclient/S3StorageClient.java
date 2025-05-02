@@ -128,8 +128,9 @@ public class S3StorageClient extends BaseStorageClient {
     private final S3Object s3Obj;
 
     public S3FileReference(S3Object s3Obj, TraversalParams params) {
-      // s3Obj.lastModified is an inexpensive call - it's stored in the S3Object
-      super(getFullPathHelper(params, s3Obj), s3Obj.lastModified());
+      // These are inexpensive calls - information stored in the s3 object.
+      // "null" for creation time - this isn't available in a S3Object
+      super(getFullPathHelper(params, s3Obj), s3Obj.lastModified(), s3Obj.size(), null);
 
       this.s3Obj = s3Obj;
     }
@@ -152,38 +153,10 @@ public class S3StorageClient extends BaseStorageClient {
     }
 
     @Override
-    public Document asDoc(TraversalParams params) {
-      Document doc = createEmptyDocument(params);
-
-      doc.setField(FileConnector.FILE_PATH, getFullPath());
-      doc.setField(FileConnector.MODIFIED, getLastModified());
-      // s3 doesn't have object creation date
-      doc.setField(FileConnector.SIZE, s3Obj.size());
-
-      if (params.shouldGetFileContent()) {
-        byte[] content = s3.getObjectAsBytes(
-            GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(s3Obj.key()).build()
-        ).asByteArray();
-        doc.setField(FileConnector.CONTENT, content);
-      }
-
-      return doc;
-    }
-
-    @Override
-    public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-      Document doc = createEmptyDocument(params, decompressedFullPathStr);
-
-      doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
-      doc.setField(FileConnector.MODIFIED, getLastModified());
-
-      // no creation date in S3. no compressor size. Would normally be set here...
-
-      if (params.shouldGetFileContent()) {
-        doc.setField(FileConnector.CONTENT, in.readAllBytes());
-      }
-
-      return doc;
+    protected byte[] getFileContent(TraversalParams params) {
+      return s3.getObjectAsBytes(
+          GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(s3Obj.key()).build()
+      ).asByteArray();
     }
 
     // Just here to simplify call to super().

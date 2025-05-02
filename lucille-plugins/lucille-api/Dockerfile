@@ -5,10 +5,10 @@
 #   clone the lucille repo
 #   run "mvn clean install" from the top-level lucille repo
 #
-# Once you have completed the build process locally, you should cd into the top level of the lucille-admin module
+# Once you have completed the build process locally, you should cd into the top level of the lucille-api module
 # and run the following command to build the image:
 #
-#   docker build -t lucille-admin-api .
+#   docker build -t lucille-api .
 #
 # Now that you have built the image, you can launch a container running that image.
 # The Admin API will start when the image launches.
@@ -17,13 +17,13 @@
 # You can also use a config file on your local filesystem.
 #
 # To launch the container with the example config file that's inside the image, run this:
-#   docker run --env LUCILLE_CONF=conf/simple-config.conf -p 8080:8080 lucille-admin-api
+#   docker run --env LUCILLE_CONF=conf/simple-config.conf -p 8080:8080 lucille-api
 # In the above command, "conf/simple-config.conf" is a path inside the image
 #
 # To use a config file on your local filesystem, assuming that the file lives at <absolute-path-on-local-fs>/conf/my_file.conf
 # run this:
 #
-#   docker run --env LUCILLE_CONF=/mnt/conf/my_file.conf -v <absolute-path-on-local-fs>/conf:/mnt/conf -p 8080:8080 lucille-admin-api
+#   docker run --env LUCILLE_CONF=/mnt/conf/my_file.conf -v <absolute-path-on-local-fs>/conf:/mnt/conf -p 8080:8080 lucille-api
 #
 # By default, Lucille log output is written both to STDOUT and to file in the a "log" directory that is created where Lucille is run
 # Since log output goes to STDOUT you will see it in the container's output.
@@ -47,7 +47,7 @@ COPY target/ target/
 
 # Set the necessary environment variables
 ENV LUCILLE_CONF="conf/simple-config.conf"
-ENV DROPWIZARD_CONF="conf/admin.yml"
+ENV DROPWIZARD_CONF="conf/api.yml"
 
 # Expose port 8080 so we can make requests to the API
 EXPOSE 8080

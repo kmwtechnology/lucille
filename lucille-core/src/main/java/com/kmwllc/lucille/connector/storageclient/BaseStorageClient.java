@@ -185,7 +185,7 @@ public abstract class BaseStorageClient implements StorageClient {
             if (params.supportedFileType(resolvedExtension)) {
               handleStreamExtensionFiles(publisher, compressorStream, resolvedExtension, compressedFileFullPath);
             } else {
-              Document doc = fileReference.asDoc(compressorStream, compressedFileFullPath, params);
+              Document doc = fileReference.decompressedFileAsDoc(compressorStream, compressedFileFullPath, params);
               try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
                 docLogger.info("StorageClient to publish Document {}.", doc.getId());
               }

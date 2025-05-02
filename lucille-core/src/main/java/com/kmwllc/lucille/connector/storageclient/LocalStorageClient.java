@@ -107,17 +107,11 @@ public class LocalStorageClient extends BaseStorageClient {
 
     private final Path path;
 
-    // information that other FileReferences usually have access to via the storage object.
-    private final Instant creationTime;
-    private final long size;
-
     // The given path will become absolute and will be normalized.
     public LocalFileReference(Path path, BasicFileAttributes attributes) {
-      super(path.toAbsolutePath().normalize().toString(), attributes.lastModifiedTime().toInstant());
+      super(path.toAbsolutePath().normalize().toString(), attributes.lastModifiedTime().toInstant(), attributes.size(), attributes.creationTime().toInstant());
 
       this.path = path.toAbsolutePath().normalize();
-      this.creationTime = attributes.creationTime().toInstant();
-      this.size = attributes.size();
     }
 
     @Override
@@ -138,44 +132,12 @@ public class LocalStorageClient extends BaseStorageClient {
     }
 
     @Override
-    public Document asDoc(TraversalParams params) {
-      Document doc = createEmptyDocument(params);
-
-      doc.setField(FILE_PATH, getFullPath());
-      doc.setField(SIZE, size);
-      doc.setField(MODIFIED, getLastModified());
-
-      if (creationTime != null) {
-        doc.setField(CREATED, creationTime);
+    protected byte[] getFileContent(TraversalParams params) {
+      try {
+        return Files.readAllBytes(path);
+      } catch (IOException e) {
+        throw new IllegalArgumentException("Unable to get file contents from '" + path + "' for document", e);
       }
-
-      if (params.shouldGetFileContent()) {
-        try {
-          doc.setField(CONTENT, Files.readAllBytes(path));
-        } catch (IOException e) {
-          throw new IllegalArgumentException("Unable to get file contents from '" + path + "' for document", e);
-        }
-      }
-
-      return doc;
-    }
-
-    @Override
-    public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-      Document doc = createEmptyDocument(params, decompressedFullPathStr);
-
-      // setting fields on document
-      // remove Extension to show that we have decompressed the file and obtained its information
-      doc.setField(FILE_PATH, decompressedFullPathStr);
-      doc.setField(MODIFIED, getLastModified());
-      doc.setField(CREATED, creationTime);
-      // unable to get decompressed file size
-
-      if (params.shouldGetFileContent()) {
-        doc.setField(CONTENT, in.readAllBytes());
-      }
-
-      return doc;
     }
   }
 }

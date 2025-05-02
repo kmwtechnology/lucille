@@ -10,9 +10,7 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageOptions;
-import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.connector.FileConnectorStateManager;
-import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.FileInputStream;
@@ -113,7 +111,10 @@ public class GoogleStorageClient extends BaseStorageClient {
 
     public GoogleFileReference(Blob blob, TraversalParams params) {
       // This is an inexpensive call that doesn't involve networking / RPC.
-      super(getFullPathHelper(blob, params), blob.getUpdateTimeOffsetDateTime().toInstant());
+      super(getFullPathHelper(blob, params),
+          blob.getUpdateTimeOffsetDateTime() == null ? null : blob.getUpdateTimeOffsetDateTime().toInstant(),
+          blob.getSize(),
+          blob.getCreateTimeOffsetDateTime() == null ? null : blob.getCreateTimeOffsetDateTime().toInstant());
 
       this.blob = blob;
     }
@@ -135,45 +136,8 @@ public class GoogleStorageClient extends BaseStorageClient {
     }
 
     @Override
-    public Document asDoc(TraversalParams params) {
-      Document doc = createEmptyDocument(params);
-
-      doc.setField(FileConnector.FILE_PATH, getFullPath());
-      doc.setField(FileConnector.MODIFIED, getLastModified());
-
-      if (blob.getCreateTimeOffsetDateTime() != null) {
-        doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
-      }
-
-      doc.setField(FileConnector.SIZE, blob.getSize());
-
-      if (params.shouldGetFileContent()) {
-        doc.setField(FileConnector.CONTENT, blob.getContent());
-      }
-
-      return doc;
-    }
-
-    @Override
-    public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-      Document doc = createEmptyDocument(params, decompressedFullPathStr);
-
-      doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
-
-      if (getLastModified() != null) {
-        doc.setField(FileConnector.MODIFIED, getLastModified());
-      }
-
-      if (blob.getCreateTimeOffsetDateTime() != null) {
-        doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
-      }
-
-      // unable to get decompressed file size
-      if (params.shouldGetFileContent()) {
-        doc.setField(FileConnector.CONTENT, in.readAllBytes());
-      }
-
-      return doc;
+    protected byte[] getFileContent(TraversalParams params) {
+      return blob.getContent();
     }
 
     // Just here to simplify the call to super()
