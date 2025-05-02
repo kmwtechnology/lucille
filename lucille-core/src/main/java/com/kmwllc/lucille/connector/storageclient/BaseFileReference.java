@@ -51,7 +51,7 @@ public abstract class BaseFileReference implements FileReference {
   public Document asDoc(TraversalParams params) {
     Document doc = createEmptyDocument(params);
 
-    doc.setField(FILE_PATH, getFullPath(params));
+    doc.setField(FILE_PATH, getFullPath());
 
     if (lastModified != null) {
       doc.setField(MODIFIED, lastModified);
