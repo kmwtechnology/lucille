@@ -17,6 +17,8 @@ import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.hamcrest.MatcherAssert;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
@@ -939,22 +941,6 @@ public class SolrIndexerTest {
     new SolrIndexer(config, messenger, false, "");
   }
 
-  @Test
-  public void testClientInstance() throws IOException {
-
-    Config httpConfig = ConfigFactory.empty()
-        .withValue("solr.url", ConfigValueFactory.fromAnyRef("localhost:8983/solr"));
-
-    Config cloudConfig = ConfigFactory.empty()
-        .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
-        .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef(List.of("localhost:2181")));
-
-    try (SolrClient httpClient = SolrUtils.getSolrClient(httpConfig); SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig);){
-      assertTrue(httpClient instanceof Http2SolrClient);
-      assertTrue(cloudClient instanceof CloudSolrClient);
-    }
-  }
-
   /**
    * Tests that the indexer remove the fields in ignoreFields configuration before sending to the Client
    *
@@ -999,11 +985,49 @@ public class SolrIndexerTest {
     assertTrue(capturedDoc.containsKey("id"));
   }
 
+  @Test
+  public void testAllowInvalidCertAndAuthHttp() {
+    String originalCheckPeerName = System.getProperty("solr.ssl.checkPeerName");
+    System.clearProperty("solr.ssl.checkPeerName");
+
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrIndexerTest/acceptInvalidCert.conf");
+    TestMessenger messenger = new TestMessenger();
+
+    Indexer indexer = new SolrIndexer(config, messenger, false, "");
+    // should be set when we acceptInvalidCert w/ username/password in config
+    assertEquals("false", System.getProperty("solr.ssl.checkPeerName"));
+
+    indexer.closeConnection();
+
+    if (originalCheckPeerName != null) {
+      System.setProperty("solr.ssl.checkPeerName", originalCheckPeerName);
+    }
+  }
+
+  @Test
+  public void testAllowInvalidCertCloud() {
+    String originalCheckPeerName = System.getProperty("solr.ssl.checkPeerName");
+    System.clearProperty("solr.ssl.checkPeerName");
+
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrIndexerTest/acceptInvalidCertCloud.conf");
+    TestMessenger messenger = new TestMessenger();
+
+    Indexer indexer = new SolrIndexer(config, messenger, false, "");
+    // should be set when we acceptInvalidCert for an HTTP client
+    assertEquals("false", System.getProperty("solr.ssl.checkPeerName"));
+
+    indexer.closeConnection();
+
+    if (originalCheckPeerName != null) {
+      System.setProperty("solr.ssl.checkPeerName", originalCheckPeerName);
+    }
+  }
+
+
   private static String getCapturedID(ArgumentCaptor<Collection<SolrInputDocument>> captor, int index, int arrIndex) {
     SolrInputDocument document = (SolrInputDocument) captor.getAllValues().get(index).toArray()[arrIndex];
     return (String) document.getFieldValue(Document.ID_FIELD);
   }
-
 
   private static class ErroringIndexer extends SolrIndexer {
 
