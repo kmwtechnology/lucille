@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.core;
 
-import com.api.jsonata4java.expressions.Expressions;
+import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -221,18 +221,18 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   public void testTransform() throws Exception {
     Document doc = createDocumentFromJson("{\"id\":\"id\",\"foo\": \"bar\"}");
     doc.setField("bytes", new byte[]{1, 2, 3});
-    
+
     // test mutating a reserved field
-    Expressions mutateReservedExpr = Expressions.parse("{\"id\":\"diff\",\"foo\": \"bar\"}");
+    Jsonata mutateReservedExpr = Jsonata.jsonata("{\"id\":\"diff\",\"foo\": \"bar\"}");
     assertThrows(DocumentException.class, () -> doc.transform(mutateReservedExpr));
     assertEquals(3, doc.getFieldNames().size());
     assertEquals("id", doc.getId());
     assertEquals("bar", doc.getString("foo"));
     assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
 
-    // test mutatation does not create object 
-    Expressions mutateIntoArray = Expressions.parse("[1, 2, 3]");
-    Expressions mutateIntoNum = Expressions.parse("3");
+    // test mutatation does not create object
+    Jsonata mutateIntoArray = Jsonata.jsonata("[1, 2, 3]");
+    Jsonata mutateIntoNum = Jsonata.jsonata("3");
     assertThrows(DocumentException.class, () -> doc.transform(mutateIntoArray));
     assertThrows(DocumentException.class, () -> doc.transform(mutateIntoNum));
     assertEquals(3, doc.getFieldNames().size());
@@ -240,8 +240,8 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals("bar", doc.getString("foo"));
     assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
 
-    // test valid mutation 
-    Expressions mutateFoo = Expressions.parse("$merge([$, {\"foo\": $substring(foo, 2)}])");
+    // test valid mutation
+    Jsonata mutateFoo = Jsonata.jsonata("$merge([$, {\"foo\": $substring(foo, 2)}])");
     doc.transform(mutateFoo);
     assertEquals(3, doc.getFieldNames().size());
     assertEquals("id", doc.getId());
