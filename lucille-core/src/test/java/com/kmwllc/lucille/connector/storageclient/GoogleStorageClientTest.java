@@ -6,6 +6,7 @@ import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -351,45 +352,113 @@ public class GoogleStorageClientTest {
     googleStorageClient.shutdown();
   }
 
-//  @Test
-//  public void testErrorMovingFiles() throws Exception {
-//    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
-//    TestMessenger messenger = new TestMessenger();
-//    Config config = ConfigFactory.parseMap(Map.of());
-//    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
-//    GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
-//    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-",
-//        ConfigFactory.parseMap(
-//            Map.of(
-//                "moveToAfterProcessing", "gs://bucket/processed",
-//                "moveToErrorFolder", "gs://bucket/error"
-//            )
-//        ), ConfigFactory.empty());
-//
-//
-//    BlobId blobId = BlobId.of("bucket", "my-object");
-//    BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
-//    storage.create(blobInfo, "Hello, World!".getBytes());
-//
-//    BlobId blobId2 = BlobId.of("bucket", "my-object2");
-//    BlobInfo blobInfo2 = BlobInfo.newBuilder(blobId2).build();
-//    storage.create(blobInfo2, "Hello!".getBytes());
-//
-//    BlobId blobId3 = BlobId.of("bucket", "my-object3");
-//    BlobInfo blobInfo3 = BlobInfo.newBuilder(blobId3).build();
-//    storage.create(blobInfo3, "World!".getBytes());
-//
-//    BlobId blobId4 = BlobId.of("bucket", "my-object4");
-//    BlobInfo blobInfo4 = BlobInfo.newBuilder(blobId4).build();
-//    storage.create(blobInfo4, "foo".getBytes());
-//
-//    googleStorageClient.setStorageForTesting(storage);
-//    googleStorageClient.initializeForTesting();
-//    assertThrows(UnsupportedOperationException.class, () -> googleStorageClient.traverse(publisher, params));
-//
-//    // closes storage too
-//    googleStorageClient.shutdown();
-//  }
+  @Test
+  public void testMovingFiles() throws Exception {
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
+    TestMessenger messenger = new TestMessenger();
+
+    Config emptyConfig = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(emptyConfig, messenger, "run1", "pipeline1");
+
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
+    TraversalParams params = new TraversalParams(new URI("gs://bucket/files/"), "prefix-",
+        ConfigFactory.parseMap(
+            Map.of("moveToAfterProcessing", "gs://bucket/processed/")
+        ), ConfigFactory.empty());
+
+    BlobId blobId = BlobId.of("bucket", "files/my-object1");
+    BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
+    storage.create(blobInfo, "Hello, World!".getBytes());
+
+    BlobId blobId2 = BlobId.of("bucket", "files/my-object2");
+    BlobInfo blobInfo2 = BlobInfo.newBuilder(blobId2).build();
+    storage.create(blobInfo2, "Hello!".getBytes());
+
+    BlobId blobId3 = BlobId.of("bucket", "files/my-object3");
+    BlobInfo blobInfo3 = BlobInfo.newBuilder(blobId3).build();
+    storage.create(blobInfo3, "World!".getBytes());
+
+    BlobId blobId4 = BlobId.of("bucket", "files/my-object4");
+    BlobInfo blobInfo4 = BlobInfo.newBuilder(blobId4).build();
+    storage.create(blobInfo4, "foo".getBytes());
+
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    googleStorageClient.traverse(publisher, params);
+
+    BlobId movedBlobId1 = BlobId.of("bucket", "processed/files/my-object1");
+    BlobId movedBlobId2 = BlobId.of("bucket", "processed/files/my-object2");
+    BlobId movedBlobId3 = BlobId.of("bucket", "processed/files/my-object3");
+    BlobId movedBlobId4 = BlobId.of("bucket", "processed/files/my-object4");
+
+    // each of these should've been deleted.
+    assertNull(storage.get(blobId));
+    assertNull(storage.get(blobId2));
+    assertNull(storage.get(blobId3));
+    assertNull(storage.get(blobId4));
+
+    assertEquals("Hello, World!", new String(storage.get(movedBlobId1).getContent()));
+    assertEquals("Hello!", new String(storage.get(movedBlobId2).getContent()));
+    assertEquals("World!", new String(storage.get(movedBlobId3).getContent()));
+    assertEquals("foo", new String(storage.get(movedBlobId4).getContent()));
+
+    googleStorageClient.shutdown();
+  }
+
+  @Test
+  public void testMovingFilesAcrossBuckets() throws Exception {
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
+    TestMessenger messenger = new TestMessenger();
+
+    Config emptyConfig = ConfigFactory.parseMap(Map.of());
+    Publisher publisher = new PublisherImpl(emptyConfig, messenger, "run1", "pipeline1");
+
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
+    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-",
+        ConfigFactory.parseMap(
+            Map.of("moveToAfterProcessing", "gs://processed/")
+        ), ConfigFactory.empty());
+
+    BlobId blobId = BlobId.of("bucket", "files/my-object1");
+    BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
+    storage.create(blobInfo, "Hello, World!".getBytes());
+
+    BlobId blobId2 = BlobId.of("bucket", "files/my-object2");
+    BlobInfo blobInfo2 = BlobInfo.newBuilder(blobId2).build();
+    storage.create(blobInfo2, "Hello!".getBytes());
+
+    BlobId blobId3 = BlobId.of("bucket", "files/my-object3");
+    BlobInfo blobInfo3 = BlobInfo.newBuilder(blobId3).build();
+    storage.create(blobInfo3, "World!".getBytes());
+
+    BlobId blobId4 = BlobId.of("bucket", "files/my-object4");
+    BlobInfo blobInfo4 = BlobInfo.newBuilder(blobId4).build();
+    storage.create(blobInfo4, "foo".getBytes());
+
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    googleStorageClient.traverse(publisher, params);
+
+    BlobId movedBlobId1 = BlobId.of("processed", "files/my-object1");
+    BlobId movedBlobId2 = BlobId.of("processed", "files/my-object2");
+    BlobId movedBlobId3 = BlobId.of("processed", "files/my-object3");
+    BlobId movedBlobId4 = BlobId.of("processed", "files/my-object4");
+
+    // each of these should've been deleted.
+    assertNull(storage.get(blobId));
+    assertNull(storage.get(blobId2));
+    assertNull(storage.get(blobId3));
+    assertNull(storage.get(blobId4));
+
+    assertEquals("Hello, World!", new String(storage.get(movedBlobId1).getContent()));
+    assertEquals("Hello!", new String(storage.get(movedBlobId2).getContent()));
+    assertEquals("World!", new String(storage.get(movedBlobId3).getContent()));
+    assertEquals("foo", new String(storage.get(movedBlobId4).getContent()));
+
+    googleStorageClient.shutdown();
+  }
 
   @Test
   public void testGetFileContentStream() throws Exception {

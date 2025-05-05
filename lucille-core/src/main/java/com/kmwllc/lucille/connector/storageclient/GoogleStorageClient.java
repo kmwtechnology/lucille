@@ -109,12 +109,14 @@ public class GoogleStorageClient extends BaseStorageClient {
 
   @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
-    String bucketName = filePath.getAuthority();
-    String fileKey = filePath.getPath().substring(1);
-    String bucketForFolder = folder.getAuthority();
+    String sourceBucket = filePath.getAuthority();
+    String sourceKey = filePath.getPath().substring(1);
 
-    BlobId source = BlobId.of(bucketName, fileKey);
-    BlobId target = BlobId.of(bucketForFolder, fileKey);
+    String destBucket = folder.getAuthority();
+    String destKey = folder.getPath().substring(1) + sourceKey;
+
+    BlobId source = BlobId.of(sourceBucket, sourceKey);
+    BlobId target = BlobId.of(destBucket, destKey);
 
     // copy source to target, and then delete source.
     storage.copy(CopyRequest.newBuilder().setSource(source).setTarget(target).build());
