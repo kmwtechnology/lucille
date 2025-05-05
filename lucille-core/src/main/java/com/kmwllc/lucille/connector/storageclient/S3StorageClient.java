@@ -105,20 +105,21 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
-    String bucketName = filePath.getAuthority();
-    String objectKey = filePath.getPath().substring(1);
+    String sourceBucket = filePath.getAuthority();
+    String sourceKey = filePath.getPath().substring(1);
 
-    String targetBucketName = folder.getAuthority();
+    String destBucket = folder.getAuthority();
+    String destKey = folder.getPath().substring(1) + sourceKey;
 
     s3.copyObject(
         CopyObjectRequest.builder()
-            .sourceBucket(bucketName).sourceKey(objectKey)
-            .destinationBucket(targetBucketName).destinationKey(objectKey)
+            .sourceBucket(sourceBucket).sourceKey(sourceKey)
+            .destinationBucket(destBucket).destinationKey(destKey)
             .build());
 
     s3.deleteObject(
         DeleteObjectRequest.builder()
-            .bucket(bucketName).key(objectKey)
+            .bucket(sourceBucket).key(sourceKey)
             .build());
   }
 

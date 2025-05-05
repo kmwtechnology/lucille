@@ -46,6 +46,8 @@ import org.slf4j.LoggerFactory;
  *  handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. Recurring not supported.Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the compressed file before processing.The file path field of decompressed file will be in the format of "{path/to/compressed/compressedFileName.gz}:{compressedFileName}" unless handled by fileHandler in which in that case will follow the id creation of that fileHandler
  *  moveToAfterProcessing (string, Optional): URI for a location to move files to after processing. Can be a relative / absolute path for local files.
  *  moveToErrorFolder (string, Optional): URI for a location to move files to if an error occurs during processing. Can be a relative / absolute path for local files.
+ *  <b>Note:</b> For Cloud Storage, when a file is moved, its entire "key" is moved. For example, moving s3://bucket/files/file1.txt to s3://bucket/after/ (for moveToAfterProcessing),
+ *  the file will be s3://bucket/after/files/file1.txt. This prevents you from having to make sure all files in your bucket have unique "file names".
  *  csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
  *  json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
  *  xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler
