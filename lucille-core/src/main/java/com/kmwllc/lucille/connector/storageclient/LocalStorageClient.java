@@ -65,11 +65,6 @@ public class LocalStorageClient extends BaseStorageClient {
 
   @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
-    if (filePath.getPath().startsWith("classpath:")) {
-      log.warn("Skipping moving classpath file: {} to {}", filePath, folder);
-      return;
-    }
-
     Path pathForFile = Paths.get(filePath.getPath());
     Path pathForFolder = Paths.get(folder.getPath());
 
@@ -129,8 +124,9 @@ public class LocalStorageClient extends BaseStorageClient {
 
     // The given path will become absolute and will be normalized.
     public LocalFileReference(Path path, BasicFileAttributes attributes) {
-      super(path.toUri(), attributes.lastModifiedTime().toInstant(), attributes.size(), attributes.creationTime().toInstant());
+      super(path.toAbsolutePath().normalize().toUri(), attributes.lastModifiedTime().toInstant(), attributes.size(), attributes.creationTime().toInstant());
 
+      // Holding onto the path object since it makes some of the needed operations a bit more straightforward
       this.path = path.toAbsolutePath().normalize();
     }
 

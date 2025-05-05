@@ -46,9 +46,11 @@ import org.slf4j.LoggerFactory;
  *  handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. Recurring not supported.Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the compressed file before processing.The file path field of decompressed file will be in the format of "{path/to/compressed/compressedFileName.gz}:{compressedFileName}" unless handled by fileHandler in which in that case will follow the id creation of that fileHandler
  *  moveToAfterProcessing (string, Optional): URI for a location to move files to after processing. Can be a relative / absolute path for local files.
  *  moveToErrorFolder (string, Optional): URI for a location to move files to if an error occurs during processing. Can be a relative / absolute path for local files.
- *  <b>Note:</b> For Cloud Storage, when a file is moved, its entire "key" is moved. For example, moving s3://bucket/files/file1.txt to s3://bucket/after/ (for moveToAfterProcessing),
- *  the file will be s3://bucket/after/files/file1.txt. This prevents you from having to make sure all files in your bucket have unique "file names". When moving files with Azure, the same storage account
- *  should be used.
+ *  <b>Note:</b> For Cloud Storage, when a file is moved, its entire "key" moves with it. For example, the file s3://bucket/files/file1.txt has key "files/file1.txt".
+ *  So, when it moves to s3://bucket/after/ it becomes s3://bucket/after/files/file1.txt.
+ *  This prevents you from having to make sure all files in your bucket have unique "filenames". You should still ensure there won't be any duplicate
+ *  / colliding keys in your target folders for moveToAfterProcessing or moveToErrorFolder.
+ *  <b>Note:</b> For CloudStorage, it is important that your directory names end with '/'. When using Azure, you'll have to use the same storage account.
  *  csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
  *  json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
  *  xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler

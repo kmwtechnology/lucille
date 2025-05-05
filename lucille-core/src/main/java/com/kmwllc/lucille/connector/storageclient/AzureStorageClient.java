@@ -99,6 +99,7 @@ public class AzureStorageClient extends BaseStorageClient {
 
     String destContainer = folder.getPath().split("/")[1];
 
+    // Special handling for if the "folder" we want to place the file into is just the bucket itself.
     String destBlob;
     if (folder.getPath().split("/").length > 2) {
       destBlob = folder.getPath().split("/")[2] + "/" + sourceBlob;
@@ -106,11 +107,11 @@ public class AzureStorageClient extends BaseStorageClient {
       destBlob = sourceBlob;
     }
 
-    BlobClient fileClient = serviceClient.getBlobContainerClient(sourceContainer).getBlobClient(sourceBlob);
-    BlobClient targetFileClient = serviceClient.getBlobContainerClient(destContainer).getBlobClient(destBlob);
+    BlobClient sourceBlobClient = serviceClient.getBlobContainerClient(sourceContainer).getBlobClient(sourceBlob);
+    BlobClient destBlobClient = serviceClient.getBlobContainerClient(destContainer).getBlobClient(destBlob);
 
     // Starts the copy in the background
-    fileClient.beginCopy(targetFileClient.getBlobUrl(), null);
+    sourceBlobClient.beginCopy(destBlobClient.getBlobUrl(), null);
   }
 
   private String getStartingDirectory(TraversalParams params) {
@@ -172,10 +173,10 @@ public class AzureStorageClient extends BaseStorageClient {
     private static URI getFullPathHelper(BlobItem blobItem, TraversalParams params) {
       URI pathURI = params.getURI();
 
-      String fulLURIStr = String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
+      String fullURIStr = String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
           pathURI.getPath().split("/")[1], blobItem.getName());
 
-      return URI.create(fulLURIStr);
+      return URI.create(fullURIStr);
     }
   }
 }

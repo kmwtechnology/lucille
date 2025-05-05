@@ -44,7 +44,7 @@ public class TraversalParams {
   /**
    * Creates TraversalParams representing the provided options.
    *
-   * @throws IllegalArgumentException If fileOptions.moveToAfterProcessing or fileOptions.moveToErrorFolder are specified, and are not
+   * @throws IllegalArgumentException If fileOptions.moveToAfterProcessing or fileOptions.moveToErrorFolder are specified but are not
    * valid URIs.
    */
   public TraversalParams(URI uri, String docIdPrefix, Config fileOptions, Config filterOptions) throws IllegalArgumentException {
