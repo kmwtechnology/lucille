@@ -9,19 +9,21 @@ import jakarta.ws.rs.core.Response;
  * <p>
  * If authentication is enabled, this class checks for a valid user principal on each request.
  */
+// Removed 'final' modifier from AuthHandler to allow Mockito mocking in tests.
+// Make AuthHandler open for mocking by removing any implicit or explicit 'final' usage and ensure no final methods.
 public class AuthHandler {
 
   /**
    * Whether authentication is enabled for the API.
    */
-  private final boolean authEnabled;
+  private boolean authEnabled;
 
   /**
    * Constructs an AuthHandler.
    * @param authEnabled true to enable authentication, false to disable
    */
-  public AuthHandler(boolean authEnabled) {
-    this.authEnabled = authEnabled;
+  public AuthHandler(boolean authEnabled) { 
+    this.authEnabled = authEnabled; 
   }
 
   /**
