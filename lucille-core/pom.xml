@@ -370,10 +370,23 @@
     </dependency>
 
     <dependency>
-        <groupId>io.github.ollama4j</groupId>
-        <artifactId>ollama4j</artifactId>
-        <version>1.0.93</version>
+      <groupId>io.github.ollama4j</groupId>
+      <artifactId>ollama4j</artifactId>
+      <version>1.0.93</version>
     </dependency>
+
+    <dependency>
+      <groupId>edu.stanford.nlp</groupId>
+      <artifactId>stanford-corenlp</artifactId>
+      <version>4.5.9</version>
+    </dependency>
+    <dependency>
+      <groupId>edu.stanford.nlp</groupId>
+      <artifactId>stanford-corenlp</artifactId>
+      <version>4.5.9</version>
+      <classifier>models</classifier>
+    </dependency>
+
   </dependencies>
 
 

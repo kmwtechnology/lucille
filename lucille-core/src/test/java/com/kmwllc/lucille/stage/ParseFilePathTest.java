@@ -6,9 +6,26 @@ import static org.junit.Assert.assertThrows;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import edu.stanford.nlp.ie.AbstractSequenceClassifier;
+import edu.stanford.nlp.ie.crf.CRFClassifier;
+import edu.stanford.nlp.ling.CoreAnnotations;
+import edu.stanford.nlp.ling.CoreLabel;
+import edu.stanford.nlp.pipeline.Annotation;
+import edu.stanford.nlp.pipeline.StanfordCoreNLP;
+import edu.stanford.nlp.util.CoreMap;
 import java.io.File;
 
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import opennlp.tools.namefind.NameFinderME;
+import opennlp.tools.namefind.TokenNameFinderModel;
+import opennlp.tools.tokenize.TokenizerME;
+import opennlp.tools.tokenize.TokenizerModel;
+import opennlp.tools.util.Span;
 import org.junit.Test;
 
 import com.kmwllc.lucille.core.Document;
@@ -196,5 +213,63 @@ public class ParseFilePathTest {
     assertFalse(doc1.has("folder"));
     assertFalse(doc1.has("path"));
     assertFalse(doc1.has("file_extension"));
+  }
+
+  @Test
+  public void sandbox() throws Exception {
+    String sentence = "Sheryl Sandberg spoke at a leadership conference hosted by Meta in Menlo Park.";
+
+    // Tokenization of the sentence comes first
+    InputStream tokenModelIn = ParseFilePathTest.class.getResourceAsStream("/en-token.bin");
+    TokenizerModel tokenModel = new TokenizerModel(tokenModelIn);
+    TokenizerME tokenizer = new TokenizerME(tokenModel);
+    String[] tokens = tokenizer.tokenize(sentence);
+
+    Map<String, NameFinderME> finders = new HashMap<>();
+    finders.put("PERSON", new NameFinderME(new TokenNameFinderModel(ParseFilePathTest.class.getResourceAsStream("/en-ner-person.bin"))));
+    finders.put("LOCATION", new NameFinderME(new TokenNameFinderModel(ParseFilePathTest.class.getResourceAsStream("/en-ner-location.bin"))));
+    finders.put("ORGANIZATION", new NameFinderME(new TokenNameFinderModel(ParseFilePathTest.class.getResourceAsStream("/en-ner-organization.bin"))));
+
+    // Each model is run on the sentence and we print out our findings
+    for (Map.Entry<String, NameFinderME> entry : finders.entrySet()) {
+      String type = entry.getKey();
+      NameFinderME finder = entry.getValue();
+
+      Span[] spans = finder.find(tokens);
+      for (Span span : spans) {
+        StringBuilder entity = new StringBuilder();
+        for (int i = span.getStart(); i < span.getEnd(); i++) {
+          entity.append(tokens[i]).append(" ");
+        }
+        System.out.println(type + ": " + entity.toString().trim());
+      }
+    }
+  }
+
+  @Test
+  public void stanfordSandbox() throws Exception {
+    String text = "Benjamin was in New York last week for the CME's annual advisor conference.";
+
+    // setting up the models used
+    Properties props = new Properties();
+    props.setProperty("annotators", "tokenize,ssplit,pos,lemma,ner");
+
+    StanfordCoreNLP pipeline = new StanfordCoreNLP(props);
+    Annotation document = new Annotation(text);
+    pipeline.annotate(document);
+
+    // Extracts sentences and then we run NER on them all
+    List<CoreMap> sentences = document.get(CoreAnnotations.SentencesAnnotation.class);
+    for (CoreMap sentence : sentences) {
+      for (CoreLabel token : sentence.get(CoreAnnotations.TokensAnnotation.class)) {
+        // Retrieve and print the word and its NER label
+        String word = token.word();
+        String ne = token.get(CoreAnnotations.NamedEntityTagAnnotation.class);
+        // 'O' means no entity
+        if (!"O".equals(ne)) {
+          System.out.println(word + " : " + ne);
+        }
+      }
+    }
   }
 }
