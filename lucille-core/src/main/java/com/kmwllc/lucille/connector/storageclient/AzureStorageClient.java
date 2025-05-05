@@ -94,13 +94,22 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
-    String containerName = filePath.getPath().split("/")[1];
-    String blobName = filePath.getPath().split("/")[2];
+    String sourceContainer = filePath.getPath().split("/")[1];
+    String sourceBlob = filePath.getPath().split("/")[2];
 
-    String folderContainerName = folder.getPath().split("/")[1];
+    String destContainer = folder.getPath().split("/")[1];
 
-    BlobClient fileClient = serviceClient.getBlobContainerClient(containerName).getBlobClient(blobName);
-    BlobClient targetFileClient = serviceClient.getBlobContainerClient(folderContainerName).getBlobClient(blobName);
+    String destBlob;
+    if (folder.getPath().split("/").length > 2) {
+      destBlob = folder.getPath().split("/")[2] + "/" + sourceBlob;
+    } else {
+      destBlob = sourceBlob;
+    }
+
+    BlobClient fileClient = serviceClient.getBlobContainerClient(sourceContainer).getBlobClient(sourceBlob);
+    BlobClient targetFileClient = serviceClient.getBlobContainerClient(destContainer).getBlobClient(destBlob);
+
+    // Starts the copy in the background
     fileClient.beginCopy(targetFileClient.getBlobUrl(), null);
   }
 

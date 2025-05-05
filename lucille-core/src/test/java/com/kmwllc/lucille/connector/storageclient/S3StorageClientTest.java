@@ -450,6 +450,8 @@ public class S3StorageClientTest {
     s3StorageClient.initializeForTesting();
     s3StorageClient.traverse(publisher, params);
     s3StorageClient.shutdown();
+
+    assertEquals(4, messenger.getDocsSentForProcessing().size());
   }
 
   // This test also lets us make sure we get the correct arguments when the "move to" is just the root of the bucket
@@ -519,6 +521,8 @@ public class S3StorageClientTest {
     s3StorageClient.initializeForTesting();
     s3StorageClient.traverse(publisher, params);
     s3StorageClient.shutdown();
+
+    assertEquals(4, messenger.getDocsSentForProcessing().size());
   }
 
   @Test

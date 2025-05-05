@@ -47,7 +47,8 @@ import org.slf4j.LoggerFactory;
  *  moveToAfterProcessing (string, Optional): URI for a location to move files to after processing. Can be a relative / absolute path for local files.
  *  moveToErrorFolder (string, Optional): URI for a location to move files to if an error occurs during processing. Can be a relative / absolute path for local files.
  *  <b>Note:</b> For Cloud Storage, when a file is moved, its entire "key" is moved. For example, moving s3://bucket/files/file1.txt to s3://bucket/after/ (for moveToAfterProcessing),
- *  the file will be s3://bucket/after/files/file1.txt. This prevents you from having to make sure all files in your bucket have unique "file names".
+ *  the file will be s3://bucket/after/files/file1.txt. This prevents you from having to make sure all files in your bucket have unique "file names". When moving files with Azure, the same storage account
+ *  should be used.
  *  csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
  *  json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
  *  xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler

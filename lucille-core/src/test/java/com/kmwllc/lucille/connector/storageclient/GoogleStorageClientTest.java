@@ -404,6 +404,8 @@ public class GoogleStorageClientTest {
     assertEquals("foo", new String(storage.get(movedBlobId4).getContent()));
 
     googleStorageClient.shutdown();
+
+    assertEquals(4, messenger.getDocsSentForProcessing().size());
   }
 
   @Test
@@ -458,6 +460,8 @@ public class GoogleStorageClientTest {
     assertEquals("foo", new String(storage.get(movedBlobId4).getContent()));
 
     googleStorageClient.shutdown();
+
+    assertEquals(4, messenger.getDocsSentForProcessing().size());
   }
 
   @Test
