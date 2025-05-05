@@ -2,8 +2,6 @@ package com.kmwllc.lucille.weaviate.indexer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,11 +28,11 @@ import io.weaviate.client.v1.misc.model.Meta;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 public class WeaviateIndexerTest {
@@ -115,26 +113,25 @@ public class WeaviateIndexerTest {
     Result<ObjectGetResponse[]> mockResponse = Mockito.mock(Result.class);
     when(mockObjectsBatcher.run()).thenReturn(mockResponse);
 
-    // Will have to hook into UUID to get consistent IDs that you can use for the responses.
     ObjectGetResponse doc1Response = new ObjectGetResponse();
-    doc1Response.setId("d1");
+    doc1Response.setId(UUID.nameUUIDFromBytes("doc1".getBytes()).toString());
     doc1Response.setResult(new ObjectsGetResponseAO2Result());
 
     ObjectGetResponse doc2Response = new ObjectGetResponse();
-    doc2Response.setId("d2");
+    doc2Response.setId(UUID.nameUUIDFromBytes("doc2".getBytes()).toString());
     doc2Response.setResult(new ObjectsGetResponseAO2Result());
 
     ObjectGetResponse doc3Response = new ObjectGetResponse();
-    doc3Response.setId("d3");
+    doc3Response.setId(UUID.nameUUIDFromBytes("doc3".getBytes()).toString());
     doc3Response.setResult(new ObjectsGetResponseAO2Result());
 
     ObjectGetResponse failedDoc1Response = new ObjectGetResponse();
-    failedDoc1Response.setId("fd1");
+    failedDoc1Response.setId(UUID.nameUUIDFromBytes("failedDoc1".getBytes()).toString());
     failedDoc1Response.setResult(new ObjectsGetResponseAO2Result());
     failedDoc1Response.getResult().setErrors(new ErrorResponse("fake error 1"));
 
     ObjectGetResponse failedDoc2Response = new ObjectGetResponse();
-    failedDoc2Response.setId("fd2");
+    failedDoc2Response.setId(UUID.nameUUIDFromBytes("failedDoc2".getBytes()).toString());
     failedDoc2Response.setResult(new ObjectsGetResponseAO2Result());
     failedDoc2Response.getResult().setErrors(new ErrorResponse("fake error 2"));
 
@@ -206,22 +203,11 @@ public class WeaviateIndexerTest {
     Document failedDoc2 = Document.create("failedDoc2", "test_run");
 
     WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
+    Set<Document> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3, failedDoc1, failedDoc2));
 
-    try (MockedStatic<WeaviateIndexer> indexerMockedStatic = mockStatic(WeaviateIndexer.class)) {
-      // working with the "UUIDs" that the response objects are mocked to have in setupWeaviateClientWithSpecificFailures
-      indexerMockedStatic.when(() -> WeaviateIndexer.generateDocumentUUID(eq(doc))).thenReturn("d1");
-      indexerMockedStatic.when(() -> WeaviateIndexer.generateDocumentUUID(eq(doc2))).thenReturn("d2");
-      indexerMockedStatic.when(() -> WeaviateIndexer.generateDocumentUUID(eq(doc3))).thenReturn("d3");
-      indexerMockedStatic.when(() -> WeaviateIndexer.generateDocumentUUID(eq(failedDoc1))).thenReturn("fd1");
-      indexerMockedStatic.when(() -> WeaviateIndexer.generateDocumentUUID(eq(failedDoc2))).thenReturn("fd2");
-
-
-      Set<Document> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3, failedDoc1, failedDoc2));
-
-      assertEquals(2, failedDocs.size());
-      assertTrue(failedDocs.contains(failedDoc1));
-      assertTrue(failedDocs.contains(failedDoc2));
-    }
+    assertEquals(2, failedDocs.size());
+    assertTrue(failedDocs.contains(failedDoc1));
+    assertTrue(failedDocs.contains(failedDoc2));
   }
 
   @Test
