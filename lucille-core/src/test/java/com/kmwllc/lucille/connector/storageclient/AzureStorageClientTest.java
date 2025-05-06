@@ -438,7 +438,7 @@ public class AzureStorageClientTest {
     when(mockTargetBlobClient3.getBlobUrl()).thenReturn("blob3");
     when(mockTargetBlobClient4.getBlobUrl()).thenReturn("blob4");
 
-    when(mockSourceBlobClient.beginCopy(any())).thenAnswer(invocationOnMock -> {
+    when(mockSourceBlobClient.beginCopy(any(), any())).thenAnswer(invocationOnMock -> {
       String url = invocationOnMock.getArgument(0, String.class);
 
       assertTrue(url.equals("blob1")
@@ -451,6 +451,8 @@ public class AzureStorageClientTest {
 
     azureStorageClient.initializeForTesting();
     azureStorageClient.traverse(publisher, params);
+
+    verify(mockSourceBlobClient, times(4)).beginCopy(any(), any());
 
     azureStorageClient.shutdown();
     assertEquals(4, messenger.getDocsSentForProcessing().size());
@@ -477,34 +479,38 @@ public class AzureStorageClientTest {
     BlobContainerClient mockContainerClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     when(mockContainerClient.listBlobs(any(), any())).thenReturn(pagedIterable);
 
+    BlobContainerClient mockProcessedContainerClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
+
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
-    when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockContainerClient);
+    when(mockServiceClient.getBlobContainerClient(eq("container"))).thenReturn(mockContainerClient);
     azureStorageClient.setServiceClientForTesting(mockServiceClient);
 
-    // this is the client ew call beginCopy on
+    // The clients in "container" we call .beginCopy on - using all the same since the mocked method body is the same
     BlobClient mockSourceBlobClient = mock(BlobClient.class);
     when(mockContainerClient.getBlobClient(eq("blob1"))).thenReturn(mockSourceBlobClient);
     when(mockContainerClient.getBlobClient(eq("blob2"))).thenReturn(mockSourceBlobClient);
     when(mockContainerClient.getBlobClient(eq("blob3"))).thenReturn(mockSourceBlobClient);
     when(mockContainerClient.getBlobClient(eq("blob4"))).thenReturn(mockSourceBlobClient);
 
-    // This is the client we call .getBlobURL() on
-    BlobClient mockTargetBlobClient1 = mock(BlobClient.class);
-    BlobClient mockTargetBlobClient2 = mock(BlobClient.class);
-    BlobClient mockTargetBlobClient3 = mock(BlobClient.class);
-    BlobClient mockTargetBlobClient4 = mock(BlobClient.class);
+    // The clients we call .getBlobURL() on
+    BlobClient mockProcessedBlobClient1 = mock(BlobClient.class);
+    BlobClient mockProcessedBlobClient2 = mock(BlobClient.class);
+    BlobClient mockProcessedBlobClient3 = mock(BlobClient.class);
+    BlobClient mockProcessedBlobClient4 = mock(BlobClient.class);
 
-    when(mockContainerClient.getBlobClient("blob1")).thenReturn(mockTargetBlobClient1);
-    when(mockContainerClient.getBlobClient("blob2")).thenReturn(mockTargetBlobClient2);
-    when(mockContainerClient.getBlobClient("blob3")).thenReturn(mockTargetBlobClient3);
-    when(mockContainerClient.getBlobClient("blob4")).thenReturn(mockTargetBlobClient4);
+    when(mockServiceClient.getBlobContainerClient(eq("processed"))).thenReturn(mockProcessedContainerClient);
 
-    when(mockTargetBlobClient1.getBlobUrl()).thenReturn("blob1");
-    when(mockTargetBlobClient2.getBlobUrl()).thenReturn("blob2");
-    when(mockTargetBlobClient3.getBlobUrl()).thenReturn("blob3");
-    when(mockTargetBlobClient4.getBlobUrl()).thenReturn("blob4");
+    when(mockProcessedContainerClient.getBlobClient("blob1")).thenReturn(mockProcessedBlobClient1);
+    when(mockProcessedContainerClient.getBlobClient("blob2")).thenReturn(mockProcessedBlobClient2);
+    when(mockProcessedContainerClient.getBlobClient("blob3")).thenReturn(mockProcessedBlobClient3);
+    when(mockProcessedContainerClient.getBlobClient("blob4")).thenReturn(mockProcessedBlobClient4);
 
-    when(mockSourceBlobClient.beginCopy(any())).thenAnswer(invocationOnMock -> {
+    when(mockProcessedBlobClient1.getBlobUrl()).thenReturn("blob1");
+    when(mockProcessedBlobClient2.getBlobUrl()).thenReturn("blob2");
+    when(mockProcessedBlobClient3.getBlobUrl()).thenReturn("blob3");
+    when(mockProcessedBlobClient4.getBlobUrl()).thenReturn("blob4");
+
+    when(mockSourceBlobClient.beginCopy(any(), any())).thenAnswer(invocationOnMock -> {
       String url = invocationOnMock.getArgument(0, String.class);
 
       assertTrue(url.equals("blob1")
@@ -517,6 +523,8 @@ public class AzureStorageClientTest {
 
     azureStorageClient.initializeForTesting();
     azureStorageClient.traverse(publisher, params);
+
+    verify(mockSourceBlobClient, times(4)).beginCopy(any(), any());
 
     azureStorageClient.shutdown();
     assertEquals(4, messenger.getDocsSentForProcessing().size());

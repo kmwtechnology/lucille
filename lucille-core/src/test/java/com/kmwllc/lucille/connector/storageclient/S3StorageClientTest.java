@@ -40,14 +40,17 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
@@ -405,8 +408,21 @@ public class S3StorageClientTest {
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
 
+    S3AsyncClient mockAsyncClient = mock(S3AsyncClient.class, RETURNS_DEEP_STUBS);
+    s3StorageClient.setS3AsyncClientForTesting(mockAsyncClient);
+
+    // making a non-null return from s3AsyncClient.copyObject, so we can call thenRun w/o an exception, and also run
+    // the code provided to it.
+    CompletableFuture<CopyObjectResponse> mockCompletableResponse = mock(CompletableFuture.class);
+    when(mockCompletableResponse.thenRun(any(Runnable.class))).then(invocationOnMock -> {
+      Runnable toRun = invocationOnMock.getArgument(0, Runnable.class);
+      toRun.run();
+
+      return null;
+    });
+
     // making sure that the arguments made are correct
-    when(mockClient.copyObject(any(CopyObjectRequest.class))).thenAnswer(invocationOnMock -> {
+    when(mockAsyncClient.copyObject(any(CopyObjectRequest.class))).thenAnswer(invocationOnMock -> {
       CopyObjectRequest request = invocationOnMock.getArgument(0, CopyObjectRequest.class);
 
       // the source / dest bucket should always be just "bucket"
@@ -421,11 +437,11 @@ public class S3StorageClientTest {
 
       assertEquals("processed/" + sourceKey, request.destinationKey());
 
-      return null;
+      return mockCompletableResponse;
     });
 
     // need to make sure a corresponding "delete" call is made, the "second half" of the move.
-    when(mockClient.deleteObject(any(DeleteObjectRequest.class))).thenAnswer(invocationOnMock -> {
+    when(mockAsyncClient.deleteObject(any(DeleteObjectRequest.class))).thenAnswer(invocationOnMock -> {
       DeleteObjectRequest request = invocationOnMock.getArgument(0, DeleteObjectRequest.class);
 
       assertEquals("bucket", request.bucket());
@@ -451,6 +467,8 @@ public class S3StorageClientTest {
     s3StorageClient.traverse(publisher, params);
     s3StorageClient.shutdown();
 
+    verify(mockAsyncClient, times(4)).copyObject(any(CopyObjectRequest.class));
+    verify(mockAsyncClient, times(4)).deleteObject(any(DeleteObjectRequest.class));
     assertEquals(4, messenger.getDocsSentForProcessing().size());
   }
 

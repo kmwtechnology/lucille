@@ -387,6 +387,10 @@ public class GoogleStorageClientTest {
 
     googleStorageClient.traverse(publisher, params);
 
+    // the moveFile() method creates a thread for handling the copy and delete... have to give just a bit of time for those
+    // threads to run before running the assertions below.
+    Thread.sleep(250);
+
     BlobId movedBlobId1 = BlobId.of("bucket", "processed/files/my-object1");
     BlobId movedBlobId2 = BlobId.of("bucket", "processed/files/my-object2");
     BlobId movedBlobId3 = BlobId.of("bucket", "processed/files/my-object3");
@@ -442,6 +446,10 @@ public class GoogleStorageClientTest {
     googleStorageClient.initializeForTesting();
 
     googleStorageClient.traverse(publisher, params);
+
+    // the moveFile() method creates a thread for handling the copy and delete... have to give just a bit of time for those
+    // threads to run before running the assertions below.
+    Thread.sleep(250);
 
     BlobId movedBlobId1 = BlobId.of("processed", "files/my-object1");
     BlobId movedBlobId2 = BlobId.of("processed", "files/my-object2");
