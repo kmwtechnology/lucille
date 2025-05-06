@@ -12,6 +12,7 @@ import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
@@ -19,7 +20,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,13 +76,13 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
     serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
         .listBlobs(new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages),
             Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
-          AzureFileReference fileRef = new AzureFileReference(blob);
-          processAndPublishFileIfValid(publisher, fileRef, params);
+          AzureFileReference fileRef = new AzureFileReference(blob, params);
+          processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
         });
   }
 
@@ -106,13 +106,6 @@ public class AzureStorageClient extends BaseStorageClient {
     return params.getURI().getPath().split("/")[1];
   }
 
-  private String getFullPath(BlobItem blobItem, TraversalParams params) {
-    URI pathURI = params.getURI();
-
-    return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
-        getBucketOrContainerName(params), blobItem.getName());
-  }
-
   // Only for testing
   void setServiceClientForTesting(BlobServiceClient serviceClient) {
     this.serviceClient = serviceClient;
@@ -123,9 +116,10 @@ public class AzureStorageClient extends BaseStorageClient {
 
     private final BlobItem blobItem;
 
-    public AzureFileReference(BlobItem blobItem) {
+    public AzureFileReference(BlobItem blobItem, TraversalParams params) {
       // These are inexpensive calls - information is stored in the BlobItem.
-      super(blobItem.getProperties().getLastModified().toInstant(),
+      super(getFullPathHelper(blobItem, params),
+          blobItem.getProperties().getLastModified().toInstant(),
           blobItem.getProperties().getContentLength(),
           blobItem.getProperties().getCreationTime().toInstant());
 
@@ -135,14 +129,6 @@ public class AzureStorageClient extends BaseStorageClient {
     @Override
     public String getName() {
       return blobItem.getName();
-    }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      URI pathURI = params.getURI();
-
-      return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
-          pathURI.getPath().split("/")[1], blobItem.getName());
     }
 
     @Override
@@ -163,6 +149,13 @@ public class AzureStorageClient extends BaseStorageClient {
           .getBlobContainerClient(getBucketOrContainerName(params))
           .getBlobClient(blobItem.getName())
           .downloadContent().toBytes();
+    }
+
+    private static String getFullPathHelper(BlobItem blobItem, TraversalParams params) {
+      URI pathURI = params.getURI();
+
+      return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
+          pathURI.getPath().split("/")[1], blobItem.getName());
     }
   }
 }
