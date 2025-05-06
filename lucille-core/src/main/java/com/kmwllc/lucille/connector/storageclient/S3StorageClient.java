@@ -85,6 +85,14 @@ public class S3StorageClient extends BaseStorageClient {
         throw new IOException("Error occurred closing S3Client", e);
       }
     }
+
+    if (s3Async != null) {
+      try {
+        s3Async.close();
+      } catch (Exception e) {
+        throw new IOException("Error occurred closing S3AsyncClient", e);
+      }
+    }
   }
 
   @Override
