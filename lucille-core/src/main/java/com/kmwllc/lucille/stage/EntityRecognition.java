@@ -6,18 +6,19 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import edu.stanford.nlp.ling.CoreAnnotations;
-import edu.stanford.nlp.ling.CoreLabel;
 import edu.stanford.nlp.pipeline.Annotation;
-import edu.stanford.nlp.pipeline.EntityMentionsAnnotator;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.util.CoreMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * Gets the names of people, organizations, and locations from a text field on a Document, and places the extracted names
- * into String lists on the Document.
+ * into String lists on the Document. The names will be placed into "people", "organizations", and "locations", which will be lists.
+ * The fields will not be present if no names are found.
  *
  * Config Parameters:
  * - textField (String): The name of the field with a long string of text that you want to get entity names from.
@@ -26,13 +27,17 @@ public class EntityRecognition extends Stage {
 
   private final String textField;
 
-  private final StanfordCoreNLP pipeline;
+  private StanfordCoreNLP pipeline;
 
   public EntityRecognition(Config config) {
     super(config, Spec.stage().withRequiredProperties("textField"));
 
     this.textField = config.getString("textField");
+  }
 
+  // Initializing the model takes a few seconds, so we do it in the start() method.
+  @Override
+  public void start() throws StageException {
     Properties props = new Properties();
     props.setProperty("annotators", "tokenize,ssplit,pos,lemma,ner,entitymentions");
     // only have "PERSON", "ORGANIZATION", or "LOCATION".
@@ -48,6 +53,11 @@ public class EntityRecognition extends Stage {
     Annotation textAnnotation = new Annotation(text);
     pipeline.annotate(textAnnotation);
 
+    // Building sets to prevent duplicates
+    Set<String> people = new HashSet<>();
+    Set<String> organizations = new HashSet<>();
+    Set<String> locations = new HashSet<>();
+
     // Iterate over all sentences found
     List<CoreMap> sentences = textAnnotation.get(CoreAnnotations.SentencesAnnotation.class);
     for (CoreMap sentence : sentences) {
@@ -55,14 +65,18 @@ public class EntityRecognition extends Stage {
         String type = mention.get(CoreAnnotations.EntityTypeAnnotation.class);
 
         if (type.equals("PERSON")) {
-          doc.addToField("people", mention.toString());
+          people.add(mention.toString());
         } else if (type.equals("ORGANIZATION")) {
-          doc.addToField("organizations", mention.toString());
+          organizations.add(mention.toString());
         } else if (type.equals("LOCATION")) {
-          doc.addToField("locations", mention.toString());
+          locations.add(mention.toString());
         }
       }
     }
+
+    people.forEach(person -> doc.addToField("people", person));
+    organizations.forEach(organization -> doc.addToField("organizations", organization));
+    locations.forEach(location -> doc.addToField("locations", location));
 
     return null;
   }
