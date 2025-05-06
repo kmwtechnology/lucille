@@ -29,18 +29,26 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { configId: string } }
+  context: { params: { configId: string } }
 ) {
-  // Extract config ID from params using destructuring instead of direct property access
-  // This syntax may avoid the Next.js warning about awaiting params
+  const { params } = await context;
   const { configId } = params;
-  
+
   const { ok, status, data } = await getConfig(configId);
+
   if (!ok) {
     return NextResponse.json(
-      { ok: false, error: typeof data === 'string' ? data : data?.error || 'Unknown error from Lucille', details: data },
+      {
+        ok: false,
+        error:
+          typeof data === 'string'
+            ? data
+            : data?.error || 'Unknown error from Lucille',
+        details: data,
+      },
       { status }
     );
   }
+
   return NextResponse.json(data ?? { ok: true }, { status });
 }

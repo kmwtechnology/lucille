@@ -18,7 +18,10 @@ async function ConfigsTable() {
   let configs: { id: string }[] = [];
   let error = false;
   try {
-    const res = await fetch('http://localhost:3000/api/lucille/config', { cache: 'no-store' });
+    const res = await fetch(`${process.env.LUCILLE_API_URL || 'http://localhost:8080'}/v1/config`, {
+      method: 'GET',
+      headers: process.env.LUCILLE_API_AUTH ? { 'authorization': process.env.LUCILLE_API_AUTH } : {},
+    });
     if (res.ok) {
       const data = await res.json();
       configs = Object.keys(data || {}).map((id) => ({ id }));
