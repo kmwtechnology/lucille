@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector.storageclient;
 import com.kmwllc.lucille.core.Document;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.time.Instant;
 
 /**
@@ -15,9 +16,9 @@ public interface FileReference {
   String getName();
 
   /**
-   * @return A String representing the full path to this file.
+   * @return A URI representing the full path to this file.
    */
-  String getFullPath(TraversalParams params);
+  URI getFullPath();
 
   /**
    * @return The extension associated with this file.

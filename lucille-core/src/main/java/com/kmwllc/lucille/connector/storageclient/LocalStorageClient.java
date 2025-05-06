@@ -21,6 +21,7 @@ import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -61,6 +62,22 @@ public class LocalStorageClient extends BaseStorageClient {
   }
 
   private String getStartingDirectory(TraversalParams params) { return params.getURI().getPath(); }
+
+  @Override
+  public void moveFile(URI filePath, URI folder) throws IOException {
+    Path pathForFile = Paths.get(filePath.getPath());
+    Path pathForFolder = Paths.get(folder.getPath());
+
+    // ensure target folder exists, creating it if it doesn't
+    if (!Files.exists(pathForFolder)) {
+      Files.createDirectory(pathForFolder);
+    }
+
+    // move the local file to the target folder
+    Path targetPath = pathForFolder.resolve(pathForFile.getFileName());
+    Files.move(pathForFile, targetPath, StandardCopyOption.REPLACE_EXISTING);
+    log.debug("Moved local file to: {}", targetPath);
+  }
 
   public class LocalFileVisitor implements FileVisitor<Path> {
 
@@ -107,18 +124,14 @@ public class LocalStorageClient extends BaseStorageClient {
 
     // The given path will become absolute and will be normalized.
     public LocalFileReference(Path path, BasicFileAttributes attributes) {
-      super(attributes.lastModifiedTime().toInstant(), attributes.size(), attributes.creationTime().toInstant());
+      super(path.toAbsolutePath().normalize().toUri(), attributes.lastModifiedTime().toInstant(), attributes.size(), attributes.creationTime().toInstant());
 
+      // Holding onto the path object since it makes some of the needed operations a bit more straightforward
       this.path = path.toAbsolutePath().normalize();
     }
 
     @Override
     public String getName() { return path.getFileName().toString(); }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      return path.toString();
-    }
 
     @Override
     public boolean isValidFile() {

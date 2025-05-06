@@ -9,6 +9,7 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.cloud.storage.Storage.CopyRequest;
 import com.google.cloud.storage.StorageOptions;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
@@ -71,7 +72,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     do {
       page.streamAll()
           .forEachOrdered(blob -> {
-            GoogleFileReference fileRef = new GoogleFileReference(blob);
+            GoogleFileReference fileRef = new GoogleFileReference(blob, params);
             processAndPublishFileIfValid(publisher, fileRef, params);
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
@@ -106,14 +107,33 @@ public class GoogleStorageClient extends BaseStorageClient {
     this.storage = storage;
   }
 
+  @Override
+  public void moveFile(URI filePath, URI folder) throws IOException {
+    String sourceBucket = filePath.getAuthority();
+    String sourceKey = filePath.getPath().substring(1);
+
+    String destBucket = folder.getAuthority();
+    String destKey = folder.getPath().substring(1) + sourceKey;
+
+    BlobId source = BlobId.of(sourceBucket, sourceKey);
+    BlobId target = BlobId.of(destBucket, destKey);
+
+    // copy source to target, and then delete source.
+    new Thread(() -> {
+      storage.copy(CopyRequest.newBuilder().setSource(source).setTarget(target).build());
+      storage.delete(source);
+    }).start();
+  }
+
 
   private class GoogleFileReference extends BaseFileReference {
 
     private final Blob blob;
 
-    public GoogleFileReference(Blob blob) {
+    public GoogleFileReference(Blob blob, TraversalParams params) {
       // This is an inexpensive call that doesn't involve networking / RPC.
-      super(blob.getUpdateTimeOffsetDateTime() == null ? null : blob.getUpdateTimeOffsetDateTime().toInstant(),
+      super(getFullPathHelper(blob, params),
+          blob.getUpdateTimeOffsetDateTime() == null ? null : blob.getUpdateTimeOffsetDateTime().toInstant(),
           blob.getSize(),
           blob.getCreateTimeOffsetDateTime() == null ? null : blob.getCreateTimeOffsetDateTime().toInstant());
 
@@ -123,12 +143,6 @@ public class GoogleStorageClient extends BaseStorageClient {
     @Override
     public String getName() {
       return blob.getName();
-    }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      URI paramsURI = params.getURI();
-      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
     }
 
     @Override
@@ -145,6 +159,12 @@ public class GoogleStorageClient extends BaseStorageClient {
     @Override
     protected byte[] getFileContent(TraversalParams params) {
       return blob.getContent();
+    }
+
+    private static URI getFullPathHelper(Blob blob, TraversalParams params) {
+      URI paramsURI = params.getURI();
+      String fullPathStr = paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
+      return URI.create(fullPathStr);
     }
   }
 }
