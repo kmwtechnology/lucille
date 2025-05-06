@@ -490,7 +490,20 @@ public class S3StorageClientTest {
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
 
-    when(mockClient.copyObject(any(CopyObjectRequest.class))).thenAnswer(invocationOnMock -> {
+    S3AsyncClient mockAsyncClient = mock(S3AsyncClient.class, RETURNS_DEEP_STUBS);
+    s3StorageClient.setS3AsyncClientForTesting(mockAsyncClient);
+
+    // making a non-null return from s3AsyncClient.copyObject, so we can call thenRun w/o an exception, and also run
+    // the code provided to it.
+    CompletableFuture<CopyObjectResponse> mockCompletableResponse = mock(CompletableFuture.class);
+    when(mockCompletableResponse.thenRun(any(Runnable.class))).then(invocationOnMock -> {
+      Runnable toRun = invocationOnMock.getArgument(0, Runnable.class);
+      toRun.run();
+
+      return null;
+    });
+
+    when(mockAsyncClient.copyObject(any(CopyObjectRequest.class))).thenAnswer(invocationOnMock -> {
       CopyObjectRequest request = invocationOnMock.getArgument(0, CopyObjectRequest.class);
 
       // the source / dest bucket should always be just "bucket"
@@ -511,10 +524,10 @@ public class S3StorageClientTest {
           || destKey.equals("files/obj3")
           || destKey.equals("files/obj4"));
 
-      return null;
+      return mockCompletableResponse;
     });
 
-    when(mockClient.deleteObject(any(DeleteObjectRequest.class))).thenAnswer(invocationOnMock -> {
+    when(mockAsyncClient.deleteObject(any(DeleteObjectRequest.class))).thenAnswer(invocationOnMock -> {
       DeleteObjectRequest request = invocationOnMock.getArgument(0, DeleteObjectRequest.class);
 
       assertEquals("bucket", request.bucket());
@@ -538,8 +551,11 @@ public class S3StorageClientTest {
 
     s3StorageClient.initializeForTesting();
     s3StorageClient.traverse(publisher, params);
+
     s3StorageClient.shutdown();
 
+    verify(mockAsyncClient, times(4)).copyObject(any(CopyObjectRequest.class));
+    verify(mockAsyncClient, times(4)).deleteObject(any(DeleteObjectRequest.class));
     assertEquals(4, messenger.getDocsSentForProcessing().size());
   }
 
