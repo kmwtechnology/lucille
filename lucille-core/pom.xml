@@ -374,6 +374,13 @@
         <artifactId>ollama4j</artifactId>
         <version>1.0.93</version>
     </dependency>
+
+    <dependency>
+      <groupId>io.github.classgraph</groupId>
+      <artifactId>classgraph</artifactId>
+      <version>4.8.158</version>
+    </dependency>
+
   </dependencies>
 
 
@@ -457,6 +464,27 @@
               <descriptors>
                 <descriptor>src/assembly/assembly.xml</descriptor>
               </descriptors>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>${maven-javadoc-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>generate-jsondoclet</id>
+            <goals>
+              <goal>javadoc</goal>
+            </goals>
+            <configuration>
+              <doclet>com.kmwllc.lucille.doclet.JsonDoclet</doclet>
+              <sourcepath>${project.basedir}/src/main/java</sourcepath>
+              <subpackages>com.kmwllc.lucille.stage</subpackages>
+              <additionalOptions>
+                <additionalOption>-Xdoclint:none</additionalOption>
+              </additionalOptions>
             </configuration>
           </execution>
         </executions>
