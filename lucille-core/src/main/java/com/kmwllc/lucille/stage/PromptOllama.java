@@ -42,7 +42,8 @@ import org.slf4j.LoggerFactory;
  *  <p> modelName (String): The name of the model you want to communicate with. See https://ollama.ai/library for available models/
  *  the appropriate names to use.
  *  <p> timeout (Long, Optional): How long you want to wait for a request to be processed before failing. Passed directly to Ollama.
- *  Uses Ollama's default of 10 seconds when not specified.
+ *  Uses Ollama's default of 10 seconds when not specified. You may want to increase the timeout if your Lucille Configuration
+ *  uses multiple Worker threads (and you are working with Ollama locally).
  *
  *  <p> systemPrompt (String, Optional): The system prompt you want to provide to your LLM. Defaults to using no system prompt,
  *  as you may be using a model created from a Modelfile with a System Prompt already specified.
